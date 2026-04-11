@@ -12,13 +12,16 @@ export default function LoginPage() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const handleNaverLogin = () => {
-    const clientId = process.env.NEXT_PUBLIC_NAVER_CLIENT_ID;
-    const redirectUri = encodeURIComponent(`${process.env.NEXT_PUBLIC_BASE_URL}/api/auth/naver/callback`);
-    const state = Math.random().toString(36).substring(7);
-    sessionStorage.setItem('naver_state', state);
-    window.location.href = `https://nid.naver.com/oauth2.0/authorize?response_type=code&client_id=${clientId}&redirect_uri=${redirectUri}&state=${state}`;
-  };
+ const handleNaverLogin = () => {
+  // rejEL_xQza4IM6c6DsaY
+  const clientId = 'YOUR_CLIENT_ID_HERE'; // rejEL_xQza4IM6c6DsaY
+  const redirectUri = encodeURIComponent('https://localution-6sv7.vercel.app/api/auth/naver/callback');
+  const state = Math.random().toString(36).substring(7);
+  const naverUrl = `https://nid.naver.com/oauth2.0/authorize?response_type=code&client_id=${clientId}&redirect_uri=${redirectUri}&state=${state}`;
+  
+  console.log('네이버 URL:', naverUrl); // 디버깅용
+  window.location.href = naverUrl;
+};
 
   const handleSubmit = async () => {
     setLoading(true);
