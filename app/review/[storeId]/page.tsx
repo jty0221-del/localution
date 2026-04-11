@@ -1,31 +1,24 @@
 'use client';
 
-import { useState, useRef, useEffect } from 'react';
-import { createClient } from '@supabase/supabase-js';
+import { useState, useRef } from 'react';
 import {
   Camera, Receipt, Star, Copy, Check, ChevronRight,
   ChevronLeft, Sparkles, Gift, MapPin,
   ImagePlus, X, Loader2, ThumbsUp, ExternalLink, AlertCircle
 } from 'lucide-react';
 
-// ✅ Supabase 클라이언트
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL!,
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-);
-
-type StoreData = {
-  id: string;
-  name: string;
-  category: string;
-  address: string;
-  main_keyword: string;
-  sub_keywords: string[];
-  tone: string;
-  reward_enabled: boolean;
-  reward_text: string;
-  naver_url: string;
-  cover_color: string;
+// ✅ 하드코딩 매장 데이터 (Supabase 연결 전 임시)
+const STORE = {
+  id: 'a51a7a5f-35bf-4543-95fa-8f8435d34c31',
+  name: '하랑마케팅 카페',
+  category: '카페 · 디저트',
+  address: '경기도 부천시 소사구 신중동',
+  mainKeyword: '부천 맛집',
+  subKeywords: ['가성비', '회식장소', '신중동카페'],
+  tone: 'gen-z',
+  reward: '로컬루션 포인트 2,000P',
+  naverUrl: 'https://naver.me/example',
+  coverColor: 'from-orange-400 via-pink-400 to-violet-500',
 };
 
 const GENDER_OPTIONS = [
@@ -100,18 +93,14 @@ const getPriceExpression = (level: string): string => {
     'very_cheap': '가격이 부담 없어서 자주 오고 싶은 곳이에요. 이 퀄리티에 이 가격이라니 진짜 가성비 맛집',
     'cheap': '가격 대비 퀄리티가 훌륭해서 만족스러웠어요. 가성비 면에서 확실히 합격',
     'normal': '가격이 적당한 편이라 부담 없이 즐길 수 있었어요',
-    'expensive': '가격대가 있는 편이지만 그만한 가치가 충분히 있었어요. 분위기와 맛을 생각하면 납득이 되는 곳',
-    'premium': '가격이 높은 편이지만 퀄리티와 경험을 생각하면 충분히 그럴만한 가치가 있는 곳이에요',
+    'expensive': '가격대가 있는 편이지만 그만한 가치가 충분히 있었어요',
+    'premium': '가격이 높은 편이지만 퀄리티를 생각하면 충분히 그럴만한 가치가 있는 곳이에요',
     'unknown': '가격 대비 만족도가 높았어요',
   };
   return map[level] || map['unknown'];
 };
 
 export default function CustomerReviewPage() {
-  // ✅ DB에서 불러온 매장 정보
-  const [storeData, setStoreData] = useState<StoreData | null>(null);
-  const [storeLoading, setStoreLoading] = useState(true);
-
   const [step, setStep] = useState(0);
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [rating, setRating] = useState(5);
@@ -131,84 +120,12 @@ export default function CustomerReviewPage() {
   const foodCameraRef = useRef<HTMLInputElement>(null);
   const foodGalleryRef = useRef<HTMLInputElement>(null);
 
-  // ✅ URL에서 storeId 추출 → DB 조회
-  useEffect(() => {
-    const pathParts = window.location.pathname.split('/');
-    const storeId = pathParts[pathParts.length - 1];
-    loadStore(storeId);
-  }, []);
-
-  const loadStore = async (storeId: string) => {
-    try {
-      console.log('Loading store:', storeId);
-
-      // 방법 1: UUID로 직접 조회
-      const { data: storeById, error: error1 } = await supabase
-        .from('stores')
-        .select('*')
-        .eq('id', storeId)
-        .maybeSingle();
-
-      console.log('By ID result:', storeById, error1);
-
-      if (storeById) {
-        setStoreData(storeById);
-        await supabase.from('qr_scans').insert({ store_id: storeById.id });
-        setStoreLoading(false);
-        return;
-      }
-
-      // 방법 2: 첫 번째 매장으로 폴백
-      const { data: firstStore, error: error2 } = await supabase
-        .from('stores')
-        .select('*')
-        .limit(1)
-        .maybeSingle();
-
-      console.log('First store result:', firstStore, error2);
-
-      if (firstStore) {
-        setStoreData(firstStore);
-        await supabase.from('qr_scans').insert({ store_id: firstStore.id });
-        setStoreLoading(false);
-        return;
-      }
-
-      // 방법 3: 하드코딩 폴백 (Supabase 연결 실패 시)
-      console.log('Using hardcoded fallback');
-      setStoreData({
-        id: 'a51a7a5f-35bf-4543-95fa-8f8435d34c31',
-        name: '하랑마케팅 카페',
-        category: '카페 · 디저트',
-        address: '경기도 부천시 소사구 신중동',
-        main_keyword: '부천 맛집',
-        sub_keywords: ['가성비', '회식장소', '신중동카페'],
-        tone: 'gen-z',
-        reward_enabled: true,
-        reward_text: '로컬루션 포인트 2,000P',
-        naver_url: 'https://naver.me/example',
-        cover_color: 'from-orange-400 via-pink-400 to-violet-500',
-      });
-
-    } catch (err) {
-      console.error('loadStore 에러:', err);
-      // 에러 시에도 하드코딩 폴백
-      setStoreData({
-        id: 'a51a7a5f-35bf-4543-95fa-8f8435d34c31',
-        name: '하랑마케팅 카페',
-        category: '카페 · 디저트',
-        address: '경기도 부천시 소사구 신중동',
-        main_keyword: '부천 맛집',
-        sub_keywords: ['가성비', '회식장소', '신중동카페'],
-        tone: 'gen-z',
-        reward_enabled: true,
-        reward_text: '로컬루션 포인트 2,000P',
-        naver_url: 'https://naver.me/example',
-        cover_color: 'from-orange-400 via-pink-400 to-violet-500',
-      });
-    } finally {
-      setStoreLoading(false);
-    }
+  const handleFileUpload = (files: FileList | null, type: 'receipt' | 'food') => {
+    if (!files) return;
+    setUploadedFiles(prev => [...prev, ...Array.from(files).map(file => ({
+      file, preview: URL.createObjectURL(file), type,
+    }))]);
+    setError('');
   };
 
   const removeFile = (file: UploadedFile) => setUploadedFiles(prev => prev.filter(f => f !== file));
@@ -230,27 +147,32 @@ export default function CustomerReviewPage() {
     return toneMap[tone] || toneMap['friendly'];
   };
 
+  const callClaude = async (content: object[]) => {
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': process.env.NEXT_PUBLIC_ANTHROPIC_API_KEY || '',
+        'anthropic-version': '2023-06-01',
+        'anthropic-dangerous-direct-browser-access': 'true',
+      },
+      body: JSON.stringify({
+        model: 'claude-sonnet-4-20250514',
+        max_tokens: 600,
+        messages: [{ role: 'user', content }],
+      }),
+    });
+    const data = await response.json();
+    return data.content?.[0]?.text || '';
+  };
+
   const generateReview = async () => {
-    if (!storeData) return;
     setError('');
     setStep(2);
     setAnalysisProgress(0);
 
-    const STORE = {
-      id: storeData.id,
-      name: storeData.name,
-      category: storeData.category || '',
-      address: storeData.address || '',
-      mainKeyword: storeData.main_keyword || '',
-      subKeywords: storeData.sub_keywords || [],
-      tone: storeData.tone || 'friendly',
-      reward: storeData.reward_text || '',
-      naverUrl: storeData.naver_url || '#',
-      coverColor: storeData.cover_color || 'from-orange-400 via-pink-400 to-violet-500',
-    };
-
     try {
-      // ── Step 1: 영수증 OCR ──────────────────────────────────
+      // ── Step 1: 영수증 OCR ──
       setAnalysisStep('🧾 영수증에서 메뉴를 읽는 중...');
       setAnalysisProgress(10);
 
@@ -262,59 +184,32 @@ export default function CustomerReviewPage() {
 
       let menuOnlyInfo = '';
       let priceExpression = '';
-      let menuWithPriceList: string[] = [];
 
       if (receipts.length > 0) {
-        const ocrRes = await fetch('https://api.anthropic.com/v1/messages', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': process.env.NEXT_PUBLIC_ANTHROPIC_API_KEY || '',
-            'anthropic-version': '2023-06-01',
-            'anthropic-dangerous-direct-browser-access': 'true',
-          },
-          body: JSON.stringify({
-            model: 'claude-sonnet-4-20250514',
-            max_tokens: 500,
-            messages: [{
-              role: 'user',
-              content: [
-                ...receiptContents,
-                { type: 'text', text: `영수증 사진을 분석해줘.
+        const ocrText = await callClaude([
+          ...receiptContents,
+          { type: 'text', text: `영수증 사진을 분석해줘.
+[규칙] 메뉴명은 실제 음식/음료 이름으로 교정 (예: 지몽→자몽)
+아래 JSON만 출력:
+{"items":["교정된 메뉴명"],"itemsWithPrice":["메뉴명 가격원"],"total":"총액원"}` }
+        ]);
 
-[중요 규칙]
-- 메뉴명은 실제 음식/음료 이름으로 정확히 교정 (예: 지몽→자몽, 아아→아이스아메리카노)
-- 가격은 내부 계산용으로만 추출
-
-아래 JSON 형식으로만 출력 (설명 없이):
-{"items":["교정된 메뉴명"],"itemsWithPrice":["메뉴명 가격원"],"total":"총액원","store":"매장명"}` }
-              ],
-            }],
-          }),
-        });
-
-        const ocrData = await ocrRes.json();
         try {
-          const parsed = JSON.parse(ocrData.content?.[0]?.text?.replace(/```json|```/g, '').trim() || '{}');
+          const parsed = JSON.parse(ocrText.replace(/```json|```/g, '').trim());
           const menuNames: string[] = parsed.items || [];
-          menuWithPriceList = parsed.itemsWithPrice || [];
-          const extractedTotal = parsed.total || '';
-
-          setExtractedMenu(menuWithPriceList.length > 0 ? menuWithPriceList : menuNames);
-          menuOnlyInfo = menuNames.length > 0 ? `주문 메뉴: ${menuNames.join(', ')}` : '메뉴 확인 어려움';
-          const priceLevel = analyzePriceLevel(menuWithPriceList, extractedTotal);
-          priceExpression = getPriceExpression(priceLevel);
+          const menuWithPrice: string[] = parsed.itemsWithPrice || [];
+          setExtractedMenu(menuWithPrice.length > 0 ? menuWithPrice : menuNames);
+          menuOnlyInfo = menuNames.length > 0 ? `주문 메뉴: ${menuNames.join(', ')}` : '';
+          priceExpression = getPriceExpression(analyzePriceLevel(menuWithPrice, parsed.total || ''));
         } catch {
-          menuOnlyInfo = '영수증 분석 완료';
           priceExpression = '가격 대비 만족도가 높았어요';
         }
       }
 
       setAnalysisProgress(30);
 
-      // ── Step 2: 음식 사진 분석 ──────────────────────────────
+      // ── Step 2: 음식 사진 분석 ──
       setAnalysisStep('📸 음식 사진을 분석하는 중...');
-
       const foodContents: object[] = [];
       for (const f of foodPhotos) {
         const { base64, mediaType } = await convertToJpeg(f.file);
@@ -323,53 +218,22 @@ export default function CustomerReviewPage() {
 
       let photoDesc = '';
       if (foodPhotos.length > 0) {
-        const photoRes = await fetch('https://api.anthropic.com/v1/messages', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': process.env.NEXT_PUBLIC_ANTHROPIC_API_KEY || '',
-            'anthropic-version': '2023-06-01',
-            'anthropic-dangerous-direct-browser-access': 'true',
-          },
-          body: JSON.stringify({
-            model: 'claude-sonnet-4-20250514',
-            max_tokens: 200,
-            messages: [{
-              role: 'user',
-              content: [
-                ...foodContents,
-                { type: 'text', text: '음식/매장 사진을 보고 맛있어 보이는 포인트와 비주얼 특징을 리뷰에 쓸 수 있는 생생한 묘사로 2~3줄만 써줘. 이모지나 별점 기호는 절대 쓰지 마.' }
-              ],
-            }],
-          }),
-        });
-        const photoData = await photoRes.json();
-        photoDesc = photoData.content?.[0]?.text || '';
+        photoDesc = await callClaude([
+          ...foodContents,
+          { type: 'text', text: '음식/매장 사진을 보고 맛있어 보이는 포인트와 비주얼 특징을 리뷰에 쓸 수 있는 생생한 묘사로 2~3줄만 써줘. 이모지나 별점 기호는 쓰지 마.' }
+        ]);
       }
 
       setAnalysisProgress(50);
 
-      // ── Step 3: 리뷰 초안 생성 ──────────────────────────────
+      // ── Step 3: 리뷰 초안 ──
       setAnalysisStep('✍️ 리뷰 초안을 작성하는 중...');
-
-      const toneGuide = getTonePrompt();
       const genderLabel = gender === 'male' ? '남성' : gender === 'female' ? '여성' : '';
       const ageLabel = AGE_OPTIONS.find(a => a.id === age)?.label || '20대';
 
-      const draftRes = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': process.env.NEXT_PUBLIC_ANTHROPIC_API_KEY || '',
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true',
-        },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 600,
-          messages: [{
-            role: 'user',
-            content: `당신은 실제 맛집 방문 후기를 쓰는 ${ageLabel} ${genderLabel} 고객입니다. 네이버 플레이스에 올릴 리뷰를 작성하세요.
+      const draft = await callClaude([{
+        type: 'text',
+        text: `당신은 실제 맛집 방문 후기를 쓰는 ${ageLabel} ${genderLabel} 고객입니다.
 
 [매장 정보]
 - 매장명: ${STORE.name}
@@ -378,89 +242,45 @@ export default function CustomerReviewPage() {
 - 서브 키워드: ${STORE.subKeywords.join(', ')}
 - 별점: ${rating}점
 
-[주문한 메뉴 (메뉴명만, 가격 언급 금지)]
-${menuOnlyInfo || '정보 없음'}
+[주문 메뉴] ${menuOnlyInfo || '정보 없음'}
+[가격 표현] ${priceExpression}
+[사진 분석] ${photoDesc || '없음'}
+[말투] ${getTonePrompt()}
 
-[가격에 대한 표현]
-${priceExpression || ''}
+[규칙]
+- 가격 숫자 절대 금지
+- 별점 이모지(★☆⭐) 금지
+- 뻔한 시작("안녕하세요" 등) 금지
+- 문단 사이 줄바꿈 1번만
+- 대표 키워드 "${STORE.mainKeyword}" 첫 문단에 포함
+- 서브 키워드 2개 이상 포함
+- 150~220자
+- 리뷰 본문만 출력`
+      }]);
 
-[음식 사진 분석]
-${photoDesc || '사진 없음'}
-
-[말투 스타일]
-${toneGuide}
-
-[절대 지켜야 할 규칙]
-- 가격 숫자 절대 언급 금지
-- 별점 이모지(★☆⭐) 절대 사용 금지
-- "안녕하세요", "방문했어요" 같은 뻔한 시작 금지
-- 문단 사이 줄바꿈 한 번만
-- 실제 사람이 쓴 것처럼 자연스럽게
-- 대표 키워드 "${STORE.mainKeyword}" 첫 문단에 자연스럽게 포함
-- 서브 키워드 2개 이상 자연스럽게 녹이기
-- 메뉴명 자연스럽게 언급 (가격 없이)
-- 재방문 의사로 마무리
-- 리뷰 본문만 출력
-- 길이: 150~220자`,
-          }],
-        }),
-      });
-
-      const draftData = await draftRes.json();
-      const draft = draftData.content?.[0]?.text || '';
       setAnalysisProgress(75);
 
-      // ── Step 4: AI 퇴고 & 검수 ──────────────────────────────
+      // ── Step 4: 퇴고 ──
       setAnalysisStep('🔍 맞춤법 · 자연스러움 검수 중...');
-
-      const reviewRes = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': process.env.NEXT_PUBLIC_ANTHROPIC_API_KEY || '',
-          'anthropic-version': '2023-06-01',
-          'anthropic-dangerous-direct-browser-access': 'true',
-        },
-        body: JSON.stringify({
-          model: 'claude-sonnet-4-20250514',
-          max_tokens: 600,
-          messages: [{
-            role: 'user',
-            content: `아래 네이버 플레이스 리뷰 초안을 퇴고해줘.
+      const finalReview = await callClaude([{
+        type: 'text',
+        text: `아래 리뷰를 퇴고해줘.
 
 [초안]
 ${draft}
 
-[퇴고 기준]
+[기준]
 1. 맞춤법 & 띄어쓰기 교정
-2. 어색한 문장 자연스럽게 수정
-3. 별점 이모지(★☆⭐) 있으면 제거
-4. 가격 숫자 있으면 제거 (가성비 표현으로 대체)
-5. 문단 사이 줄바꿈 1회만
-6. 광고 같은 표현 → 실제 후기처럼 순화
-7. 느낌표 두 개 이상(!!) 금지
-8. 150~220자 유지
+2. 별점 이모지 제거
+3. 가격 숫자 제거
+4. 줄바꿈 1회만
+5. 광고 같은 표현 순화
+6. !! 금지
+7. 150~220자 유지
+8. 퇴고된 본문만 출력`
+      }]);
 
-퇴고된 리뷰 본문만 출력 (설명 없이)`,
-          }],
-        }),
-      });
-
-      const reviewData = await reviewRes.json();
-      const finalReview = reviewData.content?.[0]?.text || draft;
       setAnalysisProgress(100);
-
-      // ✅ Step 9: 생성된 리뷰 Supabase DB에 저장
-      await supabase.from('generated_reviews').insert({
-        store_id: STORE.id,
-        review_text: finalReview,
-        rating: rating,
-        menu_items: extractedMenu,
-        gender: gender,
-        age_group: age,
-        tone: tone,
-      });
-
       setGeneratedReview(finalReview);
       setStep(3);
 
@@ -477,48 +297,7 @@ ${draft}
     setTimeout(() => setCopied(false), 3000);
   };
 
-  // ── 로딩 중 ─────────────────────────────────────────────────
-  if (storeLoading) {
-    return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="text-center">
-          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-orange-400 to-violet-500 flex items-center justify-center mx-auto mb-4 shadow-lg">
-            <Sparkles size={28} className="text-white animate-spin" />
-          </div>
-          <p className="text-gray-500 text-sm font-medium">매장 정보를 불러오는 중...</p>
-        </div>
-      </div>
-    );
-  }
-
-  // ── 매장 없음 ────────────────────────────────────────────────
-  if (!storeData) {
-    return (
-      <div className="min-h-screen bg-white flex items-center justify-center px-6">
-        <div className="text-center">
-          <p className="text-4xl mb-4">😢</p>
-          <h2 className="text-gray-800 font-bold text-lg mb-2">매장을 찾을 수 없어요</h2>
-          <p className="text-gray-500 text-sm">QR코드를 다시 스캔해 주세요</p>
-        </div>
-      </div>
-    );
-  }
-
-  // ✅ DB 데이터 → 컴포넌트용 변수
-  const STORE = {
-    id: storeData.id,
-    name: storeData.name,
-    category: storeData.category || '',
-    address: storeData.address || '',
-    mainKeyword: storeData.main_keyword || '',
-    subKeywords: storeData.sub_keywords || [],
-    tone: storeData.tone || 'friendly',
-    reward: storeData.reward_text || '',
-    naverUrl: storeData.naver_url || '#',
-    coverColor: storeData.cover_color || 'from-orange-400 via-pink-400 to-violet-500',
-  };
-
-  // ── 인트로 ──────────────────────────────────────────────────
+  // ── 인트로 ──
   if (step === 0) {
     return (
       <div className="min-h-screen bg-white flex flex-col">
@@ -549,8 +328,8 @@ ${draft}
             <div className="space-y-3 mb-7">
               {[
                 { emoji: '🧾', title: '영수증 사진 올리기', desc: '카메라 촬영 또는 갤러리 선택 가능' },
-                { emoji: '👤', title: '내 스타일 설정', desc: '성별 · 나이대 · 말투를 선택하면 AI가 맞춤 리뷰 작성' },
-                { emoji: '🤖', title: 'AI 맞춤 리뷰 + 검수', desc: 'OCR 분석 → 초안 작성 → 맞춤법 · 자연스러움 퇴고' },
+                { emoji: '👤', title: '내 스타일 설정', desc: '성별 · 나이대 · 말투를 선택하면 맞춤 리뷰 작성' },
+                { emoji: '🤖', title: 'AI 맞춤 리뷰 + 검수', desc: 'OCR 분석 → 초안 → 맞춤법 퇴고' },
                 { emoji: '📋', title: '복사 → 네이버 붙여넣기', desc: '원터치 복사 후 바로 등록!' },
               ].map((item, i) => (
                 <div key={i} className="flex items-start gap-3">
@@ -576,7 +355,7 @@ ${draft}
     );
   }
 
-  // ── 업로드 + 스타일 설정 ────────────────────────────────────
+  // ── 업로드 + 스타일 ──
   if (step === 1) {
     return (
       <div className="min-h-screen bg-gray-50">
@@ -598,7 +377,6 @@ ${draft}
         </div>
 
         <div className="px-5 py-5 space-y-4 pb-36">
-          {/* 별점 */}
           <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
             <p className="text-gray-700 font-bold text-sm mb-3">방문 만족도</p>
             <div className="flex gap-1.5 justify-center">
@@ -613,7 +391,6 @@ ${draft}
             </p>
           </div>
 
-          {/* 성별 */}
           <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
             <p className="text-gray-700 font-bold text-sm mb-3">👤 성별</p>
             <div className="grid grid-cols-3 gap-2">
@@ -627,7 +404,6 @@ ${draft}
             </div>
           </div>
 
-          {/* 나이대 */}
           <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
             <p className="text-gray-700 font-bold text-sm mb-3">🎂 나이대</p>
             <div className="grid grid-cols-5 gap-2">
@@ -641,7 +417,6 @@ ${draft}
             </div>
           </div>
 
-          {/* 말투 */}
           <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
             <p className="text-gray-700 font-bold text-sm mb-3">✍️ 리뷰 말투</p>
             <div className="grid grid-cols-2 gap-2">
@@ -671,7 +446,6 @@ ${draft}
             </div>
           </div>
 
-          {/* 영수증 */}
           <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
             <div className="flex items-center gap-2 mb-1">
               <Receipt size={16} className="text-violet-500" />
@@ -706,7 +480,7 @@ ${draft}
                     <img src={f.preview} className="w-12 h-12 rounded-xl object-cover flex-shrink-0" alt="receipt" />
                     <div className="flex-1 min-w-0">
                       <p className="text-xs text-gray-600 truncate">{f.file.name}</p>
-                      <p className="text-xs text-violet-500 mt-0.5">✓ 메뉴 분석 + 가격대 판단 예정</p>
+                      <p className="text-xs text-violet-500 mt-0.5">✓ 분석 예정</p>
                     </div>
                     <button onClick={() => removeFile(f)}><X size={16} className="text-gray-400" /></button>
                   </div>
@@ -715,7 +489,6 @@ ${draft}
             )}
           </div>
 
-          {/* 음식/매장 사진 */}
           <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
             <div className="flex items-center gap-2 mb-1">
               <Camera size={16} className="text-pink-500" />
@@ -778,7 +551,7 @@ ${draft}
     );
   }
 
-  // ── 분석 중 ─────────────────────────────────────────────────
+  // ── 분석 중 ──
   if (step === 2) {
     const steps = [
       { label: '영수증 OCR — 메뉴 추출 & 가격대 분석', done: analysisProgress >= 25 },
@@ -823,7 +596,7 @@ ${draft}
     );
   }
 
-  // ── 완료 ────────────────────────────────────────────────────
+  // ── 완료 ──
   if (step === 3) {
     return (
       <div className="min-h-screen bg-gray-50">
@@ -855,7 +628,7 @@ ${draft}
                   <span key={i} className="text-xs px-2.5 py-1 bg-violet-50 text-violet-700 rounded-lg font-medium border border-violet-100">{menu}</span>
                 ))}
               </div>
-              <p className="text-xs text-gray-400 mt-2">※ 가격은 가격대 판단에만 활용됩니다 (리뷰 미노출)</p>
+              <p className="text-xs text-gray-400 mt-2">※ 가격은 가격대 판단에만 활용 (리뷰 미노출)</p>
             </div>
           )}
 
