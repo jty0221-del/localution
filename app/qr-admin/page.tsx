@@ -1,7 +1,6 @@
 'use client';
 
 import { useState } from 'react';
-import QRCode from 'react-qr-code';
 import {
   QrCode, Download, Star, Target, Zap,
   Plus, X, Check, Gift, Eye, BarChart2, Repeat2,
@@ -40,6 +39,9 @@ const rewardPresets = [
   '사이드 메뉴 서비스',
 ];
 
+// ✅ 실제 서비스 URL
+const REVIEW_URL = 'https://localution-6sv7.vercel.app/review/harang-cafe-001';
+
 export default function QRAdminPage() {
   const [mainKeyword, setMainKeyword] = useState('부천 맛집');
   const [subInput, setSubInput] = useState('');
@@ -47,8 +49,9 @@ export default function QRAdminPage() {
   const [selectedTone, setSelectedTone] = useState('gen-z');
   const [rewardEnabled, setRewardEnabled] = useState(true);
   const [rewardText, setRewardText] = useState('로컬루션 포인트 2,000P');
-  const [qrCopied, setQrCopied] = useState(false);
+  const [qrDone, setQrDone] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [urlCopied, setUrlCopied] = useState(false);
 
   const addSubKeyword = () => {
     if (subInput.trim() && subKeywords.length < 3) {
@@ -67,9 +70,15 @@ export default function QRAdminPage() {
   };
 
   const handleQRDownload = () => {
-    setQrCopied(true);
-    setTimeout(() => setQrCopied(false), 2000);
+    setQrDone(true);
+    setTimeout(() => setQrDone(false), 2000);
     alert('QR 텐트카드 다운로드 시작!\n(실제 연동 시 PDF/PNG 생성)');
+  };
+
+  const handleCopyUrl = () => {
+    navigator.clipboard.writeText(REVIEW_URL);
+    setUrlCopied(true);
+    setTimeout(() => setUrlCopied(false), 2000);
   };
 
   const previewText = `📸 영수증 사진 한 장으로\n네이버 리뷰를 완성해 드려요!\n\n리뷰 작성 완료 시\n${rewardEnabled ? `🎁 ${rewardText} 지급` : '감사한 마음을 전합니다 😊'}`;
@@ -87,14 +96,11 @@ export default function QRAdminPage() {
             </div>
             <p className="text-gray-500 text-xs mt-0.5">AI 리뷰 자동화 세팅</p>
           </div>
-          <button
-            onClick={handleSave}
+          <button onClick={handleSave}
             className={`flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
-              saved
-                ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
-                : 'bg-gradient-to-r from-violet-600 to-purple-600 text-white shadow-lg shadow-violet-500/25'
-            }`}
-          >
+              saved ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/30'
+              : 'bg-gradient-to-r from-violet-600 to-purple-600 text-white shadow-lg shadow-violet-500/25'
+            }`}>
             {saved ? <><Check size={14} /> 저장됨!</> : <><ShieldCheck size={14} /> 저장</>}
           </button>
         </div>
@@ -114,23 +120,18 @@ export default function QRAdminPage() {
             </div>
             <span className="ml-auto text-xs px-2 py-0.5 rounded-full bg-violet-500/15 text-violet-400 font-medium border border-violet-500/20">핵심 설정</span>
           </div>
-
           <div className="p-5 space-y-5">
             <div>
               <label className="block text-xs font-semibold text-gray-400 mb-2">메인 타겟 키워드</label>
               <div className="relative">
-                <input
-                  value={mainKeyword}
-                  onChange={(e) => setMainKeyword(e.target.value)}
+                <input value={mainKeyword} onChange={(e) => setMainKeyword(e.target.value)}
                   placeholder="예: 부천 맛집, 신중동 고깃집"
-                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-violet-500/50 transition-all"
-                />
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-violet-500/50 transition-all" />
                 <div className="absolute right-3 top-1/2 -translate-y-1/2">
                   <Sparkles size={14} className="text-violet-400" />
                 </div>
               </div>
             </div>
-
             <div>
               <label className="block text-xs font-semibold text-gray-400 mb-2">서브 키워드 <span className="text-gray-600 font-normal">(최대 3개)</span></label>
               <div className="flex gap-2 mb-3 flex-wrap">
@@ -142,20 +143,17 @@ export default function QRAdminPage() {
                 ))}
               </div>
               <div className="flex gap-2">
-                <input
-                  value={subInput}
-                  onChange={(e) => setSubInput(e.target.value)}
+                <input value={subInput} onChange={(e) => setSubInput(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && addSubKeyword()}
                   placeholder="예: 가성비, 회식장소"
                   disabled={subKeywords.length >= 3}
-                  className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-violet-500/50 transition-all disabled:opacity-40"
-                />
-                <button onClick={addSubKeyword} disabled={subKeywords.length >= 3 || !subInput.trim()} className="px-3 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 disabled:opacity-30 transition-all">
+                  className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-violet-500/50 transition-all disabled:opacity-40" />
+                <button onClick={addSubKeyword} disabled={subKeywords.length >= 3 || !subInput.trim()}
+                  className="px-3 py-2.5 rounded-xl bg-violet-600 hover:bg-violet-500 disabled:opacity-30 transition-all">
                   <Plus size={16} className="text-white" />
                 </button>
               </div>
             </div>
-
             <div>
               <label className="block text-xs font-semibold text-gray-400 mb-2">리뷰 톤앤매너</label>
               <div className="space-y-2">
@@ -163,8 +161,7 @@ export default function QRAdminPage() {
                   <button key={tone.id} onClick={() => setSelectedTone(tone.id)}
                     className={`w-full flex items-center gap-3 p-3.5 rounded-xl border transition-all text-left ${
                       selectedTone === tone.id ? 'border-violet-500 bg-violet-500/10' : 'border-white/5 bg-white/[0.02] hover:bg-white/5'
-                    }`}
-                  >
+                    }`}>
                     <span className="text-xl">{tone.emoji}</span>
                     <div className="flex-1">
                       <p className="text-white text-sm font-medium">{tone.label}</p>
@@ -192,7 +189,6 @@ export default function QRAdminPage() {
               {rewardEnabled ? <ToggleRight size={28} className="text-violet-400" /> : <ToggleLeft size={28} className="text-gray-600" />}
             </button>
           </div>
-
           <div className={`p-5 space-y-4 transition-opacity ${rewardEnabled ? 'opacity-100' : 'opacity-40 pointer-events-none'}`}>
             <div>
               <label className="block text-xs font-semibold text-gray-400 mb-2">빠른 선택</label>
@@ -201,20 +197,16 @@ export default function QRAdminPage() {
                   <button key={preset} onClick={() => setRewardText(preset)}
                     className={`text-xs px-3 py-1.5 rounded-xl border transition-all ${
                       rewardText === preset ? 'border-pink-500 bg-pink-500/15 text-pink-300' : 'border-white/10 text-gray-400 hover:text-white'
-                    }`}
-                  >{preset}</button>
+                    }`}>{preset}</button>
                 ))}
               </div>
             </div>
-
             <div>
               <label className="block text-xs font-semibold text-gray-400 mb-2">직접 입력</label>
               <input value={rewardText} onChange={(e) => setRewardText(e.target.value)}
                 placeholder="예: 아메리카노 1잔 무료"
-                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-pink-500/50 transition-all"
-              />
+                className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-pink-500/50 transition-all" />
             </div>
-
             <div>
               <div className="flex items-center gap-1.5 mb-2">
                 <Eye size={13} className="text-gray-400" />
@@ -249,7 +241,6 @@ export default function QRAdminPage() {
               <p className="text-gray-500 text-xs">테이블 비치용 텐트카드 다운로드</p>
             </div>
           </div>
-
           <div className="p-5">
             <div className="mb-5 p-4 rounded-xl bg-gradient-to-r from-amber-500/10 to-orange-500/10 border border-amber-500/20">
               <p className="text-amber-300 text-sm font-medium leading-relaxed">
@@ -259,13 +250,14 @@ export default function QRAdminPage() {
               <p className="text-gray-500 text-xs mt-1.5">고객이 QR 스캔 → 영수증 촬영 → AI 리뷰 생성 → 네이버 복붙</p>
             </div>
 
+            {/* ✅ 실제 QR 코드 */}
             <div className="flex gap-4 items-center mb-5">
-              <div className="w-28 h-28 rounded-2xl bg-white flex items-center justify-center flex-shrink-0 shadow-lg">
-                <div className="grid grid-cols-3 gap-0.5 p-2">
-                  {Array.from({ length: 9 }).map((_, i) => (
-                    <div key={i} className={`w-6 h-6 rounded-sm ${i !== 4 ? 'bg-gray-900' : 'bg-gray-200'}`} />
-                  ))}
-                </div>
+              <div className="w-32 h-32 rounded-2xl bg-white flex items-center justify-center flex-shrink-0 shadow-lg p-2">
+                <img
+                  src={`https://api.qrserver.com/v1/create-qr-code/?size=120x120&data=${encodeURIComponent(REVIEW_URL)}`}
+                  alt="QR Code"
+                  className="w-full h-full"
+                />
               </div>
               <div className="flex-1 space-y-2">
                 <div className="p-2.5 rounded-lg bg-white/5 border border-white/5">
@@ -279,12 +271,17 @@ export default function QRAdminPage() {
               </div>
             </div>
 
-            <button onClick={handleQRDownload}
-              className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-white font-bold text-sm transition-all shadow-lg shadow-amber-500/20 active:scale-95"
-            >
-              {qrCopied ? <><Check size={16} /> 다운로드 완료!</> : <><Download size={16} /> 텐트카드 디자인 다운로드</>}
+            {/* URL 복사 */}
+            <button onClick={handleCopyUrl}
+              className="w-full flex items-center justify-center gap-2 py-3 rounded-xl bg-white/5 border border-white/10 text-sm text-gray-300 hover:text-white mb-3 transition-all">
+              {urlCopied ? <><Check size={15} className="text-emerald-400" /> URL 복사됨!</> : <><Star size={15} /> 리뷰 페이지 URL 복사</>}
             </button>
-            <p className="text-center text-xs text-gray-600 mt-2">PNG + PDF 동시 제공 · 인쇄 즉시 가능</p>
+
+            <button onClick={handleQRDownload}
+              className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-white font-bold text-sm transition-all shadow-lg shadow-amber-500/20 active:scale-95">
+              {qrDone ? <><Check size={16} /> 완료!</> : <><Download size={16} /> 텐트카드 디자인 다운로드</>}
+            </button>
+            <p className="text-center text-xs text-gray-600 mt-2">고객이 스캔하면 → 리뷰 작성 페이지로 바로 이동</p>
           </div>
         </div>
 
@@ -300,7 +297,6 @@ export default function QRAdminPage() {
             </div>
             <span className="ml-auto text-xs text-emerald-400 font-medium">2026년 4월</span>
           </div>
-
           <div className="p-5 space-y-5">
             <div className="grid grid-cols-3 gap-3">
               {[
@@ -372,8 +368,7 @@ export default function QRAdminPage() {
                 <div>
                   <p className="text-white text-xs font-semibold mb-1">AI 인사이트</p>
                   <p className="text-gray-400 text-xs leading-relaxed">
-                    <span className="text-violet-300 font-medium">'가성비'</span> 키워드가 포함된 리뷰의 전환율이
-                    평균 대비 <span className="text-emerald-400 font-bold">+23%</span> 높아요. 서브 키워드 우선순위를 높여보세요!
+                    <span className="text-violet-300 font-medium">'가성비'</span> 키워드가 포함된 리뷰의 전환율이 평균 대비 <span className="text-emerald-400 font-bold">+23%</span> 높아요!
                   </p>
                 </div>
               </div>
