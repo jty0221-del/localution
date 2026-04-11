@@ -72,6 +72,38 @@ const convertToJpeg = (file: File): Promise<{ base64: string; mediaType: string 
   });
 };
 
+// ✅ 가격대 판단 함수
+const analyzePriceLevel = (items: string[], total: string): string => {
+  try {
+    // 총액에서 숫자만 추출
+    const totalNum = parseInt(total.replace(/[^0-9]/g, '')) || 0;
+    // 메뉴 개수로 1인당 평균 계산
+    const menuCount = items.length || 1;
+    const perPerson = totalNum / menuCount;
+
+    if (totalNum === 0) return 'unknown';
+    if (perPerson <= 6000) return 'very_cheap';
+    if (perPerson <= 12000) return 'cheap';
+    if (perPerson <= 20000) return 'normal';
+    if (perPerson <= 35000) return 'expensive';
+    return 'premium';
+  } catch {
+    return 'unknown';
+  }
+};
+
+const getPriceExpression = (level: string): string => {
+  const map: Record<string, string> = {
+    'very_cheap': '가격이 부담 없어서 자주 오고 싶은 곳이에요. 이 퀄리티에 이 가격이라니 진짜 가성비 맛집',
+    'cheap': '가격 대비 퀄리티가 훌륭해서 만족스러웠어요. 가성비 면에서 확실히 합격',
+    'normal': '가격이 적당한 편이라 부담 없이 즐길 수 있었어요',
+    'expensive': '가격대가 있는 편이지만 그만한 가치가 충분히 있었어요. 분위기와 맛을 생각하면 납득이 되는 곳',
+    'premium': '가격이 높은 편이지만 퀄리티와 경험을 생각하면 충분히 그럴만한 가치가 있는 곳이에요',
+    'unknown': '가격 대비 만족도가 높았어요',
+  };
+  return map[level] || map['unknown'];
+};
+
 export default function CustomerReviewPage() {
   const [step, setStep] = useState(0);
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
@@ -135,7 +167,10 @@ export default function CustomerReviewPage() {
         receiptContents.push({ type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } });
       }
 
-      let menuInfo = '';
+      let menuOnlyInfo = '';     // 메뉴명만 (가격 제외)
+      let priceExpression = '';  // 가격 표현 문구
+      let extractedTotal = '';
+
       if (receipts.length > 0) {
         const ocrRes = await fetch('https://api.anthropic.com/v1/messages', {
           method: 'POST',
@@ -154,26 +189,40 @@ export default function CustomerReviewPage() {
                 ...receiptContents,
                 { type: 'text', text: `영수증 사진을 분석해줘.
 
-[중요] 메뉴명을 읽을 때 반드시 아래 규칙을 지켜:
-- 비슷한 발음이지만 실제 메뉴명으로 교정 (예: 지몽→자몽, 에스프레소→에스프레소)
-- 음료/식품 메뉴는 일반적인 카페/식당 메뉴명 기준으로 교정
-- 가격은 숫자만 정확하게
+[중요 규칙]
+- 메뉴명은 실제 음식/음료 이름으로 정확히 교정 (예: 지몽→자몽, 아아→아이스아메리카노)
+- 가격은 내부 계산용으로만 추출 (리뷰에 직접 노출 안 함)
 
-아래 JSON 형식으로만 출력 (다른 설명 없이):
-{"items":["교정된 메뉴명 가격원"],"total":"총액원","store":"매장명"}` }
+아래 JSON 형식으로만 출력 (설명 없이):
+{"items":["교정된 메뉴명"],"itemsWithPrice":["메뉴명 가격원"],"total":"총액원","store":"매장명"}` }
               ],
             }],
           }),
         });
+
         const ocrData = await ocrRes.json();
         try {
           const parsed = JSON.parse(ocrData.content?.[0]?.text?.replace(/```json|```/g, '').trim() || '{}');
-          const items: string[] = parsed.items || [];
-          setExtractedMenu(items);
-          menuInfo = items.length > 0
-            ? `주문 메뉴: ${items.join(', ')} / 총액: ${parsed.total || '미확인'}`
+          const menuNames: string[] = parsed.items || [];
+          const menuWithPrice: string[] = parsed.itemsWithPrice || [];
+          extractedTotal = parsed.total || '';
+
+          // 화면에 보여줄 메뉴 태그 (가격 포함 버전)
+          setExtractedMenu(menuWithPrice.length > 0 ? menuWithPrice : menuNames);
+
+          // ✅ 리뷰에 전달할 건 메뉴명만 (가격 제외)
+          menuOnlyInfo = menuNames.length > 0
+            ? `주문 메뉴: ${menuNames.join(', ')}`
             : '메뉴 확인 어려움';
-        } catch { menuInfo = '영수증 분석 완료'; }
+
+          // ✅ 가격대 분석 → 표현 문구 생성
+          const priceLevel = analyzePriceLevel(menuWithPrice, extractedTotal);
+          priceExpression = getPriceExpression(priceLevel);
+
+        } catch {
+          menuOnlyInfo = '영수증 분석 완료';
+          priceExpression = '가격 대비 만족도가 높았어요';
+        }
       }
 
       setAnalysisProgress(30);
@@ -244,24 +293,29 @@ export default function CustomerReviewPage() {
 - 서브 키워드: ${STORE_DATA.subKeywords.join(', ')}
 - 별점: ${rating}점
 
-[영수증 분석 결과]
-${menuInfo || '영수증 없음'}
+[주문한 메뉴 (메뉴명만, 가격 언급 금지)]
+${menuOnlyInfo || '정보 없음'}
 
-[사진 분석 결과]
+[가격에 대한 표현 (이 문구를 자연스럽게 변형해서 사용)]
+${priceExpression || ''}
+
+[음식 사진 분석]
 ${photoDesc || '사진 없음'}
 
 [말투 스타일]
 ${toneGuide}
 
 [절대 지켜야 할 규칙]
+- 가격 숫자(예: 8,000원, 15,000원 등) 절대 언급 금지
+- 가격 대신 위 [가격에 대한 표현]을 자연스럽게 변형해서 녹여낼 것
 - 별점 이모지(★☆⭐) 절대 사용 금지
 - "안녕하세요", "방문했어요" 같은 뻔한 시작 금지
-- 문단 사이 줄바꿈 한 번만 (다닥다닥 붙지 않게)
-- 한 문장이 너무 길면 자연스럽게 끊어서 작성
+- 문단 사이 줄바꿈 한 번만
+- 한 문장이 너무 길면 자연스럽게 끊기
 - 실제 사람이 쓴 것처럼 자연스럽게
 - 대표 키워드 "${STORE_DATA.mainKeyword}" 첫 문단에 자연스럽게 포함
 - 서브 키워드 2개 이상 자연스럽게 녹이기
-- 실제 메뉴명과 가격 자연스럽게 언급
+- 메뉴명 자연스럽게 언급 (가격 없이)
 - 음식 비주얼 묘사 포함 (사진 있을 경우)
 - 재방문 의사로 마무리
 - 리뷰 본문만 출력 (제목, 설명, 해시태그 없이)
@@ -299,12 +353,13 @@ ${draft}
 1. 맞춤법 & 띄어쓰기 철저히 교정
 2. 어색한 문장 자연스럽게 수정
 3. 별점 이모지(★☆⭐) 있으면 반드시 제거
-4. 문단 사이 줄바꿈 1회만 유지 (과도한 공백 제거)
-5. 너무 광고 같거나 과장된 표현 → 실제 후기처럼 순화
-6. 느낌표 두 개 이상(!!) 금지
-7. 전체 흐름이 한 사람이 자연스럽게 쓴 것처럼 통일감 있게
-8. 키워드가 어색하게 끼워진 경우 자연스럽게 재배치
-9. 150~220자 유지
+4. 가격 숫자가 남아있으면 반드시 제거 (가성비, 합리적, 가치 있다 등의 표현으로 대체)
+5. 문단 사이 줄바꿈 1회만 유지
+6. 너무 광고 같거나 과장된 표현 → 실제 후기처럼 순화
+7. 느낌표 두 개 이상(!!) 금지
+8. 전체 흐름이 한 사람이 자연스럽게 쓴 것처럼 통일감 있게
+9. 키워드가 어색하게 끼워진 경우 자연스럽게 재배치
+10. 150~220자 유지
 
 퇴고된 리뷰 본문만 출력 (설명, 코멘트 없이)`,
           }],
@@ -347,7 +402,6 @@ ${draft}
             </div>
           </div>
         </div>
-
         <div className="flex-1 px-5 -mt-5">
           <div className="bg-white rounded-3xl shadow-2xl shadow-black/10 p-6 border border-gray-100">
             <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 mb-6">
@@ -498,7 +552,7 @@ ${draft}
               <p className="text-gray-700 font-bold text-sm">영수증 사진</p>
               <span className="text-xs bg-red-50 text-red-400 px-2 py-0.5 rounded-full font-medium border border-red-100">필수</span>
             </div>
-            <p className="text-xs text-gray-400 mb-4">AI가 메뉴와 가격을 자동으로 읽어 리뷰에 반영해요</p>
+            <p className="text-xs text-gray-400 mb-4">메뉴 파악 + 가격대 분석 → 리뷰에 자연스럽게 반영해요</p>
             <input ref={receiptCameraRef} type="file" accept="image/*" capture="environment" multiple className="hidden" onChange={e => handleFileUpload(e.target.files, 'receipt')} />
             <input ref={receiptGalleryRef} type="file" accept="image/*" multiple className="hidden" onChange={e => handleFileUpload(e.target.files, 'receipt')} />
             <div className="grid grid-cols-2 gap-3 mb-4">
@@ -526,7 +580,7 @@ ${draft}
                     <img src={f.preview} className="w-12 h-12 rounded-xl object-cover flex-shrink-0" alt="receipt" />
                     <div className="flex-1 min-w-0">
                       <p className="text-xs text-gray-600 truncate">{f.file.name}</p>
-                      <p className="text-xs text-violet-500 mt-0.5">✓ OCR 분석 예정</p>
+                      <p className="text-xs text-violet-500 mt-0.5">✓ 메뉴 분석 + 가격대 판단 예정</p>
                     </div>
                     <button onClick={() => removeFile(f)}><X size={16} className="text-gray-400" /></button>
                   </div>
@@ -601,7 +655,7 @@ ${draft}
   // ── 분석 중 ─────────────────────────────────────────────────
   if (step === 2) {
     const steps = [
-      { label: '영수증 OCR — 메뉴 & 가격 추출', done: analysisProgress >= 25 },
+      { label: '영수증 OCR — 메뉴 추출 & 가격대 분석', done: analysisProgress >= 25 },
       { label: '음식 사진 비주얼 분석', done: analysisProgress >= 45 },
       { label: '맞춤 리뷰 초안 작성', done: analysisProgress >= 70 },
       { label: '맞춤법 · 자연스러움 검수 완료', done: analysisProgress >= 100 },
@@ -675,6 +729,7 @@ ${draft}
                   <span key={i} className="text-xs px-2.5 py-1 bg-violet-50 text-violet-700 rounded-lg font-medium border border-violet-100">{menu}</span>
                 ))}
               </div>
+              <p className="text-xs text-gray-400 mt-2">※ 가격은 가격대 판단에만 활용됩니다 (리뷰에 미노출)</p>
             </div>
           )}
 
