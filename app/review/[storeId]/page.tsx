@@ -33,8 +33,11 @@ export default function CustomerReviewPage() {
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState('');
 
-  const receiptInputRef = useRef<HTMLInputElement>(null);
-  const foodInputRef = useRef<HTMLInputElement>(null);
+  // ✅ 카메라용 / 갤러리용 ref 분리
+  const receiptCameraRef = useRef<HTMLInputElement>(null);
+  const receiptGalleryRef = useRef<HTMLInputElement>(null);
+  const foodCameraRef = useRef<HTMLInputElement>(null);
+  const foodGalleryRef = useRef<HTMLInputElement>(null);
 
   const handleFileUpload = (files: FileList | null, type: 'receipt' | 'food') => {
     if (!files) return;
@@ -46,8 +49,8 @@ export default function CustomerReviewPage() {
     setUploadedFiles(prev => [...prev, ...newFiles]);
   };
 
-  const removeFile = (idx: number) => {
-    setUploadedFiles(prev => prev.filter((_, i) => i !== idx));
+  const removeFile = (file: UploadedFile) => {
+    setUploadedFiles(prev => prev.filter(f => f !== file));
   };
 
   const receipts = uploadedFiles.filter(f => f.type === 'receipt');
@@ -56,10 +59,7 @@ export default function CustomerReviewPage() {
   const fileToBase64 = (file: File): Promise<string> => {
     return new Promise((resolve, reject) => {
       const reader = new FileReader();
-      reader.onload = () => {
-        const result = reader.result as string;
-        resolve(result.split(',')[1]);
-      };
+      reader.onload = () => resolve((reader.result as string).split(',')[1]);
       reader.onerror = reject;
       reader.readAsDataURL(file);
     });
@@ -72,17 +72,13 @@ export default function CustomerReviewPage() {
 
     try {
       const imageContents: object[] = [];
-
       setAnalysisStep('📸 사진을 분석하는 중...');
+
       for (const uploaded of uploadedFiles) {
         const base64 = await fileToBase64(uploaded.file);
         imageContents.push({
           type: 'image',
-          source: {
-            type: 'base64',
-            media_type: uploaded.file.type,
-            data: base64,
-          },
+          source: { type: 'base64', media_type: uploaded.file.type, data: base64 },
         });
       }
 
@@ -119,7 +115,6 @@ ${foodPhotos.length > 0 ? '- 음식/매장 사진 포함: 비주얼을 생생하
 - 재방문 의사 표현으로 마무리
 - 리뷰 본문만 출력 (설명, 제목 없이)`;
 
-      // 🔑 Claude Vision API 연동
       const response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
@@ -133,17 +128,13 @@ ${foodPhotos.length > 0 ? '- 음식/매장 사진 포함: 비주얼을 생생하
           max_tokens: 600,
           messages: [{
             role: 'user',
-            content: [
-              ...imageContents,
-              { type: 'text', text: prompt }
-            ],
+            content: [...imageContents, { type: 'text', text: prompt }],
           }],
         }),
       });
 
       const data = await response.json();
-      const review = data.content?.[0]?.text || '리뷰 생성에 실패했습니다.';
-      setGeneratedReview(review);
+      setGeneratedReview(data.content?.[0]?.text || '리뷰 생성에 실패했습니다.');
       setStep(3);
 
     } catch {
@@ -161,7 +152,7 @@ ${foodPhotos.length > 0 ? '- 음식/매장 사진 포함: 비주얼을 생생하
     setTimeout(() => setCopied(false), 3000);
   };
 
-  // ── 인트로 화면 ──
+  // ── 인트로 화면 ──────────────────────────────────────────────
   if (step === 0) {
     return (
       <div className="min-h-screen bg-white flex flex-col">
@@ -172,7 +163,7 @@ ${foodPhotos.length > 0 ? '- 음식/매장 사진 포함: 비주얼을 생생하
             <div className="w-20 h-20 bg-white/20 backdrop-blur-sm rounded-3xl flex items-center justify-center mx-auto mb-4 shadow-xl border border-white/30">
               <span className="text-3xl">☕</span>
             </div>
-            <h1 className="text-white font-black text-2xl leading-tight">{STORE_DATA.name}</h1>
+            <h1 className="text-white font-black text-2xl">{STORE_DATA.name}</h1>
             <div className="flex items-center justify-center gap-1.5 mt-2">
               <MapPin size={13} className="text-white/70" />
               <p className="text-white/70 text-sm">{STORE_DATA.address}</p>
@@ -195,15 +186,13 @@ ${foodPhotos.length > 0 ? '- 음식/매장 사진 포함: 비주얼을 생생하
 
             <div className="space-y-3 mb-7">
               {[
-                { emoji: '🧾', title: '영수증 사진 찍기', desc: '계산서 or 영수증을 카메라로 찍어주세요' },
-                { emoji: '📸', title: '맛있는 사진 추가 (선택)', desc: '음식이나 매장 사진을 추가하면 리뷰가 더 풍부해져요' },
+                { emoji: '🧾', title: '영수증 사진 올리기', desc: '카메라 촬영 또는 갤러리에서 선택' },
+                { emoji: '📸', title: '음식 사진 추가 (선택)', desc: '사진이 있으면 리뷰가 더 생생해져요' },
                 { emoji: '🤖', title: 'AI가 리뷰 자동 완성', desc: 'SEO 최적화 리뷰를 10초 안에 써드려요' },
-                { emoji: '📋', title: '복사 → 네이버에 붙여넣기', desc: '클립보드에 복사 후 네이버 플레이스에 붙여넣기만!' },
+                { emoji: '📋', title: '복사 → 네이버에 붙여넣기', desc: '클립보드 복사 후 네이버 플레이스에 붙여넣기!' },
               ].map((item, i) => (
                 <div key={i} className="flex items-start gap-3">
-                  <div className="w-9 h-9 bg-gray-50 rounded-xl flex items-center justify-center flex-shrink-0 text-lg">
-                    {item.emoji}
-                  </div>
+                  <div className="w-9 h-9 bg-gray-50 rounded-xl flex items-center justify-center flex-shrink-0 text-lg">{item.emoji}</div>
                   <div className="pt-0.5">
                     <p className="text-gray-800 text-sm font-bold">{item.title}</p>
                     <p className="text-gray-400 text-xs mt-0.5">{item.desc}</p>
@@ -212,10 +201,8 @@ ${foodPhotos.length > 0 ? '- 음식/매장 사진 포함: 비주얼을 생생하
               ))}
             </div>
 
-            <button
-              onClick={() => setStep(1)}
-              className={`w-full py-4 rounded-2xl bg-gradient-to-r ${STORE_DATA.coverColor} text-white font-black text-base shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2`}
-            >
+            <button onClick={() => setStep(1)}
+              className={`w-full py-4 rounded-2xl bg-gradient-to-r ${STORE_DATA.coverColor} text-white font-black text-base shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2`}>
               <Camera size={20} />
               리뷰 작성 시작하기
               <ChevronRight size={18} />
@@ -230,7 +217,7 @@ ${foodPhotos.length > 0 ? '- 음식/매장 사진 포함: 비주얼을 생생하
     );
   }
 
-  // ── 업로드 화면 ──
+  // ── 업로드 화면 ──────────────────────────────────────────────
   if (step === 1) {
     return (
       <div className="min-h-screen bg-gray-50">
@@ -252,6 +239,8 @@ ${foodPhotos.length > 0 ? '- 음식/매장 사진 포함: 비주얼을 생생하
         </div>
 
         <div className="px-5 py-6 space-y-5 pb-32">
+
+          {/* 별점 */}
           <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
             <p className="text-gray-700 font-bold text-sm mb-3">방문 만족도</p>
             <div className="flex gap-2 justify-center">
@@ -266,58 +255,100 @@ ${foodPhotos.length > 0 ? '- 음식/매장 사진 포함: 비주얼을 생생하
             </p>
           </div>
 
+          {/* ✅ 영수증 사진 — 카메라 + 갤러리 분리 */}
           <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-            <div className="flex items-center gap-2 mb-3">
+            <div className="flex items-center gap-2 mb-1">
               <Receipt size={16} className="text-violet-500" />
               <p className="text-gray-700 font-bold text-sm">영수증 사진</p>
               <span className="text-xs bg-red-50 text-red-400 px-2 py-0.5 rounded-full font-medium border border-red-100">필수</span>
             </div>
-            <p className="text-xs text-gray-400 mb-3">AI가 메뉴와 가격을 자동으로 읽어요</p>
-            <input ref={receiptInputRef} type="file" accept="image/*" capture="environment" multiple className="hidden" onChange={e => handleFileUpload(e.target.files, 'receipt')} />
-            {receipts.length === 0 ? (
-              <button onClick={() => receiptInputRef.current?.click()} className="w-full border-2 border-dashed border-violet-200 rounded-2xl py-8 flex flex-col items-center gap-2 bg-violet-50/50 active:bg-violet-100 transition-all">
-                <div className="w-12 h-12 bg-violet-100 rounded-2xl flex items-center justify-center">
-                  <Receipt size={22} className="text-violet-500" />
+            <p className="text-xs text-gray-400 mb-4">AI가 메뉴와 가격을 자동으로 읽어요</p>
+
+            {/* hidden inputs */}
+            <input ref={receiptCameraRef} type="file" accept="image/*" capture="environment" multiple className="hidden" onChange={e => handleFileUpload(e.target.files, 'receipt')} />
+            <input ref={receiptGalleryRef} type="file" accept="image/*" multiple className="hidden" onChange={e => handleFileUpload(e.target.files, 'receipt')} />
+
+            {/* 카메라 / 갤러리 버튼 2개 */}
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <button onClick={() => receiptCameraRef.current?.click()}
+                className="flex flex-col items-center gap-2 py-5 rounded-2xl border-2 border-dashed border-violet-200 bg-violet-50/50 active:bg-violet-100 transition-all">
+                <div className="w-10 h-10 bg-violet-100 rounded-xl flex items-center justify-center">
+                  <Camera size={20} className="text-violet-500" />
                 </div>
-                <p className="text-violet-600 font-bold text-sm">영수증 촬영하기</p>
-                <p className="text-violet-400 text-xs">탭하면 카메라가 열려요</p>
+                <p className="text-violet-600 font-bold text-sm">카메라 촬영</p>
+                <p className="text-violet-400 text-xs">지금 바로 찍기</p>
               </button>
-            ) : (
+              <button onClick={() => receiptGalleryRef.current?.click()}
+                className="flex flex-col items-center gap-2 py-5 rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50 active:bg-gray-100 transition-all">
+                <div className="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center">
+                  <ImagePlus size={20} className="text-gray-500" />
+                </div>
+                <p className="text-gray-600 font-bold text-sm">갤러리 선택</p>
+                <p className="text-gray-400 text-xs">저장된 사진 올리기</p>
+              </button>
+            </div>
+
+            {/* 업로드된 영수증 미리보기 */}
+            {receipts.length > 0 && (
               <div className="space-y-2">
                 {receipts.map((f, i) => (
                   <div key={i} className="flex items-center gap-3 p-2 bg-gray-50 rounded-xl">
                     <img src={f.preview} className="w-12 h-12 rounded-xl object-cover" alt="receipt" />
                     <p className="flex-1 text-xs text-gray-600 truncate">{f.file.name}</p>
-                    <button onClick={() => removeFile(uploadedFiles.indexOf(f))}><X size={16} className="text-gray-400" /></button>
+                    <button onClick={() => removeFile(f)}><X size={16} className="text-gray-400" /></button>
                   </div>
                 ))}
-                <button onClick={() => receiptInputRef.current?.click()} className="w-full py-2 text-xs text-violet-500 font-medium">+ 추가</button>
               </div>
             )}
           </div>
 
+          {/* ✅ 음식/매장 사진 — 카메라 + 갤러리 + 그리드 꽉차게 */}
           <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-            <div className="flex items-center gap-2 mb-3">
+            <div className="flex items-center gap-2 mb-1">
               <Camera size={16} className="text-pink-500" />
               <p className="text-gray-700 font-bold text-sm">음식 · 매장 사진</p>
               <span className="text-xs bg-gray-50 text-gray-400 px-2 py-0.5 rounded-full font-medium border border-gray-100">선택</span>
             </div>
-            <p className="text-xs text-gray-400 mb-3">사진이 있으면 리뷰가 훨씬 더 생생해져요</p>
-            <input ref={foodInputRef} type="file" accept="image/*" capture="environment" multiple className="hidden" onChange={e => handleFileUpload(e.target.files, 'food')} />
-            <div className="grid grid-cols-3 gap-2">
-              {foodPhotos.map((f, i) => (
-                <div key={i} className="relative aspect-square">
-                  <img src={f.preview} className="w-full h-full rounded-xl object-cover" alt="food" />
-                  <button onClick={() => removeFile(uploadedFiles.indexOf(f))} className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-gray-800 rounded-full flex items-center justify-center">
-                    <X size={11} className="text-white" />
-                  </button>
+            <p className="text-xs text-gray-400 mb-4">사진이 있으면 리뷰가 훨씬 더 생생해져요</p>
+
+            {/* hidden inputs */}
+            <input ref={foodCameraRef} type="file" accept="image/*" capture="environment" multiple className="hidden" onChange={e => handleFileUpload(e.target.files, 'food')} />
+            <input ref={foodGalleryRef} type="file" accept="image/*" multiple className="hidden" onChange={e => handleFileUpload(e.target.files, 'food')} />
+
+            {/* 카메라 / 갤러리 버튼 2개 */}
+            <div className="grid grid-cols-2 gap-3 mb-4">
+              <button onClick={() => foodCameraRef.current?.click()}
+                className="flex flex-col items-center gap-2 py-5 rounded-2xl border-2 border-dashed border-pink-200 bg-pink-50/50 active:bg-pink-100 transition-all">
+                <div className="w-10 h-10 bg-pink-100 rounded-xl flex items-center justify-center">
+                  <Camera size={20} className="text-pink-500" />
                 </div>
-              ))}
-              <button onClick={() => foodInputRef.current?.click()} className="aspect-square border-2 border-dashed border-pink-200 rounded-xl flex flex-col items-center justify-center gap-1 bg-pink-50/50">
-                <ImagePlus size={20} className="text-pink-400" />
-                <span className="text-xs text-pink-400 font-medium">추가</span>
+                <p className="text-pink-600 font-bold text-sm">카메라 촬영</p>
+                <p className="text-pink-400 text-xs">지금 바로 찍기</p>
+              </button>
+              <button onClick={() => foodGalleryRef.current?.click()}
+                className="flex flex-col items-center gap-2 py-5 rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50 active:bg-gray-100 transition-all">
+                <div className="w-10 h-10 bg-gray-100 rounded-xl flex items-center justify-center">
+                  <ImagePlus size={20} className="text-gray-500" />
+                </div>
+                <p className="text-gray-600 font-bold text-sm">갤러리 선택</p>
+                <p className="text-gray-400 text-xs">저장된 사진 올리기</p>
               </button>
             </div>
+
+            {/* ✅ 업로드된 음식사진 — 꽉 차는 그리드 */}
+            {foodPhotos.length > 0 && (
+              <div className="grid grid-cols-3 gap-2">
+                {foodPhotos.map((f, i) => (
+                  <div key={i} className="relative aspect-square">
+                    <img src={f.preview} className="w-full h-full rounded-xl object-cover" alt="food" />
+                    <button onClick={() => removeFile(f)}
+                      className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-gray-800 rounded-full flex items-center justify-center shadow">
+                      <X size={11} className="text-white" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {error && <div className="bg-red-50 border border-red-200 rounded-2xl p-4 text-red-600 text-sm text-center">{error}</div>}
@@ -325,7 +356,9 @@ ${foodPhotos.length > 0 ? '- 음식/매장 사진 포함: 비주얼을 생생하
 
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 p-5">
           <button onClick={generateReview} disabled={receipts.length === 0}
-            className={`w-full py-4 rounded-2xl font-black text-base text-white shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 ${receipts.length > 0 ? `bg-gradient-to-r ${STORE_DATA.coverColor}` : 'bg-gray-200 text-gray-400'}`}>
+            className={`w-full py-4 rounded-2xl font-black text-base text-white shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 ${
+              receipts.length > 0 ? `bg-gradient-to-r ${STORE_DATA.coverColor}` : 'bg-gray-200 text-gray-400'
+            }`}>
             <Sparkles size={20} />
             AI 리뷰 자동 생성하기
           </button>
@@ -335,7 +368,7 @@ ${foodPhotos.length > 0 ? '- 음식/매장 사진 포함: 비주얼을 생생하
     );
   }
 
-  // ── 분석 중 화면 ──
+  // ── 분석 중 화면 ─────────────────────────────────────────────
   if (step === 2) {
     return (
       <div className="min-h-screen bg-white flex flex-col items-center justify-center px-8">
@@ -363,7 +396,7 @@ ${foodPhotos.length > 0 ? '- 음식/매장 사진 포함: 비주얼을 생생하
     );
   }
 
-  // ── 완료 화면 ──
+  // ── 완료 화면 ────────────────────────────────────────────────
   if (step === 3) {
     return (
       <div className="min-h-screen bg-gray-50">
@@ -400,7 +433,9 @@ ${foodPhotos.length > 0 ? '- 음식/매장 사진 포함: 비주얼을 생생하
           </div>
 
           <button onClick={copyReview}
-            className={`w-full py-4 rounded-2xl font-black text-base transition-all active:scale-95 flex items-center justify-center gap-2 shadow-lg ${copied ? 'bg-emerald-500 text-white' : `bg-gradient-to-r ${STORE_DATA.coverColor} text-white`}`}>
+            className={`w-full py-4 rounded-2xl font-black text-base transition-all active:scale-95 flex items-center justify-center gap-2 shadow-lg ${
+              copied ? 'bg-emerald-500 text-white' : `bg-gradient-to-r ${STORE_DATA.coverColor} text-white`
+            }`}>
             {copied ? <><Check size={20} /> 클립보드에 복사됨!</> : <><Copy size={20} /> 리뷰 전체 복사하기</>}
           </button>
 
