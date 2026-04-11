@@ -6,41 +6,39 @@ export async function GET(request: NextRequest) {
   const state = searchParams.get('state');
   const baseUrl = 'https://localution-6sv7.vercel.app';
 
+  console.log('콜백 도착! code:', code, 'state:', state);
+
   if (!code) {
     return NextResponse.redirect(`${baseUrl}/login?error=no_code`);
   }
 
   try {
-    // ✅ 1. 네이버 액세스 토큰 발급
-    const tokenRes = await fetch(
-      `https://nid.naver.com/oauth2.0/token?grant_type=authorization_code&client_id=${process.env.NAVER_CLIENT_ID}&client_secret=${process.env.NAVER_CLIENT_SECRET}&code=${code}&state=${state}`,
-      {
-        method: 'GET',
-        headers: { 'X-Naver-Client-Id': process.env.NAVER_CLIENT_ID || '', 'X-Naver-Client-Secret': process.env.NAVER_CLIENT_SECRET || '' },
-      }
-    );
+    const clientId = process.env.NAVER_CLIENT_ID;
+    const clientSecret = process.env.NAVER_CLIENT_SECRET;
 
+    console.log('Client ID 확인:', clientId?.slice(0, 4));
+
+    // 네이버 토큰 발급
+    const tokenUrl = `https://nid.naver.com/oauth2.0/token?grant_type=authorization_code&client_id=${clientId}&client_secret=${clientSecret}&code=${code}&state=${state}`;
+
+    const tokenRes = await fetch(tokenUrl);
     const tokenData = await tokenRes.json();
-    console.log('Token Data:', tokenData);
+
+    console.log('토큰 응답:', JSON.stringify(tokenData));
 
     const accessToken = tokenData.access_token;
 
     if (!accessToken) {
-      console.error('토큰 발급 실패:', tokenData);
-      return NextResponse.redirect(`${baseUrl}/login?error=no_token`);
+      return NextResponse.redirect(`${baseUrl}/login?error=no_token&detail=${tokenData.error}`);
     }
 
-    // ✅ 2. 네이버 사용자 정보 조회
+    // 네이버 사용자 정보
     const userRes = await fetch('https://openapi.naver.com/v1/nid/me', {
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'X-Naver-Client-Id': process.env.NAVER_CLIENT_ID || '',
-        'X-Naver-Client-Secret': process.env.NAVER_CLIENT_SECRET || '',
-      },
+      headers: { Authorization: `Bearer ${accessToken}` },
     });
 
     const userData = await userRes.json();
-    console.log('User Data:', userData);
+    console.log('유저 데이터:', JSON.stringify(userData));
 
     const naverUser = userData.response;
 
@@ -48,25 +46,26 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(`${baseUrl}/login?error=no_user`);
     }
 
-    // ✅ 3. 세션 쿠키에 사용자 정보 저장 (Supabase 없이 임시)
+    // 쿠키에 사용자 정보 저장
     const userInfo = encodeURIComponent(JSON.stringify({
       id: naverUser.id,
       name: naverUser.name || naverUser.nickname || '사장님',
       email: naverUser.email || '',
-      profileImage: naverUser.profile_image || '',
     }));
 
     const response = NextResponse.redirect(`${baseUrl}/`);
     response.cookies.set('localution_user', userInfo, {
-      maxAge: 60 * 60 * 24 * 7, // 7일
+      maxAge: 60 * 60 * 24 * 7,
       path: '/',
       httpOnly: false,
+      sameSite: 'lax',
     });
 
+    console.log('로그인 성공! 리다이렉트...');
     return response;
 
   } catch (err) {
-    console.error('콜백 에러:', err);
+    console.error('에러:', err);
     return NextResponse.redirect(`${baseUrl}/login?error=server_error`);
   }
 }

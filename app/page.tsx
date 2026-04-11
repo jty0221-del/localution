@@ -1,4 +1,18 @@
 'use client';
+useEffect(() => {
+  // 네이버 로그인 후 사용자 정보 쿠키 확인
+  const cookies = document.cookie.split(';');
+  const userCookie = cookies.find(c => c.trim().startsWith('localution_user='));
+  if (userCookie) {
+    try {
+      const userInfo = JSON.parse(decodeURIComponent(userCookie.split('=')[1]));
+      console.log('로그인된 사용자:', userInfo);
+      // 여기서 사용자 정보 활용 가능
+    } catch (e) {
+      console.log('쿠키 파싱 에러:', e);
+    }
+  }
+}, []);
 
 import { useState } from 'react';
 import {
