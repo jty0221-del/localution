@@ -109,12 +109,12 @@ export default function CustomerReviewPage() {
     const ageText = AGE_OPTIONS.find(a => a.id === age)?.label || '20대';
     const base = `작성자는 ${genderText} ${ageText} 고객입니다.`;
     const toneMap: Record<string, string> = {
-      'gen-z': `${base} Z세대 감성, 힙하고 트렌디한 말투, 줄임말 자연스럽게, 이모지 2~3개`,
+      'gen-z': `${base} Z세대 감성, 힙하고 트렌디한 말투, 줄임말 자연스럽게, 이모지 1~2개만`,
       'friendly': `${base} 친근하고 따뜻한 이웃 말투, 자연스러운 구어체`,
-      'mom': `${base} 맘카페 스타일, 꼼꼼하고 신뢰감 있는 말투, 아이/가족 언급 가능`,
+      'mom': `${base} 맘카페 스타일, 꼼꼼하고 신뢰감 있는 말투`,
       'gourmet': `${base} 진지한 미식가 스타일, 음식 묘사 풍부하고 격조 있게`,
       'simple': `${base} 핵심만 짧게, 팩트 위주, 군더더기 없이 깔끔하게`,
-      'excited': `${base} 감탄사 많고 에너지 넘치는 말투, 느낌표 활용, 신난 후기 스타일`,
+      'excited': `${base} 감탄사 많고 에너지 넘치는 말투, 신난 후기 스타일`,
     };
     return toneMap[tone] || toneMap['friendly'];
   };
@@ -125,9 +125,9 @@ export default function CustomerReviewPage() {
     setAnalysisProgress(0);
 
     try {
-      // ── 영수증 OCR ──────────────────────────────────────────
+      // ── Step 1: 영수증 OCR ──────────────────────────────────
       setAnalysisStep('🧾 영수증에서 메뉴를 읽는 중...');
-      setAnalysisProgress(15);
+      setAnalysisProgress(10);
 
       const receiptContents: object[] = [];
       for (const f of receipts) {
@@ -147,13 +147,20 @@ export default function CustomerReviewPage() {
           },
           body: JSON.stringify({
             model: 'claude-sonnet-4-20250514',
-            max_tokens: 400,
+            max_tokens: 500,
             messages: [{
               role: 'user',
               content: [
                 ...receiptContents,
-                { type: 'text', text: `영수증을 분석해서 JSON만 출력해줘. 다른 설명 없이:
-{"items":["메뉴명 가격"],"total":"총액","store":"매장명"}` }
+                { type: 'text', text: `영수증 사진을 분석해줘.
+
+[중요] 메뉴명을 읽을 때 반드시 아래 규칙을 지켜:
+- 비슷한 발음이지만 실제 메뉴명으로 교정 (예: 지몽→자몽, 에스프레소→에스프레소)
+- 음료/식품 메뉴는 일반적인 카페/식당 메뉴명 기준으로 교정
+- 가격은 숫자만 정확하게
+
+아래 JSON 형식으로만 출력 (다른 설명 없이):
+{"items":["교정된 메뉴명 가격원"],"total":"총액원","store":"매장명"}` }
               ],
             }],
           }),
@@ -169,10 +176,11 @@ export default function CustomerReviewPage() {
         } catch { menuInfo = '영수증 분석 완료'; }
       }
 
-      setAnalysisProgress(45);
+      setAnalysisProgress(30);
 
-      // ── 음식 사진 분석 ──────────────────────────────────────
+      // ── Step 2: 음식 사진 분석 ──────────────────────────────
       setAnalysisStep('📸 음식 사진을 분석하는 중...');
+
       const foodContents: object[] = [];
       for (const f of foodPhotos) {
         const { base64, mediaType } = await convertToJpeg(f.file);
@@ -196,7 +204,7 @@ export default function CustomerReviewPage() {
               role: 'user',
               content: [
                 ...foodContents,
-                { type: 'text', text: '음식/매장 사진을 보고 맛있어 보이는 포인트와 비주얼 특징을 리뷰에 쓸 수 있는 생생한 묘사로 2~3줄만 써줘.' }
+                { type: 'text', text: '음식/매장 사진을 보고 맛있어 보이는 포인트와 비주얼 특징을 리뷰에 쓸 수 있는 생생한 묘사로 2~3줄만 써줘. 이모지나 별점 기호는 절대 쓰지 마.' }
               ],
             }],
           }),
@@ -205,10 +213,69 @@ export default function CustomerReviewPage() {
         photoDesc = photoData.content?.[0]?.text || '';
       }
 
-      setAnalysisProgress(72);
+      setAnalysisProgress(50);
 
-      // ── 최종 리뷰 생성 ──────────────────────────────────────
-      setAnalysisStep('✨ 맞춤 리뷰를 작성하는 중...');
+      // ── Step 3: 리뷰 초안 생성 ──────────────────────────────
+      setAnalysisStep('✍️ 리뷰 초안을 작성하는 중...');
+
+      const toneGuide = getTonePrompt();
+      const genderLabel = gender === 'male' ? '남성' : gender === 'female' ? '여성' : '';
+      const ageLabel = AGE_OPTIONS.find(a => a.id === age)?.label || '20대';
+
+      const draftRes = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': process.env.NEXT_PUBLIC_ANTHROPIC_API_KEY || '',
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true',
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 600,
+          messages: [{
+            role: 'user',
+            content: `당신은 실제 맛집 방문 후기를 쓰는 ${ageLabel} ${genderLabel} 고객입니다. 네이버 플레이스에 올릴 리뷰를 작성하세요.
+
+[매장 정보]
+- 매장명: ${STORE_DATA.name}
+- 위치: ${STORE_DATA.address}
+- 대표 키워드: ${STORE_DATA.mainKeyword}
+- 서브 키워드: ${STORE_DATA.subKeywords.join(', ')}
+- 별점: ${rating}점
+
+[영수증 분석 결과]
+${menuInfo || '영수증 없음'}
+
+[사진 분석 결과]
+${photoDesc || '사진 없음'}
+
+[말투 스타일]
+${toneGuide}
+
+[절대 지켜야 할 규칙]
+- 별점 이모지(★☆⭐) 절대 사용 금지
+- "안녕하세요", "방문했어요" 같은 뻔한 시작 금지
+- 문단 사이 줄바꿈 한 번만 (다닥다닥 붙지 않게)
+- 한 문장이 너무 길면 자연스럽게 끊어서 작성
+- 실제 사람이 쓴 것처럼 자연스럽게
+- 대표 키워드 "${STORE_DATA.mainKeyword}" 첫 문단에 자연스럽게 포함
+- 서브 키워드 2개 이상 자연스럽게 녹이기
+- 실제 메뉴명과 가격 자연스럽게 언급
+- 음식 비주얼 묘사 포함 (사진 있을 경우)
+- 재방문 의사로 마무리
+- 리뷰 본문만 출력 (제목, 설명, 해시태그 없이)
+- 길이: 150~220자`,
+          }],
+        }),
+      });
+
+      const draftData = await draftRes.json();
+      const draft = draftData.content?.[0]?.text || '';
+      setAnalysisProgress(75);
+
+      // ── Step 4: AI 퇴고 & 검수 ──────────────────────────────
+      setAnalysisStep('🔍 맞춤법 · 자연스러움 검수 중...');
 
       const reviewRes = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
@@ -223,46 +290,36 @@ export default function CustomerReviewPage() {
           max_tokens: 600,
           messages: [{
             role: 'user',
-            content: `당신은 맛집 리뷰 전문가입니다. 아래 정보를 종합해 네이버 플레이스 SEO 최적화 리뷰를 작성하세요.
+            content: `아래 네이버 플레이스 리뷰 초안을 퇴고해줘. 실제 ${ageLabel} ${genderLabel}이 직접 작성한 것처럼 자연스럽게 다듬어줘.
 
-[매장 정보]
-- 매장명: ${STORE_DATA.name}
-- 카테고리: ${STORE_DATA.category}
-- 위치: ${STORE_DATA.address}
-- 대표 키워드: ${STORE_DATA.mainKeyword}
-- 서브 키워드: ${STORE_DATA.subKeywords.join(', ')}
-- 별점: ${rating}점
+[초안]
+${draft}
 
-[작성자 프로필 & 말투]
-${getTonePrompt()}
+[퇴고 기준]
+1. 맞춤법 & 띄어쓰기 철저히 교정
+2. 어색한 문장 자연스럽게 수정
+3. 별점 이모지(★☆⭐) 있으면 반드시 제거
+4. 문단 사이 줄바꿈 1회만 유지 (과도한 공백 제거)
+5. 너무 광고 같거나 과장된 표현 → 실제 후기처럼 순화
+6. 느낌표 두 개 이상(!!) 금지
+7. 전체 흐름이 한 사람이 자연스럽게 쓴 것처럼 통일감 있게
+8. 키워드가 어색하게 끼워진 경우 자연스럽게 재배치
+9. 150~220자 유지
 
-[영수증 OCR 결과]
-${menuInfo || '영수증 없음'}
-
-[음식 사진 분석]
-${photoDesc || '사진 없음'}
-
-[작성 규칙]
-- 위 말투 스타일을 철저히 반영
-- 길이: 180~250자 (네이버 플레이스 최적)
-- 대표 키워드 "${STORE_DATA.mainKeyword}" 첫 문단에 자연스럽게 포함
-- 서브 키워드 2개 이상 자연스럽게 포함
-- 영수증에서 파악한 실제 메뉴명과 가격 언급
-- 음식 사진 비주얼 묘사 반영
-- 재방문 의사로 마무리
-- 리뷰 본문만 출력 (제목·설명 없이)`,
+퇴고된 리뷰 본문만 출력 (설명, 코멘트 없이)`,
           }],
         }),
       });
 
       const reviewData = await reviewRes.json();
-      setGeneratedReview(reviewData.content?.[0]?.text || '리뷰 생성에 실패했습니다.');
+      const finalReview = reviewData.content?.[0]?.text || draft;
       setAnalysisProgress(100);
+      setGeneratedReview(finalReview);
       setStep(3);
 
     } catch (err) {
       console.error(err);
-      setError('오류가 발생했어요. API 키를 확인하거나 다시 시도해 주세요.');
+      setError('오류가 발생했어요. 다시 시도해 주세요.');
       setStep(1);
     }
   };
@@ -304,9 +361,9 @@ ${photoDesc || '사진 없음'}
             <p className="text-gray-500 text-sm mb-6">영수증 + 사진만 올리면 AI가 내 스타일로 써드려요</p>
             <div className="space-y-3 mb-7">
               {[
-                { emoji: '🧾', title: '영수증 사진 올리기', desc: '카메라 촬영 또는 갤러리 선택' },
+                { emoji: '🧾', title: '영수증 사진 올리기', desc: '카메라 촬영 또는 갤러리 선택 가능' },
                 { emoji: '👤', title: '내 스타일 설정', desc: '성별 · 나이대 · 말투를 선택하면 AI가 맞춤 리뷰 작성' },
-                { emoji: '🤖', title: 'AI 맞춤 리뷰 완성', desc: 'OCR 분석 + 사진 분석 + 스타일 반영' },
+                { emoji: '🤖', title: 'AI 맞춤 리뷰 + 검수', desc: 'OCR 분석 → 초안 작성 → 맞춤법 · 자연스러움 퇴고' },
                 { emoji: '📋', title: '복사 → 네이버 붙여넣기', desc: '원터치 복사 후 바로 등록!' },
               ].map((item, i) => (
                 <div key={i} className="flex items-start gap-3">
@@ -332,7 +389,7 @@ ${photoDesc || '사진 없음'}
     );
   }
 
-  // ── 업로드 + 스타일 설정 화면 ───────────────────────────────
+  // ── 업로드 + 스타일 설정 ────────────────────────────────────
   if (step === 1) {
     return (
       <div className="min-h-screen bg-gray-50">
@@ -370,16 +427,14 @@ ${photoDesc || '사진 없음'}
             </p>
           </div>
 
-          {/* ✅ 성별 선택 */}
+          {/* 성별 */}
           <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
             <p className="text-gray-700 font-bold text-sm mb-3">👤 성별</p>
             <div className="grid grid-cols-3 gap-2">
               {GENDER_OPTIONS.map(g => (
                 <button key={g.id} onClick={() => setGender(g.id)}
                   className={`flex flex-col items-center gap-1.5 py-3.5 rounded-2xl border-2 transition-all ${
-                    gender === g.id
-                      ? 'border-violet-500 bg-violet-50'
-                      : 'border-gray-100 bg-gray-50 hover:border-gray-200'
+                    gender === g.id ? 'border-violet-500 bg-violet-50' : 'border-gray-100 bg-gray-50'
                   }`}>
                   <span className="text-2xl">{g.emoji}</span>
                   <span className={`text-xs font-bold ${gender === g.id ? 'text-violet-600' : 'text-gray-500'}`}>{g.label}</span>
@@ -388,16 +443,14 @@ ${photoDesc || '사진 없음'}
             </div>
           </div>
 
-          {/* ✅ 나이대 선택 */}
+          {/* 나이대 */}
           <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
             <p className="text-gray-700 font-bold text-sm mb-3">🎂 나이대</p>
             <div className="grid grid-cols-5 gap-2">
               {AGE_OPTIONS.map(a => (
                 <button key={a.id} onClick={() => setAge(a.id)}
                   className={`flex flex-col items-center gap-1.5 py-3 rounded-2xl border-2 transition-all ${
-                    age === a.id
-                      ? 'border-pink-400 bg-pink-50'
-                      : 'border-gray-100 bg-gray-50 hover:border-gray-200'
+                    age === a.id ? 'border-pink-400 bg-pink-50' : 'border-gray-100 bg-gray-50'
                   }`}>
                   <span className="text-xl">{a.emoji}</span>
                   <span className={`text-xs font-bold ${age === a.id ? 'text-pink-600' : 'text-gray-500'}`}>{a.label}</span>
@@ -406,16 +459,14 @@ ${photoDesc || '사진 없음'}
             </div>
           </div>
 
-          {/* ✅ 말투 선택 */}
+          {/* 말투 */}
           <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
             <p className="text-gray-700 font-bold text-sm mb-3">✍️ 리뷰 말투</p>
             <div className="grid grid-cols-2 gap-2">
               {TONE_OPTIONS.map(t => (
                 <button key={t.id} onClick={() => setTone(t.id)}
                   className={`flex items-center gap-3 p-3.5 rounded-2xl border-2 text-left transition-all ${
-                    tone === t.id
-                      ? 'border-orange-400 bg-orange-50'
-                      : 'border-gray-100 bg-gray-50 hover:border-gray-200'
+                    tone === t.id ? 'border-orange-400 bg-orange-50' : 'border-gray-100 bg-gray-50'
                   }`}>
                   <span className="text-2xl flex-shrink-0">{t.emoji}</span>
                   <div className="min-w-0">
@@ -425,9 +476,7 @@ ${photoDesc || '사진 없음'}
                 </button>
               ))}
             </div>
-
-            {/* 선택된 스타일 미리보기 */}
-            <div className={`mt-3 p-3 rounded-xl border ${tone ? 'bg-gray-50 border-gray-100' : 'hidden'}`}>
+            <div className="mt-3 p-3 rounded-xl bg-gray-50 border border-gray-100">
               <p className="text-xs text-gray-500 font-medium mb-1">✨ 선택된 스타일</p>
               <div className="flex items-center gap-2">
                 <span className="text-lg">{GENDER_OPTIONS.find(g => g.id === gender)?.emoji}</span>
@@ -450,10 +499,8 @@ ${photoDesc || '사진 없음'}
               <span className="text-xs bg-red-50 text-red-400 px-2 py-0.5 rounded-full font-medium border border-red-100">필수</span>
             </div>
             <p className="text-xs text-gray-400 mb-4">AI가 메뉴와 가격을 자동으로 읽어 리뷰에 반영해요</p>
-
             <input ref={receiptCameraRef} type="file" accept="image/*" capture="environment" multiple className="hidden" onChange={e => handleFileUpload(e.target.files, 'receipt')} />
             <input ref={receiptGalleryRef} type="file" accept="image/*" multiple className="hidden" onChange={e => handleFileUpload(e.target.files, 'receipt')} />
-
             <div className="grid grid-cols-2 gap-3 mb-4">
               <button onClick={() => receiptCameraRef.current?.click()}
                 className="flex flex-col items-center gap-2 py-6 rounded-2xl border-2 border-dashed border-violet-200 bg-violet-50/50 active:bg-violet-100 transition-all">
@@ -472,7 +519,6 @@ ${photoDesc || '사진 없음'}
                 <p className="text-gray-400 text-xs">저장된 사진 올리기</p>
               </button>
             </div>
-
             {receipts.length > 0 && (
               <div className="space-y-2">
                 {receipts.map((f, i) => (
@@ -497,10 +543,8 @@ ${photoDesc || '사진 없음'}
               <span className="text-xs bg-gray-50 text-gray-400 px-2 py-0.5 rounded-full font-medium border border-gray-100">선택</span>
             </div>
             <p className="text-xs text-gray-400 mb-4">AI가 사진을 보고 맛있는 포인트를 리뷰에 담아요</p>
-
             <input ref={foodCameraRef} type="file" accept="image/*" capture="environment" multiple className="hidden" onChange={e => handleFileUpload(e.target.files, 'food')} />
             <input ref={foodGalleryRef} type="file" accept="image/*" multiple className="hidden" onChange={e => handleFileUpload(e.target.files, 'food')} />
-
             <div className="grid grid-cols-2 gap-3 mb-4">
               <button onClick={() => foodCameraRef.current?.click()}
                 className="flex flex-col items-center gap-2 py-6 rounded-2xl border-2 border-dashed border-pink-200 bg-pink-50/50 active:bg-pink-100 transition-all">
@@ -519,7 +563,6 @@ ${photoDesc || '사진 없음'}
                 <p className="text-gray-400 text-xs">저장된 사진 올리기</p>
               </button>
             </div>
-
             {foodPhotos.length > 0 && (
               <div className="grid grid-cols-3 gap-2">
                 {foodPhotos.map((f, i) => (
@@ -547,8 +590,7 @@ ${photoDesc || '사진 없음'}
             className={`w-full py-4 rounded-2xl font-black text-base text-white shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 ${
               receipts.length > 0 ? `bg-gradient-to-r ${STORE_DATA.coverColor}` : 'bg-gray-200 text-gray-400'
             }`}>
-            <Sparkles size={20} />
-            AI 맞춤 리뷰 생성하기
+            <Sparkles size={20} />AI 맞춤 리뷰 생성하기
           </button>
           {receipts.length === 0 && <p className="text-center text-xs text-gray-400 mt-2">영수증 사진을 먼저 업로드해주세요</p>}
         </div>
@@ -559,10 +601,10 @@ ${photoDesc || '사진 없음'}
   // ── 분석 중 ─────────────────────────────────────────────────
   if (step === 2) {
     const steps = [
-      { label: '영수증 OCR — 메뉴 & 가격 추출', done: analysisProgress >= 30 },
-      { label: '음식 사진 비주얼 분석', done: analysisProgress >= 55 },
-      { label: 'SEO 키워드 + 말투 스타일 매핑', done: analysisProgress >= 75 },
-      { label: '맞춤 리뷰 문장 생성 완료', done: analysisProgress >= 100 },
+      { label: '영수증 OCR — 메뉴 & 가격 추출', done: analysisProgress >= 25 },
+      { label: '음식 사진 비주얼 분석', done: analysisProgress >= 45 },
+      { label: '맞춤 리뷰 초안 작성', done: analysisProgress >= 70 },
+      { label: '맞춤법 · 자연스러움 검수 완료', done: analysisProgress >= 100 },
     ];
     return (
       <div className="min-h-screen bg-white flex flex-col items-center justify-center px-8">
@@ -575,9 +617,7 @@ ${photoDesc || '사진 없음'}
           </div>
           <h2 className="text-gray-900 font-black text-2xl mb-1">AI 분석 중...</h2>
           <p className="text-gray-500 text-sm mb-2">{analysisStep || '잠시만 기다려주세요!'}</p>
-
-          {/* 선택된 스타일 뱃지 */}
-          <div className="flex items-center justify-center gap-2 mb-6">
+          <div className="flex items-center justify-center gap-2 mb-5">
             <span className="text-sm bg-violet-50 border border-violet-100 text-violet-600 px-3 py-1 rounded-full font-medium">
               {AGE_OPTIONS.find(a => a.id === age)?.emoji} {AGE_OPTIONS.find(a => a.id === age)?.label}
             </span>
@@ -585,11 +625,9 @@ ${photoDesc || '사진 없음'}
               {TONE_OPTIONS.find(t => t.id === tone)?.emoji} {TONE_OPTIONS.find(t => t.id === tone)?.label}
             </span>
           </div>
-
           <div className="w-full bg-gray-100 rounded-full h-2 mb-8">
             <div className={`h-2 rounded-full bg-gradient-to-r ${STORE_DATA.coverColor} transition-all duration-700`} style={{ width: `${analysisProgress}%` }} />
           </div>
-
           <div className="space-y-3 text-left">
             {steps.map((s, i) => (
               <div key={i} className="flex items-center gap-3">
@@ -617,7 +655,6 @@ ${photoDesc || '사진 없음'}
             </div>
             <h2 className="text-white font-black text-xl">리뷰 완성! 🎉</h2>
             <p className="text-white/70 text-sm mt-1">복사 후 네이버 플레이스에 붙여넣기만 하면 돼요</p>
-            {/* 스타일 뱃지 */}
             <div className="flex items-center justify-center gap-2 mt-3">
               <span className="text-xs bg-white/20 text-white px-2.5 py-1 rounded-full font-medium">
                 {GENDER_OPTIONS.find(g => g.id === gender)?.emoji} {gender !== 'none' ? GENDER_OPTIONS.find(g => g.id === gender)?.label : ''} {AGE_OPTIONS.find(a => a.id === age)?.label}
