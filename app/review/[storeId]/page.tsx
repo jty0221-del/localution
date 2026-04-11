@@ -1,22 +1,31 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
+import { createClient } from '@supabase/supabase-js';
 import {
   Camera, Receipt, Star, Copy, Check, ChevronRight,
   ChevronLeft, Sparkles, Gift, MapPin,
   ImagePlus, X, Loader2, ThumbsUp, ExternalLink, AlertCircle
 } from 'lucide-react';
 
-const STORE_DATA = {
-  id: 'harang-cafe-001',
-  name: '하랑마케팅 카페',
-  category: '카페 · 디저트',
-  address: '경기도 부천시 소사구 신중동',
-  mainKeyword: '부천 맛집',
-  subKeywords: ['가성비', '회식장소', '신중동카페'],
-  reward: '로컬루션 포인트 2,000P',
-  naverUrl: 'https://naver.me/example',
-  coverColor: 'from-orange-400 via-pink-400 to-violet-500',
+// ✅ Supabase 클라이언트
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL!,
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+);
+
+type StoreData = {
+  id: string;
+  name: string;
+  category: string;
+  address: string;
+  main_keyword: string;
+  sub_keywords: string[];
+  tone: string;
+  reward_enabled: boolean;
+  reward_text: string;
+  naver_url: string;
+  cover_color: string;
 };
 
 const GENDER_OPTIONS = [
@@ -72,24 +81,18 @@ const convertToJpeg = (file: File): Promise<{ base64: string; mediaType: string 
   });
 };
 
-// ✅ 가격대 판단 함수
 const analyzePriceLevel = (items: string[], total: string): string => {
   try {
-    // 총액에서 숫자만 추출
     const totalNum = parseInt(total.replace(/[^0-9]/g, '')) || 0;
-    // 메뉴 개수로 1인당 평균 계산
     const menuCount = items.length || 1;
     const perPerson = totalNum / menuCount;
-
     if (totalNum === 0) return 'unknown';
     if (perPerson <= 6000) return 'very_cheap';
     if (perPerson <= 12000) return 'cheap';
     if (perPerson <= 20000) return 'normal';
     if (perPerson <= 35000) return 'expensive';
     return 'premium';
-  } catch {
-    return 'unknown';
-  }
+  } catch { return 'unknown'; }
 };
 
 const getPriceExpression = (level: string): string => {
@@ -105,6 +108,10 @@ const getPriceExpression = (level: string): string => {
 };
 
 export default function CustomerReviewPage() {
+  // ✅ DB에서 불러온 매장 정보
+  const [storeData, setStoreData] = useState<StoreData | null>(null);
+  const [storeLoading, setStoreLoading] = useState(true);
+
   const [step, setStep] = useState(0);
   const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
   const [rating, setRating] = useState(5);
@@ -123,6 +130,39 @@ export default function CustomerReviewPage() {
   const receiptGalleryRef = useRef<HTMLInputElement>(null);
   const foodCameraRef = useRef<HTMLInputElement>(null);
   const foodGalleryRef = useRef<HTMLInputElement>(null);
+
+  // ✅ URL에서 storeId 추출 → DB 조회
+  useEffect(() => {
+    const pathParts = window.location.pathname.split('/');
+    const storeId = pathParts[pathParts.length - 1];
+    loadStore(storeId);
+  }, []);
+
+  const loadStore = async (storeId: string) => {
+    try {
+      let { data } = await supabase
+        .from('stores')
+        .select('*')
+        .eq('id', storeId)
+        .single();
+
+      // UUID 매칭 실패 시 첫 번째 매장으로 폴백 (테스트용)
+      if (!data) {
+        const result = await supabase.from('stores').select('*').limit(1).single();
+        data = result.data;
+      }
+
+      if (data) {
+        setStoreData(data);
+        // QR 스캔 로그 기록
+        await supabase.from('qr_scans').insert({ store_id: data.id });
+      }
+    } catch (err) {
+      console.error('매장 정보 로드 실패:', err);
+    } finally {
+      setStoreLoading(false);
+    }
+  };
 
   const handleFileUpload = (files: FileList | null, type: 'receipt' | 'food') => {
     if (!files) return;
@@ -152,9 +192,23 @@ export default function CustomerReviewPage() {
   };
 
   const generateReview = async () => {
+    if (!storeData) return;
     setError('');
     setStep(2);
     setAnalysisProgress(0);
+
+    const STORE = {
+      id: storeData.id,
+      name: storeData.name,
+      category: storeData.category || '',
+      address: storeData.address || '',
+      mainKeyword: storeData.main_keyword || '',
+      subKeywords: storeData.sub_keywords || [],
+      tone: storeData.tone || 'friendly',
+      reward: storeData.reward_text || '',
+      naverUrl: storeData.naver_url || '#',
+      coverColor: storeData.cover_color || 'from-orange-400 via-pink-400 to-violet-500',
+    };
 
     try {
       // ── Step 1: 영수증 OCR ──────────────────────────────────
@@ -167,9 +221,9 @@ export default function CustomerReviewPage() {
         receiptContents.push({ type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } });
       }
 
-      let menuOnlyInfo = '';     // 메뉴명만 (가격 제외)
-      let priceExpression = '';  // 가격 표현 문구
-      let extractedTotal = '';
+      let menuOnlyInfo = '';
+      let priceExpression = '';
+      let menuWithPriceList: string[] = [];
 
       if (receipts.length > 0) {
         const ocrRes = await fetch('https://api.anthropic.com/v1/messages', {
@@ -191,7 +245,7 @@ export default function CustomerReviewPage() {
 
 [중요 규칙]
 - 메뉴명은 실제 음식/음료 이름으로 정확히 교정 (예: 지몽→자몽, 아아→아이스아메리카노)
-- 가격은 내부 계산용으로만 추출 (리뷰에 직접 노출 안 함)
+- 가격은 내부 계산용으로만 추출
 
 아래 JSON 형식으로만 출력 (설명 없이):
 {"items":["교정된 메뉴명"],"itemsWithPrice":["메뉴명 가격원"],"total":"총액원","store":"매장명"}` }
@@ -204,21 +258,13 @@ export default function CustomerReviewPage() {
         try {
           const parsed = JSON.parse(ocrData.content?.[0]?.text?.replace(/```json|```/g, '').trim() || '{}');
           const menuNames: string[] = parsed.items || [];
-          const menuWithPrice: string[] = parsed.itemsWithPrice || [];
-          extractedTotal = parsed.total || '';
+          menuWithPriceList = parsed.itemsWithPrice || [];
+          const extractedTotal = parsed.total || '';
 
-          // 화면에 보여줄 메뉴 태그 (가격 포함 버전)
-          setExtractedMenu(menuWithPrice.length > 0 ? menuWithPrice : menuNames);
-
-          // ✅ 리뷰에 전달할 건 메뉴명만 (가격 제외)
-          menuOnlyInfo = menuNames.length > 0
-            ? `주문 메뉴: ${menuNames.join(', ')}`
-            : '메뉴 확인 어려움';
-
-          // ✅ 가격대 분석 → 표현 문구 생성
-          const priceLevel = analyzePriceLevel(menuWithPrice, extractedTotal);
+          setExtractedMenu(menuWithPriceList.length > 0 ? menuWithPriceList : menuNames);
+          menuOnlyInfo = menuNames.length > 0 ? `주문 메뉴: ${menuNames.join(', ')}` : '메뉴 확인 어려움';
+          const priceLevel = analyzePriceLevel(menuWithPriceList, extractedTotal);
           priceExpression = getPriceExpression(priceLevel);
-
         } catch {
           menuOnlyInfo = '영수증 분석 완료';
           priceExpression = '가격 대비 만족도가 높았어요';
@@ -287,16 +333,16 @@ export default function CustomerReviewPage() {
             content: `당신은 실제 맛집 방문 후기를 쓰는 ${ageLabel} ${genderLabel} 고객입니다. 네이버 플레이스에 올릴 리뷰를 작성하세요.
 
 [매장 정보]
-- 매장명: ${STORE_DATA.name}
-- 위치: ${STORE_DATA.address}
-- 대표 키워드: ${STORE_DATA.mainKeyword}
-- 서브 키워드: ${STORE_DATA.subKeywords.join(', ')}
+- 매장명: ${STORE.name}
+- 위치: ${STORE.address}
+- 대표 키워드: ${STORE.mainKeyword}
+- 서브 키워드: ${STORE.subKeywords.join(', ')}
 - 별점: ${rating}점
 
 [주문한 메뉴 (메뉴명만, 가격 언급 금지)]
 ${menuOnlyInfo || '정보 없음'}
 
-[가격에 대한 표현 (이 문구를 자연스럽게 변형해서 사용)]
+[가격에 대한 표현]
 ${priceExpression || ''}
 
 [음식 사진 분석]
@@ -306,19 +352,16 @@ ${photoDesc || '사진 없음'}
 ${toneGuide}
 
 [절대 지켜야 할 규칙]
-- 가격 숫자(예: 8,000원, 15,000원 등) 절대 언급 금지
-- 가격 대신 위 [가격에 대한 표현]을 자연스럽게 변형해서 녹여낼 것
+- 가격 숫자 절대 언급 금지
 - 별점 이모지(★☆⭐) 절대 사용 금지
 - "안녕하세요", "방문했어요" 같은 뻔한 시작 금지
 - 문단 사이 줄바꿈 한 번만
-- 한 문장이 너무 길면 자연스럽게 끊기
 - 실제 사람이 쓴 것처럼 자연스럽게
-- 대표 키워드 "${STORE_DATA.mainKeyword}" 첫 문단에 자연스럽게 포함
+- 대표 키워드 "${STORE.mainKeyword}" 첫 문단에 자연스럽게 포함
 - 서브 키워드 2개 이상 자연스럽게 녹이기
 - 메뉴명 자연스럽게 언급 (가격 없이)
-- 음식 비주얼 묘사 포함 (사진 있을 경우)
 - 재방문 의사로 마무리
-- 리뷰 본문만 출력 (제목, 설명, 해시태그 없이)
+- 리뷰 본문만 출력
 - 길이: 150~220자`,
           }],
         }),
@@ -344,24 +387,22 @@ ${toneGuide}
           max_tokens: 600,
           messages: [{
             role: 'user',
-            content: `아래 네이버 플레이스 리뷰 초안을 퇴고해줘. 실제 ${ageLabel} ${genderLabel}이 직접 작성한 것처럼 자연스럽게 다듬어줘.
+            content: `아래 네이버 플레이스 리뷰 초안을 퇴고해줘.
 
 [초안]
 ${draft}
 
 [퇴고 기준]
-1. 맞춤법 & 띄어쓰기 철저히 교정
+1. 맞춤법 & 띄어쓰기 교정
 2. 어색한 문장 자연스럽게 수정
-3. 별점 이모지(★☆⭐) 있으면 반드시 제거
-4. 가격 숫자가 남아있으면 반드시 제거 (가성비, 합리적, 가치 있다 등의 표현으로 대체)
-5. 문단 사이 줄바꿈 1회만 유지
-6. 너무 광고 같거나 과장된 표현 → 실제 후기처럼 순화
+3. 별점 이모지(★☆⭐) 있으면 제거
+4. 가격 숫자 있으면 제거 (가성비 표현으로 대체)
+5. 문단 사이 줄바꿈 1회만
+6. 광고 같은 표현 → 실제 후기처럼 순화
 7. 느낌표 두 개 이상(!!) 금지
-8. 전체 흐름이 한 사람이 자연스럽게 쓴 것처럼 통일감 있게
-9. 키워드가 어색하게 끼워진 경우 자연스럽게 재배치
-10. 150~220자 유지
+8. 150~220자 유지
 
-퇴고된 리뷰 본문만 출력 (설명, 코멘트 없이)`,
+퇴고된 리뷰 본문만 출력 (설명 없이)`,
           }],
         }),
       });
@@ -369,6 +410,18 @@ ${draft}
       const reviewData = await reviewRes.json();
       const finalReview = reviewData.content?.[0]?.text || draft;
       setAnalysisProgress(100);
+
+      // ✅ Step 9: 생성된 리뷰 Supabase DB에 저장
+      await supabase.from('generated_reviews').insert({
+        store_id: STORE.id,
+        review_text: finalReview,
+        rating: rating,
+        menu_items: extractedMenu,
+        gender: gender,
+        age_group: age,
+        tone: tone,
+      });
+
       setGeneratedReview(finalReview);
       setStep(3);
 
@@ -385,20 +438,61 @@ ${draft}
     setTimeout(() => setCopied(false), 3000);
   };
 
+  // ── 로딩 중 ─────────────────────────────────────────────────
+  if (storeLoading) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center">
+        <div className="text-center">
+          <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-orange-400 to-violet-500 flex items-center justify-center mx-auto mb-4 shadow-lg">
+            <Sparkles size={28} className="text-white animate-spin" />
+          </div>
+          <p className="text-gray-500 text-sm font-medium">매장 정보를 불러오는 중...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // ── 매장 없음 ────────────────────────────────────────────────
+  if (!storeData) {
+    return (
+      <div className="min-h-screen bg-white flex items-center justify-center px-6">
+        <div className="text-center">
+          <p className="text-4xl mb-4">😢</p>
+          <h2 className="text-gray-800 font-bold text-lg mb-2">매장을 찾을 수 없어요</h2>
+          <p className="text-gray-500 text-sm">QR코드를 다시 스캔해 주세요</p>
+        </div>
+      </div>
+    );
+  }
+
+  // ✅ DB 데이터 → 컴포넌트용 변수
+  const STORE = {
+    id: storeData.id,
+    name: storeData.name,
+    category: storeData.category || '',
+    address: storeData.address || '',
+    mainKeyword: storeData.main_keyword || '',
+    subKeywords: storeData.sub_keywords || [],
+    tone: storeData.tone || 'friendly',
+    reward: storeData.reward_text || '',
+    naverUrl: storeData.naver_url || '#',
+    coverColor: storeData.cover_color || 'from-orange-400 via-pink-400 to-violet-500',
+  };
+
   // ── 인트로 ──────────────────────────────────────────────────
   if (step === 0) {
     return (
       <div className="min-h-screen bg-white flex flex-col">
-        <div className={`bg-gradient-to-br ${STORE_DATA.coverColor} px-6 pt-14 pb-10 relative overflow-hidden`}>
+        <div className={`bg-gradient-to-br ${STORE.coverColor} px-6 pt-14 pb-10 relative overflow-hidden`}>
           <div className="absolute -top-10 -right-10 w-48 h-48 bg-white/10 rounded-full blur-2xl" />
           <div className="relative text-center">
             <div className="w-20 h-20 bg-white/20 backdrop-blur-sm rounded-3xl flex items-center justify-center mx-auto mb-4 border border-white/30">
               <span className="text-3xl">☕</span>
             </div>
-            <h1 className="text-white font-black text-2xl">{STORE_DATA.name}</h1>
+            <h1 className="text-white font-black text-2xl">{STORE.name}</h1>
             <div className="flex items-center justify-center gap-1.5 mt-2">
               <MapPin size={13} className="text-white/70" />
-              <p className="text-white/70 text-sm">{STORE_DATA.address}</p>
+              <p className="text-white/70 text-sm">{STORE.address}</p>
             </div>
           </div>
         </div>
@@ -408,7 +502,7 @@ ${draft}
               <Gift size={18} className="text-amber-500 flex-shrink-0" />
               <div>
                 <p className="text-xs text-amber-600 font-semibold">리뷰 작성 완료 시 즉시 지급!</p>
-                <p className="text-sm font-bold text-amber-800">{STORE_DATA.reward}</p>
+                <p className="text-sm font-bold text-amber-800">{STORE.reward}</p>
               </div>
             </div>
             <h2 className="text-gray-900 font-black text-xl mb-1">1분만에 리뷰 완성! ✨</h2>
@@ -430,7 +524,7 @@ ${draft}
               ))}
             </div>
             <button onClick={() => setStep(1)}
-              className={`w-full py-4 rounded-2xl bg-gradient-to-r ${STORE_DATA.coverColor} text-white font-black text-base shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2`}>
+              className={`w-full py-4 rounded-2xl bg-gradient-to-r ${STORE.coverColor} text-white font-black text-base shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2`}>
               <Camera size={20} />리뷰 작성 시작하기<ChevronRight size={18} />
             </button>
             <p className="text-center text-xs text-gray-400 mt-3">평균 소요시간 <span className="font-bold text-gray-600">1분 이내</span> · 개인정보 수집 없음</p>
@@ -453,7 +547,7 @@ ${draft}
               <ChevronLeft size={18} className="text-gray-600" />
             </button>
             <div className="flex-1">
-              <p className="text-xs text-gray-400">{STORE_DATA.name}</p>
+              <p className="text-xs text-gray-400">{STORE.name}</p>
               <h2 className="text-gray-900 font-bold text-base leading-none">사진 · 스타일 설정</h2>
             </div>
             <div className="flex gap-1">
@@ -465,7 +559,6 @@ ${draft}
         </div>
 
         <div className="px-5 py-5 space-y-4 pb-36">
-
           {/* 별점 */}
           <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
             <p className="text-gray-700 font-bold text-sm mb-3">방문 만족도</p>
@@ -487,9 +580,7 @@ ${draft}
             <div className="grid grid-cols-3 gap-2">
               {GENDER_OPTIONS.map(g => (
                 <button key={g.id} onClick={() => setGender(g.id)}
-                  className={`flex flex-col items-center gap-1.5 py-3.5 rounded-2xl border-2 transition-all ${
-                    gender === g.id ? 'border-violet-500 bg-violet-50' : 'border-gray-100 bg-gray-50'
-                  }`}>
+                  className={`flex flex-col items-center gap-1.5 py-3.5 rounded-2xl border-2 transition-all ${gender === g.id ? 'border-violet-500 bg-violet-50' : 'border-gray-100 bg-gray-50'}`}>
                   <span className="text-2xl">{g.emoji}</span>
                   <span className={`text-xs font-bold ${gender === g.id ? 'text-violet-600' : 'text-gray-500'}`}>{g.label}</span>
                 </button>
@@ -503,9 +594,7 @@ ${draft}
             <div className="grid grid-cols-5 gap-2">
               {AGE_OPTIONS.map(a => (
                 <button key={a.id} onClick={() => setAge(a.id)}
-                  className={`flex flex-col items-center gap-1.5 py-3 rounded-2xl border-2 transition-all ${
-                    age === a.id ? 'border-pink-400 bg-pink-50' : 'border-gray-100 bg-gray-50'
-                  }`}>
+                  className={`flex flex-col items-center gap-1.5 py-3 rounded-2xl border-2 transition-all ${age === a.id ? 'border-pink-400 bg-pink-50' : 'border-gray-100 bg-gray-50'}`}>
                   <span className="text-xl">{a.emoji}</span>
                   <span className={`text-xs font-bold ${age === a.id ? 'text-pink-600' : 'text-gray-500'}`}>{a.label}</span>
                 </button>
@@ -519,9 +608,7 @@ ${draft}
             <div className="grid grid-cols-2 gap-2">
               {TONE_OPTIONS.map(t => (
                 <button key={t.id} onClick={() => setTone(t.id)}
-                  className={`flex items-center gap-3 p-3.5 rounded-2xl border-2 text-left transition-all ${
-                    tone === t.id ? 'border-orange-400 bg-orange-50' : 'border-gray-100 bg-gray-50'
-                  }`}>
+                  className={`flex items-center gap-3 p-3.5 rounded-2xl border-2 text-left transition-all ${tone === t.id ? 'border-orange-400 bg-orange-50' : 'border-gray-100 bg-gray-50'}`}>
                   <span className="text-2xl flex-shrink-0">{t.emoji}</span>
                   <div className="min-w-0">
                     <p className={`text-xs font-bold leading-none ${tone === t.id ? 'text-orange-600' : 'text-gray-700'}`}>{t.label}</p>
@@ -552,7 +639,7 @@ ${draft}
               <p className="text-gray-700 font-bold text-sm">영수증 사진</p>
               <span className="text-xs bg-red-50 text-red-400 px-2 py-0.5 rounded-full font-medium border border-red-100">필수</span>
             </div>
-            <p className="text-xs text-gray-400 mb-4">메뉴 파악 + 가격대 분석 → 리뷰에 자연스럽게 반영해요</p>
+            <p className="text-xs text-gray-400 mb-4">메뉴 파악 + 가격대 분석 → 리뷰에 자연스럽게 반영</p>
             <input ref={receiptCameraRef} type="file" accept="image/*" capture="environment" multiple className="hidden" onChange={e => handleFileUpload(e.target.files, 'receipt')} />
             <input ref={receiptGalleryRef} type="file" accept="image/*" multiple className="hidden" onChange={e => handleFileUpload(e.target.files, 'receipt')} />
             <div className="grid grid-cols-2 gap-3 mb-4">
@@ -642,7 +729,7 @@ ${draft}
         <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 p-5">
           <button onClick={generateReview} disabled={receipts.length === 0}
             className={`w-full py-4 rounded-2xl font-black text-base text-white shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 ${
-              receipts.length > 0 ? `bg-gradient-to-r ${STORE_DATA.coverColor}` : 'bg-gray-200 text-gray-400'
+              receipts.length > 0 ? `bg-gradient-to-r ${STORE.coverColor}` : 'bg-gray-200 text-gray-400'
             }`}>
             <Sparkles size={20} />AI 맞춤 리뷰 생성하기
           </button>
@@ -664,8 +751,8 @@ ${draft}
       <div className="min-h-screen bg-white flex flex-col items-center justify-center px-8">
         <div className="text-center w-full max-w-sm">
           <div className="relative w-24 h-24 mx-auto mb-6">
-            <div className={`absolute inset-0 rounded-full bg-gradient-to-br ${STORE_DATA.coverColor} opacity-20 animate-ping`} />
-            <div className={`relative w-24 h-24 rounded-full bg-gradient-to-br ${STORE_DATA.coverColor} flex items-center justify-center shadow-xl`}>
+            <div className={`absolute inset-0 rounded-full bg-gradient-to-br ${STORE.coverColor} opacity-20 animate-ping`} />
+            <div className={`relative w-24 h-24 rounded-full bg-gradient-to-br ${STORE.coverColor} flex items-center justify-center shadow-xl`}>
               <Sparkles size={32} className="text-white animate-spin" />
             </div>
           </div>
@@ -680,12 +767,12 @@ ${draft}
             </span>
           </div>
           <div className="w-full bg-gray-100 rounded-full h-2 mb-8">
-            <div className={`h-2 rounded-full bg-gradient-to-r ${STORE_DATA.coverColor} transition-all duration-700`} style={{ width: `${analysisProgress}%` }} />
+            <div className={`h-2 rounded-full bg-gradient-to-r ${STORE.coverColor} transition-all duration-700`} style={{ width: `${analysisProgress}%` }} />
           </div>
           <div className="space-y-3 text-left">
             {steps.map((s, i) => (
               <div key={i} className="flex items-center gap-3">
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 transition-all ${s.done ? `bg-gradient-to-br ${STORE_DATA.coverColor}` : 'bg-gray-100'}`}>
+                <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 transition-all ${s.done ? `bg-gradient-to-br ${STORE.coverColor}` : 'bg-gray-100'}`}>
                   {s.done ? <Check size={12} className="text-white" /> : <Loader2 size={12} className="text-gray-400 animate-spin" />}
                 </div>
                 <p className={`text-sm ${s.done ? 'text-gray-800 font-semibold' : 'text-gray-400'}`}>{s.label}</p>
@@ -701,7 +788,7 @@ ${draft}
   if (step === 3) {
     return (
       <div className="min-h-screen bg-gray-50">
-        <div className={`bg-gradient-to-br ${STORE_DATA.coverColor} px-5 pt-12 pb-8 text-center relative overflow-hidden`}>
+        <div className={`bg-gradient-to-br ${STORE.coverColor} px-5 pt-12 pb-8 text-center relative overflow-hidden`}>
           <div className="absolute inset-0 bg-black/10" />
           <div className="relative">
             <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-3 backdrop-blur-sm border border-white/30">
@@ -729,7 +816,7 @@ ${draft}
                   <span key={i} className="text-xs px-2.5 py-1 bg-violet-50 text-violet-700 rounded-lg font-medium border border-violet-100">{menu}</span>
                 ))}
               </div>
-              <p className="text-xs text-gray-400 mt-2">※ 가격은 가격대 판단에만 활용됩니다 (리뷰에 미노출)</p>
+              <p className="text-xs text-gray-400 mt-2">※ 가격은 가격대 판단에만 활용됩니다 (리뷰 미노출)</p>
             </div>
           )}
 
@@ -747,7 +834,7 @@ ${draft}
               <p className="text-gray-700 text-sm leading-relaxed whitespace-pre-wrap">{generatedReview}</p>
             </div>
             <div className="flex flex-wrap gap-1.5 mt-3">
-              {[STORE_DATA.mainKeyword, ...STORE_DATA.subKeywords].map(kw => (
+              {[STORE.mainKeyword, ...STORE.subKeywords].map(kw => (
                 <span key={kw} className="text-xs px-2 py-1 bg-violet-50 text-violet-600 rounded-lg font-medium border border-violet-100">#{kw}</span>
               ))}
             </div>
@@ -755,12 +842,12 @@ ${draft}
 
           <button onClick={copyReview}
             className={`w-full py-4 rounded-2xl font-black text-base transition-all active:scale-95 flex items-center justify-center gap-2 shadow-lg ${
-              copied ? 'bg-emerald-500 text-white' : `bg-gradient-to-r ${STORE_DATA.coverColor} text-white`
+              copied ? 'bg-emerald-500 text-white' : `bg-gradient-to-r ${STORE.coverColor} text-white`
             }`}>
             {copied ? <><Check size={20} />클립보드에 복사됨!</> : <><Copy size={20} />리뷰 전체 복사하기</>}
           </button>
 
-          <a href={STORE_DATA.naverUrl} target="_blank" rel="noopener noreferrer"
+          <a href={STORE.naverUrl} target="_blank" rel="noopener noreferrer"
             className="w-full py-4 rounded-2xl font-bold text-sm border-2 border-emerald-500 text-emerald-600 flex items-center justify-center gap-2 bg-white active:bg-emerald-50 transition-all">
             <ExternalLink size={18} />네이버 플레이스 열기 (붙여넣기)
           </a>
@@ -772,7 +859,7 @@ ${draft}
                 <p className="text-amber-800 font-bold text-sm">보상 지급 안내</p>
                 <p className="text-amber-600 text-xs mt-0.5 leading-relaxed">
                   네이버 플레이스에 리뷰 등록 후 사장님께 화면을 보여주시면<br />
-                  <span className="font-bold">{STORE_DATA.reward}</span>를 즉시 드려요!
+                  <span className="font-bold">{STORE.reward}</span>를 즉시 드려요!
                 </p>
               </div>
             </div>
