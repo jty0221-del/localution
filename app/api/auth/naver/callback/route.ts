@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 
+export const runtime = 'nodejs';
+
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
   const code = searchParams.get('code');
@@ -10,50 +12,55 @@ export async function GET(request: NextRequest) {
     return NextResponse.redirect(`${baseUrl}/login?error=no_code`);
   }
 
-  const clientId = process.env.NAVER_CLIENT_ID || '';
-  const clientSecret = process.env.NAVER_CLIENT_SECRET || '';
-
-  // ✅ 환경변수 확인용
-  if (!clientId || !clientSecret) {
-    return NextResponse.redirect(`${baseUrl}/login?error=no_env&cid=${clientId.slice(0,4)}`);
-  }
-
   try {
-    const params = new URLSearchParams({
-      grant_type: 'authorization_code',
-      client_id: clientId,
-      client_secret: clientSecret,
-      code: code,
-      state: state || '',
-    });
+    const clientId = process.env.NAVER_CLIENT_ID ?? '';
+    const clientSecret = process.env.NAVER_CLIENT_SECRET ?? '';
+
+    if (!clientId || !clientSecret) {
+      return NextResponse.redirect(`${baseUrl}/login?error=no_env`);
+    }
+
+    // ✅ 네이버 토큰 발급
+    const tokenParams = new URLSearchParams();
+    tokenParams.append('grant_type', 'authorization_code');
+    tokenParams.append('client_id', clientId);
+    tokenParams.append('client_secret', clientSecret);
+    tokenParams.append('code', code);
+    tokenParams.append('state', state ?? '');
 
     const tokenRes = await fetch('https://nid.naver.com/oauth2.0/token', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-      body: params.toString(),
+      headers: {
+        'Content-Type': 'application/x-www-form-urlencoded',
+        'Accept': 'application/json',
+      },
+      body: tokenParams,
     });
 
-    const tokenText = await tokenRes.text();
-    let tokenData: Record<string, string> = {};
-
-    try {
-      tokenData = JSON.parse(tokenText);
-    } catch {
-      return NextResponse.redirect(`${baseUrl}/login?error=parse_error&raw=${encodeURIComponent(tokenText.slice(0, 100))}`);
+    if (!tokenRes.ok) {
+      return NextResponse.redirect(`${baseUrl}/login?error=token_http_${tokenRes.status}`);
     }
 
+    const tokenData = await tokenRes.json();
     const accessToken = tokenData.access_token;
 
     if (!accessToken) {
-      // ✅ 실제 에러 내용 URL에 담아서 확인
-      return NextResponse.redirect(
-        `${baseUrl}/login?error=no_token&naver_error=${encodeURIComponent(tokenData.error || '')}&desc=${encodeURIComponent(tokenData.error_description || '')}`
-      );
+      const errMsg = encodeURIComponent(tokenData.error_description || tokenData.error || 'unknown');
+      return NextResponse.redirect(`${baseUrl}/login?error=no_token&msg=${errMsg}`);
     }
 
+    // ✅ 사용자 정보 조회
     const userRes = await fetch('https://openapi.naver.com/v1/nid/me', {
-      headers: { Authorization: `Bearer ${accessToken}` },
+      method: 'GET',
+      headers: {
+        'Authorization': `Bearer ${accessToken}`,
+        'Accept': 'application/json',
+      },
     });
+
+    if (!userRes.ok) {
+      return NextResponse.redirect(`${baseUrl}/login?error=user_http_${userRes.status}`);
+    }
 
     const userData = await userRes.json();
     const naverUser = userData.response;
@@ -62,6 +69,7 @@ export async function GET(request: NextRequest) {
       return NextResponse.redirect(`${baseUrl}/login?error=no_user`);
     }
 
+    // ✅ 쿠키 저장 후 메인으로
     const userInfo = encodeURIComponent(JSON.stringify({
       id: naverUser.id,
       name: naverUser.name || naverUser.nickname || '사장님',
@@ -74,11 +82,13 @@ export async function GET(request: NextRequest) {
       path: '/',
       httpOnly: false,
       sameSite: 'lax',
+      secure: true,
     });
 
     return response;
 
-  } catch (err) {
-    return NextResponse.redirect(`${baseUrl}/login?error=exception&msg=${encodeURIComponent(String(err).slice(0,100))}`);
+  } catch (err: unknown) {
+    const msg = encodeURIComponent(String(err).slice(0, 150));
+    return NextResponse.redirect(`${baseUrl}/login?error=exception&msg=${msg}`);
   }
 }
