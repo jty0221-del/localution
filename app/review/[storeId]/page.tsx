@@ -2,691 +2,491 @@
 
 import { useState, useRef } from 'react';
 import {
-  Camera, Receipt, Star, Copy, Check, ChevronRight,
-  ChevronLeft, Sparkles, Gift, MapPin,
-  ImagePlus, X, Loader2, ThumbsUp, ExternalLink, AlertCircle
+  Star, Camera, Upload, Loader2, Copy, Check,
+  ChevronRight, ChevronLeft, Sparkles, Gift,
+  MapPin, ExternalLink, X, Image
 } from 'lucide-react';
 
-// ✅ 하드코딩 매장 데이터 (Supabase 연결 전 임시)
-const STORE = {
-  id: 'a51a7a5f-35bf-4543-95fa-8f8435d34c31',
+const STORE_INFO = {
   name: '하랑마케팅 카페',
-  category: '카페 · 디저트',
   address: '경기도 부천시 소사구 신중동',
-  mainKeyword: '부천 맛집',
-  subKeywords: ['가성비', '회식장소', '신중동카페'],
-  tone: 'gen-z',
-  reward: '로컬루션 포인트 2,000P',
+  category: '카페',
+  reward: '리뷰 작성 시 음료 1잔 무료!',
   naverUrl: 'https://naver.me/example',
-  coverColor: 'from-orange-400 via-pink-400 to-violet-500',
+  googleUrl: 'https://g.page/example',
+  kakaoUrl: 'https://place.map.kakao.com/example',
 };
 
-const GENDER_OPTIONS = [
-  { id: 'male', label: '남성', emoji: '👨' },
-  { id: 'female', label: '여성', emoji: '👩' },
-  { id: 'none', label: '선택 안 함', emoji: '🙂' },
+const STEPS = ['정보 입력', '사진 업로드', '리뷰 생성', '등록하기'];
+
+const ageGroups = ['10대', '20대', '30대', '40대', '50대 이상'];
+const genderOptions = [{ id: 'male', label: '남성', emoji: '👨' }, { id: 'female', label: '여성', emoji: '👩' }];
+const visitTypes = ['혼자', '친구와', '연인과', '가족과', '동료와'];
+const toneOptions = [
+  { id: 'natural', label: '자연스럽게', emoji: '😊' },
+  { id: 'cute', label: '귀엽게', emoji: '🥰' },
+  { id: 'formal', label: '정중하게', emoji: '🤵' },
+  { id: 'trendy', label: '트렌디하게', emoji: '✨' },
 ];
-
-const AGE_OPTIONS = [
-  { id: '10s', label: '10대', emoji: '🧒' },
-  { id: '20s', label: '20대', emoji: '🧑' },
-  { id: '30s', label: '30대', emoji: '👨‍💼' },
-  { id: '40s', label: '40대', emoji: '👩‍💼' },
-  { id: '50s', label: '50대+', emoji: '🧓' },
-];
-
-const TONE_OPTIONS = [
-  { id: 'gen-z', emoji: '🔥', label: 'Z세대 힙', desc: '트렌디하고 솔직한 말투' },
-  { id: 'friendly', emoji: '😊', label: '친근한 이웃', desc: '따뜻하고 편안한 말투' },
-  { id: 'mom', emoji: '💛', label: '맘카페 찐후기', desc: '신뢰감 있는 엄마 말투' },
-  { id: 'gourmet', emoji: '🍷', label: '미식가', desc: '격조 있고 전문적인 말투' },
-  { id: 'simple', emoji: '✍️', label: '심플 & 팩트', desc: '짧고 명확한 핵심 위주' },
-  { id: 'excited', emoji: '🎉', label: '신나는 후기', desc: '감탄사 많고 에너지 넘침' },
-];
-
-type UploadedFile = { file: File; preview: string; type: 'receipt' | 'food' };
-
-const convertToJpeg = (file: File): Promise<{ base64: string; mediaType: string }> => {
-  return new Promise((resolve) => {
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    const img = new Image();
-    const url = URL.createObjectURL(file);
-    img.onload = () => {
-      const maxSize = 1200;
-      let { width, height } = img;
-      if (width > maxSize || height > maxSize) {
-        if (width > height) { height = (height / width) * maxSize; width = maxSize; }
-        else { width = (width / height) * maxSize; height = maxSize; }
-      }
-      canvas.width = width; canvas.height = height;
-      ctx?.drawImage(img, 0, 0, width, height);
-      URL.revokeObjectURL(url);
-      resolve({ base64: canvas.toDataURL('image/jpeg', 0.85).split(',')[1], mediaType: 'image/jpeg' });
-    };
-    img.onerror = () => {
-      URL.revokeObjectURL(url);
-      const reader = new FileReader();
-      reader.onload = () => resolve({ base64: (reader.result as string).split(',')[1], mediaType: 'image/jpeg' });
-      reader.readAsDataURL(file);
-    };
-    img.src = url;
-  });
-};
-
-const analyzePriceLevel = (items: string[], total: string): string => {
-  try {
-    const totalNum = parseInt(total.replace(/[^0-9]/g, '')) || 0;
-    const menuCount = items.length || 1;
-    const perPerson = totalNum / menuCount;
-    if (totalNum === 0) return 'unknown';
-    if (perPerson <= 6000) return 'very_cheap';
-    if (perPerson <= 12000) return 'cheap';
-    if (perPerson <= 20000) return 'normal';
-    if (perPerson <= 35000) return 'expensive';
-    return 'premium';
-  } catch { return 'unknown'; }
-};
-
-const getPriceExpression = (level: string): string => {
-  const map: Record<string, string> = {
-    'very_cheap': '가격이 부담 없어서 자주 오고 싶은 곳이에요. 이 퀄리티에 이 가격이라니 진짜 가성비 맛집',
-    'cheap': '가격 대비 퀄리티가 훌륭해서 만족스러웠어요. 가성비 면에서 확실히 합격',
-    'normal': '가격이 적당한 편이라 부담 없이 즐길 수 있었어요',
-    'expensive': '가격대가 있는 편이지만 그만한 가치가 충분히 있었어요',
-    'premium': '가격이 높은 편이지만 퀄리티를 생각하면 충분히 그럴만한 가치가 있는 곳이에요',
-    'unknown': '가격 대비 만족도가 높았어요',
-  };
-  return map[level] || map['unknown'];
-};
 
 export default function CustomerReviewPage() {
   const [step, setStep] = useState(0);
-  const [uploadedFiles, setUploadedFiles] = useState<UploadedFile[]>([]);
-  const [rating, setRating] = useState(5);
+  const [rating, setRating] = useState(0);
   const [hoverRating, setHoverRating] = useState(0);
-  const [gender, setGender] = useState('none');
-  const [age, setAge] = useState('20s');
-  const [tone, setTone] = useState('friendly');
-  const [analysisStep, setAnalysisStep] = useState('');
-  const [analysisProgress, setAnalysisProgress] = useState(0);
+  const [age, setAge] = useState('');
+  const [gender, setGender] = useState('');
+  const [visitType, setVisitType] = useState('');
+  const [tone, setTone] = useState('natural');
+  const [photos, setPhotos] = useState<string[]>([]);
+  const [photoFiles, setPhotoFiles] = useState<File[]>([]);
   const [generatedReview, setGeneratedReview] = useState('');
-  const [extractedMenu, setExtractedMenu] = useState<string[]>([]);
-  const [copied, setCopied] = useState(false);
-  const [error, setError] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
+  const [copied, setCopied] = useState('');
+  const [selectedPlatform, setSelectedPlatform] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
-  const receiptCameraRef = useRef<HTMLInputElement>(null);
-  const receiptGalleryRef = useRef<HTMLInputElement>(null);
-  const foodCameraRef = useRef<HTMLInputElement>(null);
-  const foodGalleryRef = useRef<HTMLInputElement>(null);
+  const toBase64 = (file: File): Promise<string> => new Promise(resolve => {
+    const reader = new FileReader();
+    reader.onload = () => resolve((reader.result as string).split(',')[1]);
+    reader.readAsDataURL(file);
+  });
 
-  const handleFileUpload = (files: FileList | null, type: 'receipt' | 'food') => {
-    if (!files) return;
-    setUploadedFiles(prev => [...prev, ...Array.from(files).map(file => ({
-      file, preview: URL.createObjectURL(file), type,
-    }))]);
-    setError('');
-  };
-
-  const removeFile = (file: UploadedFile) => setUploadedFiles(prev => prev.filter(f => f !== file));
-  const receipts = uploadedFiles.filter(f => f.type === 'receipt');
-  const foodPhotos = uploadedFiles.filter(f => f.type === 'food');
-
-  const getTonePrompt = () => {
-    const genderText = gender === 'male' ? '남성' : gender === 'female' ? '여성' : '';
-    const ageText = AGE_OPTIONS.find(a => a.id === age)?.label || '20대';
-    const base = `작성자는 ${genderText} ${ageText} 고객입니다.`;
-    const toneMap: Record<string, string> = {
-      'gen-z': `${base} Z세대 감성, 힙하고 트렌디한 말투, 줄임말 자연스럽게, 이모지 1~2개만`,
-      'friendly': `${base} 친근하고 따뜻한 이웃 말투, 자연스러운 구어체`,
-      'mom': `${base} 맘카페 스타일, 꼼꼼하고 신뢰감 있는 말투`,
-      'gourmet': `${base} 진지한 미식가 스타일, 음식 묘사 풍부하고 격조 있게`,
-      'simple': `${base} 핵심만 짧게, 팩트 위주, 군더더기 없이 깔끔하게`,
-      'excited': `${base} 감탄사 많고 에너지 넘치는 말투, 신난 후기 스타일`,
-    };
-    return toneMap[tone] || toneMap['friendly'];
-  };
-
-  const callClaude = async (content: object[]) => {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': process.env.NEXT_PUBLIC_ANTHROPIC_API_KEY || '',
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
-      },
-      body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 600,
-        messages: [{ role: 'user', content }],
-      }),
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(e.target.files || []);
+    if (photos.length + files.length > 3) {
+      alert('사진은 최대 3장까지 업로드 가능해요!');
+      return;
+    }
+    files.forEach(file => {
+      setPhotoFiles(prev => [...prev, file]);
+      setPhotos(prev => [...prev, URL.createObjectURL(file)]);
     });
-    const data = await response.json();
-    return data.content?.[0]?.text || '';
+  };
+
+  const removePhoto = (idx: number) => {
+    setPhotos(prev => prev.filter((_, i) => i !== idx));
+    setPhotoFiles(prev => prev.filter((_, i) => i !== idx));
   };
 
   const generateReview = async () => {
-    setError('');
-    setStep(2);
-    setAnalysisProgress(0);
+    setIsGenerating(true);
+    setGeneratedReview('');
+
+    const toneGuide: Record<string, string> = {
+      natural: '자연스럽고 솔직한 말투',
+      cute: '귀엽고 친근한 이모지 활용 말투',
+      formal: '정중하고 격식 있는 말투',
+      trendy: 'MZ세대 트렌디한 말투',
+    };
 
     try {
-      // ── Step 1: 영수증 OCR ──
-      setAnalysisStep('🧾 영수증에서 메뉴를 읽는 중...');
-      setAnalysisProgress(10);
+      const messages: object[] = [];
+      const content: object[] = [];
 
-      const receiptContents: object[] = [];
-      for (const f of receipts) {
-        const { base64, mediaType } = await convertToJpeg(f.file);
-        receiptContents.push({ type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } });
-      }
-
-      let menuOnlyInfo = '';
-      let priceExpression = '';
-
-      if (receipts.length > 0) {
-        const ocrText = await callClaude([
-          ...receiptContents,
-          { type: 'text', text: `영수증 사진을 분석해줘.
-[규칙] 메뉴명은 실제 음식/음료 이름으로 교정 (예: 지몽→자몽)
-아래 JSON만 출력:
-{"items":["교정된 메뉴명"],"itemsWithPrice":["메뉴명 가격원"],"total":"총액원"}` }
-        ]);
-
-        try {
-          const parsed = JSON.parse(ocrText.replace(/```json|```/g, '').trim());
-          const menuNames: string[] = parsed.items || [];
-          const menuWithPrice: string[] = parsed.itemsWithPrice || [];
-          setExtractedMenu(menuWithPrice.length > 0 ? menuWithPrice : menuNames);
-          menuOnlyInfo = menuNames.length > 0 ? `주문 메뉴: ${menuNames.join(', ')}` : '';
-          priceExpression = getPriceExpression(analyzePriceLevel(menuWithPrice, parsed.total || ''));
-        } catch {
-          priceExpression = '가격 대비 만족도가 높았어요';
+      // 사진이 있으면 Vision AI 분석
+      if (photoFiles.length > 0) {
+        for (const file of photoFiles) {
+          const base64 = await toBase64(file);
+          content.push({
+            type: 'image',
+            source: { type: 'base64', media_type: file.type, data: base64 }
+          });
         }
       }
 
-      setAnalysisProgress(30);
-
-      // ── Step 2: 음식 사진 분석 ──
-      setAnalysisStep('📸 음식 사진을 분석하는 중...');
-      const foodContents: object[] = [];
-      for (const f of foodPhotos) {
-        const { base64, mediaType } = await convertToJpeg(f.file);
-        foodContents.push({ type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } });
-      }
-
-      let photoDesc = '';
-      if (foodPhotos.length > 0) {
-        photoDesc = await callClaude([
-          ...foodContents,
-          { type: 'text', text: '음식/매장 사진을 보고 맛있어 보이는 포인트와 비주얼 특징을 리뷰에 쓸 수 있는 생생한 묘사로 2~3줄만 써줘. 이모지나 별점 기호는 쓰지 마.' }
-        ]);
-      }
-
-      setAnalysisProgress(50);
-
-      // ── Step 3: 리뷰 초안 ──
-      setAnalysisStep('✍️ 리뷰 초안을 작성하는 중...');
-      const genderLabel = gender === 'male' ? '남성' : gender === 'female' ? '여성' : '';
-      const ageLabel = AGE_OPTIONS.find(a => a.id === age)?.label || '20대';
-
-      const draft = await callClaude([{
+      content.push({
         type: 'text',
-        text: `당신은 실제 맛집 방문 후기를 쓰는 ${ageLabel} ${genderLabel} 고객입니다.
+        text: `당신은 ${STORE_INFO.category} 방문 고객입니다.
 
-[매장 정보]
-- 매장명: ${STORE.name}
-- 위치: ${STORE.address}
-- 대표 키워드: ${STORE.mainKeyword}
-- 서브 키워드: ${STORE.subKeywords.join(', ')}
-- 별점: ${rating}점
+아래 정보를 바탕으로 네이버 플레이스에 올릴 리뷰를 작성해주세요.
 
-[주문 메뉴] ${menuOnlyInfo || '정보 없음'}
-[가격 표현] ${priceExpression}
-[사진 분석] ${photoDesc || '없음'}
-[말투] ${getTonePrompt()}
+매장명: ${STORE_INFO.name}
+방문자 정보: ${age} ${gender === 'male' ? '남성' : '여성'}, ${visitType} 방문
+별점: ${rating}점
+말투: ${toneGuide[tone]}
+${photoFiles.length > 0 ? '첨부된 사진을 참고해서 음식/음료/공간을 구체적으로 언급해주세요.' : ''}
 
-[규칙]
-- 가격 숫자 절대 금지
-- 별점 이모지(★☆⭐) 금지
-- 뻔한 시작("안녕하세요" 등) 금지
-- 문단 사이 줄바꿈 1번만
-- 대표 키워드 "${STORE.mainKeyword}" 첫 문단에 포함
-- 서브 키워드 2개 이상 포함
-- 150~220자
-- 리뷰 본문만 출력`
-      }]);
+규칙:
+- 3~5문장으로 자연스럽게
+- "${STORE_INFO.address.split(' ').slice(-1)[0]}" 지역명 자연스럽게 포함
+- 방문자 특성에 맞는 포인트 강조
+- 재방문 의사 표현으로 마무리
+- 리뷰 내용만 출력 (다른 설명 없이)`
+      });
 
-      setAnalysisProgress(75);
+      messages.push({ role: 'user', content });
 
-      // ── Step 4: 퇴고 ──
-      setAnalysisStep('🔍 맞춤법 · 자연스러움 검수 중...');
-      const finalReview = await callClaude([{
-        type: 'text',
-        text: `아래 리뷰를 퇴고해줘.
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': process.env.NEXT_PUBLIC_ANTHROPIC_API_KEY || '',
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true',
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 400,
+          messages,
+        })
+      });
 
-[초안]
-${draft}
-
-[기준]
-1. 맞춤법 & 띄어쓰기 교정
-2. 별점 이모지 제거
-3. 가격 숫자 제거
-4. 줄바꿈 1회만
-5. 광고 같은 표현 순화
-6. !! 금지
-7. 150~220자 유지
-8. 퇴고된 본문만 출력`
-      }]);
-
-      setAnalysisProgress(100);
-      setGeneratedReview(finalReview);
-      setStep(3);
-
-    } catch (err) {
-      console.error(err);
-      setError('오류가 발생했어요. 다시 시도해 주세요.');
-      setStep(1);
+      const data = await response.json();
+      setGeneratedReview(data.content?.[0]?.text || '리뷰 생성 실패');
+    } catch {
+      setGeneratedReview('오류가 발생했어요. 다시 시도해주세요.');
+    } finally {
+      setIsGenerating(false);
     }
   };
 
-  const copyReview = () => {
+  const copyAndOpen = (platform: string, url: string) => {
     navigator.clipboard.writeText(generatedReview);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 3000);
+    setCopied(platform);
+    setSelectedPlatform(platform);
+    setTimeout(() => {
+      window.open(url, '_blank');
+    }, 500);
   };
 
-  // ── 인트로 ──
-  if (step === 0) {
-    return (
-      <div className="min-h-screen bg-white flex flex-col">
-        <div className={`bg-gradient-to-br ${STORE.coverColor} px-6 pt-14 pb-10 relative overflow-hidden`}>
-          <div className="absolute -top-10 -right-10 w-48 h-48 bg-white/10 rounded-full blur-2xl" />
-          <div className="relative text-center">
-            <div className="w-20 h-20 bg-white/20 backdrop-blur-sm rounded-3xl flex items-center justify-center mx-auto mb-4 border border-white/30">
-              <span className="text-3xl">☕</span>
-            </div>
-            <h1 className="text-white font-black text-2xl">{STORE.name}</h1>
-            <div className="flex items-center justify-center gap-1.5 mt-2">
-              <MapPin size={13} className="text-white/70" />
-              <p className="text-white/70 text-sm">{STORE.address}</p>
-            </div>
+  const canNext = () => {
+    if (step === 0) return rating > 0 && age && gender && visitType;
+    if (step === 1) return true;
+    if (step === 2) return generatedReview.length > 0;
+    return true;
+  };
+
+  return (
+    <div className="min-h-screen bg-[#F8FAFB] flex flex-col max-w-md mx-auto">
+
+      {/* 매장 헤더 */}
+      <div className="bg-gradient-to-br from-[#3182F6] to-[#1B6EF3] px-5 pt-12 pb-8">
+        <div className="flex items-center gap-2 mb-3">
+          <div className="w-8 h-8 rounded-xl bg-white/20 flex items-center justify-center">
+            <MapPin size={16} className="text-white" />
           </div>
+          <span className="text-blue-100 text-xs">{STORE_INFO.address}</span>
         </div>
-        <div className="flex-1 px-5 -mt-5">
-          <div className="bg-white rounded-3xl shadow-2xl shadow-black/10 p-6 border border-gray-100">
-            <div className="flex items-center gap-2 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 mb-6">
-              <Gift size={18} className="text-amber-500 flex-shrink-0" />
-              <div>
-                <p className="text-xs text-amber-600 font-semibold">리뷰 작성 완료 시 즉시 지급!</p>
-                <p className="text-sm font-bold text-amber-800">{STORE.reward}</p>
-              </div>
-            </div>
-            <h2 className="text-gray-900 font-black text-xl mb-1">1분만에 리뷰 완성! ✨</h2>
-            <p className="text-gray-500 text-sm mb-6">영수증 + 사진만 올리면 AI가 내 스타일로 써드려요</p>
-            <div className="space-y-3 mb-7">
-              {[
-                { emoji: '🧾', title: '영수증 사진 올리기', desc: '카메라 촬영 또는 갤러리 선택 가능' },
-                { emoji: '👤', title: '내 스타일 설정', desc: '성별 · 나이대 · 말투를 선택하면 맞춤 리뷰 작성' },
-                { emoji: '🤖', title: 'AI 맞춤 리뷰 + 검수', desc: 'OCR 분석 → 초안 → 맞춤법 퇴고' },
-                { emoji: '📋', title: '복사 → 네이버 붙여넣기', desc: '원터치 복사 후 바로 등록!' },
-              ].map((item, i) => (
-                <div key={i} className="flex items-start gap-3">
-                  <div className="w-9 h-9 bg-gray-50 rounded-xl flex items-center justify-center flex-shrink-0 text-lg">{item.emoji}</div>
-                  <div className="pt-0.5">
-                    <p className="text-gray-800 text-sm font-bold">{item.title}</p>
-                    <p className="text-gray-400 text-xs mt-0.5">{item.desc}</p>
-                  </div>
-                </div>
-              ))}
-            </div>
-            <button onClick={() => setStep(1)}
-              className={`w-full py-4 rounded-2xl bg-gradient-to-r ${STORE.coverColor} text-white font-black text-base shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2`}>
-              <Camera size={20} />리뷰 작성 시작하기<ChevronRight size={18} />
-            </button>
-            <p className="text-center text-xs text-gray-400 mt-3">평균 소요시간 <span className="font-bold text-gray-600">1분 이내</span> · 개인정보 수집 없음</p>
-          </div>
-        </div>
-        <div className="py-6 text-center">
-          <p className="text-xs text-gray-300">Powered by <span className="font-bold text-violet-400">Localution AI</span></p>
+        <h1 className="text-white font-black text-2xl mb-1">{STORE_INFO.name}</h1>
+        <div className="flex items-center gap-2 mt-3 bg-white/15 rounded-2xl px-4 py-2.5">
+          <Gift size={15} className="text-amber-300 flex-shrink-0" />
+          <p className="text-white text-sm font-medium">{STORE_INFO.reward}</p>
         </div>
       </div>
-    );
-  }
 
-  // ── 업로드 + 스타일 ──
-  if (step === 1) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <div className="bg-white border-b border-gray-100 px-5 py-4 sticky top-0 z-10">
-          <div className="flex items-center gap-3">
-            <button onClick={() => setStep(0)} className="w-9 h-9 bg-gray-50 rounded-xl flex items-center justify-center">
-              <ChevronLeft size={18} className="text-gray-600" />
-            </button>
-            <div className="flex-1">
-              <p className="text-xs text-gray-400">{STORE.name}</p>
-              <h2 className="text-gray-900 font-bold text-base leading-none">사진 · 스타일 설정</h2>
-            </div>
-            <div className="flex gap-1">
-              {[1,2,3].map(i => (
-                <div key={i} className={`h-1.5 rounded-full transition-all ${i === 1 ? 'w-6 bg-violet-500' : 'w-1.5 bg-gray-200'}`} />
-              ))}
-            </div>
-          </div>
-        </div>
-
-        <div className="px-5 py-5 space-y-4 pb-36">
-          <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-            <p className="text-gray-700 font-bold text-sm mb-3">방문 만족도</p>
-            <div className="flex gap-1.5 justify-center">
-              {[1,2,3,4,5].map(star => (
-                <button key={star} onMouseEnter={() => setHoverRating(star)} onMouseLeave={() => setHoverRating(0)} onClick={() => setRating(star)}>
-                  <Star size={38} className={`transition-colors ${star <= (hoverRating || rating) ? 'text-amber-400 fill-amber-400' : 'text-gray-200'}`} />
-                </button>
-              ))}
-            </div>
-            <p className="text-center text-sm font-bold text-amber-500 mt-2">
-              {rating === 5 ? '최고예요! 🔥' : rating === 4 ? '좋아요 👍' : rating === 3 ? '보통이에요' : rating === 2 ? '별로였어요' : '실망했어요'}
-            </p>
-          </div>
-
-          <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-            <p className="text-gray-700 font-bold text-sm mb-3">👤 성별</p>
-            <div className="grid grid-cols-3 gap-2">
-              {GENDER_OPTIONS.map(g => (
-                <button key={g.id} onClick={() => setGender(g.id)}
-                  className={`flex flex-col items-center gap-1.5 py-3.5 rounded-2xl border-2 transition-all ${gender === g.id ? 'border-violet-500 bg-violet-50' : 'border-gray-100 bg-gray-50'}`}>
-                  <span className="text-2xl">{g.emoji}</span>
-                  <span className={`text-xs font-bold ${gender === g.id ? 'text-violet-600' : 'text-gray-500'}`}>{g.label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-            <p className="text-gray-700 font-bold text-sm mb-3">🎂 나이대</p>
-            <div className="grid grid-cols-5 gap-2">
-              {AGE_OPTIONS.map(a => (
-                <button key={a.id} onClick={() => setAge(a.id)}
-                  className={`flex flex-col items-center gap-1.5 py-3 rounded-2xl border-2 transition-all ${age === a.id ? 'border-pink-400 bg-pink-50' : 'border-gray-100 bg-gray-50'}`}>
-                  <span className="text-xl">{a.emoji}</span>
-                  <span className={`text-xs font-bold ${age === a.id ? 'text-pink-600' : 'text-gray-500'}`}>{a.label}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-            <p className="text-gray-700 font-bold text-sm mb-3">✍️ 리뷰 말투</p>
-            <div className="grid grid-cols-2 gap-2">
-              {TONE_OPTIONS.map(t => (
-                <button key={t.id} onClick={() => setTone(t.id)}
-                  className={`flex items-center gap-3 p-3.5 rounded-2xl border-2 text-left transition-all ${tone === t.id ? 'border-orange-400 bg-orange-50' : 'border-gray-100 bg-gray-50'}`}>
-                  <span className="text-2xl flex-shrink-0">{t.emoji}</span>
-                  <div className="min-w-0">
-                    <p className={`text-xs font-bold leading-none ${tone === t.id ? 'text-orange-600' : 'text-gray-700'}`}>{t.label}</p>
-                    <p className="text-gray-400 text-xs mt-0.5 leading-tight">{t.desc}</p>
-                  </div>
-                </button>
-              ))}
-            </div>
-            <div className="mt-3 p-3 rounded-xl bg-gray-50 border border-gray-100">
-              <p className="text-xs text-gray-500 font-medium mb-1">✨ 선택된 스타일</p>
-              <div className="flex items-center gap-2">
-                <span className="text-lg">{GENDER_OPTIONS.find(g => g.id === gender)?.emoji}</span>
-                <span className="text-sm font-bold text-gray-700">
-                  {AGE_OPTIONS.find(a => a.id === age)?.label}
-                  {gender !== 'none' ? ` ${GENDER_OPTIONS.find(g => g.id === gender)?.label}` : ''}
-                </span>
-                <span className="text-gray-300">·</span>
-                <span className="text-lg">{TONE_OPTIONS.find(t2 => t2.id === tone)?.emoji}</span>
-                <span className="text-sm text-gray-600">{TONE_OPTIONS.find(t2 => t2.id === tone)?.label}</span>
+      {/* 스텝 인디케이터 */}
+      <div className="bg-white border-b border-[#E5EAF2] px-5 py-4">
+        <div className="flex items-center justify-between">
+          {STEPS.map((s, i) => (
+            <div key={i} className="flex items-center gap-1.5">
+              <div className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-black transition-all ${
+                i < step ? 'bg-[#00C073] text-white' :
+                i === step ? 'bg-[#3182F6] text-white' :
+                'bg-[#F2F4F6] text-[#B0B8C1]'
+              }`}>
+                {i < step ? <Check size={12} /> : i + 1}
               </div>
+              <span className={`text-xs font-bold hidden sm:block ${i === step ? 'text-[#3182F6]' : 'text-[#B0B8C1]'}`}>{s}</span>
+              {i < STEPS.length - 1 && (
+                <div className={`w-6 h-0.5 mx-1 transition-all ${i < step ? 'bg-[#00C073]' : 'bg-[#E5EAF2]'}`} />
+              )}
             </div>
-          </div>
+          ))}
+        </div>
+      </div>
 
-          <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-            <div className="flex items-center gap-2 mb-1">
-              <Receipt size={16} className="text-violet-500" />
-              <p className="text-gray-700 font-bold text-sm">영수증 사진</p>
-              <span className="text-xs bg-red-50 text-red-400 px-2 py-0.5 rounded-full font-medium border border-red-100">필수</span>
-            </div>
-            <p className="text-xs text-gray-400 mb-4">메뉴 파악 + 가격대 분석 → 리뷰에 자연스럽게 반영</p>
-            <input ref={receiptCameraRef} type="file" accept="image/*" capture="environment" multiple className="hidden" onChange={e => handleFileUpload(e.target.files, 'receipt')} />
-            <input ref={receiptGalleryRef} type="file" accept="image/*" multiple className="hidden" onChange={e => handleFileUpload(e.target.files, 'receipt')} />
-            <div className="grid grid-cols-2 gap-3 mb-4">
-              <button onClick={() => receiptCameraRef.current?.click()}
-                className="flex flex-col items-center gap-2 py-6 rounded-2xl border-2 border-dashed border-violet-200 bg-violet-50/50 active:bg-violet-100 transition-all">
-                <div className="w-12 h-12 bg-violet-100 rounded-2xl flex items-center justify-center">
-                  <Camera size={22} className="text-violet-500" />
-                </div>
-                <p className="text-violet-600 font-bold text-sm">카메라 촬영</p>
-                <p className="text-violet-400 text-xs">지금 바로 찍기</p>
-              </button>
-              <button onClick={() => receiptGalleryRef.current?.click()}
-                className="flex flex-col items-center gap-2 py-6 rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50 active:bg-gray-100 transition-all">
-                <div className="w-12 h-12 bg-gray-100 rounded-2xl flex items-center justify-center">
-                  <ImagePlus size={22} className="text-gray-500" />
-                </div>
-                <p className="text-gray-600 font-bold text-sm">갤러리 선택</p>
-                <p className="text-gray-400 text-xs">저장된 사진 올리기</p>
-              </button>
-            </div>
-            {receipts.length > 0 && (
-              <div className="space-y-2">
-                {receipts.map((f, i) => (
-                  <div key={i} className="flex items-center gap-3 p-2.5 bg-violet-50 rounded-xl border border-violet-100">
-                    <img src={f.preview} className="w-12 h-12 rounded-xl object-cover flex-shrink-0" alt="receipt" />
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs text-gray-600 truncate">{f.file.name}</p>
-                      <p className="text-xs text-violet-500 mt-0.5">✓ 분석 예정</p>
-                    </div>
-                    <button onClick={() => removeFile(f)}><X size={16} className="text-gray-400" /></button>
-                  </div>
+      {/* 컨텐츠 */}
+      <div className="flex-1 px-5 py-6 space-y-5">
+
+        {/* ── Step 0: 기본 정보 ── */}
+        {step === 0 && (
+          <>
+            {/* 별점 */}
+            <div className="bg-white rounded-2xl border border-[#E5EAF2] p-5">
+              <p className="text-[#191F28] font-bold text-sm mb-4 text-center">오늘 방문은 어떠셨나요?</p>
+              <div className="flex justify-center gap-3 mb-2">
+                {[1, 2, 3, 4, 5].map(star => (
+                  <button key={star}
+                    onMouseEnter={() => setHoverRating(star)}
+                    onMouseLeave={() => setHoverRating(0)}
+                    onClick={() => setRating(star)}
+                    className="transition-transform hover:scale-110 active:scale-95">
+                    <Star
+                      size={40}
+                      className={`transition-colors ${star <= (hoverRating || rating) ? 'text-amber-400 fill-amber-400' : 'text-[#E5EAF2]'}`}
+                    />
+                  </button>
                 ))}
               </div>
-            )}
-          </div>
+              <p className="text-center text-sm font-bold text-[#8B95A1]">
+                {rating === 0 ? '별점을 선택해주세요' :
+                 rating === 1 ? '😢 아쉬웠어요' :
+                 rating === 2 ? '😐 보통이었어요' :
+                 rating === 3 ? '🙂 괜찮았어요' :
+                 rating === 4 ? '😊 좋았어요' : '🤩 최고였어요!'}
+              </p>
+            </div>
 
-          <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-            <div className="flex items-center gap-2 mb-1">
-              <Camera size={16} className="text-pink-500" />
-              <p className="text-gray-700 font-bold text-sm">음식 · 매장 사진</p>
-              <span className="text-xs bg-gray-50 text-gray-400 px-2 py-0.5 rounded-full font-medium border border-gray-100">선택</span>
+            {/* 성별 */}
+            <div className="bg-white rounded-2xl border border-[#E5EAF2] p-5">
+              <p className="text-[#191F28] font-bold text-sm mb-3">성별</p>
+              <div className="grid grid-cols-2 gap-2">
+                {genderOptions.map(g => (
+                  <button key={g.id} onClick={() => setGender(g.id)}
+                    className={`py-3 rounded-xl border-2 font-bold text-sm transition-all flex items-center justify-center gap-2 ${
+                      gender === g.id ? 'border-[#3182F6] bg-[#EBF3FF] text-[#3182F6]' : 'border-[#E5EAF2] text-[#8B95A1]'
+                    }`}>
+                    <span className="text-xl">{g.emoji}</span>{g.label}
+                  </button>
+                ))}
+              </div>
             </div>
-            <p className="text-xs text-gray-400 mb-4">AI가 사진을 보고 맛있는 포인트를 리뷰에 담아요</p>
-            <input ref={foodCameraRef} type="file" accept="image/*" capture="environment" multiple className="hidden" onChange={e => handleFileUpload(e.target.files, 'food')} />
-            <input ref={foodGalleryRef} type="file" accept="image/*" multiple className="hidden" onChange={e => handleFileUpload(e.target.files, 'food')} />
-            <div className="grid grid-cols-2 gap-3 mb-4">
-              <button onClick={() => foodCameraRef.current?.click()}
-                className="flex flex-col items-center gap-2 py-6 rounded-2xl border-2 border-dashed border-pink-200 bg-pink-50/50 active:bg-pink-100 transition-all">
-                <div className="w-12 h-12 bg-pink-100 rounded-2xl flex items-center justify-center">
-                  <Camera size={22} className="text-pink-500" />
-                </div>
-                <p className="text-pink-600 font-bold text-sm">카메라 촬영</p>
-                <p className="text-pink-400 text-xs">지금 바로 찍기</p>
-              </button>
-              <button onClick={() => foodGalleryRef.current?.click()}
-                className="flex flex-col items-center gap-2 py-6 rounded-2xl border-2 border-dashed border-gray-200 bg-gray-50 active:bg-gray-100 transition-all">
-                <div className="w-12 h-12 bg-gray-100 rounded-2xl flex items-center justify-center">
-                  <ImagePlus size={22} className="text-gray-500" />
-                </div>
-                <p className="text-gray-600 font-bold text-sm">갤러리 선택</p>
-                <p className="text-gray-400 text-xs">저장된 사진 올리기</p>
-              </button>
+
+            {/* 연령대 */}
+            <div className="bg-white rounded-2xl border border-[#E5EAF2] p-5">
+              <p className="text-[#191F28] font-bold text-sm mb-3">연령대</p>
+              <div className="grid grid-cols-5 gap-2">
+                {ageGroups.map(a => (
+                  <button key={a} onClick={() => setAge(a)}
+                    className={`py-2.5 rounded-xl border-2 text-xs font-bold transition-all ${
+                      age === a ? 'border-[#3182F6] bg-[#EBF3FF] text-[#3182F6]' : 'border-[#E5EAF2] text-[#8B95A1]'
+                    }`}>
+                    {a}
+                  </button>
+                ))}
+              </div>
             </div>
-            {foodPhotos.length > 0 && (
+
+            {/* 방문 유형 */}
+            <div className="bg-white rounded-2xl border border-[#E5EAF2] p-5">
+              <p className="text-[#191F28] font-bold text-sm mb-3">누구와 방문하셨나요?</p>
               <div className="grid grid-cols-3 gap-2">
-                {foodPhotos.map((f, i) => (
-                  <div key={i} className="relative aspect-square">
-                    <img src={f.preview} className="w-full h-full rounded-xl object-cover" alt="food" />
-                    <button onClick={() => removeFile(f)} className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-gray-800 rounded-full flex items-center justify-center shadow">
-                      <X size={11} className="text-white" />
+                {visitTypes.map(v => (
+                  <button key={v} onClick={() => setVisitType(v)}
+                    className={`py-2.5 rounded-xl border-2 text-xs font-bold transition-all ${
+                      visitType === v ? 'border-[#3182F6] bg-[#EBF3FF] text-[#3182F6]' : 'border-[#E5EAF2] text-[#8B95A1]'
+                    }`}>
+                    {v}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* 말투 */}
+            <div className="bg-white rounded-2xl border border-[#E5EAF2] p-5">
+              <p className="text-[#191F28] font-bold text-sm mb-3">리뷰 말투 선택</p>
+              <div className="grid grid-cols-2 gap-2">
+                {toneOptions.map(t => (
+                  <button key={t.id} onClick={() => setTone(t.id)}
+                    className={`py-3 rounded-xl border-2 text-xs font-bold transition-all flex items-center justify-center gap-2 ${
+                      tone === t.id ? 'border-[#3182F6] bg-[#EBF3FF] text-[#3182F6]' : 'border-[#E5EAF2] text-[#8B95A1]'
+                    }`}>
+                    <span>{t.emoji}</span>{t.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </>
+        )}
+
+        {/* ── Step 1: 사진 업로드 ── */}
+        {step === 1 && (
+          <>
+            <div className="bg-white rounded-2xl border border-[#E5EAF2] p-5">
+              <div className="flex items-center gap-2 mb-2">
+                <Camera size={16} className="text-[#3182F6]" />
+                <p className="text-[#191F28] font-bold text-sm">사진 업로드 (선택)</p>
+              </div>
+              <p className="text-[#8B95A1] text-xs mb-4">음식, 음료, 매장 사진을 올리면 AI가 더 구체적인 리뷰를 작성해드려요!</p>
+
+              <div className="grid grid-cols-3 gap-2 mb-4">
+                {photos.map((photo, idx) => (
+                  <div key={idx} className="relative aspect-square">
+                    <img src={photo} alt="" className="w-full h-full object-cover rounded-xl" />
+                    <button onClick={() => removePhoto(idx)}
+                      className="absolute top-1 right-1 w-5 h-5 bg-black/60 rounded-full flex items-center justify-center">
+                      <X size={10} className="text-white" />
                     </button>
                   </div>
                 ))}
+                {photos.length < 3 && (
+                  <button onClick={() => fileInputRef.current?.click()}
+                    className="aspect-square rounded-xl border-2 border-dashed border-[#E5EAF2] hover:border-[#3182F6] flex flex-col items-center justify-center gap-1 transition-all">
+                    <Image size={20} className="text-[#B0B8C1]" />
+                    <span className="text-[#B0B8C1] text-xs">추가</span>
+                  </button>
+                )}
               </div>
-            )}
-          </div>
 
-          {error && (
-            <div className="bg-red-50 border border-red-200 rounded-2xl p-4 flex items-start gap-2">
-              <AlertCircle size={16} className="text-red-400 flex-shrink-0 mt-0.5" />
-              <p className="text-red-600 text-sm">{error}</p>
+              <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handlePhotoUpload} />
+
+              <button onClick={() => fileInputRef.current?.click()}
+                className="w-full py-3.5 rounded-xl border-2 border-dashed border-[#E5EAF2] hover:border-[#3182F6] text-[#8B95A1] hover:text-[#3182F6] text-sm font-bold flex items-center justify-center gap-2 transition-all">
+                <Upload size={16} />사진 선택하기 (최대 3장)
+              </button>
             </div>
-          )}
-        </div>
 
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 p-5">
-          <button onClick={generateReview} disabled={receipts.length === 0}
-            className={`w-full py-4 rounded-2xl font-black text-base text-white shadow-lg active:scale-95 transition-all flex items-center justify-center gap-2 ${
-              receipts.length > 0 ? `bg-gradient-to-r ${STORE.coverColor}` : 'bg-gray-200 text-gray-400'
-            }`}>
-            <Sparkles size={20} />AI 맞춤 리뷰 생성하기
-          </button>
-          {receipts.length === 0 && <p className="text-center text-xs text-gray-400 mt-2">영수증 사진을 먼저 업로드해주세요</p>}
-        </div>
-      </div>
-    );
-  }
-
-  // ── 분석 중 ──
-  if (step === 2) {
-    const steps = [
-      { label: '영수증 OCR — 메뉴 추출 & 가격대 분석', done: analysisProgress >= 25 },
-      { label: '음식 사진 비주얼 분석', done: analysisProgress >= 45 },
-      { label: '맞춤 리뷰 초안 작성', done: analysisProgress >= 70 },
-      { label: '맞춤법 · 자연스러움 검수 완료', done: analysisProgress >= 100 },
-    ];
-    return (
-      <div className="min-h-screen bg-white flex flex-col items-center justify-center px-8">
-        <div className="text-center w-full max-w-sm">
-          <div className="relative w-24 h-24 mx-auto mb-6">
-            <div className={`absolute inset-0 rounded-full bg-gradient-to-br ${STORE.coverColor} opacity-20 animate-ping`} />
-            <div className={`relative w-24 h-24 rounded-full bg-gradient-to-br ${STORE.coverColor} flex items-center justify-center shadow-xl`}>
-              <Sparkles size={32} className="text-white animate-spin" />
-            </div>
-          </div>
-          <h2 className="text-gray-900 font-black text-2xl mb-1">AI 분석 중...</h2>
-          <p className="text-gray-500 text-sm mb-2">{analysisStep || '잠시만 기다려주세요!'}</p>
-          <div className="flex items-center justify-center gap-2 mb-5">
-            <span className="text-sm bg-violet-50 border border-violet-100 text-violet-600 px-3 py-1 rounded-full font-medium">
-              {AGE_OPTIONS.find(a => a.id === age)?.emoji} {AGE_OPTIONS.find(a => a.id === age)?.label}
-            </span>
-            <span className="text-sm bg-orange-50 border border-orange-100 text-orange-600 px-3 py-1 rounded-full font-medium">
-              {TONE_OPTIONS.find(t => t.id === tone)?.emoji} {TONE_OPTIONS.find(t => t.id === tone)?.label}
-            </span>
-          </div>
-          <div className="w-full bg-gray-100 rounded-full h-2 mb-8">
-            <div className={`h-2 rounded-full bg-gradient-to-r ${STORE.coverColor} transition-all duration-700`} style={{ width: `${analysisProgress}%` }} />
-          </div>
-          <div className="space-y-3 text-left">
-            {steps.map((s, i) => (
-              <div key={i} className="flex items-center gap-3">
-                <div className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 transition-all ${s.done ? `bg-gradient-to-br ${STORE.coverColor}` : 'bg-gray-100'}`}>
-                  {s.done ? <Check size={12} className="text-white" /> : <Loader2 size={12} className="text-gray-400 animate-spin" />}
-                </div>
-                <p className={`text-sm ${s.done ? 'text-gray-800 font-semibold' : 'text-gray-400'}`}>{s.label}</p>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
-    );
-  }
-
-  // ── 완료 ──
-  if (step === 3) {
-    return (
-      <div className="min-h-screen bg-gray-50">
-        <div className={`bg-gradient-to-br ${STORE.coverColor} px-5 pt-12 pb-8 text-center relative overflow-hidden`}>
-          <div className="absolute inset-0 bg-black/10" />
-          <div className="relative">
-            <div className="w-14 h-14 bg-white/20 rounded-2xl flex items-center justify-center mx-auto mb-3 backdrop-blur-sm border border-white/30">
-              <ThumbsUp size={24} className="text-white" />
-            </div>
-            <h2 className="text-white font-black text-xl">리뷰 완성! 🎉</h2>
-            <p className="text-white/70 text-sm mt-1">복사 후 네이버 플레이스에 붙여넣기만 하면 돼요</p>
-            <div className="flex items-center justify-center gap-2 mt-3">
-              <span className="text-xs bg-white/20 text-white px-2.5 py-1 rounded-full font-medium">
-                {GENDER_OPTIONS.find(g => g.id === gender)?.emoji} {gender !== 'none' ? GENDER_OPTIONS.find(g => g.id === gender)?.label : ''} {AGE_OPTIONS.find(a => a.id === age)?.label}
-              </span>
-              <span className="text-xs bg-white/20 text-white px-2.5 py-1 rounded-full font-medium">
-                {TONE_OPTIONS.find(t => t.id === tone)?.emoji} {TONE_OPTIONS.find(t => t.id === tone)?.label}
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <div className="px-5 py-5 space-y-4 pb-32">
-          {extractedMenu.length > 0 && (
-            <div className="bg-white rounded-2xl p-4 shadow-sm border border-gray-100">
-              <p className="text-xs font-bold text-gray-500 mb-2">🧾 영수증에서 찾은 메뉴</p>
-              <div className="flex flex-wrap gap-1.5">
-                {extractedMenu.map((menu, i) => (
-                  <span key={i} className="text-xs px-2.5 py-1 bg-violet-50 text-violet-700 rounded-lg font-medium border border-violet-100">{menu}</span>
+            <div className="bg-[#EBF3FF] rounded-2xl p-4 border border-blue-100">
+              <p className="text-[#3182F6] text-xs font-bold mb-2">📸 이런 사진이 좋아요!</p>
+              <div className="space-y-1.5">
+                {['주문한 음식이나 음료', '매장 내부 분위기', '인상적인 디테일 (플레이팅 등)'].map((tip, i) => (
+                  <div key={i} className="flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 rounded-full bg-[#3182F6] flex-shrink-0" />
+                    <p className="text-[#3182F6] text-xs">{tip}</p>
+                  </div>
                 ))}
               </div>
-              <p className="text-xs text-gray-400 mt-2">※ 가격은 가격대 판단에만 활용 (리뷰 미노출)</p>
             </div>
-          )}
+          </>
+        )}
 
-          <div className="bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-            <div className="flex items-center justify-between mb-3">
-              <div className="flex items-center gap-2">
-                <Sparkles size={15} className="text-violet-500" />
-                <p className="text-gray-700 font-bold text-sm">AI 생성 리뷰</p>
+        {/* ── Step 2: 리뷰 생성 ── */}
+        {step === 2 && (
+          <>
+            <div className="bg-white rounded-2xl border border-[#E5EAF2] p-5">
+              <div className="flex items-center gap-2 mb-3">
+                <Sparkles size={16} className="text-[#3182F6]" />
+                <p className="text-[#191F28] font-bold text-sm">AI 리뷰 생성</p>
               </div>
-              <div className="flex gap-0.5">
-                {[...Array(rating)].map((_, i) => <Star key={i} size={13} className="text-amber-400 fill-amber-400" />)}
+
+              {/* 선택 정보 요약 */}
+              <div className="flex flex-wrap gap-2 mb-4">
+                {[
+                  `⭐ ${rating}점`,
+                  gender === 'male' ? '👨 남성' : '👩 여성',
+                  `${age}`,
+                  visitType,
+                  toneOptions.find(t => t.id === tone)?.label || '',
+                  photos.length > 0 ? `📸 ${photos.length}장` : ''
+                ].filter(Boolean).map((item, i) => (
+                  <span key={i} className="text-xs bg-[#F2F4F6] text-[#8B95A1] px-2.5 py-1 rounded-lg font-medium">{item}</span>
+                ))}
+              </div>
+
+              {!generatedReview && !isGenerating && (
+                <button onClick={generateReview}
+                  className="w-full py-4 rounded-xl bg-gradient-to-r from-[#3182F6] to-[#1B6EF3] text-white font-black text-sm flex items-center justify-center gap-2 shadow-lg shadow-blue-200">
+                  <Sparkles size={16} />AI 리뷰 자동 생성하기
+                </button>
+              )}
+
+              {isGenerating && (
+                <div className="flex flex-col items-center justify-center py-8 gap-3">
+                  <Loader2 size={32} className="animate-spin text-[#3182F6]" />
+                  <p className="text-[#8B95A1] text-sm font-medium">
+                    {photos.length > 0 ? '사진 분석 중...' : 'AI가 리뷰를 작성하고 있어요...'}
+                  </p>
+                </div>
+              )}
+
+              {generatedReview && !isGenerating && (
+                <div>
+                  <div className="p-4 rounded-xl bg-[#F8FAFB] border border-[#E5EAF2] mb-3">
+                    <p className="text-[#191F28] text-sm leading-relaxed whitespace-pre-line">{generatedReview}</p>
+                  </div>
+                  <div className="flex gap-2">
+                    <button onClick={generateReview}
+                      className="flex-1 py-2.5 rounded-xl border border-[#E5EAF2] text-[#8B95A1] text-xs font-bold hover:bg-[#F2F4F6] transition-all">
+                      다시 생성
+                    </button>
+                    <button onClick={() => { navigator.clipboard.writeText(generatedReview); setCopied('all'); setTimeout(() => setCopied(''), 2000); }}
+                      className="flex-1 py-2.5 rounded-xl bg-[#EBF3FF] text-[#3182F6] text-xs font-bold flex items-center justify-center gap-1.5 transition-all">
+                      {copied === 'all' ? <><Check size={12} />복사됨!</> : <><Copy size={12} />리뷰 복사</>}
+                    </button>
+                  </div>
+                </div>
+              )}
+            </div>
+          </>
+        )}
+
+        {/* ── Step 3: 등록하기 ── */}
+        {step === 3 && (
+          <>
+            <div className="bg-white rounded-2xl border border-[#E5EAF2] p-5">
+              <p className="text-[#191F28] font-black text-base mb-1 text-center">리뷰를 등록해주세요! 🎉</p>
+              <p className="text-[#8B95A1] text-xs text-center mb-5">버튼을 누르면 리뷰가 복사되고 해당 앱이 열려요</p>
+
+              <div className="p-4 rounded-xl bg-[#F8FAFB] border border-[#E5EAF2] mb-5">
+                <p className="text-[#191F28] text-sm leading-relaxed whitespace-pre-line">{generatedReview}</p>
+              </div>
+
+              <div className="space-y-3">
+                {[
+                  { name: '네이버 플레이스', emoji: '🟢', color: 'bg-[#03C75A] hover:bg-[#02b350]', url: STORE_INFO.naverUrl, desc: '네이버 지도 리뷰' },
+                  { name: '구글 맵', emoji: '📍', color: 'bg-[#4285F4] hover:bg-[#3367D6]', url: STORE_INFO.googleUrl, desc: 'Google Maps 리뷰' },
+                  { name: '카카오 맵', emoji: '💛', color: 'bg-[#FEE500] hover:bg-[#F0D800]', url: STORE_INFO.kakaoUrl, desc: '카카오맵 리뷰', textColor: 'text-[#191F28]' },
+                ].map(platform => (
+                  <button key={platform.name}
+                    onClick={() => copyAndOpen(platform.name, platform.url)}
+                    className={`w-full ${platform.color} ${platform.textColor || 'text-white'} py-4 rounded-2xl font-bold text-sm flex items-center justify-between px-5 transition-all active:scale-95 shadow-sm`}>
+                    <div className="flex items-center gap-3">
+                      <span className="text-2xl">{platform.emoji}</span>
+                      <div className="text-left">
+                        <p className="font-black">{platform.name}</p>
+                        <p className="text-xs opacity-70">{platform.desc}</p>
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {copied === platform.name ? (
+                        <span className="text-xs bg-white/20 px-2 py-1 rounded-lg">복사됨 ✓</span>
+                      ) : (
+                        <ExternalLink size={16} className="opacity-70" />
+                      )}
+                    </div>
+                  </button>
+                ))}
               </div>
             </div>
-            <div className="bg-gray-50 rounded-xl p-4 border border-gray-100">
-              <p className="text-gray-700 text-sm leading-relaxed whitespace-pre-wrap">{generatedReview}</p>
-            </div>
-            <div className="flex flex-wrap gap-1.5 mt-3">
-              {[STORE.mainKeyword, ...STORE.subKeywords].map(kw => (
-                <span key={kw} className="text-xs px-2 py-1 bg-violet-50 text-violet-600 rounded-lg font-medium border border-violet-100">#{kw}</span>
-              ))}
-            </div>
-          </div>
 
-          <button onClick={copyReview}
-            className={`w-full py-4 rounded-2xl font-black text-base transition-all active:scale-95 flex items-center justify-center gap-2 shadow-lg ${
-              copied ? 'bg-emerald-500 text-white' : `bg-gradient-to-r ${STORE.coverColor} text-white`
-            }`}>
-            {copied ? <><Check size={20} />클립보드에 복사됨!</> : <><Copy size={20} />리뷰 전체 복사하기</>}
-          </button>
-
-          <a href={STORE.naverUrl} target="_blank" rel="noopener noreferrer"
-            className="w-full py-4 rounded-2xl font-bold text-sm border-2 border-emerald-500 text-emerald-600 flex items-center justify-center gap-2 bg-white active:bg-emerald-50 transition-all">
-            <ExternalLink size={18} />네이버 플레이스 열기 (붙여넣기)
-          </a>
-
-          <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
-            <div className="flex items-start gap-3">
-              <Gift size={20} className="text-amber-500 flex-shrink-0 mt-0.5" />
-              <div>
-                <p className="text-amber-800 font-bold text-sm">보상 지급 안내</p>
-                <p className="text-amber-600 text-xs mt-0.5 leading-relaxed">
-                  네이버 플레이스에 리뷰 등록 후 사장님께 화면을 보여주시면<br />
-                  <span className="font-bold">{STORE.reward}</span>를 즉시 드려요!
-                </p>
+            {/* 리워드 */}
+            <div className="bg-gradient-to-r from-amber-400 to-orange-400 rounded-2xl p-5">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center text-2xl flex-shrink-0">
+                  🎁
+                </div>
+                <div>
+                  <p className="text-white font-black text-sm">리뷰 등록 완료!</p>
+                  <p className="text-amber-100 text-xs mt-0.5">{STORE_INFO.reward}</p>
+                  <p className="text-amber-100 text-xs mt-1">카운터에서 직원에게 보여주세요 😊</p>
+                </div>
               </div>
             </div>
-          </div>
-        </div>
+          </>
+        )}
 
-        <div className="fixed bottom-0 left-0 right-0 bg-white border-t border-gray-100 p-5">
-          <button onClick={() => { setStep(1); setGeneratedReview(''); setCopied(false); setExtractedMenu([]); }}
-            className="w-full py-3 rounded-2xl font-bold text-sm border border-gray-200 text-gray-500 active:bg-gray-50 transition-all">
-            다시 생성하기
-          </button>
-        </div>
       </div>
-    );
-  }
 
-  return null;
+      {/* 하단 버튼 */}
+      <div className="bg-white border-t border-[#E5EAF2] px-5 py-4 flex gap-3">
+        {step > 0 && (
+          <button onClick={() => setStep(step - 1)}
+            className="w-12 h-12 rounded-xl border border-[#E5EAF2] flex items-center justify-center flex-shrink-0">
+            <ChevronLeft size={20} className="text-[#8B95A1]" />
+          </button>
+        )}
+        {step < 3 && (
+          <button
+            onClick={() => {
+              if (step === 1) { setStep(2); }
+              else if (step === 2 && generatedReview) { setStep(3); }
+              else if (step === 2 && !generatedReview) { generateReview(); }
+              else { setStep(step + 1); }
+            }}
+            disabled={!canNext()}
+            className="flex-1 py-3.5 rounded-xl bg-[#3182F6] hover:bg-[#1B6EF3] disabled:opacity-40 text-white font-black text-sm flex items-center justify-center gap-2 transition-all">
+            {step === 2 && !generatedReview ? <><Sparkles size={15} />AI 리뷰 생성</> :
+             step === 2 && generatedReview ? <>다음 단계 <ChevronRight size={15} /></> :
+             <>다음 <ChevronRight size={15} /></>}
+          </button>
+        )}
+        {step === 3 && (
+          <button onClick={() => { setStep(0); setRating(0); setAge(''); setGender(''); setVisitType(''); setPhotos([]); setPhotoFiles([]); setGeneratedReview(''); setCopied(''); }}
+            className="flex-1 py-3.5 rounded-xl bg-[#F2F4F6] text-[#8B95A1] font-bold text-sm transition-all">
+            처음으로
+          </button>
+        )}
+      </div>
+    </div>
+  );
 }
