@@ -1,88 +1,60 @@
 'use client';
-useEffect(() => {
-  // 네이버 로그인 후 사용자 정보 쿠키 확인
-  const cookies = document.cookie.split(';');
-  const userCookie = cookies.find(c => c.trim().startsWith('localution_user='));
-  if (userCookie) {
-    try {
-      const userInfo = JSON.parse(decodeURIComponent(userCookie.split('=')[1]));
-      console.log('로그인된 사용자:', userInfo);
-      // 여기서 사용자 정보 활용 가능
-    } catch (e) {
-      console.log('쿠키 파싱 에러:', e);
-    }
-  }
-}, []);
 
 import { useState } from 'react';
 import {
-  LayoutDashboard, Star, Users, Calculator, MapPin,
-  MessageSquare, Bell, Settings, ChevronRight,
-  TrendingUp, ShoppingBag, Zap, Menu,
-  ArrowUpRight, ArrowDownRight, Crown, X, Copy, Check, Loader2
+  TrendingUp, Star, MessageSquare, Users,
+  ArrowUpRight, Zap, QrCode, Bell,
+  ChevronRight, Sparkles, Clock, Loader2, Copy, Check
 } from 'lucide-react';
 
-const menuItems = [
-  { icon: LayoutDashboard, label: '대시보드', id: 'dashboard' },
-  { icon: Star, label: 'AI 리뷰 · 마케팅', id: 'review', badge: '3' },
-  { icon: Users, label: 'CRM · 고객관리', id: 'crm' },
-  { icon: Calculator, label: '정산 · 행정', id: 'admin' },
-  { icon: MapPin, label: '로컬 시너지', id: 'local' },
-  { icon: MessageSquare, label: '커뮤니티', id: 'community' },
-];
-
 const stats = [
-  { label: '이번달 매출', value: '4,820,000', unit: '원', change: '+12.4%', up: true, icon: TrendingUp, color: 'from-violet-600 to-purple-700' },
-  { label: '신규 리뷰', value: '28', unit: '개', change: '+5개', up: true, icon: Star, color: 'from-pink-600 to-rose-600' },
-  { label: '단골 고객', value: '142', unit: '명', change: '+8명', up: true, icon: Users, color: 'from-blue-600 to-cyan-600' },
-  { label: '미수금', value: '320,000', unit: '원', change: '-2건', up: false, icon: Calculator, color: 'from-orange-500 to-amber-500' },
+  { label: '이번달 매출', value: '4,820,000원', change: '+11.6%', up: true, color: 'text-[#3182F6]', bg: 'bg-[#EBF3FF]', icon: TrendingUp },
+  { label: '전체 리뷰', value: '284개', change: '+12', up: true, color: 'text-[#00C073]', bg: 'bg-[#E8FBF3]', icon: Star },
+  { label: '미답변 리뷰', value: '3개', change: '빠른 처리 필요', up: false, color: 'text-[#F04452]', bg: 'bg-[#FFF0F2]', icon: MessageSquare },
+  { label: '이번달 고객', value: '1,247명', change: '+8.3%', up: true, color: 'text-[#8B5CF6]', bg: 'bg-[#F3EEFF]', icon: Users },
 ];
 
 const recentReviews = [
-  { platform: '네이버', name: '김지수', rating: 5, text: '음식이 너무 맛있어요! 사장님도 친절하시고 또 올게요 😊', time: '10분 전', replied: false },
-  { platform: '배민', name: '박민준', rating: 4, text: '배달도 빠르고 양도 많아요. 가격 대비 최고!', time: '1시간 전', replied: true },
-  { platform: '네이버', name: '이서연', rating: 5, text: '분위기 너무 좋고 커피도 맛있어요. 단골 될 것 같아요!', time: '3시간 전', replied: false },
+  { name: '김지수', platform: '네이버', rating: 5, text: '부천 맛집 찾다가 여기 발견했는데 진짜 맛있어요!', time: '10분 전', replied: false },
+  { name: '박민준', platform: '배민', rating: 4, text: '배달도 빠르고 양도 많아요. 따뜻하게 도착했어요.', time: '1시간 전', replied: true },
+  { name: '이서연', platform: '네이버', rating: 5, text: '회식장소로 딱이에요! 단체석도 있고 음식도 맛있어요.', time: '3시간 전', replied: false },
+];
+
+const quickActions = [
+  { label: 'AI 답글 생성', icon: Sparkles, href: '/review-admin', color: 'bg-[#EBF3FF] text-[#3182F6]' },
+  { label: 'QR 리뷰 관리', icon: QrCode, href: '/qr-admin', color: 'bg-[#E8FBF3] text-[#00C073]' },
+  { label: '세금계산서', icon: TrendingUp, href: '/admin-biz', color: 'bg-[#FFF3E0] text-[#FF9500]' },
+  { label: '고객 관리', icon: Users, href: '/crm', color: 'bg-[#F3EEFF] text-[#8B5CF6]' },
 ];
 
 const toneOptions = [
-  { id: 'warm', label: '따뜻한 사장님', emoji: '🤗', desc: '친근하고 감사한 말투' },
-  { id: 'pro', label: '전문 비즈니스', emoji: '💼', desc: '격식 있고 신뢰감 있는 말투' },
-  { id: 'fun', label: '유쾌한 캐릭터', emoji: '😄', desc: '재미있고 개성 있는 말투' },
-  { id: 'simple', label: '심플 & 깔끔', emoji: '✨', desc: '짧고 명확한 말투' },
+  { id: 'warm', emoji: '🤗', label: '따뜻한 사장님' },
+  { id: 'pro', emoji: '💼', label: '전문 비즈니스' },
+  { id: 'fun', emoji: '😄', label: '유쾌한 캐릭터' },
+  { id: 'simple', emoji: '✨', label: '심플 & 깔끔' },
 ];
 
-type Review = { platform: string; name: string; rating: number; text: string; time: string; replied: boolean };
-
-export default function Home() {
-  const [activeMenu, setActiveMenu] = useState('dashboard');
-  const [sidebarOpen, setSidebarOpen] = useState(false);
-  const [selectedReview, setSelectedReview] = useState<Review | null>(null);
+export default function Dashboard() {
+  const [selectedReview, setSelectedReview] = useState<typeof recentReviews[0] | null>(null);
   const [selectedTone, setSelectedTone] = useState('warm');
   const [generatedReply, setGeneratedReply] = useState('');
-  const [isLoading, setIsLoading] = useState(false);
+  const [isGenerating, setIsGenerating] = useState(false);
   const [copied, setCopied] = useState(false);
-  const [reviews, setReviews] = useState(recentReviews);
-
-  const openModal = (review: Review) => {
-    setSelectedReview(review);
-    setGeneratedReply('');
-    setCopied(false);
-  };
-
-  const closeModal = () => {
-    setSelectedReview(null);
-    setGeneratedReply('');
-  };
+  const [showModal, setShowModal] = useState(false);
 
   const generateReply = async () => {
     if (!selectedReview) return;
-    setIsLoading(true);
+    setIsGenerating(true);
     setGeneratedReply('');
 
-    const toneLabel = toneOptions.find(t => t.id === selectedTone)?.label || '따뜻한 사장님';
+    const toneGuide: Record<string, string> = {
+      warm: '따뜻하고 친근한 사장님 말투',
+      pro: '격식 있고 신뢰감 있는 비즈니스 말투',
+      fun: '유쾌하고 재미있는 말투',
+      simple: '짧고 명확한 말투',
+    };
 
     try {
-      // 🔑 Anthropic API 연동 포인트
       const response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
         headers: {
@@ -93,36 +65,22 @@ export default function Home() {
         },
         body: JSON.stringify({
           model: 'claude-sonnet-4-20250514',
-          max_tokens: 500,
-          messages: [
-            {
-              role: 'user',
-              content: `당신은 소상공인 가게 사장님입니다. 아래 고객 리뷰에 대해 "${toneLabel}" 말투로 진심 어린 답글을 작성해주세요.
-
-플랫폼: ${selectedReview.platform}
-고객명: ${selectedReview.name}
-별점: ${selectedReview.rating}점
-리뷰 내용: ${selectedReview.text}
-
-규칙:
-- 2~4문장으로 간결하게
-- 고객 이름 직접 언급
-- 구체적인 리뷰 내용에 반응
-- 재방문 유도로 마무리
-- 이모지 1~2개 자연스럽게 포함
-- 답글만 출력 (설명 없이)`
-            }
-          ]
+          max_tokens: 300,
+          messages: [{
+            role: 'user',
+            content: `소상공인 카페 사장님으로서 ${toneGuide[selectedTone]}로 답글을 작성해주세요.
+고객: ${selectedReview.name} / 플랫폼: ${selectedReview.platform} / 별점: ${selectedReview.rating}점
+리뷰: ${selectedReview.text}
+규칙: 2~3문장, 고객 이름 언급, 재방문 유도, 답글만 출력`
+          }]
         })
       });
-
       const data = await response.json();
-      const reply = data.content?.[0]?.text || '답글 생성에 실패했습니다.';
-      setGeneratedReply(reply);
+      setGeneratedReply(data.content?.[0]?.text || '생성 실패');
     } catch {
-      setGeneratedReply('API 연결 오류가 발생했습니다. API 키를 확인해주세요.');
+      setGeneratedReply('API 연결 오류');
     } finally {
-      setIsLoading(false);
+      setIsGenerating(false);
     }
   };
 
@@ -132,316 +90,200 @@ export default function Home() {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  const markAsReplied = () => {
-    if (!selectedReview) return;
-    setReviews(prev => prev.map(r =>
-      r.name === selectedReview.name ? { ...r, replied: true } : r
-    ));
-    closeModal();
-  };
-
   return (
-    <div className="flex h-screen bg-[#0f0f13] overflow-hidden">
+    <div className="min-h-screen bg-[#F8FAFB] p-6 max-w-5xl mx-auto">
 
-      {sidebarOpen && (
-        <div className="fixed inset-0 bg-black/60 z-20 lg:hidden" onClick={() => setSidebarOpen(false)} />
-      )}
+      {/* 헤더 */}
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1 className="text-[#191F28] font-black text-2xl">안녕하세요, 전태영 사장님 👋</h1>
+          <p className="text-[#8B95A1] text-sm mt-1">오늘도 로컬루션과 함께 스마트하게 운영해요</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button className="relative w-10 h-10 rounded-xl bg-white border border-[#E5EAF2] flex items-center justify-center hover:bg-[#F8FAFB] transition-all">
+            <Bell size={18} className="text-[#8B95A1]" />
+            <div className="absolute top-2 right-2 w-2 h-2 rounded-full bg-[#F04452]" />
+          </button>
+        </div>
+      </div>
 
-      {/* AI 답글 모달 */}
-      {selectedReview && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-          <div className="w-full max-w-lg bg-[#1a1a2e] border border-white/10 rounded-2xl shadow-2xl overflow-hidden">
+      {/* 통계 카드 */}
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+        {stats.map(stat => {
+          const Icon = stat.icon;
+          return (
+            <div key={stat.label} className="bg-white rounded-2xl p-4 border border-[#E5EAF2] hover:shadow-sm transition-all">
+              <div className={`w-9 h-9 rounded-xl ${stat.bg} flex items-center justify-center mb-3`}>
+                <Icon size={18} className={stat.color} />
+              </div>
+              <p className="text-[#191F28] font-black text-lg leading-none">{stat.value}</p>
+              <p className="text-[#8B95A1] text-xs mt-1">{stat.label}</p>
+              <div className={`flex items-center gap-1 mt-2 text-xs font-medium ${stat.up ? 'text-[#00C073]' : 'text-[#F04452]'}`}>
+                {stat.up && <ArrowUpRight size={12} />}
+                {stat.change}
+              </div>
+            </div>
+          );
+        })}
+      </div>
 
-            {/* 모달 헤더 */}
-            <div className="flex items-center justify-between p-5 border-b border-white/5">
-              <div className="flex items-center gap-2">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-violet-500 to-purple-700 flex items-center justify-center">
-                  <Zap size={14} className="text-white" />
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-5">
+
+        {/* 최근 리뷰 */}
+        <div className="lg:col-span-2 bg-white rounded-2xl border border-[#E5EAF2] overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-4 border-b border-[#E5EAF2]">
+            <div className="flex items-center gap-2">
+              <h2 className="text-[#191F28] font-bold text-sm">최근 리뷰</h2>
+              <span className="bg-[#FFF0F2] text-[#F04452] text-xs px-2 py-0.5 rounded-full font-bold">미답변 3</span>
+            </div>
+            <button className="text-[#3182F6] text-xs font-medium flex items-center gap-1 hover:opacity-70 transition-all">
+              전체보기 <ChevronRight size={12} />
+            </button>
+          </div>
+
+          <div className="divide-y divide-[#F2F4F6]">
+            {recentReviews.map((review, i) => (
+              <div key={i} className="px-5 py-4 hover:bg-[#F8FAFB] transition-all">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
+                        review.platform === '네이버' ? 'bg-[#E8FBF3] text-[#00C073]' : 'bg-[#EBF3FF] text-[#3182F6]'
+                      }`}>{review.platform}</span>
+                      <span className="text-[#191F28] text-sm font-bold">{review.name}</span>
+                      <span className="text-amber-400 text-xs">{'★'.repeat(review.rating)}</span>
+                      <span className="text-[#B0B8C1] text-xs ml-auto flex items-center gap-1">
+                        <Clock size={10} />{review.time}
+                      </span>
+                    </div>
+                    <p className="text-[#8B95A1] text-sm leading-relaxed line-clamp-1">{review.text}</p>
+                  </div>
                 </div>
-                <div>
-                  <h3 className="text-white font-bold text-sm">AI 답글 생성기</h3>
-                  <p className="text-gray-500 text-xs">Claude AI가 최적의 답글을 생성해요</p>
+                <div className="flex items-center gap-2 mt-3">
+                  {!review.replied ? (
+                    <button
+                      onClick={() => { setSelectedReview(review); setShowModal(true); setGeneratedReply(''); }}
+                      className="flex items-center gap-1.5 px-3 py-1.5 bg-[#3182F6] hover:bg-[#1B6EF3] text-white text-xs font-bold rounded-lg transition-all">
+                      <Zap size={11} />AI 답글 생성
+                    </button>
+                  ) : (
+                    <span className="text-xs text-[#B0B8C1] bg-[#F2F4F6] px-3 py-1.5 rounded-lg">답글 완료</span>
+                  )}
                 </div>
               </div>
-              <button onClick={closeModal} className="text-gray-500 hover:text-white transition-colors">
-                <X size={18} />
-              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* 빠른 실행 */}
+        <div className="space-y-4">
+          <div className="bg-white rounded-2xl border border-[#E5EAF2] p-5">
+            <h2 className="text-[#191F28] font-bold text-sm mb-4">빠른 실행</h2>
+            <div className="grid grid-cols-2 gap-2">
+              {quickActions.map(action => {
+                const Icon = action.icon;
+                return (
+                  <a key={action.label} href={action.href}
+                    className="flex flex-col items-center gap-2 p-3.5 rounded-xl bg-[#F8FAFB] hover:bg-[#F2F4F6] transition-all border border-[#E5EAF2]">
+                    <div className={`w-9 h-9 rounded-xl ${action.color} flex items-center justify-center`}>
+                      <Icon size={18} />
+                    </div>
+                    <span className="text-[#191F28] text-xs font-medium text-center leading-tight">{action.label}</span>
+                  </a>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* 오늘의 알림 */}
+          <div className="bg-gradient-to-br from-[#3182F6] to-[#1B6EF3] rounded-2xl p-5">
+            <div className="flex items-center gap-2 mb-3">
+              <Sparkles size={16} className="text-white" />
+              <p className="text-white font-bold text-sm">AI 인사이트</p>
+            </div>
+            <p className="text-blue-100 text-xs leading-relaxed">
+              오늘 미답변 리뷰 3개가 있어요. 빠른 답글이 네이버 플레이스 상위 노출에 도움돼요!
+            </p>
+            <button className="mt-3 w-full py-2 rounded-xl bg-white/20 hover:bg-white/30 text-white text-xs font-bold transition-all">
+              지금 답글 달기 →
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* AI 답글 모달 */}
+      {showModal && selectedReview && (
+        <div className="fixed inset-0 bg-black/30 backdrop-blur-sm z-50 flex items-center justify-center p-5">
+          <div className="w-full max-w-md bg-white rounded-3xl shadow-2xl overflow-hidden">
+            <div className="px-6 py-5 border-b border-[#E5EAF2] flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Zap size={16} className="text-[#3182F6]" />
+                <h3 className="text-[#191F28] font-bold text-sm">AI 답글 생성</h3>
+              </div>
+              <button onClick={() => { setShowModal(false); setGeneratedReply(''); }}
+                className="w-7 h-7 rounded-lg bg-[#F2F4F6] flex items-center justify-center hover:bg-[#E5EAF2] transition-all text-[#8B95A1] text-sm">✕</button>
             </div>
 
-            <div className="p-5 space-y-4">
-
-              {/* 리뷰 원문 */}
-              <div className="p-4 rounded-xl bg-white/5 border border-white/5">
-                <div className="flex items-center gap-2 mb-2">
+            <div className="p-6 space-y-4">
+              {/* 리뷰 내용 */}
+              <div className="p-3.5 rounded-xl bg-[#F8FAFB] border border-[#E5EAF2]">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="text-[#191F28] text-xs font-bold">{selectedReview.name}</span>
+                  <span className="text-amber-400 text-xs">{'★'.repeat(selectedReview.rating)}</span>
                   <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                    selectedReview.platform === '네이버' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-blue-500/20 text-blue-400'
+                    selectedReview.platform === '네이버' ? 'bg-[#E8FBF3] text-[#00C073]' : 'bg-[#EBF3FF] text-[#3182F6]'
                   }`}>{selectedReview.platform}</span>
-                  <span className="text-white text-sm font-medium">{selectedReview.name}</span>
-                  <span className="text-yellow-400 text-xs">{'★'.repeat(selectedReview.rating)}</span>
                 </div>
-                <p className="text-gray-300 text-sm leading-relaxed">{selectedReview.text}</p>
+                <p className="text-[#8B95A1] text-xs leading-relaxed">{selectedReview.text}</p>
               </div>
 
               {/* 말투 선택 */}
               <div>
-                <p className="text-gray-400 text-xs mb-2 font-medium">말투 선택</p>
+                <p className="text-[#191F28] text-xs font-bold mb-2">말투 선택</p>
                 <div className="grid grid-cols-2 gap-2">
-                  {toneOptions.map(tone => (
-                    <button
-                      key={tone.id}
-                      onClick={() => setSelectedTone(tone.id)}
-                      className={`p-3 rounded-xl border text-left transition-all ${
-                        selectedTone === tone.id
-                          ? 'border-violet-500 bg-violet-500/10'
-                          : 'border-white/5 bg-white/3 hover:bg-white/5'
-                      }`}
-                    >
-                      <div className="text-base mb-0.5">{tone.emoji} <span className="text-white text-xs font-medium">{tone.label}</span></div>
-                      <p className="text-gray-500 text-xs">{tone.desc}</p>
+                  {toneOptions.map(t => (
+                    <button key={t.id} onClick={() => setSelectedTone(t.id)}
+                      className={`flex items-center gap-2 p-3 rounded-xl border text-left transition-all ${
+                        selectedTone === t.id
+                          ? 'border-[#3182F6] bg-[#EBF3FF]'
+                          : 'border-[#E5EAF2] hover:bg-[#F8FAFB]'
+                      }`}>
+                      <span className="text-base">{t.emoji}</span>
+                      <p className={`text-xs font-bold ${selectedTone === t.id ? 'text-[#3182F6]' : 'text-[#191F28]'}`}>{t.label}</p>
                     </button>
                   ))}
                 </div>
               </div>
 
-              {/* 생성 버튼 */}
-              <button
-                onClick={generateReply}
-                disabled={isLoading}
-                className="w-full py-3 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 text-white font-medium text-sm transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
-              >
-                {isLoading ? (
-                  <><Loader2 size={16} className="animate-spin" /> AI가 답글 생성 중...</>
-                ) : (
-                  <><Zap size={16} /> AI 답글 생성하기</>
-                )}
+              <button onClick={generateReply} disabled={isGenerating}
+                className="w-full py-3.5 rounded-xl bg-[#3182F6] hover:bg-[#1B6EF3] disabled:opacity-50 text-white font-bold text-sm transition-all flex items-center justify-center gap-2">
+                {isGenerating ? <><Loader2 size={15} className="animate-spin" />생성 중...</> : <><Sparkles size={15} />AI 답글 생성</>}
               </button>
 
-              {/* 생성된 답글 */}
               {generatedReply && (
-                <div className="p-4 rounded-xl bg-violet-500/10 border border-violet-500/20">
+                <div className="p-4 rounded-xl bg-[#F8FAFB] border border-[#E5EAF2]">
                   <div className="flex items-center justify-between mb-2">
-                    <p className="text-violet-400 text-xs font-medium">✨ 생성된 답글</p>
-                    <button
-                      onClick={copyReply}
-                      className="flex items-center gap-1 text-xs text-gray-400 hover:text-white transition-colors"
-                    >
-                      {copied ? <><Check size={12} className="text-emerald-400" /> 복사됨!</> : <><Copy size={12} /> 복사</>}
+                    <span className="text-[#3182F6] text-xs font-bold">✨ 생성된 답글</span>
+                    <button onClick={copyReply} className="flex items-center gap-1 text-xs text-[#8B95A1] hover:text-[#191F28]">
+                      {copied ? <><Check size={11} className="text-[#00C073]" />복사됨!</> : <><Copy size={11} />복사</>}
                     </button>
                   </div>
-                  <p className="text-white text-sm leading-relaxed">{generatedReply}</p>
-
+                  <p className="text-[#191F28] text-sm leading-relaxed">{generatedReply}</p>
                   <div className="flex gap-2 mt-3">
-                    <button
-                      onClick={generateReply}
-                      className="flex-1 py-2 rounded-lg border border-white/10 text-gray-400 hover:text-white text-xs transition-all"
-                    >
+                    <button onClick={generateReply} className="flex-1 py-2 rounded-lg border border-[#E5EAF2] text-[#8B95A1] hover:text-[#191F28] text-xs transition-all">
                       다시 생성
                     </button>
-                    <button
-                      onClick={markAsReplied}
-                      className="flex-1 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium transition-all"
-                    >
-                      답글 완료 처리 ✓
+                    <button onClick={copyReply} className="flex-1 py-2 rounded-lg bg-[#00C073] hover:bg-[#00A85A] text-white text-xs font-bold transition-all">
+                      복사 후 등록 ✓
                     </button>
                   </div>
                 </div>
               )}
-
             </div>
           </div>
         </div>
       )}
 
-      {/* 사이드바 */}
-      <aside className={`
-        fixed lg:static inset-y-0 left-0 z-30
-        w-64 bg-[#13131f] border-r border-white/5
-        flex flex-col transition-transform duration-300
-        ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
-      `}>
-        <div className="p-5 border-b border-white/5">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500 to-purple-700 flex items-center justify-center shadow-lg shadow-violet-500/30">
-              <MapPin size={18} className="text-white" />
-            </div>
-            <div>
-              <h1 className="text-white font-bold text-base leading-none">로컬루션</h1>
-              <p className="text-violet-400 text-xs mt-0.5">Localution AI</p>
-            </div>
-          </div>
-        </div>
-
-        <div className="mx-4 mt-4 p-3 rounded-xl bg-gradient-to-r from-violet-600/20 to-purple-600/20 border border-violet-500/20">
-          <div className="flex items-center gap-2">
-            <Crown size={14} className="text-yellow-400" />
-            <span className="text-xs text-white font-medium">PRO 멤버십</span>
-            <span className="ml-auto text-xs text-violet-400">활성</span>
-          </div>
-        </div>
-
-        <nav className="flex-1 p-4 space-y-1 mt-2">
-          {menuItems.map((item) => {
-            const Icon = item.icon;
-            const isActive = activeMenu === item.id;
-            return (
-              <button
-                key={item.id}
-                onClick={() => { setActiveMenu(item.id); setSidebarOpen(false); }}
-                className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 ${
-                  isActive
-                    ? 'bg-gradient-to-r from-violet-600 to-purple-600 text-white shadow-lg shadow-violet-500/25'
-                    : 'text-gray-400 hover:text-white hover:bg-white/5'
-                }`}
-              >
-                <Icon size={18} />
-                <span className="text-sm font-medium flex-1 text-left">{item.label}</span>
-                {item.badge && (
-                  <span className="w-5 h-5 rounded-full bg-pink-500 text-white text-xs flex items-center justify-center font-bold">
-                    {item.badge}
-                  </span>
-                )}
-                {isActive && <ChevronRight size={14} />}
-              </button>
-            );
-          })}
-        </nav>
-
-        <div className="p-4 border-t border-white/5">
-          <button className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-gray-400 hover:text-white hover:bg-white/5 transition-all">
-            <Settings size={18} />
-            <span className="text-sm font-medium">설정</span>
-          </button>
-          <div className="mt-3 px-3 py-2.5 rounded-xl bg-white/5">
-            <p className="text-xs text-gray-400">하랑마케팅</p>
-            <p className="text-sm text-white font-medium mt-0.5">전태영 사장님</p>
-          </div>
-        </div>
-      </aside>
-
-      {/* 메인 */}
-      <main className="flex-1 overflow-y-auto">
-        <header className="sticky top-0 z-10 bg-[#0f0f13]/80 backdrop-blur-xl border-b border-white/5 px-6 py-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <button className="lg:hidden text-gray-400 hover:text-white" onClick={() => setSidebarOpen(true)}>
-                <Menu size={22} />
-              </button>
-              <div>
-                <h2 className="text-white font-bold text-lg leading-none">대시보드</h2>
-                <p className="text-gray-500 text-xs mt-1">2026년 4월 11일 · 부천 소사구</p>
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <button className="relative p-2 rounded-xl bg-white/5 hover:bg-white/10 transition-all">
-                <Bell size={18} className="text-gray-400" />
-                <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-pink-500 rounded-full"></span>
-              </button>
-              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500 to-purple-700 flex items-center justify-center text-white text-sm font-bold">
-                전
-              </div>
-            </div>
-          </div>
-        </header>
-
-        <div className="p-6 space-y-6">
-          <div className="rounded-2xl bg-gradient-to-r from-violet-600 via-purple-600 to-pink-600 p-5 relative overflow-hidden">
-            <div className="relative">
-              <div className="flex items-center gap-2 mb-1">
-                <Zap size={16} className="text-yellow-300" />
-                <span className="text-yellow-300 text-xs font-medium">AI 비서 활성화됨</span>
-              </div>
-              <h3 className="text-white font-bold text-xl">좋은 아침이에요, 전태영 사장님! ☀️</h3>
-              <p className="text-white/70 text-sm mt-1">오늘 답변 안 된 리뷰가 <span className="text-yellow-300 font-bold">{reviews.filter(r => !r.replied).length}개</span> 있어요. AI 답글 달아드릴까요?</p>
-              <button
-                onClick={() => openModal(reviews.find(r => !r.replied)!)}
-                className="mt-3 px-4 py-2 bg-white/20 hover:bg-white/30 rounded-xl text-white text-sm font-medium transition-all"
-              >
-                AI 답글 바로 달기 →
-              </button>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-            {stats.map((stat) => {
-              const Icon = stat.icon;
-              return (
-                <div key={stat.label} className="rounded-2xl bg-[#13131f] border border-white/5 p-4 hover:border-violet-500/30 transition-all">
-                  <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${stat.color} flex items-center justify-center mb-3`}>
-                    <Icon size={16} className="text-white" />
-                  </div>
-                  <p className="text-gray-400 text-xs mb-1">{stat.label}</p>
-                  <div className="flex items-end gap-1">
-                    <span className="text-white font-bold text-lg leading-none">{stat.value}</span>
-                    <span className="text-gray-500 text-xs mb-0.5">{stat.unit}</span>
-                  </div>
-                  <div className={`flex items-center gap-1 mt-2 text-xs font-medium ${stat.up ? 'text-emerald-400' : 'text-red-400'}`}>
-                    {stat.up ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
-                    {stat.change}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-
-          <div className="rounded-2xl bg-[#13131f] border border-white/5 p-5">
-            <div className="flex items-center justify-between mb-4">
-              <h3 className="text-white font-bold">최근 리뷰</h3>
-              <button className="text-xs text-violet-400 hover:text-violet-300 flex items-center gap-1">
-                전체보기 <ChevronRight size={12} />
-              </button>
-            </div>
-            <div className="space-y-3">
-              {reviews.map((review, i) => (
-                <div key={i} className="flex gap-3 p-3 rounded-xl bg-white/[0.03] hover:bg-white/5 transition-all border border-white/5">
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                        review.platform === '네이버' ? 'bg-emerald-500/20 text-emerald-400' : 'bg-blue-500/20 text-blue-400'
-                      }`}>{review.platform}</span>
-                      <span className="text-white text-sm font-medium">{review.name}</span>
-                      <span className="text-yellow-400 text-xs">{'★'.repeat(review.rating)}</span>
-                      <span className="text-gray-600 text-xs ml-auto">{review.time}</span>
-                    </div>
-                    <p className="text-gray-400 text-xs leading-relaxed truncate">{review.text}</p>
-                  </div>
-                  <div className="flex-shrink-0 flex items-center">
-                    {review.replied ? (
-                      <span className="text-xs text-gray-600 bg-white/5 px-2 py-1 rounded-lg">답글 완료</span>
-                    ) : (
-                      <button
-                        onClick={() => openModal(review)}
-                        className="text-xs bg-violet-600 hover:bg-violet-500 text-white px-2 py-1 rounded-lg transition-all whitespace-nowrap"
-                      >
-                        AI 답글
-                      </button>
-                    )}
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          <div className="rounded-2xl bg-[#13131f] border border-white/5 p-5">
-            <h3 className="text-white font-bold mb-4">빠른 실행</h3>
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-              {[
-                { icon: Star, label: 'AI 리뷰 답글', color: 'text-pink-400', bg: 'bg-pink-500/10' },
-                { icon: MessageSquare, label: '알림톡 발송', color: 'text-blue-400', bg: 'bg-blue-500/10' },
-                { icon: Calculator, label: '세금계산서', color: 'text-amber-400', bg: 'bg-amber-500/10' },
-                { icon: ShoppingBag, label: '공동구매', color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
-              ].map((item) => {
-                const Icon = item.icon;
-                return (
-                  <button key={item.label} className={`flex flex-col items-center gap-2 p-4 rounded-xl ${item.bg} hover:scale-105 transition-all border border-white/5`}>
-                    <Icon size={22} className={item.color} />
-                    <span className="text-white text-xs font-medium text-center">{item.label}</span>
-                  </button>
-                );
-              })}
-            </div>
-          </div>
-        </div>
-      </main>
     </div>
   );
 }

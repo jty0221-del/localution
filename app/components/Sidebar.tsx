@@ -4,164 +4,113 @@ import { useState } from 'react';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
 import {
-  LayoutDashboard, Star, Users, Calculator,
-  MapPin, MessageSquare, Settings, Crown,
-  ChevronRight, Bell, Menu, X, QrCode,
-  Zap, TrendingUp
+  LayoutDashboard, Star, QrCode, Users,
+  Calculator, MapPin, MessageCircle, ChevronRight,
+  Bell, Settings, LogOut, Sparkles
 } from 'lucide-react';
 
 const menuItems = [
-  { icon: LayoutDashboard, label: '대시보드', href: '/', badge: null },
-  { icon: Star, label: 'AI 리뷰·마케팅', href: '/review-admin', badge: '3' },
-  { icon: QrCode, label: 'QR 리뷰 관리', href: '/qr-admin', badge: null },
-  { icon: Users, label: 'CRM·고객관리', href: '/crm', badge: null },
-  { icon: Calculator, label: '정산·행정', href: '/admin-biz', badge: null },
-  { icon: MapPin, label: '로컬 시너지', href: '/local', badge: 'NEW' },
-  { icon: MessageSquare, label: '커뮤니티', href: '/community', badge: null },
+  { href: '/', label: '대시보드', icon: LayoutDashboard },
+  { href: '/review-admin', label: 'AI 리뷰·마케팅', icon: Star },
+  { href: '/qr-admin', label: 'QR 리뷰 관리', icon: QrCode },
+  { href: '/crm', label: 'CRM·고객관리', icon: Users },
+  { href: '/admin-biz', label: '정산·행정', icon: Calculator },
+  { href: '/local', label: '로컬 시너지', icon: MapPin },
+  { href: '/community', label: '커뮤니티', icon: MessageCircle },
 ];
 
 export default function Sidebar() {
-  const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
+  const [collapsed, setCollapsed] = useState(false);
 
-  const Content = () => (
-    <div className="flex flex-col h-full">
-      <div className="p-5 border-b border-white/5">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500 to-purple-700 flex items-center justify-center shadow-lg shadow-violet-500/30">
-              <MapPin size={18} className="text-white" />
-            </div>
-            <div>
-              <h1 className="text-white font-bold text-base leading-none">로컬루션</h1>
-              <p className="text-violet-400 text-xs mt-0.5">Localution AI</p>
-            </div>
+  return (
+    <aside className={`h-screen sticky top-0 flex flex-col bg-white border-r border-[#E5EAF2] transition-all duration-300 ${collapsed ? 'w-16' : 'w-60'}`}>
+
+      {/* 로고 */}
+      <div className="flex items-center gap-3 px-5 py-5 border-b border-[#E5EAF2]">
+        <div className="w-8 h-8 rounded-xl bg-[#3182F6] flex items-center justify-center flex-shrink-0">
+          <MapPin size={16} className="text-white" />
+        </div>
+        {!collapsed && (
+          <div>
+            <p className="text-[#191F28] font-black text-sm leading-none">로컬루션</p>
+            <p className="text-[#8B95A1] text-xs mt-0.5">AI 만능 비서</p>
           </div>
-          <button className="lg:hidden text-gray-400 hover:text-white" onClick={() => setMobileOpen(false)}>
-            <X size={18} />
-          </button>
-        </div>
+        )}
+        <button
+          onClick={() => setCollapsed(!collapsed)}
+          className="ml-auto w-6 h-6 rounded-lg hover:bg-[#F2F4F6] flex items-center justify-center transition-all flex-shrink-0">
+          <ChevronRight size={14} className={`text-[#8B95A1] transition-transform ${collapsed ? '' : 'rotate-180'}`} />
+        </button>
       </div>
 
-      <div className="mx-4 mt-4">
-        <div className="p-3 rounded-xl bg-gradient-to-r from-violet-600/20 to-purple-600/20 border border-violet-500/20">
-          <div className="flex items-center gap-2">
-            <Crown size={13} className="text-yellow-400" />
-            <span className="text-xs text-white font-medium">PRO 멤버십</span>
-            <span className="ml-auto text-xs text-violet-400">활성 중</span>
+      {/* PRO 배지 */}
+      {!collapsed && (
+        <div className="mx-4 mt-4 p-3 rounded-2xl bg-gradient-to-r from-[#3182F6] to-[#1B6EF3] flex items-center gap-2.5">
+          <Sparkles size={14} className="text-white flex-shrink-0" />
+          <div>
+            <p className="text-white text-xs font-bold leading-none">PRO 멤버십</p>
+            <p className="text-blue-200 text-xs mt-0.5">모든 기능 사용 중</p>
           </div>
         </div>
-      </div>
+      )}
 
-      <div className="mx-4 mt-3 grid grid-cols-2 gap-2">
-        <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/5 text-center">
-          <p className="text-sm font-bold text-violet-400">3건</p>
-          <p className="text-gray-600 text-xs mt-0.5">오늘 리뷰</p>
-        </div>
-        <div className="p-2.5 rounded-xl bg-white/[0.03] border border-white/5 text-center">
-          <p className="text-sm font-bold text-emerald-400">482만</p>
-          <p className="text-gray-600 text-xs mt-0.5">이번달 매출</p>
-        </div>
-      </div>
-
-      <div className="px-5 pt-5 pb-2">
-        <p className="text-gray-600 text-xs font-semibold tracking-widest uppercase">메뉴</p>
-      </div>
-
-      <nav className="flex-1 px-3 space-y-0.5 overflow-y-auto">
-        {menuItems.map((item) => {
+      {/* 메뉴 */}
+      <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+        {menuItems.map(item => {
           const Icon = item.icon;
           const isActive = pathname === item.href;
           return (
-            <Link
-              key={item.href}
-              href={item.href}
-              onClick={() => setMobileOpen(false)}
-              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group ${
+            <Link key={item.href} href={item.href}
+              className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all group ${
                 isActive
-                  ? 'bg-gradient-to-r from-violet-600 to-purple-600 text-white shadow-lg shadow-violet-500/20'
-                  : 'text-gray-400 hover:text-white hover:bg-white/5'
-              }`}
-            >
-              <Icon size={17} className={isActive ? 'text-white' : 'text-gray-500 group-hover:text-white'} />
-              <span className="text-sm font-medium flex-1">{item.label}</span>
-              {item.badge && (
-                <span className={`text-xs px-1.5 py-0.5 rounded-full font-bold ${
-                  item.badge === 'NEW'
-                    ? 'bg-emerald-500/20 text-emerald-400 border border-emerald-500/20'
-                    : 'bg-pink-500 text-white'
-                }`}>
-                  {item.badge}
+                  ? 'bg-[#EBF3FF] text-[#3182F6]'
+                  : 'text-[#8B95A1] hover:bg-[#F8FAFB] hover:text-[#191F28]'
+              }`}>
+              <Icon size={18} className={`flex-shrink-0 ${isActive ? 'text-[#3182F6]' : 'text-[#8B95A1] group-hover:text-[#191F28]'}`} />
+              {!collapsed && (
+                <span className={`text-sm font-medium ${isActive ? 'text-[#3182F6] font-bold' : ''}`}>
+                  {item.label}
                 </span>
               )}
-              {isActive && <ChevronRight size={13} className="text-white/60" />}
+              {!collapsed && isActive && (
+                <div className="ml-auto w-1.5 h-1.5 rounded-full bg-[#3182F6]" />
+              )}
             </Link>
           );
         })}
       </nav>
 
-      <div className="mx-4 my-3">
-        <div className="p-3.5 rounded-xl bg-gradient-to-br from-[#1a1035] to-[#120d2a] border border-violet-500/20 relative overflow-hidden">
-          <div className="absolute inset-0 bg-gradient-to-br from-violet-600/10 to-transparent" />
-          <div className="relative">
-            <div className="flex items-center gap-1.5 mb-1.5">
-              <Zap size={12} className="text-yellow-400" />
-              <span className="text-yellow-400 text-xs font-semibold">AI 인사이트</span>
+      {/* 하단 */}
+      <div className="px-3 py-4 border-t border-[#E5EAF2] space-y-1">
+        {[
+          { icon: Bell, label: '알림' },
+          { icon: Settings, label: '설정' },
+        ].map(item => {
+          const Icon = item.icon;
+          return (
+            <button key={item.label}
+              className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-[#8B95A1] hover:bg-[#F8FAFB] hover:text-[#191F28] transition-all">
+              <Icon size={18} className="flex-shrink-0" />
+              {!collapsed && <span className="text-sm font-medium">{item.label}</span>}
+            </button>
+          );
+        })}
+
+        {/* 사용자 프로필 */}
+        {!collapsed && (
+          <div className="flex items-center gap-3 px-3 py-2.5 mt-2 rounded-xl bg-[#F8FAFB]">
+            <div className="w-8 h-8 rounded-full bg-[#3182F6] flex items-center justify-center flex-shrink-0">
+              <span className="text-white text-xs font-bold">전</span>
             </div>
-            <p className="text-white text-xs leading-relaxed">
-              이번 주 <span className="text-violet-300 font-semibold">리뷰 전환율</span>이{' '}
-              지난주보다 <span className="text-emerald-400 font-bold">+18%</span> 올랐어요! 🎉
-            </p>
-            <div className="flex items-center gap-1 mt-2">
-              <TrendingUp size={11} className="text-emerald-400" />
-              <span className="text-emerald-400 text-xs font-medium">성장 중</span>
+            <div className="flex-1 min-w-0">
+              <p className="text-[#191F28] text-xs font-bold truncate">전태영</p>
+              <p className="text-[#8B95A1] text-xs truncate">하랑마케팅</p>
             </div>
+            <LogOut size={14} className="text-[#B0B8C1] flex-shrink-0" />
           </div>
-        </div>
+        )}
       </div>
-
-      <div className="p-4 border-t border-white/5">
-        <div className="flex items-center gap-3">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-violet-500 to-purple-700 flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
-            전
-          </div>
-          <div className="flex-1 min-w-0">
-            <p className="text-white text-sm font-semibold leading-none">전태영 사장님</p>
-            <p className="text-gray-500 text-xs mt-0.5 truncate">하랑마케팅</p>
-          </div>
-          <button className="text-gray-500 hover:text-white transition-colors">
-            <Settings size={16} />
-          </button>
-        </div>
-        <button className="mt-3 w-full flex items-center gap-2 px-3 py-2 rounded-xl bg-white/5 hover:bg-white/10 transition-all">
-          <Bell size={14} className="text-gray-400" />
-          <span className="text-xs text-gray-400 flex-1 text-left">알림</span>
-          <span className="w-5 h-5 rounded-full bg-pink-500 text-white text-xs flex items-center justify-center font-bold">5</span>
-        </button>
-      </div>
-    </div>
-  );
-
-  return (
-    <>
-      <button
-        className="lg:hidden fixed top-4 left-4 z-50 w-9 h-9 bg-[#13131f] border border-white/10 rounded-xl flex items-center justify-center text-gray-400 hover:text-white shadow-lg"
-        onClick={() => setMobileOpen(true)}
-      >
-        <Menu size={18} />
-      </button>
-
-      {mobileOpen && (
-        <div className="lg:hidden fixed inset-0 bg-black/60 backdrop-blur-sm z-40" onClick={() => setMobileOpen(false)} />
-      )}
-
-      <aside className="hidden lg:flex w-60 bg-[#13131f] border-r border-white/5 flex-col flex-shrink-0">
-        <Content />
-      </aside>
-
-      <aside className={`lg:hidden fixed inset-y-0 left-0 z-50 w-64 bg-[#13131f] border-r border-white/5 flex flex-col transition-transform duration-300 ease-in-out ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <Content />
-      </aside>
-    </>
+    </aside>
   );
 }
