@@ -14,10 +14,11 @@ export async function GET(request: Request) {
     const clientId = 'rejEL_xQza4IM6c6DsaY';
     const clientSecret = '9mG34VCo86';
 
-    const tokenRes = await fetch(
-      `https://nid.naver.com/oauth2.0/token?grant_type=authorization_code&client_id=${clientId}&client_secret=${encodeURIComponent(clientSecret)}&code=${code}&state=${state ?? ''}`,
-      { method: 'GET' }
-    );
+const tokenRes = await fetch('https://nid.naver.com/oauth2.0/token', {
+  method: 'POST',
+  headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+  body: `grant_type=authorization_code&client_id=${clientId}&client_secret=${clientSecret}&code=${code}&state=${state ?? ''}`,
+});
 
     const tokenData = await tokenRes.json() as Record<string, string>;
     const accessToken = tokenData.access_token;
