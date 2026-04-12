@@ -5,83 +5,77 @@ import {
   FileText, Calendar, Clock, Users,
   TrendingUp, AlertCircle, Check, Download, Send,
   Plus, ChevronLeft, ChevronRight, Zap, Bell,
-  CreditCard, Wallet, ClipboardList, X, CheckCircle, Copy
+  CreditCard, Wallet, ClipboardList, X, CheckCircle, Copy, Chrome
 } from 'lucide-react';
 
 const salesData = {
-  thisMonth: 4820000,
-  lastMonth: 4320000,
-  unpaid: 320000,
-  expenses: 1250000,
+  thisMonth: 4820000, lastMonth: 4320000, unpaid: 320000, expenses: 1250000,
 };
 
 const calendarData: Record<number, { sales: number; type: 'high' | 'mid' | 'low' | 'none' }> = {
-  1: { sales: 180000, type: 'mid' }, 2: { sales: 0, type: 'none' },
-  3: { sales: 220000, type: 'high' }, 4: { sales: 150000, type: 'mid' },
-  5: { sales: 90000, type: 'low' }, 6: { sales: 310000, type: 'high' },
-  7: { sales: 280000, type: 'high' }, 8: { sales: 0, type: 'none' },
-  9: { sales: 195000, type: 'mid' }, 10: { sales: 165000, type: 'mid' },
-  11: { sales: 120000, type: 'low' }, 12: { sales: 340000, type: 'high' },
-  13: { sales: 290000, type: 'high' }, 14: { sales: 250000, type: 'high' },
-  15: { sales: 0, type: 'none' }, 16: { sales: 175000, type: 'mid' },
-  17: { sales: 140000, type: 'mid' }, 18: { sales: 85000, type: 'low' },
-  19: { sales: 320000, type: 'high' }, 20: { sales: 275000, type: 'high' },
-  21: { sales: 230000, type: 'high' }, 22: { sales: 0, type: 'none' },
-  23: { sales: 185000, type: 'mid' }, 24: { sales: 155000, type: 'mid' },
-  25: { sales: 110000, type: 'low' }, 26: { sales: 295000, type: 'high' },
-  27: { sales: 260000, type: 'high' }, 28: { sales: 0, type: 'none' },
-  29: { sales: 145000, type: 'mid' }, 30: { sales: 200000, type: 'mid' },
+  1:{sales:180000,type:'mid'},2:{sales:0,type:'none'},3:{sales:220000,type:'high'},
+  4:{sales:150000,type:'mid'},5:{sales:90000,type:'low'},6:{sales:310000,type:'high'},
+  7:{sales:280000,type:'high'},8:{sales:0,type:'none'},9:{sales:195000,type:'mid'},
+  10:{sales:165000,type:'mid'},11:{sales:120000,type:'low'},12:{sales:340000,type:'high'},
+  13:{sales:290000,type:'high'},14:{sales:250000,type:'high'},15:{sales:0,type:'none'},
+  16:{sales:175000,type:'mid'},17:{sales:140000,type:'mid'},18:{sales:85000,type:'low'},
+  19:{sales:320000,type:'high'},20:{sales:275000,type:'high'},21:{sales:230000,type:'high'},
+  22:{sales:0,type:'none'},23:{sales:185000,type:'mid'},24:{sales:155000,type:'mid'},
+  25:{sales:110000,type:'low'},26:{sales:295000,type:'high'},27:{sales:260000,type:'high'},
+  28:{sales:0,type:'none'},29:{sales:145000,type:'mid'},30:{sales:200000,type:'mid'},
 };
 
 type Invoice = {
-  id: string; client: string; bizNo: string;
-  amount: number; date: string; status: string; due: string; email: string; item: string;
+  id: string; client: string; bizNo: string; amount: number;
+  date: string; status: string; due: string; email: string; item: string;
 };
 
 const initialInvoices: Invoice[] = [
-  { id: 'INV-2026-004', client: '하랑마케팅', bizNo: '000-00-00001', amount: 550000, date: '2026-04-01', status: '발행완료', due: '2026-04-30', email: 'harang@naver.com', item: '마케팅 대행' },
-  { id: 'INV-2026-003', client: '부천 꽃집', bizNo: '000-00-00002', amount: 330000, date: '2026-03-01', status: '입금완료', due: '2026-03-31', email: 'flower@naver.com', item: 'SNS 운영' },
-  { id: 'INV-2026-002', client: '신중동 카페', bizNo: '000-00-00003', amount: 220000, date: '2026-03-01', status: '미수금', due: '2026-03-31', email: 'cafe@naver.com', item: '블로그 포스팅' },
-  { id: 'INV-2026-001', client: '소사구 식당', bizNo: '000-00-00004', amount: 440000, date: '2026-02-01', status: '입금완료', due: '2026-02-28', email: 'sosa@naver.com', item: '플레이스 관리' },
+  { id:'INV-2026-004', client:'하랑마케팅', bizNo:'123-45-67890', amount:550000, date:'2026-04-01', status:'발행완료', due:'2026-04-30', email:'harang@naver.com', item:'마케팅 대행' },
+  { id:'INV-2026-003', client:'부천 꽃집', bizNo:'234-56-78901', amount:330000, date:'2026-03-01', status:'입금완료', due:'2026-03-31', email:'flower@naver.com', item:'SNS 운영' },
+  { id:'INV-2026-002', client:'신중동 카페', bizNo:'345-67-89012', amount:220000, date:'2026-03-01', status:'미수금', due:'2026-03-31', email:'cafe@naver.com', item:'블로그 포스팅' },
+  { id:'INV-2026-001', client:'소사구 식당', bizNo:'456-78-90123', amount:440000, date:'2026-02-01', status:'입금완료', due:'2026-02-28', email:'sosa@naver.com', item:'플레이스 관리' },
 ];
 
 const employees = [
-  { name: '김알바', role: '파트타임', checkIn: '09:02', checkOut: '18:05', status: '퇴근' },
-  { name: '이직원', role: '정규직', checkIn: '08:58', checkOut: '-', status: '근무중' },
-  { name: '박알바', role: '파트타임', checkIn: '-', checkOut: '-', status: '휴무' },
+  { name:'김알바', role:'파트타임', checkIn:'09:02', checkOut:'18:05', status:'퇴근' },
+  { name:'이직원', role:'정규직', checkIn:'08:58', checkOut:'-', status:'근무중' },
+  { name:'박알바', role:'파트타임', checkIn:'-', checkOut:'-', status:'휴무' },
 ];
 
 const govSupports = [
-  { title: '소상공인 경영안정자금', deadline: '2026-04-30', amount: '최대 5,000만원', status: '신청가능', category: '자금' },
-  { title: '부천시 청년창업 지원금', deadline: '2026-05-15', amount: '최대 2,000만원', status: '신청가능', category: '창업' },
-  { title: '고용유지 지원금', deadline: '2026-04-20', amount: '월 최대 180만원', status: '마감임박', category: '고용' },
+  { title:'소상공인 경영안정자금', deadline:'2026-04-30', amount:'최대 5,000만원', status:'신청가능', category:'자금' },
+  { title:'부천시 청년창업 지원금', deadline:'2026-05-15', amount:'최대 2,000만원', status:'신청가능', category:'창업' },
+  { title:'고용유지 지원금', deadline:'2026-04-20', amount:'월 최대 180만원', status:'마감임박', category:'고용' },
 ];
 
 export default function AdminBizPage() {
-  const [activeTab, setActiveTab] = useState<'calendar' | 'invoice' | 'employee' | 'support'>('calendar');
-  const [selectedDay, setSelectedDay] = useState<number | null>(null);
+  const [activeTab, setActiveTab] = useState<'calendar'|'invoice'|'employee'|'support'>('calendar');
+  const [selectedDay, setSelectedDay] = useState<number|null>(null);
   const [showInvoiceForm, setShowInvoiceForm] = useState(false);
+  const [showExtGuide, setShowExtGuide] = useState(false);
   const [invoices, setInvoices] = useState<Invoice[]>(initialInvoices);
   const [isIssuing, setIsIssuing] = useState(false);
-  const [successInvoice, setSuccessInvoice] = useState<Invoice | null>(null);
-  const [form, setForm] = useState({ client: '', bizNo: '', amount: '', email: '', item: '' });
-  const [downloadingId, setDownloadingId] = useState<string | null>(null);
+  const [successInvoice, setSuccessInvoice] = useState<Invoice|null>(null);
+  const [downloadingId, setDownloadingId] = useState<string|null>(null);
+  const [form, setForm] = useState({ client:'', bizNo:'', item:'', amount:'', email:'' });
+  const [extInstalled, setExtInstalled] = useState(false);
 
   const growthRate = (((salesData.thisMonth - salesData.lastMonth) / salesData.lastMonth) * 100).toFixed(1);
 
-  // ✅ 간편 발행 + 클립보드 복사 + 홈택스 이동
+  // ✅ 발행 + 클립보드 복사 + 홈택스 이동
   const handleIssue = async () => {
     if (!form.client || !form.amount) {
-      alert('거래처명과 공급가액은 필수 입력이에요!');
+      alert('거래처명과 공급가액은 필수입니다!');
       return;
     }
     setIsIssuing(true);
 
-    const supplyAmt = parseInt(form.amount.replace(/,/g, '') || '0');
+    const supplyAmt = parseInt(form.amount.replace(/,/g,'') || '0');
     const vat = Math.round(supplyAmt * 0.1);
     const total = supplyAmt + vat;
 
-    // 클립보드에 복사
+    // 클립보드 복사
     const clipText =
       `거래처명: ${form.client}\n` +
       `사업자번호: ${form.bizNo || '미입력'}\n` +
@@ -92,16 +86,29 @@ export default function AdminBizPage() {
       `이메일: ${form.email || '미입력'}`;
 
     await navigator.clipboard.writeText(clipText);
+
+    // localStorage에 데이터 저장 (크롬 확장이 읽어감)
+    localStorage.setItem('localution_invoice', JSON.stringify({
+      client: form.client,
+      bizNo: form.bizNo.replace(/-/g, ''),
+      item: form.item || '마케팅 대행 서비스',
+      amount: String(supplyAmt),
+      vat: String(vat),
+      total: String(total),
+      email: form.email,
+      timestamp: Date.now(),
+    }));
+
     await new Promise(r => setTimeout(r, 800));
 
     const newInvoice: Invoice = {
-      id: `INV-2026-${String(invoices.length + 1).padStart(3, '0')}`,
+      id: `INV-2026-${String(invoices.length + 1).padStart(3,'0')}`,
       client: form.client,
       bizNo: form.bizNo || '미입력',
       amount: supplyAmt,
       date: new Date().toISOString().split('T')[0],
       status: '발행완료',
-      due: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      due: new Date(Date.now() + 30*24*60*60*1000).toISOString().split('T')[0],
       email: form.email,
       item: form.item || '마케팅 대행 서비스',
     };
@@ -110,11 +117,14 @@ export default function AdminBizPage() {
     setSuccessInvoice(newInvoice);
     setIsIssuing(false);
     setShowInvoiceForm(false);
-    setForm({ client: '', bizNo: '', amount: '', email: '', item: '' });
+    setForm({ client:'', bizNo:'', item:'', amount:'', email:'' });
 
-    // 홈택스 자동 이동
+    // 홈택스 전자세금계산서 발급 페이지 직접 이동
     setTimeout(() => {
-      window.open('https://www.hometax.go.kr/websquare/websquare.html?w2xPath=/ui/pp/index.xml', '_blank');
+      window.open(
+        'https://www.hometax.go.kr/websquare/websquare.html?w2xPath=/ui/ab/a/a/UTERPAAA001M.xml&menuCd=MDR030101000',
+        '_blank'
+      );
     }, 300);
   };
 
@@ -124,108 +134,65 @@ export default function AdminBizPage() {
     try {
       const { jsPDF } = await import('jspdf');
       const doc = new jsPDF();
-
-      doc.setFillColor(15, 15, 19);
-      doc.rect(0, 0, 210, 297, 'F');
-
-      doc.setTextColor(255, 255, 255);
-      doc.setFontSize(22);
-      doc.setFont('helvetica', 'bold');
-      doc.text('TAX INVOICE', 105, 30, { align: 'center' });
-
-      doc.setFontSize(12);
-      doc.setTextColor(160, 160, 180);
-      doc.text('(Korean Electronic Tax Invoice)', 105, 40, { align: 'center' });
-
-      doc.setDrawColor(124, 58, 237);
-      doc.setLineWidth(0.8);
-      doc.line(20, 48, 190, 48);
-
-      const infoData = [
-        ['문서번호', inv.id],
-        ['발행일자', inv.date],
-        ['공급받는자', inv.client],
-        ['사업자등록번호', inv.bizNo],
-        ['품목', inv.item],
-        ['이메일', inv.email || '미입력'],
-        ['납부기한', inv.due],
-      ];
-
-      let y = 65;
-      doc.setFontSize(11);
-      infoData.forEach(([label, value]) => {
-        doc.setTextColor(130, 130, 160);
-        doc.setFont('helvetica', 'normal');
-        doc.text(label, 25, y);
-        doc.setTextColor(220, 220, 240);
-        doc.setFont('helvetica', 'bold');
-        doc.text(String(value), 80, y);
-        y += 12;
-      });
+      doc.setFillColor(15,15,19); doc.rect(0,0,210,297,'F');
+      doc.setTextColor(255,255,255); doc.setFontSize(22); doc.setFont('helvetica','bold');
+      doc.text('TAX INVOICE', 105, 30, {align:'center'});
+      doc.setFontSize(11); doc.setTextColor(160,160,180); doc.setFont('helvetica','normal');
+      doc.text('Electronic Tax Invoice', 105, 40, {align:'center'});
+      doc.setDrawColor(124,58,237); doc.setLineWidth(0.8); doc.line(20,48,190,48);
 
       const supplyAmt = inv.amount;
       const vat = Math.round(supplyAmt * 0.1);
       const total = supplyAmt + vat;
 
-      doc.setFillColor(30, 10, 60);
-      doc.roundedRect(20, y + 5, 170, 55, 5, 5, 'F');
-      doc.setDrawColor(124, 58, 237);
-      doc.setLineWidth(0.5);
-      doc.roundedRect(20, y + 5, 170, 55, 5, 5, 'S');
+      const rows = [
+        ['문서번호', inv.id], ['발행일자', inv.date],
+        ['공급받는자', inv.client], ['사업자번호', inv.bizNo],
+        ['품목', inv.item], ['이메일', inv.email || '미입력'],
+        ['납부기한', inv.due],
+      ];
+      let y = 65;
+      rows.forEach(([l,v]) => {
+        doc.setTextColor(130,130,160); doc.text(l, 25, y);
+        doc.setTextColor(220,220,240); doc.setFont('helvetica','bold'); doc.text(String(v), 80, y);
+        doc.setFont('helvetica','normal'); y += 12;
+      });
 
-      doc.setFontSize(11);
-      doc.setTextColor(160, 130, 220);
-      doc.setFont('helvetica', 'normal');
-      doc.text('공급가액', 35, y + 22);
-      doc.text('부가세 (10%)', 35, y + 35);
-      doc.text('───────────────────', 35, y + 42);
-
-      doc.setTextColor(220, 200, 255);
-      doc.setFont('helvetica', 'bold');
-      doc.text(`${supplyAmt.toLocaleString()} KRW`, 185, y + 22, { align: 'right' });
-      doc.text(`${vat.toLocaleString()} KRW`, 185, y + 35, { align: 'right' });
-
+      doc.setFillColor(30,10,60); doc.roundedRect(20,y+5,170,55,5,5,'F');
+      doc.setDrawColor(124,58,237); doc.setLineWidth(0.5); doc.roundedRect(20,y+5,170,55,5,5,'S');
+      doc.setFontSize(11); doc.setTextColor(160,130,220); doc.setFont('helvetica','normal');
+      doc.text('공급가액', 35, y+22); doc.text('부가세 (10%)', 35, y+35);
+      doc.setTextColor(220,200,255); doc.setFont('helvetica','bold');
+      doc.text(`${supplyAmt.toLocaleString()} KRW`, 185, y+22, {align:'right'});
+      doc.text(`${vat.toLocaleString()} KRW`, 185, y+35, {align:'right'});
       y += 65;
-      doc.setFillColor(124, 58, 237);
-      doc.roundedRect(20, y, 170, 22, 3, 3, 'F');
-      doc.setFontSize(13);
-      doc.setTextColor(255, 255, 255);
-      doc.setFont('helvetica', 'normal');
-      doc.text('합계 (VAT 포함)', 35, y + 14);
-      doc.setFont('helvetica', 'bold');
-      doc.text(`${total.toLocaleString()} KRW`, 185, y + 14, { align: 'right' });
-
+      doc.setFillColor(124,58,237); doc.roundedRect(20,y,170,22,3,3,'F');
+      doc.setFontSize(13); doc.setTextColor(255,255,255);
+      doc.text('합계 (VAT 포함)', 35, y+14);
+      doc.setFont('helvetica','bold');
+      doc.text(`${total.toLocaleString()} KRW`, 185, y+14, {align:'right'});
       y += 35;
-      doc.setFontSize(9);
-      doc.setTextColor(100, 100, 130);
-      doc.setFont('helvetica', 'normal');
-      doc.text('발행처: 하랑마케팅 카페 | 경기도 부천시 소사구 신중동', 105, y, { align: 'center' });
-      doc.text('Powered by Localution AI', 105, y + 8, { align: 'center' });
-
+      doc.setFontSize(9); doc.setTextColor(100,100,130); doc.setFont('helvetica','normal');
+      doc.text('발행처: 하랑마케팅 | Powered by Localution AI', 105, y, {align:'center'});
       doc.save(`세금계산서_${inv.id}_${inv.client}.pdf`);
-    } catch (e) {
-      alert('PDF 생성 중 오류가 발생했어요.');
-      console.error(e);
+    } catch(e) {
+      alert('PDF 생성 오류가 발생했어요.'); console.error(e);
     } finally {
       setDownloadingId(null);
     }
   };
 
-  // ✅ 카카오톡 전송 (내용 복사 + 앱 오픈)
+  // ✅ 카카오 전송
   const handleSendKakao = async (inv: Invoice) => {
     const text =
       `[로컬루션] 세금계산서 발행 안내\n\n` +
-      `문서번호: ${inv.id}\n` +
-      `거래처: ${inv.client}\n` +
-      `품목: ${inv.item}\n` +
+      `문서번호: ${inv.id}\n거래처: ${inv.client}\n품목: ${inv.item}\n` +
       `공급가액: ${inv.amount.toLocaleString()}원\n` +
-      `부가세: ${Math.round(inv.amount * 0.1).toLocaleString()}원\n` +
-      `합계: ${Math.round(inv.amount * 1.1).toLocaleString()}원\n` +
-      `납부기한: ${inv.due}\n\n` +
-      `확인 후 입금 부탁드립니다 🙏`;
-
+      `부가세: ${Math.round(inv.amount*0.1).toLocaleString()}원\n` +
+      `합계: ${Math.round(inv.amount*1.1).toLocaleString()}원\n` +
+      `납부기한: ${inv.due}\n\n확인 후 입금 부탁드립니다 🙏`;
     await navigator.clipboard.writeText(text);
-    alert('세금계산서 내용이 복사됐어요!\n카카오톡을 열어서 거래처에게 붙여넣기로 전송하세요 😊');
+    alert('내용이 복사됐어요!\n카카오톡에서 붙여넣기로 전송하세요 😊');
     window.location.href = 'kakaolink://';
   };
 
@@ -248,10 +215,10 @@ export default function AdminBizPage() {
         </div>
         <div className="flex gap-1 mt-4 bg-white/5 rounded-xl p-1">
           {[
-            { id: 'calendar', label: '매출 캘린더', icon: Calendar },
-            { id: 'invoice', label: '세금계산서', icon: FileText },
-            { id: 'employee', label: '근태 관리', icon: Users },
-            { id: 'support', label: '지원금 봇', icon: Bell },
+            {id:'calendar', label:'매출 캘린더', icon:Calendar},
+            {id:'invoice', label:'세금계산서', icon:FileText},
+            {id:'employee', label:'근태 관리', icon:Users},
+            {id:'support', label:'지원금 봇', icon:Bell},
           ].map(tab => {
             const Icon = tab.icon;
             return (
@@ -259,7 +226,7 @@ export default function AdminBizPage() {
                 className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium transition-all ${
                   activeTab === tab.id ? 'bg-violet-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'
                 }`}>
-                <Icon size={13} /><span className="hidden sm:block">{tab.label}</span>
+                <Icon size={13}/><span className="hidden sm:block">{tab.label}</span>
               </button>
             );
           })}
@@ -278,12 +245,12 @@ export default function AdminBizPage() {
                     <p className="text-gray-400 text-xs mb-1">이번달 총 매출</p>
                     <p className="text-white font-black text-3xl">{salesData.thisMonth.toLocaleString()}<span className="text-lg text-gray-400 font-normal">원</span></p>
                     <div className="flex items-center gap-1.5 mt-1">
-                      <TrendingUp size={12} className="text-emerald-400" />
+                      <TrendingUp size={12} className="text-emerald-400"/>
                       <span className="text-emerald-400 text-xs font-medium">지난달 대비 +{growthRate}%</span>
                     </div>
                   </div>
                   <div className="w-14 h-14 rounded-2xl bg-violet-500/20 flex items-center justify-center">
-                    <Wallet size={24} className="text-violet-400" />
+                    <Wallet size={24} className="text-violet-400"/>
                   </div>
                 </div>
               </div>
@@ -301,9 +268,9 @@ export default function AdminBizPage() {
 
             <div className="rounded-2xl bg-[#13131f] border border-white/5 p-5">
               <div className="flex items-center justify-between mb-4">
-                <button className="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center"><ChevronLeft size={16} className="text-gray-400" /></button>
+                <button className="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center"><ChevronLeft size={16} className="text-gray-400"/></button>
                 <p className="text-white font-bold text-sm">2026년 4월</p>
-                <button className="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center"><ChevronRight size={16} className="text-gray-400" /></button>
+                <button className="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center"><ChevronRight size={16} className="text-gray-400"/></button>
               </div>
               <div className="grid grid-cols-7 mb-2">
                 {['일','월','화','수','목','금','토'].map(d => (
@@ -311,16 +278,16 @@ export default function AdminBizPage() {
                 ))}
               </div>
               <div className="grid grid-cols-7 gap-1">
-                {[...Array(2)].map((_,i) => <div key={`e${i}`} />)}
+                {[...Array(2)].map((_,i) => <div key={`e${i}`}/>)}
                 {Object.entries(calendarData).map(([day, data]) => {
                   const dayNum = parseInt(day);
                   const isSelected = selectedDay === dayNum;
-                  const bgColor = data.type === 'high' ? 'bg-violet-500/30 border-violet-500/40' :
-                    data.type === 'mid' ? 'bg-blue-500/20 border-blue-500/30' :
-                    data.type === 'low' ? 'bg-white/5 border-white/10' : 'border-white/5';
+                  const bgColor = data.type==='high'?'bg-violet-500/30 border-violet-500/40':
+                    data.type==='mid'?'bg-blue-500/20 border-blue-500/30':
+                    data.type==='low'?'bg-white/5 border-white/10':'border-white/5';
                   return (
-                    <button key={day} onClick={() => setSelectedDay(isSelected ? null : dayNum)}
-                      className={`rounded-xl p-1.5 border text-center transition-all ${bgColor} ${isSelected ? 'ring-2 ring-violet-500' : ''}`}>
+                    <button key={day} onClick={() => setSelectedDay(isSelected?null:dayNum)}
+                      className={`rounded-xl p-1.5 border text-center transition-all ${bgColor} ${isSelected?'ring-2 ring-violet-500':''}`}>
                       <p className={`text-xs font-bold ${data.type!=='none'?'text-white':'text-gray-600'}`}>{dayNum}</p>
                       {data.sales > 0 && <p className="text-violet-300 font-medium leading-none mt-0.5" style={{fontSize:'9px'}}>{(data.sales/10000).toFixed(0)}만</p>}
                     </button>
@@ -330,7 +297,7 @@ export default function AdminBizPage() {
               <div className="flex items-center gap-3 mt-4 justify-center">
                 {[{color:'bg-violet-500/30',label:'30만+'},{color:'bg-blue-500/20',label:'15만+'},{color:'bg-white/5',label:'15만 미만'}].map(item => (
                   <div key={item.label} className="flex items-center gap-1.5">
-                    <div className={`w-3 h-3 rounded-sm ${item.color}`} />
+                    <div className={`w-3 h-3 rounded-sm ${item.color}`}/>
                     <span className="text-gray-500 text-xs">{item.label}</span>
                   </div>
                 ))}
@@ -348,7 +315,7 @@ export default function AdminBizPage() {
                     </div>
                     <div className="text-right">
                       <p className="text-gray-400 text-sm">목표 대비</p>
-                      <p className="text-emerald-400 font-bold">{((calendarData[selectedDay].sales / 300000) * 100).toFixed(0)}%</p>
+                      <p className="text-emerald-400 font-bold">{((calendarData[selectedDay].sales/300000)*100).toFixed(0)}%</p>
                     </div>
                   </div>
                 ) : <p className="text-gray-500 text-sm">휴무일</p>}
@@ -362,31 +329,301 @@ export default function AdminBizPage() {
           <>
             <div className="rounded-2xl bg-gradient-to-r from-emerald-600/20 to-teal-600/20 border border-emerald-500/20 p-5">
               <div className="flex items-center gap-2 mb-1">
-                <FileText size={16} className="text-emerald-400" />
+                <FileText size={16} className="text-emerald-400"/>
                 <h3 className="text-white font-bold text-sm">원클릭 세금계산서</h3>
               </div>
-              <p className="text-gray-400 text-xs">정보 입력 → 클립보드 자동 복사 → 홈택스 자동 이동 → 붙여넣기만!</p>
+              <p className="text-gray-400 text-xs">정보 입력 → 클립보드 복사 → 홈택스 자동 이동 → 크롬 확장으로 자동 입력!</p>
+            </div>
+
+            {/* ✅ 크롬 확장 프로그램 설치 안내 */}
+            <div className={`rounded-2xl border p-4 transition-all ${extInstalled ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-blue-500/10 border-blue-500/20'}`}>
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <Chrome size={16} className={extInstalled ? 'text-emerald-400' : 'text-blue-400'}/>
+                  <p className="text-white font-bold text-sm">
+                    {extInstalled ? '✅ 크롬 확장 설치됨!' : '🔧 크롬 확장 프로그램 설치 (강력 추천)'}
+                  </p>
+                </div>
+                <button onClick={() => setShowExtGuide(!showExtGuide)}
+                  className="text-xs text-gray-400 hover:text-white transition-colors">
+                  {showExtGuide ? '닫기' : '설치 방법'}
+                </button>
+              </div>
+
+              {!extInstalled && (
+                <p className="text-blue-300 text-xs leading-relaxed mb-3">
+                  설치하면 홈택스에서 버튼 한 번으로 거래처명·금액·품목이 자동 입력돼요!
+                </p>
+              )}
+
+              {showExtGuide && (
+                <div className="space-y-3 mt-3">
+                  <div className="bg-white/5 rounded-xl p-4">
+                    <p className="text-white text-xs font-bold mb-3">📦 크롬 확장 설치 방법</p>
+                    <div className="space-y-2.5">
+                      {[
+                        { step:'1', text:'아래 "확장 코드 복사" 버튼 클릭' },
+                        { step:'2', text:'크롬 주소창에 chrome://extensions 입력' },
+                        { step:'3', text:'우측 상단 "개발자 모드" 토글 ON' },
+                        { step:'4', text:'새 폴더 만들기 → manifest.json + content.js 파일 저장' },
+                        { step:'5', text:'"압축해제된 확장 프로그램 로드" → 폴더 선택' },
+                        { step:'6', text:'홈택스 세금계산서 발급 페이지에서 자동입력 버튼 클릭!' },
+                      ].map(item => (
+                        <div key={item.step} className="flex items-start gap-2.5">
+                          <div className="w-5 h-5 rounded-full bg-blue-500/30 flex items-center justify-center flex-shrink-0 text-blue-400 text-xs font-bold">{item.step}</div>
+                          <p className="text-gray-300 text-xs pt-0.5">{item.text}</p>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* manifest.json 코드 */}
+                  <div className="bg-[#0a0a12] rounded-xl p-4 border border-white/5">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-violet-400 text-xs font-bold">📄 manifest.json</p>
+                      <button
+                        onClick={() => {
+                          navigator.clipboard.writeText(JSON.stringify({
+                            manifest_version: 3,
+                            name: "로컬루션 홈택스 자동입력",
+                            version: "1.0",
+                            description: "로컬루션에서 입력한 세금계산서 정보를 홈택스에 자동입력합니다",
+                            permissions: ["activeTab", "storage"],
+                            host_permissions: ["https://www.hometax.go.kr/*"],
+                            content_scripts: [{
+                              matches: ["https://www.hometax.go.kr/*"],
+                              js: ["content.js"],
+                              run_at: "document_idle"
+                            }],
+                            action: { default_popup: "popup.html", default_title: "로컬루션 자동입력" }
+                          }, null, 2));
+                          alert('manifest.json 코드 복사됨!');
+                        }}
+                        className="text-xs bg-violet-600/20 text-violet-400 px-2 py-1 rounded-lg hover:bg-violet-600/40 transition-all">
+                        복사
+                      </button>
+                    </div>
+                    <pre className="text-green-400 text-xs overflow-x-auto leading-relaxed">
+{`{
+  "manifest_version": 3,
+  "name": "로컬루션 홈택스 자동입력",
+  "version": "1.0",
+  "permissions": ["activeTab","storage"],
+  "host_permissions": [
+    "https://www.hometax.go.kr/*"
+  ],
+  "content_scripts": [{
+    "matches": [
+      "https://www.hometax.go.kr/*"
+    ],
+    "js": ["content.js"],
+    "run_at": "document_idle"
+  }],
+  "action": {
+    "default_popup": "popup.html"
+  }
+}`}
+                    </pre>
+                  </div>
+
+                  {/* content.js 코드 */}
+                  <div className="bg-[#0a0a12] rounded-xl p-4 border border-white/5">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-amber-400 text-xs font-bold">📄 content.js</p>
+                      <button
+                        onClick={() => {
+                          const code = `// 로컬루션 홈택스 자동입력 확장
+function fillField(selectors, value) {
+  for (const sel of selectors) {
+    const el = document.querySelector(sel);
+    if (el) {
+      el.value = value;
+      el.dispatchEvent(new Event('input', {bubbles:true}));
+      el.dispatchEvent(new Event('change', {bubbles:true}));
+      el.dispatchEvent(new KeyboardEvent('keyup', {bubbles:true}));
+      return true;
+    }
+  }
+  return false;
+}
+
+function autoFill() {
+  const raw = localStorage.getItem('localution_invoice');
+  if (!raw) {
+    alert('로컬루션에서 세금계산서 정보를 먼저 입력해주세요!');
+    return;
+  }
+  
+  const data = JSON.parse(raw);
+  const age = (Date.now() - data.timestamp) / 1000 / 60;
+  if (age > 30) {
+    alert('데이터가 30분 이상 지났어요. 로컬루션에서 다시 발행해주세요!');
+    return;
+  }
+
+  let filled = 0;
+  
+  // 거래처명
+  if (fillField([
+    'input[id*="dlpNm"]', 'input[name*="dlpNm"]',
+    '#dlpNm', 'input[placeholder*="거래처"]'
+  ], data.client)) filled++;
+
+  // 사업자번호
+  if (fillField([
+    'input[id*="bizrNo"]', 'input[name*="bizrNo"]',
+    '#bizrNo', 'input[placeholder*="사업자"]'
+  ], data.bizNo)) filled++;
+
+  // 품목
+  if (fillField([
+    'input[id*="itemNm"]', 'input[name*="itemNm"]',
+    '#itemNm', 'input[placeholder*="품목"]'
+  ], data.item)) filled++;
+
+  // 공급가액
+  if (fillField([
+    'input[id*="splAmt"]', 'input[name*="splAmt"]',
+    '#splAmt', 'input[placeholder*="공급가"]'
+  ], data.amount)) filled++;
+
+  // 부가세
+  if (fillField([
+    'input[id*="taxAmt"]', 'input[name*="taxAmt"]',
+    '#taxAmt', 'input[placeholder*="세액"]'
+  ], data.vat)) filled++;
+
+  if (filled > 0) {
+    alert('✅ ' + filled + '개 항목 자동입력 완료!\\n나머지는 직접 확인 후 발급하기를 클릭하세요.');
+  } else {
+    alert('⚠️ 자동입력 위치를 찾지 못했어요.\\n페이지가 완전히 로딩된 후 다시 시도해주세요.');
+  }
+}
+
+// 자동입력 버튼 추가
+function addButton() {
+  if (document.getElementById('localution-btn')) return;
+  
+  const btn = document.createElement('button');
+  btn.id = 'localution-btn';
+  btn.innerHTML = '🤖 로컬루션 자동입력';
+  btn.style.cssText = \`
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    z-index: 99999;
+    background: linear-gradient(135deg, #7c3aed, #a855f7);
+    color: white;
+    border: none;
+    padding: 12px 20px;
+    border-radius: 25px;
+    font-size: 14px;
+    font-weight: bold;
+    cursor: pointer;
+    box-shadow: 0 4px 20px rgba(124,58,237,0.5);
+    transition: all 0.2s;
+  \`;
+  btn.onmouseover = () => btn.style.transform = 'scale(1.05)';
+  btn.onmouseout = () => btn.style.transform = 'scale(1)';
+  btn.onclick = autoFill;
+  document.body.appendChild(btn);
+}
+
+// 페이지 로드 후 버튼 추가
+if (document.readyState === 'complete') {
+  addButton();
+} else {
+  window.addEventListener('load', addButton);
+}
+
+// SPA 페이지 변경 감지
+const observer = new MutationObserver(() => addButton());
+observer.observe(document.body, {childList: true, subtree: true});`;
+                          navigator.clipboard.writeText(code);
+                          alert('content.js 코드 복사됨!');
+                        }}
+                        className="text-xs bg-amber-500/20 text-amber-400 px-2 py-1 rounded-lg hover:bg-amber-500/40 transition-all">
+                        복사
+                      </button>
+                    </div>
+                    <p className="text-gray-500 text-xs">홈택스 페이지에 보라색 "로컬루션 자동입력" 버튼이 생겨요</p>
+                  </div>
+
+                  {/* popup.html */}
+                  <div className="bg-[#0a0a12] rounded-xl p-4 border border-white/5">
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-pink-400 text-xs font-bold">📄 popup.html</p>
+                      <button
+                        onClick={() => {
+                          const html = `<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  body { width: 280px; padding: 16px; background: #0f0f13; color: white; font-family: sans-serif; }
+  h3 { color: #a78bfa; font-size: 14px; margin-bottom: 8px; }
+  p { color: #9ca3af; font-size: 12px; line-height: 1.6; }
+  .status { background: #1a1a2e; border-radius: 8px; padding: 10px; margin-top: 10px; }
+  .label { color: #6b7280; font-size: 11px; }
+  .value { color: white; font-size: 12px; font-weight: bold; }
+  button { width: 100%; padding: 10px; background: linear-gradient(135deg, #7c3aed, #a855f7); color: white; border: none; border-radius: 8px; font-size: 13px; font-weight: bold; cursor: pointer; margin-top: 10px; }
+</style>
+</head>
+<body>
+  <h3>🤖 로컬루션 자동입력</h3>
+  <p>로컬루션에서 세금계산서 정보를 입력하면 홈택스에 자동으로 채워드려요!</p>
+  <div class="status" id="status">
+    <p class="label">마지막 데이터</p>
+    <p class="value" id="client">-</p>
+  </div>
+  <button onclick="window.close()">홈택스로 이동</button>
+  <script>
+    const raw = localStorage.getItem('localution_invoice');
+    if (raw) {
+      const d = JSON.parse(raw);
+      document.getElementById('client').textContent = d.client + ' / ' + parseInt(d.amount).toLocaleString() + '원';
+    }
+  </script>
+</body>
+</html>`;
+                          navigator.clipboard.writeText(html);
+                          alert('popup.html 코드 복사됨!');
+                        }}
+                        className="text-xs bg-pink-500/20 text-pink-400 px-2 py-1 rounded-lg hover:bg-pink-500/40 transition-all">
+                        복사
+                      </button>
+                    </div>
+                    <p className="text-gray-500 text-xs">확장 프로그램 팝업 화면이에요</p>
+                  </div>
+
+                  <button
+                    onClick={() => { setExtInstalled(true); setShowExtGuide(false); }}
+                    className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm transition-all">
+                    ✅ 설치 완료!
+                  </button>
+                </div>
+              )}
             </div>
 
             <button onClick={() => setShowInvoiceForm(!showInvoiceForm)}
               className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20">
-              <Plus size={16} />새 세금계산서 발행
+              <Plus size={16}/>새 세금계산서 발행
             </button>
 
-            {/* ✅ 발행 폼 */}
+            {/* 발행 폼 */}
             {showInvoiceForm && (
               <div className="rounded-2xl bg-[#13131f] border border-emerald-500/20 p-5 space-y-3">
                 <div className="flex items-center justify-between">
                   <h3 className="text-white font-bold text-sm">세금계산서 정보 입력</h3>
-                  <button onClick={() => setShowInvoiceForm(false)}><X size={16} className="text-gray-400" /></button>
+                  <button onClick={() => setShowInvoiceForm(false)}><X size={16} className="text-gray-400"/></button>
                 </div>
 
                 {[
-                  { key: 'client', label: '거래처명 (공급받는자)', placeholder: '예: 하랑마케팅', required: true },
-                  { key: 'bizNo', label: '사업자등록번호', placeholder: '000-00-00000', required: false },
-                  { key: 'item', label: '품목', placeholder: '예: 마케팅 대행 서비스', required: false },
-                  { key: 'amount', label: '공급가액 (원)', placeholder: '예: 500000', required: true },
-                  { key: 'email', label: '이메일 (카카오 전송용)', placeholder: 'example@naver.com', required: false },
+                  {key:'client', label:'거래처명 (공급받는자)', placeholder:'예: 하랑마케팅', required:true},
+                  {key:'bizNo', label:'사업자등록번호', placeholder:'000-00-00000', required:false},
+                  {key:'item', label:'품목', placeholder:'예: 마케팅 대행 서비스', required:false},
+                  {key:'amount', label:'공급가액 (원)', placeholder:'예: 500000', required:true},
+                  {key:'email', label:'이메일 (카카오 전송용)', placeholder:'example@naver.com', required:false},
                 ].map(field => (
                   <div key={field.key}>
                     <label className="text-xs text-gray-500 mb-1.5 block">
@@ -394,58 +631,54 @@ export default function AdminBizPage() {
                     </label>
                     <input
                       value={form[field.key as keyof typeof form]}
-                      onChange={e => setForm(prev => ({ ...prev, [field.key]: e.target.value }))}
+                      onChange={e => setForm(prev => ({...prev, [field.key]: e.target.value}))}
                       placeholder={field.placeholder}
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-emerald-500/50 transition-all" />
+                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-emerald-500/50 transition-all"/>
                   </div>
                 ))}
 
-                {/* 금액 미리보기 */}
                 {form.amount && (
                   <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3">
                     <p className="text-emerald-400 text-xs font-bold mb-2">💰 금액 계산</p>
-                    <div className="space-y-1.5">
-                      {[
-                        ['공급가액', `${parseInt(form.amount.replace(/,/g,'')||'0').toLocaleString()}원`],
-                        ['부가세 (10%)', `${Math.round(parseInt(form.amount.replace(/,/g,'')||'0') * 0.1).toLocaleString()}원`],
-                        ['합계', `${Math.round(parseInt(form.amount.replace(/,/g,'')||'0') * 1.1).toLocaleString()}원`],
-                      ].map(([l, v]) => (
-                        <div key={l} className="flex justify-between">
-                          <span className="text-gray-400 text-xs">{l}</span>
-                          <span className="text-white text-xs font-bold">{v}</span>
-                        </div>
-                      ))}
-                    </div>
+                    {[
+                      ['공급가액', `${parseInt(form.amount.replace(/,/g,'')||'0').toLocaleString()}원`],
+                      ['부가세 (10%)', `${Math.round(parseInt(form.amount.replace(/,/g,'')||'0')*0.1).toLocaleString()}원`],
+                      ['합계', `${Math.round(parseInt(form.amount.replace(/,/g,'')||'0')*1.1).toLocaleString()}원`],
+                    ].map(([l,v]) => (
+                      <div key={l} className="flex justify-between mt-1">
+                        <span className="text-gray-400 text-xs">{l}</span>
+                        <span className="text-white text-xs font-bold">{v}</span>
+                      </div>
+                    ))}
                   </div>
                 )}
 
-                {/* 홈택스 순서 안내 */}
                 <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-3">
-                  <p className="text-blue-400 text-xs font-bold mb-2">📋 발행 후 홈택스 순서</p>
+                  <p className="text-blue-400 text-xs font-bold mb-2">⚡ 발행 후 자동화 순서</p>
                   {[
-                    '① 버튼 클릭 → 정보 자동 복사 + 홈택스 이동',
-                    '② 홈택스 로그인 → 아이디/비밀번호',
-                    '③ 계산서·영수증·카드 → 전자(세금)계산서 건별발급',
-                    '④ 거래처 조회 → 복사된 정보 붙여넣기',
-                    '⑤ 영수 선택 → 발급하기 → 공인인증서 완료',
-                  ].map((s, i) => <p key={i} className="text-blue-300 text-xs mt-1">{s}</p>)}
+                    '① 버튼 클릭 → 정보 클립보드 복사 + 홈택스 이동',
+                    '② 홈택스 로그인 → 전자세금계산서 건별발급 이동',
+                    '③ 🤖 보라색 "로컬루션 자동입력" 버튼 클릭',
+                    '④ 자동으로 거래처·금액·품목 입력됨!',
+                    '⑤ 영수 선택 → 발급하기 → 인증 완료',
+                  ].map((s,i) => <p key={i} className="text-blue-300 text-xs mt-1">{s}</p>)}
                 </div>
 
                 <button onClick={handleIssue} disabled={isIssuing}
                   className="w-full py-3.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 disabled:opacity-50 text-white font-bold text-sm flex items-center justify-center gap-2 transition-all">
                   {isIssuing
-                    ? <><span className="animate-spin inline-block">⟳</span> 복사 중...</>
-                    : <><Zap size={15} />정보 복사 + 홈택스 이동</>}
+                    ? <><span className="animate-spin inline-block">⟳</span> 처리 중...</>
+                    : <><Zap size={15}/>정보 복사 + 홈택스 이동</>}
                 </button>
               </div>
             )}
 
-            {/* ✅ 발행 성공 후 가이드 */}
+            {/* 발행 성공 가이드 */}
             {successInvoice && (
               <div className="rounded-2xl bg-[#13131f] border border-emerald-500/30 p-5">
                 <div className="flex items-center gap-2 mb-4">
-                  <CheckCircle size={18} className="text-emerald-400" />
-                  <h3 className="text-white font-bold text-sm">복사 완료! 홈택스에서 붙여넣기만 하세요 🎉</h3>
+                  <CheckCircle size={18} className="text-emerald-400"/>
+                  <h3 className="text-white font-bold text-sm">복사 완료! 홈택스에서 자동입력 버튼을 클릭하세요 🎉</h3>
                 </div>
 
                 <div className="bg-white/5 rounded-xl p-4 mb-4 space-y-2 border border-white/5">
@@ -454,9 +687,9 @@ export default function AdminBizPage() {
                     ['사업자번호', successInvoice.bizNo],
                     ['품목', successInvoice.item],
                     ['공급가액', `${successInvoice.amount.toLocaleString()}원`],
-                    ['부가세', `${Math.round(successInvoice.amount * 0.1).toLocaleString()}원`],
-                    ['합계', `${Math.round(successInvoice.amount * 1.1).toLocaleString()}원`],
-                  ].map(([l, v]) => (
+                    ['부가세', `${Math.round(successInvoice.amount*0.1).toLocaleString()}원`],
+                    ['합계', `${Math.round(successInvoice.amount*1.1).toLocaleString()}원`],
+                  ].map(([l,v]) => (
                     <div key={l} className="flex justify-between">
                       <span className="text-gray-500 text-xs">{l}</span>
                       <span className="text-white text-xs font-bold">{v}</span>
@@ -472,30 +705,27 @@ export default function AdminBizPage() {
                       alert('다시 복사됐어요!');
                     }}
                     className="w-full py-3 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-bold text-sm flex items-center justify-center gap-2 transition-all">
-                    <Copy size={14} />정보 다시 복사
+                    <Copy size={14}/>정보 다시 복사
                   </button>
                   <button
-                    onClick={() => window.open('https://www.hometax.go.kr/websquare/websquare.html?w2xPath=/ui/pp/index.xml', '_blank')}
+                    onClick={() => window.open('https://www.hometax.go.kr/websquare/websquare.html?w2xPath=/ui/ab/a/a/UTERPAAA001M.xml&menuCd=MDR030101000','_blank')}
                     className="w-full py-3 rounded-xl bg-blue-600/20 hover:bg-blue-600/40 border border-blue-500/20 text-blue-400 font-bold text-sm flex items-center justify-center gap-2 transition-all">
-                    🏛️ 홈택스 다시 열기
+                    🏛️ 홈택스 전자세금계산서 발급 페이지
                   </button>
-                  <button onClick={() => handleDownloadPDF(successInvoice)}
-                    disabled={downloadingId === successInvoice.id}
+                  <button onClick={() => handleDownloadPDF(successInvoice)} disabled={downloadingId===successInvoice.id}
                     className="w-full py-3 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 font-bold text-sm flex items-center justify-center gap-2 transition-all border border-white/10">
-                    <Download size={14} />{downloadingId === successInvoice.id ? 'PDF 생성 중...' : '내부용 PDF 저장'}
+                    <Download size={14}/>{downloadingId===successInvoice.id ? 'PDF 생성 중...' : '내부용 PDF 저장'}
                   </button>
                 </div>
 
-                {/* 홈택스 단계 가이드 */}
                 <div className="mt-4 bg-amber-500/10 border border-amber-500/20 rounded-xl p-4">
                   <p className="text-amber-400 text-xs font-bold mb-3">🔔 홈택스 입력 순서</p>
                   {[
-                    { step: '1', text: '홈택스 로그인 → 아이디/비밀번호 입력' },
-                    { step: '2', text: '상단: 계산서·영수증·카드 클릭' },
-                    { step: '3', text: '전자(세금)계산서 → 건별발급' },
-                    { step: '4', text: '거래처 조회 → 복사된 거래처명 붙여넣기 (Ctrl+V)' },
-                    { step: '5', text: '일자·품목·수량·단가 입력 → "영수" 선택' },
-                    { step: '6', text: '발급하기 → 확인 → 공인인증서 완료' },
+                    {step:'1', text:'홈택스 로그인 → 아이디/비밀번호'},
+                    {step:'2', text:'전자(세금)계산서 → 건별발급 클릭'},
+                    {step:'3', text:'🤖 보라색 "로컬루션 자동입력" 버튼 클릭!'},
+                    {step:'4', text:'자동입력 확인 후 "영수" 선택'},
+                    {step:'5', text:'발급하기 → 공인인증서 완료'},
                   ].map(item => (
                     <div key={item.step} className="flex items-start gap-2.5 mt-2">
                       <div className="w-5 h-5 rounded-full bg-amber-500/30 flex items-center justify-center flex-shrink-0 text-amber-400 text-xs font-bold">{item.step}</div>
@@ -518,14 +748,14 @@ export default function AdminBizPage() {
                   <div key={inv.id} className="px-5 py-4">
                     <div className="flex items-center gap-3 mb-3">
                       <div className="w-9 h-9 rounded-xl bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
-                        <FileText size={15} className="text-emerald-400" />
+                        <FileText size={15} className="text-emerald-400"/>
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <p className="text-white text-sm font-medium truncate">{inv.client}</p>
                           <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${
-                            inv.status === '입금완료' ? 'bg-emerald-500/20 text-emerald-400' :
-                            inv.status === '미수금' ? 'bg-red-500/20 text-red-400' :
+                            inv.status==='입금완료'?'bg-emerald-500/20 text-emerald-400':
+                            inv.status==='미수금'?'bg-red-500/20 text-red-400':
                             'bg-blue-500/20 text-blue-400'
                           }`}>{inv.status}</span>
                         </div>
@@ -534,13 +764,13 @@ export default function AdminBizPage() {
                       <p className="text-white font-bold text-sm flex-shrink-0">{inv.amount.toLocaleString()}원</p>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
-                      <button onClick={() => handleDownloadPDF(inv)} disabled={downloadingId === inv.id}
+                      <button onClick={() => handleDownloadPDF(inv)} disabled={downloadingId===inv.id}
                         className="py-2.5 rounded-xl bg-violet-600/20 hover:bg-violet-600/40 text-violet-400 text-xs font-bold flex items-center justify-center gap-1.5 transition-all border border-violet-500/20">
-                        <Download size={13} />{downloadingId === inv.id ? '생성 중...' : 'PDF 다운로드'}
+                        <Download size={13}/>{downloadingId===inv.id?'생성중...':'PDF 다운로드'}
                       </button>
                       <button onClick={() => handleSendKakao(inv)}
                         className="py-2.5 rounded-xl bg-yellow-400/20 hover:bg-yellow-400/40 text-yellow-400 text-xs font-bold flex items-center justify-center gap-1.5 transition-all border border-yellow-400/20">
-                        <Send size={13} />카카오 전송
+                        <Send size={13}/>카카오 전송
                       </button>
                     </div>
                   </div>
@@ -555,16 +785,16 @@ export default function AdminBizPage() {
           <>
             <div className="rounded-2xl bg-gradient-to-r from-blue-600/20 to-cyan-600/20 border border-blue-500/20 p-5">
               <div className="flex items-center gap-2 mb-1">
-                <Users size={16} className="text-blue-400" />
+                <Users size={16} className="text-blue-400"/>
                 <h3 className="text-white font-bold text-sm">근태 & 계약 관리</h3>
               </div>
               <p className="text-gray-400 text-xs">출퇴근 기록 · 모바일 근로계약서 · 급여 자동 계산</p>
             </div>
             <div className="grid grid-cols-3 gap-3">
               {[
-                { label: '출근', value: '2명', color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
-                { label: '근무중', value: '1명', color: 'text-blue-400', bg: 'bg-blue-500/10' },
-                { label: '휴무', value: '1명', color: 'text-gray-400', bg: 'bg-white/5' },
+                {label:'출근', value:'2명', color:'text-emerald-400', bg:'bg-emerald-500/10'},
+                {label:'근무중', value:'1명', color:'text-blue-400', bg:'bg-blue-500/10'},
+                {label:'휴무', value:'1명', color:'text-gray-400', bg:'bg-white/5'},
               ].map(stat => (
                 <div key={stat.label} className={`${stat.bg} rounded-2xl p-3.5 border border-white/5 text-center`}>
                   <p className={`text-xl font-bold ${stat.color}`}>{stat.value}</p>
@@ -578,7 +808,7 @@ export default function AdminBizPage() {
                 <p className="text-gray-500 text-xs">2026.04.12</p>
               </div>
               <div className="divide-y divide-white/5">
-                {employees.map((emp, i) => (
+                {employees.map((emp,i) => (
                   <div key={i} className="px-5 py-4 flex items-center gap-3">
                     <div className="w-9 h-9 rounded-xl bg-violet-500/20 flex items-center justify-center flex-shrink-0 text-sm font-bold text-violet-400">{emp.name[0]}</div>
                     <div className="flex-1 min-w-0">
@@ -587,13 +817,13 @@ export default function AdminBizPage() {
                         <span className="text-xs text-gray-500">{emp.role}</span>
                       </div>
                       <div className="flex items-center gap-3 mt-0.5">
-                        <span className="text-gray-500 text-xs flex items-center gap-1"><Clock size={10} />출근 {emp.checkIn}</span>
-                        {emp.checkOut !== '-' && <span className="text-gray-500 text-xs">퇴근 {emp.checkOut}</span>}
+                        <span className="text-gray-500 text-xs flex items-center gap-1"><Clock size={10}/>출근 {emp.checkIn}</span>
+                        {emp.checkOut!=='-' && <span className="text-gray-500 text-xs">퇴근 {emp.checkOut}</span>}
                       </div>
                     </div>
                     <span className={`text-xs px-2.5 py-1 rounded-xl font-medium ${
-                      emp.status === '근무중' ? 'bg-blue-500/20 text-blue-400' :
-                      emp.status === '퇴근' ? 'bg-emerald-500/20 text-emerald-400' :
+                      emp.status==='근무중'?'bg-blue-500/20 text-blue-400':
+                      emp.status==='퇴근'?'bg-emerald-500/20 text-emerald-400':
                       'bg-white/5 text-gray-500'
                     }`}>{emp.status}</span>
                   </div>
@@ -602,14 +832,14 @@ export default function AdminBizPage() {
             </div>
             <div className="rounded-2xl bg-[#13131f] border border-white/5 p-5">
               <div className="flex items-center gap-2 mb-4">
-                <CreditCard size={15} className="text-amber-400" />
+                <CreditCard size={15} className="text-amber-400"/>
                 <h3 className="text-white font-bold text-sm">이번달 급여 예상</h3>
               </div>
               <div className="space-y-3">
                 {[
-                  { name: '김알바', hours: '52시간', wage: 12000, total: 624000 },
-                  { name: '이직원', hours: '160시간', wage: 15000, total: 2400000 },
-                ].map((emp, i) => (
+                  {name:'김알바', hours:'52시간', wage:12000, total:624000},
+                  {name:'이직원', hours:'160시간', wage:15000, total:2400000},
+                ].map((emp,i) => (
                   <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-white/3">
                     <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center text-xs font-bold text-amber-400">{emp.name[0]}</div>
                     <div className="flex-1">
@@ -626,7 +856,7 @@ export default function AdminBizPage() {
               </div>
             </div>
             <button className="w-full py-4 rounded-2xl bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20">
-              <ClipboardList size={16} />모바일 근로계약서 작성
+              <ClipboardList size={16}/>모바일 근로계약서 작성
             </button>
           </>
         )}
@@ -636,14 +866,14 @@ export default function AdminBizPage() {
           <>
             <div className="rounded-2xl bg-gradient-to-r from-amber-600/20 to-orange-600/20 border border-amber-500/20 p-5">
               <div className="flex items-center gap-2 mb-1">
-                <Bell size={16} className="text-amber-400" />
+                <Bell size={16} className="text-amber-400"/>
                 <h3 className="text-white font-bold text-sm">정부지원금 알림 봇</h3>
               </div>
               <p className="text-gray-400 text-xs">부천시·정부 맞춤 지원금 자동 알림 & 신청 대행 연결</p>
             </div>
             <div className="rounded-2xl bg-[#13131f] border border-violet-500/20 p-5">
               <div className="flex items-center gap-2 mb-3">
-                <Zap size={14} className="text-violet-400" />
+                <Zap size={14} className="text-violet-400"/>
                 <p className="text-white font-bold text-sm">AI 맞춤 추천</p>
               </div>
               <p className="text-gray-400 text-sm leading-relaxed">
@@ -652,17 +882,17 @@ export default function AdminBizPage() {
               </p>
             </div>
             <div className="space-y-3">
-              {govSupports.map((support, i) => (
+              {govSupports.map((support,i) => (
                 <div key={i} className="rounded-2xl bg-[#13131f] border border-white/5 p-5">
                   <div className="flex items-start justify-between gap-3 mb-3">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1.5">
                         <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                          support.category === '자금' ? 'bg-emerald-500/20 text-emerald-400' :
-                          support.category === '창업' ? 'bg-blue-500/20 text-blue-400' :
+                          support.category==='자금'?'bg-emerald-500/20 text-emerald-400':
+                          support.category==='창업'?'bg-blue-500/20 text-blue-400':
                           'bg-violet-500/20 text-violet-400'
                         }`}>{support.category}</span>
-                        {support.status === '마감임박' && (
+                        {support.status==='마감임박' && (
                           <span className="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full font-medium animate-pulse">마감임박!</span>
                         )}
                       </div>
@@ -682,7 +912,7 @@ export default function AdminBizPage() {
                   <div className="flex gap-2">
                     <button className="flex-1 py-2.5 rounded-xl border border-white/10 text-gray-400 hover:text-white text-xs font-medium transition-all">자세히 보기</button>
                     <button className="flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5">
-                      <Check size={12} />신청하기
+                      <Check size={12}/>신청하기
                     </button>
                   </div>
                 </div>
