@@ -3,9 +3,9 @@
 import { useState } from 'react';
 import {
   Star, MessageSquare, TrendingUp, Zap, Copy, Check,
-  Filter, Search, RefreshCw, ThumbsUp, Clock,
-  BarChart2, Share2, Youtube, Loader2, Sparkles,
-  Camera, FileText, Hash
+  Search, RefreshCw, ThumbsUp, Clock,
+  BarChart2, Share2, Loader2, Sparkles,
+  Camera, FileText, Hash, Video
 } from 'lucide-react';
 
 const reviews = [
@@ -351,7 +351,7 @@ export default function ReviewAdminPage() {
             <div className="rounded-2xl bg-[#13131f] border border-white/5 p-5">
               <p className="text-white font-bold text-sm mb-3">영상 업로드</p>
               <div className="border-2 border-dashed border-white/10 rounded-2xl p-8 text-center hover:border-violet-500/30 transition-all cursor-pointer">
-                <Youtube size={28} className="text-gray-600 mx-auto mb-2" />
+                <videosize={28} className="text-gray-600 mx-auto mb-2" />
                 <p className="text-gray-400 text-sm font-medium">영상 파일 드래그 or 클릭</p>
                 <p className="text-gray-600 text-xs mt-1">MP4, MOV 지원 · 최대 500MB</p>
               </div>
