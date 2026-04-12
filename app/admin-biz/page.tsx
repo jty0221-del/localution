@@ -2,13 +2,12 @@
 
 import { useState } from 'react';
 import {
-  Calculator, FileText, Calendar, Clock, Users,
+  FileText, Calendar, Clock, Users,
   TrendingUp, AlertCircle, Check, Download, Send,
   Plus, ChevronLeft, ChevronRight, Zap, Bell,
-  CreditCard, Wallet, ClipboardList
+  CreditCard, Wallet, ClipboardList, X, CheckCircle, Copy
 } from 'lucide-react';
 
-// ── 더미 데이터 ──────────────────────────────────────────────
 const salesData = {
   thisMonth: 4820000,
   lastMonth: 4320000,
@@ -17,49 +16,39 @@ const salesData = {
 };
 
 const calendarData: Record<number, { sales: number; type: 'high' | 'mid' | 'low' | 'none' }> = {
-  1: { sales: 180000, type: 'mid' },
-  2: { sales: 0, type: 'none' },
-  3: { sales: 220000, type: 'high' },
-  4: { sales: 150000, type: 'mid' },
-  5: { sales: 90000, type: 'low' },
-  6: { sales: 310000, type: 'high' },
-  7: { sales: 280000, type: 'high' },
-  8: { sales: 0, type: 'none' },
-  9: { sales: 195000, type: 'mid' },
-  10: { sales: 165000, type: 'mid' },
-  11: { sales: 120000, type: 'low' },
-  12: { sales: 340000, type: 'high' },
-  13: { sales: 290000, type: 'high' },
-  14: { sales: 250000, type: 'high' },
-  15: { sales: 0, type: 'none' },
-  16: { sales: 175000, type: 'mid' },
-  17: { sales: 140000, type: 'mid' },
-  18: { sales: 85000, type: 'low' },
-  19: { sales: 320000, type: 'high' },
-  20: { sales: 275000, type: 'high' },
-  21: { sales: 230000, type: 'high' },
-  22: { sales: 0, type: 'none' },
-  23: { sales: 185000, type: 'mid' },
-  24: { sales: 155000, type: 'mid' },
-  25: { sales: 110000, type: 'low' },
-  26: { sales: 295000, type: 'high' },
-  27: { sales: 260000, type: 'high' },
-  28: { sales: 0, type: 'none' },
-  29: { sales: 145000, type: 'mid' },
-  30: { sales: 200000, type: 'mid' },
+  1: { sales: 180000, type: 'mid' }, 2: { sales: 0, type: 'none' },
+  3: { sales: 220000, type: 'high' }, 4: { sales: 150000, type: 'mid' },
+  5: { sales: 90000, type: 'low' }, 6: { sales: 310000, type: 'high' },
+  7: { sales: 280000, type: 'high' }, 8: { sales: 0, type: 'none' },
+  9: { sales: 195000, type: 'mid' }, 10: { sales: 165000, type: 'mid' },
+  11: { sales: 120000, type: 'low' }, 12: { sales: 340000, type: 'high' },
+  13: { sales: 290000, type: 'high' }, 14: { sales: 250000, type: 'high' },
+  15: { sales: 0, type: 'none' }, 16: { sales: 175000, type: 'mid' },
+  17: { sales: 140000, type: 'mid' }, 18: { sales: 85000, type: 'low' },
+  19: { sales: 320000, type: 'high' }, 20: { sales: 275000, type: 'high' },
+  21: { sales: 230000, type: 'high' }, 22: { sales: 0, type: 'none' },
+  23: { sales: 185000, type: 'mid' }, 24: { sales: 155000, type: 'mid' },
+  25: { sales: 110000, type: 'low' }, 26: { sales: 295000, type: 'high' },
+  27: { sales: 260000, type: 'high' }, 28: { sales: 0, type: 'none' },
+  29: { sales: 145000, type: 'mid' }, 30: { sales: 200000, type: 'mid' },
 };
 
-const invoices = [
-  { id: 'INV-2026-004', client: '하랑마케팅', amount: 550000, date: '2026-04-01', status: '발행완료', due: '2026-04-30' },
-  { id: 'INV-2026-003', client: '부천 꽃집', amount: 330000, date: '2026-03-01', status: '입금완료', due: '2026-03-31' },
-  { id: 'INV-2026-002', client: '신중동 카페', amount: 220000, date: '2026-03-01', status: '미수금', due: '2026-03-31' },
-  { id: 'INV-2026-001', client: '소사구 식당', amount: 440000, date: '2026-02-01', status: '입금완료', due: '2026-02-28' },
+type Invoice = {
+  id: string; client: string; bizNo: string;
+  amount: number; date: string; status: string; due: string; email: string; item: string;
+};
+
+const initialInvoices: Invoice[] = [
+  { id: 'INV-2026-004', client: '하랑마케팅', bizNo: '000-00-00001', amount: 550000, date: '2026-04-01', status: '발행완료', due: '2026-04-30', email: 'harang@naver.com', item: '마케팅 대행' },
+  { id: 'INV-2026-003', client: '부천 꽃집', bizNo: '000-00-00002', amount: 330000, date: '2026-03-01', status: '입금완료', due: '2026-03-31', email: 'flower@naver.com', item: 'SNS 운영' },
+  { id: 'INV-2026-002', client: '신중동 카페', bizNo: '000-00-00003', amount: 220000, date: '2026-03-01', status: '미수금', due: '2026-03-31', email: 'cafe@naver.com', item: '블로그 포스팅' },
+  { id: 'INV-2026-001', client: '소사구 식당', bizNo: '000-00-00004', amount: 440000, date: '2026-02-01', status: '입금완료', due: '2026-02-28', email: 'sosa@naver.com', item: '플레이스 관리' },
 ];
 
 const employees = [
-  { name: '김알바', role: '파트타임', checkIn: '09:02', checkOut: '18:05', status: '퇴근', wage: 12000 },
-  { name: '이직원', role: '정규직', checkIn: '08:58', checkOut: '-', status: '근무중', wage: 0 },
-  { name: '박알바', role: '파트타임', checkIn: '-', checkOut: '-', status: '휴무', wage: 0 },
+  { name: '김알바', role: '파트타임', checkIn: '09:02', checkOut: '18:05', status: '퇴근' },
+  { name: '이직원', role: '정규직', checkIn: '08:58', checkOut: '-', status: '근무중' },
+  { name: '박알바', role: '파트타임', checkIn: '-', checkOut: '-', status: '휴무' },
 ];
 
 const govSupports = [
@@ -71,10 +60,174 @@ const govSupports = [
 export default function AdminBizPage() {
   const [activeTab, setActiveTab] = useState<'calendar' | 'invoice' | 'employee' | 'support'>('calendar');
   const [selectedDay, setSelectedDay] = useState<number | null>(null);
-  const [currentMonth] = useState('2026년 4월');
   const [showInvoiceForm, setShowInvoiceForm] = useState(false);
+  const [invoices, setInvoices] = useState<Invoice[]>(initialInvoices);
+  const [isIssuing, setIsIssuing] = useState(false);
+  const [successInvoice, setSuccessInvoice] = useState<Invoice | null>(null);
+  const [form, setForm] = useState({ client: '', bizNo: '', amount: '', email: '', item: '' });
+  const [downloadingId, setDownloadingId] = useState<string | null>(null);
 
   const growthRate = (((salesData.thisMonth - salesData.lastMonth) / salesData.lastMonth) * 100).toFixed(1);
+
+  // ✅ 간편 발행 + 클립보드 복사 + 홈택스 이동
+  const handleIssue = async () => {
+    if (!form.client || !form.amount) {
+      alert('거래처명과 공급가액은 필수 입력이에요!');
+      return;
+    }
+    setIsIssuing(true);
+
+    const supplyAmt = parseInt(form.amount.replace(/,/g, '') || '0');
+    const vat = Math.round(supplyAmt * 0.1);
+    const total = supplyAmt + vat;
+
+    // 클립보드에 복사
+    const clipText =
+      `거래처명: ${form.client}\n` +
+      `사업자번호: ${form.bizNo || '미입력'}\n` +
+      `품목: ${form.item || '마케팅 대행 서비스'}\n` +
+      `공급가액: ${supplyAmt.toLocaleString()}원\n` +
+      `부가세: ${vat.toLocaleString()}원\n` +
+      `합계: ${total.toLocaleString()}원\n` +
+      `이메일: ${form.email || '미입력'}`;
+
+    await navigator.clipboard.writeText(clipText);
+    await new Promise(r => setTimeout(r, 800));
+
+    const newInvoice: Invoice = {
+      id: `INV-2026-${String(invoices.length + 1).padStart(3, '0')}`,
+      client: form.client,
+      bizNo: form.bizNo || '미입력',
+      amount: supplyAmt,
+      date: new Date().toISOString().split('T')[0],
+      status: '발행완료',
+      due: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      email: form.email,
+      item: form.item || '마케팅 대행 서비스',
+    };
+
+    setInvoices(prev => [newInvoice, ...prev]);
+    setSuccessInvoice(newInvoice);
+    setIsIssuing(false);
+    setShowInvoiceForm(false);
+    setForm({ client: '', bizNo: '', amount: '', email: '', item: '' });
+
+    // 홈택스 자동 이동
+    setTimeout(() => {
+      window.open('https://www.hometax.go.kr/websquare/websquare.html?w2xPath=/ui/pp/index.xml', '_blank');
+    }, 300);
+  };
+
+  // ✅ PDF 다운로드
+  const handleDownloadPDF = async (inv: Invoice) => {
+    setDownloadingId(inv.id);
+    try {
+      const { jsPDF } = await import('jspdf');
+      const doc = new jsPDF();
+
+      doc.setFillColor(15, 15, 19);
+      doc.rect(0, 0, 210, 297, 'F');
+
+      doc.setTextColor(255, 255, 255);
+      doc.setFontSize(22);
+      doc.setFont('helvetica', 'bold');
+      doc.text('TAX INVOICE', 105, 30, { align: 'center' });
+
+      doc.setFontSize(12);
+      doc.setTextColor(160, 160, 180);
+      doc.text('(Korean Electronic Tax Invoice)', 105, 40, { align: 'center' });
+
+      doc.setDrawColor(124, 58, 237);
+      doc.setLineWidth(0.8);
+      doc.line(20, 48, 190, 48);
+
+      const infoData = [
+        ['문서번호', inv.id],
+        ['발행일자', inv.date],
+        ['공급받는자', inv.client],
+        ['사업자등록번호', inv.bizNo],
+        ['품목', inv.item],
+        ['이메일', inv.email || '미입력'],
+        ['납부기한', inv.due],
+      ];
+
+      let y = 65;
+      doc.setFontSize(11);
+      infoData.forEach(([label, value]) => {
+        doc.setTextColor(130, 130, 160);
+        doc.setFont('helvetica', 'normal');
+        doc.text(label, 25, y);
+        doc.setTextColor(220, 220, 240);
+        doc.setFont('helvetica', 'bold');
+        doc.text(String(value), 80, y);
+        y += 12;
+      });
+
+      const supplyAmt = inv.amount;
+      const vat = Math.round(supplyAmt * 0.1);
+      const total = supplyAmt + vat;
+
+      doc.setFillColor(30, 10, 60);
+      doc.roundedRect(20, y + 5, 170, 55, 5, 5, 'F');
+      doc.setDrawColor(124, 58, 237);
+      doc.setLineWidth(0.5);
+      doc.roundedRect(20, y + 5, 170, 55, 5, 5, 'S');
+
+      doc.setFontSize(11);
+      doc.setTextColor(160, 130, 220);
+      doc.setFont('helvetica', 'normal');
+      doc.text('공급가액', 35, y + 22);
+      doc.text('부가세 (10%)', 35, y + 35);
+      doc.text('───────────────────', 35, y + 42);
+
+      doc.setTextColor(220, 200, 255);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`${supplyAmt.toLocaleString()} KRW`, 185, y + 22, { align: 'right' });
+      doc.text(`${vat.toLocaleString()} KRW`, 185, y + 35, { align: 'right' });
+
+      y += 65;
+      doc.setFillColor(124, 58, 237);
+      doc.roundedRect(20, y, 170, 22, 3, 3, 'F');
+      doc.setFontSize(13);
+      doc.setTextColor(255, 255, 255);
+      doc.setFont('helvetica', 'normal');
+      doc.text('합계 (VAT 포함)', 35, y + 14);
+      doc.setFont('helvetica', 'bold');
+      doc.text(`${total.toLocaleString()} KRW`, 185, y + 14, { align: 'right' });
+
+      y += 35;
+      doc.setFontSize(9);
+      doc.setTextColor(100, 100, 130);
+      doc.setFont('helvetica', 'normal');
+      doc.text('발행처: 하랑마케팅 카페 | 경기도 부천시 소사구 신중동', 105, y, { align: 'center' });
+      doc.text('Powered by Localution AI', 105, y + 8, { align: 'center' });
+
+      doc.save(`세금계산서_${inv.id}_${inv.client}.pdf`);
+    } catch (e) {
+      alert('PDF 생성 중 오류가 발생했어요.');
+      console.error(e);
+    } finally {
+      setDownloadingId(null);
+    }
+  };
+
+  // ✅ 카카오톡 전송 (내용 복사 + 앱 오픈)
+  const handleSendKakao = async (inv: Invoice) => {
+    const text =
+      `[로컬루션] 세금계산서 발행 안내\n\n` +
+      `문서번호: ${inv.id}\n` +
+      `거래처: ${inv.client}\n` +
+      `품목: ${inv.item}\n` +
+      `공급가액: ${inv.amount.toLocaleString()}원\n` +
+      `부가세: ${Math.round(inv.amount * 0.1).toLocaleString()}원\n` +
+      `합계: ${Math.round(inv.amount * 1.1).toLocaleString()}원\n` +
+      `납부기한: ${inv.due}\n\n` +
+      `확인 후 입금 부탁드립니다 🙏`;
+
+    await navigator.clipboard.writeText(text);
+    alert('세금계산서 내용이 복사됐어요!\n카카오톡을 열어서 거래처에게 붙여넣기로 전송하세요 😊');
+    window.location.href = 'kakaolink://';
+  };
 
   return (
     <div className="min-h-screen bg-[#0f0f13] text-white">
@@ -93,8 +246,6 @@ export default function AdminBizPage() {
             </div>
           )}
         </div>
-
-        {/* 탭 */}
         <div className="flex gap-1 mt-4 bg-white/5 rounded-xl p-1">
           {[
             { id: 'calendar', label: '매출 캘린더', icon: Calendar },
@@ -108,8 +259,7 @@ export default function AdminBizPage() {
                 className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium transition-all ${
                   activeTab === tab.id ? 'bg-violet-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'
                 }`}>
-                <Icon size={13} />
-                <span className="hidden sm:block">{tab.label}</span>
+                <Icon size={13} /><span className="hidden sm:block">{tab.label}</span>
               </button>
             );
           })}
@@ -118,10 +268,9 @@ export default function AdminBizPage() {
 
       <div className="p-5 space-y-5 max-w-4xl mx-auto">
 
-        {/* ── 매출 캘린더 탭 ── */}
+        {/* ── 매출 캘린더 ── */}
         {activeTab === 'calendar' && (
           <>
-            {/* 요약 카드 */}
             <div className="grid grid-cols-2 gap-3">
               <div className="col-span-2 rounded-2xl bg-gradient-to-r from-violet-600/20 to-purple-600/20 border border-violet-500/20 p-4">
                 <div className="flex items-center justify-between">
@@ -138,13 +287,11 @@ export default function AdminBizPage() {
                   </div>
                 </div>
               </div>
-
               <div className="bg-[#13131f] rounded-2xl border border-white/5 p-4">
                 <p className="text-gray-500 text-xs mb-1">미수금</p>
                 <p className="text-red-400 font-bold text-xl">{salesData.unpaid.toLocaleString()}<span className="text-sm font-normal">원</span></p>
                 <p className="text-gray-600 text-xs mt-1">2건 미입금</p>
               </div>
-
               <div className="bg-[#13131f] rounded-2xl border border-white/5 p-4">
                 <p className="text-gray-500 text-xs mb-1">이번달 지출</p>
                 <p className="text-amber-400 font-bold text-xl">{salesData.expenses.toLocaleString()}<span className="text-sm font-normal">원</span></p>
@@ -152,58 +299,36 @@ export default function AdminBizPage() {
               </div>
             </div>
 
-            {/* 캘린더 */}
             <div className="rounded-2xl bg-[#13131f] border border-white/5 p-5">
               <div className="flex items-center justify-between mb-4">
-                <button className="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center">
-                  <ChevronLeft size={16} className="text-gray-400" />
-                </button>
-                <p className="text-white font-bold text-sm">{currentMonth}</p>
-                <button className="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center">
-                  <ChevronRight size={16} className="text-gray-400" />
-                </button>
+                <button className="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center"><ChevronLeft size={16} className="text-gray-400" /></button>
+                <p className="text-white font-bold text-sm">2026년 4월</p>
+                <button className="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center"><ChevronRight size={16} className="text-gray-400" /></button>
               </div>
-
-              {/* 요일 */}
               <div className="grid grid-cols-7 mb-2">
-                {['일', '월', '화', '수', '목', '금', '토'].map(d => (
-                  <div key={d} className={`text-center text-xs font-medium py-1 ${d === '일' ? 'text-red-400' : d === '토' ? 'text-blue-400' : 'text-gray-500'}`}>{d}</div>
+                {['일','월','화','수','목','금','토'].map(d => (
+                  <div key={d} className={`text-center text-xs font-medium py-1 ${d==='일'?'text-red-400':d==='토'?'text-blue-400':'text-gray-500'}`}>{d}</div>
                 ))}
               </div>
-
-              {/* 날짜 */}
               <div className="grid grid-cols-7 gap-1">
-                {/* 4월 1일은 화요일 → 앞에 2칸 비움 */}
-                {[...Array(2)].map((_, i) => <div key={`empty-${i}`} />)}
+                {[...Array(2)].map((_,i) => <div key={`e${i}`} />)}
                 {Object.entries(calendarData).map(([day, data]) => {
                   const dayNum = parseInt(day);
                   const isSelected = selectedDay === dayNum;
                   const bgColor = data.type === 'high' ? 'bg-violet-500/30 border-violet-500/40' :
                     data.type === 'mid' ? 'bg-blue-500/20 border-blue-500/30' :
-                    data.type === 'low' ? 'bg-white/5 border-white/10' :
-                    'border-white/5';
-
+                    data.type === 'low' ? 'bg-white/5 border-white/10' : 'border-white/5';
                   return (
                     <button key={day} onClick={() => setSelectedDay(isSelected ? null : dayNum)}
                       className={`rounded-xl p-1.5 border text-center transition-all ${bgColor} ${isSelected ? 'ring-2 ring-violet-500' : ''}`}>
-                      <p className={`text-xs font-bold ${data.type !== 'none' ? 'text-white' : 'text-gray-600'}`}>{dayNum}</p>
-                      {data.sales > 0 && (
-                        <p className="text-xs text-violet-300 font-medium leading-none mt-0.5" style={{fontSize: '9px'}}>
-                          {(data.sales / 10000).toFixed(0)}만
-                        </p>
-                      )}
+                      <p className={`text-xs font-bold ${data.type!=='none'?'text-white':'text-gray-600'}`}>{dayNum}</p>
+                      {data.sales > 0 && <p className="text-violet-300 font-medium leading-none mt-0.5" style={{fontSize:'9px'}}>{(data.sales/10000).toFixed(0)}만</p>}
                     </button>
                   );
                 })}
               </div>
-
-              {/* 범례 */}
               <div className="flex items-center gap-3 mt-4 justify-center">
-                {[
-                  { color: 'bg-violet-500/30', label: '30만+' },
-                  { color: 'bg-blue-500/20', label: '15만+' },
-                  { color: 'bg-white/5', label: '15만 미만' },
-                ].map(item => (
+                {[{color:'bg-violet-500/30',label:'30만+'},{color:'bg-blue-500/20',label:'15만+'},{color:'bg-white/5',label:'15만 미만'}].map(item => (
                   <div key={item.label} className="flex items-center gap-1.5">
                     <div className={`w-3 h-3 rounded-sm ${item.color}`} />
                     <span className="text-gray-500 text-xs">{item.label}</span>
@@ -212,7 +337,6 @@ export default function AdminBizPage() {
               </div>
             </div>
 
-            {/* 선택된 날짜 상세 */}
             {selectedDay && calendarData[selectedDay] && (
               <div className="rounded-2xl bg-[#13131f] border border-violet-500/20 p-4">
                 <p className="text-violet-400 text-xs font-bold mb-2">4월 {selectedDay}일 상세</p>
@@ -227,15 +351,13 @@ export default function AdminBizPage() {
                       <p className="text-emerald-400 font-bold">{((calendarData[selectedDay].sales / 300000) * 100).toFixed(0)}%</p>
                     </div>
                   </div>
-                ) : (
-                  <p className="text-gray-500 text-sm">휴무일</p>
-                )}
+                ) : <p className="text-gray-500 text-sm">휴무일</p>}
               </div>
             )}
           </>
         )}
 
-        {/* ── 세금계산서 탭 ── */}
+        {/* ── 세금계산서 ── */}
         {activeTab === 'invoice' && (
           <>
             <div className="rounded-2xl bg-gradient-to-r from-emerald-600/20 to-teal-600/20 border border-emerald-500/20 p-5">
@@ -243,7 +365,7 @@ export default function AdminBizPage() {
                 <FileText size={16} className="text-emerald-400" />
                 <h3 className="text-white font-bold text-sm">원클릭 세금계산서</h3>
               </div>
-              <p className="text-gray-400 text-xs">국세청 연동 발행 → PDF 자동 변환 → 카카오/이메일 자동 전송</p>
+              <p className="text-gray-400 text-xs">정보 입력 → 클립보드 자동 복사 → 홈택스 자동 이동 → 붙여넣기만!</p>
             </div>
 
             <button onClick={() => setShowInvoiceForm(!showInvoiceForm)}
@@ -251,27 +373,138 @@ export default function AdminBizPage() {
               <Plus size={16} />새 세금계산서 발행
             </button>
 
+            {/* ✅ 발행 폼 */}
             {showInvoiceForm && (
               <div className="rounded-2xl bg-[#13131f] border border-emerald-500/20 p-5 space-y-3">
-                <h3 className="text-white font-bold text-sm mb-3">세금계산서 작성</h3>
+                <div className="flex items-center justify-between">
+                  <h3 className="text-white font-bold text-sm">세금계산서 정보 입력</h3>
+                  <button onClick={() => setShowInvoiceForm(false)}><X size={16} className="text-gray-400" /></button>
+                </div>
+
                 {[
-                  { label: '공급받는자 (거래처명)', placeholder: '예: 하랑마케팅' },
-                  { label: '사업자등록번호', placeholder: '000-00-00000' },
-                  { label: '공급가액', placeholder: '예: 500000' },
-                  { label: '이메일', placeholder: '전송받을 이메일 주소' },
+                  { key: 'client', label: '거래처명 (공급받는자)', placeholder: '예: 하랑마케팅', required: true },
+                  { key: 'bizNo', label: '사업자등록번호', placeholder: '000-00-00000', required: false },
+                  { key: 'item', label: '품목', placeholder: '예: 마케팅 대행 서비스', required: false },
+                  { key: 'amount', label: '공급가액 (원)', placeholder: '예: 500000', required: true },
+                  { key: 'email', label: '이메일 (카카오 전송용)', placeholder: 'example@naver.com', required: false },
                 ].map(field => (
-                  <div key={field.label}>
-                    <label className="text-xs text-gray-500 mb-1.5 block">{field.label}</label>
-                    <input placeholder={field.placeholder}
+                  <div key={field.key}>
+                    <label className="text-xs text-gray-500 mb-1.5 block">
+                      {field.label} {field.required && <span className="text-red-400">*</span>}
+                    </label>
+                    <input
+                      value={form[field.key as keyof typeof form]}
+                      onChange={e => setForm(prev => ({ ...prev, [field.key]: e.target.value }))}
+                      placeholder={field.placeholder}
                       className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-emerald-500/50 transition-all" />
                   </div>
                 ))}
-                <div className="grid grid-cols-2 gap-2 mt-4">
-                  <button className="py-3 rounded-xl border border-white/10 text-gray-400 text-sm">취소</button>
-                  <button className="py-3 rounded-xl bg-emerald-600 text-white font-bold text-sm flex items-center justify-center gap-1.5">
-                    <Zap size={14} />간편 발행
+
+                {/* 금액 미리보기 */}
+                {form.amount && (
+                  <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3">
+                    <p className="text-emerald-400 text-xs font-bold mb-2">💰 금액 계산</p>
+                    <div className="space-y-1.5">
+                      {[
+                        ['공급가액', `${parseInt(form.amount.replace(/,/g,'')||'0').toLocaleString()}원`],
+                        ['부가세 (10%)', `${Math.round(parseInt(form.amount.replace(/,/g,'')||'0') * 0.1).toLocaleString()}원`],
+                        ['합계', `${Math.round(parseInt(form.amount.replace(/,/g,'')||'0') * 1.1).toLocaleString()}원`],
+                      ].map(([l, v]) => (
+                        <div key={l} className="flex justify-between">
+                          <span className="text-gray-400 text-xs">{l}</span>
+                          <span className="text-white text-xs font-bold">{v}</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 홈택스 순서 안내 */}
+                <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-3">
+                  <p className="text-blue-400 text-xs font-bold mb-2">📋 발행 후 홈택스 순서</p>
+                  {[
+                    '① 버튼 클릭 → 정보 자동 복사 + 홈택스 이동',
+                    '② 홈택스 로그인 → 아이디/비밀번호',
+                    '③ 계산서·영수증·카드 → 전자(세금)계산서 건별발급',
+                    '④ 거래처 조회 → 복사된 정보 붙여넣기',
+                    '⑤ 영수 선택 → 발급하기 → 공인인증서 완료',
+                  ].map((s, i) => <p key={i} className="text-blue-300 text-xs mt-1">{s}</p>)}
+                </div>
+
+                <button onClick={handleIssue} disabled={isIssuing}
+                  className="w-full py-3.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 disabled:opacity-50 text-white font-bold text-sm flex items-center justify-center gap-2 transition-all">
+                  {isIssuing
+                    ? <><span className="animate-spin inline-block">⟳</span> 복사 중...</>
+                    : <><Zap size={15} />정보 복사 + 홈택스 이동</>}
+                </button>
+              </div>
+            )}
+
+            {/* ✅ 발행 성공 후 가이드 */}
+            {successInvoice && (
+              <div className="rounded-2xl bg-[#13131f] border border-emerald-500/30 p-5">
+                <div className="flex items-center gap-2 mb-4">
+                  <CheckCircle size={18} className="text-emerald-400" />
+                  <h3 className="text-white font-bold text-sm">복사 완료! 홈택스에서 붙여넣기만 하세요 🎉</h3>
+                </div>
+
+                <div className="bg-white/5 rounded-xl p-4 mb-4 space-y-2 border border-white/5">
+                  {[
+                    ['거래처명', successInvoice.client],
+                    ['사업자번호', successInvoice.bizNo],
+                    ['품목', successInvoice.item],
+                    ['공급가액', `${successInvoice.amount.toLocaleString()}원`],
+                    ['부가세', `${Math.round(successInvoice.amount * 0.1).toLocaleString()}원`],
+                    ['합계', `${Math.round(successInvoice.amount * 1.1).toLocaleString()}원`],
+                  ].map(([l, v]) => (
+                    <div key={l} className="flex justify-between">
+                      <span className="text-gray-500 text-xs">{l}</span>
+                      <span className="text-white text-xs font-bold">{v}</span>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="space-y-2">
+                  <button
+                    onClick={() => {
+                      const text = `거래처명: ${successInvoice.client}\n사업자번호: ${successInvoice.bizNo}\n품목: ${successInvoice.item}\n공급가액: ${successInvoice.amount.toLocaleString()}원\n부가세: ${Math.round(successInvoice.amount*0.1).toLocaleString()}원\n합계: ${Math.round(successInvoice.amount*1.1).toLocaleString()}원`;
+                      navigator.clipboard.writeText(text);
+                      alert('다시 복사됐어요!');
+                    }}
+                    className="w-full py-3 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-bold text-sm flex items-center justify-center gap-2 transition-all">
+                    <Copy size={14} />정보 다시 복사
+                  </button>
+                  <button
+                    onClick={() => window.open('https://www.hometax.go.kr/websquare/websquare.html?w2xPath=/ui/pp/index.xml', '_blank')}
+                    className="w-full py-3 rounded-xl bg-blue-600/20 hover:bg-blue-600/40 border border-blue-500/20 text-blue-400 font-bold text-sm flex items-center justify-center gap-2 transition-all">
+                    🏛️ 홈택스 다시 열기
+                  </button>
+                  <button onClick={() => handleDownloadPDF(successInvoice)}
+                    disabled={downloadingId === successInvoice.id}
+                    className="w-full py-3 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 font-bold text-sm flex items-center justify-center gap-2 transition-all border border-white/10">
+                    <Download size={14} />{downloadingId === successInvoice.id ? 'PDF 생성 중...' : '내부용 PDF 저장'}
                   </button>
                 </div>
+
+                {/* 홈택스 단계 가이드 */}
+                <div className="mt-4 bg-amber-500/10 border border-amber-500/20 rounded-xl p-4">
+                  <p className="text-amber-400 text-xs font-bold mb-3">🔔 홈택스 입력 순서</p>
+                  {[
+                    { step: '1', text: '홈택스 로그인 → 아이디/비밀번호 입력' },
+                    { step: '2', text: '상단: 계산서·영수증·카드 클릭' },
+                    { step: '3', text: '전자(세금)계산서 → 건별발급' },
+                    { step: '4', text: '거래처 조회 → 복사된 거래처명 붙여넣기 (Ctrl+V)' },
+                    { step: '5', text: '일자·품목·수량·단가 입력 → "영수" 선택' },
+                    { step: '6', text: '발급하기 → 확인 → 공인인증서 완료' },
+                  ].map(item => (
+                    <div key={item.step} className="flex items-start gap-2.5 mt-2">
+                      <div className="w-5 h-5 rounded-full bg-amber-500/30 flex items-center justify-center flex-shrink-0 text-amber-400 text-xs font-bold">{item.step}</div>
+                      <p className="text-gray-300 text-xs leading-relaxed pt-0.5">{item.text}</p>
+                    </div>
+                  ))}
+                </div>
+
+                <button onClick={() => setSuccessInvoice(null)} className="w-full mt-3 py-2.5 rounded-xl border border-white/10 text-gray-500 text-xs">닫기</button>
               </div>
             )}
 
@@ -282,31 +515,33 @@ export default function AdminBizPage() {
               </div>
               <div className="divide-y divide-white/5">
                 {invoices.map(inv => (
-                  <div key={inv.id} className="px-5 py-4 flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
-                      <FileText size={15} className="text-emerald-400" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <p className="text-white text-sm font-medium truncate">{inv.client}</p>
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${
-                          inv.status === '입금완료' ? 'bg-emerald-500/20 text-emerald-400' :
-                          inv.status === '미수금' ? 'bg-red-500/20 text-red-400' :
-                          'bg-blue-500/20 text-blue-400'
-                        }`}>{inv.status}</span>
+                  <div key={inv.id} className="px-5 py-4">
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="w-9 h-9 rounded-xl bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
+                        <FileText size={15} className="text-emerald-400" />
                       </div>
-                      <p className="text-gray-500 text-xs mt-0.5">{inv.id} · 마감 {inv.due}</p>
-                    </div>
-                    <div className="text-right flex-shrink-0">
-                      <p className="text-white font-bold text-sm">{inv.amount.toLocaleString()}원</p>
-                      <div className="flex gap-1 mt-1 justify-end">
-                        <button className="text-xs bg-white/5 hover:bg-white/10 text-gray-400 px-2 py-1 rounded-lg flex items-center gap-1 transition-all">
-                          <Download size={10} />PDF
-                        </button>
-                        <button className="text-xs bg-white/5 hover:bg-white/10 text-gray-400 px-2 py-1 rounded-lg flex items-center gap-1 transition-all">
-                          <Send size={10} />전송
-                        </button>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <p className="text-white text-sm font-medium truncate">{inv.client}</p>
+                          <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${
+                            inv.status === '입금완료' ? 'bg-emerald-500/20 text-emerald-400' :
+                            inv.status === '미수금' ? 'bg-red-500/20 text-red-400' :
+                            'bg-blue-500/20 text-blue-400'
+                          }`}>{inv.status}</span>
+                        </div>
+                        <p className="text-gray-500 text-xs mt-0.5">{inv.id} · {inv.item} · 마감 {inv.due}</p>
                       </div>
+                      <p className="text-white font-bold text-sm flex-shrink-0">{inv.amount.toLocaleString()}원</p>
+                    </div>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button onClick={() => handleDownloadPDF(inv)} disabled={downloadingId === inv.id}
+                        className="py-2.5 rounded-xl bg-violet-600/20 hover:bg-violet-600/40 text-violet-400 text-xs font-bold flex items-center justify-center gap-1.5 transition-all border border-violet-500/20">
+                        <Download size={13} />{downloadingId === inv.id ? '생성 중...' : 'PDF 다운로드'}
+                      </button>
+                      <button onClick={() => handleSendKakao(inv)}
+                        className="py-2.5 rounded-xl bg-yellow-400/20 hover:bg-yellow-400/40 text-yellow-400 text-xs font-bold flex items-center justify-center gap-1.5 transition-all border border-yellow-400/20">
+                        <Send size={13} />카카오 전송
+                      </button>
                     </div>
                   </div>
                 ))}
@@ -315,7 +550,7 @@ export default function AdminBizPage() {
           </>
         )}
 
-        {/* ── 근태 관리 탭 ── */}
+        {/* ── 근태 관리 ── */}
         {activeTab === 'employee' && (
           <>
             <div className="rounded-2xl bg-gradient-to-r from-blue-600/20 to-cyan-600/20 border border-blue-500/20 p-5">
@@ -325,8 +560,6 @@ export default function AdminBizPage() {
               </div>
               <p className="text-gray-400 text-xs">출퇴근 기록 · 모바일 근로계약서 · 급여 자동 계산</p>
             </div>
-
-            {/* 오늘 현황 */}
             <div className="grid grid-cols-3 gap-3">
               {[
                 { label: '출근', value: '2명', color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
@@ -339,8 +572,6 @@ export default function AdminBizPage() {
                 </div>
               ))}
             </div>
-
-            {/* 직원 목록 */}
             <div className="rounded-2xl bg-[#13131f] border border-white/5 overflow-hidden">
               <div className="px-5 py-3 border-b border-white/5 flex items-center justify-between">
                 <p className="text-white font-bold text-sm">오늘 출퇴근 현황</p>
@@ -349,36 +580,26 @@ export default function AdminBizPage() {
               <div className="divide-y divide-white/5">
                 {employees.map((emp, i) => (
                   <div key={i} className="px-5 py-4 flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-violet-500/20 flex items-center justify-center flex-shrink-0 text-sm font-bold text-violet-400">
-                      {emp.name[0]}
-                    </div>
+                    <div className="w-9 h-9 rounded-xl bg-violet-500/20 flex items-center justify-center flex-shrink-0 text-sm font-bold text-violet-400">{emp.name[0]}</div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <p className="text-white text-sm font-medium">{emp.name}</p>
                         <span className="text-xs text-gray-500">{emp.role}</span>
                       </div>
                       <div className="flex items-center gap-3 mt-0.5">
-                        <span className="text-gray-500 text-xs flex items-center gap-1">
-                          <Clock size={10} />출근 {emp.checkIn}
-                        </span>
-                        {emp.checkOut !== '-' && (
-                          <span className="text-gray-500 text-xs">퇴근 {emp.checkOut}</span>
-                        )}
+                        <span className="text-gray-500 text-xs flex items-center gap-1"><Clock size={10} />출근 {emp.checkIn}</span>
+                        {emp.checkOut !== '-' && <span className="text-gray-500 text-xs">퇴근 {emp.checkOut}</span>}
                       </div>
                     </div>
-                    <div className="flex-shrink-0 text-right">
-                      <span className={`text-xs px-2.5 py-1 rounded-xl font-medium ${
-                        emp.status === '근무중' ? 'bg-blue-500/20 text-blue-400' :
-                        emp.status === '퇴근' ? 'bg-emerald-500/20 text-emerald-400' :
-                        'bg-white/5 text-gray-500'
-                      }`}>{emp.status}</span>
-                    </div>
+                    <span className={`text-xs px-2.5 py-1 rounded-xl font-medium ${
+                      emp.status === '근무중' ? 'bg-blue-500/20 text-blue-400' :
+                      emp.status === '퇴근' ? 'bg-emerald-500/20 text-emerald-400' :
+                      'bg-white/5 text-gray-500'
+                    }`}>{emp.status}</span>
                   </div>
                 ))}
               </div>
             </div>
-
-            {/* 이번달 급여 예상 */}
             <div className="rounded-2xl bg-[#13131f] border border-white/5 p-5">
               <div className="flex items-center gap-2 mb-4">
                 <CreditCard size={15} className="text-amber-400" />
@@ -390,9 +611,7 @@ export default function AdminBizPage() {
                   { name: '이직원', hours: '160시간', wage: 15000, total: 2400000 },
                 ].map((emp, i) => (
                   <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-white/3">
-                    <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center text-xs font-bold text-amber-400">
-                      {emp.name[0]}
-                    </div>
+                    <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center text-xs font-bold text-amber-400">{emp.name[0]}</div>
                     <div className="flex-1">
                       <p className="text-white text-sm font-medium">{emp.name}</p>
                       <p className="text-gray-500 text-xs">{emp.hours} · 시급 {emp.wage.toLocaleString()}원</p>
@@ -406,15 +625,13 @@ export default function AdminBizPage() {
                 </div>
               </div>
             </div>
-
-            {/* 근로계약서 버튼 */}
             <button className="w-full py-4 rounded-2xl bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20">
               <ClipboardList size={16} />모바일 근로계약서 작성
             </button>
           </>
         )}
 
-        {/* ── 지원금 봇 탭 ── */}
+        {/* ── 지원금 봇 ── */}
         {activeTab === 'support' && (
           <>
             <div className="rounded-2xl bg-gradient-to-r from-amber-600/20 to-orange-600/20 border border-amber-500/20 p-5">
@@ -424,8 +641,6 @@ export default function AdminBizPage() {
               </div>
               <p className="text-gray-400 text-xs">부천시·정부 맞춤 지원금 자동 알림 & 신청 대행 연결</p>
             </div>
-
-            {/* AI 추천 */}
             <div className="rounded-2xl bg-[#13131f] border border-violet-500/20 p-5">
               <div className="flex items-center gap-2 mb-3">
                 <Zap size={14} className="text-violet-400" />
@@ -436,8 +651,6 @@ export default function AdminBizPage() {
                 이번 달 마감이 임박한 고용유지 지원금을 먼저 확인해보세요!
               </p>
             </div>
-
-            {/* 지원금 목록 */}
             <div className="space-y-3">
               {govSupports.map((support, i) => (
                 <div key={i} className="rounded-2xl bg-[#13131f] border border-white/5 p-5">
@@ -456,7 +669,6 @@ export default function AdminBizPage() {
                       <p className="text-white font-bold text-sm">{support.title}</p>
                     </div>
                   </div>
-
                   <div className="grid grid-cols-2 gap-3 mb-4">
                     <div className="p-2.5 rounded-xl bg-white/5">
                       <p className="text-gray-500 text-xs">지원금액</p>
@@ -467,11 +679,8 @@ export default function AdminBizPage() {
                       <p className="text-white font-bold text-sm mt-0.5">{support.deadline}</p>
                     </div>
                   </div>
-
                   <div className="flex gap-2">
-                    <button className="flex-1 py-2.5 rounded-xl border border-white/10 text-gray-400 hover:text-white text-xs font-medium transition-all">
-                      자세히 보기
-                    </button>
+                    <button className="flex-1 py-2.5 rounded-xl border border-white/10 text-gray-400 hover:text-white text-xs font-medium transition-all">자세히 보기</button>
                     <button className="flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5">
                       <Check size={12} />신청하기
                     </button>
