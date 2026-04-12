@@ -40,7 +40,7 @@ const rewardPresets = [
 ];
 
 // ✅ 실제 서비스 URL
-const REVIEW_URL = 'https://localution-6sv7.vercel.app/review/harang-cafe-001';
+const REVIEW_URL = 'https://localution-6sv7.vercel.app/review/a51a7a5f-35bf-4543-95fa-8f8435d34c31';
 
 export default function QRAdminPage() {
   const [mainKeyword, setMainKeyword] = useState('부천 맛집');

@@ -1,19 +1,19 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import {
   Star, MessageSquare, TrendingUp, Zap, Copy, Check,
-  Search, RefreshCw, ThumbsUp, Clock,
-  BarChart2, Share2, Loader2, Sparkles,
-  Camera, FileText, Hash, Video
+  Search, RefreshCw, ThumbsUp, Clock, BarChart2,
+  Share2, Loader2, Sparkles, Camera, FileText,
+  Hash, Video, Image, Upload, X, Eye
 } from 'lucide-react';
 
 const reviews = [
-  { id: 1, platform: '네이버', name: '김지수', rating: 5, text: '부천 맛집 찾다가 여기 발견했는데 진짜 맛있어요! 자몽에이드도 맛있고 분위기도 너무 좋아요.', time: '10분 전', replied: false, photo: true, keywords: ['부천 맛집', '가성비'] },
-  { id: 2, platform: '배민', name: '박민준', rating: 4, text: '배달도 빠르고 양도 많아요. 신중동 근처에서 시켰는데 따뜻하게 도착했어요.', time: '1시간 전', replied: true, photo: false, keywords: ['신중동카페'] },
-  { id: 3, platform: '네이버', name: '이서연', rating: 5, text: '회식장소로 딱이에요! 단체석도 있고 음식도 맛있어서 다들 좋아했어요.', time: '3시간 전', replied: false, photo: true, keywords: ['회식장소', '단체모임'] },
-  { id: 4, platform: '구글', name: 'Sarah K.', rating: 5, text: 'Amazing cafe! Great coffee and cozy atmosphere. Definitely coming back!', time: '5시간 전', replied: false, photo: false, keywords: ['부천 맛집'] },
-  { id: 5, platform: '네이버', name: '최동현', rating: 3, text: '음식은 맛있었는데 대기가 좀 길었어요. 그래도 맛은 인정!', time: '어제', replied: true, photo: false, keywords: [] },
+  { id: 1, platform: '네이버', name: '김지수', rating: 5, text: '부천 맛집 찾다가 여기 발견했는데 진짜 맛있어요! 자몽에이드도 맛있고 분위기도 너무 좋아요.', time: '10분 전', replied: false, photo: true, keywords: ['부천 맛집', '가성비'], photoUrl: '' },
+  { id: 2, platform: '배민', name: '박민준', rating: 4, text: '배달도 빠르고 양도 많아요. 신중동 근처에서 시켰는데 따뜻하게 도착했어요.', time: '1시간 전', replied: true, photo: false, keywords: ['신중동카페'], photoUrl: '' },
+  { id: 3, platform: '네이버', name: '이서연', rating: 5, text: '회식장소로 딱이에요! 단체석도 있고 음식도 맛있어서 다들 좋아했어요.', time: '3시간 전', replied: false, photo: true, keywords: ['회식장소', '단체모임'], photoUrl: '' },
+  { id: 4, platform: '구글', name: 'Sarah K.', rating: 5, text: 'Amazing cafe! Great coffee and cozy atmosphere. Definitely coming back!', time: '5시간 전', replied: false, photo: false, keywords: ['부천 맛집'], photoUrl: '' },
+  { id: 5, platform: '네이버', name: '최동현', rating: 3, text: '음식은 맛있었는데 대기가 좀 길었어요. 그래도 맛은 인정!', time: '어제', replied: true, photo: false, keywords: [], photoUrl: '' },
 ];
 
 const toneOptions = [
@@ -51,6 +51,18 @@ export default function ReviewAdminPage() {
   const [isPublishing, setIsPublishing] = useState(false);
   const [publishDone, setPublishDone] = useState(false);
 
+  // Vision AI 관련
+  const [uploadedPhoto, setUploadedPhoto] = useState<string | null>(null);
+  const [photoAnalysis, setPhotoAnalysis] = useState('');
+  const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const photoInputRef = useRef<HTMLInputElement>(null);
+
+  // 메뉴 업스케일 관련
+  const [menuPhoto, setMenuPhoto] = useState<string | null>(null);
+  const [menuDesc, setMenuDesc] = useState('');
+  const [isGeneratingDesc, setIsGeneratingDesc] = useState(false);
+  const menuInputRef = useRef<HTMLInputElement>(null);
+
   const filteredReviews = reviews.filter(r => {
     const matchPlatform = filterPlatform === '전체' || r.platform === filterPlatform;
     const matchSearch = r.text.includes(searchText) || r.name.includes(searchText);
@@ -59,16 +71,107 @@ export default function ReviewAdminPage() {
 
   const unrepliedCount = reviews.filter(r => !r.replied).length;
 
-  const generateReply = async () => {
-    if (!selectedReview) return;
-    setIsGenerating(true);
+  // ✅ 이미지 → base64 변환
+  const toBase64 = (file: File): Promise<string> => {
+    return new Promise((resolve) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const result = reader.result as string;
+        resolve(result.split(',')[1]);
+      };
+      reader.readAsDataURL(file);
+    });
+  };
+
+  // ✅ Vision AI - 고객 사진 분석 + 답글 생성
+  const handlePhotoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !selectedReview) return;
+
+    const url = URL.createObjectURL(file);
+    setUploadedPhoto(url);
+    setIsAnalyzing(true);
     setGeneratedReply('');
+
     const toneGuide: Record<string, string> = {
       warm: '따뜻하고 친근한 사장님 말투',
       pro: '격식 있고 신뢰감 있는 비즈니스 말투',
       fun: '유쾌하고 재미있는 말투, 이모지 활용',
       simple: '짧고 명확한 심플한 말투',
     };
+
+    try {
+      const base64 = await toBase64(file);
+      const mediaType = file.type as 'image/jpeg' | 'image/png' | 'image/webp';
+
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': process.env.NEXT_PUBLIC_ANTHROPIC_API_KEY || '',
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true',
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 500,
+          messages: [{
+            role: 'user',
+            content: [
+              {
+                type: 'image',
+                source: { type: 'base64', media_type: mediaType, data: base64 }
+              },
+              {
+                type: 'text',
+                text: `당신은 소상공인 카페 사장님입니다.
+
+고객이 올린 사진을 분석해서 사진에 보이는 음식/음료/공간의 특징을 파악하고,
+아래 리뷰에 ${toneGuide[selectedTone]}로 답글을 작성해주세요.
+
+사진 속 내용을 구체적으로 언급하면서 답글을 작성해주세요.
+
+플랫폼: ${selectedReview.platform}
+고객명: ${selectedReview.name}
+별점: ${selectedReview.rating}점
+리뷰: ${selectedReview.text}
+
+규칙:
+- 사진에서 보이는 것을 구체적으로 언급
+- 2~3문장으로 간결하게
+- 고객 이름 언급
+- 재방문 유도로 마무리
+- 답글만 출력`
+              }
+            ]
+          }]
+        })
+      });
+
+      const data = await response.json();
+      const reply = data.content?.[0]?.text || '답글 생성 실패';
+      setGeneratedReply(reply);
+      setPhotoAnalysis('사진 분석 완료 ✅');
+    } catch {
+      setGeneratedReply('API 연결 오류. API 키를 확인해주세요.');
+    } finally {
+      setIsAnalyzing(false);
+    }
+  };
+
+  // ✅ 텍스트만으로 AI 답글 생성
+  const generateReply = async () => {
+    if (!selectedReview) return;
+    setIsGenerating(true);
+    setGeneratedReply('');
+
+    const toneGuide: Record<string, string> = {
+      warm: '따뜻하고 친근한 사장님 말투',
+      pro: '격식 있고 신뢰감 있는 비즈니스 말투',
+      fun: '유쾌하고 재미있는 말투, 이모지 활용',
+      simple: '짧고 명확한 심플한 말투',
+    };
+
     try {
       const response = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
@@ -93,7 +196,7 @@ export default function ReviewAdminPage() {
       const data = await response.json();
       setGeneratedReply(data.content?.[0]?.text || '답글 생성 실패');
     } catch {
-      setGeneratedReply('API 연결 오류. API 키를 확인해주세요.');
+      setGeneratedReply('API 연결 오류.');
     } finally {
       setIsGenerating(false);
     }
@@ -113,20 +216,77 @@ export default function ReviewAdminPage() {
     setTimeout(() => setPublishDone(false), 3000);
   };
 
+  // ✅ 메뉴 사진 → SEO 설명 생성
+  const handleMenuPhoto = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    const url = URL.createObjectURL(file);
+    setMenuPhoto(url);
+    setIsGeneratingDesc(true);
+    setMenuDesc('');
+
+    try {
+      const base64 = await toBase64(file);
+      const mediaType = file.type as 'image/jpeg' | 'image/png' | 'image/webp';
+
+      const response = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': process.env.NEXT_PUBLIC_ANTHROPIC_API_KEY || '',
+          'anthropic-version': '2023-06-01',
+          'anthropic-dangerous-direct-browser-access': 'true',
+        },
+        body: JSON.stringify({
+          model: 'claude-sonnet-4-20250514',
+          max_tokens: 400,
+          messages: [{
+            role: 'user',
+            content: [
+              {
+                type: 'image',
+                source: { type: 'base64', media_type: mediaType, data: base64 }
+              },
+              {
+                type: 'text',
+                text: `이 메뉴 사진을 분석해서 네이버 플레이스 상위 노출에 최적화된 메뉴 설명을 작성해주세요.
+
+조건:
+- 음식/음료의 특징, 맛, 재료를 구체적으로 설명
+- "부천 카페", "신중동 카페", "가성비" 등 SEO 키워드 자연스럽게 포함
+- 3~4문장으로 작성
+- 고객이 먹고 싶어지게 하는 감성적인 표현 사용
+- 메뉴 설명만 출력`
+              }
+            ]
+          }]
+        })
+      });
+
+      const data = await response.json();
+      setMenuDesc(data.content?.[0]?.text || '설명 생성 실패');
+    } catch {
+      setMenuDesc('API 연결 오류.');
+    } finally {
+      setIsGeneratingDesc(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-[#0f0f13] text-white">
 
+      {/* 헤더 */}
       <div className="sticky top-0 z-20 bg-[#0f0f13]/90 backdrop-blur-xl border-b border-white/5 px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-white font-bold text-lg leading-none">AI 리뷰 · 마케팅</h1>
-            <p className="text-gray-500 text-xs mt-1">통합 리뷰 관리 & SEO 자동화</p>
+            <p className="text-gray-500 text-xs mt-1">Vision AI 사진 분석 · SEO 자동화</p>
           </div>
           <div className="flex items-center gap-1.5 px-3 py-1.5 bg-pink-500/15 border border-pink-500/20 rounded-xl">
             <span className="text-pink-400 text-xs font-bold">미답변 {unrepliedCount}개</span>
           </div>
         </div>
-
         <div className="flex gap-1 mt-4 bg-white/5 rounded-xl p-1">
           {[
             { id: 'reviews', label: '리뷰 관리', icon: MessageSquare },
@@ -140,8 +300,7 @@ export default function ReviewAdminPage() {
                 className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium transition-all ${
                   activeTab === tab.id ? 'bg-violet-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'
                 }`}>
-                <Icon size={13} />
-                <span className="hidden sm:block">{tab.label}</span>
+                <Icon size={13} /><span className="hidden sm:block">{tab.label}</span>
               </button>
             );
           })}
@@ -150,6 +309,7 @@ export default function ReviewAdminPage() {
 
       <div className="p-5 space-y-5 max-w-4xl mx-auto">
 
+        {/* ── 리뷰 관리 탭 ── */}
         {activeTab === 'reviews' && (
           <>
             <div className="grid grid-cols-3 gap-3">
@@ -191,7 +351,7 @@ export default function ReviewAdminPage() {
               {filteredReviews.map(review => (
                 <div key={review.id}
                   className={`rounded-2xl border p-4 transition-all cursor-pointer ${selectedReview?.id === review.id ? 'border-violet-500 bg-violet-500/5' : 'border-white/5 bg-[#13131f] hover:border-white/10'}`}
-                  onClick={() => { setSelectedReview(review); setGeneratedReply(''); }}>
+                  onClick={() => { setSelectedReview(review); setGeneratedReply(''); setUploadedPhoto(null); setPhotoAnalysis(''); }}>
                   <div className="flex items-start justify-between gap-3">
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1.5 flex-wrap">
@@ -201,7 +361,7 @@ export default function ReviewAdminPage() {
                         }`}>{review.platform}</span>
                         <span className="text-white text-sm font-medium">{review.name}</span>
                         <span className="text-amber-400 text-xs">{'★'.repeat(review.rating)}</span>
-                        {review.photo && <span className="text-xs bg-pink-500/20 text-pink-400 px-2 py-0.5 rounded-full">📸 사진</span>}
+                        {review.photo && <span className="text-xs bg-pink-500/20 text-pink-400 px-2 py-0.5 rounded-full">📸 사진있음</span>}
                         <span className="text-gray-600 text-xs ml-auto flex items-center gap-1"><Clock size={10} />{review.time}</span>
                       </div>
                       <p className="text-gray-400 text-sm leading-relaxed line-clamp-2">{review.text}</p>
@@ -223,12 +383,15 @@ export default function ReviewAdminPage() {
               ))}
             </div>
 
+            {/* ✅ AI 답글 생성 패널 */}
             {selectedReview && (
               <div className="rounded-2xl bg-[#13131f] border border-violet-500/20 p-5">
                 <div className="flex items-center gap-2 mb-4">
                   <Zap size={15} className="text-violet-400" />
-                  <h3 className="text-white font-bold text-sm">AI 답글 생성 — {selectedReview.name}님 리뷰</h3>
+                  <h3 className="text-white font-bold text-sm">AI 답글 생성 — {selectedReview.name}님</h3>
                 </div>
+
+                {/* 말투 선택 */}
                 <div className="grid grid-cols-2 gap-2 mb-4">
                   {toneOptions.map(t => (
                     <button key={t.id} onClick={() => setSelectedTone(t.id)}
@@ -241,14 +404,67 @@ export default function ReviewAdminPage() {
                     </button>
                   ))}
                 </div>
-                <button onClick={generateReply} disabled={isGenerating}
+
+                {/* ✅ Vision AI 사진 업로드 */}
+                <div className="mb-4 p-4 rounded-xl bg-pink-500/10 border border-pink-500/20">
+                  <div className="flex items-center gap-2 mb-2">
+                    <Eye size={14} className="text-pink-400" />
+                    <p className="text-pink-400 text-xs font-bold">Vision AI — 고객 사진 분석 답글</p>
+                  </div>
+                  <p className="text-gray-500 text-xs mb-3">고객이 올린 사진을 업로드하면 AI가 사진을 분석해서 더 구체적인 답글을 생성해요!</p>
+
+                  {uploadedPhoto ? (
+                    <div className="space-y-3">
+                      <div className="relative">
+                        <img src={uploadedPhoto} alt="업로드된 사진" className="w-full h-32 object-cover rounded-xl" />
+                        <button
+                          onClick={() => { setUploadedPhoto(null); setPhotoAnalysis(''); }}
+                          className="absolute top-2 right-2 w-6 h-6 bg-black/60 rounded-full flex items-center justify-center">
+                          <X size={12} className="text-white" />
+                        </button>
+                        {photoAnalysis && (
+                          <div className="absolute bottom-2 left-2 bg-emerald-500/80 text-white text-xs px-2 py-1 rounded-lg">
+                            {photoAnalysis}
+                          </div>
+                        )}
+                      </div>
+                      {isAnalyzing && (
+                        <div className="flex items-center gap-2 text-pink-400 text-xs">
+                          <Loader2 size={12} className="animate-spin" />
+                          사진 분석 중...
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    <button
+                      onClick={() => photoInputRef.current?.click()}
+                      className="w-full py-3 rounded-xl border-2 border-dashed border-pink-500/30 hover:border-pink-500/60 text-pink-400 text-xs font-medium flex items-center justify-center gap-2 transition-all">
+                      <Upload size={14} />고객 사진 업로드
+                    </button>
+                  )}
+                  <input
+                    ref={photoInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={handlePhotoUpload}
+                  />
+                </div>
+
+                {/* 텍스트 답글 생성 버튼 */}
+                <button onClick={generateReply} disabled={isGenerating || isAnalyzing}
                   className="w-full py-3 rounded-xl bg-gradient-to-r from-violet-600 to-purple-600 disabled:opacity-50 text-white font-bold text-sm transition-all flex items-center justify-center gap-2">
-                  {isGenerating ? <><Loader2 size={15} className="animate-spin" />생성 중...</> : <><Sparkles size={15} />AI 답글 생성하기</>}
+                  {isGenerating ? <><Loader2 size={15} className="animate-spin" />생성 중...</> :
+                   isAnalyzing ? <><Loader2 size={15} className="animate-spin" />사진 분석 중...</> :
+                   <><Sparkles size={15} />{uploadedPhoto ? 'Vision AI 답글 재생성' : 'AI 답글 생성하기'}</>}
                 </button>
+
                 {generatedReply && (
                   <div className="mt-4 p-4 rounded-xl bg-violet-500/10 border border-violet-500/20">
                     <div className="flex items-center justify-between mb-2">
-                      <span className="text-violet-400 text-xs font-medium">✨ 생성된 답글</span>
+                      <span className="text-violet-400 text-xs font-medium">
+                        {uploadedPhoto ? '✨ Vision AI 생성 답글' : '✨ AI 생성 답글'}
+                      </span>
                       <button onClick={copyReply} className="flex items-center gap-1 text-xs text-gray-400 hover:text-white">
                         {copied ? <><Check size={11} className="text-emerald-400" />복사됨!</> : <><Copy size={11} />복사</>}
                       </button>
@@ -269,6 +485,7 @@ export default function ReviewAdminPage() {
           </>
         )}
 
+        {/* ── SEO 키워드 탭 ── */}
         {activeTab === 'seo' && (
           <>
             <div className="rounded-2xl bg-gradient-to-r from-violet-600/20 to-purple-600/20 border border-violet-500/20 p-5">
@@ -282,9 +499,7 @@ export default function ReviewAdminPage() {
             <div className="rounded-2xl bg-[#13131f] border border-white/5 overflow-hidden">
               <div className="px-5 py-3 border-b border-white/5 flex items-center justify-between">
                 <p className="text-white font-bold text-sm">추천 키워드</p>
-                <button className="flex items-center gap-1.5 text-xs text-violet-400">
-                  <RefreshCw size={12} />새로고침
-                </button>
+                <button className="flex items-center gap-1.5 text-xs text-violet-400"><RefreshCw size={12} />새로고침</button>
               </div>
               <div className="divide-y divide-white/5">
                 {seoKeywords.map((kw, i) => (
@@ -333,6 +548,7 @@ export default function ReviewAdminPage() {
           </>
         )}
 
+        {/* ── 숏폼 발행 탭 ── */}
         {activeTab === 'shortform' && (
           <>
             <div className="rounded-2xl bg-gradient-to-r from-pink-600/20 to-rose-600/20 border border-pink-500/20 p-5">
@@ -388,67 +604,125 @@ export default function ReviewAdminPage() {
               className={`w-full py-4 rounded-2xl font-bold text-sm transition-all flex items-center justify-center gap-2 ${
                 publishDone ? 'bg-emerald-600 text-white' : 'bg-gradient-to-r from-pink-600 to-rose-600 disabled:opacity-50 text-white shadow-lg'
               }`}>
-              {isPublishing ? <><Loader2 size={16} className="animate-spin" />{selectedPlatforms.length}개 플랫폼 발행 중...</> :
+              {isPublishing ? <><Loader2 size={16} className="animate-spin" />{selectedPlatforms.length}개 발행 중...</> :
                publishDone ? <><Check size={16} />발행 완료!</> :
                <><Share2 size={16} />{selectedPlatforms.length}개 플랫폼 동시 발행하기</>}
             </button>
           </>
         )}
 
+        {/* ── 메뉴 업스케일 탭 ── */}
         {activeTab === 'menu' && (
           <>
             <div className="rounded-2xl bg-gradient-to-r from-amber-600/20 to-orange-600/20 border border-amber-500/20 p-5">
               <div className="flex items-center gap-2 mb-1">
                 <Camera size={16} className="text-amber-400" />
-                <h3 className="text-white font-bold text-sm">메뉴 사진 업스케일링</h3>
+                <h3 className="text-white font-bold text-sm">메뉴 사진 → SEO 설명 자동 생성</h3>
               </div>
-              <p className="text-gray-400 text-xs">일반 사진 → 상업용 고퀄리티 + SEO 메뉴 설명 자동 생성</p>
+              <p className="text-gray-400 text-xs">사진 업로드 → Vision AI 분석 → 네이버 상위 노출 메뉴 설명 자동 완성!</p>
             </div>
 
+            {/* ✅ 실제 업로드 기능 */}
             <div className="rounded-2xl bg-[#13131f] border border-white/5 p-5">
-              <div className="border-2 border-dashed border-white/10 rounded-2xl p-8 text-center hover:border-amber-500/30 transition-all cursor-pointer">
-                <Camera size={28} className="text-gray-600 mx-auto mb-2" />
-                <p className="text-gray-400 text-sm font-medium">메뉴 사진 업로드</p>
-                <p className="text-gray-600 text-xs mt-1">JPG, PNG · 최대 10MB</p>
-              </div>
-            </div>
+              <p className="text-white font-bold text-sm mb-3">메뉴 사진 업로드</p>
 
-            <div className="rounded-2xl bg-[#13131f] border border-white/5 p-5">
-              <p className="text-white font-bold text-sm mb-4">🎨 업스케일 결과 예시</p>
-              <div className="grid grid-cols-2 gap-3 mb-4">
-                <div className="rounded-xl bg-white/5 aspect-square flex items-center justify-center border border-white/5">
-                  <div className="text-center">
-                    <p className="text-gray-600 text-xs">원본</p>
-                    <Camera size={24} className="text-gray-700 mx-auto mt-2" />
-                  </div>
+              {menuPhoto ? (
+                <div className="relative mb-4">
+                  <img src={menuPhoto} alt="메뉴 사진" className="w-full h-48 object-cover rounded-2xl" />
+                  <button
+                    onClick={() => { setMenuPhoto(null); setMenuDesc(''); }}
+                    className="absolute top-3 right-3 w-8 h-8 bg-black/60 rounded-full flex items-center justify-center hover:bg-black/80 transition-all">
+                    <X size={14} className="text-white" />
+                  </button>
+                  {isGeneratingDesc && (
+                    <div className="absolute inset-0 bg-black/50 rounded-2xl flex items-center justify-center">
+                      <div className="flex items-center gap-2 text-white text-sm font-bold">
+                        <Loader2 size={18} className="animate-spin text-amber-400" />
+                        Vision AI 분석 중...
+                      </div>
+                    </div>
+                  )}
                 </div>
-                <div className="rounded-xl bg-gradient-to-br from-amber-500/10 to-orange-500/10 aspect-square flex items-center justify-center border border-amber-500/20">
-                  <div className="text-center">
-                    <p className="text-amber-400 text-xs font-medium">업스케일 ✨</p>
-                    <Sparkles size={24} className="text-amber-400 mx-auto mt-2" />
-                  </div>
+              ) : (
+                <div
+                  onClick={() => menuInputRef.current?.click()}
+                  className="border-2 border-dashed border-white/10 rounded-2xl p-10 text-center hover:border-amber-500/40 transition-all cursor-pointer mb-4">
+                  <Image size={32} className="text-gray-600 mx-auto mb-3" />
+                  <p className="text-gray-400 text-sm font-medium">메뉴 사진 클릭해서 업로드</p>
+                  <p className="text-gray-600 text-xs mt-1">JPG, PNG, WEBP · 최대 10MB</p>
                 </div>
-              </div>
+              )}
 
-              <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/20">
-                <div className="flex items-center gap-2 mb-2">
-                  <FileText size={13} className="text-amber-400" />
-                  <p className="text-amber-400 text-xs font-bold">AI 생성 SEO 메뉴 설명</p>
-                </div>
-                <p className="text-white text-sm leading-relaxed">
-                  신선한 자몽을 직접 착즙해 만든 <span className="text-amber-300 font-medium">부천 카페</span> 대표 음료.
-                  상큼한 시트러스향과 적절한 당도가 조화롭게 어우러져
-                  <span className="text-amber-300 font-medium"> 가성비</span> 좋은 한 잔으로 많은 사랑을 받고 있습니다.
-                </p>
-                <button className="mt-3 flex items-center gap-1.5 text-xs text-amber-400 hover:text-amber-300">
-                  <Copy size={11} />설명 복사하기
+              <input
+                ref={menuInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={handleMenuPhoto}
+              />
+
+              {!menuPhoto && (
+                <button
+                  onClick={() => menuInputRef.current?.click()}
+                  className="w-full py-3.5 rounded-xl bg-gradient-to-r from-amber-500 to-orange-500 text-white font-bold text-sm flex items-center justify-center gap-2">
+                  <Upload size={16} />사진 선택하기
                 </button>
-              </div>
+              )}
             </div>
 
-            <button className="w-full py-4 rounded-2xl font-bold text-sm bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg flex items-center justify-center gap-2">
-              <Sparkles size={16} />메뉴 사진 업스케일 시작
-            </button>
+            {/* ✅ 생성된 SEO 설명 */}
+            {menuDesc && (
+              <div className="rounded-2xl bg-[#13131f] border border-amber-500/20 p-5">
+                <div className="flex items-center justify-between mb-3">
+                  <div className="flex items-center gap-2">
+                    <FileText size={14} className="text-amber-400" />
+                    <p className="text-amber-400 text-xs font-bold">✨ AI 생성 SEO 메뉴 설명</p>
+                  </div>
+                  <button
+                    onClick={() => { navigator.clipboard.writeText(menuDesc); alert('복사됐어요!'); }}
+                    className="flex items-center gap-1 text-xs text-gray-400 hover:text-white transition-colors">
+                    <Copy size={11} />복사
+                  </button>
+                </div>
+                <p className="text-white text-sm leading-relaxed">{menuDesc}</p>
+
+                <div className="flex gap-2 mt-4">
+                  <button
+                    onClick={() => menuInputRef.current?.click()}
+                    className="flex-1 py-2.5 rounded-xl border border-white/10 text-gray-400 hover:text-white text-xs transition-all">
+                    <RefreshCw size={11} className="inline mr-1" />다른 사진
+                  </button>
+                  <button
+                    onClick={() => { navigator.clipboard.writeText(menuDesc); alert('네이버 플레이스에 붙여넣기 하세요!'); }}
+                    className="flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-white text-xs font-bold transition-all">
+                    네이버에 등록하기 →
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* 사용 방법 안내 */}
+            {!menuPhoto && (
+              <div className="rounded-2xl bg-[#13131f] border border-white/5 p-5">
+                <p className="text-white font-bold text-sm mb-3">💡 이렇게 활용하세요</p>
+                <div className="space-y-3">
+                  {[
+                    { step: '1', title: '메뉴 사진 촬영', desc: '스마트폰으로 메뉴 사진 찍기 (자연광 권장)' },
+                    { step: '2', title: 'Vision AI 분석', desc: 'AI가 음식의 색감, 재료, 분위기를 자동 분석' },
+                    { step: '3', title: 'SEO 설명 생성', desc: '"부천 카페", "가성비" 등 키워드 자동 포함' },
+                    { step: '4', title: '네이버 플레이스 등록', desc: '복사 후 네이버 플레이스 메뉴 설명에 붙여넣기' },
+                  ].map(item => (
+                    <div key={item.step} className="flex items-start gap-3">
+                      <div className="w-6 h-6 rounded-full bg-amber-500/20 flex items-center justify-center flex-shrink-0 text-amber-400 text-xs font-bold">{item.step}</div>
+                      <div>
+                        <p className="text-white text-xs font-bold">{item.title}</p>
+                        <p className="text-gray-500 text-xs mt-0.5">{item.desc}</p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </>
         )}
 
