@@ -28,12 +28,11 @@ export async function GET(request: Request) {
     const accessToken = tokenData.access_token;
 
     if (!accessToken) {
-      const msg = encodeURIComponent(tokenData.error_description || tokenData.error || 'no_token');
-      return new Response(null, {
-        status: 302,
-        headers: { Location: `https://localution-6sv7.vercel.app/login?error=no_token&msg=${msg}` }
-      });
-    }
+      const fullError = encodeURIComponent(JSON.stringify(tokenData));
+return new Response(null, {
+  status: 302,
+  headers: { Location: `https://localution-6sv7.vercel.app/login?error=no_token&detail=${fullError}` }
+});
 
     const userRes = await fetch('https://openapi.naver.com/v1/nid/me', {
       headers: { Authorization: `Bearer ${accessToken}` }
