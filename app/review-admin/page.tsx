@@ -116,7 +116,6 @@ export default function ReviewAdminPage() {
   return (
     <div className="min-h-screen bg-[#0f0f13] text-white">
 
-      {/* 헤더 */}
       <div className="sticky top-0 z-20 bg-[#0f0f13]/90 backdrop-blur-xl border-b border-white/5 px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
@@ -128,7 +127,6 @@ export default function ReviewAdminPage() {
           </div>
         </div>
 
-        {/* 탭 */}
         <div className="flex gap-1 mt-4 bg-white/5 rounded-xl p-1">
           {[
             { id: 'reviews', label: '리뷰 관리', icon: MessageSquare },
@@ -152,7 +150,6 @@ export default function ReviewAdminPage() {
 
       <div className="p-5 space-y-5 max-w-4xl mx-auto">
 
-        {/* ── 리뷰 관리 탭 ── */}
         {activeTab === 'reviews' && (
           <>
             <div className="grid grid-cols-3 gap-3">
@@ -252,16 +249,16 @@ export default function ReviewAdminPage() {
                   <div className="mt-4 p-4 rounded-xl bg-violet-500/10 border border-violet-500/20">
                     <div className="flex items-center justify-between mb-2">
                       <span className="text-violet-400 text-xs font-medium">✨ 생성된 답글</span>
-                      <button onClick={copyReply} className="flex items-center gap-1 text-xs text-gray-400 hover:text-white transition-colors">
+                      <button onClick={copyReply} className="flex items-center gap-1 text-xs text-gray-400 hover:text-white">
                         {copied ? <><Check size={11} className="text-emerald-400" />복사됨!</> : <><Copy size={11} />복사</>}
                       </button>
                     </div>
                     <p className="text-white text-sm leading-relaxed">{generatedReply}</p>
                     <div className="flex gap-2 mt-3">
-                      <button onClick={generateReply} className="flex-1 py-2 rounded-lg border border-white/10 text-gray-400 hover:text-white text-xs transition-all">
+                      <button onClick={generateReply} className="flex-1 py-2 rounded-lg border border-white/10 text-gray-400 hover:text-white text-xs">
                         <RefreshCw size={11} className="inline mr-1" />다시 생성
                       </button>
-                      <button onClick={copyReply} className="flex-1 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium transition-all">
+                      <button onClick={copyReply} className="flex-1 py-2 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-medium">
                         복사 후 등록하기 ✓
                       </button>
                     </div>
@@ -272,7 +269,6 @@ export default function ReviewAdminPage() {
           </>
         )}
 
-        {/* ── SEO 키워드 탭 ── */}
         {activeTab === 'seo' && (
           <>
             <div className="rounded-2xl bg-gradient-to-r from-violet-600/20 to-purple-600/20 border border-violet-500/20 p-5">
@@ -286,13 +282,13 @@ export default function ReviewAdminPage() {
             <div className="rounded-2xl bg-[#13131f] border border-white/5 overflow-hidden">
               <div className="px-5 py-3 border-b border-white/5 flex items-center justify-between">
                 <p className="text-white font-bold text-sm">추천 키워드</p>
-                <button className="flex items-center gap-1.5 text-xs text-violet-400 hover:text-violet-300 transition-colors">
+                <button className="flex items-center gap-1.5 text-xs text-violet-400">
                   <RefreshCw size={12} />새로고침
                 </button>
               </div>
               <div className="divide-y divide-white/5">
                 {seoKeywords.map((kw, i) => (
-                  <div key={i} className="px-5 py-3.5 flex items-center gap-4 hover:bg-white/3 transition-all">
+                  <div key={i} className="px-5 py-3.5 flex items-center gap-4 hover:bg-white/3">
                     <span className="text-gray-600 text-xs w-4">{i + 1}</span>
                     <div className="flex-1 flex items-center gap-2">
                       <Hash size={12} className="text-gray-500" />
@@ -307,7 +303,7 @@ export default function ReviewAdminPage() {
                       kw.competition === '중간' ? 'bg-amber-500/15 text-amber-400' :
                       'bg-emerald-500/15 text-emerald-400'
                     }`}>{kw.competition}</div>
-                    <button className="text-xs bg-violet-600/20 hover:bg-violet-600/40 text-violet-400 px-2.5 py-1.5 rounded-lg transition-all">적용</button>
+                    <button className="text-xs bg-violet-600/20 text-violet-400 px-2.5 py-1.5 rounded-lg">적용</button>
                   </div>
                 ))}
               </div>
@@ -337,7 +333,6 @@ export default function ReviewAdminPage() {
           </>
         )}
 
-        {/* ── 숏폼 발행 탭 ── */}
         {activeTab === 'shortform' && (
           <>
             <div className="rounded-2xl bg-gradient-to-r from-pink-600/20 to-rose-600/20 border border-pink-500/20 p-5">
@@ -351,7 +346,7 @@ export default function ReviewAdminPage() {
             <div className="rounded-2xl bg-[#13131f] border border-white/5 p-5">
               <p className="text-white font-bold text-sm mb-3">영상 업로드</p>
               <div className="border-2 border-dashed border-white/10 rounded-2xl p-8 text-center hover:border-violet-500/30 transition-all cursor-pointer">
-                <video size={28} className="text-gray-600 mx-auto mb-2" />
+                <Video size={28} className="text-gray-600 mx-auto mb-2" />
                 <p className="text-gray-400 text-sm font-medium">영상 파일 드래그 or 클릭</p>
                 <p className="text-gray-600 text-xs mt-1">MP4, MOV 지원 · 최대 500MB</p>
               </div>
@@ -369,7 +364,7 @@ export default function ReviewAdminPage() {
                       <p className="text-white text-sm font-bold">{p.name}</p>
                       <p className="text-gray-500 text-xs">{p.size}</p>
                     </div>
-                    <div className={`w-4 h-4 rounded-full border-2 ml-auto flex-shrink-0 transition-all ${selectedPlatforms.includes(p.id) ? 'border-violet-500 bg-violet-500' : 'border-gray-600'}`} />
+                    <div className={`w-4 h-4 rounded-full border-2 ml-auto flex-shrink-0 ${selectedPlatforms.includes(p.id) ? 'border-violet-500 bg-violet-500' : 'border-gray-600'}`} />
                   </button>
                 ))}
               </div>
@@ -380,18 +375,18 @@ export default function ReviewAdminPage() {
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-xs text-gray-500 mb-1.5 block">발행 날짜</label>
-                  <input type="date" className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-violet-500/50" />
+                  <input type="date" className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none" />
                 </div>
                 <div>
                   <label className="text-xs text-gray-500 mb-1.5 block">발행 시간</label>
-                  <input type="time" className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none focus:border-violet-500/50" />
+                  <input type="time" className="w-full bg-white/5 border border-white/10 rounded-xl px-3 py-2.5 text-white text-sm focus:outline-none" />
                 </div>
               </div>
             </div>
 
             <button onClick={handlePublish} disabled={isPublishing || selectedPlatforms.length === 0}
               className={`w-full py-4 rounded-2xl font-bold text-sm transition-all flex items-center justify-center gap-2 ${
-                publishDone ? 'bg-emerald-600 text-white' : 'bg-gradient-to-r from-pink-600 to-rose-600 disabled:opacity-50 text-white shadow-lg shadow-pink-500/20'
+                publishDone ? 'bg-emerald-600 text-white' : 'bg-gradient-to-r from-pink-600 to-rose-600 disabled:opacity-50 text-white shadow-lg'
               }`}>
               {isPublishing ? <><Loader2 size={16} className="animate-spin" />{selectedPlatforms.length}개 플랫폼 발행 중...</> :
                publishDone ? <><Check size={16} />발행 완료!</> :
@@ -400,7 +395,6 @@ export default function ReviewAdminPage() {
           </>
         )}
 
-        {/* ── 메뉴 업스케일 탭 ── */}
         {activeTab === 'menu' && (
           <>
             <div className="rounded-2xl bg-gradient-to-r from-amber-600/20 to-orange-600/20 border border-amber-500/20 p-5">
@@ -446,13 +440,13 @@ export default function ReviewAdminPage() {
                   상큼한 시트러스향과 적절한 당도가 조화롭게 어우러져
                   <span className="text-amber-300 font-medium"> 가성비</span> 좋은 한 잔으로 많은 사랑을 받고 있습니다.
                 </p>
-                <button className="mt-3 flex items-center gap-1.5 text-xs text-amber-400 hover:text-amber-300 transition-colors">
+                <button className="mt-3 flex items-center gap-1.5 text-xs text-amber-400 hover:text-amber-300">
                   <Copy size={11} />설명 복사하기
                 </button>
               </div>
             </div>
 
-            <button className="w-full py-4 rounded-2xl font-bold text-sm bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg shadow-amber-500/20 transition-all flex items-center justify-center gap-2">
+            <button className="w-full py-4 rounded-2xl font-bold text-sm bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-lg flex items-center justify-center gap-2">
               <Sparkles size={16} />메뉴 사진 업스케일 시작
             </button>
           </>
