@@ -5,7 +5,7 @@ import {
   FileText, Calendar, Clock, Users,
   TrendingUp, AlertCircle, Check, Download, Send,
   Plus, ChevronLeft, ChevronRight, Zap, Bell,
-  CreditCard, Wallet, ClipboardList, X, CheckCircle, Copy, Chrome
+  CreditCard, Wallet, ClipboardList, X, CheckCircle, Copy, Globe
 } from 'lucide-react';
 
 const salesData = {
@@ -339,7 +339,7 @@ export default function AdminBizPage() {
             <div className={`rounded-2xl border p-4 transition-all ${extInstalled ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-blue-500/10 border-blue-500/20'}`}>
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
-                  <Chrome size={16} className={extInstalled ? 'text-emerald-400' : 'text-blue-400'}/>
+                  <Globe size={16} className={extInstalled ? 'text-emerald-400' : 'text-blue-400'}/>
                   <p className="text-white font-bold text-sm">
                     {extInstalled ? '✅ 크롬 확장 설치됨!' : '🔧 크롬 확장 프로그램 설치 (강력 추천)'}
                   </p>
@@ -363,7 +363,7 @@ export default function AdminBizPage() {
                     <div className="space-y-2.5">
                       {[
                         { step:'1', text:'아래 "확장 코드 복사" 버튼 클릭' },
-                        { step:'2', text:'크롬 주소창에 chrome://extensions 입력' },
+                        { step:'2', text:'크롬 주소창에 Globe://extensions 입력' },
                         { step:'3', text:'우측 상단 "개발자 모드" 토글 ON' },
                         { step:'4', text:'새 폴더 만들기 → manifest.json + content.js 파일 저장' },
                         { step:'5', text:'"압축해제된 확장 프로그램 로드" → 폴더 선택' },
