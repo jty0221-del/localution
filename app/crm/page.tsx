@@ -2,10 +2,10 @@
 
 import { useState } from 'react';
 import {
-  Users, Search, Plus, Tag, Send, Star,
-  Phone, MessageCircle, Clock, Filter,
-  ChevronRight, Zap, Bell, Shield,
-  Loader2, Check, X, Crown, Heart
+  Users, Search, Plus, Send, Star,
+  Phone, MessageCircle, Clock, Shield,
+  ChevronRight, Bell, Loader2, Check, X,
+  Crown, Heart
 } from 'lucide-react';
 
 const customers = [
@@ -18,18 +18,18 @@ const customers = [
 
 const tagColors: Record<string, string> = {
   'VIP': 'bg-amber-50 text-amber-600 border-amber-200',
-  '단골': 'bg-[#EBF3FF] text-[#3182F6] border-blue-100',
+  '단골': 'bg-blue-50 text-blue-600 border-blue-100',
   '배달': 'bg-purple-50 text-purple-600 border-purple-100',
-  '신규': 'bg-[#E8FBF3] text-[#00C073] border-green-100',
-  '일반': 'bg-[#F2F4F6] text-[#8B95A1] border-[#E5EAF2]',
-  '블랙리스트': 'bg-[#FFF0F2] text-[#F04452] border-red-100',
+  '신규': 'bg-green-50 text-green-600 border-green-100',
+  '일반': 'bg-gray-50 text-gray-500 border-gray-200',
+  '블랙리스트': 'bg-red-50 text-red-500 border-red-100',
 };
 
 const messageTemplates = [
-  { id: 1, name: '감사 인사', content: '{고객명}님, 안녕하세요! 하랑마케팅 카페입니다 😊\n오늘도 저희 카페를 찾아주셔서 감사해요. 다음 방문 시 아메리카노 1잔 무료 제공해드릴게요!' },
-  { id: 2, name: 'VIP 혜택', content: '{고객명}님, 안녕하세요!\nVIP 고객님께만 드리는 특별 혜택 안내드려요. 이번 달 전 메뉴 10% 할인 + 무료 업그레이드 서비스를 제공해드립니다 🎁' },
-  { id: 3, name: '재방문 유도', content: '{고객명}님, 오랫동안 뵙지 못해 그립네요 😢\n저희 카페에 신메뉴가 출시됐어요! 이번 주 방문하시면 신메뉴 20% 할인 쿠폰 드릴게요.' },
-  { id: 4, name: '이벤트 안내', content: '{고객명}님, 안녕하세요!\n이번 주말 특별 이벤트를 진행해요 🎉\n친구와 함께 방문 시 1+1 혜택 제공! 많은 참여 부탁드려요.' },
+  { id: 1, name: '감사 인사', content: '{고객명}님, 안녕하세요! 하랑마케팅 카페입니다 😊\n오늘도 방문해주셔서 감사해요. 다음 방문 시 아메리카노 1잔 무료 제공해드릴게요!' },
+  { id: 2, name: 'VIP 혜택', content: '{고객명}님, 안녕하세요!\nVIP 고객님께 특별 혜택 안내드려요. 이번 달 전 메뉴 10% 할인 + 무료 업그레이드 서비스를 제공해드립니다 🎁' },
+  { id: 3, name: '재방문 유도', content: '{고객명}님, 오랫동안 뵙지 못해 그립네요 😢\n신메뉴가 출시됐어요! 이번 주 방문하시면 신메뉴 20% 할인 쿠폰 드릴게요.' },
+  { id: 4, name: '이벤트 안내', content: '{고객명}님, 안녕하세요!\n이번 주말 특별 이벤트를 진행해요 🎉\n친구와 함께 방문 시 1+1 혜택 제공!' },
 ];
 
 export default function CRMPage() {
@@ -49,28 +49,21 @@ export default function CRMPage() {
   const filteredCustomers = customers.filter(c => {
     const matchSearch = c.name.includes(searchText) || c.phone.includes(searchText);
     const matchTag = selectedTag === '전체' || c.tags.includes(selectedTag);
-    const matchBlacklist = activeTab === 'blacklist' ? c.blacklist : !c.blacklist;
-    return matchSearch && matchTag && (activeTab === 'blacklist' ? c.blacklist : true);
+    if (activeTab === 'blacklist') return c.blacklist && matchSearch;
+    return !c.blacklist && matchSearch && matchTag;
   });
 
   const toggleCustomer = (id: number) => {
-    setSelectedCustomers(prev =>
-      prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]
-    );
+    setSelectedCustomers(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
   };
 
   const handleSendMessage = async () => {
-    if (!customMessage && !selectedTemplate) return;
+    if (!customMessage || selectedCustomers.length === 0) return;
     setIsSending(true);
     await new Promise(r => setTimeout(r, 1500));
     setIsSending(false);
     setSendDone(true);
     setTimeout(() => setSendDone(false), 3000);
-  };
-
-  const applyTemplate = (template: typeof messageTemplates[0]) => {
-    setSelectedTemplate(template);
-    setCustomMessage(template.content);
   };
 
   return (
@@ -83,14 +76,12 @@ export default function CRMPage() {
             <h1 className="text-[#191F28] font-black text-xl">CRM · 고객관리</h1>
             <p className="text-[#8B95A1] text-xs mt-0.5">단골 고객 관리 · 맞춤 메시지 · 블랙컨슈머 방어</p>
           </div>
-          <button
-            onClick={() => setShowAddModal(true)}
+          <button onClick={() => setShowAddModal(true)}
             className="flex items-center gap-2 px-4 py-2 bg-[#3182F6] hover:bg-[#1B6EF3] text-white text-sm font-bold rounded-xl transition-all">
             <Plus size={15} />고객 추가
           </button>
         </div>
 
-        {/* 탭 */}
         <div className="flex gap-1 mt-4 bg-[#F2F4F6] rounded-xl p-1 max-w-5xl mx-auto">
           {[
             { id: 'customers', label: '고객 목록', icon: Users },
@@ -116,7 +107,6 @@ export default function CRMPage() {
         {/* ── 고객 목록 ── */}
         {activeTab === 'customers' && (
           <>
-            {/* 통계 */}
             <div className="grid grid-cols-4 gap-4">
               {[
                 { label: '전체 고객', value: '1,247명', icon: Users, color: 'text-[#3182F6]', bg: 'bg-[#EBF3FF]' },
@@ -137,7 +127,6 @@ export default function CRMPage() {
               })}
             </div>
 
-            {/* 검색 & 태그 필터 */}
             <div className="flex flex-col gap-3">
               <div className="relative">
                 <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#B0B8C1]" />
@@ -149,9 +138,7 @@ export default function CRMPage() {
                 {allTags.map(tag => (
                   <button key={tag} onClick={() => setSelectedTag(tag)}
                     className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all border ${
-                      selectedTag === tag
-                        ? 'bg-[#3182F6] text-white border-[#3182F6]'
-                        : 'bg-white text-[#8B95A1] border-[#E5EAF2] hover:text-[#191F28]'
+                      selectedTag === tag ? 'bg-[#3182F6] text-white border-[#3182F6]' : 'bg-white text-[#8B95A1] border-[#E5EAF2] hover:text-[#191F28]'
                     }`}>
                     {tag}
                   </button>
@@ -159,13 +146,11 @@ export default function CRMPage() {
               </div>
             </div>
 
-            {/* 고객 목록 */}
             <div className="bg-white rounded-2xl border border-[#E5EAF2] overflow-hidden">
               <div className="px-5 py-3 border-b border-[#E5EAF2] flex items-center justify-between">
                 <p className="text-[#191F28] font-bold text-sm">고객 목록 ({filteredCustomers.length}명)</p>
                 {selectedCustomers.length > 0 && (
-                  <button
-                    onClick={() => setActiveTab('message')}
+                  <button onClick={() => setActiveTab('message')}
                     className="flex items-center gap-1.5 px-3 py-1.5 bg-[#3182F6] text-white text-xs font-bold rounded-lg">
                     <Send size={11} />{selectedCustomers.length}명 메시지 발송
                   </button>
@@ -173,50 +158,34 @@ export default function CRMPage() {
               </div>
               <div className="divide-y divide-[#F2F4F6]">
                 {filteredCustomers.map(customer => (
-                  <div key={customer.id}
-                    className={`px-5 py-4 hover:bg-[#F8FAFB] transition-all ${selectedCustomer?.id === customer.id ? 'bg-[#EBF3FF]' : ''}`}>
+                  <div key={customer.id} className={`px-5 py-4 hover:bg-[#F8FAFB] transition-all ${selectedCustomer?.id === customer.id ? 'bg-[#EBF3FF]' : ''}`}>
                     <div className="flex items-center gap-3">
-                      {/* 체크박스 */}
-                      <button
-                        onClick={() => toggleCustomer(customer.id)}
+                      <button onClick={() => toggleCustomer(customer.id)}
                         className={`w-5 h-5 rounded-md border-2 flex items-center justify-center flex-shrink-0 transition-all ${
                           selectedCustomers.includes(customer.id) ? 'bg-[#3182F6] border-[#3182F6]' : 'border-[#E5EAF2]'
                         }`}>
                         {selectedCustomers.includes(customer.id) && <Check size={11} className="text-white" />}
                       </button>
-
-                      {/* 아바타 */}
                       <div className={`w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 font-bold text-sm ${
-                        customer.blacklist ? 'bg-[#FFF0F2] text-[#F04452]' :
+                        customer.blacklist ? 'bg-red-50 text-red-500' :
                         customer.tags.includes('VIP') ? 'bg-amber-50 text-amber-600' : 'bg-[#EBF3FF] text-[#3182F6]'
-                      }`}>
-                        {customer.name[0]}
-                      </div>
-
-                      {/* 정보 */}
-                      <div className="flex-1 min-w-0" onClick={() => setSelectedCustomer(selectedCustomer?.id === customer.id ? null : customer)}>
+                      }`}>{customer.name[0]}</div>
+                      <div className="flex-1 min-w-0 cursor-pointer" onClick={() => setSelectedCustomer(selectedCustomer?.id === customer.id ? null : customer)}>
                         <div className="flex items-center gap-2 mb-1">
                           <p className="text-[#191F28] font-bold text-sm">{customer.name}</p>
                           {customer.tags.map(tag => (
-                            <span key={tag} className={`text-xs px-2 py-0.5 rounded-full font-medium border ${tagColors[tag] || 'bg-[#F2F4F6] text-[#8B95A1]'}`}>
-                              {tag}
-                            </span>
+                            <span key={tag} className={`text-xs px-2 py-0.5 rounded-full font-medium border ${tagColors[tag] || ''}`}>{tag}</span>
                           ))}
                         </div>
                         <div className="flex items-center gap-4">
-                          <span className="text-[#8B95A1] text-xs flex items-center gap-1">
-                            <Phone size={10} />{customer.phone}
-                          </span>
+                          <span className="text-[#8B95A1] text-xs flex items-center gap-1"><Phone size={10} />{customer.phone}</span>
                           <span className="text-[#8B95A1] text-xs">방문 {customer.visits}회</span>
                           <span className="text-[#8B95A1] text-xs">총 {customer.totalSpent.toLocaleString()}원</span>
-                          <span className="text-[#B0B8C1] text-xs">최근 {customer.lastVisit}</span>
                         </div>
                       </div>
-
                       <ChevronRight size={16} className="text-[#B0B8C1] flex-shrink-0" />
                     </div>
 
-                    {/* 고객 상세 */}
                     {selectedCustomer?.id === customer.id && (
                       <div className="mt-4 ml-8 p-4 rounded-xl bg-[#F8FAFB] border border-[#E5EAF2]">
                         <div className="grid grid-cols-3 gap-3 mb-4">
@@ -238,12 +207,11 @@ export default function CRMPage() {
                           </div>
                         )}
                         <div className="flex gap-2">
-                          <button
-                            onClick={() => { setActiveTab('message'); setSelectedCustomers([customer.id]); }}
-                            className="flex-1 py-2.5 rounded-xl bg-[#3182F6] hover:bg-[#1B6EF3] text-white text-xs font-bold flex items-center justify-center gap-1.5 transition-all">
+                          <button onClick={() => { setActiveTab('message'); setSelectedCustomers([customer.id]); }}
+                            className="flex-1 py-2.5 rounded-xl bg-[#3182F6] text-white text-xs font-bold flex items-center justify-center gap-1.5">
                             <Send size={12} />메시지 발송
                           </button>
-                          <button className="flex-1 py-2.5 rounded-xl border border-[#E5EAF2] text-[#8B95A1] hover:bg-[#F2F4F6] text-xs font-medium transition-all">
+                          <button className="flex-1 py-2.5 rounded-xl border border-[#E5EAF2] text-[#8B95A1] text-xs font-medium">
                             태그 수정
                           </button>
                         </div>
@@ -267,18 +235,14 @@ export default function CRMPage() {
               <p className="text-blue-100 text-xs">태그 기반 그룹핑 + {`{고객명}`} 치환 1:1 맞춤 메시지</p>
             </div>
 
-            {/* 수신 대상 */}
             <div className="bg-white rounded-2xl border border-[#E5EAF2] p-5">
               <p className="text-[#191F28] font-bold text-sm mb-3">수신 대상 선택</p>
               <div className="grid grid-cols-3 gap-2 mb-3">
                 {['전체', 'VIP', '단골', '신규', '배달', '일반'].map(tag => (
                   <button key={tag}
                     onClick={() => {
-                      if (tag === '전체') {
-                        setSelectedCustomers(customers.filter(c => !c.blacklist).map(c => c.id));
-                      } else {
-                        setSelectedCustomers(customers.filter(c => c.tags.includes(tag)).map(c => c.id));
-                      }
+                      if (tag === '전체') setSelectedCustomers(customers.filter(c => !c.blacklist).map(c => c.id));
+                      else setSelectedCustomers(customers.filter(c => c.tags.includes(tag)).map(c => c.id));
                     }}
                     className="py-2.5 rounded-xl border border-[#E5EAF2] hover:border-[#3182F6] hover:bg-[#EBF3FF] hover:text-[#3182F6] text-[#8B95A1] text-xs font-bold transition-all">
                     {tag} 고객
@@ -292,35 +256,29 @@ export default function CRMPage() {
               </div>
             </div>
 
-            {/* 메시지 템플릿 */}
             <div className="bg-white rounded-2xl border border-[#E5EAF2] p-5">
               <p className="text-[#191F28] font-bold text-sm mb-3">메시지 템플릿</p>
               <div className="grid grid-cols-2 gap-2 mb-4">
                 {messageTemplates.map(tmpl => (
-                  <button key={tmpl.id} onClick={() => applyTemplate(tmpl)}
+                  <button key={tmpl.id} onClick={() => { setSelectedTemplate(tmpl); setCustomMessage(tmpl.content); }}
                     className={`p-3 rounded-xl border text-left transition-all ${selectedTemplate?.id === tmpl.id ? 'border-[#3182F6] bg-[#EBF3FF]' : 'border-[#E5EAF2] hover:bg-[#F8FAFB]'}`}>
                     <p className={`text-xs font-bold ${selectedTemplate?.id === tmpl.id ? 'text-[#3182F6]' : 'text-[#191F28]'}`}>{tmpl.name}</p>
-                    <p className="text-[#B0B8C1] text-xs mt-1 line-clamp-2">{tmpl.content.slice(0, 40)}...</p>
+                    <p className="text-[#B0B8C1] text-xs mt-1 line-clamp-1">{tmpl.content.slice(0, 30)}...</p>
                   </button>
                 ))}
               </div>
 
-              {/* 메시지 입력 */}
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <label className="text-[#191F28] text-xs font-bold">메시지 내용</label>
                   <span className="text-[#B0B8C1] text-xs">{`{고객명}`} 자동 치환</span>
                 </div>
-                <textarea
-                  value={customMessage}
-                  onChange={e => setCustomMessage(e.target.value)}
+                <textarea value={customMessage} onChange={e => setCustomMessage(e.target.value)}
                   placeholder={`{고객명}님, 안녕하세요!\n하랑마케팅 카페입니다 😊`}
                   rows={5}
                   className="w-full bg-[#F8FAFB] border border-[#E5EAF2] rounded-xl px-4 py-3 text-[#191F28] text-sm placeholder-[#B0B8C1] focus:outline-none focus:border-[#3182F6] transition-all resize-none" />
-                <p className="text-[#B0B8C1] text-xs mt-1">{customMessage.length}자</p>
               </div>
 
-              {/* 미리보기 */}
               {customMessage && (
                 <div className="mt-3 p-4 rounded-xl bg-[#F8FAFB] border border-[#E5EAF2]">
                   <p className="text-[#8B95A1] text-xs font-bold mb-2">📱 미리보기</p>
@@ -333,8 +291,7 @@ export default function CRMPage() {
 
             <button onClick={handleSendMessage} disabled={isSending || selectedCustomers.length === 0 || !customMessage}
               className={`w-full py-4 rounded-2xl font-bold text-sm transition-all flex items-center justify-center gap-2 ${
-                sendDone ? 'bg-[#00C073] text-white' :
-                'bg-[#3182F6] hover:bg-[#1B6EF3] disabled:opacity-40 text-white shadow-sm'
+                sendDone ? 'bg-[#00C073] text-white' : 'bg-[#3182F6] hover:bg-[#1B6EF3] disabled:opacity-40 text-white'
               }`}>
               {isSending ? <><Loader2 size={16} className="animate-spin" />발송 중...</> :
                sendDone ? <><Check size={16} />발송 완료!</> :
@@ -365,7 +322,6 @@ export default function CRMPage() {
                   ))}
                 </div>
               </div>
-
               <div className="grid grid-cols-2 gap-3">
                 <div>
                   <label className="text-[#191F28] text-xs font-bold mb-2 block">발송 날짜</label>
@@ -376,27 +332,24 @@ export default function CRMPage() {
                   <input type="time" className="w-full bg-[#F8FAFB] border border-[#E5EAF2] rounded-xl px-3 py-2.5 text-[#191F28] text-sm focus:outline-none focus:border-[#3182F6]" />
                 </div>
               </div>
-
               <div>
                 <label className="text-[#191F28] text-xs font-bold mb-2 block">메시지</label>
                 <textarea rows={4} placeholder="예약 발송할 메시지를 입력하세요..."
                   className="w-full bg-[#F8FAFB] border border-[#E5EAF2] rounded-xl px-4 py-3 text-[#191F28] text-sm placeholder-[#B0B8C1] focus:outline-none focus:border-[#3182F6] resize-none" />
               </div>
-
               <button className="w-full py-3.5 rounded-xl bg-gradient-to-r from-purple-500 to-violet-500 text-white font-bold text-sm flex items-center justify-center gap-2">
                 <Bell size={15} />예약 발송 등록
               </button>
             </div>
 
-            {/* 예약 목록 */}
             <div className="bg-white rounded-2xl border border-[#E5EAF2] overflow-hidden">
               <div className="px-5 py-3 border-b border-[#E5EAF2]">
                 <p className="text-[#191F28] font-bold text-sm">예약된 발송</p>
               </div>
               <div className="divide-y divide-[#F2F4F6]">
                 {[
-                  { target: 'VIP 고객 48명', message: 'VIP 혜택 안내 메시지', date: '2026-04-15', time: '10:00', status: '예약됨' },
-                  { target: '전체 고객 1,247명', message: '봄 신메뉴 출시 안내', date: '2026-04-20', time: '09:00', status: '예약됨' },
+                  { target: 'VIP 고객 48명', message: 'VIP 혜택 안내 메시지', date: '2026-04-15', time: '10:00' },
+                  { target: '전체 고객 1,247명', message: '봄 신메뉴 출시 안내', date: '2026-04-20', time: '09:00' },
                 ].map((item, i) => (
                   <div key={i} className="px-5 py-4 flex items-center gap-3">
                     <div className="w-9 h-9 rounded-xl bg-purple-50 flex items-center justify-center flex-shrink-0">
@@ -408,9 +361,9 @@ export default function CRMPage() {
                       <p className="text-[#B0B8C1] text-xs mt-0.5">{item.date} {item.time}</p>
                     </div>
                     <div className="flex items-center gap-2">
-                      <span className="text-xs bg-[#EBF3FF] text-[#3182F6] px-2.5 py-1 rounded-full font-bold">{item.status}</span>
-                      <button className="w-6 h-6 rounded-lg bg-[#FFF0F2] flex items-center justify-center">
-                        <X size={12} className="text-[#F04452]" />
+                      <span className="text-xs bg-[#EBF3FF] text-[#3182F6] px-2.5 py-1 rounded-full font-bold">예약됨</span>
+                      <button className="w-6 h-6 rounded-lg bg-red-50 flex items-center justify-center">
+                        <X size={12} className="text-red-400" />
                       </button>
                     </div>
                   </div>
@@ -423,7 +376,7 @@ export default function CRMPage() {
         {/* ── 블랙리스트 ── */}
         {activeTab === 'blacklist' && (
           <>
-            <div className="bg-gradient-to-r from-[#F04452] to-rose-500 rounded-2xl p-5">
+            <div className="bg-gradient-to-r from-red-500 to-rose-500 rounded-2xl p-5">
               <div className="flex items-center gap-2 mb-1">
                 <Shield size={16} className="text-white" />
                 <h3 className="text-white font-bold text-sm">블랙컨슈머 방어망</h3>
@@ -431,52 +384,40 @@ export default function CRMPage() {
               <p className="text-red-100 text-xs">악성 고객 차단 · 부천 사장님 연합 공유</p>
             </div>
 
-            {/* 공유 안내 */}
             <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4">
               <div className="flex items-start gap-3">
                 <Bell size={16} className="text-amber-600 flex-shrink-0 mt-0.5" />
                 <div>
                   <p className="text-amber-700 text-sm font-bold">부천 사장님 연합 공유 시스템</p>
-                  <p className="text-amber-600 text-xs mt-1 leading-relaxed">
-                    블랙리스트 고객 정보는 해시 처리 후 부천 지역 사장님들과 공유돼요.
-                    개인정보는 보호되며 악성 고객 패턴만 공유됩니다.
-                  </p>
+                  <p className="text-amber-600 text-xs mt-1 leading-relaxed">블랙리스트 고객 정보는 해시 처리 후 부천 지역 사장님들과 공유돼요. 개인정보는 보호되며 악성 고객 패턴만 공유됩니다.</p>
                 </div>
               </div>
             </div>
 
-            {/* 블랙리스트 목록 */}
             <div className="bg-white rounded-2xl border border-[#E5EAF2] overflow-hidden">
               <div className="px-5 py-3 border-b border-[#E5EAF2] flex items-center justify-between">
                 <p className="text-[#191F28] font-bold text-sm">블랙리스트</p>
-                <button className="flex items-center gap-1.5 px-3 py-1.5 bg-[#FFF0F2] border border-red-100 text-[#F04452] text-xs font-bold rounded-lg">
+                <button className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 border border-red-100 text-red-500 text-xs font-bold rounded-lg">
                   <Plus size={11} />추가
                 </button>
               </div>
               <div className="divide-y divide-[#F2F4F6]">
                 {customers.filter(c => c.blacklist).map(customer => (
-                  <div key={customer.id} className="px-5 py-4">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-[#FFF0F2] flex items-center justify-center flex-shrink-0 text-[#F04452] font-bold text-sm">
-                        {customer.name[0]}
+                  <div key={customer.id} className="px-5 py-4 flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-red-50 flex items-center justify-center flex-shrink-0 text-red-500 font-bold">{customer.name[0]}</div>
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <p className="text-[#191F28] font-bold text-sm">{customer.name}</p>
+                        <span className="text-xs bg-red-50 text-red-500 px-2 py-0.5 rounded-full font-bold border border-red-100">블랙리스트</span>
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
-                          <p className="text-[#191F28] font-bold text-sm">{customer.name}</p>
-                          <span className="text-xs bg-[#FFF0F2] text-[#F04452] px-2 py-0.5 rounded-full font-bold border border-red-100">블랙리스트</span>
-                        </div>
-                        <p className="text-[#8B95A1] text-xs flex items-center gap-1">
-                          <Phone size={10} />{customer.phone}
-                        </p>
-                        <p className="text-[#F04452] text-xs mt-1">{customer.memo}</p>
-                      </div>
+                      <p className="text-[#8B95A1] text-xs flex items-center gap-1"><Phone size={10} />{customer.phone}</p>
+                      <p className="text-red-400 text-xs mt-1">{customer.memo}</p>
                     </div>
                   </div>
                 ))}
               </div>
             </div>
 
-            {/* 연합 블랙리스트 */}
             <div className="bg-white rounded-2xl border border-[#E5EAF2] overflow-hidden">
               <div className="px-5 py-3 border-b border-[#E5EAF2]">
                 <p className="text-[#191F28] font-bold text-sm">🔗 부천 연합 블랙리스트</p>
@@ -489,26 +430,23 @@ export default function CRMPage() {
                   { hash: '****8890', reason: '욕설·폭언', reportCount: 2, area: '오정구' },
                 ].map((item, i) => (
                   <div key={i} className="px-5 py-4 flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-[#FFF0F2] flex items-center justify-center flex-shrink-0">
-                      <Shield size={15} className="text-[#F04452]" />
+                    <div className="w-9 h-9 rounded-xl bg-red-50 flex items-center justify-center flex-shrink-0">
+                      <Shield size={15} className="text-red-400" />
                     </div>
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1">
                         <p className="text-[#191F28] text-sm font-bold">010-{item.hash}</p>
-                        <span className="text-xs bg-[#FFF0F2] text-[#F04452] px-2 py-0.5 rounded-full font-medium">{item.reason}</span>
+                        <span className="text-xs bg-red-50 text-red-400 px-2 py-0.5 rounded-full font-medium">{item.reason}</span>
                       </div>
                       <p className="text-[#8B95A1] text-xs">{item.area} · 신고 {item.reportCount}건</p>
                     </div>
-                    <button className="text-xs bg-[#FFF0F2] hover:bg-[#FFE0E2] text-[#F04452] px-3 py-1.5 rounded-lg font-bold transition-all">
-                      차단
-                    </button>
+                    <button className="text-xs bg-red-50 hover:bg-red-100 text-red-500 px-3 py-1.5 rounded-lg font-bold transition-all">차단</button>
                   </div>
                 ))}
               </div>
             </div>
           </>
         )}
-
       </div>
 
       {/* 고객 추가 모달 */}
@@ -521,7 +459,7 @@ export default function CRMPage() {
                 <h3 className="text-[#191F28] font-bold text-sm">고객 추가</h3>
               </div>
               <button onClick={() => setShowAddModal(false)}
-                className="w-7 h-7 rounded-lg bg-[#F2F4F6] flex items-center justify-center text-[#8B95A1] hover:bg-[#E5EAF2] transition-all">
+                className="w-7 h-7 rounded-lg bg-[#F2F4F6] flex items-center justify-center text-[#8B95A1]">
                 <X size={14} />
               </button>
             </div>
@@ -538,31 +476,16 @@ export default function CRMPage() {
                     className="w-full bg-[#F8FAFB] border border-[#E5EAF2] rounded-xl px-4 py-2.5 text-[#191F28] text-sm placeholder-[#B0B8C1] focus:outline-none focus:border-[#3182F6] transition-all" />
                 </div>
               ))}
-              <div>
-                <label className="text-[#191F28] text-xs font-bold mb-1.5 block">태그</label>
-                <div className="flex gap-2 flex-wrap">
-                  {['VIP', '단골', '신규', '일반'].map(tag => (
-                    <button key={tag} className="px-3 py-1.5 rounded-xl border border-[#E5EAF2] text-[#8B95A1] text-xs font-bold hover:border-[#3182F6] hover:text-[#3182F6] transition-all">
-                      {tag}
-                    </button>
-                  ))}
-                </div>
-              </div>
               <div className="grid grid-cols-2 gap-2 pt-2">
                 <button onClick={() => setShowAddModal(false)}
-                  className="py-3 rounded-xl border border-[#E5EAF2] text-[#8B95A1] text-sm font-medium">
-                  취소
-                </button>
+                  className="py-3 rounded-xl border border-[#E5EAF2] text-[#8B95A1] text-sm font-medium">취소</button>
                 <button onClick={() => setShowAddModal(false)}
-                  className="py-3 rounded-xl bg-[#3182F6] hover:bg-[#1B6EF3] text-white text-sm font-bold transition-all">
-                  추가하기
-                </button>
+                  className="py-3 rounded-xl bg-[#3182F6] hover:bg-[#1B6EF3] text-white text-sm font-bold transition-all">추가하기</button>
               </div>
             </div>
           </div>
         </div>
       )}
-
     </div>
   );
 }
