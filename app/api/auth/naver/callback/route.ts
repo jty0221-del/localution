@@ -12,7 +12,7 @@ export async function GET(request: Request) {
 
   try {
     const clientId = 'rejEL_xQza4IM6c6DsaY';
-    const clientSecret = process.env.NAVER_CLIENT_SECRET ?? '';
+    const clientSecret = '9mG34VCo86';
 
     const tokenRes = await fetch(
       `https://nid.naver.com/oauth2.0/token?grant_type=authorization_code&client_id=${clientId}&client_secret=${encodeURIComponent(clientSecret)}&code=${code}&state=${state ?? ''}`,
