@@ -603,6 +603,40 @@ function ReviewTab() {
   })
   const [generatingId, setGeneratingId] = useState<number | null>(null)
   const [generatedReplies, setGeneratedReplies] = useState<Record<number, string>>({})
+  const [langTag, setLangTag] = useState<Record<number, string>>({})
+
+  // 매장 정보 — 매장 정보 탭 localStorage 동기화
+  const [storeCtx, setStoreCtx] = useState({
+    bizType: '', storeName: '', mainKeyword: '', subKeywords: '', storeDesc: '',
+    aiTone: 'friendly', aiLength: 'medium',
+    aiIncludes: { thanks: true, revisit: true, mention: true, personalize: false, improve: true, keyword: true },
+    aiClosing: '', aiExcludes: '',
+  })
+  const [showCtx, setShowCtx] = useState(false)
+
+  // localStorage에서 저장된 설정 로드
+  const loadCtx = () => {
+    try {
+      const s = localStorage.getItem('localution_store') || '{}'
+      const ai = localStorage.getItem('localution_ai') || '{}'
+      const sd = JSON.parse(s); const ad = JSON.parse(ai)
+      setStoreCtx(p => ({
+        ...p,
+        bizType: sd.category || p.bizType,
+        storeName: sd.name || p.storeName,
+        mainKeyword: sd.mainKeyword || p.mainKeyword,
+        subKeywords: sd.subKeywords || p.subKeywords,
+        storeDesc: sd.desc || p.storeDesc,
+        aiTone: ad.tone || p.aiTone,
+        aiLength: ad.length || p.aiLength,
+        aiIncludes: ad.includes || p.aiIncludes,
+        aiClosing: ad.closing || p.aiClosing,
+        aiExcludes: ad.excludes || p.aiExcludes,
+      }))
+    } catch {}
+  }
+  // 첫 렌더 시 로드
+  useState(() => { if (typeof window !== 'undefined') loadCtx() })
 
   const plat = REVIEW_PLATFORMS.find(p => p.key === activePlat)!
   const reviews = MOCK_REVIEWS[activePlat]
@@ -613,16 +647,85 @@ function ReviewTab() {
 
   const handleGenerate = async (reviewId: number, reviewText: string) => {
     setGeneratingId(reviewId)
-    await new Promise(r => setTimeout(r, 1200))
-    setGeneratedReplies(p => ({
-      ...p,
-      [reviewId]: `소중한 리뷰 감사드려요! 고객님의 말씀을 소중하게 읽었습니다. 앞으로도 더 좋은 서비스로 보답하겠습니다. 다음에도 꼭 찾아주세요 😊`
-    }))
-    setGeneratingId(null)
+    setGeneratedReplies(p => { const n = { ...p }; delete n[reviewId]; return n })
+    try {
+      const res = await fetch('/api/ai-review-reply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          review: reviewText,
+          platform: plat.label,
+          bizType: storeCtx.bizType,
+          storeName: storeCtx.storeName,
+          mainKeyword: storeCtx.mainKeyword,
+          subKeywords: storeCtx.subKeywords,
+          storeDesc: storeCtx.storeDesc,
+          aiSettings: {
+            tone: storeCtx.aiTone,
+            length: storeCtx.aiLength,
+            includes: storeCtx.aiIncludes,
+            closing: storeCtx.aiClosing,
+            excludes: storeCtx.aiExcludes,
+          },
+        }),
+      })
+      const data = await res.json()
+      if (data.reply) {
+        setGeneratedReplies(p => ({ ...p, [reviewId]: data.reply }))
+        setLangTag(p => ({ ...p, [reviewId]: data.lang || 'ko' }))
+      } else {
+        setGeneratedReplies(p => ({ ...p, [reviewId]: '답변 생성에 실패했습니다. 다시 시도해주세요.' }))
+      }
+    } catch {
+      setGeneratedReplies(p => ({ ...p, [reviewId]: 'API 연결 오류 — AI 설정에서 API 키를 확인하세요.' }))
+    } finally {
+      setGeneratingId(null)
+    }
   }
+
+  const LANG_LABEL: Record<string, string> = { ko:'🇰🇷 한국어', en:'🇺🇸 영어', ja:'🇯🇵 일본어', zh:'🇨🇳 중국어', ar:'🇸🇦 아랍어' }
 
   return (
     <div className="space-y-5">
+      {/* AI 참고 매장 정보 배너 */}
+      <div className="bg-white rounded-2xl p-4 shadow-sm border-l-4 border-[#3182F6]">
+        <button onClick={() => setShowCtx(v => !v)} className="w-full flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-[#3182F6]">🤖 AI 답변 참고 정보</span>
+            {storeCtx.storeName && <span className="text-xs bg-[#EFF6FF] text-[#3182F6] px-2 py-0.5 rounded-full font-semibold">{storeCtx.storeName}</span>}
+            {storeCtx.mainKeyword && <span className="text-xs bg-[#F0FDF4] text-[#059669] px-2 py-0.5 rounded-full font-semibold">#{storeCtx.mainKeyword}</span>}
+            {!storeCtx.storeName && !storeCtx.mainKeyword && <span className="text-xs text-[#8B95A1]">매장 정보 탭에서 설정하면 AI 답변 품질이 올라갑니다</span>}
+          </div>
+          <div className="flex items-center gap-2">
+            <button onClick={e => { e.stopPropagation(); loadCtx() }} className="text-[10px] px-2 py-0.5 rounded bg-[#F2F4F6] text-[#4E5968] font-medium">새로고침</button>
+            <span className="text-[#8B95A1] text-xs">{showCtx ? '▲' : '▼'}</span>
+          </div>
+        </button>
+        {showCtx && (
+          <div className="mt-3 grid grid-cols-2 gap-2 pt-3 border-t border-[#F2F4F6]">
+            {[
+              { label:'업종', val: storeCtx.bizType },
+              { label:'매장명', val: storeCtx.storeName },
+              { label:'메인키워드', val: storeCtx.mainKeyword },
+              { label:'서브키워드', val: storeCtx.subKeywords },
+              { label:'AI 톤', val: ({ friendly:'친근하게', formal:'정중하게', expert:'전문적으로' })[storeCtx.aiTone] || storeCtx.aiTone },
+              { label:'답변 길이', val: ({ short:'짧게', medium:'보통', long:'길게' })[storeCtx.aiLength] || storeCtx.aiLength },
+            ].map(row => (
+              <div key={row.label} className="flex gap-2 items-start">
+                <span className="text-[10px] text-[#8B95A1] font-semibold w-20 flex-shrink-0">{row.label}</span>
+                <span className="text-[10px] text-[#4E5968]">{row.val || '—'}</span>
+              </div>
+            ))}
+            {storeCtx.storeDesc && (
+              <div className="col-span-2 flex gap-2 items-start">
+                <span className="text-[10px] text-[#8B95A1] font-semibold w-20 flex-shrink-0">매장 소개</span>
+                <span className="text-[10px] text-[#4E5968] leading-relaxed">{storeCtx.storeDesc}</span>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
       {/* 플랫폼 탭 */}
       <div className="flex gap-2 flex-wrap">
         {REVIEW_PLATFORMS.map(p => (
@@ -723,21 +826,42 @@ function ReviewTab() {
               {!review.replied && (
                 <>
                   {generatedReplies[review.id] ? (
-                    <div className="bg-[#EFF6FF] rounded-xl p-3 border border-[#BFDBFE]">
-                      <p className="text-[10px] font-bold text-[#3182F6] mb-1">AI 생성 답변</p>
-                      <p className="text-xs text-[#4E5968] leading-relaxed">{generatedReplies[review.id]}</p>
-                      <div className="flex gap-2 mt-2">
-                        <button className="flex-1 py-1.5 rounded-lg bg-[#3182F6] text-white text-xs font-bold">답변 등록</button>
-                        <button onClick={() => setGeneratedReplies(p => { const n={...p}; delete n[review.id]; return n })}
-                          className="px-3 py-1.5 rounded-lg bg-white border border-[#E5E8EB] text-xs text-[#4E5968]">다시 생성</button>
+                    <div className="bg-[#EFF6FF] rounded-xl p-4 border border-[#BFDBFE]">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-[10px] font-bold text-[#3182F6]">✨ AI 생성 답변</p>
+                        {langTag[review.id] && (
+                          <span className="text-[9px] px-2 py-0.5 rounded-full bg-white border border-[#BFDBFE] text-[#3182F6] font-semibold">
+                            {LANG_LABEL[langTag[review.id]] || langTag[review.id]}로 작성됨
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-xs text-[#191F28] leading-relaxed whitespace-pre-wrap">{generatedReplies[review.id]}</p>
+                      <div className="flex gap-2 mt-3">
+                        <button className="flex-1 py-2 rounded-xl text-white text-xs font-bold" style={{ background: plat.color }}>
+                          답변 등록
+                        </button>
+                        <button onClick={() => handleGenerate(review.id, review.text)}
+                          disabled={generatingId === review.id}
+                          className="px-3 py-2 rounded-xl bg-white border border-[#BFDBFE] text-xs text-[#3182F6] font-semibold">
+                          다시 생성
+                        </button>
+                        <button onClick={() => { setGeneratedReplies(p => { const n={...p}; delete n[review.id]; return n }); setLangTag(p => { const n={...p}; delete n[review.id]; return n }) }}
+                          className="px-3 py-2 rounded-xl bg-white border border-[#E5E8EB] text-xs text-[#8B95A1]">
+                          취소
+                        </button>
                       </div>
                     </div>
                   ) : (
                     <button onClick={() => handleGenerate(review.id, review.text)}
                       disabled={generatingId === review.id}
-                      className={`w-full py-2 rounded-xl text-xs font-bold transition-colors ${generatingId === review.id ? 'bg-[#F2F4F6] text-[#8B95A1]' : 'text-white hover:opacity-90'}`}
+                      className={`w-full py-2.5 rounded-xl text-xs font-bold transition-all ${generatingId === review.id ? 'bg-[#F2F4F6] text-[#8B95A1]' : 'text-white hover:opacity-90'}`}
                       style={generatingId !== review.id ? { background: plat.color } : {}}>
-                      {generatingId === review.id ? 'AI 답변 생성 중...' : '✨ AI 답변 생성'}
+                      {generatingId === review.id
+                        ? <span className="flex items-center justify-center gap-1.5">
+                            <span className="w-3 h-3 border-2 border-[#8B95A1] border-t-transparent rounded-full animate-spin inline-block" />
+                            AI 맞춤 답변 생성 중...
+                          </span>
+                        : '✨ AI 맞춤 답변 생성'}
                     </button>
                   )}
                 </>
