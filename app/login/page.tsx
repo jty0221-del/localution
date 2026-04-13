@@ -15,18 +15,12 @@ export default function LoginPage() {
     e.preventDefault()
     setLoading(true)
     setError('')
-
     const supabase = createClient()
-    if (!supabase) {
-      setError('서버 설정을 확인해주세요.')
-      setLoading(false)
-      return
-    }
+    if (!supabase) { setError('서버 설정을 확인해주세요.'); setLoading(false); return }
 
     if (mode === 'signup') {
       const { error } = await supabase.auth.signUp({
-        email,
-        password,
+        email, password,
         options: { emailRedirectTo: `${window.location.origin}/auth/callback` }
       })
       if (error) setError(error.message)
@@ -45,17 +39,11 @@ export default function LoginPage() {
 
         {/* 로고 */}
         <div className="text-center mb-8">
-          <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-md shadow-blue-200">
-            <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
-              <circle cx="12" cy="10" r="3" fill="white"/>
-              <path d="M12 2C7.58 2 4 5.58 4 10c0 5.25 8 14 8 14s8-8.75 8-14c0-4.42-3.58-8-8-8z" fill="white" fillOpacity="0.3" stroke="white" strokeWidth="1.5"/>
-              <path d="M18 4l3-3m0 0l-3 0m3 0l0 3" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-            </svg>
+          <div className="flex items-center justify-center mb-2">
+            <img src="/logo-icon.svg" alt="로컬루션" className="w-16 h-16" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">
-            <span className="text-gray-900">LOCAL</span><span className="text-blue-500">UTION</span>
-          </h1>
-          <p className="text-gray-400 text-sm mt-1">소상공인 AI 만능 비서</p>
+          <img src="/logo.svg" alt="LOCALUTION" className="h-7 w-auto mx-auto mt-2" />
+          <p className="text-gray-400 text-sm mt-2">소상공인 AI 만능 비서</p>
         </div>
 
         <div className="bg-white rounded-2xl p-6 shadow-sm">
@@ -66,7 +54,7 @@ export default function LoginPage() {
             {mode === 'login' ? '계속하려면 로그인해주세요.' : '새 계정을 만들어보세요.'}
           </p>
 
-          {/* 네이버 로그인 버튼 */}
+          {/* 네이버 로그인 */}
           <a
             href="/api/auth/naver"
             className="w-full flex items-center justify-center gap-3 py-3 rounded-xl font-semibold text-sm mb-3 transition-all hover:opacity-90 active:scale-[0.98]"
@@ -87,24 +75,11 @@ export default function LoginPage() {
             </div>
           </div>
 
-          {/* 이메일 폼 */}
           <form onSubmit={handleEmailAuth} className="space-y-3">
-            <input
-              type="email"
-              placeholder="이메일"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              required
-              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-400 focus:bg-white transition-all"
-            />
-            <input
-              type="password"
-              placeholder="비밀번호"
-              value={password}
-              onChange={e => setPassword(e.target.value)}
-              required
-              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-400 focus:bg-white transition-all"
-            />
+            <input type="email" placeholder="이메일" value={email} onChange={e => setEmail(e.target.value)} required
+              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-400 focus:bg-white transition-all" />
+            <input type="password" placeholder="비밀번호" value={password} onChange={e => setPassword(e.target.value)} required
+              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-400 focus:bg-white transition-all" />
 
             {error && (
               <div className={`text-sm px-3 py-2 rounded-lg ${error.startsWith('✅') ? 'bg-blue-50 text-blue-600' : 'bg-red-50 text-red-500'}`}>
@@ -112,20 +87,15 @@ export default function LoginPage() {
               </div>
             )}
 
-            <button
-              type="submit"
-              disabled={loading}
-              className="w-full py-3 bg-blue-500 text-white font-semibold text-sm rounded-xl hover:bg-blue-600 active:scale-[0.98] transition-all shadow-sm shadow-blue-200 disabled:opacity-50"
-            >
+            <button type="submit" disabled={loading}
+              className="w-full py-3 bg-blue-500 text-white font-semibold text-sm rounded-xl hover:bg-blue-600 active:scale-[0.98] transition-all shadow-sm shadow-blue-200 disabled:opacity-50">
               {loading ? '처리 중...' : mode === 'login' ? '이메일로 로그인' : '이메일로 가입'}
             </button>
           </form>
 
           <div className="mt-4 text-center">
-            <button
-              onClick={() => { setMode(mode === 'login' ? 'signup' : 'login'); setError('') }}
-              className="text-sm text-gray-400 hover:text-blue-500 transition-colors"
-            >
+            <button onClick={() => { setMode(mode === 'login' ? 'signup' : 'login'); setError('') }}
+              className="text-sm text-gray-400 hover:text-blue-500 transition-colors">
               {mode === 'login' ? '계정이 없으신가요? 회원가입' : '이미 계정이 있으신가요? 로그인'}
             </button>
           </div>
