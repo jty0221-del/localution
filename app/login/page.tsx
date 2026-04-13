@@ -1,161 +1,139 @@
-'use client';
-
-import { useState } from 'react';
-import { MapPin, Mail, Lock, Eye, EyeOff, Sparkles, ArrowRight } from 'lucide-react';
+'use client'
+import { useState } from 'react'
+import { createClient } from '@/utils/supabase/client'
 
 export default function LoginPage() {
-  const [isLogin, setIsLogin] = useState(true);
-  const [showPassword, setShowPassword] = useState(false);
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [storeName, setStoreName] = useState('');
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+  const [mode, setMode] = useState<'login' | 'signup'>('login')
 
-const handleNaverLogin = () => {
-  const clientId = 'rejEL_xQza4IM6c6DsaY';
-  const redirectUri = encodeURIComponent('https://localution-6sv7.vercel.app/api/auth/naver/callback');
-  const state = Math.random().toString(36).substring(7);
-  const naverUrl = `https://nid.naver.com/oauth2.0/authorize?response_type=code&client_id=${clientId}&redirect_uri=${redirectUri}&state=${state}`;
-  window.location.href = naverUrl;
-};
+  const supabase = createClient()
 
-  const handleSubmit = async () => {
-    setLoading(true);
-    setError('');
-    try {
-      const { createClient } = await import('@supabase/supabase-js');
-      const supabase = createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-      );
+  const handleNaverLogin = async () => {
+    setLoading(true)
+    const { error } = await supabase.auth.signInWithOAuth({
+      provider: 'kakao', // naver는 커스텀 설정 필요, 임시로 이메일 사용
+      options: { redirectTo: `${window.location.origin}/auth/callback` }
+    })
+    if (error) setError(error.message)
+    setLoading(false)
+  }
 
-      if (isLogin) {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-        window.location.href = '/';
-      } else {
-        const { error } = await supabase.auth.signUp({
-          email, password,
-          options: { data: { store_name: storeName } }
-        });
-        if (error) throw error;
-        setError('이메일을 확인해주세요! 인증 후 로그인 가능해요.');
-      }
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : '오류가 발생했어요';
-      setError(message);
-    } finally {
-      setLoading(false);
+  const handleEmailAuth = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setLoading(true)
+    setError('')
+
+    if (mode === 'signup') {
+      const { error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { emailRedirectTo: `${window.location.origin}/auth/callback` }
+      })
+      if (error) setError(error.message)
+      else setError('이메일을 확인해주세요!')
+    } else {
+      const { error } = await supabase.auth.signInWithPassword({ email, password })
+      if (error) setError('이메일 또는 비밀번호를 확인해주세요.')
+      else window.location.href = '/'
     }
-  };
+    setLoading(false)
+  }
 
   return (
-    <div className="min-h-screen bg-[#0f0f13] flex flex-col items-center justify-center px-5">
-
-      {/* 로고 */}
-      <div className="text-center mb-8">
-        <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-700 flex items-center justify-center mx-auto mb-4 shadow-lg shadow-violet-500/30">
-          <MapPin size={28} className="text-white" />
-        </div>
-        <h1 className="text-white font-black text-2xl">로컬루션</h1>
-        <p className="text-violet-400 text-sm mt-1">소상공인 AI 만능 비서</p>
-      </div>
-
+    <div className="min-h-screen bg-[#F2F4F6] flex items-center justify-center p-4">
       <div className="w-full max-w-sm">
 
-        {/* 탭 */}
-        <div className="flex bg-white/5 rounded-2xl p-1 mb-6">
-          <button onClick={() => setIsLogin(true)}
-            className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${isLogin ? 'bg-violet-600 text-white shadow-lg' : 'text-gray-400'}`}>
-            로그인
-          </button>
-          <button onClick={() => setIsLogin(false)}
-            className={`flex-1 py-2.5 rounded-xl text-sm font-bold transition-all ${!isLogin ? 'bg-violet-600 text-white shadow-lg' : 'text-gray-400'}`}>
-            회원가입
-          </button>
-        </div>
-
-        {/* ✅ 네이버 로그인 버튼 */}
-        <button onClick={handleNaverLogin}
-          className="w-full flex items-center justify-center gap-3 py-4 rounded-2xl bg-[#03C75A] hover:bg-[#02b350] active:scale-95 transition-all mb-3 shadow-lg shadow-green-500/20">
-          <div className="w-6 h-6 bg-white rounded-md flex items-center justify-center">
-            <span className="text-[#03C75A] font-black text-sm">N</span>
+        {/* 로고 */}
+        <div className="text-center mb-8">
+          <div className="w-16 h-16 bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-md shadow-blue-200">
+            <svg width="32" height="32" viewBox="0 0 24 24" fill="none">
+              <circle cx="12" cy="10" r="3" fill="white"/>
+              <path d="M12 2C7.58 2 4 5.58 4 10c0 5.25 8 14 8 14s8-8.75 8-14c0-4.42-3.58-8-8-8z" fill="white" fillOpacity="0.35" stroke="white" strokeWidth="1.5"/>
+            </svg>
           </div>
-          <span className="text-white font-bold text-sm">네이버 아이디로 {isLogin ? '로그인' : '회원가입'}</span>
-        </button>
-
-        {/* 구분선 */}
-        <div className="flex items-center gap-3 my-5">
-          <div className="flex-1 h-px bg-white/10" />
-          <span className="text-gray-500 text-xs">또는 이메일로</span>
-          <div className="flex-1 h-px bg-white/10" />
+          <h1 className="text-2xl font-bold text-gray-900">로컬루션</h1>
+          <p className="text-gray-400 text-sm mt-1">소상공인 AI 만능 비서</p>
         </div>
 
-        {/* 이메일 입력 */}
-        <div className="space-y-3">
-          {!isLogin && (
-            <div className="relative">
-              <div className="absolute left-4 top-1/2 -translate-y-1/2">
-                <Sparkles size={16} className="text-gray-500" />
-              </div>
-              <input
-                value={storeName}
-                onChange={e => setStoreName(e.target.value)}
-                placeholder="매장명 (예: 하랑마케팅 카페)"
-                className="w-full bg-white/5 border border-white/10 rounded-2xl pl-11 pr-4 py-4 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-violet-500/50 transition-all"
-              />
-            </div>
-          )}
+        <div className="bg-white rounded-2xl p-6 shadow-sm">
+          <h2 className="text-lg font-bold text-gray-900 mb-1">
+            {mode === 'login' ? '로그인' : '회원가입'}
+          </h2>
+          <p className="text-sm text-gray-400 mb-5">
+            {mode === 'login' ? '계속하려면 로그인해주세요.' : '새 계정을 만들어보세요.'}
+          </p>
 
-          <div className="relative">
-            <div className="absolute left-4 top-1/2 -translate-y-1/2">
-              <Mail size={16} className="text-gray-500" />
+          {/* 네이버 로그인 */}
+          <button
+            onClick={handleNaverLogin}
+            disabled={loading}
+            className="w-full flex items-center justify-center gap-3 py-3 rounded-xl font-semibold text-sm mb-3 transition-all"
+            style={{ backgroundColor: '#03C75A', color: 'white' }}
+          >
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="white">
+              <path d="M16.273 12.845L7.376 0H0v24h7.727V11.155L16.624 24H24V0h-7.727z"/>
+            </svg>
+            네이버로 시작하기
+          </button>
+
+          <div className="relative my-4">
+            <div className="absolute inset-0 flex items-center">
+              <div className="w-full border-t border-gray-100"></div>
             </div>
+            <div className="relative flex justify-center text-xs text-gray-400 bg-white px-3">또는</div>
+          </div>
+
+          {/* 이메일 폼 */}
+          <form onSubmit={handleEmailAuth} className="space-y-3">
             <input
               type="email"
+              placeholder="이메일"
               value={email}
               onChange={e => setEmail(e.target.value)}
-              placeholder="이메일"
-              className="w-full bg-white/5 border border-white/10 rounded-2xl pl-11 pr-4 py-4 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-violet-500/50 transition-all"
+              required
+              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-400 focus:bg-white transition-all"
             />
-          </div>
-
-          <div className="relative">
-            <div className="absolute left-4 top-1/2 -translate-y-1/2">
-              <Lock size={16} className="text-gray-500" />
-            </div>
             <input
-              type={showPassword ? 'text' : 'password'}
+              type="password"
+              placeholder="비밀번호"
               value={password}
               onChange={e => setPassword(e.target.value)}
-              placeholder="비밀번호"
-              className="w-full bg-white/5 border border-white/10 rounded-2xl pl-11 pr-11 py-4 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-violet-500/50 transition-all"
+              required
+              className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-400 focus:bg-white transition-all"
             />
-            <button onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white transition-colors">
-              {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+
+            {error && (
+              <div className={`text-sm px-3 py-2 rounded-lg ${error.includes('이메일을 확인') ? 'bg-blue-50 text-blue-600' : 'bg-red-50 text-red-500'}`}>
+                {error}
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="w-full py-3 bg-blue-500 text-white font-semibold text-sm rounded-xl hover:bg-blue-600 active:scale-[0.98] transition-all shadow-sm shadow-blue-200 disabled:opacity-50"
+            >
+              {loading ? '처리 중...' : mode === 'login' ? '이메일로 로그인' : '이메일로 가입'}
+            </button>
+          </form>
+
+          <div className="mt-4 text-center">
+            <button
+              onClick={() => { setMode(mode === 'login' ? 'signup' : 'login'); setError('') }}
+              className="text-sm text-gray-400 hover:text-blue-500 transition-colors"
+            >
+              {mode === 'login' ? '계정이 없으신가요? 회원가입' : '이미 계정이 있으신가요? 로그인'}
             </button>
           </div>
         </div>
 
-        {error && (
-          <div className={`mt-3 p-3 rounded-xl text-xs text-center ${
-            error.includes('이메일을 확인') ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20' : 'bg-red-500/10 text-red-400 border border-red-500/20'
-          }`}>
-            {error}
-          </div>
-        )}
-
-        <button onClick={handleSubmit} disabled={loading || !email || !password}
-          className="w-full mt-4 py-4 rounded-2xl bg-gradient-to-r from-violet-600 to-purple-600 hover:from-violet-500 hover:to-purple-500 disabled:opacity-40 text-white font-black text-sm shadow-lg shadow-violet-500/25 active:scale-95 transition-all flex items-center justify-center gap-2">
-          {loading ? '처리 중...' : <>{isLogin ? '로그인' : '회원가입'} <ArrowRight size={16} /></>}
-        </button>
-
-        <p className="text-center text-xs text-gray-600 mt-6 leading-relaxed">
-          가입 시 <span className="text-gray-400">이용약관</span> 및 <span className="text-gray-400">개인정보처리방침</span>에 동의합니다
+        <p className="text-center text-xs text-gray-400 mt-6">
+          로그인하면 이용약관과 개인정보처리방침에 동의하는 것으로 간주됩니다.
         </p>
       </div>
     </div>
-  );
+  )
 }
