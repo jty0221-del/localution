@@ -197,23 +197,23 @@ export default function AdminBizPage() {
   };
 
   return (
-    <div className="min-h-screen bg-[#0f0f13] text-white">
+    <div className="min-h-screen bg-[#F8FAFB]">
 
       {/* 헤더 */}
-      <div className="sticky top-0 z-20 bg-[#0f0f13]/90 backdrop-blur-xl border-b border-white/5 px-6 py-4">
+      <div className="sticky top-0 z-20 bg-white/95 backdrop-blur-xl border-b border-gray-100 px-6 py-4">
         <div className="flex items-center justify-between">
           <div>
-            <h1 className="text-white font-bold text-lg leading-none">정산 · 행정</h1>
-            <p className="text-gray-500 text-xs mt-1">매출 관리 · 세금계산서 · 근태</p>
+            <h1 className="text-[#191F28] font-bold text-lg leading-none">정산 · 행정</h1>
+            <p className="text-[#8B95A1] text-xs mt-1">매출 관리 · 세금계산서 · 근태</p>
           </div>
           {salesData.unpaid > 0 && (
-            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-red-500/15 border border-red-500/20 rounded-xl">
+            <div className="flex items-center gap-1.5 px-3 py-1.5 bg-red-50 border border-red-100 rounded-xl">
               <AlertCircle size={13} className="text-red-400" />
               <span className="text-red-400 text-xs font-bold">미수금 {salesData.unpaid.toLocaleString()}원</span>
             </div>
           )}
         </div>
-        <div className="flex gap-1 mt-4 bg-white/5 rounded-xl p-1">
+        <div className="flex gap-1 mt-4 bg-[#F8FAFB] rounded-xl p-1">
           {[
             {id:'calendar', label:'매출 캘린더', icon:Calendar},
             {id:'invoice', label:'세금계산서', icon:FileText},
@@ -224,7 +224,7 @@ export default function AdminBizPage() {
             return (
               <button key={tab.id} onClick={() => setActiveTab(tab.id as typeof activeTab)}
                 className={`flex-1 flex items-center justify-center gap-1.5 py-2 rounded-lg text-xs font-medium transition-all ${
-                  activeTab === tab.id ? 'bg-violet-600 text-white shadow-lg' : 'text-gray-400 hover:text-white'
+                  activeTab === tab.id ? 'bg-[#3182F6] text-white shadow-sm' : 'text-[#8B95A1] hover:text-[#191F28] hover:bg-gray-50'
                 }`}>
                 <Icon size={13}/><span className="hidden sm:block">{tab.label}</span>
               </button>
@@ -239,42 +239,42 @@ export default function AdminBizPage() {
         {activeTab === 'calendar' && (
           <>
             <div className="grid grid-cols-2 gap-3">
-              <div className="col-span-2 rounded-2xl bg-gradient-to-r from-violet-600/20 to-purple-600/20 border border-violet-500/20 p-4">
+              <div className="col-span-2 rounded-2xl bg-gradient-to-r bg-[#EBF3FF] border border-blue-100 p-4">
                 <div className="flex items-center justify-between">
                   <div>
-                    <p className="text-gray-400 text-xs mb-1">이번달 총 매출</p>
-                    <p className="text-white font-black text-3xl">{salesData.thisMonth.toLocaleString()}<span className="text-lg text-gray-400 font-normal">원</span></p>
+                    <p className="text-[#8B95A1] text-xs mb-1">이번달 총 매출</p>
+                    <p className="text-[#191F28] font-black text-3xl">{salesData.thisMonth.toLocaleString()}<span className="text-lg text-gray-400 font-normal">원</span></p>
                     <div className="flex items-center gap-1.5 mt-1">
                       <TrendingUp size={12} className="text-emerald-400"/>
                       <span className="text-emerald-400 text-xs font-medium">지난달 대비 +{growthRate}%</span>
                     </div>
                   </div>
-                  <div className="w-14 h-14 rounded-2xl bg-violet-500/20 flex items-center justify-center">
-                    <Wallet size={24} className="text-violet-400"/>
+                  <div className="w-14 h-14 rounded-2xl bg-[#EBF3FF] flex items-center justify-center">
+                    <Wallet size={24} className="text-[#3182F6]"/>
                   </div>
                 </div>
               </div>
-              <div className="bg-[#13131f] rounded-2xl border border-white/5 p-4">
-                <p className="text-gray-500 text-xs mb-1">미수금</p>
+              <div className="bg-white rounded-2xl border border-gray-100 p-4">
+                <p className="text-[#8B95A1] text-xs mb-1">미수금</p>
                 <p className="text-red-400 font-bold text-xl">{salesData.unpaid.toLocaleString()}<span className="text-sm font-normal">원</span></p>
-                <p className="text-gray-600 text-xs mt-1">2건 미입금</p>
+                <p className="text-[#B0B8C1] text-xs mt-1">2건 미입금</p>
               </div>
-              <div className="bg-[#13131f] rounded-2xl border border-white/5 p-4">
-                <p className="text-gray-500 text-xs mb-1">이번달 지출</p>
+              <div className="bg-white rounded-2xl border border-gray-100 p-4">
+                <p className="text-[#8B95A1] text-xs mb-1">이번달 지출</p>
                 <p className="text-amber-400 font-bold text-xl">{salesData.expenses.toLocaleString()}<span className="text-sm font-normal">원</span></p>
-                <p className="text-gray-600 text-xs mt-1">식자재·임대료 등</p>
+                <p className="text-[#B0B8C1] text-xs mt-1">식자재·임대료 등</p>
               </div>
             </div>
 
-            <div className="rounded-2xl bg-[#13131f] border border-white/5 p-5">
+            <div className="rounded-2xl bg-white border border-gray-100 p-5">
               <div className="flex items-center justify-between mb-4">
-                <button className="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center"><ChevronLeft size={16} className="text-gray-400"/></button>
-                <p className="text-white font-bold text-sm">2026년 4월</p>
-                <button className="w-8 h-8 rounded-xl bg-white/5 flex items-center justify-center"><ChevronRight size={16} className="text-gray-400"/></button>
+                <button className="w-8 h-8 rounded-xl bg-[#F8FAFB] flex items-center justify-center"><ChevronLeft size={16} className="text-gray-400"/></button>
+                <p className="text-[#191F28] font-bold text-sm">2026년 4월</p>
+                <button className="w-8 h-8 rounded-xl bg-[#F8FAFB] flex items-center justify-center"><ChevronRight size={16} className="text-gray-400"/></button>
               </div>
               <div className="grid grid-cols-7 mb-2">
                 {['일','월','화','수','목','금','토'].map(d => (
-                  <div key={d} className={`text-center text-xs font-medium py-1 ${d==='일'?'text-red-400':d==='토'?'text-blue-400':'text-gray-500'}`}>{d}</div>
+                  <div key={d} className={`text-center text-xs font-medium py-1 ${d==='일'?'text-red-400':d==='토'?'text-[#3182F6]':'text-gray-500'}`}>{d}</div>
                 ))}
               </div>
               <div className="grid grid-cols-7 gap-1">
@@ -282,43 +282,43 @@ export default function AdminBizPage() {
                 {Object.entries(calendarData).map(([day, data]) => {
                   const dayNum = parseInt(day);
                   const isSelected = selectedDay === dayNum;
-                  const bgColor = data.type==='high'?'bg-violet-500/30 border-violet-500/40':
-                    data.type==='mid'?'bg-blue-500/20 border-blue-500/30':
-                    data.type==='low'?'bg-white/5 border-white/10':'border-white/5';
+                  const bgColor = data.type==='high'?'bg-[#EBF3FF] border-blue-200':
+                    data.type==='mid'?'bg-[#EBF3FF] border-blue-100':
+                    data.type==='low'?'bg-[#F8FAFB] border-gray-200':'border-gray-100';
                   return (
                     <button key={day} onClick={() => setSelectedDay(isSelected?null:dayNum)}
-                      className={`rounded-xl p-1.5 border text-center transition-all ${bgColor} ${isSelected?'ring-2 ring-violet-500':''}`}>
-                      <p className={`text-xs font-bold ${data.type!=='none'?'text-white':'text-gray-600'}`}>{dayNum}</p>
-                      {data.sales > 0 && <p className="text-violet-300 font-medium leading-none mt-0.5" style={{fontSize:'9px'}}>{(data.sales/10000).toFixed(0)}만</p>}
+                      className={`rounded-xl p-1.5 border text-center transition-all ${bgColor} ${isSelected?'ring-2 ring-[#3182F6]':''}`}>
+                      <p className={`text-xs font-bold ${data.type!=='none'?'text-[#191F28]':'text-[#B0B8C1]'}`}>{dayNum}</p>
+                      {data.sales > 0 && <p className="text-[#3182F6] font-medium leading-none mt-0.5" style={{fontSize:'9px'}}>{(data.sales/10000).toFixed(0)}만</p>}
                     </button>
                   );
                 })}
               </div>
               <div className="flex items-center gap-3 mt-4 justify-center">
-                {[{color:'bg-violet-500/30',label:'30만+'},{color:'bg-blue-500/20',label:'15만+'},{color:'bg-white/5',label:'15만 미만'}].map(item => (
+                {[{color:'bg-[#EBF3FF]',label:'30만+'},{color:'bg-[#EBF3FF]',label:'15만+'},{color:'bg-[#F8FAFB]',label:'15만 미만'}].map(item => (
                   <div key={item.label} className="flex items-center gap-1.5">
                     <div className={`w-3 h-3 rounded-sm ${item.color}`}/>
-                    <span className="text-gray-500 text-xs">{item.label}</span>
+                    <span className="text-[#8B95A1] text-xs">{item.label}</span>
                   </div>
                 ))}
               </div>
             </div>
 
             {selectedDay && calendarData[selectedDay] && (
-              <div className="rounded-2xl bg-[#13131f] border border-violet-500/20 p-4">
-                <p className="text-violet-400 text-xs font-bold mb-2">4월 {selectedDay}일 상세</p>
+              <div className="rounded-2xl bg-white border border-blue-100 p-4">
+                <p className="text-[#3182F6] text-xs font-bold mb-2">4월 {selectedDay}일 상세</p>
                 {calendarData[selectedDay].sales > 0 ? (
                   <div className="flex items-center justify-between">
                     <div>
-                      <p className="text-white font-bold text-xl">{calendarData[selectedDay].sales.toLocaleString()}원</p>
-                      <p className="text-gray-500 text-xs mt-0.5">일 매출</p>
+                      <p className="text-[#191F28] font-bold text-xl">{calendarData[selectedDay].sales.toLocaleString()}원</p>
+                      <p className="text-[#8B95A1] text-xs mt-0.5">일 매출</p>
                     </div>
                     <div className="text-right">
-                      <p className="text-gray-400 text-sm">목표 대비</p>
+                      <p className="text-[#8B95A1] text-sm">목표 대비</p>
                       <p className="text-emerald-400 font-bold">{((calendarData[selectedDay].sales/300000)*100).toFixed(0)}%</p>
                     </div>
                   </div>
-                ) : <p className="text-gray-500 text-sm">휴무일</p>}
+                ) : <p className="text-[#8B95A1] text-sm">휴무일</p>}
               </div>
             )}
           </>
@@ -327,39 +327,39 @@ export default function AdminBizPage() {
         {/* ── 세금계산서 ── */}
         {activeTab === 'invoice' && (
           <>
-            <div className="rounded-2xl bg-gradient-to-r from-emerald-600/20 to-teal-600/20 border border-emerald-500/20 p-5">
+            <div className="rounded-2xl bg-gradient-to-r bg-emerald-50 border border-emerald-100 p-5">
               <div className="flex items-center gap-2 mb-1">
                 <FileText size={16} className="text-emerald-400"/>
-                <h3 className="text-white font-bold text-sm">원클릭 세금계산서</h3>
+                <h3 className="text-[#191F28] font-bold text-sm">원클릭 세금계산서</h3>
               </div>
-              <p className="text-gray-400 text-xs">정보 입력 → 클립보드 복사 → 홈택스 자동 이동 → 크롬 확장으로 자동 입력!</p>
+              <p className="text-[#8B95A1] text-xs">정보 입력 → 클립보드 복사 → 홈택스 자동 이동 → 크롬 확장으로 자동 입력!</p>
             </div>
 
             {/* ✅ 크롬 확장 프로그램 설치 안내 */}
-            <div className={`rounded-2xl border p-4 transition-all ${extInstalled ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-blue-500/10 border-blue-500/20'}`}>
+            <div className={`rounded-2xl border p-4 transition-all ${extInstalled ? 'bg-emerald-50 border-emerald-100' : 'bg-[#EBF3FF] border-blue-100'}`}>
               <div className="flex items-center justify-between mb-3">
                 <div className="flex items-center gap-2">
-                  <Globe size={16} className={extInstalled ? 'text-emerald-400' : 'text-blue-400'}/>
-                  <p className="text-white font-bold text-sm">
+                  <Globe size={16} className={extInstalled ? 'text-emerald-400' : 'text-[#3182F6]'}/>
+                  <p className="text-[#191F28] font-bold text-sm">
                     {extInstalled ? '✅ 크롬 확장 설치됨!' : '🔧 크롬 확장 프로그램 설치 (강력 추천)'}
                   </p>
                 </div>
                 <button onClick={() => setShowExtGuide(!showExtGuide)}
-                  className="text-xs text-gray-400 hover:text-white transition-colors">
+                  className="text-xs text-gray-400 hover:text-[#191F28] transition-colors">
                   {showExtGuide ? '닫기' : '설치 방법'}
                 </button>
               </div>
 
               {!extInstalled && (
-                <p className="text-blue-300 text-xs leading-relaxed mb-3">
+                <p className="text-[#3182F6] text-xs leading-relaxed mb-3">
                   설치하면 홈택스에서 버튼 한 번으로 거래처명·금액·품목이 자동 입력돼요!
                 </p>
               )}
 
               {showExtGuide && (
                 <div className="space-y-3 mt-3">
-                  <div className="bg-white/5 rounded-xl p-4">
-                    <p className="text-white text-xs font-bold mb-3">📦 크롬 확장 설치 방법</p>
+                  <div className="bg-[#F8FAFB] rounded-xl p-4">
+                    <p className="text-[#191F28] text-xs font-bold mb-3">📦 크롬 확장 설치 방법</p>
                     <div className="space-y-2.5">
                       {[
                         { step:'1', text:'아래 "확장 코드 복사" 버튼 클릭' },
@@ -370,17 +370,17 @@ export default function AdminBizPage() {
                         { step:'6', text:'홈택스 세금계산서 발급 페이지에서 자동입력 버튼 클릭!' },
                       ].map(item => (
                         <div key={item.step} className="flex items-start gap-2.5">
-                          <div className="w-5 h-5 rounded-full bg-blue-500/30 flex items-center justify-center flex-shrink-0 text-blue-400 text-xs font-bold">{item.step}</div>
-                          <p className="text-gray-300 text-xs pt-0.5">{item.text}</p>
+                          <div className="w-5 h-5 rounded-full bg-blue-100 flex items-center justify-center flex-shrink-0 text-[#3182F6] text-xs font-bold">{item.step}</div>
+                          <p className="text-[#8B95A1] text-xs pt-0.5">{item.text}</p>
                         </div>
                       ))}
                     </div>
                   </div>
 
                   {/* manifest.json 코드 */}
-                  <div className="bg-[#0a0a12] rounded-xl p-4 border border-white/5">
+                  <div className="bg-[#F0F2F5] rounded-xl p-4 border border-gray-100">
                     <div className="flex items-center justify-between mb-2">
-                      <p className="text-violet-400 text-xs font-bold">📄 manifest.json</p>
+                      <p className="text-[#3182F6] text-xs font-bold">📄 manifest.json</p>
                       <button
                         onClick={() => {
                           navigator.clipboard.writeText(JSON.stringify({
@@ -399,7 +399,7 @@ export default function AdminBizPage() {
                           }, null, 2));
                           alert('manifest.json 코드 복사됨!');
                         }}
-                        className="text-xs bg-violet-600/20 text-violet-400 px-2 py-1 rounded-lg hover:bg-violet-600/40 transition-all">
+                        className="text-xs bg-[#EBF3FF] text-[#3182F6] px-2 py-1 rounded-lg hover:bg-blue-100 transition-all">
                         복사
                       </button>
                     </div>
@@ -427,7 +427,7 @@ export default function AdminBizPage() {
                   </div>
 
                   {/* content.js 코드 */}
-                  <div className="bg-[#0a0a12] rounded-xl p-4 border border-white/5">
+                  <div className="bg-[#F0F2F5] rounded-xl p-4 border border-gray-100">
                     <div className="flex items-center justify-between mb-2">
                       <p className="text-amber-400 text-xs font-bold">📄 content.js</p>
                       <button
@@ -542,15 +542,15 @@ observer.observe(document.body, {childList: true, subtree: true});`;
                           navigator.clipboard.writeText(code);
                           alert('content.js 코드 복사됨!');
                         }}
-                        className="text-xs bg-amber-500/20 text-amber-400 px-2 py-1 rounded-lg hover:bg-amber-500/40 transition-all">
+                        className="text-xs bg-amber-50 text-amber-400 px-2 py-1 rounded-lg hover:bg-amber-500/40 transition-all">
                         복사
                       </button>
                     </div>
-                    <p className="text-gray-500 text-xs">홈택스 페이지에 보라색 "로컬루션 자동입력" 버튼이 생겨요</p>
+                    <p className="text-[#8B95A1] text-xs">홈택스 페이지에 보라색 "로컬루션 자동입력" 버튼이 생겨요</p>
                   </div>
 
                   {/* popup.html */}
-                  <div className="bg-[#0a0a12] rounded-xl p-4 border border-white/5">
+                  <div className="bg-[#F0F2F5] rounded-xl p-4 border border-gray-100">
                     <div className="flex items-center justify-between mb-2">
                       <p className="text-pink-400 text-xs font-bold">📄 popup.html</p>
                       <button
@@ -593,12 +593,12 @@ observer.observe(document.body, {childList: true, subtree: true});`;
                         복사
                       </button>
                     </div>
-                    <p className="text-gray-500 text-xs">확장 프로그램 팝업 화면이에요</p>
+                    <p className="text-[#8B95A1] text-xs">확장 프로그램 팝업 화면이에요</p>
                   </div>
 
                   <button
                     onClick={() => { setExtInstalled(true); setShowExtGuide(false); }}
-                    className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm transition-all">
+                    className="w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-[#191F28] font-bold text-sm transition-all">
                     ✅ 설치 완료!
                   </button>
                 </div>
@@ -606,15 +606,15 @@ observer.observe(document.body, {childList: true, subtree: true});`;
             </div>
 
             <button onClick={() => setShowInvoiceForm(!showInvoiceForm)}
-              className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20">
+              className="w-full py-3.5 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-600 text-[#191F28] font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20">
               <Plus size={16}/>새 세금계산서 발행
             </button>
 
             {/* 발행 폼 */}
             {showInvoiceForm && (
-              <div className="rounded-2xl bg-[#13131f] border border-emerald-500/20 p-5 space-y-3">
+              <div className="rounded-2xl bg-white border border-emerald-100 p-5 space-y-3">
                 <div className="flex items-center justify-between">
-                  <h3 className="text-white font-bold text-sm">세금계산서 정보 입력</h3>
+                  <h3 className="text-[#191F28] font-bold text-sm">세금계산서 정보 입력</h3>
                   <button onClick={() => setShowInvoiceForm(false)}><X size={16} className="text-gray-400"/></button>
                 </div>
 
@@ -633,12 +633,12 @@ observer.observe(document.body, {childList: true, subtree: true});`;
                       value={form[field.key as keyof typeof form]}
                       onChange={e => setForm(prev => ({...prev, [field.key]: e.target.value}))}
                       placeholder={field.placeholder}
-                      className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-white text-sm placeholder-gray-600 focus:outline-none focus:border-emerald-500/50 transition-all"/>
+                      className="w-full bg-[#F8FAFB] border border-gray-200 rounded-xl px-4 py-2.5 text-[#191F28] text-sm placeholder-[#B0B8C1] focus:outline-none focus:border-[#3182F6] focus:ring-2 focus:ring-[#EBF3FF] transition-all"/>
                   </div>
                 ))}
 
                 {form.amount && (
-                  <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3">
+                  <div className="bg-emerald-50 border border-emerald-100 rounded-xl p-3">
                     <p className="text-emerald-400 text-xs font-bold mb-2">💰 금액 계산</p>
                     {[
                       ['공급가액', `${parseInt(form.amount.replace(/,/g,'')||'0').toLocaleString()}원`],
@@ -646,26 +646,26 @@ observer.observe(document.body, {childList: true, subtree: true});`;
                       ['합계', `${Math.round(parseInt(form.amount.replace(/,/g,'')||'0')*1.1).toLocaleString()}원`],
                     ].map(([l,v]) => (
                       <div key={l} className="flex justify-between mt-1">
-                        <span className="text-gray-400 text-xs">{l}</span>
-                        <span className="text-white text-xs font-bold">{v}</span>
+                        <span className="text-[#8B95A1] text-xs">{l}</span>
+                        <span className="text-[#191F28] text-xs font-bold">{v}</span>
                       </div>
                     ))}
                   </div>
                 )}
 
-                <div className="bg-blue-500/10 border border-blue-500/20 rounded-xl p-3">
-                  <p className="text-blue-400 text-xs font-bold mb-2">⚡ 발행 후 자동화 순서</p>
+                <div className="bg-[#EBF3FF] border border-blue-100 rounded-xl p-3">
+                  <p className="text-[#3182F6] text-xs font-bold mb-2">⚡ 발행 후 자동화 순서</p>
                   {[
                     '① 버튼 클릭 → 정보 클립보드 복사 + 홈택스 이동',
                     '② 홈택스 로그인 → 전자세금계산서 건별발급 이동',
                     '③ 🤖 보라색 "로컬루션 자동입력" 버튼 클릭',
                     '④ 자동으로 거래처·금액·품목 입력됨!',
                     '⑤ 영수 선택 → 발급하기 → 인증 완료',
-                  ].map((s,i) => <p key={i} className="text-blue-300 text-xs mt-1">{s}</p>)}
+                  ].map((s,i) => <p key={i} className="text-[#3182F6] text-xs mt-1">{s}</p>)}
                 </div>
 
                 <button onClick={handleIssue} disabled={isIssuing}
-                  className="w-full py-3.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 disabled:opacity-50 text-white font-bold text-sm flex items-center justify-center gap-2 transition-all">
+                  className="w-full py-3.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 disabled:opacity-50 text-[#191F28] font-bold text-sm flex items-center justify-center gap-2 transition-all">
                   {isIssuing
                     ? <><span className="animate-spin inline-block">⟳</span> 처리 중...</>
                     : <><Zap size={15}/>정보 복사 + 홈택스 이동</>}
@@ -675,13 +675,13 @@ observer.observe(document.body, {childList: true, subtree: true});`;
 
             {/* 발행 성공 가이드 */}
             {successInvoice && (
-              <div className="rounded-2xl bg-[#13131f] border border-emerald-500/30 p-5">
+              <div className="rounded-2xl bg-white border border-emerald-100 p-5">
                 <div className="flex items-center gap-2 mb-4">
                   <CheckCircle size={18} className="text-emerald-400"/>
-                  <h3 className="text-white font-bold text-sm">복사 완료! 홈택스에서 자동입력 버튼을 클릭하세요 🎉</h3>
+                  <h3 className="text-[#191F28] font-bold text-sm">복사 완료! 홈택스에서 자동입력 버튼을 클릭하세요 🎉</h3>
                 </div>
 
-                <div className="bg-white/5 rounded-xl p-4 mb-4 space-y-2 border border-white/5">
+                <div className="bg-[#F8FAFB] rounded-xl p-4 mb-4 space-y-2 border border-gray-100">
                   {[
                     ['거래처명', successInvoice.client],
                     ['사업자번호', successInvoice.bizNo],
@@ -691,8 +691,8 @@ observer.observe(document.body, {childList: true, subtree: true});`;
                     ['합계', `${Math.round(successInvoice.amount*1.1).toLocaleString()}원`],
                   ].map(([l,v]) => (
                     <div key={l} className="flex justify-between">
-                      <span className="text-gray-500 text-xs">{l}</span>
-                      <span className="text-white text-xs font-bold">{v}</span>
+                      <span className="text-[#8B95A1] text-xs">{l}</span>
+                      <span className="text-[#191F28] text-xs font-bold">{v}</span>
                     </div>
                   ))}
                 </div>
@@ -704,21 +704,21 @@ observer.observe(document.body, {childList: true, subtree: true});`;
                       navigator.clipboard.writeText(text);
                       alert('다시 복사됐어요!');
                     }}
-                    className="w-full py-3 rounded-xl bg-violet-600 hover:bg-violet-500 text-white font-bold text-sm flex items-center justify-center gap-2 transition-all">
+                    className="w-full py-3 rounded-xl bg-[#3182F6] hover:bg-[#1B6EF3] text-white font-bold text-sm flex items-center justify-center gap-2 transition-all">
                     <Copy size={14}/>정보 다시 복사
                   </button>
                   <button
                     onClick={() => window.open('https://www.hometax.go.kr/websquare/websquare.html?w2xPath=/ui/ab/a/a/UTERPAAA001M.xml&menuCd=MDR030101000','_blank')}
-                    className="w-full py-3 rounded-xl bg-blue-600/20 hover:bg-blue-600/40 border border-blue-500/20 text-blue-400 font-bold text-sm flex items-center justify-center gap-2 transition-all">
+                    className="w-full py-3 rounded-xl bg-blue-600/20 hover:bg-blue-600/40 border border-blue-100 text-[#3182F6] font-bold text-sm flex items-center justify-center gap-2 transition-all">
                     🏛️ 홈택스 전자세금계산서 발급 페이지
                   </button>
                   <button onClick={() => handleDownloadPDF(successInvoice)} disabled={downloadingId===successInvoice.id}
-                    className="w-full py-3 rounded-xl bg-white/5 hover:bg-white/10 text-gray-300 font-bold text-sm flex items-center justify-center gap-2 transition-all border border-white/10">
+                    className="w-full py-3 rounded-xl bg-[#F8FAFB] hover:bg-gray-100 text-[#8B95A1] font-bold text-sm flex items-center justify-center gap-2 transition-all border border-gray-200">
                     <Download size={14}/>{downloadingId===successInvoice.id ? 'PDF 생성 중...' : '내부용 PDF 저장'}
                   </button>
                 </div>
 
-                <div className="mt-4 bg-amber-500/10 border border-amber-500/20 rounded-xl p-4">
+                <div className="mt-4 bg-amber-50 border border-amber-100 rounded-xl p-4">
                   <p className="text-amber-400 text-xs font-bold mb-3">🔔 홈택스 입력 순서</p>
                   {[
                     {step:'1', text:'홈택스 로그인 → 아이디/비밀번호'},
@@ -728,48 +728,48 @@ observer.observe(document.body, {childList: true, subtree: true});`;
                     {step:'5', text:'발급하기 → 공인인증서 완료'},
                   ].map(item => (
                     <div key={item.step} className="flex items-start gap-2.5 mt-2">
-                      <div className="w-5 h-5 rounded-full bg-amber-500/30 flex items-center justify-center flex-shrink-0 text-amber-400 text-xs font-bold">{item.step}</div>
-                      <p className="text-gray-300 text-xs leading-relaxed pt-0.5">{item.text}</p>
+                      <div className="w-5 h-5 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0 text-amber-400 text-xs font-bold">{item.step}</div>
+                      <p className="text-[#8B95A1] text-xs leading-relaxed pt-0.5">{item.text}</p>
                     </div>
                   ))}
                 </div>
 
-                <button onClick={() => setSuccessInvoice(null)} className="w-full mt-3 py-2.5 rounded-xl border border-white/10 text-gray-500 text-xs">닫기</button>
+                <button onClick={() => setSuccessInvoice(null)} className="w-full mt-3 py-2.5 rounded-xl border border-gray-200 text-[#8B95A1] text-xs">닫기</button>
               </div>
             )}
 
             {/* 발행 내역 */}
-            <div className="rounded-2xl bg-[#13131f] border border-white/5 overflow-hidden">
-              <div className="px-5 py-3 border-b border-white/5">
-                <p className="text-white font-bold text-sm">발행 내역</p>
+            <div className="rounded-2xl bg-white border border-gray-100 overflow-hidden">
+              <div className="px-5 py-3 border-b border-gray-100">
+                <p className="text-[#191F28] font-bold text-sm">발행 내역</p>
               </div>
-              <div className="divide-y divide-white/5">
+              <div className="divide-y divide-gray-100">
                 {invoices.map(inv => (
                   <div key={inv.id} className="px-5 py-4">
                     <div className="flex items-center gap-3 mb-3">
-                      <div className="w-9 h-9 rounded-xl bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
+                      <div className="w-9 h-9 rounded-xl bg-emerald-50 flex items-center justify-center flex-shrink-0">
                         <FileText size={15} className="text-emerald-400"/>
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
-                          <p className="text-white text-sm font-medium truncate">{inv.client}</p>
+                          <p className="text-[#191F28] text-sm font-medium truncate">{inv.client}</p>
                           <span className={`text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 ${
                             inv.status==='입금완료'?'bg-emerald-500/20 text-emerald-400':
-                            inv.status==='미수금'?'bg-red-500/20 text-red-400':
-                            'bg-blue-500/20 text-blue-400'
+                            inv.status==='미수금'?'bg-red-50 text-red-500':
+                            'bg-[#EBF3FF] text-[#3182F6]'
                           }`}>{inv.status}</span>
                         </div>
-                        <p className="text-gray-500 text-xs mt-0.5">{inv.id} · {inv.item} · 마감 {inv.due}</p>
+                        <p className="text-[#8B95A1] text-xs mt-0.5">{inv.id} · {inv.item} · 마감 {inv.due}</p>
                       </div>
-                      <p className="text-white font-bold text-sm flex-shrink-0">{inv.amount.toLocaleString()}원</p>
+                      <p className="text-[#191F28] font-bold text-sm flex-shrink-0">{inv.amount.toLocaleString()}원</p>
                     </div>
                     <div className="grid grid-cols-2 gap-2">
                       <button onClick={() => handleDownloadPDF(inv)} disabled={downloadingId===inv.id}
-                        className="py-2.5 rounded-xl bg-violet-600/20 hover:bg-violet-600/40 text-violet-400 text-xs font-bold flex items-center justify-center gap-1.5 transition-all border border-violet-500/20">
+                        className="py-2.5 rounded-xl bg-[#EBF3FF] hover:bg-blue-100 text-[#3182F6] text-xs font-bold flex items-center justify-center gap-1.5 transition-all border border-blue-100">
                         <Download size={13}/>{downloadingId===inv.id?'생성중...':'PDF 다운로드'}
                       </button>
                       <button onClick={() => handleSendKakao(inv)}
-                        className="py-2.5 rounded-xl bg-yellow-400/20 hover:bg-yellow-400/40 text-yellow-400 text-xs font-bold flex items-center justify-center gap-1.5 transition-all border border-yellow-400/20">
+                        className="py-2.5 rounded-xl bg-amber-50 hover:bg-amber-100 text-amber-600 text-xs font-bold flex items-center justify-center gap-1.5 transition-all border border-amber-100">
                         <Send size={13}/>카카오 전송
                       </button>
                     </div>
@@ -783,79 +783,79 @@ observer.observe(document.body, {childList: true, subtree: true});`;
         {/* ── 근태 관리 ── */}
         {activeTab === 'employee' && (
           <>
-            <div className="rounded-2xl bg-gradient-to-r from-blue-600/20 to-cyan-600/20 border border-blue-500/20 p-5">
+            <div className="rounded-2xl bg-gradient-to-r from-blue-600/20 to-cyan-600/20 border border-blue-100 p-5">
               <div className="flex items-center gap-2 mb-1">
-                <Users size={16} className="text-blue-400"/>
-                <h3 className="text-white font-bold text-sm">근태 & 계약 관리</h3>
+                <Users size={16} className="text-[#3182F6]"/>
+                <h3 className="text-[#191F28] font-bold text-sm">근태 & 계약 관리</h3>
               </div>
-              <p className="text-gray-400 text-xs">출퇴근 기록 · 모바일 근로계약서 · 급여 자동 계산</p>
+              <p className="text-[#8B95A1] text-xs">출퇴근 기록 · 모바일 근로계약서 · 급여 자동 계산</p>
             </div>
             <div className="grid grid-cols-3 gap-3">
               {[
-                {label:'출근', value:'2명', color:'text-emerald-400', bg:'bg-emerald-500/10'},
-                {label:'근무중', value:'1명', color:'text-blue-400', bg:'bg-blue-500/10'},
-                {label:'휴무', value:'1명', color:'text-gray-400', bg:'bg-white/5'},
+                {label:'출근', value:'2명', color:'text-emerald-400', bg:'bg-emerald-50'},
+                {label:'근무중', value:'1명', color:'text-[#3182F6]', bg:'bg-[#EBF3FF]'},
+                {label:'휴무', value:'1명', color:'text-gray-400', bg:'bg-[#F8FAFB]'},
               ].map(stat => (
-                <div key={stat.label} className={`${stat.bg} rounded-2xl p-3.5 border border-white/5 text-center`}>
+                <div key={stat.label} className={`${stat.bg} rounded-2xl p-3.5 border border-gray-100 text-center`}>
                   <p className={`text-xl font-bold ${stat.color}`}>{stat.value}</p>
-                  <p className="text-gray-500 text-xs mt-1">{stat.label}</p>
+                  <p className="text-[#8B95A1] text-xs mt-1">{stat.label}</p>
                 </div>
               ))}
             </div>
-            <div className="rounded-2xl bg-[#13131f] border border-white/5 overflow-hidden">
-              <div className="px-5 py-3 border-b border-white/5 flex items-center justify-between">
-                <p className="text-white font-bold text-sm">오늘 출퇴근 현황</p>
-                <p className="text-gray-500 text-xs">2026.04.12</p>
+            <div className="rounded-2xl bg-white border border-gray-100 overflow-hidden">
+              <div className="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
+                <p className="text-[#191F28] font-bold text-sm">오늘 출퇴근 현황</p>
+                <p className="text-[#8B95A1] text-xs">2026.04.12</p>
               </div>
-              <div className="divide-y divide-white/5">
+              <div className="divide-y divide-gray-100">
                 {employees.map((emp,i) => (
                   <div key={i} className="px-5 py-4 flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-violet-500/20 flex items-center justify-center flex-shrink-0 text-sm font-bold text-violet-400">{emp.name[0]}</div>
+                    <div className="w-9 h-9 rounded-xl bg-[#EBF3FF] flex items-center justify-center flex-shrink-0 text-sm font-bold text-[#3182F6]">{emp.name[0]}</div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
-                        <p className="text-white text-sm font-medium">{emp.name}</p>
+                        <p className="text-[#191F28] text-sm font-medium">{emp.name}</p>
                         <span className="text-xs text-gray-500">{emp.role}</span>
                       </div>
                       <div className="flex items-center gap-3 mt-0.5">
-                        <span className="text-gray-500 text-xs flex items-center gap-1"><Clock size={10}/>출근 {emp.checkIn}</span>
-                        {emp.checkOut!=='-' && <span className="text-gray-500 text-xs">퇴근 {emp.checkOut}</span>}
+                        <span className="text-[#8B95A1] text-xs flex items-center gap-1"><Clock size={10}/>출근 {emp.checkIn}</span>
+                        {emp.checkOut!=='-' && <span className="text-[#8B95A1] text-xs">퇴근 {emp.checkOut}</span>}
                       </div>
                     </div>
                     <span className={`text-xs px-2.5 py-1 rounded-xl font-medium ${
-                      emp.status==='근무중'?'bg-blue-500/20 text-blue-400':
+                      emp.status==='근무중'?'bg-[#EBF3FF] text-[#3182F6]':
                       emp.status==='퇴근'?'bg-emerald-500/20 text-emerald-400':
-                      'bg-white/5 text-gray-500'
+                      'bg-[#F8FAFB] text-gray-500'
                     }`}>{emp.status}</span>
                   </div>
                 ))}
               </div>
             </div>
-            <div className="rounded-2xl bg-[#13131f] border border-white/5 p-5">
+            <div className="rounded-2xl bg-white border border-gray-100 p-5">
               <div className="flex items-center gap-2 mb-4">
                 <CreditCard size={15} className="text-amber-400"/>
-                <h3 className="text-white font-bold text-sm">이번달 급여 예상</h3>
+                <h3 className="text-[#191F28] font-bold text-sm">이번달 급여 예상</h3>
               </div>
               <div className="space-y-3">
                 {[
                   {name:'김알바', hours:'52시간', wage:12000, total:624000},
                   {name:'이직원', hours:'160시간', wage:15000, total:2400000},
                 ].map((emp,i) => (
-                  <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-white/3">
-                    <div className="w-8 h-8 rounded-lg bg-amber-500/10 flex items-center justify-center text-xs font-bold text-amber-400">{emp.name[0]}</div>
+                  <div key={i} className="flex items-center gap-3 p-3 rounded-xl bg-[#F8FAFB]">
+                    <div className="w-8 h-8 rounded-lg bg-amber-50 flex items-center justify-center text-xs font-bold text-amber-400">{emp.name[0]}</div>
                     <div className="flex-1">
-                      <p className="text-white text-sm font-medium">{emp.name}</p>
-                      <p className="text-gray-500 text-xs">{emp.hours} · 시급 {emp.wage.toLocaleString()}원</p>
+                      <p className="text-[#191F28] text-sm font-medium">{emp.name}</p>
+                      <p className="text-[#8B95A1] text-xs">{emp.hours} · 시급 {emp.wage.toLocaleString()}원</p>
                     </div>
                     <p className="text-amber-400 font-bold text-sm">{emp.total.toLocaleString()}원</p>
                   </div>
                 ))}
-                <div className="border-t border-white/5 pt-3 flex justify-between">
-                  <p className="text-gray-400 text-sm">총 급여</p>
-                  <p className="text-white font-black text-lg">3,024,000원</p>
+                <div className="border-t border-gray-100 pt-3 flex justify-between">
+                  <p className="text-[#8B95A1] text-sm">총 급여</p>
+                  <p className="text-[#191F28] font-black text-lg">3,024,000원</p>
                 </div>
               </div>
             </div>
-            <button className="w-full py-4 rounded-2xl bg-gradient-to-r from-blue-600 to-cyan-600 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20">
+            <button className="w-full py-4 rounded-2xl bg-gradient-to-r from-blue-600 to-cyan-600 text-[#191F28] font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-blue-500/20">
               <ClipboardList size={16}/>모바일 근로계약서 작성
             </button>
           </>
@@ -864,54 +864,54 @@ observer.observe(document.body, {childList: true, subtree: true});`;
         {/* ── 지원금 봇 ── */}
         {activeTab === 'support' && (
           <>
-            <div className="rounded-2xl bg-gradient-to-r from-amber-600/20 to-orange-600/20 border border-amber-500/20 p-5">
+            <div className="rounded-2xl bg-gradient-to-r bg-amber-50 border border-amber-100 p-5">
               <div className="flex items-center gap-2 mb-1">
                 <Bell size={16} className="text-amber-400"/>
-                <h3 className="text-white font-bold text-sm">정부지원금 알림 봇</h3>
+                <h3 className="text-[#191F28] font-bold text-sm">정부지원금 알림 봇</h3>
               </div>
-              <p className="text-gray-400 text-xs">부천시·정부 맞춤 지원금 자동 알림 & 신청 대행 연결</p>
+              <p className="text-[#8B95A1] text-xs">부천시·정부 맞춤 지원금 자동 알림 & 신청 대행 연결</p>
             </div>
-            <div className="rounded-2xl bg-[#13131f] border border-violet-500/20 p-5">
+            <div className="rounded-2xl bg-white border border-blue-100 p-5">
               <div className="flex items-center gap-2 mb-3">
-                <Zap size={14} className="text-violet-400"/>
-                <p className="text-white font-bold text-sm">AI 맞춤 추천</p>
+                <Zap size={14} className="text-[#3182F6]"/>
+                <p className="text-[#191F28] font-bold text-sm">AI 맞춤 추천</p>
               </div>
-              <p className="text-gray-400 text-sm leading-relaxed">
-                하랑마케팅 카페 기준으로 <span className="text-violet-300 font-medium">3개 지원금</span>을 신청할 수 있어요.
+              <p className="text-[#8B95A1] text-sm leading-relaxed">
+                하랑마케팅 카페 기준으로 <span className="text-[#3182F6] font-medium">3개 지원금</span>을 신청할 수 있어요.
                 이번 달 마감이 임박한 고용유지 지원금을 먼저 확인해보세요!
               </p>
             </div>
             <div className="space-y-3">
               {govSupports.map((support,i) => (
-                <div key={i} className="rounded-2xl bg-[#13131f] border border-white/5 p-5">
+                <div key={i} className="rounded-2xl bg-white border border-gray-100 p-5">
                   <div className="flex items-start justify-between gap-3 mb-3">
                     <div className="flex-1">
                       <div className="flex items-center gap-2 mb-1.5">
                         <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
                           support.category==='자금'?'bg-emerald-500/20 text-emerald-400':
-                          support.category==='창업'?'bg-blue-500/20 text-blue-400':
-                          'bg-violet-500/20 text-violet-400'
+                          support.category==='창업'?'bg-[#EBF3FF] text-[#3182F6]':
+                          'bg-[#EBF3FF] text-[#3182F6]'
                         }`}>{support.category}</span>
                         {support.status==='마감임박' && (
-                          <span className="text-xs bg-red-500/20 text-red-400 px-2 py-0.5 rounded-full font-medium animate-pulse">마감임박!</span>
+                          <span className="text-xs bg-red-50 text-red-500 px-2 py-0.5 rounded-full font-medium animate-pulse">마감임박!</span>
                         )}
                       </div>
-                      <p className="text-white font-bold text-sm">{support.title}</p>
+                      <p className="text-[#191F28] font-bold text-sm">{support.title}</p>
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-3 mb-4">
-                    <div className="p-2.5 rounded-xl bg-white/5">
-                      <p className="text-gray-500 text-xs">지원금액</p>
+                    <div className="p-2.5 rounded-xl bg-[#F8FAFB]">
+                      <p className="text-[#8B95A1] text-xs">지원금액</p>
                       <p className="text-emerald-400 font-bold text-sm mt-0.5">{support.amount}</p>
                     </div>
-                    <div className="p-2.5 rounded-xl bg-white/5">
-                      <p className="text-gray-500 text-xs">신청 마감</p>
-                      <p className="text-white font-bold text-sm mt-0.5">{support.deadline}</p>
+                    <div className="p-2.5 rounded-xl bg-[#F8FAFB]">
+                      <p className="text-[#8B95A1] text-xs">신청 마감</p>
+                      <p className="text-[#191F28] font-bold text-sm mt-0.5">{support.deadline}</p>
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    <button className="flex-1 py-2.5 rounded-xl border border-white/10 text-gray-400 hover:text-white text-xs font-medium transition-all">자세히 보기</button>
-                    <button className="flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-white text-xs font-bold transition-all flex items-center justify-center gap-1.5">
+                    <button className="flex-1 py-2.5 rounded-xl border border-gray-200 text-gray-400 hover:text-[#191F28] text-xs font-medium transition-all">자세히 보기</button>
+                    <button className="flex-1 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-[#191F28] text-xs font-bold transition-all flex items-center justify-center gap-1.5">
                       <Check size={12}/>신청하기
                     </button>
                   </div>
