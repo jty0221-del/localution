@@ -1,6 +1,6 @@
 'use client'
 export const dynamic = 'force-dynamic'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Sidebar from '../components/Sidebar'
 import Footer from '../components/Footer'
@@ -636,7 +636,7 @@ function ReviewTab() {
     } catch {}
   }
   // 첫 렌더 시 로드
-  useState(() => { if (typeof window !== 'undefined') loadCtx() })
+  useEffect(() => { loadCtx() }, [])
 
   const plat = REVIEW_PLATFORMS.find(p => p.key === activePlat)!
   const reviews = MOCK_REVIEWS[activePlat]
