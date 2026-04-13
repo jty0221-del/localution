@@ -5,7 +5,7 @@ import Link from 'next/link'
 import Sidebar from '../components/Sidebar'
 import Footer from '../components/Footer'
 
-const TABS = ['매장 정보', '알림 설정', 'AI 설정', '연동 관리', '플랜 관리'] as const
+const TABS = ['매장 정보', '알림 설정', 'AI 설정', '리뷰 관리', '연동 관리', '플랜 관리'] as const
 type Tab = typeof TABS[number]
 
 const FEATURES = [
@@ -305,48 +305,217 @@ function NotifyTab() {
   )
 }
 
+function buildPrompt(cfg: {
+  bizType: string; tone: string; length: string;
+  includes: Record<string, boolean>; closing: string; excludes: string; storeDesc: string;
+}) {
+  const toneMap: Record<string,string> = { friendly:'친근하고 따뜻한', formal:'정중하고 예의 바른', expert:'전문적이고 신뢰감 있는' }
+  const lengthMap: Record<string,string> = { short:'2~3문장(50자 내외)', medium:'4~5문장(100~150자)', long:'6문장 이상(200자 이상)' }
+  const parts: string[] = []
+  parts.push(`당신은 ${cfg.bizType || '소상공인 매장'}의 사장님을 대신해 리뷰에 답변하는 AI입니다.`)
+  if (cfg.storeDesc) parts.push(`매장 소개: ${cfg.storeDesc}`)
+  parts.push(`\n[답변 스타일]`)
+  parts.push(`- 톤: ${toneMap[cfg.tone] || '친근하고 따뜻한'} 어투`)
+  parts.push(`- 길이: ${lengthMap[cfg.length] || '4~5문장'}`)
+  parts.push(`\n[필수 포함 요소]`)
+  if (cfg.includes['thanks'])    parts.push(`- 방문 감사 인사를 자연스럽게 포함`)
+  if (cfg.includes['revisit'])   parts.push(`- 재방문 유도 문구 포함 (예: "다음에도 꼭 찾아주세요")`)
+  if (cfg.includes['mention'])   parts.push(`- 리뷰에서 언급된 메뉴 또는 서비스를 직접 언급`)
+  if (cfg.includes['personalize']) parts.push(`- 리뷰어의 닉네임으로 개인화 인사 (예: "OO님,")`)
+  if (cfg.includes['improve'])   parts.push(`- 부정적 내용은 개선 의지와 사과를 진정성 있게 표현`)
+  if (cfg.includes['keyword'])   parts.push(`- 매장 핵심 키워드를 자연스럽게 1~2회 포함`)
+  if (cfg.closing) parts.push(`\n[고정 마무리 문구]\n답변 마지막에 반드시 포함: "${cfg.closing}"`)
+  if (cfg.excludes) parts.push(`\n[사용 금지 표현]\n다음 표현은 절대 사용하지 마세요: ${cfg.excludes}`)
+  parts.push(`\n[추가 규칙]\n- 이모지는 1~2개 이하로 절제\n- 같은 표현을 반복하지 말 것\n- 번역투 / 기계적 표현 금지\n- 리뷰 내용을 읽고 맞춤 답변`)
+  return parts.join('\n')
+}
+
 function AITab() {
   const [tone, setTone] = useState('friendly')
   const [length, setLength] = useState('medium')
   const [autoReply, setAutoReply] = useState(false)
-  const [keyword, setKeyword] = useState('')
+  const [bizType, setBizType] = useState('')
+  const [storeDesc, setStoreDesc] = useState('')
+  const [closing, setClosing] = useState('')
+  const [excludes, setExcludes] = useState('')
+  const [showPrompt, setShowPrompt] = useState(false)
+  const [testReview, setTestReview] = useState('')
+  const [testResult, setTestResult] = useState('')
+  const [testing, setTesting] = useState(false)
+  const [includes, setIncludes] = useState({
+    thanks: true, revisit: true, mention: true,
+    personalize: false, improve: true, keyword: false,
+  })
+
+  const prompt = buildPrompt({ bizType, tone, length, includes, closing, excludes, storeDesc })
+
+  const handleTest = async () => {
+    if (!testReview.trim()) return
+    setTesting(true); setTestResult('')
+    try {
+      const res = await fetch('/api/ai-review-test', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ systemPrompt: prompt, review: testReview }),
+      })
+      const data = await res.json()
+      setTestResult(data.reply || '답변 생성 실패')
+    } catch {
+      setTestResult('API 연결 오류 — 연동 관리에서 설정을 확인하세요.')
+    } finally {
+      setTesting(false)
+    }
+  }
 
   return (
-    <div className="max-w-xl space-y-6">
+    <div className="max-w-2xl space-y-5">
+      {/* 업종 + 매장 소개 */}
       <div className="bg-white rounded-2xl p-6 shadow-sm">
-        <h3 className="font-bold text-[#191F28] mb-4">AI 답변 톤</h3>
-        <div className="grid grid-cols-3 gap-3">
-          {[{ value: 'friendly', label: '친근하게' }, { value: 'formal', label: '정중하게' }, { value: 'casual', label: '캐주얼하게' }].map(opt => (
-            <button key={opt.value} onClick={() => setTone(opt.value)} className={`p-4 rounded-xl border-2 text-center transition-colors ${tone === opt.value ? 'border-[#3182F6] bg-[#EFF6FF]' : 'border-[#E5E8EB] hover:border-[#3182F6]'}`}>
-              <div className="text-sm font-semibold text-[#191F28]">{opt.label}</div>
-            </button>
+        <h3 className="font-bold text-[#191F28] mb-4">매장 기본 설정</h3>
+        <div className="mb-4">
+          <label className="block text-xs font-semibold text-[#4E5968] mb-2">업종 선택</label>
+          <div className="flex flex-wrap gap-2">
+            {['카페·베이커리','음식점','헤어샵','네일샵','피부관리','마사지·스파','의원·한의원','기타'].map(b => (
+              <button key={b} onClick={() => setBizType(b)}
+                className={`px-3 py-1.5 rounded-xl text-xs font-semibold border-2 transition-colors ${bizType === b ? 'border-[#3182F6] bg-[#EFF6FF] text-[#3182F6]' : 'border-[#E5E8EB] text-[#4E5968] hover:border-[#3182F6]'}`}>
+                {b}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-[#4E5968] mb-1.5">매장 소개 (AI 참고용)</label>
+          <textarea value={storeDesc} onChange={e => setStoreDesc(e.target.value)} rows={2}
+            placeholder="예: 강남역 10번 출구 도보 2분, 제주 원두 사용 스페셜티 카페. 감성 인테리어와 직접 구운 크로아상이 인기."
+            className="w-full border border-[#E5E8EB] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#3182F6] transition-colors resize-none" />
+          <p className="text-[10px] text-[#8B95A1] mt-1">입력할수록 AI가 매장에 맞는 답변을 생성합니다</p>
+        </div>
+      </div>
+
+      {/* 톤 + 길이 */}
+      <div className="bg-white rounded-2xl p-6 shadow-sm">
+        <div className="mb-5">
+          <h3 className="font-bold text-[#191F28] mb-3">답변 톤</h3>
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { v:'friendly', label:'친근하게', desc:'따뜻하고 부드러운 어투' },
+              { v:'formal',   label:'정중하게', desc:'예의 바르고 격식 있는 어투' },
+              { v:'expert',   label:'전문적으로', desc:'신뢰감 있는 전문가 어투' },
+            ].map(opt => (
+              <button key={opt.v} onClick={() => setTone(opt.v)}
+                className={`p-3 rounded-xl border-2 text-center transition-colors ${tone === opt.v ? 'border-[#3182F6] bg-[#EFF6FF]' : 'border-[#E5E8EB] hover:border-[#BFDBFE]'}`}>
+                <div className="text-sm font-bold text-[#191F28]">{opt.label}</div>
+                <div className="text-[10px] text-[#8B95A1] mt-0.5">{opt.desc}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+        <div>
+          <h3 className="font-bold text-[#191F28] mb-3">답변 길이</h3>
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { v:'short',  label:'짧게',  desc:'2~3문장' },
+              { v:'medium', label:'보통',  desc:'4~5문장' },
+              { v:'long',   label:'길게',  desc:'6문장+' },
+            ].map(opt => (
+              <button key={opt.v} onClick={() => setLength(opt.v)}
+                className={`p-3 rounded-xl border-2 text-center transition-colors ${length === opt.v ? 'border-[#3182F6] bg-[#EFF6FF]' : 'border-[#E5E8EB] hover:border-[#BFDBFE]'}`}>
+                <div className="text-sm font-bold text-[#191F28]">{opt.label}</div>
+                <div className="text-[10px] text-[#8B95A1] mt-0.5">{opt.desc}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* 포함 요소 체크리스트 */}
+      <div className="bg-white rounded-2xl p-6 shadow-sm">
+        <h3 className="font-bold text-[#191F28] mb-4">답변에 포함할 요소</h3>
+        <div className="space-y-3">
+          {([
+            { k:'thanks',      label:'방문 감사 인사',        desc:'항상 감사 인사로 시작' },
+            { k:'revisit',     label:'재방문 유도 문구',      desc:'"다음에도 꼭 찾아주세요" 류' },
+            { k:'mention',     label:'리뷰 내용 직접 언급',   desc:'고객이 언급한 메뉴·서비스 호응' },
+            { k:'personalize', label:'닉네임 개인화 인사',    desc:'"OO님," 으로 시작' },
+            { k:'improve',     label:'개선 의지 표현',        desc:'부정 리뷰 시 진정성 있는 사과' },
+            { k:'keyword',     label:'키워드 자연 포함',      desc:'SEO 핵심 키워드 1~2회 삽입' },
+          ] as { k: keyof typeof includes; label: string; desc: string }[]).map(item => (
+            <div key={item.k} className="flex items-center justify-between">
+              <div>
+                <p className="text-sm font-medium text-[#191F28]">{item.label}</p>
+                <p className="text-xs text-[#8B95A1]">{item.desc}</p>
+              </div>
+              <Toggle checked={includes[item.k]} onChange={v => setIncludes(p => ({ ...p, [item.k]: v }))} />
+            </div>
           ))}
         </div>
       </div>
-      <div className="bg-white rounded-2xl p-6 shadow-sm">
-        <h3 className="font-bold text-[#191F28] mb-4">답변 길이</h3>
-        <div className="grid grid-cols-3 gap-3">
-          {[{ value: 'short', label: '짧게', desc: '1~2줄' }, { value: 'medium', label: '보통', desc: '3~4줄' }, { value: 'long', label: '길게', desc: '5줄 이상' }].map(opt => (
-            <button key={opt.value} onClick={() => setLength(opt.value)} className={`p-4 rounded-xl border-2 text-center transition-colors ${length === opt.value ? 'border-[#3182F6] bg-[#EFF6FF]' : 'border-[#E5E8EB] hover:border-[#3182F6]'}`}>
-              <div className="text-sm font-semibold text-[#191F28]">{opt.label}</div>
-              <div className="text-xs text-[#8B95A1] mt-0.5">{opt.desc}</div>
-            </button>
-          ))}
+
+      {/* 고정 문구 + 제외 표현 */}
+      <div className="bg-white rounded-2xl p-6 shadow-sm space-y-4">
+        <div>
+          <label className="block text-xs font-semibold text-[#4E5968] mb-1.5">고정 마무리 문구</label>
+          <input value={closing} onChange={e => setClosing(e.target.value)}
+            placeholder="예: 오늘도 행복한 하루 되세요 🌿"
+            className="w-full border border-[#E5E8EB] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#3182F6] transition-colors" />
+          <p className="text-[10px] text-[#8B95A1] mt-1">모든 답변 마지막에 고정으로 들어갈 문구</p>
+        </div>
+        <div>
+          <label className="block text-xs font-semibold text-[#4E5968] mb-1.5">사용 금지 표현</label>
+          <input value={excludes} onChange={e => setExcludes(e.target.value)}
+            placeholder="예: 죄송, 유감, 어떠셨나요"
+            className="w-full border border-[#E5E8EB] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#3182F6] transition-colors" />
+          <p className="text-[10px] text-[#8B95A1] mt-1">쉼표로 구분 — AI가 절대 사용하지 않을 표현</p>
         </div>
       </div>
+
+      {/* 자동 답변 ON/OFF */}
       <div className="bg-white rounded-2xl p-6 shadow-sm">
-        <div className="flex items-center justify-between mb-5">
+        <div className="flex items-center justify-between">
           <div>
-            <p className="font-bold text-[#191F28]">자동 답변</p>
-            <p className="text-xs text-[#8B95A1] mt-0.5">새 리뷰에 AI가 자동으로 답변을 달아요</p>
+            <p className="font-bold text-[#191F28]">자동 답변 활성화</p>
+            <p className="text-xs text-[#8B95A1] mt-0.5">새 리뷰가 등록되면 AI가 즉시 자동 답변</p>
           </div>
           <Toggle checked={autoReply} onChange={setAutoReply} />
         </div>
-        <div>
-          <label className="block text-sm font-medium text-[#191F28] mb-2">필수 포함 키워드</label>
-          <input value={keyword} onChange={e => setKeyword(e.target.value)} placeholder="예: 감사합니다, 방문 감사" className="w-full border border-[#E5E8EB] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#3182F6] transition-colors" />
-          <p className="text-xs text-[#8B95A1] mt-1.5">쉼표로 구분하면 여러 개 입력 가능해요</p>
-        </div>
+        {autoReply && (
+          <div className="mt-4 p-3 bg-blue-50 rounded-xl text-xs text-[#3182F6] font-medium">
+            ⚡ 자동 답변 ON — 연동된 플랫폼에 리뷰가 등록되면 즉시 답변이 달립니다
+          </div>
+        )}
+      </div>
+
+      {/* AI 프롬프트 미리보기 */}
+      <div className="bg-white rounded-2xl p-6 shadow-sm">
+        <button onClick={() => setShowPrompt(v => !v)}
+          className="w-full flex items-center justify-between text-sm font-bold text-[#191F28]">
+          <span>📄 AI 시스템 프롬프트 미리보기</span>
+          <span className="text-[#8B95A1] font-normal text-xs">{showPrompt ? '접기' : '펼치기'}</span>
+        </button>
+        {showPrompt && (
+          <pre className="mt-4 p-4 bg-[#F8F9FA] rounded-xl text-[11px] text-[#4E5968] whitespace-pre-wrap leading-relaxed font-mono overflow-x-auto">
+            {prompt}
+          </pre>
+        )}
+      </div>
+
+      {/* 테스트 답변 생성 */}
+      <div className="bg-white rounded-2xl p-6 shadow-sm">
+        <h3 className="font-bold text-[#191F28] mb-1">테스트 답변 생성</h3>
+        <p className="text-xs text-[#8B95A1] mb-4">실제 리뷰를 입력하면 AI 답변을 미리 확인할 수 있어요</p>
+        <textarea value={testReview} onChange={e => setTestReview(e.target.value)} rows={3}
+          placeholder="예: 커피가 정말 맛있었어요! 인테리어도 너무 예쁘고 직원분들도 친절하셨어요. 다음에 또 올게요~"
+          className="w-full border border-[#E5E8EB] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#3182F6] transition-colors resize-none mb-3" />
+        <button onClick={handleTest} disabled={testing || !testReview.trim()}
+          className={`w-full py-2.5 rounded-xl text-sm font-bold transition-colors ${testing || !testReview.trim() ? 'bg-[#F2F4F6] text-[#8B95A1] cursor-not-allowed' : 'bg-[#3182F6] text-white hover:bg-[#1B64DA]'}`}>
+          {testing ? '생성 중...' : '답변 생성하기'}
+        </button>
+        {testResult && (
+          <div className="mt-4 p-4 bg-[#EFF6FF] rounded-xl border border-[#BFDBFE]">
+            <p className="text-[10px] font-bold text-[#3182F6] mb-2">AI 생성 답변</p>
+            <p className="text-sm text-[#191F28] leading-relaxed whitespace-pre-wrap">{testResult}</p>
+          </div>
+        )}
       </div>
     </div>
   )
@@ -382,6 +551,203 @@ function YeoshinLogoS() {
 
 function HometaxLogoS() {
   return (<svg width="32" height="32" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="10" fill="#006AB4"/><path d="M24 11L9 22h4v14h10V28h2v8h10V22h4L24 11z" fill="white"/><text x="24" y="44" fontSize="6.5" fontWeight="800" fill="white" fontFamily="Arial" textAnchor="middle">홈택스</text></svg>)
+}
+
+const REVIEW_PLATFORMS = [
+  { key: 'naver',  label: '네이버',     color: '#03C75A', bg: '#E8FBF0', icon: 'N', desc: '네이버 플레이스 리뷰' },
+  { key: 'google', label: '구글',       color: '#4285F4', bg: '#EFF6FF', icon: 'G', desc: '구글 비즈니스 리뷰' },
+  { key: 'kakao',  label: '카카오',     color: '#F59E0B', bg: '#FFFBEB', icon: 'K', desc: '카카오맵 리뷰' },
+  { key: 'baemin', label: '배달의민족', color: '#2AC1BC', bg: '#EFFEFE', icon: 'B', desc: '배달의민족 리뷰' },
+  { key: 'yogiyo', label: '요기요',     color: '#FA0050', bg: '#FFF1F5', icon: 'Y', desc: '요기요 리뷰' },
+  { key: 'coupang',label: '쿠팡이츠',  color: '#FF4B30', bg: '#FFF3F1', icon: 'C', desc: '쿠팡이츠 리뷰' },
+] as const
+type ReviewPlatformKey = typeof REVIEW_PLATFORMS[number]['key']
+
+const MOCK_REVIEWS: Record<ReviewPlatformKey, Array<{ id:number; name:string; rating:number; text:string; date:string; replied:boolean }>> = {
+  naver: [
+    { id:1, name:'맛집탐방러', rating:5, text:'진짜 너무 맛있었어요! 분위기도 좋고 직원도 친절해서 완전 만족이에요 다음에 또 올게요', date:'2시간 전', replied:true },
+    { id:2, name:'서울카페어', rating:4, text:'커피는 맛있는데 좀 비싼 편이에요. 그래도 인테리어가 예뻐서 사진 찍기 좋아요', date:'1일 전', replied:false },
+    { id:3, name:'동네주민', rating:3, text:'대기가 좀 길었어요. 음식은 평균 이상이고 청결은 좋았습니다', date:'3일 전', replied:false },
+  ],
+  google: [
+    { id:1, name:'John K.', rating:5, text:'Excellent service and amazing food! Will definitely come back', date:'1일 전', replied:false },
+    { id:2, name:'이현주', rating:4, text:'분위기 좋고 음식 맛있어요. 주차가 좀 불편한 게 아쉬워요', date:'2일 전', replied:true },
+    { id:3, name:'박성민', rating:2, text:'대기시간이 너무 길었고 직원이 불친절했어요', date:'5일 전', replied:false },
+  ],
+  kakao: [
+    { id:1, name:'여행자A', rating:5, text:'지도로 보고 왔는데 기대 이상이었어요! 추천합니다', date:'3시간 전', replied:false },
+    { id:2, name:'단골손님', rating:5, text:'항상 오는 곳인데 오늘도 역시 좋았어요', date:'2일 전', replied:true },
+  ],
+  baemin: [
+    { id:1, name:'배달왕', rating:5, text:'배달 빠르고 음식 맛있어요! 포장도 꼼꼼하게 해주셨어요', date:'1시간 전', replied:false },
+    { id:2, name:'자취생', rating:4, text:'맛은 있는데 양이 조금 적어요. 그래도 맛있어서 또 시킬 것 같아요', date:'5시간 전', replied:false },
+    { id:3, name:'주부9단', rating:3, text:'배달이 좀 늦게 왔어요. 음식은 맛있었는데 식어있었어요', date:'1일 전', replied:true },
+  ],
+  yogiyo: [
+    { id:1, name:'야식러버', rating:5, text:'야식으로 시켰는데 완전 맛있었어요!! 사장님 리뷰 꼭 봐주세요', date:'4시간 전', replied:false },
+    { id:2, name:'자취중', rating:4, text:'맛 좋고 서비스도 좋아요. 자주 이용하겠습니다', date:'2일 전', replied:true },
+  ],
+  coupang: [
+    { id:1, name:'로켓배달팬', rating:5, text:'쿠팡이츠로 처음 시켰는데 빠르고 맛있어요!', date:'6시간 전', replied:false },
+    { id:2, name:'음식평론가', rating:4, text:'가성비 좋고 맛있어요. 포장이 조금 아쉽지만 전반적으로 만족', date:'3일 전', replied:false },
+  ],
+}
+
+function ReviewTab() {
+  const [activePlat, setActivePlat] = useState<ReviewPlatformKey>('naver')
+  const [connected, setConnected] = useState<Record<ReviewPlatformKey, boolean>>({
+    naver: true, google: true, kakao: false, baemin: false, yogiyo: false, coupang: false,
+  })
+  const [autoReply, setAutoReply] = useState<Record<ReviewPlatformKey, boolean>>({
+    naver: true, google: false, kakao: false, baemin: false, yogiyo: false, coupang: false,
+  })
+  const [generatingId, setGeneratingId] = useState<number | null>(null)
+  const [generatedReplies, setGeneratedReplies] = useState<Record<number, string>>({})
+
+  const plat = REVIEW_PLATFORMS.find(p => p.key === activePlat)!
+  const reviews = MOCK_REVIEWS[activePlat]
+  const total = reviews.length
+  const unanswered = reviews.filter(r => !r.replied).length
+  const avgRating = (reviews.reduce((s, r) => s + r.rating, 0) / total).toFixed(1)
+  const replyRate = Math.round(((total - unanswered) / total) * 100)
+
+  const handleGenerate = async (reviewId: number, reviewText: string) => {
+    setGeneratingId(reviewId)
+    await new Promise(r => setTimeout(r, 1200))
+    setGeneratedReplies(p => ({
+      ...p,
+      [reviewId]: `소중한 리뷰 감사드려요! 고객님의 말씀을 소중하게 읽었습니다. 앞으로도 더 좋은 서비스로 보답하겠습니다. 다음에도 꼭 찾아주세요 😊`
+    }))
+    setGeneratingId(null)
+  }
+
+  return (
+    <div className="space-y-5">
+      {/* 플랫폼 탭 */}
+      <div className="flex gap-2 flex-wrap">
+        {REVIEW_PLATFORMS.map(p => (
+          <button key={p.key} onClick={() => setActivePlat(p.key)}
+            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold border-2 transition-all ${activePlat === p.key ? 'text-white border-transparent' : 'border-[#E5E8EB] text-[#4E5968] hover:border-gray-300 bg-white'}`}
+            style={activePlat === p.key ? { background: p.color } : {}}>
+            <span className="w-5 h-5 rounded flex items-center justify-center text-[10px] font-black"
+              style={{ background: activePlat === p.key ? 'rgba(255,255,255,0.25)' : p.bg, color: activePlat === p.key ? '#fff' : p.color }}>
+              {p.icon}
+            </span>
+            {p.label}
+            {!connected[p.key] && (
+              <span className="text-[9px] px-1.5 rounded-full font-bold" style={{ background: activePlat === p.key ? 'rgba(255,255,255,0.3)' : '#E5E8EB', color: activePlat === p.key ? '#fff' : '#8B95A1' }}>미연동</span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {/* 연결 상태 + 통계 */}
+      <div className="bg-white rounded-2xl p-5 shadow-sm">
+        <div className="flex items-center justify-between mb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-black text-base"
+              style={{ background: plat.color }}>{plat.icon}</div>
+            <div>
+              <p className="font-bold text-[#191F28]">{plat.label} 리뷰</p>
+              <p className="text-xs text-[#8B95A1]">{plat.desc}</p>
+            </div>
+          </div>
+          <button onClick={() => setConnected(prev => ({ ...prev, [activePlat]: !prev[activePlat] }))}
+            className={`px-4 py-2 rounded-xl text-sm font-bold transition-colors ${connected[activePlat] ? 'bg-[#ECFDF5] text-[#059669]' : 'text-white hover:opacity-90'}`}
+            style={!connected[activePlat] ? { background: plat.color } : {}}>
+            {connected[activePlat] ? '✓ 연동됨' : '연동하기'}
+          </button>
+        </div>
+
+        {connected[activePlat] ? (
+          <>
+            <div className="grid grid-cols-4 gap-3 mb-4">
+              {[
+                { label:'전체 리뷰', value:String(total), color:'#191F28' },
+                { label:'미답변', value:String(unanswered), color: unanswered > 0 ? '#EF4444' : '#059669' },
+                { label:'평균 평점', value:`⭐ ${avgRating}`, color:'#F59E0B' },
+                { label:'답변률', value:`${replyRate}%`, color: replyRate >= 80 ? '#059669' : '#3182F6' },
+              ].map(stat => (
+                <div key={stat.label} className="rounded-xl p-3 text-center" style={{ background: '#F8F9FA' }}>
+                  <p className="text-lg font-black" style={{ color: stat.color }}>{stat.value}</p>
+                  <p className="text-[10px] text-[#8B95A1] mt-0.5">{stat.label}</p>
+                </div>
+              ))}
+            </div>
+            <div className="flex items-center justify-between pt-4 border-t border-[#F2F4F6]">
+              <div>
+                <p className="text-sm font-semibold text-[#191F28]">AI 자동답변</p>
+                <p className="text-xs text-[#8B95A1]">새 리뷰에 자동으로 답변</p>
+              </div>
+              <Toggle checked={autoReply[activePlat]} onChange={v => setAutoReply(p => ({ ...p, [activePlat]: v }))} />
+            </div>
+          </>
+        ) : (
+          <div className="text-center py-6">
+            <p className="text-sm text-[#8B95A1] mb-1">연동 후 리뷰 관리 및 AI 자동답변이 가능합니다</p>
+            <p className="text-xs text-[#8B95A1]">설정 → 연동 관리에서 API를 연결하세요</p>
+          </div>
+        )}
+      </div>
+
+      {/* 최근 리뷰 목록 */}
+      {connected[activePlat] && (
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h3 className="font-bold text-[#191F28]">최근 리뷰</h3>
+            {unanswered > 0 && (
+              <span className="text-xs px-2 py-1 rounded-full bg-red-100 text-red-600 font-bold">미답변 {unanswered}건</span>
+            )}
+          </div>
+          {reviews.map(review => (
+            <div key={review.id} className="bg-white rounded-2xl p-5 shadow-sm">
+              <div className="flex items-start justify-between mb-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold" style={{ background: plat.color }}>
+                    {review.name[0]}
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-[#191F28]">{review.name}</p>
+                    <div className="flex items-center gap-1">
+                      {'⭐'.repeat(review.rating)}
+                      <span className="text-[10px] text-[#8B95A1] ml-1">{review.date}</span>
+                    </div>
+                  </div>
+                </div>
+                {review.replied
+                  ? <span className="text-[10px] px-2 py-1 rounded-full bg-[#ECFDF5] text-[#059669] font-semibold">답변완료</span>
+                  : <span className="text-[10px] px-2 py-1 rounded-full bg-red-100 text-red-500 font-semibold">미답변</span>
+                }
+              </div>
+              <p className="text-sm text-[#4E5968] leading-relaxed mb-3">{review.text}</p>
+              {!review.replied && (
+                <>
+                  {generatedReplies[review.id] ? (
+                    <div className="bg-[#EFF6FF] rounded-xl p-3 border border-[#BFDBFE]">
+                      <p className="text-[10px] font-bold text-[#3182F6] mb-1">AI 생성 답변</p>
+                      <p className="text-xs text-[#4E5968] leading-relaxed">{generatedReplies[review.id]}</p>
+                      <div className="flex gap-2 mt-2">
+                        <button className="flex-1 py-1.5 rounded-lg bg-[#3182F6] text-white text-xs font-bold">답변 등록</button>
+                        <button onClick={() => setGeneratedReplies(p => { const n={...p}; delete n[review.id]; return n })}
+                          className="px-3 py-1.5 rounded-lg bg-white border border-[#E5E8EB] text-xs text-[#4E5968]">다시 생성</button>
+                      </div>
+                    </div>
+                  ) : (
+                    <button onClick={() => handleGenerate(review.id, review.text)}
+                      disabled={generatingId === review.id}
+                      className={`w-full py-2 rounded-xl text-xs font-bold transition-colors ${generatingId === review.id ? 'bg-[#F2F4F6] text-[#8B95A1]' : 'text-white hover:opacity-90'}`}
+                      style={generatingId !== review.id ? { background: plat.color } : {}}>
+                      {generatingId === review.id ? 'AI 답변 생성 중...' : '✨ AI 답변 생성'}
+                    </button>
+                  )}
+                </>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
 }
 
 function ConnectTab() {
@@ -724,6 +1090,7 @@ function Settings() {
         {activeTab === '매장 정보' && <StoreTab />}
         {activeTab === '알림 설정' && <NotifyTab />}
         {activeTab === 'AI 설정' && <AITab />}
+        {activeTab === '리뷰 관리' && <ReviewTab />}
         {activeTab === '연동 관리' && <ConnectTab />}
         {activeTab === '플랜 관리' && <PlanTab />}
         <Footer />

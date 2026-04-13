@@ -5,18 +5,26 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
 const FLAT_NAV = [
-  { href: '/',             label: '대시보드',  icon: 'DB',  colors: { bg: '#EFF6FF', text: '#3182F6' } },
-  { href: '/review-admin', label: '리뷰 관리', icon: '리뷰', colors: { bg: '#FFFBEB', text: '#F59E0B' } },
-  { href: '/qr-admin',     label: 'QR 관리',   icon: 'QR',  colors: { bg: '#F5F3FF', text: '#8B5CF6' } },
-  { href: '/customers',    label: '고객 관리', icon: '고객', colors: { bg: '#ECFDF5', text: '#059669' } },
-  { href: '/store',        label: '매장 관리', icon: '매장', colors: { bg: '#FFF1F2', text: '#E11D48' } },
-  { href: '/community',    label: '커뮤니티',  icon: '커뮤', colors: { bg: '#FDF2F8', text: '#EC4899' } },
+  { href: '/',          label: '대시보드',  icon: 'DB',  colors: { bg: '#EFF6FF', text: '#3182F6' } },
+  { href: '/qr-admin',  label: 'QR 관리',   icon: 'QR',  colors: { bg: '#F5F3FF', text: '#8B5CF6' } },
+  { href: '/customers', label: '고객 관리', icon: '고객', colors: { bg: '#ECFDF5', text: '#059669' } },
+  { href: '/store',     label: '매장 관리', icon: '매장', colors: { bg: '#FFF1F2', text: '#E11D48' } },
+  { href: '/community', label: '커뮤니티',  icon: '커뮤', colors: { bg: '#FDF2F8', text: '#EC4899' } },
+]
+
+const REVIEW_SUB = [
+  { href: '/review-admin/naver',  label: '네이버',     icon: '🟢', color: '#03C75A' },
+  { href: '/review-admin/google', label: '구글',       icon: '🔵', color: '#4285F4' },
+  { href: '/review-admin/kakao',  label: '카카오',     icon: '🟡', color: '#F59E0B' },
+  { href: '/review-admin/baemin', label: '배달의민족', icon: '🩵', color: '#2AC1BC' },
+  { href: '/review-admin/yogiyo', label: '요기요',     icon: '🔴', color: '#FA0050' },
+  { href: '/review-admin/coupang',label: '쿠팡이츠',   icon: '🟠', color: '#FF4B30' },
 ]
 
 const MARKETING_SUB = [
-  { href: '/marketing/place',         label: '플레이스 진단',  icon: '📍', desc: '네이버 플레이스 종합 점수' },
-  { href: '/marketing/keyword-rank',  label: '키워드 순위',    icon: '🔍', desc: '실시간 키워드 검색 순위' },
-  { href: '/marketing/keyword-score', label: '키워드 점수분석', icon: '📊', desc: '키워드 최적화 점수 분석' },
+  { href: '/marketing/place',          label: '플레이스 진단',   icon: '📍', desc: '네이버 플레이스 종합 점수' },
+  { href: '/marketing/keyword-rank',   label: '키워드 순위',     icon: '🔍', desc: '실시간 키워드 검색 순위' },
+  { href: '/marketing/keyword-score',  label: '키워드 점수분석', icon: '📊', desc: '키워드 최적화 점수 분석' },
 ]
 
 const BOTTOM_NAV = [
@@ -26,7 +34,11 @@ const BOTTOM_NAV = [
 export default function Sidebar() {
   const pathname = usePathname()
   const [mobileOpen, setMobileOpen] = useState(false)
+
+  const isReviewSection   = pathname.startsWith('/review-admin')
   const isMarketingSection = pathname.startsWith('/marketing')
+
+  const [reviewOpen,    setReviewOpen]    = useState(isReviewSection)
   const [marketingOpen, setMarketingOpen] = useState(isMarketingSection)
 
   const NavItems = () => (
@@ -46,7 +58,44 @@ export default function Sidebar() {
         )
       })}
 
-      {/* 마케팅 관리 아코디언 */}
+      {/* ── 리뷰 관리 아코디언 ── */}
+      <div>
+        <button onClick={() => setReviewOpen(v => !v)}
+          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left ${isReviewSection ? 'bg-[#FFFBEB] text-[#F59E0B] font-semibold' : 'text-[#4E5968] hover:bg-[#F2F4F6] font-medium'}`}>
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold flex-shrink-0"
+            style={isReviewSection ? { background: '#F59E0B', color: '#fff' } : { background: '#FFFBEB', color: '#F59E0B' }}>
+            리뷰
+          </div>
+          <span className="text-sm">리뷰 관리</span>
+          <span className={`ml-auto text-xs transition-transform duration-200 ${reviewOpen ? 'rotate-180' : ''}`}>▾</span>
+        </button>
+
+        {reviewOpen && (
+          <div className="mt-1 ml-3 pl-4 border-l-2 border-[#FDE68A] space-y-0.5">
+            {/* 전체 리뷰 링크 */}
+            <Link href="/review-admin" onClick={() => setMobileOpen(false)}
+              className={`flex items-center gap-2.5 px-3 py-2 rounded-xl transition-all text-xs font-medium ${pathname === '/review-admin' ? 'bg-[#FFFBEB] text-[#F59E0B] font-semibold' : 'text-[#4E5968] hover:bg-[#F8F9FA]'}`}>
+              <span className="text-sm leading-none">📋</span>
+              <span>전체 리뷰</span>
+              {pathname === '/review-admin' && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-[#F59E0B] flex-shrink-0" />}
+            </Link>
+            {/* 플랫폼별 */}
+            {REVIEW_SUB.map(sub => {
+              const active = pathname === sub.href || pathname.startsWith(sub.href + '/')
+              return (
+                <Link key={sub.href} href={sub.href} onClick={() => setMobileOpen(false)}
+                  className={`flex items-center gap-2.5 px-3 py-1.5 rounded-xl transition-all ${active ? 'bg-[#FFFBEB] text-[#F59E0B] font-semibold' : 'text-[#4E5968] hover:bg-[#F8F9FA] font-medium'}`}>
+                  <span className="text-sm leading-none">{sub.icon}</span>
+                  <span className="text-xs">{sub.label}</span>
+                  {active && <span className="ml-auto w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: sub.color }} />}
+                </Link>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* ── 마케팅 관리 아코디언 ── */}
       <div>
         <button onClick={() => setMarketingOpen(v => !v)}
           className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left ${isMarketingSection ? 'bg-[#FFF7ED] text-[#EA580C] font-semibold' : 'text-[#4E5968] hover:bg-[#F2F4F6] font-medium'}`}>
