@@ -1,5 +1,6 @@
-export const dynamic = 'force-dynamic'
 'use client'
+export const dynamic = 'force-dynamic'
+
 import { useState } from 'react'
 
 const stats = [
@@ -139,9 +140,8 @@ export default function DashboardPage() {
                 </div>
               ))}
             </div>
-
             <div className="mt-5 pt-4 border-t border-gray-100">
-              <div className="text-xs text-gray-400 mb-3">이번 달 AI 사용량</div>
+              <div className="text-xs text-gray-400 mb-2">이번 달 AI 사용량</div>
               <div className="flex items-end gap-2">
                 <span className="text-2xl font-bold text-gray-900">847</span>
                 <span className="text-sm text-gray-400 pb-1">/ 1,000건</span>
@@ -158,11 +158,8 @@ export default function DashboardPage() {
           <h3 className="font-bold text-gray-900 mb-4">빠른 실행</h3>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {quickActions.map(action => (
-              <a
-                key={action.label}
-                href={action.href}
-                className="flex flex-col items-center gap-2.5 p-4 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors cursor-pointer"
-              >
+              <a key={action.label} href={action.href}
+                className="flex flex-col items-center gap-2.5 p-4 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors">
                 <span className={`w-11 h-11 rounded-xl ${action.color} flex items-center justify-center text-xl`}>
                   {action.icon}
                 </span>
