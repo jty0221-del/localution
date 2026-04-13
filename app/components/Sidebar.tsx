@@ -39,18 +39,9 @@ export default function Sidebar() {
         ${open ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0
       `}>
         {/* 로고 */}
-        <div className="px-5 py-5 border-b border-gray-100">
-          <div className="flex items-center gap-3 mb-3">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-sm shadow-blue-200">
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-                <circle cx="12" cy="10" r="3" fill="white"/>
-                <path d="M12 2C7.58 2 4 5.58 4 10c0 5.25 8 14 8 14s8-8.75 8-14c0-4.42-3.58-8-8-8z" fill="white" fillOpacity="0.3" stroke="white" strokeWidth="1.5"/>
-              </svg>
-            </div>
-            <div>
-              <div className="font-bold text-gray-900 text-[15px] leading-tight">로컬루션</div>
-              <div className="text-[11px] text-gray-400 font-medium">Localution AI</div>
-            </div>
+        <div className="px-5 py-4 border-b border-gray-100">
+          <div className="mb-3">
+            <img src="/logo.svg" alt="로컬루션" className="h-8 w-auto" />
           </div>
           <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-blue-50 rounded-lg">
             <span className="text-blue-500 text-xs">✦</span>
