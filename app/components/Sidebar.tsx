@@ -8,9 +8,9 @@ import Image from 'next/image'
 const navItems = [
   { href: '/', label: '대시보드', icon: '🏠' },
   { href: '/review-admin', label: '리뷰 관리', icon: '⭐' },
+  { href: '/qr-admin', label: 'QR 관리', icon: '📱' },
   { href: '/crm', label: '고객 관리', icon: '👥' },
   { href: '/admin-biz', label: '매장 관리', icon: '🏪' },
-  { href: '/qr-admin', label: 'QR 관리', icon: '📱' },
   { href: '/community', label: '커뮤니티', icon: '💬' },
 ]
 
@@ -69,7 +69,6 @@ export default function Sidebar() {
 
   return (
     <>
-      {/* 모바일 햄버거 버튼 */}
       <button
         onClick={() => setOpen(true)}
         className="md:hidden fixed top-4 left-4 z-40 p-2 bg-white rounded-xl shadow-md"
@@ -79,7 +78,6 @@ export default function Sidebar() {
         </svg>
       </button>
 
-      {/* 모바일 오버레이 */}
       {open && (
         <div
           className="md:hidden fixed inset-0 z-40 bg-black/40"
@@ -87,14 +85,12 @@ export default function Sidebar() {
         />
       )}
 
-      {/* 모바일 드로어 */}
       <div className={`md:hidden fixed top-0 left-0 h-full w-[220px] bg-white z-50 flex flex-col shadow-xl transition-transform ${
         open ? 'translate-x-0' : '-translate-x-full'
       }`}>
         <NavContent />
       </div>
 
-      {/* 데스크탑 사이드바 */}
       <div className="hidden md:flex fixed top-0 left-0 h-full w-[220px] bg-white border-r border-[#E5E8EB] flex-col z-30">
         <NavContent />
       </div>
