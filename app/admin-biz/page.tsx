@@ -790,7 +790,7 @@ observer.observe(document.body, {childList: true, subtree: true});`;
               </div>
               <p className="text-[#8B95A1] text-xs">출퇴근 기록 · 모바일 근로계약서 · 급여 자동 계산</p>
             </div>
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {[
                 {label:'출근', value:'2명', color:'text-emerald-400', bg:'bg-emerald-50'},
                 {label:'근무중', value:'1명', color:'text-[#3182F6]', bg:'bg-[#EBF3FF]'},

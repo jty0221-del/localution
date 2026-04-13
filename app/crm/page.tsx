@@ -71,7 +71,7 @@ export default function CRMPage() {
 
       {/* 헤더 */}
       <div className="sticky top-0 z-20 bg-white border-b border-[#E5EAF2] px-6 py-4">
-        <div className="flex items-center justify-between max-w-5xl mx-auto">
+        <div className="flex items-center justify-between max-w-5xl mx-auto px-4 lg:px-0">
           <div>
             <h1 className="text-[#191F28] font-black text-xl">CRM · 고객관리</h1>
             <p className="text-[#8B95A1] text-xs mt-0.5">단골 고객 관리 · 맞춤 메시지 · 블랙컨슈머 방어</p>
@@ -82,7 +82,7 @@ export default function CRMPage() {
           </button>
         </div>
 
-        <div className="flex gap-1 mt-4 bg-[#F2F4F6] rounded-xl p-1 max-w-5xl mx-auto">
+        <div className="flex gap-1 mt-4 bg-[#F2F4F6] rounded-xl p-1 max-w-5xl mx-auto overflow-x-auto">
           {[
             { id: 'customers', label: '고객 목록', icon: Users },
             { id: 'message', label: '단체 메시지', icon: MessageCircle },
@@ -107,7 +107,7 @@ export default function CRMPage() {
         {/* ── 고객 목록 ── */}
         {activeTab === 'customers' && (
           <>
-            <div className="grid grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               {[
                 { label: '전체 고객', value: '1,247명', icon: Users, color: 'text-[#3182F6]', bg: 'bg-[#EBF3FF]' },
                 { label: 'VIP 고객', value: '48명', icon: Crown, color: 'text-amber-500', bg: 'bg-amber-50' },
@@ -188,7 +188,7 @@ export default function CRMPage() {
 
                     {selectedCustomer?.id === customer.id && (
                       <div className="mt-4 ml-8 p-4 rounded-xl bg-[#F8FAFB] border border-[#E5EAF2]">
-                        <div className="grid grid-cols-3 gap-3 mb-4">
+                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-4">
                           {[
                             { label: '총 방문', value: `${customer.visits}회` },
                             { label: '총 결제', value: `${customer.totalSpent.toLocaleString()}원` },

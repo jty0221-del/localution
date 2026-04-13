@@ -304,7 +304,7 @@ export default function QRAdminPage() {
             <span className="ml-auto text-xs text-emerald-600 font-semibold bg-emerald-50 px-2.5 py-1 rounded-full">2026년 4월</span>
           </div>
           <div className="p-5 space-y-5">
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               {[
                 { label: 'QR 스캔', value: '62', unit: '회', icon: QrCode, color: 'text-[#3182F6]', bg: 'bg-[#EBF3FF]' },
                 { label: '전환 완료', value: '35', unit: '건', icon: Repeat2, color: 'text-emerald-500', bg: 'bg-emerald-50' },

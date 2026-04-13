@@ -86,9 +86,9 @@ export default function ReviewAdminPage() {
     };
     try {
       const base64 = await toBase64(file);
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
+      const response = await fetch('/api/ai', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.NEXT_PUBLIC_ANTHROPIC_API_KEY || '', 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+        headers: { 'Content-Type': 'application/json', },
         body: JSON.stringify({
           model: 'claude-sonnet-4-20250514', max_tokens: 500,
           messages: [{ role: 'user', content: [
@@ -109,9 +109,9 @@ export default function ReviewAdminPage() {
     setGeneratedReply('');
     const toneGuide: Record<string, string> = { warm: '따뜻하고 친근한 사장님 말투', pro: '격식 있는 비즈니스 말투', fun: '유쾌하고 재미있는 말투', simple: '짧고 명확한 말투' };
     try {
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
+      const response = await fetch('/api/ai', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.NEXT_PUBLIC_ANTHROPIC_API_KEY || '', 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+        headers: { 'Content-Type': 'application/json', },
         body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 300, messages: [{ role: 'user', content: `${toneGuide[selectedTone]}로 답글 작성. 고객: ${selectedReview.name} / 별점: ${selectedReview.rating}점\n리뷰: ${selectedReview.text}\n2~3문장, 이름 언급, 재방문 유도, 답글만 출력` }] })
       });
       const data = await response.json();
@@ -128,9 +128,9 @@ export default function ReviewAdminPage() {
     setMenuDesc('');
     try {
       const base64 = await toBase64(file);
-      const response = await fetch('https://api.anthropic.com/v1/messages', {
+      const response = await fetch('/api/ai', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'x-api-key': process.env.NEXT_PUBLIC_ANTHROPIC_API_KEY || '', 'anthropic-version': '2023-06-01', 'anthropic-dangerous-direct-browser-access': 'true' },
+        headers: { 'Content-Type': 'application/json', },
         body: JSON.stringify({ model: 'claude-sonnet-4-20250514', max_tokens: 400, messages: [{ role: 'user', content: [
           { type: 'image', source: { type: 'base64', media_type: file.type, data: base64 } },
           { type: 'text', text: '이 메뉴 사진으로 네이버 플레이스 최적화 메뉴 설명을 작성해주세요. "부천 카페", "가성비" 등 SEO 키워드 포함. 3~4문장. 설명만 출력.' }
@@ -188,7 +188,7 @@ export default function ReviewAdminPage() {
         {activeTab === 'reviews' && (
           <>
             {/* 통계 */}
-            <div className="grid grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {[
                 { label: '전체 리뷰', value: '284', change: '+12', icon: Star, color: 'text-amber-500', bg: 'bg-amber-50' },
                 { label: '평균 별점', value: '4.8', change: '↑0.2', icon: ThumbsUp, color: 'text-[#00C073]', bg: 'bg-[#E8FBF3]' },
@@ -275,7 +275,7 @@ export default function ReviewAdminPage() {
                 </div>
 
                 {/* 말투 */}
-                <div className="grid grid-cols-2 gap-2 mb-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-4">
                   {toneOptions.map(t => (
                     <button key={t.id} onClick={() => setSelectedTone(t.id)}
                       className={`flex items-center gap-2.5 p-3 rounded-xl border text-left transition-all ${selectedTone === t.id ? 'border-[#3182F6] bg-[#EBF3FF]' : 'border-[#E5EAF2] hover:bg-[#F8FAFB]'}`}>
