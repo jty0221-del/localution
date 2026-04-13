@@ -37,10 +37,10 @@ export default function LoginPage() {
     <div className="min-h-screen bg-[#F2F4F6] flex items-center justify-center p-4">
       <div className="w-full max-w-sm">
 
-        {/* 로고 - 아이콘만 표시 (텍스트 포함) */}
+        {/* 로고 */}
         <div className="text-center mb-8">
-          <img src="/logo-icon.svg" alt="로컬루션" className="w-20 h-20 mx-auto" />
-          <p className="text-gray-400 text-sm mt-3">소상공인 AI 만능 비서</p>
+          <img src="/logo.png" alt="로컬루션" className="w-28 h-28 mx-auto object-contain" />
+          <p className="text-gray-400 text-sm mt-2">소상공인 AI 만능 비서</p>
         </div>
 
         <div className="bg-white rounded-2xl p-6 shadow-sm">
@@ -51,9 +51,7 @@ export default function LoginPage() {
             {mode === 'login' ? '계속하려면 로그인해주세요.' : '새 계정을 만들어보세요.'}
           </p>
 
-          {/* 네이버 로그인 */}
-          <a
-            href="/api/auth/naver"
+          <a href="/api/auth/naver"
             className="w-full flex items-center justify-center gap-3 py-3 rounded-xl font-semibold text-sm mb-3 transition-all hover:opacity-90 active:scale-[0.98]"
             style={{ backgroundColor: '#03C75A', color: 'white' }}
           >
@@ -64,12 +62,8 @@ export default function LoginPage() {
           </a>
 
           <div className="relative my-4">
-            <div className="absolute inset-0 flex items-center">
-              <div className="w-full border-t border-gray-100"></div>
-            </div>
-            <div className="relative flex justify-center">
-              <span className="text-xs text-gray-400 bg-white px-3">또는</span>
-            </div>
+            <div className="absolute inset-0 flex items-center"><div className="w-full border-t border-gray-100"></div></div>
+            <div className="relative flex justify-center"><span className="text-xs text-gray-400 bg-white px-3">또는</span></div>
           </div>
 
           <form onSubmit={handleEmailAuth} className="space-y-3">
@@ -77,13 +71,9 @@ export default function LoginPage() {
               className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-400 focus:bg-white transition-all" />
             <input type="password" placeholder="비밀번호" value={password} onChange={e => setPassword(e.target.value)} required
               className="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-900 placeholder-gray-400 focus:outline-none focus:border-blue-400 focus:bg-white transition-all" />
-
             {error && (
-              <div className={`text-sm px-3 py-2 rounded-lg ${error.startsWith('✅') ? 'bg-blue-50 text-blue-600' : 'bg-red-50 text-red-500'}`}>
-                {error}
-              </div>
+              <div className={`text-sm px-3 py-2 rounded-lg ${error.startsWith('✅') ? 'bg-blue-50 text-blue-600' : 'bg-red-50 text-red-500'}`}>{error}</div>
             )}
-
             <button type="submit" disabled={loading}
               className="w-full py-3 bg-blue-500 text-white font-semibold text-sm rounded-xl hover:bg-blue-600 active:scale-[0.98] transition-all shadow-sm shadow-blue-200 disabled:opacity-50">
               {loading ? '처리 중...' : mode === 'login' ? '이메일로 로그인' : '이메일로 가입'}
@@ -98,9 +88,7 @@ export default function LoginPage() {
           </div>
         </div>
 
-        <p className="text-center text-xs text-gray-400 mt-6">
-          로그인하면 이용약관과 개인정보처리방침에 동의합니다.
-        </p>
+        <p className="text-center text-xs text-gray-400 mt-6">로그인하면 이용약관과 개인정보처리방침에 동의합니다.</p>
       </div>
     </div>
   )
