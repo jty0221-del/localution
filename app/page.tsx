@@ -1,162 +1,131 @@
 'use client'
+
 export const dynamic = 'force-dynamic'
+
 import { useState } from 'react'
 import Link from 'next/link'
+import Sidebar from './components/Sidebar'
 
 const stats = [
-  { label: '이번달 매출', value: '4,820,000원', change: '+12.4%', up: true, icon: '📈', bg: 'bg-blue-50 text-blue-500' },
-  { label: '신규 리뷰', value: '28개', change: '+5개', up: true, icon: '⭐', bg: 'bg-yellow-50 text-yellow-500' },
-  { label: '단골 고객', value: '142명', change: '+8명', up: true, icon: '👥', bg: 'bg-green-50 text-green-500' },
-  { label: '미수금', value: '320,000원', change: '-2건', up: false, icon: '📋', bg: 'bg-red-50 text-red-400' },
+  { label: '오늘 리뷰', value: '12', change: '+3', positive: true, icon: '⭐' },
+  { label: '이번 주 방문', value: '284', change: '+18%', positive: true, icon: '👥' },
+  { label: '평균 별점', value: '4.6', change: '+0.2', positive: true, icon: '📊' },
+  { label: '미답변 리뷰', value: '5', change: '-2', positive: true, icon: '💬' },
 ]
 
-const reviews = [
-  { platform: '네이버', name: '김지수', stars: 5, text: '음식이 너무 맛있어요! 사장님도 친절하시고 또 올게요 😊', time: '10분 전', answered: false },
-  { platform: '배민', name: '박민준', stars: 4, text: '배달도 빠르고 양도 많아요. 가격 대비 최고!', time: '1시간 전', answered: true },
-  { platform: '네이버', name: '이서연', stars: 5, text: '분위기 너무 좋고 커피도 맛있어요. 단골 될 것 같아요!', time: '3시간 전', answered: false },
+const recentReviews = [
+  { platform: '네이버', name: '김**', rating: 5, content: '음식이 정말 맛있고 서비스도 친절해요!', time: '10분 전', replied: false },
+  { platform: '구글', name: 'J***', rating: 4, content: 'Great place, will visit again!', time: '1시간 전', replied: true },
+  { platform: '카카오', name: '이**', rating: 3, content: '맛은 있는데 웨이팅이 좀 길어요.', time: '3시간 전', replied: false },
 ]
 
-const quickActions = [
-  { label: 'AI 리뷰 답글', icon: '⭐', href: '/review-admin', color: 'bg-blue-50 text-blue-600' },
-  { label: '알림톡 발송', icon: '💬', href: '/crm', color: 'bg-green-50 text-green-600' },
-  { label: '세금계산서', icon: '📋', href: '/admin-biz', color: 'bg-orange-50 text-orange-600' },
-  { label: '기능 추가', icon: '🛒', href: '/pricing', color: 'bg-purple-50 text-purple-600' },
-]
-
-export default function DashboardPage() {
-  const today = new Date().toLocaleDateString('ko-KR', {
-    year: 'numeric', month: 'long', day: 'numeric', weekday: 'long'
-  })
+export default function Dashboard() {
+  const [sidebarOpen, setSidebarOpen] = useState(false)
 
   return (
-    <div className="p-4 md:p-8 pt-16 md:pt-8 max-w-5xl mx-auto">
-      {/* 헤더 */}
-      <div className="flex items-center justify-between mb-6">
-        <div>
-          <p className="text-xs text-gray-400 mb-0.5">{today}</p>
-          <h1 className="text-xl md:text-2xl font-bold text-gray-900">대시보드</h1>
-        </div>
-        <div className="flex items-center gap-2">
-          <button className="relative w-10 h-10 bg-white rounded-xl shadow-sm flex items-center justify-center text-gray-500 hover:bg-gray-50">
-            🔔
-            <span className="absolute top-2 right-2 w-2 h-2 bg-red-400 rounded-full"></span>
+    <div className="min-h-screen bg-[#F2F4F6] flex">
+      <Sidebar />
+      <main className="flex-1 md:ml-[220px] p-4 md:p-8">
+        {/* 모바일 헤더 */}
+        <div className="md:hidden flex items-center justify-between mb-6">
+          <button
+            onClick={() => setSidebarOpen(true)}
+            className="p-2 rounded-lg bg-white shadow-sm"
+          >
+            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
           </button>
-          <div className="w-10 h-10 bg-blue-500 rounded-xl flex items-center justify-center text-white font-bold shadow-sm shadow-blue-200">전</div>
+          <span className="font-bold text-lg text-[#191F28]">로컬루션</span>
+          <div className="w-9" />
         </div>
-      </div>
 
-      {/* AI 배너 */}
-      <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl p-5 mb-5 shadow-sm shadow-blue-200">
-        <div className="flex items-start justify-between">
-          <div>
-            <span className="text-xs bg-white/20 text-white px-2 py-0.5 rounded-full font-medium">✦ AI 비서 활성화됨</span>
-            <h2 className="text-lg md:text-xl font-bold text-white mt-2 mb-1">
-              좋은 아침이에요, 전태영 사장님! ☀️
-            </h2>
-            <p className="text-blue-100 text-sm">
-              오늘 답변 안 된 리뷰가 <span className="font-bold text-white">2개</span> 있어요. AI 답글 달아드릴까요?
-            </p>
-          </div>
-          <span className="text-3xl hidden sm:block">🤖</span>
+        {/* 인사 */}
+        <div className="mb-8">
+          <h1 className="text-2xl font-bold text-[#191F28]">안녕하세요 👋</h1>
+          <p className="text-[#8B95A1] mt-1">오늘도 매장 운영 화이팅이에요!</p>
         </div>
-        <Link href="/review-admin"
-          className="inline-block mt-4 bg-white text-blue-600 font-semibold text-sm px-4 py-2 rounded-xl hover:bg-blue-50 transition-colors">
-          AI 답글 바로 달기 →
-        </Link>
-      </div>
 
-      {/* 통계 카드 */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
-        {stats.map(stat => (
-          <div key={stat.label} className="bg-white rounded-2xl p-4 shadow-sm">
-            <div className={`w-9 h-9 rounded-xl ${stat.bg} flex items-center justify-center text-lg mb-3`}>
-              {stat.icon}
+        {/* 통계 카드 */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+          {stats.map((stat, i) => (
+            <div key={i} className="bg-white rounded-2xl p-5 shadow-sm">
+              <div className="text-2xl mb-2">{stat.icon}</div>
+              <div className="text-2xl font-bold text-[#191F28]">{stat.value}</div>
+              <div className="text-sm text-[#8B95A1] mt-1">{stat.label}</div>
+              <div className={`text-xs mt-2 font-medium ${stat.positive ? 'text-[#00C471]' : 'text-[#FF3B30]'}`}>
+                {stat.change}
+              </div>
             </div>
-            <div className="text-xs text-gray-400 mb-1">{stat.label}</div>
-            <div className="text-base md:text-lg font-bold text-gray-900 leading-tight">{stat.value}</div>
-            <div className={`text-xs font-semibold mt-1 ${stat.up ? 'text-blue-500' : 'text-red-400'}`}>
-              {stat.up ? '↑' : '↓'} {stat.change}
+          ))}
+        </div>
+
+        {/* AI 추천 배너 */}
+        <div className="bg-[#3182F6] rounded-2xl p-6 mb-8 text-white">
+          <div className="flex items-start justify-between">
+            <div>
+              <div className="text-sm font-medium opacity-80 mb-1">AI 추천</div>
+              <div className="text-lg font-bold mb-2">미답변 리뷰 5개가 있어요</div>
+              <div className="text-sm opacity-80">AI가 답변 초안을 준비했어요. 확인해볼까요?</div>
             </div>
+            <div className="text-3xl">🤖</div>
           </div>
-        ))}
-      </div>
+          <Link
+            href="/review-admin"
+            className="inline-block mt-4 bg-white text-[#3182F6] font-semibold text-sm px-4 py-2 rounded-lg"
+          >
+            리뷰 관리하기 →
+          </Link>
+        </div>
 
-      <div className="grid md:grid-cols-3 gap-4 mb-5">
         {/* 최근 리뷰 */}
-        <div className="md:col-span-2 bg-white rounded-2xl p-5 shadow-sm">
+        <div className="bg-white rounded-2xl p-6 shadow-sm mb-8">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-bold text-gray-900">최근 리뷰</h3>
-            <Link href="/review-admin" className="text-sm text-blue-500 font-medium hover:underline">전체보기 →</Link>
+            <h2 className="font-bold text-[#191F28]">최근 리뷰</h2>
+            <Link href="/review-admin" className="text-sm text-[#3182F6] font-medium">전체보기</Link>
           </div>
-          <div className="space-y-3">
-            {reviews.map((review, i) => (
-              <div key={i} className="flex items-start gap-3 p-3 rounded-xl bg-gray-50">
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1 flex-wrap">
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-semibold ${review.platform === '네이버' ? 'bg-green-100 text-green-600' : 'bg-blue-100 text-blue-600'}`}>
-                      {review.platform}
-                    </span>
-                    <span className="text-sm font-semibold text-gray-800">{review.name}</span>
-                    <span className="text-yellow-400 text-xs">{'★'.repeat(review.stars)}</span>
-                  </div>
-                  <p className="text-sm text-gray-600 truncate">{review.text}</p>
-                  <span className="text-xs text-gray-400 mt-1 block">{review.time}</span>
+          <div className="space-y-4">
+            {recentReviews.map((review, i) => (
+              <div key={i} className="flex items-start gap-3 pb-4 border-b border-[#F2F4F6] last:border-0 last:pb-0">
+                <div className="flex-shrink-0 w-8 h-8 rounded-full bg-[#F2F4F6] flex items-center justify-center text-xs font-bold text-[#3182F6]">
+                  {review.platform[0]}
                 </div>
-                {review.answered
-                  ? <span className="text-xs bg-gray-200 text-gray-500 px-2 py-1 rounded-lg font-medium whitespace-nowrap">완료</span>
-                  : <Link href="/review-admin" className="text-xs bg-blue-500 text-white px-3 py-1.5 rounded-lg font-medium whitespace-nowrap shadow-sm shadow-blue-200">AI 답글</Link>
-                }
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-sm font-medium text-[#191F28]">{review.name}</span>
+                    <span className="text-xs text-[#8B95A1]">{review.platform}</span>
+                    <span className="text-yellow-400 text-xs">{'★'.repeat(review.rating)}</span>
+                    {!review.replied && (
+                      <span className="text-xs bg-[#FFE8E8] text-[#FF3B30] px-1.5 py-0.5 rounded-full">미답변</span>
+                    )}
+                  </div>
+                  <p className="text-sm text-[#4E5968] truncate">{review.content}</p>
+                  <span className="text-xs text-[#8B95A1]">{review.time}</span>
+                </div>
               </div>
             ))}
           </div>
         </div>
 
-        {/* 현황 */}
-        <div className="bg-white rounded-2xl p-5 shadow-sm">
-          <h3 className="font-bold text-gray-900 mb-4">이번 주 현황</h3>
+        {/* 빠른 실행 */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
           {[
-            { label: '리뷰 응답률', value: 85, color: 'bg-blue-500' },
-            { label: '고객 재방문율', value: 62, color: 'bg-green-400' },
-            { label: '매출 달성률', value: 78, color: 'bg-orange-400' },
-          ].map(item => (
-            <div key={item.label} className="mb-3">
-              <div className="flex justify-between text-sm mb-1.5">
-                <span className="text-gray-600">{item.label}</span>
-                <span className="font-bold text-gray-900">{item.value}%</span>
-              </div>
-              <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-                <div className={`h-full ${item.color} rounded-full`} style={{ width: `${item.value}%` }} />
-              </div>
-            </div>
-          ))}
-          <div className="mt-4 pt-4 border-t border-gray-100">
-            <div className="text-xs text-gray-400 mb-2">이번 달 AI 사용량</div>
-            <div className="flex items-end gap-1 mb-2">
-              <span className="text-2xl font-bold text-gray-900">847</span>
-              <span className="text-sm text-gray-400 pb-1">/ 1,000건</span>
-            </div>
-            <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
-              <div className="h-full bg-blue-500 rounded-full" style={{ width: '84.7%' }} />
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* 빠른 실행 */}
-      <div className="bg-white rounded-2xl p-5 shadow-sm">
-        <h3 className="font-bold text-gray-900 mb-4">빠른 실행</h3>
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-          {quickActions.map(action => (
-            <Link key={action.label} href={action.href}
-              className="flex flex-col items-center gap-2.5 p-4 rounded-xl bg-gray-50 hover:bg-gray-100 transition-colors">
-              <span className={`w-11 h-11 rounded-xl ${action.color} flex items-center justify-center text-xl`}>
-                {action.icon}
-              </span>
-              <span className="text-sm font-medium text-gray-700 text-center">{action.label}</span>
+            { label: 'AI 리뷰 답변', icon: '✍️', href: '/review-admin', color: '#EFF6FF' },
+            { label: '고객 관리', icon: '👤', href: '/crm', color: '#F0FFF4' },
+            { label: '매장 관리', icon: '🏪', href: '/admin-biz', color: '#FFF7E6' },
+            { label: '기능 추가', icon: '✨', href: '/pricing', color: '#F5F0FF' },
+          ].map((item, i) => (
+            <Link
+              key={i}
+              href={item.href}
+              className="bg-white rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow text-center"
+            >
+              <div className="text-3xl mb-2">{item.icon}</div>
+              <div className="text-sm font-medium text-[#191F28]">{item.label}</div>
             </Link>
           ))}
         </div>
-      </div>
+      </main>
     </div>
   )
 }
