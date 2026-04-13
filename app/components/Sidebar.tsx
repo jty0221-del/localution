@@ -4,7 +4,7 @@ import { usePathname } from 'next/navigation'
 import { useState } from 'react'
 
 const navItems = [
-  { href: '/', label: '대시보드', icon: '📊' },
+  { href: '/dashboard', label: '대시보드', icon: '📊' },
   { href: '/review-admin', label: 'AI 리뷰·마케팅', icon: '⭐', badge: 3 },
   { href: '/crm', label: 'CRM · 고객관리', icon: '👥' },
   { href: '/admin-biz', label: '정산·행정', icon: '📋' },
@@ -18,59 +18,42 @@ export default function Sidebar() {
 
   return (
     <>
-      <button
-        className="md:hidden fixed top-4 left-4 z-50 w-10 h-10 bg-white rounded-xl shadow-md flex items-center justify-center text-gray-700"
-        onClick={() => setOpen(!open)}
-      >
+      <button className="md:hidden fixed top-4 left-4 z-50 w-10 h-10 bg-white rounded-xl shadow-md flex items-center justify-center text-gray-700" onClick={() => setOpen(!open)}>
         <svg width="18" height="18" viewBox="0 0 18 18" fill="none">
           <rect y="2" width="18" height="2" rx="1" fill="currentColor"/>
           <rect y="8" width="18" height="2" rx="1" fill="currentColor"/>
           <rect y="14" width="18" height="2" rx="1" fill="currentColor"/>
         </svg>
       </button>
+      {open && <div className="md:hidden fixed inset-0 bg-black/20 z-40 backdrop-blur-sm" onClick={() => setOpen(false)} />}
 
-      {open && (
-        <div className="md:hidden fixed inset-0 bg-black/20 z-40 backdrop-blur-sm" onClick={() => setOpen(false)} />
-      )}
-
-      <aside className={`
-        fixed top-0 left-0 h-full w-[220px] bg-white border-r border-gray-100 z-40
-        flex flex-col transition-transform duration-300
-        ${open ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0
-      `}>
-        {/* 로고 */}
+      <aside className={`fixed top-0 left-0 h-full w-[220px] bg-white border-r border-gray-100 z-40 flex flex-col transition-transform duration-300 ${open ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0`}>
         <div className="px-4 py-4 border-b border-gray-100">
-          <img src="/logo.png" alt="로컬루션" className="h-10 w-auto object-contain" />
+          <Link href="/dashboard" onClick={() => setOpen(false)}>
+            <img src="/logo.png" alt="로컬루션" className="h-10 w-auto object-contain" />
+          </Link>
           <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-blue-50 rounded-lg mt-3">
             <span className="text-blue-500 text-xs">✦</span>
             <span className="text-xs text-blue-600 font-semibold">PRO 멤버십 활성</span>
           </div>
         </div>
 
-        {/* 네비게이션 */}
         <nav className="flex-1 p-3 space-y-0.5 overflow-y-auto">
           {navItems.map(item => {
             const active = pathname === item.href
             return (
               <Link key={item.href} href={item.href} onClick={() => setOpen(false)}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150
-                  ${active ? 'bg-blue-500 text-white shadow-sm' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}
-              >
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${active ? 'bg-blue-500 text-white shadow-sm' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}>
                 <span className="text-base">{item.icon}</span>
                 <span className="flex-1">{item.label}</span>
-                {item.badge && (
-                  <span className={`text-[11px] px-1.5 py-0.5 rounded-full font-bold ${active ? 'bg-white/25 text-white' : 'bg-red-50 text-red-500'}`}>
-                    {item.badge}
-                  </span>
-                )}
+                {item.badge && <span className={`text-[11px] px-1.5 py-0.5 rounded-full font-bold ${active ? 'bg-white/25 text-white' : 'bg-red-50 text-red-500'}`}>{item.badge}</span>}
               </Link>
             )
           })}
         </nav>
 
-        {/* 하단 */}
         <div className="p-4 border-t border-gray-100">
-          <Link href="/settings" className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm text-gray-500 hover:bg-gray-50 hover:text-gray-700 transition-colors mb-2">
+          <Link href="/settings" onClick={() => setOpen(false)} className="flex items-center gap-2 px-3 py-2 rounded-xl text-sm text-gray-500 hover:bg-gray-50 transition-colors mb-2">
             <span>⚙️</span> 설정
           </Link>
           <div className="px-3 py-2.5 bg-gray-50 rounded-xl">
