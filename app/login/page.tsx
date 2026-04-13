@@ -37,13 +37,10 @@ export default function LoginPage() {
     <div className="min-h-screen bg-[#F2F4F6] flex items-center justify-center p-4">
       <div className="w-full max-w-sm">
 
-        {/* 로고 */}
+        {/* 로고 - 아이콘만 표시 (텍스트 포함) */}
         <div className="text-center mb-8">
-          <div className="flex items-center justify-center mb-2">
-            <img src="/logo-icon.svg" alt="로컬루션" className="w-16 h-16" />
-          </div>
-          <img src="/logo.svg" alt="LOCALUTION" className="h-7 w-auto mx-auto mt-2" />
-          <p className="text-gray-400 text-sm mt-2">소상공인 AI 만능 비서</p>
+          <img src="/logo-icon.svg" alt="로컬루션" className="w-20 h-20 mx-auto" />
+          <p className="text-gray-400 text-sm mt-3">소상공인 AI 만능 비서</p>
         </div>
 
         <div className="bg-white rounded-2xl p-6 shadow-sm">
