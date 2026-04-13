@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 80 80" fill="none">
+  <rect width="80" height="80" rx="18" fill="white"/>
+  <!-- < 브라켓 -->
+  <polyline points="18,18 8,30 18,42" stroke="#1e2d3d" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <!-- L자 + 블루 -->
+  <rect x="24" y="13" width="6" height="30" rx="1.5" fill="#3182F6"/>
+  <rect x="24" y="37" width="16" height="6" rx="1.5" fill="#3182F6"/>
+  <rect x="22" y="11" width="6" height="30" rx="1.5" fill="#1e2d3d"/>
+  <rect x="22" y="35" width="16" height="6" rx="1.5" fill="#1e2d3d"/>
+  <!-- 세로막대 -->
+  <rect x="32" y="19" width="5" height="22" rx="1.5" fill="#1e2d3d"/>
+  <!-- 커브 -->
+  <path d="M37 36 Q37 46 46 46 Q55 46 55 36" stroke="#1e2d3d" stroke-width="5" stroke-linecap="round" fill="none"/>
+  <path d="M38 36 Q38 44 46 44 Q54 44 54 36" stroke="#3182F6" stroke-width="2" stroke-linecap="round" fill="none"/>
+  <!-- 핀 -->
+  <rect x="44" y="44" width="3" height="3" fill="#3182F6"/>
+  <rect x="47" y="41" width="3" height="3" fill="#3182F6"/>
+  <rect x="50" y="44" width="3" height="3" fill="#3182F6"/>
+  <rect x="47" y="47" width="3" height="3" fill="#3182F6"/>
+  <!-- 화살표 -->
+  <line x1="55" y1="36" x2="70" y2="18" stroke="#3182F6" stroke-width="4" stroke-linecap="round"/>
+  <polyline points="61,16 72,16 72,27" stroke="#3182F6" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <!-- 텍스트 -->
+  <text x="6" y="72" font-family="'Arial Black',Arial,sans-serif" font-weight="900" font-size="11" fill="#1e2d3d">LOCAL</text>
+  <text x="41" y="72" font-family="'Arial Black',Arial,sans-serif" font-weight="900" font-size="11" fill="#3182F6">UTION</text>
+</svg>
