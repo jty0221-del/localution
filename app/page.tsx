@@ -1,11 +1,11 @@
 import Link from 'next/link'
 
 const features = [
-  { icon: '⭐', title: 'AI 리뷰 자동 답글', desc: '네이버·배민·쿠팡이츠 리뷰를 AI가 24시간 분석하고 맞춤 답글을 달아줍니다. 응답률 100% 달성.' },
+  { icon: '⭐', title: 'AI 리뷰 자동 답글', desc: '네이버·배민·쿠팡이츠 리뷰를 AI가 24시간 분석하고 맞춤 답글을 달아줍니다.' },
   { icon: '👥', title: 'CRM 고객관리', desc: '단골 고객 데이터를 자동 수집·분석해 재방문율을 높이는 맞춤 마케팅을 실행합니다.' },
   { icon: '💬', title: '알림톡 마케팅', desc: '카카오 알림톡으로 이벤트, 쿠폰, 단골 감사 메시지를 클릭 몇 번으로 발송합니다.' },
   { icon: '📋', title: 'AI 정산·행정', desc: '매출 분석, 세금계산서 발행, 경비 관리까지 자동화. 행정 시간을 90% 줄여줍니다.' },
-  { icon: '📍', title: '로컬 시너지', desc: '주변 상권 분석과 QR 공동 이벤트로 인근 가게와 함께 매출을 올립니다.' },
+  { icon: '🔍', title: '키워드 분석', desc: '네이버 검색량과 경쟁도를 분석해 블로그·플레이스 상위 노출 전략을 세웁니다.' },
   { icon: '🤖', title: 'AI 비서 통합', desc: '모든 기능이 하나의 대시보드에. 사장님은 장사에만 집중하세요.' },
 ]
 
@@ -22,10 +22,10 @@ const testimonials = [
   { name: '박○○ 사장님', biz: '서울 미용실', stars: 5, text: '세금계산서 발행이랑 매출 정리를 혼자 다 했는데 이제 10분이면 끝나요. 진짜 편해요.' },
 ]
 
-const plans = [
-  { name: 'BASIC', price: '29,000', unit: '월', color: 'border-gray-200', badge: '', features: ['AI 리뷰 답글 100건/월', 'CRM 고객 50명', '알림톡 50건/월', '기본 매출 분석'] },
-  { name: 'PRO', price: '59,000', unit: '월', color: 'border-blue-500', badge: '인기', features: ['AI 리뷰 답글 무제한', 'CRM 고객 무제한', '알림톡 500건/월', '상세 매출·정산 분석', '로컬 시너지 기능', '우선 고객 지원'] },
-  { name: 'BUSINESS', price: '99,000', unit: '월', color: 'border-gray-200', badge: '', features: ['PRO 모든 기능', '알림톡 2,000건/월', '다점포 관리', '전담 매니저', 'API 연동'] },
+const samplePlans = [
+  { label: '🏪 사장님 기본', features: ['AI 리뷰 답글', '알림톡 마케팅', 'AI 정산'], total: 2970 },
+  { label: '📣 마케터 기본', features: ['키워드 분석', 'AI 블로그 포스팅', '경쟁사 분석'], total: 5470 },
+  { label: '🚀 올인원', features: ['전체 기능 12개'], total: 15890 },
 ]
 
 export default function LandingPage() {
@@ -36,8 +36,9 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between">
           <img src="/logo.png" alt="로컬루션" className="h-8 w-auto object-contain" />
           <div className="flex items-center gap-3">
-            <Link href="/login" className="text-sm text-gray-600 hover:text-gray-900 font-medium px-3 py-1.5">로그인</Link>
-            <Link href="/login" className="text-sm bg-blue-500 text-white font-semibold px-4 py-2 rounded-xl hover:bg-blue-600 transition-colors shadow-sm shadow-blue-200">
+            <Link href="/pricing" className="text-sm text-gray-600 font-medium hover:text-gray-900">요금제</Link>
+            <Link href="/login" className="text-sm text-gray-600 font-medium">로그인</Link>
+            <Link href="/pricing" className="text-sm bg-blue-500 text-white font-semibold px-4 py-2 rounded-xl hover:bg-blue-600 transition-colors shadow-sm shadow-blue-200">
               무료로 시작하기
             </Link>
           </div>
@@ -56,23 +57,23 @@ export default function LandingPage() {
           </h1>
           <p className="text-lg md:text-xl text-gray-500 mb-10 max-w-2xl mx-auto leading-relaxed">
             리뷰 관리, 고객 CRM, 알림톡 마케팅, 정산까지.<br/>
-            복잡한 가게 운영을 로컬루션 하나로 해결하세요.
+            필요한 기능만 골라 <span className="font-bold text-gray-700">월 990원</span>부터 시작하세요.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <Link href="/login"
-              className="bg-blue-500 text-white font-bold text-base px-8 py-4 rounded-2xl hover:bg-blue-600 transition-all shadow-md shadow-blue-200 active:scale-[0.98]">
-              14일 무료 체험 →
+            <Link href="/pricing"
+              className="bg-blue-500 text-white font-bold text-base px-8 py-4 rounded-2xl hover:bg-blue-600 transition-all shadow-md shadow-blue-200">
+              🛒 기능 골라 담기 →
             </Link>
             <Link href="/dashboard"
               className="bg-white text-gray-700 font-bold text-base px-8 py-4 rounded-2xl hover:bg-gray-50 transition-all border border-gray-200">
               데모 대시보드 보기
             </Link>
           </div>
-          <p className="text-xs text-gray-400 mt-4">신용카드 불필요 · 언제든 해지 가능</p>
+          <p className="text-xs text-gray-400 mt-4">신용카드 불필요 · 14일 무료 체험 · 언제든 해지</p>
         </div>
       </section>
 
-      {/* 숫자 통계 */}
+      {/* 통계 */}
       <section className="py-16 bg-blue-500">
         <div className="max-w-4xl mx-auto px-4">
           <div className="grid grid-cols-2 md:grid-cols-4 gap-8 text-center">
@@ -90,12 +91,8 @@ export default function LandingPage() {
       <section className="py-20 px-4 bg-[#F2F4F6]">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-14">
-            <h2 className="text-3xl md:text-4xl font-black text-gray-900 mb-4">
-              가게 운영의 모든 것, 하나로
-            </h2>
-            <p className="text-gray-500 text-lg max-w-xl mx-auto">
-              흩어진 업무를 하나의 플랫폼에서. 사장님은 손님 맞이에만 집중하세요.
-            </p>
+            <h2 className="text-3xl md:text-4xl font-black text-gray-900 mb-4">가게 운영의 모든 것, 하나로</h2>
+            <p className="text-gray-500 text-lg max-w-xl mx-auto">필요한 기능만 골라 사용하세요. 쓰지 않는 기능에는 한 푼도 내지 않아요.</p>
           </div>
           <div className="grid md:grid-cols-3 gap-4">
             {features.map(f => (
@@ -109,22 +106,42 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* 사용 흐름 */}
+      {/* 커스텀 요금제 섹션 */}
       <section className="py-20 px-4 bg-white">
-        <div className="max-w-4xl mx-auto text-center">
-          <h2 className="text-3xl font-black text-gray-900 mb-14">시작이 쉬워요</h2>
-          <div className="grid md:grid-cols-3 gap-8">
-            {[
-              { step: '01', title: '가입하기', desc: '네이버 또는 이메일로 30초 만에 가입. 가게 정보를 입력하면 바로 시작됩니다.' },
-              { step: '02', title: '연동하기', desc: '네이버 플레이스, 배달 앱을 연결하면 리뷰와 데이터가 자동으로 모입니다.' },
-              { step: '03', title: '자동화하기', desc: 'AI가 리뷰 답글을 달고, 알림톡을 보내고, 정산을 정리합니다.' },
-            ].map(item => (
-              <div key={item.step} className="text-center">
-                <div className="w-14 h-14 bg-blue-500 rounded-2xl flex items-center justify-center text-white font-black text-lg mx-auto mb-4 shadow-sm shadow-blue-200">{item.step}</div>
-                <h3 className="font-bold text-gray-900 text-lg mb-2">{item.title}</h3>
-                <p className="text-gray-500 text-sm leading-relaxed">{item.desc}</p>
+        <div className="max-w-5xl mx-auto">
+          <div className="text-center mb-12">
+            <h2 className="text-3xl font-black text-gray-900 mb-3">내가 만드는 요금제</h2>
+            <p className="text-gray-500 text-lg">정해진 플랜 없이, 쓸 기능만 골라 담으면 끝.</p>
+          </div>
+
+          {/* 샘플 플랜 예시 */}
+          <div className="grid md:grid-cols-3 gap-4 mb-10">
+            {samplePlans.map(plan => (
+              <div key={plan.label} className="bg-[#F2F4F6] rounded-2xl p-5">
+                <div className="font-bold text-gray-900 mb-3">{plan.label}</div>
+                <ul className="space-y-1.5 mb-4">
+                  {plan.features.map(f => (
+                    <li key={f} className="flex items-center gap-2 text-sm text-gray-600">
+                      <span className="text-blue-500">✓</span> {f}
+                    </li>
+                  ))}
+                </ul>
+                <div className="flex items-end gap-1">
+                  <span className="text-2xl font-black text-blue-500">{plan.total.toLocaleString()}</span>
+                  <span className="text-gray-400 text-sm pb-1">원/월</span>
+                </div>
               </div>
             ))}
+          </div>
+
+          {/* CTA */}
+          <div className="bg-gradient-to-r from-blue-500 to-blue-600 rounded-2xl p-8 text-center">
+            <h3 className="text-2xl font-black text-white mb-2">나만의 플랜 만들기</h3>
+            <p className="text-blue-100 mb-6">기능 하나하나를 장바구니에 담고, 합계를 확인해보세요.</p>
+            <Link href="/pricing"
+              className="inline-block bg-white text-blue-600 font-black px-8 py-3 rounded-xl hover:bg-blue-50 transition-all shadow-md">
+              🛒 지금 기능 고르러 가기 →
+            </Link>
           </div>
         </div>
       </section>
@@ -148,53 +165,14 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* 요금제 */}
-      <section className="py-20 px-4 bg-white">
-        <div className="max-w-5xl mx-auto">
-          <div className="text-center mb-12">
-            <h2 className="text-3xl font-black text-gray-900 mb-3">합리적인 요금제</h2>
-            <p className="text-gray-500">14일 무료 체험 후 결정하세요. 언제든 해지 가능.</p>
-          </div>
-          <div className="grid md:grid-cols-3 gap-4">
-            {plans.map(plan => (
-              <div key={plan.name} className={`rounded-2xl border-2 ${plan.color} p-6 relative ${plan.badge ? 'shadow-lg shadow-blue-100' : ''}`}>
-                {plan.badge && (
-                  <div className="absolute -top-3 left-1/2 -translate-x-1/2 bg-blue-500 text-white text-xs font-bold px-3 py-1 rounded-full">{plan.badge}</div>
-                )}
-                <div className="font-black text-gray-900 text-lg mb-1">{plan.name}</div>
-                <div className="flex items-end gap-1 mb-5">
-                  <span className="text-3xl font-black text-gray-900">{plan.price}</span>
-                  <span className="text-gray-400 text-sm pb-1">원/{plan.unit}</span>
-                </div>
-                <ul className="space-y-2.5 mb-6">
-                  {plan.features.map(f => (
-                    <li key={f} className="flex items-center gap-2 text-sm text-gray-600">
-                      <span className="text-blue-500 font-bold">✓</span> {f}
-                    </li>
-                  ))}
-                </ul>
-                <Link href="/login"
-                  className={`block text-center py-3 rounded-xl font-bold text-sm transition-all ${plan.badge ? 'bg-blue-500 text-white hover:bg-blue-600 shadow-sm shadow-blue-200' : 'bg-gray-100 text-gray-700 hover:bg-gray-200'}`}>
-                  무료로 시작하기
-                </Link>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* 최종 CTA */}
       <section className="py-20 px-4 bg-gradient-to-br from-blue-500 to-blue-600">
         <div className="max-w-2xl mx-auto text-center">
-          <h2 className="text-3xl md:text-4xl font-black text-white mb-4">
-            지금 바로 시작하세요
-          </h2>
-          <p className="text-blue-100 text-lg mb-8">
-            14일 무료 체험. 신용카드 없이. 언제든 해지.
-          </p>
-          <Link href="/login"
-            className="inline-block bg-white text-blue-600 font-black text-lg px-10 py-4 rounded-2xl hover:bg-blue-50 transition-all shadow-lg active:scale-[0.98]">
-            무료 체험 시작하기 →
+          <h2 className="text-3xl md:text-4xl font-black text-white mb-4">월 990원으로 시작하세요</h2>
+          <p className="text-blue-100 text-lg mb-8">필요한 기능만, 딱 그만큼만. 14일 무료 체험.</p>
+          <Link href="/pricing"
+            className="inline-block bg-white text-blue-600 font-black text-lg px-10 py-4 rounded-2xl hover:bg-blue-50 transition-all shadow-lg">
+            🛒 기능 골라 담기 →
           </Link>
         </div>
       </section>
