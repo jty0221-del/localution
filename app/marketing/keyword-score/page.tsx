@@ -2,7 +2,7 @@
 export const dynamic = 'force-dynamic'
 
 import { useState } from 'react'
-import Sidebar from '../../../components/Sidebar'
+import Sidebar from '../../components/Sidebar'
 
 // ── 키워드별 점수 분석 데이터 ─────────────────────────
 interface KeywordScore {
