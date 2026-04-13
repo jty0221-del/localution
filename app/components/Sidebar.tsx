@@ -39,11 +39,9 @@ export default function Sidebar() {
         ${open ? 'translate-x-0' : '-translate-x-full'} md:translate-x-0
       `}>
         {/* 로고 */}
-        <div className="px-5 py-4 border-b border-gray-100">
-          <div className="mb-3">
-            <img src="/logo.svg" alt="로컬루션" className="h-8 w-auto" />
-          </div>
-          <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-blue-50 rounded-lg">
+        <div className="px-4 py-4 border-b border-gray-100">
+          <img src="/logo.png" alt="로컬루션" className="h-10 w-auto object-contain" />
+          <div className="flex items-center gap-1.5 px-2.5 py-1.5 bg-blue-50 rounded-lg mt-3">
             <span className="text-blue-500 text-xs">✦</span>
             <span className="text-xs text-blue-600 font-semibold">PRO 멤버십 활성</span>
           </div>
@@ -54,17 +52,9 @@ export default function Sidebar() {
           {navItems.map(item => {
             const active = pathname === item.href
             return (
-              <Link
-                key={item.href}
-                href={item.href}
-                onClick={() => setOpen(false)}
-                className={`
-                  flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150
-                  ${active
-                    ? 'bg-blue-500 text-white shadow-sm'
-                    : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'
-                  }
-                `}
+              <Link key={item.href} href={item.href} onClick={() => setOpen(false)}
+                className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-all duration-150
+                  ${active ? 'bg-blue-500 text-white shadow-sm' : 'text-gray-600 hover:bg-gray-50 hover:text-gray-900'}`}
               >
                 <span className="text-base">{item.icon}</span>
                 <span className="flex-1">{item.label}</span>
