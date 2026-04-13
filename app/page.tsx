@@ -1,248 +1,233 @@
 'use client'
-
 export const dynamic = 'force-dynamic'
 
-import { useState } from 'react'
-import Link from 'next/link'
+import { useState, useEffect } from 'react'
 import Sidebar from './components/Sidebar'
-import Footer from './components/Footer'
+import QuickSlot from './components/QuickSlot'
 
-const WEEKLY = [
-  { day: '월', v: 45, r: 3 }, { day: '화', v: 62, r: 7 },
-  { day: '수', v: 38, r: 4 }, { day: '목', v: 71, r: 12 },
-  { day: '금', v: 89, r: 8 }, { day: '토', v: 124, r: 15 },
-  { day: '일', v: 98, r: 9 },
-]
-const MAX_V = Math.max(...WEEKLY.map(d => d.v))
-
-const REVIEWS = [
-  { id: 1, platform: '네이버', name: '이정민', rating: 5, text: '커피가 너무 맛있어요! 분위기도 좋고 직원분들도 친절했습니다.', time: '10분 전', replied: false },
-  { id: 2, platform: '구글', name: 'J.Park', rating: 4, text: 'Great place for brunch. Cozy atmosphere and friendly staff.', time: '1시간 전', replied: true },
-  { id: 3, platform: '카카오', name: '박소연', rating: 5, text: '친구랑 왔는데 둘다 너무 만족했어요. 루프탑 뷰가 최고입니다!', time: '3시간 전', replied: false },
-]
-
-const STORE = {
-  name: '우리 카페', initial: '우', category: '카페·베이커리',
-  address: '서울시 마포구 합정동 123-4', rating: 4.7, reviewCount: 234,
-  keywords: ['카페', '브런치', '합정카페', '애완동물동반', '루프탑'],
-  platforms: [
-    { name: '네이버', on: true, color: '#03C75A' },
-    { name: '구글', on: false, color: '#4285F4' },
-    { name: '카카오', on: true, color: '#F9D64F' },
-  ],
-}
-
-const STATS = [
-  { label: '이번 주 리뷰', value: '58', unit: '건', delta: '+12', up: true, pct: 60, color: '#3182F6' },
-  { label: '평균 별점', value: '4.7', unit: '점', delta: '+0.2', up: true, pct: 94, color: '#F59E0B' },
-  { label: '신규 고객', value: '23', unit: '명', delta: '+5', up: true, pct: 70, color: '#10B981' },
-  { label: '답변률', value: '84', unit: '%', delta: '-3', up: false, pct: 84, color: '#8B5CF6' },
-]
-
-function Stars({ rating }: { rating: number }) {
+// ── 플랫폼 로고 SVG ──────────────────────────────────────────
+function NaverLogo() {
   return (
-    <div className="flex gap-0.5">
-      {[1,2,3,4,5].map(i => <span key={i} className={`text-sm ${i <= rating ? 'text-yellow-400' : 'text-[#E5E8EB]'}`}>★</span>)}
-    </div>
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+      <rect width="24" height="24" rx="4" fill="#03C75A"/>
+      <path d="M13.5 12.3L10.2 7H7v10h3.5v-5.3L13.8 17H17V7h-3.5v5.3z" fill="white"/>
+    </svg>
+  )
+}
+function GoogleLogo() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24">
+      <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+      <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+      <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+      <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+    </svg>
+  )
+}
+function KakaoLogo() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+      <rect width="24" height="24" rx="4" fill="#FEE500"/>
+      <path d="M12 5C8.13 5 5 7.46 5 10.5c0 1.93 1.22 3.63 3.08 4.65l-.78 2.9 3.38-2.24c.42.06.85.09 1.32.09 3.87 0 7-2.46 7-5.5S15.87 5 12 5z" fill="#3B1E1E"/>
+    </svg>
+  )
+}
+function BaeminLogo() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+      <rect width="24" height="24" rx="4" fill="#2AC1BC"/>
+      <text x="4" y="17" fontSize="12" fontWeight="900" fill="white" fontFamily="Arial">B</text>
+      <text x="11" y="17" fontSize="8" fontWeight="700" fill="white" fontFamily="Arial">M</text>
+    </svg>
+  )
+}
+function YogiyoLogo() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+      <rect width="24" height="24" rx="4" fill="#FA0050"/>
+      <text x="3" y="16" fontSize="9" fontWeight="900" fill="white" fontFamily="Arial">요기</text>
+      <text x="3" y="22" fontSize="7" fontWeight="700" fill="white" fontFamily="Arial">요</text>
+    </svg>
+  )
+}
+function CoupangEatsLogo() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+      <rect width="24" height="24" rx="4" fill="#FF4B30"/>
+      <path d="M5 8h14M5 12h10M5 16h7" stroke="white" strokeWidth="2.5" strokeLinecap="round"/>
+    </svg>
+  )
+}
+function NaverPlaceLogo() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+      <rect width="24" height="24" rx="4" fill="#03C75A"/>
+      <path d="M12 3C8.69 3 6 5.69 6 9c0 5.25 6 12 6 12s6-6.75 6-12c0-3.31-2.69-6-6-6zm0 8.5a2.5 2.5 0 110-5 2.5 2.5 0 010 5z" fill="white"/>
+    </svg>
+  )
+}
+function InstagramLogo() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+      <defs>
+        <linearGradient id="ig" x1="0%" y1="100%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#F9A825"/>
+          <stop offset="50%" stopColor="#E91E63"/>
+          <stop offset="100%" stopColor="#9C27B0"/>
+        </linearGradient>
+      </defs>
+      <rect width="24" height="24" rx="6" fill="url(#ig)"/>
+      <circle cx="12" cy="12" r="4.5" stroke="white" strokeWidth="1.8" fill="none"/>
+      <circle cx="17.5" cy="6.5" r="1.2" fill="white"/>
+    </svg>
   )
 }
 
-function PlatformBadge({ name }: { name: string }) {
-  const m: Record<string, string> = { 네이버: 'bg-green-100 text-green-700', 구글: 'bg-blue-100 text-blue-700', 카카오: 'bg-yellow-100 text-yellow-700' }
-  return <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${m[name] || 'bg-gray-100 text-gray-600'}`}>{name}</span>
-}
+const platforms = [
+  { id: 'naver_place', name: '네이버 플레이스', logo: <NaverPlaceLogo/>, connected: true, status: '정상', rating: 4.6, reviews: 127 },
+  { id: 'google', name: '구글 지도', logo: <GoogleLogo/>, connected: true, status: '정상', rating: 4.4, reviews: 63 },
+  { id: 'kakao', name: '카카오맵', logo: <KakaoLogo/>, connected: false, status: '미연동', rating: null, reviews: null },
+  { id: 'baemin', name: '배달의민족', logo: <BaeminLogo/>, connected: false, status: '미연동', rating: null, reviews: null },
+  { id: 'yogiyo', name: '요기요', logo: <YogiyoLogo/>, connected: false, status: '미연동', rating: null, reviews: null },
+  { id: 'coupangeats', name: '쿠팡이츠', logo: <CoupangEatsLogo/>, connected: false, status: '미연동', rating: null, reviews: null },
+  { id: 'naver', name: '네이버 검색', logo: <NaverLogo/>, connected: true, status: '정상', rating: null, reviews: null },
+  { id: 'instagram', name: '인스타그램', logo: <InstagramLogo/>, connected: false, status: '미연동', rating: null, reviews: null },
+]
 
-// 파트너 스포트라이트 (인라인 — 외부 컴포넌트 의존 없음)
-function PartnerBanner() {
-  const partners = [
-    { name: '강남 네일샵', stat: '리뷰 답변률 98%', color: 'from-[#3182F6] to-[#8B5CF6]' },
-    { name: '홍대 카페', stat: '신규 고객 월 +47명', color: 'from-[#059669] to-[#3182F6]' },
-    { name: '합정 베이커리', stat: 'SMS 전환율 28%', color: 'from-[#D97706] to-[#DC2626]' },
-  ]
-  const [idx, setIdx] = useState(0)
+const stats = [
+  { label: '이번 달 방문자', value: '2,847', change: '+12.4%', up: true },
+  { label: '리뷰 응답률', value: '84%', change: '+6%', up: true },
+  { label: '키워드 상위노출', value: '3개', change: '+1', up: true },
+  { label: '이번 달 리뷰', value: '34건', change: '-2건', up: false },
+]
+
+const recentReviews = [
+  { platform: '네이버', name: '김**', rating: 5, text: '음식도 맛있고 서비스도 친절해요. 다음에 또 올게요!', time: '2시간 전', replied: false },
+  { platform: '구글', name: 'J**', rating: 4, text: 'Great food and nice atmosphere. Will visit again.', time: '5시간 전', replied: true },
+  { platform: '네이버', name: '박**', rating: 5, text: '회식으로 왔는데 정말 만족스러웠습니다!', time: '1일 전', replied: false },
+]
+
+function StarRating({ rating }: { rating: number }) {
   return (
-    <div className={`bg-gradient-to-r ${partners[idx].color} rounded-2xl p-5 text-white flex items-center justify-between`}>
-      <div>
-        <p className="text-xs font-semibold opacity-70 mb-1">파트너 성공 사례</p>
-        <p className="font-bold text-lg">{partners[idx].name}</p>
-        <p className="text-sm opacity-90 mt-0.5">{partners[idx].stat}</p>
-      </div>
-      <div className="flex gap-2">
-        {partners.map((_, i) => (
-          <button key={i} onClick={() => setIdx(i)}
-            className={`w-2 h-2 rounded-full transition-all ${i === idx ? 'bg-white' : 'bg-white/40'}`} />
-        ))}
-      </div>
-    </div>
+    <span className="text-[#F5A623] text-xs">
+      {'★'.repeat(Math.round(rating))}{'☆'.repeat(5 - Math.round(rating))} {rating}
+    </span>
   )
 }
 
 export default function Dashboard() {
-  const [chartMode, setChartMode] = useState<'visitors' | 'reviews'>('visitors')
+  const [storeName] = useState('하랑마케팅 강남점')
+  const [storeAddr] = useState('서울시 강남구 테헤란로 123-4')
+  const [mainKeyword] = useState('강남 맛집')
 
   return (
-    <div className="min-h-screen bg-[#F2F4F6] flex">
-      <Sidebar />
-      <main className="flex-1 md:ml-[220px] p-4 md:p-8 pt-16 md:pt-8 pr-16 md:pr-20">
+    <div className="flex min-h-screen bg-[#F2F4F6]">
+      <Sidebar/>
+      <main className="flex-1 ml-[220px] p-8">
+        <div className="max-w-5xl mx-auto">
 
-        {/* 매장 연동 카드 */}
-        <div className="bg-white rounded-2xl p-5 shadow-sm mb-6 border border-[#E5E8EB]">
-          <div className="flex items-start gap-4">
-            <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-white font-black text-2xl flex-shrink-0 shadow-md"
-              style={{ background: 'linear-gradient(135deg, #3182F6, #8B5CF6)' }}>
-              {STORE.initial}
-            </div>
-            <div className="flex-1 min-w-0">
-              <div className="flex items-center gap-2 flex-wrap">
-                <h2 className="text-lg font-bold text-[#191F28]">{STORE.name}</h2>
-                <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-semibold">정상 운영 중</span>
+          {/* 상단 매장 정보 카드 */}
+          <div className="bg-white rounded-2xl border border-[#E5E8EB] p-5 mb-6">
+            <div className="flex items-start justify-between">
+              <div>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-xs bg-[#E8F1FE] text-[#3182F6] px-2 py-0.5 rounded-full font-semibold">연동됨</span>
+                  <span className="text-xs text-[#8B95A1]">네이버 플레이스 · 구글 · 네이버 검색</span>
+                </div>
+                <h2 className="text-xl font-black text-[#191F28]">{storeName}</h2>
+                <p className="text-sm text-[#8B95A1] mt-0.5">{storeAddr}</p>
+                <div className="flex items-center gap-3 mt-2">
+                  <span className="text-xs bg-[#F2F4F6] text-[#4E5968] px-2 py-1 rounded-lg font-medium">주요 키워드: {mainKeyword}</span>
+                  <StarRating rating={4.6}/>
+                  <span className="text-xs text-[#8B95A1]">리뷰 127건</span>
+                </div>
               </div>
-              <p className="text-xs text-[#8B95A1] mt-0.5">{STORE.category} · {STORE.address}</p>
-              <div className="flex items-center gap-1.5 mt-1.5">
-                <Stars rating={Math.round(STORE.rating)} />
-                <span className="text-sm font-bold text-[#191F28]">{STORE.rating}</span>
-                <span className="text-xs text-[#8B95A1]">리뷰 {STORE.reviewCount}개</span>
-              </div>
-              <div className="flex flex-wrap gap-1.5 mt-2">
-                {STORE.keywords.map(kw => (
-                  <span key={kw} className="text-[11px] px-2.5 py-1 bg-[#EFF6FF] text-[#3182F6] rounded-full font-semibold">#{kw}</span>
-                ))}
-              </div>
-            </div>
-            <div className="hidden sm:block text-right flex-shrink-0">
-              <div className="flex items-center gap-3 justify-end mb-2">
-                {STORE.platforms.map(p => (
-                  <div key={p.name} className="flex items-center gap-1">
-                    <span className="w-2 h-2 rounded-full block" style={{ background: p.on ? p.color : '#E5E8EB' }} />
-                    <span className={`text-xs ${p.on ? 'text-[#4E5968]' : 'text-[#B0B8C1]'}`}>{p.name}</span>
-                  </div>
-                ))}
-              </div>
-              <Link href="/settings" className="text-xs text-[#3182F6] hover:underline font-medium">매장 정보 수정 →</Link>
+              <button className="text-xs text-[#3182F6] font-semibold border border-[#3182F6] px-3 py-1.5 rounded-lg hover:bg-[#E8F1FE] transition-colors">
+                정보 수정
+              </button>
             </div>
           </div>
-        </div>
 
-        {/* 헤더 */}
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <h1 className="text-2xl font-bold text-[#191F28]">대시보드</h1>
-            <p className="text-sm text-[#8B95A1] mt-0.5">
-              {new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })}
-            </p>
-          </div>
-        </div>
-
-        {/* 통계 카드 */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
-          {STATS.map(s => (
-            <div key={s.label} className="bg-white rounded-2xl p-5 shadow-sm">
-              <p className="text-xs text-[#8B95A1] font-medium mb-3">{s.label}</p>
-              <div className="flex items-end gap-1">
-                <span className="text-3xl font-black text-[#191F28]">{s.value}</span>
-                <span className="text-sm text-[#8B95A1] mb-0.5">{s.unit}</span>
-              </div>
-              <div className={`flex items-center gap-1 mt-2 text-xs font-semibold ${s.up ? 'text-green-600' : 'text-red-500'}`}>
-                <span>{s.up ? '▲' : '▼'}</span><span>{s.delta} 지난주 대비</span>
-              </div>
-              <div className="mt-3 h-1 bg-[#F2F4F6] rounded-full overflow-hidden">
-                <div className="h-full rounded-full" style={{ width: s.pct + '%', background: s.color }} />
-              </div>
+          {/* 플랫폼 현황 */}
+          <div className="mb-6">
+            <div className="flex items-center justify-between mb-3">
+              <h3 className="text-base font-bold text-[#191F28]">플랫폼 연동 현황</h3>
+              <a href="/settings" className="text-xs text-[#3182F6] font-medium hover:underline">연동 관리 →</a>
             </div>
-          ))}
-        </div>
-
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-          {/* 주간 차트 */}
-          <div className="lg:col-span-2 bg-white rounded-2xl p-6 shadow-sm">
-            <div className="flex items-center justify-between mb-6">
-              <h3 className="font-bold text-[#191F28]">이번 주 현황</h3>
-              <div className="flex gap-1 bg-[#F2F4F6] rounded-xl p-1">
-                {(['visitors', 'reviews'] as const).map(m => (
-                  <button key={m} onClick={() => setChartMode(m)}
-                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${chartMode === m ? 'bg-white text-[#191F28] shadow-sm' : 'text-[#8B95A1]'}`}>
-                    {m === 'visitors' ? '방문자' : '리뷰'}
-                  </button>
-                ))}
-              </div>
-            </div>
-            <div className="flex items-end justify-between gap-2 h-40">
-              {WEEKLY.map((d, i) => {
-                const val = chartMode === 'visitors' ? d.v : d.r
-                const maxVal = chartMode === 'visitors' ? MAX_V : 15
-                const pct = Math.round((val / maxVal) * 100)
-                const isToday = i === 4
-                return (
-                  <div key={d.day} className="flex-1 flex flex-col items-center gap-1.5">
-                    <span className="text-[10px] font-semibold text-[#8B95A1]">{val}</span>
-                    <div className="w-full flex items-end" style={{ height: '120px' }}>
-                      <div className="w-full rounded-t-lg transition-all"
-                        style={{ height: pct + '%', background: isToday ? '#3182F6' : '#DBEAFE', minHeight: '4px' }} />
+            <div className="grid grid-cols-4 gap-3">
+              {platforms.map(p => (
+                <div key={p.id} className={['rounded-xl border p-3.5 flex flex-col gap-2', p.connected ? 'bg-white border-[#E5E8EB]' : 'bg-[#F8F9FA] border-dashed border-[#E5E8EB] opacity-70'].join(' ')}>
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      {p.logo}
+                      <span className="text-xs font-semibold text-[#191F28] leading-tight">{p.name}</span>
                     </div>
-                    <span className={`text-[10px] font-medium ${isToday ? 'text-[#3182F6] font-bold' : 'text-[#8B95A1]'}`}>{d.day}</span>
+                    <span className={['text-[10px] font-bold px-1.5 py-0.5 rounded-full', p.connected ? 'bg-[#F0FBF0] text-[#2DB400]' : 'bg-[#F2F4F6] text-[#8B95A1]'].join(' ')}>
+                      {p.connected ? '연동' : '미연동'}
+                    </span>
                   </div>
-                )
-              })}
-            </div>
-          </div>
-
-          {/* 빠른 실행 */}
-          <div className="bg-white rounded-2xl p-5 shadow-sm">
-            <h3 className="font-bold text-[#191F28] mb-4">빠른 실행</h3>
-            <div className="grid grid-cols-2 gap-2">
-              {[
-                { label: '리뷰 답변', href: '/review-admin', bg: '#FFFBEB', color: '#F59E0B' },
-                { label: 'QR 생성', href: '/qr', bg: '#F5F3FF', color: '#8B5CF6' },
-                { label: '고객 추가', href: '/customers', bg: '#ECFDF5', color: '#059669' },
-                { label: '커뮤니티', href: '/community', bg: '#FDF2F8', color: '#EC4899' },
-                { label: '기능 추가', href: '/settings', bg: '#EFF6FF', color: '#3182F6' },
-                { label: '설정', href: '/settings', bg: '#F2F4F6', color: '#4E5968' },
-              ].map(item => (
-                <Link key={item.label} href={item.href}
-                  className="flex flex-col items-center justify-center p-3 rounded-xl transition-all hover:scale-105 active:scale-95"
-                  style={{ background: item.bg }}>
-                  <span className="text-sm font-bold" style={{ color: item.color }}>{item.label}</span>
-                </Link>
+                  {p.connected && p.rating && (
+                    <div className="flex items-center gap-1">
+                      <span className="text-[#F5A623] text-xs">★</span>
+                      <span className="text-xs font-bold text-[#191F28]">{p.rating}</span>
+                      <span className="text-[10px] text-[#8B95A1]">({p.reviews})</span>
+                    </div>
+                  )}
+                  {!p.connected && (
+                    <a href="/settings" className="text-[10px] text-[#3182F6] font-medium hover:underline">연동하기 →</a>
+                  )}
+                </div>
               ))}
             </div>
           </div>
-        </div>
 
-        {/* 파트너 배너 */}
-        <div className="mb-6"><PartnerBanner /></div>
-
-        {/* 최근 리뷰 */}
-        <div className="bg-white rounded-2xl p-6 shadow-sm mb-6">
-          <div className="flex items-center justify-between mb-5">
-            <h3 className="font-bold text-[#191F28]">최근 리뷰</h3>
-            <Link href="/review-admin" className="text-xs text-[#3182F6] hover:underline font-medium">전체보기 →</Link>
-          </div>
-          <div className="space-y-4">
-            {REVIEWS.map(r => (
-              <div key={r.id} className="flex items-start gap-3 p-4 rounded-xl bg-[#F8F9FA] hover:bg-[#F2F4F6] transition-colors">
-                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#3182F6] to-[#8B5CF6] flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
-                  {r.name[0]}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 flex-wrap">
-                    <span className="text-sm font-semibold text-[#191F28]">{r.name}</span>
-                    <PlatformBadge name={r.platform} />
-                    <Stars rating={r.rating} />
-                    <span className="text-xs text-[#B0B8C1] ml-auto">{r.time}</span>
-                  </div>
-                  <p className="text-sm text-[#4E5968] mt-1 line-clamp-2">{r.text}</p>
-                </div>
-                <Link href="/review-admin"
-                  className={`text-xs px-3 py-1.5 rounded-lg font-semibold flex-shrink-0 transition-colors ${r.replied ? 'bg-green-100 text-green-700' : 'bg-[#3182F6] text-white hover:bg-[#1B64DA]'}`}>
-                  {r.replied ? '답변완료' : '답변하기'}
-                </Link>
+          {/* 통계 카드 */}
+          <div className="grid grid-cols-4 gap-4 mb-6">
+            {stats.map((s, i) => (
+              <div key={i} className="bg-white rounded-2xl border border-[#E5E8EB] p-5">
+                <p className="text-xs text-[#8B95A1] mb-1">{s.label}</p>
+                <p className="text-2xl font-black text-[#191F28]">{s.value}</p>
+                <p className={['text-xs font-semibold mt-1', s.up ? 'text-[#2DB400]' : 'text-[#F04452]'].join(' ')}>{s.change}</p>
               </div>
             ))}
           </div>
-        </div>
 
-        <Footer />
+          {/* 최근 리뷰 */}
+          <div className="bg-white rounded-2xl border border-[#E5E8EB] overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-[#F2F4F6]">
+              <h3 className="text-sm font-bold text-[#191F28]">최근 리뷰</h3>
+              <a href="/reviews" className="text-xs text-[#3182F6] font-medium hover:underline">전체보기 →</a>
+            </div>
+            <div className="divide-y divide-[#F2F4F6]">
+              {recentReviews.map((r, i) => (
+                <div key={i} className="px-5 py-4 hover:bg-[#FAFBFF] transition-colors">
+                  <div className="flex items-start justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-xs font-bold text-[#4E5968]">{r.platform}</span>
+                        <span className="text-xs text-[#8B95A1]">{r.name}</span>
+                        <StarRating rating={r.rating}/>
+                        <span className="text-[10px] text-[#8B95A1]">{r.time}</span>
+                      </div>
+                      <p className="text-sm text-[#4E5968] line-clamp-1">{r.text}</p>
+                    </div>
+                    {!r.replied && (
+                      <button className="ml-4 text-xs bg-[#3182F6] text-white px-3 py-1.5 rounded-lg font-medium hover:bg-[#1B64DA] transition-colors flex-shrink-0">
+                        AI 답글
+                      </button>
+                    )}
+                    {r.replied && (
+                      <span className="ml-4 text-xs text-[#2DB400] font-semibold flex-shrink-0">답변완료</span>
+                    )}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+        </div>
       </main>
+      <QuickSlot/>
     </div>
   )
 }

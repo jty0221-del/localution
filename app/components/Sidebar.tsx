@@ -1,23 +1,10 @@
 'use client'
-
-import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
-const NAV = [
-  { href: '/', label: '대시보드', short: 'DB', bg: '#EFF6FF', color: '#3182F6' },
-  { href: '/review-admin', label: '리뷰 관리', short: '리뷰', bg: '#FFFBEB', color: '#F59E0B' },
-  { href: '/qr', label: 'QR 관리', short: 'QR', bg: '#F5F3FF', color: '#8B5CF6' },
-  { href: '/customers', label: '고객 관리', short: '고객', bg: '#ECFDF5', color: '#059669' },
-  { href: '/store', label: '매장 관리', short: '매장', bg: '#FFF1F2', color: '#E11D48' },
-  { href: '/community', label: '커뮤니티', short: '커뮤', bg: '#FDF2F8', color: '#EC4899' },
-]
-
-// 로컬루션 로고 (파비콘 + 텍스트)
 function Logo() {
   return (
     <div className="flex items-center gap-2.5">
-      {/* 파비콘 역할의 로고 뱃지 */}
       <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#3182F6] to-[#8B5CF6] flex items-center justify-center text-white font-black text-base flex-shrink-0 shadow-sm">
         L
       </div>
@@ -29,78 +16,83 @@ function Logo() {
   )
 }
 
-function NavItem({ item, active, onClick }: { item: typeof NAV[0]; active: boolean; onClick?: () => void }) {
-  return (
-    <Link href={item.href} onClick={onClick}
-      className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${active ? 'bg-[#EFF6FF] text-[#3182F6] font-semibold' : 'text-[#4E5968] hover:bg-[#F2F4F6] font-medium'}`}>
-      <div className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold flex-shrink-0"
-        style={active ? { background: '#3182F6', color: '#fff' } : { background: item.bg, color: item.color }}>
-        {item.short}
-      </div>
-      <span className="text-sm">{item.label}</span>
-      {active && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-[#3182F6]" />}
-    </Link>
-  )
-}
+const navItems = [
+  { href: '/', label: '대시보드', icon: (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+      <rect x="14" y="14" width="7" height="7"/><rect x="3" y="14" width="7" height="7"/>
+    </svg>
+  )},
+  { href: '/marketing', label: '마케팅 관리', icon: (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>
+    </svg>
+  )},
+  { href: '/reviews', label: '리뷰 관리', icon: (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M21 15a2 2 0 01-2 2H7l-4 4V5a2 2 0 012-2h14a2 2 0 012 2z"/>
+    </svg>
+  )},
+  { href: '/ai', label: 'AI 답글', icon: (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="10"/><path d="M12 8v4l3 3"/>
+    </svg>
+  )},
+  { href: '/report', label: '리포트', icon: (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/>
+      <line x1="6" y1="20" x2="6" y2="14"/>
+    </svg>
+  )},
+  { href: '/crm', label: 'CRM', icon: (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/>
+      <path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>
+    </svg>
+  )},
+  { href: '/qr', label: 'QR·SMS', icon: (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <rect x="3" y="3" width="7" height="7"/><rect x="14" y="3" width="7" height="7"/>
+      <rect x="3" y="14" width="7" height="7"/><line x1="14" y1="14" x2="21" y2="14"/>
+      <line x1="14" y1="18" x2="21" y2="18"/><line x1="14" y1="21" x2="21" y2="21"/>
+    </svg>
+  )},
+  { href: '/settings', label: '설정', icon: (
+    <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+      <circle cx="12" cy="12" r="3"/>
+      <path d="M19.07 4.93l-1.41 1.41M5.34 18.66l-1.41 1.41M21 12h-2M5 12H3M19.07 19.07l-1.41-1.41M5.34 5.34L3.93 3.93M12 21v-2M12 5V3"/>
+    </svg>
+  )},
+]
 
 export default function Sidebar() {
   const pathname = usePathname()
-  const [mobileOpen, setMobileOpen] = useState(false)
-
   return (
-    <>
-      {/* 모바일 헤더 */}
-      <div className="md:hidden fixed top-0 left-0 right-0 h-14 bg-white border-b border-[#E5E8EB] z-30 flex items-center justify-between px-4">
-        <Logo />
-        <button onClick={() => setMobileOpen(v => !v)} className="w-9 h-9 flex flex-col justify-center items-center gap-1.5">
-          <span className={`block w-5 h-0.5 bg-[#191F28] rounded transition-all ${mobileOpen ? 'rotate-45 translate-y-2' : ''}`} />
-          <span className={`block h-0.5 bg-[#191F28] rounded transition-all ${mobileOpen ? 'opacity-0 w-0' : 'w-5'}`} />
-          <span className={`block w-5 h-0.5 bg-[#191F28] rounded transition-all ${mobileOpen ? '-rotate-45 -translate-y-2' : ''}`} />
-        </button>
+    <aside className="fixed left-0 top-0 h-full w-[220px] bg-white border-r border-[#E5E8EB] flex flex-col z-30">
+      <div className="p-5 pb-4">
+        <Logo/>
       </div>
-
-      {/* 모바일 오버레이 */}
-      {mobileOpen && <div className="md:hidden fixed inset-0 bg-black/40 z-40" onClick={() => setMobileOpen(false)} />}
-
-      {/* 모바일 드로어 */}
-      <div className={`md:hidden fixed top-0 left-0 h-full w-[260px] bg-white z-50 transform transition-transform ${mobileOpen ? 'translate-x-0' : '-translate-x-full'}`}>
-        <div className="h-14 flex items-center px-5 border-b border-[#E5E8EB]"><Logo /></div>
-        <nav className="flex-1 px-3 py-4 space-y-1">
-          {NAV.map(item => <NavItem key={item.href} item={item} active={pathname === item.href} onClick={() => setMobileOpen(false)} />)}
-        </nav>
-        <div className="px-3 pb-6 border-t border-[#F2F4F6] pt-3 space-y-1">
-          <Link href="/settings?tab=plan" onClick={() => setMobileOpen(false)}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-[#3182F6] text-white font-semibold text-sm">
-            <div className="w-7 h-7 rounded-lg bg-white/20 flex items-center justify-center text-[10px] font-bold">+</div>
-            기능 추가하기
-          </Link>
-          <Link href="/settings" onClick={() => setMobileOpen(false)}
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl text-[#4E5968] hover:bg-[#F2F4F6] text-sm font-medium">
-            <div className="w-7 h-7 rounded-lg bg-[#F2F4F6] flex items-center justify-center text-[10px] font-bold text-[#4E5968]">설정</div>
-            설정
-          </Link>
+      <nav className="flex-1 px-3 overflow-y-auto">
+        {navItems.map(item => {
+          const active = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href))
+          return (
+            <Link key={item.href} href={item.href}
+              className={['flex items-center gap-3 px-3 py-2.5 rounded-xl mb-0.5 transition-all', active ? 'bg-[#E8F1FE] text-[#3182F6] font-semibold' : 'text-[#4E5968] hover:bg-[#F8F9FA] hover:text-[#191F28]'].join(' ')}>
+              <span className={active ? 'text-[#3182F6]' : 'text-[#8B95A1]'}>{item.icon}</span>
+              <span className="text-sm">{item.label}</span>
+            </Link>
+          )
+        })}
+      </nav>
+      <div className="p-4 border-t border-[#F2F4F6]">
+        <div className="flex items-center gap-3">
+          <div className="w-8 h-8 rounded-full bg-gradient-to-br from-[#3182F6] to-[#8B5CF6] flex items-center justify-center text-white text-xs font-bold flex-shrink-0">전</div>
+          <div className="flex-1 min-w-0">
+            <p className="text-xs font-semibold text-[#191F28] truncate">전태영</p>
+            <p className="text-[10px] text-[#8B95A1] truncate">하랑마케팅</p>
+          </div>
         </div>
       </div>
-
-      {/* 데스크탑 사이드바 */}
-      <aside className="hidden md:flex fixed left-0 top-0 h-full w-[220px] bg-white border-r border-[#E5E8EB] z-30 flex-col">
-        <div className="h-16 flex items-center px-5 border-b border-[#E5E8EB]"><Logo /></div>
-        <nav className="flex-1 px-3 py-4 space-y-1">
-          {NAV.map(item => <NavItem key={item.href} item={item} active={pathname === item.href} />)}
-        </nav>
-        <div className="px-3 pb-6 border-t border-[#F2F4F6] pt-3 space-y-1">
-          <Link href="/settings?tab=plan"
-            className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-[#3182F6] text-white font-semibold text-sm hover:bg-[#1B64DA] transition-colors">
-            <div className="w-7 h-7 rounded-lg bg-white/20 flex items-center justify-center text-[10px] font-bold">+</div>
-            기능 추가하기
-          </Link>
-          <Link href="/settings"
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-medium transition-colors ${pathname === '/settings' ? 'bg-[#EFF6FF] text-[#3182F6]' : 'text-[#4E5968] hover:bg-[#F2F4F6]'}`}>
-            <div className="w-7 h-7 rounded-lg bg-[#F2F4F6] flex items-center justify-center text-[10px] font-bold text-[#4E5968]">설정</div>
-            설정
-          </Link>
-        </div>
-      </aside>
-    </>
+    </aside>
   )
 }
