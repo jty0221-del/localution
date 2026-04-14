@@ -2,216 +2,337 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
+import Link from 'next/link'
 import Sidebar from '../components/Sidebar'
-import TopBar from '../components/TopBar'
 
-type Review = {
-  id: number; platform: string; name: string; rating: number;
-  content: string; time: string; replied: boolean; reply?: string
+const LS_LINKS = 'localution.platform_links'
+
+// 플랫폼 설정
+const PLATFORM_META: Record<string, { label: string; color: string; bg: string; textColor: string }> = {
+  google: { label: '구글', color: '#4285F4', bg: '#EBF3FE', textColor: '#1A56B0' },
+  naver:  { label: '네이버', color: '#03C75A', bg: '#E8FBF0', textColor: '#015C2C' },
 }
 
-const INITIAL_REVIEWS: Review[] = [
-  { id: 1, platform: '네이버', name: '김**', rating: 5, content: '음식이 정말 맛있고 서비스도 친절해요! 사장님이 직접 테이블까지 오셔서 인사해주셨어요. 다음에 또 올게요!', time: '10분 전', replied: false },
-  { id: 2, platform: '구글',   name: 'J***', rating: 4, content: 'Great food and cozy atmosphere. Service was a bit slow but overall a wonderful experience. Will definitely come back!', time: '1시간 전', replied: false },
-  { id: 3, platform: '카카오', name: '이**', rating: 3, content: '맛은 있는데 웨이팅이 너무 길어요. 1시간 넘게 기다렸어요. 음식은 맛있었지만 대기가 아쉽네요.', time: '3시간 전', replied: true, reply: '소중한 리뷰 감사드립니다. 대기 시간이 길어 불편을 드려 죄송합니다. 더 나은 서비스를 위해 노력하겠습니다!' },
-  { id: 4, platform: '네이버', name: '박**', rating: 5, content: '사장님이 너무 친절하세요. 음식도 맛있고 가격도 합리적이에요. 단골 됩니다!', time: '5시간 전', replied: false },
-  { id: 5, platform: '구글',   name: 'M***', rating: 2, content: 'Food was okay but service was very slow and the staff seemed disinterested. The place was also quite noisy.', time: '1일 전', replied: false },
-  { id: 6, platform: '네이버', name: '최**', rating: 5, content: '주변에서 제일 맛있는 집이에요. 재료도 신선하고 양도 푸짐합니다. 강추!', time: '2일 전', replied: true, reply: '과찬의 말씀 감사드립니다! 항상 신선한 재료만 사용하도록 노력하고 있어요. 또 오세요 😊' },
-]
-
-const AI_REPLIES: Record<string, string[]> = {
-  '5': [
-    '따뜻한 리뷰 정말 감사드립니다! 항상 정성을 다해 모시겠습니다. 또 방문해 주시면 더욱 맛있는 음식으로 모시겠습니다 😊',
-    '소중한 5점 감사합니다! 말씀해주신 것처럼 항상 최선을 다하겠습니다. 곧 또 뵐 수 있기를 바랍니다!',
-    '이런 좋은 리뷰가 저희에게 큰 힘이 됩니다. 다음 방문 때는 서비스 이용권 드리겠습니다! 감사합니다 🙏',
-  ],
-  '4': [
-    '좋은 평가 감사드립니다! 부족한 점이 있었다면 더 개선하도록 노력하겠습니다. 다음에도 방문해 주세요!',
-    '리뷰 남겨주셔서 감사합니다. 더 완벽한 서비스를 위해 최선을 다하겠습니다!',
-    '4점 평가 감사드려요! 더 노력해서 다음엔 5점 받을 수 있도록 하겠습니다 😊',
-  ],
-  '3': [
-    '리뷰 남겨주셔서 감사합니다. 불편하셨던 점을 개선하겠습니다. 다시 한번 기회를 주신다면 더 나은 모습 보여드리겠습니다.',
-    '소중한 의견 감사합니다. 말씀해주신 부분을 꼭 개선하겠습니다. 다음 방문 때는 더 만족스러운 경험 드리겠습니다!',
-    '리뷰 감사합니다. 부족한 점이 있었던 것 같아 죄송합니다. 더 나은 서비스로 보답하겠습니다.',
-  ],
-  '2': [
-    '불편을 드려 진심으로 사과드립니다. 말씀해주신 부분을 즉시 개선하겠습니다. 다시 한번 기회를 주신다면 더 좋은 모습 보여드리겠습니다.',
-    '소중한 피드백 감사합니다. 미흡한 점이 있었습니다. 서비스 품질 향상을 위해 최선을 다하겠습니다.',
-    '불편하셨던 점에 깊이 사과드립니다. 고객님의 의견을 소중히 여기며 개선에 힘쓰겠습니다.',
-  ],
-  '1': [
-    '불편을 드려 진심으로 사과드립니다. 고객님의 의견을 경영진에게 전달하여 즉시 개선하도록 하겠습니다.',
-    '소중한 피드백 감사합니다. 다시는 이런 일이 없도록 철저히 점검하겠습니다. 직접 연락 주시면 보상해 드리겠습니다.',
-    '정말 죄송합니다. 고객님이 불편하셨던 점들을 면밀히 검토하여 재발 방지에 최선을 다하겠습니다.',
-  ],
+interface LinkedPlatform {
+  platform: string; placeId: string; name: string; rating: number | null; reviewCount: number
 }
 
-function AIModal({ review, onClose, onSubmit }: { review: Review, onClose: () => void, onSubmit: (r: string) => void }) {
-  const options = AI_REPLIES[String(review.rating)] || AI_REPLIES['3']
-  const [selected, setSelected] = useState(0)
-  const [edited, setEdited] = useState(options[0])
+interface Review {
+  id: string; platform: string; rating: number; author: string; date: string; text: string; replied: boolean
+}
 
-  const selectOption = (i: number) => { setSelected(i); setEdited(options[i]) }
+interface ReviewState extends Review {
+  aiReply: string; editReply: string; aiLoading: boolean; aiDone: boolean; showEdit: boolean
+}
 
+function Stars({ rating }: { rating: number }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-      <div className="bg-white rounded-2xl w-full max-w-2xl shadow-2xl max-h-[90vh] flex flex-col">
-        <div className="flex items-center justify-between p-6 border-b border-[#F2F4F6]">
-          <div className="flex items-center gap-2">
-            <span className="text-xl">🤖</span>
-            <h2 className="font-bold text-[#191F28]">AI 답변 생성</h2>
-          </div>
-          <button onClick={onClose} className="text-[#8B95A1] text-2xl leading-none hover:text-[#191F28]">×</button>
-        </div>
-
-        <div className="overflow-y-auto flex-1 p-6 space-y-5">
-          {/* 원본 리뷰 */}
-          <div className="bg-[#F2F4F6] rounded-xl p-4">
-            <div className="flex items-center gap-2 mb-2">
-              <span className="text-xs font-semibold bg-white px-2 py-0.5 rounded-full text-[#4E5968]">{review.platform}</span>
-              <span className="text-yellow-400 text-sm">{'★'.repeat(review.rating)}{'☆'.repeat(5 - review.rating)}</span>
-              <span className="text-xs text-[#8B95A1]">{review.name}</span>
-            </div>
-            <p className="text-sm text-[#4E5968] leading-relaxed">{review.content}</p>
-          </div>
-
-          {/* AI 옵션 3개 */}
-          <div>
-            <p className="text-sm font-semibold text-[#191F28] mb-3">AI 추천 답변 (클릭해서 선택)</p>
-            <div className="space-y-2">
-              {options.map((opt, i) => (
-                <button key={i} onClick={() => selectOption(i)}
-                  className={`w-full text-left p-4 rounded-xl border-2 transition-all text-sm leading-relaxed ${selected === i ? 'border-[#3182F6] bg-[#EFF6FF]' : 'border-[#E5E8EB] hover:border-[#93C5FD]'}`}>
-                  <div className="flex items-start gap-2">
-                    <span className={`flex-shrink-0 w-5 h-5 rounded-full border-2 mt-0.5 flex items-center justify-center ${selected === i ? 'border-[#3182F6] bg-[#3182F6]' : 'border-[#E5E8EB]'}`}>
-                      {selected === i && <span className="w-2 h-2 rounded-full bg-white" />}
-                    </span>
-                    <span className="text-[#4E5968]">{opt}</span>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </div>
-
-          {/* 직접 편집 */}
-          <div>
-            <p className="text-sm font-semibold text-[#191F28] mb-2">답변 수정 (직접 편집 가능)</p>
-            <textarea value={edited} onChange={e => setEdited(e.target.value)} rows={4}
-              className="w-full border border-[#E5E8EB] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#3182F6] resize-none transition-colors" />
-          </div>
-        </div>
-
-        <div className="flex gap-3 p-6 pt-0">
-          <button onClick={onClose} className="flex-1 py-3 rounded-xl border border-[#E5E8EB] text-[#4E5968] font-semibold text-sm hover:bg-[#F2F4F6]">취소</button>
-          <button onClick={() => { onSubmit(edited); onClose(); }}
-            className="flex-1 py-3 rounded-xl bg-[#3182F6] text-white font-semibold text-sm hover:bg-[#1B64DA] transition-colors">
-            답변 게시하기 ✅
-          </button>
-        </div>
-      </div>
+    <div className="flex gap-0.5">
+      {[1,2,3,4,5].map(i => (
+        <span key={i} className={`text-sm ${i <= rating ? 'text-yellow-400' : 'text-[#E5E8EB]'}`}>★</span>
+      ))}
     </div>
   )
 }
 
-export default function ReviewAdmin() {
-  const [reviews, setReviews] = useState(INITIAL_REVIEWS)
-  const [filter, setFilter] = useState('all')
-  const [aiTarget, setAiTarget] = useState<Review | null>(null)
+function PlatformBadge({ platform }: { platform: string }) {
+  const m = PLATFORM_META[platform]
+  if (!m) return null
+  return (
+    <span className="text-[10px] px-2 py-0.5 rounded-full font-semibold" style={{ background: m.bg, color: m.textColor }}>
+      {m.label}
+    </span>
+  )
+}
 
+export default function ReviewAdmin() {
+  const [links, setLinks] = useState<LinkedPlatform[]>([])
+  const [reviews, setReviews] = useState<ReviewState[]>([])
+  const [loading, setLoading] = useState(false)
+  const [filterPlatform, setFilterPlatform] = useState<string>('all')
+  const [filterRating, setFilterRating] = useState<number>(0)
+  const [filterReplied, setFilterReplied] = useState<'all' | 'pending' | 'done'>('all')
+  const [storeName, setStoreName] = useState('')
+  const [storeRegion, setStoreRegion] = useState('')
+  const [storeType, setStoreType] = useState('')
+
+  // localStorage에서 연동된 플랫폼 로드
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(LS_LINKS)
+      if (raw) {
+        const parsed = JSON.parse(raw) as LinkedPlatform[]
+        setLinks(parsed)
+        if (parsed[0]) setStoreName(parsed[0].name || '')
+      }
+    } catch (_) {}
+  }, [])
+
+  // 연동된 플랫폼에서 리뷰 불러오기
+  const loadReviews = useCallback(async () => {
+    if (!links.length) return
+    setLoading(true)
+    const all: ReviewState[] = []
+
+    for (const link of links) {
+      try {
+        const res = await fetch(`/api/platforms/${link.platform}?placeId=${encodeURIComponent(link.placeId)}`)
+        if (!res.ok) continue
+        const data = await res.json()
+        const items: Review[] = data.reviews || []
+        items.forEach(r => all.push({
+          ...r,
+          platform: link.platform,
+          aiReply: '', editReply: '', aiLoading: false, aiDone: false, showEdit: false,
+        }))
+      } catch (_) {}
+    }
+
+    // 날짜 내림차순 정렬
+    all.sort((a, b) => (b.date > a.date ? 1 : -1))
+    setReviews(all)
+    setLoading(false)
+  }, [links])
+
+  useEffect(() => { if (links.length) loadReviews() }, [links, loadReviews])
+
+  // AI 답글 생성
+  async function generateAI(idx: number) {
+    const r = reviews[idx]
+    setReviews(prev => prev.map((x, i) => i === idx ? { ...x, aiLoading: true, aiDone: false, aiReply: '' } : x))
+    try {
+      const res = await fetch('/api/ai-review-reply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          review: r.text,
+          platform: PLATFORM_META[r.platform]?.label || r.platform,
+          storeName: storeName || '저희 매장',
+          region: storeRegion,
+          bizType: storeType,
+          aiSettings: {
+            tone: 'friendly', length: 'medium',
+            includes: { thanks: true, revisit: true, mention: true, personalize: false, improve: true, keyword: true },
+            closing: '', excludes: '',
+          },
+        }),
+      })
+      const data = await res.json()
+      const reply = data.reply || '답글 생성 실패'
+      setReviews(prev => prev.map((x, i) => i === idx
+        ? { ...x, aiLoading: false, aiDone: true, aiReply: reply, editReply: reply, showEdit: true }
+        : x
+      ))
+    } catch {
+      setReviews(prev => prev.map((x, i) => i === idx
+        ? { ...x, aiLoading: false, aiDone: false, aiReply: '⚠ AI 오류. 다시 시도해 주세요.' }
+        : x
+      ))
+    }
+  }
+
+  function updateEditReply(idx: number, val: string) {
+    setReviews(prev => prev.map((x, i) => i === idx ? { ...x, editReply: val } : x))
+  }
+
+  function markReplied(idx: number) {
+    setReviews(prev => prev.map((x, i) => i === idx ? { ...x, replied: true, showEdit: false } : x))
+  }
+
+  // 필터링
   const filtered = reviews.filter(r => {
-    if (filter === 'unreplied') return !r.replied
-    if (['네이버','구글','카카오'].includes(filter)) return r.platform === filter
+    if (filterPlatform !== 'all' && r.platform !== filterPlatform) return false
+    if (filterRating > 0 && r.rating !== filterRating) return false
+    if (filterReplied === 'pending' && r.replied) return false
+    if (filterReplied === 'done' && !r.replied) return false
     return true
   })
 
-  const submitReply = (id: number, reply: string) => {
-    setReviews(prev => prev.map(r => r.id === id ? { ...r, replied: true, reply } : r))
-  }
-
-  const unrepliedCount = reviews.filter(r => !r.replied).length
+  const pendingCount = reviews.filter(r => !r.replied).length
+  const totalCount   = reviews.length
 
   return (
     <div className="min-h-screen bg-[#F2F4F6] flex">
       <Sidebar />
-      <main className="flex-1 md:ml-[220px] px-4 md:px-8 pb-8">
-        <TopBar />
+      <main className="flex-1 md:ml-[220px] p-4 md:p-8 pt-16 md:pt-8 pr-16 md:pr-20">
 
-        <p className="text-[#8B95A1] mb-6">AI가 리뷰 답변을 도와드려요</p>
+        {/* 헤더 */}
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-2xl font-bold text-[#191F28]">리뷰 관리</h1>
+            <p className="text-sm text-[#8B95A1] mt-0.5">
+              {totalCount}개 리뷰 · <span className="text-red-500 font-semibold">{pendingCount}개 미답변</span>
+            </p>
+          </div>
+          <button
+            onClick={loadReviews}
+            disabled={loading || !links.length}
+            className="px-4 py-2 bg-[#3182F6] text-white text-sm font-semibold rounded-xl hover:bg-[#1B64DA] disabled:opacity-50 transition-colors"
+          >
+            {loading ? '불러오는 중...' : '새로고침'}
+          </button>
+        </div>
 
-        {unrepliedCount > 0 && (
-          <div className="bg-[#FFF8E1] border border-[#FFE082] rounded-2xl p-4 mb-6 flex items-center gap-3">
-            <span className="text-2xl">⚠️</span>
-            <div>
-              <div className="font-semibold text-[#191F28] text-sm">미답변 리뷰 {unrepliedCount}개</div>
-              <div className="text-xs text-[#8B95A1]">빠른 답변이 별점 향상에 도움이 돼요</div>
-            </div>
-            <button onClick={() => setFilter('unreplied')}
-              className="ml-auto text-xs font-semibold text-[#3182F6] border border-[#3182F6] px-3 py-1.5 rounded-lg hover:bg-[#EFF6FF]">
-              바로 답변하기
-            </button>
+        {/* 미연동 안내 */}
+        {!links.length && (
+          <div className="bg-white rounded-2xl p-8 shadow-sm text-center mb-6">
+            <div className="text-4xl mb-3">📡</div>
+            <p className="font-bold text-[#191F28] mb-1">연동된 플랫폼이 없습니다</p>
+            <p className="text-sm text-[#8B95A1] mb-4">대시보드에서 구글·네이버 매장을 먼저 연동해 주세요.</p>
+            <Link href="/" className="inline-block px-5 py-2 bg-[#3182F6] text-white text-sm font-semibold rounded-xl hover:bg-[#1B64DA] transition-colors">
+              대시보드로 이동
+            </Link>
           </div>
         )}
 
-        {/* 필터 */}
-        <div className="flex gap-2 mb-6 flex-wrap">
-          {[
-            { id: 'all', label: '전체' }, { id: 'unreplied', label: '미답변' },
-            { id: '네이버', label: '네이버' }, { id: '구글', label: '구글' }, { id: '카카오', label: '카카오' },
-          ].map(f => (
-            <button key={f.id} onClick={() => setFilter(f.id)}
-              className={`px-4 py-2 rounded-full text-sm font-semibold transition-colors ${filter === f.id ? 'bg-[#3182F6] text-white' : 'bg-white text-[#4E5968] border border-[#E5E8EB] hover:border-[#3182F6]'}`}>
-              {f.label} {f.id === 'unreplied' ? `(${unrepliedCount})` : ''}
-            </button>
-          ))}
-        </div>
+        {/* AI 설정 바 */}
+        {links.length > 0 && (
+          <div className="bg-white rounded-2xl p-4 shadow-sm mb-4 border border-[#E5E8EB]">
+            <p className="text-xs font-semibold text-[#8B95A1] mb-3">AI 답글 설정 (매장 정보)</p>
+            <div className="flex gap-3 flex-wrap">
+              <input value={storeName} onChange={e => setStoreName(e.target.value)}
+                placeholder="매장명" className="border border-[#E5E8EB] rounded-lg px-3 py-2 text-sm outline-none focus:border-[#3182F6] flex-1 min-w-[120px]" />
+              <input value={storeRegion} onChange={e => setStoreRegion(e.target.value)}
+                placeholder="지역 (예: 강남)" className="border border-[#E5E8EB] rounded-lg px-3 py-2 text-sm outline-none focus:border-[#3182F6] flex-1 min-w-[100px]" />
+              <input value={storeType} onChange={e => setStoreType(e.target.value)}
+                placeholder="업종 (예: 카페)" className="border border-[#E5E8EB] rounded-lg px-3 py-2 text-sm outline-none focus:border-[#3182F6] flex-1 min-w-[100px]" />
+            </div>
+          </div>
+        )}
+
+        {/* 필터 바 */}
+        {reviews.length > 0 && (
+          <div className="flex gap-2 flex-wrap mb-4">
+            {/* 플랫폼 */}
+            <div className="flex gap-1 bg-white rounded-xl p-1 shadow-sm">
+              {['all', ...links.map(l => l.platform)].map(p => (
+                <button key={p} onClick={() => setFilterPlatform(p)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${filterPlatform === p ? 'bg-[#3182F6] text-white' : 'text-[#8B95A1] hover:bg-[#F2F4F6]'}`}>
+                  {p === 'all' ? '전체' : PLATFORM_META[p]?.label || p}
+                </button>
+              ))}
+            </div>
+            {/* 미답변/완료 */}
+            <div className="flex gap-1 bg-white rounded-xl p-1 shadow-sm">
+              {(['all', 'pending', 'done'] as const).map(f => (
+                <button key={f} onClick={() => setFilterReplied(f)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${filterReplied === f ? 'bg-[#3182F6] text-white' : 'text-[#8B95A1] hover:bg-[#F2F4F6]'}`}>
+                  {f === 'all' ? '전체' : f === 'pending' ? '미답변' : '완료'}
+                </button>
+              ))}
+            </div>
+            {/* 별점 필터 */}
+            <div className="flex gap-1 bg-white rounded-xl p-1 shadow-sm">
+              {[0,1,2,3,4,5].map(n => (
+                <button key={n} onClick={() => setFilterRating(n)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${filterRating === n ? 'bg-[#3182F6] text-white' : 'text-[#8B95A1] hover:bg-[#F2F4F6]'}`}>
+                  {n === 0 ? '전체' : '★'.repeat(n)}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* 리뷰 목록 */}
+        {loading && (
+          <div className="bg-white rounded-2xl p-8 shadow-sm text-center">
+            <div className="text-3xl mb-2 animate-pulse">⏳</div>
+            <p className="text-sm text-[#8B95A1]">리뷰 불러오는 중...</p>
+          </div>
+        )}
+
+        {!loading && filtered.length === 0 && reviews.length > 0 && (
+          <div className="bg-white rounded-2xl p-8 shadow-sm text-center">
+            <p className="text-sm text-[#8B95A1]">필터에 맞는 리뷰가 없습니다.</p>
+          </div>
+        )}
+
         <div className="space-y-4">
-          {filtered.map(review => (
-            <div key={review.id} className="bg-white rounded-2xl p-6 shadow-sm">
-              <div className="flex items-start justify-between mb-3">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-xs font-semibold bg-[#F2F4F6] text-[#4E5968] px-2 py-1 rounded-full">{review.platform}</span>
-                  <span className="font-semibold text-[#191F28]">{review.name}</span>
-                  <span className="text-yellow-400">{'★'.repeat(review.rating)}{'☆'.repeat(5 - review.rating)}</span>
+          {filtered.map((r, idx) => {
+            const realIdx = reviews.indexOf(r)
+            return (
+              <div key={r.id} className={`bg-white rounded-2xl p-5 shadow-sm border-l-4 ${r.replied ? 'border-green-400' : 'border-[#3182F6]'}`}>
+                {/* 리뷰 헤더 */}
+                <div className="flex items-start gap-3 mb-3">
+                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#3182F6] to-[#8B5CF6] flex items-center justify-center text-white font-bold flex-shrink-0">
+                    {r.author[0] || '?'}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <span className="font-semibold text-sm text-[#191F28]">{r.author}</span>
+                      <PlatformBadge platform={r.platform} />
+                      <Stars rating={r.rating} />
+                      {r.replied && <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-semibold">답변완료</span>}
+                    </div>
+                    <p className="text-xs text-[#B0B8C1] mt-0.5">{r.date}</p>
+                  </div>
                 </div>
-                <div className="flex items-center gap-2 flex-shrink-0">
-                  {!review.replied && <span className="text-xs bg-[#FFE8E8] text-[#FF3B30] px-2 py-1 rounded-full font-semibold">미답변</span>}
-                  <span className="text-xs text-[#8B95A1]">{review.time}</span>
-                </div>
+
+                {/* 리뷰 본문 */}
+                <p className="text-sm text-[#4E5968] bg-[#F8F9FA] rounded-xl p-3 mb-3">{r.text || '(텍스트 없음)'}</p>
+
+                {/* AI 답글 영역 */}
+                {r.aiDone && r.showEdit && (
+                  <div className="mb-3">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-xs font-semibold text-[#3182F6]">✨ AI 생성 답글 (편집 가능)</span>
+                    </div>
+                    <textarea
+                      value={r.editReply}
+                      onChange={e => updateEditReply(realIdx, e.target.value)}
+                      rows={4}
+                      className="w-full border border-[#3182F6] rounded-xl px-4 py-3 text-sm outline-none focus:border-[#1B64DA] resize-none transition-colors"
+                    />
+                    <div className="flex gap-2 mt-2 justify-end">
+                      <button
+                        onClick={() => generateAI(realIdx)}
+                        className="px-3 py-1.5 text-xs text-[#3182F6] border border-[#3182F6] rounded-lg hover:bg-[#EFF6FF] transition-colors font-semibold"
+                      >
+                        재생성
+                      </button>
+                      <button
+                        onClick={() => markReplied(realIdx)}
+                        className="px-4 py-1.5 text-xs bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors font-semibold"
+                      >
+                        답변 완료 표시
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {r.aiLoading && (
+                  <div className="mb-3 p-3 bg-[#EFF6FF] rounded-xl text-sm text-[#3182F6] animate-pulse">
+                    ✨ AI가 답글을 작성하고 있습니다...
+                  </div>
+                )}
+
+                {/* 액션 버튼 */}
+                {!r.replied && !r.showEdit && (
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => generateAI(realIdx)}
+                      disabled={r.aiLoading}
+                      className="flex items-center gap-1.5 px-4 py-2 bg-[#3182F6] text-white text-xs font-semibold rounded-xl hover:bg-[#1B64DA] disabled:opacity-50 transition-colors"
+                    >
+                      ✨ AI 답글 생성
+                    </button>
+                    <button
+                      onClick={() => markReplied(realIdx)}
+                      className="px-4 py-2 text-xs text-[#8B95A1] border border-[#E5E8EB] rounded-xl hover:bg-[#F2F4F6] transition-colors font-semibold"
+                    >
+                      수동 완료
+                    </button>
+                  </div>
+                )}
               </div>
-              <p className="text-[#4E5968] mb-4 leading-relaxed">{review.content}</p>
-
-              {review.replied && review.reply && (
-                <div className="bg-[#EFF6FF] border border-[#BFDBFE] rounded-xl p-4 mb-3">
-                  <div className="text-xs font-semibold text-[#3182F6] mb-1">사장님 답변</div>
-                  <p className="text-sm text-[#4E5968]">{review.reply}</p>
-                </div>
-              )}
-
-              {!review.replied && (
-                <button onClick={() => setAiTarget(review)}
-                  className="flex items-center gap-2 bg-[#3182F6] text-white text-sm font-semibold px-5 py-2.5 rounded-xl hover:bg-[#1B64DA] transition-colors">
-                  🤖 AI 답변 생성
-                </button>
-              )}
-              {review.replied && (
-                <div className="text-sm text-[#00C471] font-semibold flex items-center gap-1">✅ 답변 완료</div>
-              )}
-            </div>
-          ))}
+            )
+          })}
         </div>
-      </main>
 
-      {aiTarget && (
-        <AIModal
-          review={aiTarget}
-          onClose={() => setAiTarget(null)}
-          onSubmit={(reply) => submitReply(aiTarget.id, reply)}
-        />
-      )}
+        {/* 하단 여백 */}
+        <div className="h-8" />
+      </main>
     </div>
   )
 }
