@@ -28,25 +28,6 @@ export default function InquiryPage() {
   const [submitting, setSubmitting] = useState(false)
   const [done, setDone] = useState(false)
   const [error, setError] = useState('')
-  const [copied, setCopied] = useState(false)
-
-  const copyEmail = async () => {
-    try {
-      await navigator.clipboard.writeText('harangmarketing@naver.com')
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2500)
-    } catch {
-      // fallback
-      const el = document.createElement('textarea')
-      el.value = 'harangmarketing@naver.com'
-      document.body.appendChild(el)
-      el.select()
-      document.execCommand('copy')
-      document.body.removeChild(el)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2500)
-    }
-  }
   const [myInquiries, setMyInquiries] = useState<MyInquiry[]>(() => {
     if (typeof window === 'undefined') return []
     try { return JSON.parse(localStorage.getItem(LS_INQUIRIES) || '[]') } catch { return [] }
@@ -98,16 +79,6 @@ export default function InquiryPage() {
 
   return (
     <div className="min-h-screen bg-[#F2F4F6] flex">
-      {/* 클립보드 복사 토스트 */}
-      {copied && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] animate-bounce">
-          <div className="flex items-center gap-2.5 px-5 py-3 bg-[#191F28] text-white rounded-2xl shadow-2xl text-sm font-semibold">
-            <span className="text-base">✅</span>
-            <span>이메일 주소가 복사되었습니다</span>
-            <span className="text-[#8B95A1] text-xs ml-1">harangmarketing@naver.com</span>
-          </div>
-        </div>
-      )}
       <Sidebar />
       <main className="flex-1 md:ml-[220px] p-4 md:p-8 pt-16 md:pt-8">
 
@@ -229,11 +200,10 @@ export default function InquiryPage() {
                         className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-[#FEE500] text-[#191F28] rounded-xl text-xs font-bold hover:opacity-90 transition-opacity">
                         <span>💬</span> 카카오톡 채널
                       </a>
-                      <button onClick={copyEmail}
-                        className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-bold transition-all ${copied ? 'bg-green-100 text-green-700' : 'bg-[#F2F4F6] text-[#4E5968] hover:bg-[#E5E8EB]'}`}>
-                        <span>{copied ? '✅' : '✉️'}</span>
-                        {copied ? '복사됨!' : '이메일 문의'}
-                      </button>
+                      <a href="mailto:harangmarketing@naver.com"
+                        className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-[#F2F4F6] text-[#4E5968] rounded-xl text-xs font-bold hover:bg-[#E5E8EB] transition-colors">
+                        <span>✉️</span> 이메일 문의
+                      </a>
                     </div>
                   </div>
                 </form>
