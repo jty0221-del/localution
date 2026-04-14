@@ -50,7 +50,6 @@ export default function InquiryPage() {
       const data = await res.json()
       if (!res.ok) throw new Error(data.error || '오류')
 
-      // 내 문의 내역 localStorage 저장
       const newItem: MyInquiry = {
         id: data.id,
         name: form.name,
@@ -81,7 +80,7 @@ export default function InquiryPage() {
   return (
     <div className="min-h-screen bg-[#F2F4F6] flex">
       <Sidebar />
-      <main className="flex-1 md:ml-[220px] p-4 md:p-8 pt-16 md:pt-8 pr-16 md:pr-20">
+      <main className="flex-1 md:ml-[220px] p-4 md:p-8 pt-16 md:pt-8">
 
         {/* 헤더 */}
         <div className="flex items-center gap-3 mb-6">
@@ -98,7 +97,7 @@ export default function InquiryPage() {
 
         {/* 탭 */}
         <div className="flex gap-1 bg-white rounded-xl p-1 shadow-sm mb-6 w-fit">
-          {([['new', '문의하기'], ['history', `내 문의 내역 ${myInquiries.length ? `(${myInquiries.length})` : ''}`]] as const).map(([t, l]) => (
+          {([['new', '문의하기'], ['history', `내 문의 내역${myInquiries.length ? ` (${myInquiries.length})` : ''}`]] as const).map(([t, l]) => (
             <button key={t} onClick={() => setTab(t)}
               className={`px-5 py-2 rounded-lg text-sm font-semibold transition-colors ${tab === t ? 'bg-[#3182F6] text-white' : 'text-[#8B95A1] hover:bg-[#F2F4F6]'}`}>
               {l}
@@ -197,11 +196,11 @@ export default function InquiryPage() {
                   <div className="bg-white rounded-2xl p-4 shadow-sm">
                     <p className="text-xs font-bold text-[#8B95A1] mb-3">⚡ 빠른 연락</p>
                     <div className="flex gap-2">
-                      <a href="https://open.kakao.com/o/localution" target="_blank" rel="noopener"
+                      <a href="https://open.kakao.com/o/gSC9jrqi" target="_blank" rel="noopener noreferrer"
                         className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-[#FEE500] text-[#191F28] rounded-xl text-xs font-bold hover:opacity-90 transition-opacity">
                         <span>💬</span> 카카오톡 채널
                       </a>
-                      <a href="mailto:jty0221@gmail.com"
+                      <a href="mailto:harangmarketing@naver.com"
                         className="flex-1 flex items-center justify-center gap-2 py-2.5 bg-[#F2F4F6] text-[#4E5968] rounded-xl text-xs font-bold hover:bg-[#E5E8EB] transition-colors">
                         <span>✉️</span> 이메일 문의
                       </a>
