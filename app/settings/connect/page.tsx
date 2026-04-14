@@ -87,11 +87,11 @@ function CoupangEatsLogo({ size = 48 }: { size?: number }) {
 
 const PLATFORMS = [
   { id: 'naver',       name: '네이버 플레이스', logo: NaverLogo,       brandColor: '#03C75A', category: '리뷰·검색', enabled: true,  desc: '네이버 플레이스 URL로 연동' },
-  { id: 'google',      name: '구글 비즈니스',   logo: GoogleLogo,      brandColor: '#4285F4', category: '리뷰·검색', enabled: false, desc: 'Google Business Profile (준비중)' },
-  { id: 'kakao',       name: '카카오맵',        logo: KakaoLogo,       brandColor: '#FEE500', category: '리뷰·검색', enabled: false, desc: '카카오맵 장소 연동 (준비중)' },
-  { id: 'baemin',      name: '배달의민족',      logo: BaeminLogo,      brandColor: '#2AC1BC', category: '배달',     enabled: false, desc: '배민 셀프서비스 연동 (준비중)' },
-  { id: 'yogiyo',      name: '요기요',          logo: YogiyoLogo,      brandColor: '#FA0050', category: '배달',     enabled: false, desc: '요기요 사장님 연동 (준비중)' },
-  { id: 'coupangeats', name: '쿠팡이츠',        logo: CoupangEatsLogo, brandColor: '#FF4B30', category: '배달',     enabled: false, desc: '쿠팡이츠 스토어 연동 (준비중)' },
+  { id: 'google',      name: '구글 비즈니스',   logo: GoogleLogo,      brandColor: '#4285F4', category: '리뷰·검색', enabled: true,  desc: 'Google Maps Place ID로 연동' },
+  { id: 'kakao',       name: '카카오맵',        logo: KakaoLogo,       brandColor: '#F9C706', category: '리뷰·검색', enabled: true,  desc: '카카오맵 장소 ID로 연동' },
+  { id: 'baemin',      name: '배달의민족',      logo: BaeminLogo,      brandColor: '#2AC1BC', category: '배달',     enabled: true,  desc: '배민 매장 ID 또는 URL로 연동' },
+  { id: 'yogiyo',      name: '요기요',          logo: YogiyoLogo,      brandColor: '#FA0050', category: '배달',     enabled: true,  desc: '요기요 매장 ID 또는 URL로 연동' },
+  { id: 'coupangeats', name: '쿠팡이츠',        logo: CoupangEatsLogo, brandColor: '#FF4B30', category: '배달',     enabled: true,  desc: '쿠팡이츠 매장 ID 또는 URL로 연동' },
 ] as const
 
 export default function SettingsConnect() {
@@ -246,6 +246,52 @@ export default function SettingsConnect() {
           {/* 네이버 연결 모달 */}
           {modal === 'naver' && (
             <NaverConnectModal
+              stores={stores}
+              selectedStore={selectedStore}
+              setSelectedStore={setSelectedStore}
+              onClose={() => setModal(null)}
+              onSave={(link) => {
+                const next = [...links.filter(l => !(l.platform === link.platform && l.storeId === link.storeId)), link]
+                saveLinks(next)
+                setModal(null)
+              }}
+            />
+          )}
+
+          {/* 카카오 연결 모달 */}
+          {modal === 'kakao' && (
+            <KakaoConnectModal
+              stores={stores}
+              selectedStore={selectedStore}
+              setSelectedStore={setSelectedStore}
+              onClose={() => setModal(null)}
+              onSave={(link) => {
+                const next = [...links.filter(l => !(l.platform === link.platform && l.storeId === link.storeId)), link]
+                saveLinks(next)
+                setModal(null)
+              }}
+            />
+          )}
+
+          {/* 배달 플랫폼 모달 (배민/요기요/쿠팡이츠 공용) */}
+          {(modal === 'baemin' || modal === 'yogiyo' || modal === 'coupangeats') && (
+            <DeliveryConnectModal
+              platform={modal as 'baemin' | 'yogiyo' | 'coupangeats'}
+              stores={stores}
+              selectedStore={selectedStore}
+              setSelectedStore={setSelectedStore}
+              onClose={() => setModal(null)}
+              onSave={(link) => {
+                const next = [...links.filter(l => !(l.platform === link.platform && l.storeId === link.storeId)), link]
+                saveLinks(next)
+                setModal(null)
+              }}
+            />
+          )}
+
+          {/* 구글 연결 모달 */}
+          {modal === 'google' && (
+            <GoogleConnectModal
               stores={stores}
               selectedStore={selectedStore}
               setSelectedStore={setSelectedStore}
@@ -417,6 +463,465 @@ function NaverConnectModal(props: {
               disabled={!preview}
               className="flex-1 py-3 bg-[#3182F6] text-white text-sm font-bold rounded-xl hover:bg-[#1B64DA] disabled:bg-[#B0B8C1]"
             >
+              연결 저장
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════
+// 구글 비즈니스 연결 모달
+// ═══════════════════════════════════════════════════════════
+function GoogleConnectModal(props: {
+  stores: Store[]
+  selectedStore: string
+  setSelectedStore: (id: string) => void
+  onClose: () => void
+  onSave: (link: PlatformLink) => void
+}) {
+  const { stores, selectedStore, setSelectedStore, onClose, onSave } = props
+  const [mode, setMode]         = useState<'url' | 'search'>('url')
+  const [urlInput, setUrlInput] = useState('')
+  const [searchQ, setSearchQ]   = useState('')
+  const [loading, setLoading]   = useState(false)
+  const [error, setError]       = useState('')
+  const [preview, setPreview]   = useState<{
+    placeId: string; name: string; address: string
+    rating: number; reviewCount: number; url: string
+  } | null>(null)
+  const [searchResults, setSearchResults] = useState<any[]>([])
+
+  async function handleVerifyUrl() {
+    setError(''); setPreview(null); setSearchResults([])
+    if (!urlInput.trim()) { setError('Google Maps URL 또는 Place ID를 입력하세요'); return }
+    setLoading(true)
+    try {
+      const res = await fetch('/api/platforms/google', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'verify', input: urlInput }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setError(data.error || '검증 실패'); return }
+      setPreview({ placeId: data.placeId, name: data.name, address: data.address || '', rating: data.rating || 0, reviewCount: data.reviewCount || 0, url: data.url })
+    } catch { setError('네트워크 오류') }
+    finally { setLoading(false) }
+  }
+
+  async function handleSearch() {
+    setError(''); setPreview(null); setSearchResults([])
+    if (!searchQ.trim()) { setError('검색어를 입력하세요'); return }
+    setLoading(true)
+    try {
+      const res = await fetch('/api/platforms/google', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'search', query: searchQ }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setError(data.error || '검색 실패'); return }
+      setSearchResults(data.items || [])
+    } catch { setError('네트워크 오류') }
+    finally { setLoading(false) }
+  }
+
+  function selectResult(item: any) {
+    setPreview({ placeId: item.placeId, name: item.name, address: item.address, rating: item.rating || 0, reviewCount: item.userRatingsTotal || 0, url: `https://www.google.com/maps/place/?q=place_id:${item.placeId}` })
+    setSearchResults([])
+  }
+
+  function handleSave() {
+    if (!preview) return
+    if (!selectedStore) { setError('연결할 업체를 선택하세요'); return }
+    const store = stores.find(s => s.id === selectedStore)
+    if (!store) return
+    onSave({ platform: 'google', storeId: selectedStore, externalId: preview.placeId, externalName: preview.name, externalUrl: preview.url, linkedAt: new Date().toISOString() })
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        {/* 헤더 */}
+        <div className="flex items-center gap-3 p-5 border-b border-[#F2F4F6]">
+          <GoogleLogo size={40} />
+          <div className="flex-1">
+            <h2 className="font-bold text-[#191F28]">구글 비즈니스 연결</h2>
+            <p className="text-xs text-[#8B95A1]">Google Maps로 매장을 검색하거나 URL을 붙여넣으세요</p>
+          </div>
+          <button onClick={onClose} className="text-[#8B95A1] text-xl">✕</button>
+        </div>
+
+        <div className="p-5 space-y-4">
+          {/* Step 1: 업체 선택 */}
+          <div>
+            <label className="block text-xs font-bold text-[#4E5968] mb-2">1. 연결할 업체 선택</label>
+            <select value={selectedStore} onChange={e => setSelectedStore(e.target.value)}
+              className="w-full border border-[#E5E8EB] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#4285F4]">
+              {stores.map(s => (
+                <option key={s.id} value={s.id}>{s.name}{s.branch ? ` · ${s.branch}` : ''}</option>
+              ))}
+            </select>
+          </div>
+
+          {/* Step 2: URL or 검색 탭 */}
+          <div>
+            <label className="block text-xs font-bold text-[#4E5968] mb-2">2. Google Maps 연결 방식</label>
+            <div className="flex bg-[#F2F4F6] rounded-xl p-1 gap-1 mb-3">
+              {(['url', 'search'] as const).map(m => (
+                <button key={m} onClick={() => { setMode(m); setError(''); setPreview(null); setSearchResults([]) }}
+                  className={['flex-1 py-2 text-xs font-bold rounded-lg transition-all', mode === m ? 'bg-white text-[#191F28] shadow-sm' : 'text-[#8B95A1]'].join(' ')}>
+                  {m === 'url' ? '🔗 URL 입력' : '🔍 매장명 검색'}
+                </button>
+              ))}
+            </div>
+
+            {mode === 'url' ? (
+              <div className="flex gap-2">
+                <input type="text" value={urlInput} onChange={e => setUrlInput(e.target.value)}
+                  placeholder="https://www.google.com/maps/place/..."
+                  className="flex-1 border border-[#E5E8EB] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#4285F4]" />
+                <button onClick={handleVerifyUrl} disabled={loading}
+                  className="px-4 py-3 bg-[#4285F4] text-white text-sm font-bold rounded-xl hover:bg-[#3367D6] disabled:bg-[#B0B8C1] whitespace-nowrap">
+                  {loading ? '확인 중...' : '검증'}
+                </button>
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <input type="text" value={searchQ} onChange={e => setSearchQ(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleSearch()}
+                  placeholder="예: 하랑마케팅 강남, 서울 강남구 카페"
+                  className="flex-1 border border-[#E5E8EB] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#4285F4]" />
+                <button onClick={handleSearch} disabled={loading}
+                  className="px-4 py-3 bg-[#4285F4] text-white text-sm font-bold rounded-xl hover:bg-[#3367D6] disabled:bg-[#B0B8C1] whitespace-nowrap">
+                  {loading ? '검색 중...' : '검색'}
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* 에러 */}
+          {error && <div className="bg-[#FFF0F0] border border-[#FFD4D4] rounded-xl p-3 text-xs text-[#F04452]">⚠ {error}</div>}
+
+          {/* 검색 결과 */}
+          {searchResults.length > 0 && (
+            <div className="border border-[#E5E8EB] rounded-xl overflow-hidden">
+              {searchResults.map((r, i) => (
+                <button key={i} onClick={() => selectResult(r)}
+                  className="w-full text-left px-4 py-3 hover:bg-[#EFF6FF] border-b last:border-b-0 border-[#F2F4F6] transition-colors">
+                  <p className="text-sm font-semibold text-[#191F28]">{r.name}</p>
+                  <p className="text-[11px] text-[#8B95A1] truncate">{r.address}</p>
+                  {r.rating && <p className="text-[11px] text-[#F5A623]">★ {r.rating} ({r.userRatingsTotal?.toLocaleString()}건)</p>}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* 미리보기 */}
+          {preview && (
+            <div className="bg-[#EFF6FF] border border-[#DBEAFE] rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="w-2 h-2 rounded-full bg-[#4285F4]" />
+                <span className="text-xs font-bold text-[#3367D6]">검증 완료</span>
+                {preview.rating > 0 && <span className="ml-auto text-xs text-[#F5A623]">★ {preview.rating} ({preview.reviewCount?.toLocaleString()}건)</span>}
+              </div>
+              <p className="text-sm font-bold text-[#191F28]">{preview.name}</p>
+              {preview.address && <p className="text-[11px] text-[#4E5968] mt-0.5">{preview.address}</p>}
+              <div className="flex items-center justify-between mt-2 pt-2 border-t border-[#DBEAFE]">
+                <span className="text-[10px] text-[#8B95A1] truncate max-w-[200px]">ID: {preview.placeId}</span>
+                <a href={preview.url} target="_blank" rel="noreferrer" className="text-[10px] text-[#4285F4] font-semibold hover:underline">지도 열기 ↗</a>
+              </div>
+            </div>
+          )}
+
+          {/* 저장 버튼 */}
+          <div className="flex gap-2 pt-2">
+            <button onClick={onClose} className="flex-1 py-3 border border-[#E5E8EB] text-[#4E5968] text-sm font-bold rounded-xl hover:bg-[#F8F9FA]">취소</button>
+            <button onClick={handleSave} disabled={!preview}
+              className="flex-1 py-3 bg-[#3182F6] text-white text-sm font-bold rounded-xl hover:bg-[#1B64DA] disabled:bg-[#B0B8C1]">
+              연결 저장
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════
+// 카카오맵 연결 모달
+// ═══════════════════════════════════════════════════════════
+function KakaoConnectModal(props: {
+  stores: Store[]
+  selectedStore: string
+  setSelectedStore: (id: string) => void
+  onClose: () => void
+  onSave: (link: PlatformLink) => void
+}) {
+  const { stores, selectedStore, setSelectedStore, onClose, onSave } = props
+  const [mode, setMode]         = useState<'url' | 'search'>('search')
+  const [urlInput, setUrlInput] = useState('')
+  const [searchQ, setSearchQ]   = useState('')
+  const [loading, setLoading]   = useState(false)
+  const [error, setError]       = useState('')
+  const [preview, setPreview]   = useState<{ kakaoId: string; name: string; url: string } | null>(null)
+  const [searchResults, setSearchResults] = useState<any[]>([])
+
+  async function handleVerifyUrl() {
+    setError(''); setPreview(null); setSearchResults([])
+    if (!urlInput.trim()) { setError('카카오맵 URL을 입력하세요'); return }
+    setLoading(true)
+    try {
+      const res = await fetch('/api/platforms/kakao', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'verify', input: urlInput }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setError(data.error || '검증 실패'); return }
+      setPreview({ kakaoId: data.kakaoId, name: data.name, url: data.url })
+    } catch { setError('네트워크 오류') }
+    finally { setLoading(false) }
+  }
+
+  async function handleSearch() {
+    setError(''); setPreview(null); setSearchResults([])
+    if (!searchQ.trim()) { setError('검색어를 입력하세요'); return }
+    setLoading(true)
+    try {
+      const res = await fetch('/api/platforms/kakao', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'search', query: searchQ }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setError(data.error || '검색 실패'); return }
+      setSearchResults(data.items || [])
+    } catch { setError('네트워크 오류') }
+    finally { setLoading(false) }
+  }
+
+  function handleSave() {
+    if (!preview) return
+    if (!selectedStore) { setError('연결할 업체를 선택하세요'); return }
+    onSave({ platform: 'kakao', storeId: selectedStore, externalId: preview.kakaoId, externalName: preview.name, externalUrl: preview.url, linkedAt: new Date().toISOString() })
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center gap-3 p-5 border-b border-[#F2F4F6]">
+          <KakaoLogo size={40} />
+          <div className="flex-1">
+            <h2 className="font-bold text-[#191F28]">카카오맵 연결</h2>
+            <p className="text-xs text-[#8B95A1]">카카오맵에서 매장을 검색하거나 URL을 입력하세요</p>
+          </div>
+          <button onClick={onClose} className="text-[#8B95A1] text-xl">✕</button>
+        </div>
+
+        <div className="p-5 space-y-4">
+          <div>
+            <label className="block text-xs font-bold text-[#4E5968] mb-2">1. 연결할 업체 선택</label>
+            <select value={selectedStore} onChange={e => setSelectedStore(e.target.value)}
+              className="w-full border border-[#E5E8EB] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#F9C706]">
+              {stores.map(s => (
+                <option key={s.id} value={s.id}>{s.name}{s.branch ? ` · ${s.branch}` : ''}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-[#4E5968] mb-2">2. 카카오맵 연결 방식</label>
+            <div className="flex bg-[#F2F4F6] rounded-xl p-1 gap-1 mb-3">
+              {(['search', 'url'] as const).map(m => (
+                <button key={m} onClick={() => { setMode(m); setError(''); setPreview(null); setSearchResults([]) }}
+                  className={['flex-1 py-2 text-xs font-bold rounded-lg transition-all', mode === m ? 'bg-white text-[#191F28] shadow-sm' : 'text-[#8B95A1]'].join(' ')}>
+                  {m === 'search' ? '🔍 매장명 검색' : '🔗 URL 입력'}
+                </button>
+              ))}
+            </div>
+
+            {mode === 'search' ? (
+              <div className="flex gap-2">
+                <input type="text" value={searchQ} onChange={e => setSearchQ(e.target.value)}
+                  onKeyDown={e => e.key === 'Enter' && handleSearch()}
+                  placeholder="예: 하랑마케팅 강남"
+                  className="flex-1 border border-[#E5E8EB] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#F9C706]" />
+                <button onClick={handleSearch} disabled={loading}
+                  className="px-4 py-3 bg-[#F9C706] text-[#3B1E1E] text-sm font-bold rounded-xl hover:bg-[#F0BC00] disabled:bg-[#B0B8C1] disabled:text-white whitespace-nowrap">
+                  {loading ? '검색 중...' : '검색'}
+                </button>
+              </div>
+            ) : (
+              <div className="flex gap-2">
+                <input type="text" value={urlInput} onChange={e => setUrlInput(e.target.value)}
+                  placeholder="https://place.map.kakao.com/1234567890"
+                  className="flex-1 border border-[#E5E8EB] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#F9C706]" />
+                <button onClick={handleVerifyUrl} disabled={loading}
+                  className="px-4 py-3 bg-[#F9C706] text-[#3B1E1E] text-sm font-bold rounded-xl hover:bg-[#F0BC00] disabled:bg-[#B0B8C1] disabled:text-white whitespace-nowrap">
+                  {loading ? '확인 중...' : '검증'}
+                </button>
+              </div>
+            )}
+          </div>
+
+          {error && <div className="bg-[#FFF0F0] border border-[#FFD4D4] rounded-xl p-3 text-xs text-[#F04452]">⚠ {error}</div>}
+
+          {searchResults.length > 0 && (
+            <div className="border border-[#E5E8EB] rounded-xl overflow-hidden">
+              {searchResults.map((r, i) => (
+                <button key={i} onClick={() => { setPreview({ kakaoId: r.kakaoId, name: r.name, url: r.url }); setSearchResults([]) }}
+                  className="w-full text-left px-4 py-3 hover:bg-[#FFFDE7] border-b last:border-b-0 border-[#F2F4F6] transition-colors">
+                  <p className="text-sm font-semibold text-[#191F28]">{r.name}</p>
+                  <p className="text-[11px] text-[#8B95A1]">{r.address}</p>
+                  {r.category && <p className="text-[10px] text-[#8B95A1]">{r.category}</p>}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {preview && (
+            <div className="bg-[#FFFDE7] border border-[#FDD835] rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="w-2 h-2 rounded-full bg-[#F9C706]" />
+                <span className="text-xs font-bold text-[#795548]">검증 완료</span>
+              </div>
+              <p className="text-sm font-bold text-[#191F28]">{preview.name}</p>
+              <div className="flex items-center justify-between mt-2 pt-2 border-t border-[#FDD835]">
+                <span className="text-[10px] text-[#8B95A1]">ID: {preview.kakaoId}</span>
+                <a href={preview.url} target="_blank" rel="noreferrer" className="text-[10px] text-[#795548] font-semibold hover:underline">지도 열기 ↗</a>
+              </div>
+            </div>
+          )}
+
+          <div className="flex gap-2 pt-2">
+            <button onClick={onClose} className="flex-1 py-3 border border-[#E5E8EB] text-[#4E5968] text-sm font-bold rounded-xl hover:bg-[#F8F9FA]">취소</button>
+            <button onClick={handleSave} disabled={!preview}
+              className="flex-1 py-3 bg-[#3182F6] text-white text-sm font-bold rounded-xl hover:bg-[#1B64DA] disabled:bg-[#B0B8C1]">
+              연결 저장
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════
+// 배달 플랫폼 공용 연결 모달 (배달의민족 / 요기요 / 쿠팡이츠)
+// ═══════════════════════════════════════════════════════════
+const DELIVERY_META = {
+  baemin:      { name: '배달의민족', color: '#2AC1BC', logo: BaeminLogo,      placeholder: 'https://baemin.me/매장ID 또는 매장ID 직접 입력', helpUrl: 'https://self.baemin.com' },
+  yogiyo:      { name: '요기요',     color: '#FA0050', logo: YogiyoLogo,      placeholder: 'https://www.yogiyo.co.kr/restaurant/12345 또는 숫자 ID', helpUrl: 'https://ceo.yogiyo.co.kr' },
+  coupangeats: { name: '쿠팡이츠',   color: '#FF4B30', logo: CoupangEatsLogo, placeholder: '쿠팡이츠 스토어 URL 또는 스토어 ID', helpUrl: 'https://store.coupangeats.com' },
+} as const
+
+function DeliveryConnectModal(props: {
+  platform: 'baemin' | 'yogiyo' | 'coupangeats'
+  stores: Store[]
+  selectedStore: string
+  setSelectedStore: (id: string) => void
+  onClose: () => void
+  onSave: (link: PlatformLink) => void
+}) {
+  const { platform, stores, selectedStore, setSelectedStore, onClose, onSave } = props
+  const meta = DELIVERY_META[platform]
+  const Logo = meta.logo
+
+  const [urlInput, setUrlInput] = useState('')
+  const [loading, setLoading]   = useState(false)
+  const [error, setError]       = useState('')
+  const [preview, setPreview]   = useState<{ externalId: string; name: string; url: string } | null>(null)
+
+  async function handleVerify() {
+    setError(''); setPreview(null)
+    if (!urlInput.trim()) { setError(`${meta.name} 매장 URL 또는 ID를 입력하세요`); return }
+    setLoading(true)
+    try {
+      const res = await fetch('/api/platforms/delivery', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ platform, action: 'verify', input: urlInput }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setError(data.error || '검증 실패'); return }
+      setPreview({ externalId: data.externalId, name: data.name, url: data.url })
+    } catch { setError('네트워크 오류') }
+    finally { setLoading(false) }
+  }
+
+  function handleSave() {
+    if (!preview) return
+    if (!selectedStore) { setError('연결할 업체를 선택하세요'); return }
+    onSave({ platform, storeId: selectedStore, externalId: preview.externalId, externalName: preview.name, externalUrl: preview.url, linkedAt: new Date().toISOString() })
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-xl max-w-lg w-full" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center gap-3 p-5 border-b border-[#F2F4F6]">
+          <Logo size={40} />
+          <div className="flex-1">
+            <h2 className="font-bold text-[#191F28]">{meta.name} 연결</h2>
+            <p className="text-xs text-[#8B95A1]">매장 URL 또는 ID를 입력해 연결합니다</p>
+          </div>
+          <button onClick={onClose} className="text-[#8B95A1] text-xl">✕</button>
+        </div>
+
+        <div className="p-5 space-y-4">
+          <div>
+            <label className="block text-xs font-bold text-[#4E5968] mb-2">1. 연결할 업체 선택</label>
+            <select value={selectedStore} onChange={e => setSelectedStore(e.target.value)}
+              className="w-full border border-[#E5E8EB] rounded-xl px-4 py-3 text-sm focus:outline-none"
+              style={{ outlineColor: meta.color }}>
+              {stores.map(s => (
+                <option key={s.id} value={s.id}>{s.name}{s.branch ? ` · ${s.branch}` : ''}</option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label className="block text-xs font-bold text-[#4E5968] mb-2">2. {meta.name} 매장 URL 또는 ID</label>
+            <div className="flex gap-2">
+              <input type="text" value={urlInput} onChange={e => setUrlInput(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleVerify()}
+                placeholder={meta.placeholder}
+                className="flex-1 border border-[#E5E8EB] rounded-xl px-4 py-3 text-sm focus:outline-none" />
+              <button onClick={handleVerify} disabled={loading}
+                className="px-4 py-3 text-white text-sm font-bold rounded-xl disabled:bg-[#B0B8C1] whitespace-nowrap transition-colors"
+                style={{ backgroundColor: loading ? undefined : meta.color }}>
+                {loading ? '확인 중...' : '확인'}
+              </button>
+            </div>
+            <p className="text-[11px] text-[#8B95A1] mt-1.5">
+              <a href={meta.helpUrl} target="_blank" rel="noreferrer" className="text-[#3182F6] hover:underline">
+                {meta.name} 사장님 센터 ↗
+              </a>에서 매장 URL을 복사하세요
+            </p>
+          </div>
+
+          {error && <div className="bg-[#FFF0F0] border border-[#FFD4D4] rounded-xl p-3 text-xs text-[#F04452]">⚠ {error}</div>}
+
+          {preview && (
+            <div className="bg-[#F8FFFE] border rounded-xl p-4" style={{ borderColor: meta.color + '66' }}>
+              <div className="flex items-center gap-2 mb-2">
+                <span className="w-2 h-2 rounded-full" style={{ background: meta.color }} />
+                <span className="text-xs font-bold" style={{ color: meta.color }}>연결 준비 완료</span>
+              </div>
+              <p className="text-sm font-bold text-[#191F28]">{preview.name}</p>
+              <div className="flex items-center justify-between mt-2 pt-2 border-t" style={{ borderColor: meta.color + '33' }}>
+                <span className="text-[10px] text-[#8B95A1]">ID: {preview.externalId}</span>
+                <a href={preview.url} target="_blank" rel="noreferrer" className="text-[10px] font-semibold hover:underline" style={{ color: meta.color }}>매장 열기 ↗</a>
+              </div>
+            </div>
+          )}
+
+          <div className="flex gap-2 pt-2">
+            <button onClick={onClose} className="flex-1 py-3 border border-[#E5E8EB] text-[#4E5968] text-sm font-bold rounded-xl hover:bg-[#F8F9FA]">취소</button>
+            <button onClick={handleSave} disabled={!preview}
+              className="flex-1 py-3 bg-[#3182F6] text-white text-sm font-bold rounded-xl hover:bg-[#1B64DA] disabled:bg-[#B0B8C1]">
               연결 저장
             </button>
           </div>
