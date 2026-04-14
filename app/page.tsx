@@ -289,33 +289,61 @@ export default function Dashboard() {
     try { localStorage.setItem(LS_LINKS, JSON.stringify(next)) } catch (_) {}
   }
 
-  // 연동된 구글 매장 데이터 → STORE 카드 반영
-  const googleLink = links.find(l => l.platform === 'google')
-  const STORE = googleLink ? {
-    name: googleLink.name,
-    initial: googleLink.name?.[0] || 'G',
-    category: googleLink.category || '구글 연동 매장',
-    address: googleLink.address,
-    rating: googleLink.rating ?? 0,
-    reviewCount: googleLink.reviewCount,
-    keywords: ['구글', '연동완료'],
-    gradientFrom: '#4285F4',
-    gradientTo: '#1A73E8',
+  // 연동된 플랫폼 중 대표 매장 선택 (우선순위: 구글 > 네이버 > 배민 > 요기요 > 쿠팡)
+  const PLATFORM_PRIORITY = ['google', 'naver', 'baemin', 'yogiyo', 'coupang']
+  const PLATFORM_COLORS: Record<string, { from: string; to: string; label: string }> = {
+    google:  { from: '#4285F4', to: '#1A73E8', label: '구글' },
+    naver:   { from: '#03C75A', to: '#019A44', label: '네이버' },
+    baemin:  { from: '#2AC1BC', to: '#1A9994', label: '배민' },
+    yogiyo:  { from: '#FA3C00', to: '#C83000', label: '요기요' },
+    coupang: { from: '#C00000', to: '#900000', label: '쿠팡이츠' },
+  }
+  const primaryLink = PLATFORM_PRIORITY.map(p => links.find(l => l.platform === p)).find(Boolean) || null
+  const googleLink  = links.find(l => l.platform === 'google')
+  const naverLink   = links.find(l => l.platform === 'naver')
+  const pc = primaryLink ? PLATFORM_COLORS[primaryLink.platform] : null
+
+  const STORE = primaryLink ? {
+    name: primaryLink.name,
+    initial: primaryLink.name?.[0] || '매',
+    category: (primaryLink as any).category || (pc?.label + ' 연동 매장'),
+    address: (primaryLink as any).address || '',
+    rating: primaryLink.rating ?? 0,
+    reviewCount: primaryLink.reviewCount,
+    keywords: [pc?.label || '', '연동완료'].filter(Boolean),
+    gradientFrom: pc?.from || '#8B95A1',
+    gradientTo:   pc?.to   || '#4E5968',
+    platformLabel: pc?.label || '',
   } : {
     name: '내 매장',
     initial: '매',
     category: '플랫폼을 연동해 주세요',
-    address: '아래에서 구글 매장을 연동하면 실데이터가 표시됩니다',
+    address: '아래에서 매장을 연동하면 실데이터가 표시됩니다',
     rating: 0,
     reviewCount: 0,
     keywords: ['연동대기'],
     gradientFrom: '#8B95A1',
     gradientTo: '#4E5968',
+    platformLabel: '',
   }
 
-  const STATS = googleLink ? [
-    { label: '구글 평점', value: String(googleLink.rating ?? 0), unit: '점', delta: '실시간', up: true, color: '#4285F4' },
-    { label: '구글 리뷰수', value: googleLink.reviewCount.toLocaleString(), unit: '개', delta: '실데이터', up: true, color: '#F59E0B' },
+  // 통합 리뷰 수 집계
+  const totalReviews  = links.reduce((sum, l) => sum + (l.reviewCount || 0), 0)
+  const avgRating     = links.filter(l => l.rating).length
+    ? (links.filter(l => l.rating).reduce((s, l) => s + (l.rating ?? 0), 0) / links.filter(l => l.rating).length).toFixed(1)
+    : '0'
+
+  const STATS = primaryLink ? [
+    {
+      label: `${STORE.platformLabel} 평점`,
+      value: String(primaryLink.rating ?? 0), unit: '점', delta: '실시간', up: true,
+      color: pc?.from || '#3182F6',
+    },
+    {
+      label: '통합 리뷰수',
+      value: totalReviews.toLocaleString(), unit: '개', delta: '전플랫폼', up: true,
+      color: '#F59E0B',
+    },
     { label: '이번 주 리뷰', value: '8', unit: '건', delta: '+2', up: true, color: '#10B981' },
     { label: '답변률', value: '84', unit: '%', delta: '-3', up: false, color: '#8B5CF6' },
   ] : [
@@ -365,8 +393,17 @@ export default function Dashboard() {
             <div className="flex-1 min-w-0">
               <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-lg font-bold text-[#191F28]">{STORE.name}</h2>
-                {googleLink
-                  ? <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-semibold">구글 연동됨</span>
+                {links.length > 0
+                  ? links.map(l => {
+                      const lpc = PLATFORM_COLORS[l.platform]
+                      return (
+                        <span key={l.platform}
+                          className="text-xs px-2 py-0.5 rounded-full font-semibold"
+                          style={{ background: lpc?.from + '20', color: lpc?.from }}>
+                          {lpc?.label} 연동됨
+                        </span>
+                      )
+                    })
                   : <span className="text-xs px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700 font-semibold">미연동</span>
                 }
               </div>
@@ -384,12 +421,12 @@ export default function Dashboard() {
                 ))}
               </div>
             </div>
-            {googleLink && (
+            {primaryLink && (
               <button
-                onClick={() => removeLink('google')}
+                onClick={() => removeLink(primaryLink.platform)}
                 className="flex-shrink-0 text-xs text-[#8B95A1] hover:text-red-500 transition-colors hidden sm:block"
               >
-                연동해제
+                {PLATFORM_COLORS[primaryLink.platform]?.label} 해제
               </button>
             )}
           </div>
@@ -398,8 +435,23 @@ export default function Dashboard() {
         {/* ──────────── 플랫폼 연동 현황 ──────────── */}
         <div className="bg-white rounded-2xl p-5 shadow-sm mb-6 border border-[#E5E8EB]">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="font-bold text-[#191F28] text-sm">플랫폼 연동 현황</h3>
-            <span className="text-xs text-[#8B95A1]">{links.length}/5 연동됨</span>
+            <div>
+              <h3 className="font-bold text-[#191F28] text-sm">플랫폼 연동 현황</h3>
+              <p className="text-xs text-[#8B95A1] mt-0.5">
+                {links.length > 0
+                  ? links.map(l => PLATFORM_DEFS.find(p => p.key === l.platform)?.label || l.platform).join(' · ') + ' 연동됨'
+                  : '연동된 플랫폼이 없습니다'}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              {links.length > 0 && (
+                <div className="flex items-center gap-1.5 bg-green-50 border border-green-200 rounded-xl px-3 py-1.5">
+                  <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse" />
+                  <span className="text-xs font-bold text-green-700">{links.length}개 연결됨</span>
+                </div>
+              )}
+              <span className="text-xs text-[#B0B8C1]">{links.length}/5</span>
+            </div>
           </div>
           <div className="grid grid-cols-5 gap-2">
             {PLATFORM_DEFS.map(p => {
@@ -412,7 +464,7 @@ export default function Dashboard() {
                   disabled={!p.active}
                   className={`relative flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all ${
                     linked
-                      ? 'border-green-400 bg-green-50'
+                      ? 'border-green-400 bg-green-50 shadow-sm'
                       : p.active
                         ? 'border-[#E5E8EB] hover:border-[#3182F6] hover:bg-[#EFF6FF] cursor-pointer'
                         : 'border-[#E5E8EB] bg-[#F8F9FA] cursor-not-allowed opacity-60'
@@ -424,19 +476,54 @@ export default function Dashboard() {
                     </span>
                   )}
                   <div
-                    className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-black"
-                    style={{ background: linked ? '#22C55E' : p.active ? p.color : '#B0B8C1' }}
+                    className="w-9 h-9 rounded-xl flex items-center justify-center text-white text-sm font-black shadow-sm"
+                    style={{ background: linked ? p.color : p.active ? p.color : '#B0B8C1', opacity: linked ? 1 : p.active ? 0.85 : 1 }}
                   >
                     {linked ? '✓' : p.label[0]}
                   </div>
-                  <span className="text-[11px] font-semibold text-[#191F28]">{p.label}</span>
-                  <span className={`text-[10px] font-medium ${linked ? 'text-green-600' : p.active ? 'text-[#3182F6]' : 'text-[#B0B8C1]'}`}>
-                    {linked ? '연결됨' : p.active ? '연결하기' : '준비중'}
-                  </span>
+                  <span className="text-[11px] font-bold text-[#191F28]">{p.label}</span>
+                  {linked ? (
+                    <div className="flex flex-col items-center gap-0.5">
+                      <span className="text-[10px] font-bold text-green-600">연동됨</span>
+                      <button
+                        onClick={e => { e.stopPropagation(); removeLink(p.key) }}
+                        className="text-[9px] text-[#B0B8C1] hover:text-red-500 transition-colors"
+                      >
+                        해제
+                      </button>
+                    </div>
+                  ) : (
+                    <span className={`text-[10px] font-medium ${p.active ? 'text-[#3182F6]' : 'text-[#B0B8C1]'}`}>
+                      {p.active ? '연결하기' : '준비중'}
+                    </span>
+                  )}
                 </button>
               )
             })}
           </div>
+          {/* 연동된 매장 정보 요약 */}
+          {links.length > 0 && (
+            <div className="mt-4 pt-4 border-t border-[#F2F4F6] flex flex-wrap gap-3">
+              {links.map(l => {
+                const pm = PLATFORM_DEFS.find(p => p.key === l.platform)
+                return (
+                  <div key={l.platform} className="flex items-center gap-2 bg-[#F8F9FA] rounded-xl px-3 py-2">
+                    <div className="w-5 h-5 rounded-md flex items-center justify-center text-white text-[10px] font-black"
+                      style={{ background: pm?.color }}>
+                      {pm?.label?.[0]}
+                    </div>
+                    <span className="text-xs font-semibold text-[#191F28]">{l.name}</span>
+                    {l.rating != null && l.rating > 0 && (
+                      <span className="text-xs text-[#8B95A1]">★{l.rating}</span>
+                    )}
+                    {l.reviewCount > 0 && (
+                      <span className="text-[10px] text-[#B0B8C1]">리뷰 {l.reviewCount.toLocaleString()}</span>
+                    )}
+                  </div>
+                )
+              })}
+            </div>
+          )}
         </div>
 
         {/* ──────────── 헤더 ──────────── */}
