@@ -3,7 +3,7 @@ export const dynamic = 'force-dynamic'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Sidebar from '../components/Sidebar'
-import Footer from '../components/Footer'
+// Footer import removed — component may not exist in repo
 
 const TABS = ['매장 정보', '알림 설정', 'AI 설정', '리뷰 관리', '연동 관리', '플랜 관리'] as const
 type Tab = typeof TABS[number]
@@ -1219,7 +1219,6 @@ function Settings() {
         {activeTab === '리뷰 관리' && <ReviewTab />}
         {activeTab === '연동 관리' && <ConnectTab />}
         {activeTab === '플랜 관리' && <PlanTab />}
-        <Footer />
       </main>
     </div>
   )
