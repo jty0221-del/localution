@@ -11,7 +11,7 @@ const LINKS = [
   { href: '/customers', label: '고객 관리', short: '고객', bg: '#ECFDF5', color: '#059669' },
   { href: '/community', label: '커뮤니티', short: '커뮤', bg: '#FDF2F8', color: '#EC4899' },
     { href: '/inquiry', label: '1:1 문의', short: '문의', bg: '#FFF7ED', color: '#EA580C' },
-      { href: '/settings', label: '설정', short: '설정', bg: '#F2F4F6', color: '#4E5968' },
+        { href: '/settings', label: '설정', short: '설정', bg: '#F2F4F6', color: '#4E5968' },
 ]
 
 export default function QuickSlot() {
