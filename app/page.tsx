@@ -29,7 +29,7 @@ const REVIEWS = [
 
 const PLATFORM_DEFS = [
   { key: 'google',  label: '구글',  color: '#4285F4', bg: '#EBF3FE', active: true  },
-  { key: 'naver',   label: '네이버', color: '#03C75A', bg: '#E8FBF0', active: false },
+  { key: 'naver',   label: '네이버', color: '#03C75A', bg: '#E8FBF0', active: true  },
   { key: 'kakao',   label: '카카오', color: '#F9D64F', bg: '#FFFDE7', active: false },
   { key: 'baemin',  label: '배민',   color: '#2AC1BC', bg: '#E6F9F8', active: false },
   { key: 'yogiyo',  label: '요기요', color: '#FA3C00', bg: '#FEF0EB', active: false },
@@ -67,11 +67,17 @@ function PlatformBadge({ name }: { name: string }) {
 }
 
 // ── ConnectModal ────────────────────────────────────────────────
+const MODAL_CONFIG: Record<string, { title: string; placeholder: string; accent: string; icon: string }> = {
+  google: { title: '구글 매장 연동', placeholder: '예) 스타벅스 강남점 또는 maps.google.com/...', accent: '#4285F4', icon: 'G' },
+  naver:  { title: '네이버 플레이스 연동', placeholder: '예) map.naver.com/p/entry/place/1234567890', accent: '#03C75A', icon: 'N' },
+}
+
 function ConnectModal({ platformKey, onClose, onSave }: {
   platformKey: string
   onClose: () => void
   onSave: (data: LinkedPlatform) => void
 }) {
+  const cfg = MODAL_CONFIG[platformKey] || MODAL_CONFIG['google']
   const [input, setInput] = useState('')
   const [status, setStatus] = useState<'idle' | 'loading' | 'error' | 'success'>('idle')
   const [errorMsg, setErrorMsg] = useState('')
@@ -85,7 +91,8 @@ function ConnectModal({ platformKey, onClose, onSave }: {
     setStatus('loading')
     setErrorMsg('')
     try {
-      const res = await fetch('/api/platforms/google', {
+      const endpoint = `/api/platforms/${platformKey}`
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ action: 'verify', input: input.trim() }),
@@ -96,7 +103,17 @@ function ConnectModal({ platformKey, onClose, onSave }: {
         setErrorMsg(data.error || '검증 실패. 다시 시도해 주세요.')
         return
       }
-      setResult(data as LinkedPlatform)
+      // naver 응답 정규화
+      const normalized: LinkedPlatform = platformKey === 'naver' ? {
+        platform: 'naver',
+        placeId: data.placeId || '',
+        name: data.name || input.trim(),
+        address: data.desc || '',
+        rating: null,
+        reviewCount: 0,
+        url: data.url || `https://m.place.naver.com/place/${data.placeId}/home`,
+      } : { ...data, platform: 'google' }
+      setResult(normalized)
       setStatus('success')
     } catch (e) {
       setStatus('error')
@@ -115,11 +132,16 @@ function ConnectModal({ platformKey, onClose, onSave }: {
         onClick={e => e.stopPropagation()}
       >
         <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-bold text-[#191F28]">구글 매장 연동</h2>
+          <h2 className="text-lg font-bold text-[#191F28]">{cfg.title}</h2>
           <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[#F2F4F6] text-[#8B95A1] text-lg font-bold">✕</button>
         </div>
 
-        <p className="text-sm text-[#4E5968] mb-4">구글 맵 URL 또는 매장명을 입력하세요.</p>
+        {platformKey === 'naver' && (
+          <div className="mb-4 p-3 bg-[#F0FDF4] border border-green-200 rounded-xl text-xs text-green-700">
+            네이버 플레이스 URL을 붙여넣으세요.<br/>
+            예) <span className="font-mono">map.naver.com/p/entry/place/1234567890</span>
+          </div>
+        )}
 
         <div className="flex gap-2 mb-4">
           <input
@@ -127,13 +149,14 @@ function ConnectModal({ platformKey, onClose, onSave }: {
             value={input}
             onChange={e => setInput(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && handleVerify()}
-            placeholder="예) 스타벅스 강남점 또는 maps.google.com/..."
+            placeholder={cfg.placeholder}
             className="flex-1 border border-[#E5E8EB] rounded-xl px-4 py-2.5 text-sm outline-none focus:border-[#3182F6] transition-colors"
           />
           <button
             onClick={handleVerify}
             disabled={status === 'loading'}
-            className="px-4 py-2.5 bg-[#3182F6] text-white text-sm font-semibold rounded-xl hover:bg-[#1B64DA] disabled:opacity-50 transition-colors whitespace-nowrap"
+            className="px-4 py-2.5 text-white text-sm font-semibold rounded-xl disabled:opacity-50 transition-colors whitespace-nowrap"
+            style={{ background: cfg.accent }}
           >
             {status === 'loading' ? '검색중...' : '검증'}
           </button>
@@ -146,10 +169,13 @@ function ConnectModal({ platformKey, onClose, onSave }: {
         {status === 'success' && result && (
           <div className="mb-4 p-4 bg-[#F0F9FF] border border-[#BAE6FD] rounded-xl">
             <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-xl bg-[#4285F4] flex items-center justify-center text-white font-black text-sm flex-shrink-0">G</div>
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-black text-sm flex-shrink-0"
+                style={{ background: cfg.accent }}>
+                {cfg.icon}
+              </div>
               <div className="flex-1 min-w-0">
                 <p className="font-bold text-[#191F28] text-sm">{result.name}</p>
-                <p className="text-xs text-[#4E5968] mt-0.5 truncate">{result.address}</p>
+                {result.address && <p className="text-xs text-[#4E5968] mt-0.5 truncate">{result.address}</p>}
                 {result.rating != null && (
                   <div className="flex items-center gap-1.5 mt-1.5">
                     <Stars rating={Math.round(result.rating)} />
@@ -168,7 +194,8 @@ function ConnectModal({ platformKey, onClose, onSave }: {
           {status === 'success' && (
             <button
               onClick={handleSave}
-              className="px-5 py-2 bg-[#3182F6] text-white text-sm font-semibold rounded-xl hover:bg-[#1B64DA] transition-colors"
+              className="px-5 py-2 text-white text-sm font-semibold rounded-xl transition-colors"
+              style={{ background: cfg.accent }}
             >
               연동 저장
             </button>
