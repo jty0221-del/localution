@@ -68,9 +68,10 @@ function PlatformBadge({ name }: { name: string }) {
   return <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${map[name] || 'bg-gray-100 text-gray-600'}`}>{name}</span>
 }
 
+
 // ── ConnectModal ────────────────────────────────────────────────
 const MODAL_CONFIG: Record<string, { title: string; placeholder: string; accent: string; icon: string }> = {
-  google: { title: '구글 매장 연동', placeholder: '예) 스타벅스 강남점 또는 maps.google.com/...', accent: '#4285F4', icon: 'G' },
+  google: { title: '구글 매장 연동', placeholder: '매장명 검색 또는 Google Maps URL 붙여넣기', accent: '#4285F4', icon: 'G' },
   naver:  { title: '네이버 플레이스 연동', placeholder: '예) map.naver.com/p/entry/place/1234567890', accent: '#03C75A', icon: 'N' },
 }
 
@@ -81,45 +82,117 @@ function ConnectModal({ platformKey, onClose, onSave }: {
 }) {
   const cfg = MODAL_CONFIG[platformKey] || MODAL_CONFIG['google']
   const [input, setInput] = useState('')
-  const [status, setStatus] = useState<'idle' | 'loading' | 'error' | 'success'>('idle')
+  const [status, setStatus] = useState<'idle' | 'loading' | 'error' | 'success' | 'list'>('idle')
   const [errorMsg, setErrorMsg] = useState('')
   const [result, setResult] = useState<LinkedPlatform | null>(null)
+  const [searchList, setSearchList] = useState<any[]>([])
   const inputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => { inputRef.current?.focus() }, [])
+
+  // URL 여부 판별
+  function isUrl(s: string) {
+    return /^https?://|maps.google|goo.gl/maps|ChIJ[A-Za-z0-9_\-]{10}/.test(s.trim())
+  }
 
   async function handleVerify() {
     if (!input.trim()) return
     setStatus('loading')
     setErrorMsg('')
+    setSearchList([])
+    setResult(null)
+
     try {
-      const endpoint = `/api/platforms/${platformKey}`
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'verify', input: input.trim() }),
-      })
-      const data = await res.json()
-      if (!res.ok || data.error) {
-        setStatus('error')
-        setErrorMsg(data.error || '검증 실패. 다시 시도해 주세요.')
-        return
+      if (platformKey === 'google' && !isUrl(input)) {
+        // ── 매장명 검색 → 리스트 표시 ──
+        const res = await fetch('/api/platforms/google', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'search', query: input.trim() }),
+        })
+        const data = await res.json()
+        if (!res.ok || data.error) {
+          setStatus('error')
+          setErrorMsg(data.error || '검색 실패. 다시 시도해 주세요.')
+          return
+        }
+        if (!data.items || data.items.length === 0) {
+          setStatus('error')
+          setErrorMsg('검색 결과가 없습니다. 다른 검색어를 입력해 보세요.')
+          return
+        }
+        setSearchList(data.items)
+        setStatus('list')
+      } else {
+        // ── URL 입력 → verify ──
+        const endpoint = `/api/platforms/${platformKey}`
+        const res = await fetch(endpoint, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'verify', input: input.trim() }),
+        })
+        const data = await res.json()
+        if (!res.ok || data.error) {
+          setStatus('error')
+          setErrorMsg(data.error || '검증 실패. 다시 시도해 주세요.')
+          return
+        }
+        const normalized: LinkedPlatform = platformKey === 'naver' ? {
+          platform: 'naver',
+          placeId: data.placeId || '',
+          name: data.name || input.trim(),
+          address: data.desc || '',
+          rating: null,
+          reviewCount: 0,
+          url: data.url || `https://m.place.naver.com/place/${data.placeId}/home`,
+        } : { ...data, platform: 'google' }
+        setResult(normalized)
+        setStatus('success')
       }
-      // naver 응답 정규화
-      const normalized: LinkedPlatform = platformKey === 'naver' ? {
-        platform: 'naver',
-        placeId: data.placeId || '',
-        name: data.name || input.trim(),
-        address: data.desc || '',
-        rating: null,
-        reviewCount: 0,
-        url: data.url || `https://m.place.naver.com/place/${data.placeId}/home`,
-      } : { ...data, platform: 'google' }
-      setResult(normalized)
-      setStatus('success')
     } catch (e) {
       setStatus('error')
       setErrorMsg('네트워크 오류. 다시 시도해 주세요.')
+    }
+  }
+
+  // 검색 리스트에서 업체 선택
+  async function selectFromList(item: any) {
+    setStatus('loading')
+    setSearchList([])
+    try {
+      const res = await fetch('/api/platforms/google', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'verify', input: item.placeId }),
+      })
+      const data = await res.json()
+      if (!res.ok || data.error) {
+        // verify 실패해도 검색 결과 데이터로 결과 표시
+        setResult({
+          platform: 'google',
+          placeId: item.placeId,
+          name: item.name,
+          address: item.address || '',
+          rating: item.rating || null,
+          reviewCount: item.reviewCount || 0,
+          url: item.url || `https://www.google.com/maps/place/?q=place_id:${item.placeId}`,
+        })
+        setStatus('success')
+        return
+      }
+      setResult({ ...data, platform: 'google' })
+      setStatus('success')
+    } catch {
+      setResult({
+        platform: 'google',
+        placeId: item.placeId,
+        name: item.name,
+        address: item.address || '',
+        rating: item.rating || null,
+        reviewCount: item.reviewCount || 0,
+        url: item.url || `https://www.google.com/maps/place/?q=place_id:${item.placeId}`,
+      })
+      setStatus('success')
     }
   }
 
@@ -130,78 +203,132 @@ function ConnectModal({ platformKey, onClose, onSave }: {
   return (
     <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div
-        className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6"
+        className="bg-white rounded-2xl shadow-2xl w-full max-w-md"
+        style={{ maxHeight: '90vh', overflowY: 'auto' }}
         onClick={e => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between mb-5">
-          <h2 className="text-lg font-bold text-[#191F28]">{cfg.title}</h2>
-          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[#F2F4F6] text-[#8B95A1] text-lg font-bold">✕</button>
-        </div>
-
-        {platformKey === 'naver' && (
-          <div className="mb-4 p-3 bg-[#F0FDF4] border border-green-200 rounded-xl text-xs text-green-700">
-            네이버 플레이스 URL을 붙여넣으세요.<br/>
-            예) <span className="font-mono">map.naver.com/p/entry/place/1234567890</span>
+        <div className="p-6">
+          <div className="flex items-center justify-between mb-5">
+            <h2 className="text-lg font-bold text-[#191F28]">{cfg.title}</h2>
+            <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-full hover:bg-[#F2F4F6] text-[#8B95A1] text-lg font-bold">✕</button>
           </div>
-        )}
 
-        <div className="flex gap-2 mb-4">
-          <input
-            ref={inputRef}
-            value={input}
-            onChange={e => setInput(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleVerify()}
-            placeholder={cfg.placeholder}
-            className="flex-1 border border-[#E5E8EB] rounded-xl px-4 py-2.5 text-sm outline-none focus:border-[#3182F6] transition-colors"
-          />
-          <button
-            onClick={handleVerify}
-            disabled={status === 'loading'}
-            className="px-4 py-2.5 text-white text-sm font-semibold rounded-xl disabled:opacity-50 transition-colors whitespace-nowrap"
-            style={{ background: cfg.accent }}
-          >
-            {status === 'loading' ? '검색중...' : '검증'}
-          </button>
-        </div>
-
-        {status === 'error' && (
-          <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-600">{errorMsg}</div>
-        )}
-
-        {status === 'success' && result && (
-          <div className="mb-4 p-4 bg-[#F0F9FF] border border-[#BAE6FD] rounded-xl">
-            <div className="flex items-start gap-3">
-              <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-black text-sm flex-shrink-0"
-                style={{ background: cfg.accent }}>
-                {cfg.icon}
-              </div>
-              <div className="flex-1 min-w-0">
-                <p className="font-bold text-[#191F28] text-sm">{result.name}</p>
-                {result.address && <p className="text-xs text-[#4E5968] mt-0.5 truncate">{result.address}</p>}
-                {result.rating != null && (
-                  <div className="flex items-center gap-1.5 mt-1.5">
-                    <Stars rating={Math.round(result.rating)} />
-                    <span className="text-xs font-bold text-[#191F28]">{result.rating}</span>
-                    <span className="text-xs text-[#8B95A1]">리뷰 {result.reviewCount.toLocaleString()}개</span>
-                  </div>
-                )}
-              </div>
-              <span className="text-green-600 text-lg flex-shrink-0">✓</span>
+          {platformKey === 'naver' && (
+            <div className="mb-4 p-3 bg-[#F0FDF4] border border-green-200 rounded-xl text-xs text-green-700">
+              네이버 플레이스 URL을 붙여넣으세요.<br/>
+              예) <span className="font-mono">map.naver.com/p/entry/place/1234567890</span>
             </div>
-          </div>
-        )}
+          )}
 
-        <div className="flex gap-2 justify-end">
-          <button onClick={onClose} className="px-4 py-2 text-sm text-[#8B95A1] hover:text-[#4E5968] font-medium">취소</button>
-          {status === 'success' && (
+          {platformKey === 'google' && status === 'idle' && (
+            <div className="mb-4 p-3 bg-[#EFF6FF] border border-[#DBEAFE] rounded-xl text-xs text-[#3367D6]">
+              💡 <strong>매장명으로 검색</strong>하면 유사 업체 목록에서 직접 선택할 수 있어요.<br/>
+              Google Maps URL을 붙여넣으면 바로 검증됩니다.
+            </div>
+          )}
+
+          <div className="flex gap-2 mb-4">
+            <input
+              ref={inputRef}
+              value={input}
+              onChange={e => { setInput(e.target.value); if (status !== 'idle') { setStatus('idle'); setSearchList([]); setResult(null); } }}
+              onKeyDown={e => e.key === 'Enter' && handleVerify()}
+              placeholder={cfg.placeholder}
+              className="flex-1 border border-[#E5E8EB] rounded-xl px-4 py-2.5 text-sm outline-none focus:border-[#3182F6] transition-colors"
+            />
             <button
-              onClick={handleSave}
-              className="px-5 py-2 text-white text-sm font-semibold rounded-xl transition-colors"
+              onClick={handleVerify}
+              disabled={status === 'loading'}
+              className="px-4 py-2.5 text-white text-sm font-semibold rounded-xl disabled:opacity-50 transition-colors whitespace-nowrap"
               style={{ background: cfg.accent }}
             >
-              연동 저장
+              {status === 'loading' ? '검색중...' : platformKey === 'google' && !isUrl(input) ? '검색' : '검증'}
             </button>
+          </div>
+
+          {status === 'error' && (
+            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-600">{errorMsg}</div>
           )}
+
+          {/* 검색 결과 리스트 */}
+          {status === 'list' && searchList.length > 0 && (
+            <div className="mb-4">
+              <p className="text-xs font-bold text-[#4E5968] mb-2">
+                🔍 검색 결과 {searchList.length}개 — 연동할 업체를 선택하세요
+              </p>
+              <div className="border border-[#E5E8EB] rounded-xl overflow-hidden divide-y divide-[#F2F4F6]">
+                {searchList.map((item, i) => (
+                  <button
+                    key={i}
+                    onClick={() => selectFromList(item)}
+                    className="w-full text-left px-4 py-3 hover:bg-[#EFF6FF] transition-colors"
+                  >
+                    <div className="flex items-start gap-3">
+                      <div
+                        className="w-7 h-7 rounded-lg flex items-center justify-center text-white font-black text-xs flex-shrink-0 mt-0.5"
+                        style={{ background: cfg.accent }}
+                      >G</div>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-sm font-semibold text-[#191F28] leading-snug">{item.name}</p>
+                        {item.address && (
+                          <p className="text-[11px] text-[#8B95A1] mt-0.5 leading-relaxed">{item.address}</p>
+                        )}
+                        {item.rating && (
+                          <p className="text-[11px] text-[#F5A623] mt-0.5">
+                            ★ {item.rating} <span className="text-[#B0B8C1]">({(item.reviewCount || 0).toLocaleString()}개 리뷰)</span>
+                          </p>
+                        )}
+                      </div>
+                      <span className="text-[#3182F6] text-xs font-semibold flex-shrink-0 mt-1">선택 →</span>
+                    </div>
+                  </button>
+                ))}
+              </div>
+              <p className="text-[10px] text-[#B0B8C1] mt-2 text-center">원하는 업체가 없으면 더 자세한 이름으로 다시 검색해 보세요</p>
+            </div>
+          )}
+
+          {status === 'success' && result && (
+            <div className="mb-4 p-4 bg-[#F0F9FF] border border-[#BAE6FD] rounded-xl">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-black text-sm flex-shrink-0"
+                  style={{ background: cfg.accent }}>
+                  {cfg.icon}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-bold text-[#191F28] text-sm">{result.name}</p>
+                  {result.address && <p className="text-xs text-[#4E5968] mt-0.5 truncate">{result.address}</p>}
+                  {result.rating != null && (
+                    <div className="flex items-center gap-1.5 mt-1.5">
+                      <Stars rating={Math.round(result.rating)} />
+                      <span className="text-xs font-bold text-[#191F28]">{result.rating}</span>
+                      <span className="text-xs text-[#8B95A1]">리뷰 {result.reviewCount.toLocaleString()}개</span>
+                    </div>
+                  )}
+                </div>
+                <span className="text-green-600 text-lg flex-shrink-0">✓</span>
+              </div>
+              <button
+                onClick={() => { setStatus('idle'); setResult(null); setInput(''); }}
+                className="mt-3 w-full text-[11px] text-[#8B95A1] hover:text-[#4E5968] text-center"
+              >
+                다른 업체 선택하기
+              </button>
+            </div>
+          )}
+
+          <div className="flex gap-2 justify-end">
+            <button onClick={onClose} className="px-4 py-2 text-sm text-[#8B95A1] hover:text-[#4E5968] font-medium">취소</button>
+            {status === 'success' && (
+              <button
+                onClick={handleSave}
+                className="px-5 py-2 text-white text-sm font-semibold rounded-xl transition-colors"
+                style={{ background: cfg.accent }}
+              >
+                연동 저장
+              </button>
+            )}
+          </div>
         </div>
       </div>
     </div>
