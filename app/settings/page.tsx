@@ -38,6 +38,9 @@ function StoreTab() {
     address: '서울시 마포구 합정동 123-4',
     naverUrl: '',
     desc: '',
+    region: '',
+    strengths: '',
+    ownerMindset: '',
   })
   const [keywords, setKeywords] = useState<string[]>([])
   const [kwInput, setKwInput] = useState('')
