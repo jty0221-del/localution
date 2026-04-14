@@ -137,6 +137,7 @@ export default function ReviewAdmin() {
   const [filterReplied, setFilterReplied] = useState<'all' | 'pending' | 'done'>('all')
   const [scheduled, setScheduled] = useState<ScheduledReply[]>([])
   const [, forceUpdate] = useState(0)
+  const [syncToast, setSyncToast] = useState(false)
 
   // localStorage 초기 로드
   useEffect(() => {
@@ -149,8 +150,31 @@ export default function ReviewAdmin() {
     } catch (_) {}
 
     try {
-      const rawS = localStorage.getItem(LS_SETTINGS)
-      if (rawS) setSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(rawS) })
+      let savedSettings: Partial<StoreSettings> = {}
+      try {
+        const rawS = localStorage.getItem(LS_SETTINGS)
+        if (rawS) savedSettings = JSON.parse(rawS)
+      } catch {}
+
+      // 글로벌 매장 설정(localution_store)에서 빈 필드 자동 채우기
+      let gs: any = {}
+      try {
+        const sg = localStorage.getItem('localution_store')
+        if (sg) gs = JSON.parse(sg)
+      } catch {}
+
+      setSettings({
+        ...DEFAULT_SETTINGS,
+        ...savedSettings,
+        storeName:     savedSettings.storeName     || gs.name        || '',
+        bizType:       savedSettings.bizType       || gs.category    || '',
+        region:        savedSettings.region        || gs.region      || (gs.address || '').split(' ').slice(0, 2).join(' '),
+        mainKeyword:   savedSettings.mainKeyword   || gs.mainKeyword || '',
+        subKeywords:   savedSettings.subKeywords   || gs.subKeywords || '',
+        storeDesc:     savedSettings.storeDesc     || gs.desc        || '',
+        storeStrengths:savedSettings.storeStrengths|| gs.strengths   || '',
+        ownerMindset:  savedSettings.ownerMindset  || gs.ownerMindset|| '',
+      })
     } catch (_) {}
 
     try {
@@ -180,6 +204,35 @@ export default function ReviewAdmin() {
       localStorage.setItem(LS_SETTINGS, JSON.stringify(next))
       return next
     })
+  }
+
+  // 글로벌 매장 설정 → 리뷰 어드민 AI 설정 전체 동기화
+  function syncFromStore() {
+    try {
+      const raw = localStorage.getItem('localution_store')
+      if (!raw) {
+        alert('글로벌 설정에 매장 정보가 없습니다.\n설정 → 매장 정보 탭에서 먼저 입력해주세요.')
+        return
+      }
+      const gs = JSON.parse(raw)
+      setSettings(prev => {
+        const next: StoreSettings = {
+          ...prev,
+          storeName:      gs.name        || prev.storeName,
+          bizType:        gs.category    || prev.bizType,
+          region:         gs.region      || (gs.address || '').split(' ').slice(0, 2).join(' ') || prev.region,
+          mainKeyword:    gs.mainKeyword || prev.mainKeyword,
+          subKeywords:    gs.subKeywords || prev.subKeywords,
+          storeDesc:      gs.desc        || prev.storeDesc,
+          storeStrengths: gs.strengths   || prev.storeStrengths,
+          ownerMindset:   gs.ownerMindset|| prev.ownerMindset,
+        }
+        localStorage.setItem(LS_SETTINGS, JSON.stringify(next))
+        return next
+      })
+      setSyncToast(true)
+      setTimeout(() => setSyncToast(false), 2500)
+    } catch {}
   }
 
   // 리뷰 불러오기
@@ -361,8 +414,18 @@ export default function ReviewAdmin() {
         {showSettings && links.length > 0 && (
           <div className="bg-white rounded-2xl shadow-sm border border-[#E5E8EB] mb-5 overflow-hidden">
             <div className="p-5 border-b border-[#F2F4F6]">
-              <h2 className="font-bold text-[#191F28] text-sm">⚙️ AI 답글 설정</h2>
-              <p className="text-xs text-[#8B95A1] mt-0.5">여기서 설정한 내용을 기반으로 모든 리뷰 답글이 생성됩니다</p>
+              <div className="flex items-center justify-between">
+                <div>
+                  <h2 className="font-bold text-[#191F28] text-sm">⚙️ AI 답글 설정</h2>
+                  <p className="text-xs text-[#8B95A1] mt-0.5">여기서 설정한 내용을 기반으로 모든 리뷰 답글이 생성됩니다</p>
+                </div>
+                <button
+                  onClick={syncFromStore}
+                  className="flex items-center gap-1.5 px-3 py-1.5 bg-[#EFF6FF] text-[#3182F6] rounded-xl text-xs font-semibold hover:bg-[#DBEAFE] transition-colors border border-[#BFDBFE]"
+                >
+                  <span>🔄</span> 매장 설정 불러오기
+                </button>
+              </div>
             </div>
 
             <div className="p-5 space-y-5">
