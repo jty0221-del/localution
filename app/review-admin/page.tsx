@@ -10,12 +10,38 @@ const LS_LINKS     = 'localution.platform_links'
 const LS_SETTINGS  = 'localution.review_settings'
 const LS_SCHEDULED = 'localution.scheduled_replies'
 
-const PLATFORM_META: Record<string, { label: string; color: string; bg: string; textColor: string; icon: string }> = {
-  google: { label: '구글',    color: '#4285F4', bg: '#EBF3FE', textColor: '#1A56B0', icon: 'G' },
-  naver:  { label: '네이버',  color: '#03C75A', bg: '#E8FBF0', textColor: '#015C2C', icon: 'N' },
-  baemin: { label: '배민',    color: '#2AC1BC', bg: '#E6F9F8', textColor: '#0B7B78', icon: 'B' },
-  yogiyo: { label: '요기요',  color: '#FA3C00', bg: '#FEF0EB', textColor: '#B32B00', icon: 'Y' },
-  coupang:{ label: '쿠팡이츠', color: '#C00000', bg: '#FEECEC', textColor: '#900000', icon: 'C' },
+// 모든 플랫폼 정의 (연동 여부와 무관하게 탭에 표시)
+const ALL_PLATFORMS = ['google', 'naver', 'baemin', 'yogiyo', 'coupang'] as const
+
+const PLATFORM_META: Record<string, {
+  label: string; color: string; bg: string; textColor: string; icon: string;
+  gradient: string; cardBg: string; borderColor: string; starColor: string; badgeBg: string
+}> = {
+  google: {
+    label: '구글', color: '#4285F4', bg: '#EBF3FE', textColor: '#1A56B0', icon: 'G',
+    gradient: 'linear-gradient(135deg, #4285F4, #1A73E8)',
+    cardBg: '#F8FBFF', borderColor: '#BFDBFE', starColor: '#F59E0B', badgeBg: '#EBF3FE',
+  },
+  naver: {
+    label: '네이버', color: '#03C75A', bg: '#E8FBF0', textColor: '#015C2C', icon: 'N',
+    gradient: 'linear-gradient(135deg, #03C75A, #019A44)',
+    cardBg: '#F6FFF9', borderColor: '#A7F3D0', starColor: '#03C75A', badgeBg: '#E8FBF0',
+  },
+  baemin: {
+    label: '배민', color: '#2AC1BC', bg: '#E6F9F8', textColor: '#0B7B78', icon: 'B',
+    gradient: 'linear-gradient(135deg, #2AC1BC, #1A9994)',
+    cardBg: '#F0FDFC', borderColor: '#99F6E4', starColor: '#2AC1BC', badgeBg: '#E6F9F8',
+  },
+  yogiyo: {
+    label: '요기요', color: '#FA3C00', bg: '#FEF0EB', textColor: '#B32B00', icon: 'Y',
+    gradient: 'linear-gradient(135deg, #FA3C00, #C83000)',
+    cardBg: '#FFF7F5', borderColor: '#FED7AA', starColor: '#FA3C00', badgeBg: '#FEF0EB',
+  },
+  coupang: {
+    label: '쿠팡이츠', color: '#C00000', bg: '#FEECEC', textColor: '#900000', icon: 'C',
+    gradient: 'linear-gradient(135deg, #C00000, #900000)',
+    cardBg: '#FFF5F5', borderColor: '#FECACA', starColor: '#EF4444', badgeBg: '#FEECEC',
+  },
 }
 
 const INCLUDES_LIST = [
@@ -579,50 +605,95 @@ export default function ReviewAdmin() {
           </div>
         )}
 
-        {/* ── 플랫폼 탭 + 필터 ── */}
-        {reviews.length > 0 && (
-          <div className="flex gap-2 flex-wrap mb-4">
-            {/* 플랫폼 탭 (큰 탭) */}
-            <div className="flex gap-1 bg-white rounded-xl p-1 shadow-sm">
-              <button onClick={() => setFilterPlatform('all')}
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${filterPlatform === 'all' ? 'bg-[#191F28] text-white' : 'text-[#8B95A1] hover:bg-[#F2F4F6]'}`}>
-                전체 {reviews.length}
-              </button>
-              {links.map(l => {
-                const pm = PLATFORM_META[l.platform]
-                const cnt = platformCounts[l.platform] || 0
-                return (
-                  <button key={l.platform} onClick={() => setFilterPlatform(l.platform)}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${filterPlatform === l.platform ? 'text-white' : 'text-[#8B95A1] hover:bg-[#F2F4F6]'}`}
-                    style={filterPlatform === l.platform ? { background: pm?.color } : {}}>
-                    <span>{pm?.label || l.platform}</span>
-                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${filterPlatform === l.platform ? 'bg-white/20 text-white' : 'bg-[#F2F4F6] text-[#4E5968]'}`}>{cnt}</span>
-                  </button>
-                )
-              })}
-            </div>
+        {/* ── 플랫폼 탭 (항상 5개 표시) ── */}
+        <div className="mb-4">
+          {/* 플랫폼 탭 */}
+          <div className="flex gap-2 mb-3 overflow-x-auto pb-1">
+            {/* 전체 탭 */}
+            <button onClick={() => setFilterPlatform('all')}
+              className={`flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                filterPlatform === 'all'
+                  ? 'bg-[#191F28] text-white shadow-md'
+                  : 'bg-white text-[#4E5968] shadow-sm hover:shadow-md border border-[#E5E8EB]'
+              }`}>
+              <span>전체</span>
+              {reviews.length > 0 && (
+                <span className={`text-[10px] px-2 py-0.5 rounded-full font-black ${filterPlatform === 'all' ? 'bg-white/20' : 'bg-[#F2F4F6]'}`}>
+                  {reviews.length}
+                </span>
+              )}
+            </button>
 
-            {/* 미답변/완료 */}
-            <div className="flex gap-1 bg-white rounded-xl p-1 shadow-sm">
-              {(['all', 'pending', 'done'] as const).map(f => (
-                <button key={f} onClick={() => setFilterReplied(f)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${filterReplied === f ? 'bg-[#3182F6] text-white' : 'text-[#8B95A1] hover:bg-[#F2F4F6]'}`}>
-                  {f === 'all' ? '전체' : f === 'pending' ? `미답변 ${pendingCount}` : '완료'}
+            {/* 플랫폼별 탭 (5개 항상 표시) */}
+            {ALL_PLATFORMS.map(pKey => {
+              const pm = PLATFORM_META[pKey]
+              const isConnected = links.some(l => l.platform === pKey)
+              const cnt = platformCounts[pKey] || 0
+              const isActive = filterPlatform === pKey
+              return (
+                <button
+                  key={pKey}
+                  onClick={() => isConnected && setFilterPlatform(pKey)}
+                  disabled={!isConnected}
+                  className={`flex-shrink-0 flex items-center gap-2 px-4 py-2.5 rounded-xl text-xs font-bold transition-all ${
+                    isActive
+                      ? 'text-white shadow-md scale-105'
+                      : isConnected
+                      ? 'bg-white shadow-sm hover:shadow-md border-2 hover:scale-105'
+                      : 'bg-white shadow-sm border border-dashed border-[#E5E8EB] opacity-50 cursor-not-allowed'
+                  }`}
+                  style={isActive
+                    ? { background: pm.gradient }
+                    : isConnected
+                    ? { borderColor: pm.color, color: pm.color }
+                    : {}
+                  }
+                >
+                  {/* 플랫폼 아이콘 */}
+                  <div className={`w-5 h-5 rounded-md flex items-center justify-center text-[10px] font-black flex-shrink-0 ${isActive ? 'bg-white/20' : ''}`}
+                    style={!isActive ? { background: pm.bg, color: pm.color } : { color: 'white' }}>
+                    {pm.icon}
+                  </div>
+                  <span>{pm.label}</span>
+                  {isConnected && cnt > 0 && (
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-black ${isActive ? 'bg-white/25 text-white' : ''}`}
+                      style={!isActive ? { background: pm.bg, color: pm.color } : {}}>
+                      {cnt}
+                    </span>
+                  )}
+                  {!isConnected && (
+                    <span className="text-[9px] text-[#B0B8C1] font-normal">준비중</span>
+                  )}
+                  {isConnected && cnt === 0 && (
+                    <span className="text-[9px] opacity-60 font-normal">0</span>
+                  )}
                 </button>
-              ))}
-            </div>
-
-            {/* 별점 필터 */}
-            <div className="flex gap-1 bg-white rounded-xl p-1 shadow-sm">
-              {[0,1,2,3,4,5].map(n => (
-                <button key={n} onClick={() => setFilterRating(n)}
-                  className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors ${filterRating === n ? 'bg-[#3182F6] text-white' : 'text-[#8B95A1] hover:bg-[#F2F4F6]'}`}>
-                  {n === 0 ? '전체' : '★'.repeat(n)}
-                </button>
-              ))}
-            </div>
+              )
+            })}
           </div>
-        )}
+
+          {/* 미답변/완료 + 별점 필터 */}
+          {reviews.length > 0 && (
+            <div className="flex gap-2 flex-wrap">
+              <div className="flex gap-1 bg-white rounded-xl p-1 shadow-sm">
+                {(['all', 'pending', 'done'] as const).map(f => (
+                  <button key={f} onClick={() => setFilterReplied(f)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${filterReplied === f ? 'bg-[#3182F6] text-white' : 'text-[#8B95A1] hover:bg-[#F2F4F6]'}`}>
+                    {f === 'all' ? '전체' : f === 'pending' ? `미답변 ${pendingCount}` : '완료'}
+                  </button>
+                ))}
+              </div>
+              <div className="flex gap-1 bg-white rounded-xl p-1 shadow-sm">
+                {[0,1,2,3,4,5].map(n => (
+                  <button key={n} onClick={() => setFilterRating(n)}
+                    className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors ${filterRating === n ? 'bg-[#3182F6] text-white' : 'text-[#8B95A1] hover:bg-[#F2F4F6]'}`}>
+                    {n === 0 ? '전체' : '★'.repeat(n)}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* ── 플랫폼별 섹션 헤더 (탭이 '전체'일 때) ── */}
         {loading && (
@@ -687,7 +758,7 @@ export default function ReviewAdmin() {
   )
 }
 
-// ── 리뷰 카드 컴포넌트 ────────────────────────────────────────
+// ── 리뷰 카드 컴포넌트 (플랫폼별 완전히 다른 디자인) ───────────
 function ReviewCard({ r, idx, reviews, scheduled, generateAI, updateEditReply, markReplied, settings }: {
   r: ReviewState; idx: number; reviews: ReviewState[]; scheduled: ScheduledReply[];
   generateAI: (i: number) => void; updateEditReply: (i: number, v: string) => void;
@@ -697,100 +768,150 @@ function ReviewCard({ r, idx, reviews, scheduled, generateAI, updateEditReply, m
   const isScheduled = scheduled.some(s => s.reviewId === r.id)
   const scheduledItem = scheduled.find(s => s.reviewId === r.id)
   const isReady = scheduledItem && scheduledItem.scheduledAt <= Date.now()
+  const hasText = r.text?.trim() && r.text.trim().length >= 5
+  const isNegative = r.rating <= 2
 
   return (
-    <div className={`bg-white rounded-2xl p-5 shadow-sm border-l-4 ${
-      r.replied ? 'border-green-400' : isScheduled ? 'border-orange-400' : 'border-[#3182F6]'
-    }`}>
-      {/* 리뷰 헤더 */}
-      <div className="flex items-start gap-3 mb-3">
-        <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0"
-          style={{ background: pm?.color || '#8B95A1' }}>
-          {r.author?.[0] || '?'}
-        </div>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className="font-semibold text-sm text-[#191F28]">{r.author}</span>
-            <PlatformBadge platform={r.platform} />
-            <Stars rating={r.rating} />
-            <ReviewTypeTag text={r.text} rating={r.rating} />
-            {r.replied && <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-semibold">답변완료</span>}
-            {isScheduled && !r.replied && (
-              <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${isReady ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
-                {isReady ? '✅ 발행 가능' : `⏰ ${formatTimeLeft(scheduledItem!.scheduledAt)}`}
-              </span>
-            )}
+    <div className="rounded-2xl shadow-sm overflow-hidden"
+      style={{ border: `1.5px solid ${r.replied ? '#86EFAC' : pm?.borderColor || '#E5E8EB'}` }}>
+
+      {/* ── 플랫폼 헤더 바 ── */}
+      <div className="flex items-center justify-between px-4 py-2.5"
+        style={{ background: pm?.gradient || '#8B95A1' }}>
+        <div className="flex items-center gap-2">
+          {/* 플랫폼 아이콘 */}
+          <div className="w-6 h-6 rounded-lg bg-white/20 flex items-center justify-center text-white text-[11px] font-black">
+            {pm?.icon}
           </div>
-          <p className="text-xs text-[#B0B8C1] mt-0.5">{r.date}</p>
+          <span className="text-white font-bold text-xs">{pm?.label} 리뷰</span>
+          {/* 별점 */}
+          <div className="flex gap-0.5 ml-1">
+            {[1,2,3,4,5].map(i => (
+              <svg key={i} width="11" height="11" viewBox="0 0 24 24" fill={i <= r.rating ? 'white' : 'rgba(255,255,255,0.3)'}>
+                <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+              </svg>
+            ))}
+          </div>
+          <span className="text-white/80 text-[11px] font-semibold">{r.rating}.0</span>
+        </div>
+        <div className="flex items-center gap-1.5">
+          {r.replied && (
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/20 text-white font-bold">✓ 답변완료</span>
+          )}
+          {isScheduled && !r.replied && (
+            <span className={`text-[10px] px-2 py-0.5 rounded-full font-bold ${isReady ? 'bg-green-400 text-white' : 'bg-white/20 text-white'}`}>
+              {isReady ? '✅ 발행가능' : `⏰ ${formatTimeLeft(scheduledItem!.scheduledAt)}`}
+            </span>
+          )}
+          {!hasText && (
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/20 text-white/80 font-semibold">무텍스트</span>
+          )}
+          {isNegative && hasText && (
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-500/80 text-white font-bold">부정리뷰</span>
+          )}
         </div>
       </div>
 
-      {/* 리뷰 본문 */}
-      <div className={`text-sm rounded-xl p-3 mb-3 ${
-        !r.text?.trim() || r.text.trim().length < 5
-          ? 'bg-gray-50 text-[#8B95A1] italic'
-          : r.rating <= 2
-          ? 'bg-red-50 text-[#4E5968]'
-          : 'bg-[#F8F9FA] text-[#4E5968]'
-      }`}>
-        {r.text?.trim() && r.text.trim().length >= 5 ? r.text : '(텍스트 없음 — 별점/사진만 남긴 리뷰)'}
-      </div>
-
-      {/* 예약된 답변 미리보기 */}
-      {isScheduled && scheduledItem && (
-        <div className="mb-3 p-3 bg-orange-50 border border-orange-200 rounded-xl">
-          <p className="text-xs font-bold text-orange-700 mb-1">
-            {isReady ? '✅ 발행 가능한 AI 답글' : `⏰ ${formatTimeLeft(scheduledItem.scheduledAt)} 후 발행 예정`}
-          </p>
-          <p className="text-xs text-[#4E5968] line-clamp-3">{scheduledItem.reply}</p>
-        </div>
-      )}
-
-      {/* AI 답글 편집 */}
-      {r.aiDone && r.showEdit && (
-        <div className="mb-3">
-          <div className="flex items-center gap-2 mb-2">
-            <span className="text-xs font-semibold text-[#3182F6]">✨ AI 생성 답글 (편집 가능)</span>
+      {/* ── 카드 본문 ── */}
+      <div className="p-4" style={{ background: pm?.cardBg || 'white' }}>
+        {/* 작성자 + 날짜 */}
+        <div className="flex items-center justify-between mb-3">
+          <div className="flex items-center gap-2">
+            <div className="w-9 h-9 rounded-full flex items-center justify-center text-white font-black text-sm shadow-sm"
+              style={{ background: pm?.gradient }}>
+              {r.author?.[0] || '?'}
+            </div>
+            <div>
+              <p className="text-sm font-bold text-[#191F28]">{r.author}</p>
+              <p className="text-[11px]" style={{ color: pm?.color }}>{r.date}</p>
+            </div>
           </div>
-          <textarea
-            value={r.editReply}
-            onChange={e => updateEditReply(idx, e.target.value)}
-            rows={4}
-            className="w-full border border-[#3182F6] rounded-xl px-4 py-3 text-sm outline-none focus:border-[#1B64DA] resize-none transition-colors"
-          />
-          <div className="flex gap-2 mt-2 justify-end">
-            <button onClick={() => generateAI(idx)}
-              className="px-3 py-1.5 text-xs text-[#3182F6] border border-[#3182F6] rounded-lg hover:bg-[#EFF6FF] transition-colors font-semibold">
-              재생성
+          {/* 플랫폼 배지 */}
+          <span className="text-[10px] px-2.5 py-1 rounded-full font-bold border"
+            style={{ background: pm?.badgeBg, color: pm?.color, borderColor: pm?.borderColor }}>
+            {pm?.label}
+          </span>
+        </div>
+
+        {/* 리뷰 본문 */}
+        <div className={`text-sm rounded-xl px-4 py-3 mb-3 leading-relaxed ${
+          !hasText
+            ? 'italic'
+            : isNegative
+            ? 'bg-red-50 border border-red-100'
+            : ''
+        }`}
+          style={hasText && !isNegative
+            ? { background: pm?.color + '10', border: `1px solid ${pm?.color}25` }
+            : !hasText
+            ? { background: '#F8F9FA', color: '#8B95A1', border: '1px solid #E5E8EB' }
+            : {}
+          }>
+          {hasText ? r.text : '(텍스트 없음 — 별점/사진만 남긴 리뷰)'}
+        </div>
+
+        {/* 예약 답변 미리보기 */}
+        {isScheduled && scheduledItem && (
+          <div className="mb-3 p-3 rounded-xl border"
+            style={{ background: pm?.bg, borderColor: pm?.borderColor }}>
+            <p className="text-xs font-bold mb-1" style={{ color: pm?.color }}>
+              {isReady ? '✅ 발행 가능한 AI 답글' : `⏰ ${formatTimeLeft(scheduledItem.scheduledAt)} 후 발행 예정`}
+            </p>
+            <p className="text-xs text-[#4E5968] line-clamp-3">{scheduledItem.reply}</p>
+          </div>
+        )}
+
+        {/* AI 답글 편집 */}
+        {r.aiDone && r.showEdit && (
+          <div className="mb-3">
+            <p className="text-xs font-bold mb-2" style={{ color: pm?.color }}>✨ AI 생성 답글 (편집 가능)</p>
+            <textarea
+              value={r.editReply}
+              onChange={e => updateEditReply(idx, e.target.value)}
+              rows={4}
+              className="w-full rounded-xl px-4 py-3 text-sm outline-none resize-none transition-colors"
+              style={{ border: `1.5px solid ${pm?.color}`, background: 'white' }}
+            />
+            <div className="flex gap-2 mt-2 justify-end">
+              <button onClick={() => generateAI(idx)}
+                className="px-3 py-1.5 text-xs rounded-lg font-semibold border transition-colors hover:opacity-80"
+                style={{ borderColor: pm?.color, color: pm?.color }}>
+                재생성
+              </button>
+              <button onClick={() => markReplied(idx)}
+                className="px-4 py-1.5 text-xs text-white rounded-lg font-semibold transition-opacity hover:opacity-90"
+                style={{ background: pm?.gradient }}>
+                답변 완료 표시
+              </button>
+            </div>
+          </div>
+        )}
+
+        {r.aiLoading && (
+          <div className="mb-3 p-3 rounded-xl text-xs font-semibold animate-pulse"
+            style={{ background: pm?.bg, color: pm?.color }}>
+            ✨ AI가 {pm?.label} 리뷰에 맞는 답글을 작성하고 있습니다...
+          </div>
+        )}
+
+        {/* 액션 버튼 */}
+        {!r.replied && !r.showEdit && !isScheduled && (
+          <div className="flex gap-2">
+            <button onClick={() => generateAI(idx)} disabled={r.aiLoading}
+              className="flex items-center gap-1.5 px-4 py-2 text-white text-xs font-bold rounded-xl disabled:opacity-50 transition-opacity hover:opacity-90"
+              style={{ background: pm?.gradient }}>
+              ✨ AI 답글 생성
+              {settings.autoReply && (
+                <span className="text-[10px] opacity-75">({settings.autoDelayHours}h 예약)</span>
+              )}
             </button>
             <button onClick={() => markReplied(idx)}
-              className="px-4 py-1.5 text-xs bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors font-semibold">
-              답변 완료 표시
+              className="px-4 py-2 text-xs text-[#8B95A1] border border-[#E5E8EB] rounded-xl hover:bg-[#F2F4F6] transition-colors font-semibold">
+              수동 완료
             </button>
           </div>
-        </div>
-      )}
-
-      {r.aiLoading && (
-        <div className="mb-3 p-3 bg-[#EFF6FF] rounded-xl text-sm text-[#3182F6] animate-pulse">
-          ✨ AI가 답글을 작성하고 있습니다...
-        </div>
-      )}
-
-      {/* 액션 버튼 */}
-      {!r.replied && !r.showEdit && !isScheduled && (
-        <div className="flex gap-2">
-          <button onClick={() => generateAI(idx)} disabled={r.aiLoading}
-            className="flex items-center gap-1.5 px-4 py-2 bg-[#3182F6] text-white text-xs font-semibold rounded-xl hover:bg-[#1B64DA] disabled:opacity-50 transition-colors">
-            ✨ AI 답글 생성
-            {settings.autoReply && <span className="text-[10px] opacity-75">({settings.autoDelayHours}h 예약)</span>}
-          </button>
-          <button onClick={() => markReplied(idx)}
-            className="px-4 py-2 text-xs text-[#8B95A1] border border-[#E5E8EB] rounded-xl hover:bg-[#F2F4F6] transition-colors font-semibold">
-            수동 완료
-          </button>
-        </div>
-      )}
+        )}
+      </div>
     </div>
   )
 }
