@@ -85,6 +85,25 @@ export default function InquiryPage() {
       setTimeout(() => setCopied(false), 2500)
     }
   }
+  const [copied, setCopied] = useState(false)
+
+  const copyEmail = async () => {
+    try {
+      await navigator.clipboard.writeText('harangmarketing@naver.com')
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2500)
+    } catch {
+      // fallback
+      const el = document.createElement('textarea')
+      el.value = 'harangmarketing@naver.com'
+      document.body.appendChild(el)
+      el.select()
+      document.execCommand('copy')
+      document.body.removeChild(el)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2500)
+    }
+  }
   const [myInquiries, setMyInquiries] = useState<MyInquiry[]>(() => {
     if (typeof window === 'undefined') return []
     try { return JSON.parse(localStorage.getItem(LS_INQUIRIES) || '[]') } catch { return [] }
@@ -136,6 +155,16 @@ export default function InquiryPage() {
 
   return (
     <div className="min-h-screen bg-[#F2F4F6] flex">
+      {/* 클립보드 복사 토스트 */}
+      {copied && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] animate-bounce">
+          <div className="flex items-center gap-2.5 px-5 py-3 bg-[#191F28] text-white rounded-2xl shadow-2xl text-sm font-semibold">
+            <span className="text-base">✅</span>
+            <span>이메일 주소가 복사되었습니다</span>
+            <span className="text-[#8B95A1] text-xs ml-1">harangmarketing@naver.com</span>
+          </div>
+        </div>
+      )}
       {/* 클립보드 복사 토스트 */}
       {copied && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] animate-bounce">
