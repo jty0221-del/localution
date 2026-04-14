@@ -29,7 +29,7 @@ function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean
   )
 }
 
-// ─── 매장 정보 탭 ─── (전면 개편)
+// ─── 매장 정보 탭 ─── (전면 개편 v2)
 function StoreTab() {
   const [form, setForm] = useState({
     name: '우리 카페',
@@ -37,57 +37,73 @@ function StoreTab() {
     phone: '02-1234-5678',
     address: '서울시 마포구 합정동 123-4',
     naverUrl: '',
-    mainKeyword: '',
-    subKeywords: '',
     desc: '',
   })
+  const [keywords, setKeywords] = useState<string[]>([])
+  const [kwInput, setKwInput] = useState('')
   const [saved, setSaved] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [synced, setSynced] = useState(false)
-  const [mapQuery, setMapQuery] = useState('서울시 마포구 합정동 123-4')
+  const [descSynced, setDescSynced] = useState(false)
+
+  // 키워드 추가 (최대 5개)
+  const addKeyword = (raw: string) => {
+    const trimmed = raw.replace(/,/g, '').trim()
+    if (!trimmed || keywords.includes(trimmed) || keywords.length >= 5) return
+    setKeywords(p => [...p, trimmed])
+    setKwInput('')
+  }
+
+  const removeKeyword = (kw: string) => setKeywords(p => p.filter(k => k !== kw))
+
+  const handleKwKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault()
+      addKeyword(kwInput)
+    }
+    if (e.key === 'Backspace' && !kwInput && keywords.length > 0) {
+      setKeywords(p => p.slice(0, -1))
+    }
+  }
 
   // 네이버 플레이스 연동 시뮬레이션
   const handleNaverSync = async () => {
     if (!form.naverUrl && !form.name) return
     setSyncing(true)
-    // 실제 구현 시: 네이버 플레이스 API로 매장 정보 가져오기
-    // POST /api/naver-place/sync { url: form.naverUrl }
     await new Promise(r => setTimeout(r, 1800))
-    // 시뮬레이션: 연동 성공 시 정보 자동 채우기
     setForm(p => ({
       ...p,
       name: '우리 카페 합정점',
       category: '카페·디저트',
       address: '서울시 마포구 합정동 123-4',
       phone: '02-1234-5678',
-      mainKeyword: '합정카페',
-      subKeywords: '브런치,루프탑,애완동물동반,조용한카페',
-      desc: '합정동에 위치한 아늑한 카페. 루프탑 테라스와 펫 프렌들리 공간이 있습니다.',
+      desc: '합정동 골목 안에 위치한 아늑한 브런치 카페. 루프탑 테라스와 펫 프렌들리 공간이 있어 편안하게 머물 수 있습니다.',
     }))
-    setMapQuery('서울시 마포구 합정동 123-4')
+    setKeywords(['합정카페', '브런치카페', '루프탑카페', '펫카페'])
+    setDescSynced(true)
     setSyncing(false)
     setSynced(true)
     setTimeout(() => setSynced(false), 3000)
   }
 
   const handleSave = () => {
-    setMapQuery(form.address)
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
   }
 
-  // 카카오맵 임베드 URL
-  const mapSrc = `https://map.kakao.com/link/search/${encodeURIComponent(mapQuery)}`
+  // 네이버 지도 검색 URL
+  const naverMapSearchUrl = `https://map.naver.com/v5/search/${encodeURIComponent((form.name + ' ' + form.address).trim())}`
 
   return (
-    <div className="flex gap-6 items-start">
+    <div className="flex gap-8 items-start">
       {/* 좌측: 폼 */}
-      <div className="flex-1 min-w-0 space-y-4">
+      <div className="flex-1 min-w-0 space-y-5">
 
-        {/* 네이버 플레이스 URL + 연동 버튼 */}
-        <div className="bg-[#EFF6FF] rounded-2xl p-4 border border-[#BFDBFE]">
+        {/* 네이버 플레이스 연동 */}
+        <div className="bg-[#EFF6FF] rounded-2xl p-5 border border-[#BFDBFE]">
           <div className="flex items-center gap-2 mb-3">
-            <span className="text-sm font-bold text-[#3182F6]">네이버 플레이스 연동</span>
+            <div className="w-6 h-6 rounded-lg bg-[#03C75A] flex items-center justify-center text-white text-[10px] font-black">N</div>
+            <span className="text-sm font-bold text-[#191F28]">네이버 플레이스 연동</span>
             <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#3182F6] text-white font-semibold">자동 입력</span>
           </div>
           <div className="flex gap-2">
@@ -95,149 +111,209 @@ function StoreTab() {
               value={form.naverUrl}
               onChange={e => setForm(p => ({ ...p, naverUrl: e.target.value }))}
               placeholder="https://naver.me/... 또는 플레이스 URL 붙여넣기"
-              className="flex-1 border border-[#BFDBFE] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#3182F6] bg-white transition-colors"
+              className="flex-1 border border-[#BFDBFE] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#3182F6] bg-white transition-colors"
             />
             <button
               onClick={handleNaverSync}
               disabled={syncing}
-              className={`px-4 py-2.5 rounded-xl text-sm font-bold whitespace-nowrap transition-all ${
-                synced
-                  ? 'bg-green-500 text-white'
-                  : syncing
-                  ? 'bg-[#93C5FD] text-white cursor-not-allowed'
-                  : 'bg-[#3182F6] text-white hover:bg-[#1B64DA]'
+              className={`px-5 py-3 rounded-xl text-sm font-bold whitespace-nowrap transition-all ${
+                synced ? 'bg-green-500 text-white'
+                : syncing ? 'bg-[#93C5FD] text-white cursor-not-allowed'
+                : 'bg-[#3182F6] text-white hover:bg-[#1B64DA]'
               }`}
             >
-              {synced ? '✅ 연동완료' : syncing ? '⏳ 연동 중...' : '연동하기'}
+              {synced ? '✅ 완료' : syncing ? '⏳ 불러오는 중...' : '연동하기'}
             </button>
           </div>
           {synced && (
-            <p className="text-xs text-green-600 font-medium mt-2">
-              네이버 플레이스에서 매장 정보를 성공적으로 가져왔습니다!
+            <p className="text-xs text-green-600 font-semibold mt-2">
+              ✅ 네이버 플레이스에서 매장 정보·키워드·소개글을 모두 불러왔어요!
             </p>
           )}
-          <p className="text-xs text-[#3182F6] mt-2 opacity-70">
-            연동하면 매장명·주소·전화번호·키워드가 자동으로 입력됩니다
-          </p>
+          {!synced && (
+            <p className="text-xs text-[#3182F6] mt-2 opacity-70">
+              연동하면 매장명·주소·전화번호·키워드·소개글이 자동으로 입력됩니다
+            </p>
+          )}
         </div>
 
         {/* 매장명 + 업종 */}
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="block text-xs font-semibold text-[#4E5968] mb-1.5">매장명</label>
+            <label className="block text-sm font-semibold text-[#191F28] mb-2">매장명</label>
             <input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
-              className="w-full border border-[#E5E8EB] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#3182F6] transition-colors" />
+              className="w-full border border-[#E5E8EB] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#3182F6] transition-colors" />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-[#4E5968] mb-1.5">업종</label>
+            <label className="block text-sm font-semibold text-[#191F28] mb-2">업종</label>
             <input value={form.category} onChange={e => setForm(p => ({ ...p, category: e.target.value }))}
-              className="w-full border border-[#E5E8EB] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#3182F6] transition-colors" />
+              className="w-full border border-[#E5E8EB] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#3182F6] transition-colors" />
           </div>
         </div>
 
-        {/* 전화번호 */}
-        <div>
-          <label className="block text-xs font-semibold text-[#4E5968] mb-1.5">전화번호</label>
-          <input value={form.phone} onChange={e => setForm(p => ({ ...p, phone: e.target.value }))}
-            className="w-full border border-[#E5E8EB] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#3182F6] transition-colors" />
-        </div>
-
-        {/* 주소 */}
-        <div>
-          <label className="block text-xs font-semibold text-[#4E5968] mb-1.5">주소</label>
-          <input value={form.address} onChange={e => setForm(p => ({ ...p, address: e.target.value }))}
-            className="w-full border border-[#E5E8EB] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#3182F6] transition-colors" />
-        </div>
-
-        {/* 주요 키워드 + 서브 키워드 (1줄) */}
-        <div>
-          <label className="block text-xs font-semibold text-[#4E5968] mb-1.5">키워드</label>
-          <div className="flex gap-2">
-            <div className="w-2/5">
-              <input
-                value={form.mainKeyword}
-                onChange={e => setForm(p => ({ ...p, mainKeyword: e.target.value }))}
-                placeholder="주요 키워드 (예: 합정카페)"
-                className="w-full border-2 border-[#3182F6] rounded-xl px-4 py-2.5 text-sm focus:outline-none bg-[#F8FAFF] font-medium"
-              />
-              <p className="text-[10px] text-[#3182F6] mt-1 font-semibold pl-1">메인 키워드 1개</p>
-            </div>
-            <div className="flex-1">
-              <input
-                value={form.subKeywords}
-                onChange={e => setForm(p => ({ ...p, subKeywords: e.target.value }))}
-                placeholder="서브 키워드 (쉼표 구분, 예: 브런치,루프탑,펫카페)"
-                className="w-full border border-[#E5E8EB] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#3182F6] transition-colors"
-              />
-              <p className="text-[10px] text-[#8B95A1] mt-1 pl-1">서브 키워드 (여러 개, 쉼표 구분)</p>
-            </div>
+        {/* 전화번호 + 주소 */}
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-semibold text-[#191F28] mb-2">전화번호</label>
+            <input value={form.phone} onChange={e => setForm(p => ({ ...p, phone: e.target.value }))}
+              className="w-full border border-[#E5E8EB] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#3182F6] transition-colors" />
           </div>
-          {/* 키워드 프리뷰 */}
-          {(form.mainKeyword || form.subKeywords) && (
-            <div className="flex flex-wrap gap-1.5 mt-2">
-              {form.mainKeyword && (
-                <span className="text-xs px-2.5 py-1 bg-[#3182F6] text-white rounded-full font-semibold">
-                  #{form.mainKeyword}
-                </span>
-              )}
-              {form.subKeywords.split(',').filter(Boolean).map(kw => (
-                <span key={kw.trim()} className="text-xs px-2.5 py-1 bg-[#EFF6FF] text-[#3182F6] rounded-full font-medium">
-                  #{kw.trim()}
-                </span>
-              ))}
-            </div>
-          )}
+          <div>
+            <label className="block text-sm font-semibold text-[#191F28] mb-2">주소</label>
+            <input value={form.address} onChange={e => setForm(p => ({ ...p, address: e.target.value }))}
+              className="w-full border border-[#E5E8EB] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#3182F6] transition-colors" />
+          </div>
+        </div>
+
+        {/* 대표 키워드 (최대 5개 태그 입력) */}
+        <div>
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-sm font-semibold text-[#191F28]">대표 키워드</label>
+            <span className="text-xs text-[#8B95A1] font-medium">(최대 5개까지 입력 가능)</span>
+          </div>
+          <div className={`flex flex-wrap gap-2 p-3 border-2 rounded-xl bg-white min-h-[52px] transition-colors ${
+            keywords.length >= 5 ? 'border-[#E5E8EB] bg-[#F8F9FA]' : 'border-[#3182F6]'
+          }`}>
+            {keywords.map(kw => (
+              <span key={kw}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-[#3182F6] text-white text-sm rounded-full font-medium flex-shrink-0">
+                #{kw}
+                <button onClick={() => removeKeyword(kw)}
+                  className="text-white/70 hover:text-white font-black text-base leading-none">×</button>
+              </span>
+            ))}
+            {keywords.length < 5 && (
+              <input
+                value={kwInput}
+                onChange={e => setKwInput(e.target.value)}
+                onKeyDown={handleKwKeyDown}
+                onBlur={() => kwInput.trim() && addKeyword(kwInput)}
+                placeholder={keywords.length === 0 ? "키워드 입력 후 Enter (예: 합정카페)" : "추가 입력..."}
+                className="flex-1 min-w-[140px] outline-none text-sm py-1 bg-transparent placeholder-[#C9CDD2]"
+              />
+            )}
+          </div>
+          <p className="text-[11px] text-[#8B95A1] mt-1.5 pl-1">
+            Enter 또는 쉼표로 추가 · {keywords.length}/5개 등록됨 · AI 리뷰 답변 키워드로 자동 활용됩니다
+          </p>
         </div>
 
         {/* 매장 소개 */}
         <div>
-          <label className="block text-xs font-semibold text-[#4E5968] mb-1.5">매장 소개</label>
+          <div className="flex items-center justify-between mb-2">
+            <label className="text-sm font-semibold text-[#191F28]">매장 소개</label>
+            {descSynced
+              ? <span className="text-[11px] px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-semibold">✅ 네이버 자동 불러옴</span>
+              : <span className="text-[11px] text-[#03C75A] font-medium">연동 시 자동 불러오기</span>
+            }
+          </div>
           <textarea
             value={form.desc}
-            onChange={e => setForm(p => ({ ...p, desc: e.target.value }))}
-            rows={3}
-            placeholder="매장을 소개하는 문구를 입력하세요 (AI 리뷰 답변 시 참고합니다)"
-            className="w-full border border-[#E5E8EB] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#3182F6] transition-colors resize-none"
+            onChange={e => { setForm(p => ({ ...p, desc: e.target.value })); setDescSynced(false) }}
+            rows={4}
+            placeholder="매장을 소개하는 문구를 입력하세요&#13;&#10;네이버 플레이스 연동 시 자동으로 불러옵니다 (AI 리뷰 답변 시 참고됩니다)"
+            className={`w-full border rounded-xl px-4 py-3 text-sm focus:outline-none transition-colors resize-none ${
+              descSynced ? 'border-green-300 bg-green-50' : 'border-[#E5E8EB] focus:border-[#3182F6]'
+            }`}
           />
         </div>
 
         {/* 저장 버튼 */}
         <button onClick={handleSave}
-          className={`w-full py-3 rounded-xl font-bold text-sm transition-colors ${saved ? 'bg-green-500 text-white' : 'bg-[#191F28] text-white hover:bg-[#333D4B]'}`}>
+          className={`w-full py-3.5 rounded-xl font-bold text-base transition-colors ${saved ? 'bg-green-500 text-white' : 'bg-[#191F28] text-white hover:bg-[#333D4B]'}`}>
           {saved ? '✅ 저장됨' : '저장하기'}
         </button>
       </div>
 
-      {/* 우측: 카카오맵 지도 */}
-      <div className="w-72 flex-shrink-0 hidden lg:block">
+      {/* 우측: 네이버 지도 패널 (크게) */}
+      <div className="w-[400px] flex-shrink-0 hidden lg:block">
         <div className="bg-white rounded-2xl shadow-sm overflow-hidden sticky top-8">
-          <div className="px-4 pt-4 pb-3 border-b border-[#F2F4F6]">
-            <p className="font-bold text-[#191F28] text-sm">우리 매장 위치</p>
-            <p className="text-xs text-[#8B95A1] mt-0.5 truncate">{form.address || '주소를 입력하세요'}</p>
+          {/* 헤더 */}
+          <div className="px-5 pt-5 pb-4 border-b border-[#F2F4F6]">
+            <div className="flex items-center gap-2 mb-1">
+              <div className="w-6 h-6 rounded-lg bg-[#03C75A] flex items-center justify-center text-white text-[10px] font-black">N</div>
+              <p className="font-bold text-[#191F28]">우리 매장 위치</p>
+            </div>
+            <p className="text-sm text-[#4E5968] truncate">{form.address || '주소를 입력하세요'}</p>
           </div>
-          {/* 카카오맵 임베드 */}
-          <div className="relative">
-            <iframe
-              src={`https://map.kakao.com/link/search/${encodeURIComponent(form.address || '서울시 마포구 합정동')}`}
-              width="100%"
-              height="280"
-              style={{ border: 'none', display: 'block' }}
-              title="매장 위치 지도"
-              loading="lazy"
-            />
-            <div className="absolute inset-0 pointer-events-none border border-[#E5E8EB] rounded-b-2xl" />
+
+          {/* 지도 미리보기 영역 */}
+          <div className="relative bg-[#E8F5E9] overflow-hidden" style={{ height: '320px' }}>
+            {/* 그리드 패턴 (지도 느낌) */}
+            <div className="absolute inset-0 opacity-20"
+              style={{
+                backgroundImage: 'linear-gradient(#03C75A 1px, transparent 1px), linear-gradient(90deg, #03C75A 1px, transparent 1px)',
+                backgroundSize: '32px 32px'
+              }} />
+            {/* 도로 느낌 */}
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="absolute bg-white/70 h-[48px] w-full" style={{ top: '50%', transform: 'translateY(-50%)' }} />
+              <div className="absolute bg-white/70 w-[48px] h-full" style={{ left: '45%' }} />
+              <div className="absolute bg-white/50 h-[28px] w-full" style={{ top: '28%' }} />
+            </div>
+            {/* 위치 핀 */}
+            <div className="absolute inset-0 flex items-center justify-center">
+              <div className="relative flex flex-col items-center">
+                <div className="w-14 h-14 rounded-full bg-[#03C75A] flex items-center justify-center shadow-xl border-4 border-white z-10">
+                  <svg width="24" height="24" viewBox="0 0 24 24" fill="white">
+                    <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+                  </svg>
+                </div>
+                {/* 핀 그림자 */}
+                <div className="w-4 h-2 bg-black/20 rounded-full -mt-1 blur-sm" />
+                {/* 말풍선 */}
+                {form.name && (
+                  <div className="absolute -top-14 bg-white rounded-xl px-3 py-2 shadow-lg border border-[#E5E8EB] whitespace-nowrap z-20">
+                    <p className="text-xs font-bold text-[#191F28]">{form.name}</p>
+                    <p className="text-[10px] text-[#8B95A1] mt-0.5">⭐ 리뷰 연동 중</p>
+                    <div className="absolute -bottom-2 left-1/2 -translate-x-1/2 w-4 h-2 overflow-hidden">
+                      <div className="w-3 h-3 bg-white border-r border-b border-[#E5E8EB] rotate-45 mx-auto -mt-1.5" />
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+            {/* 네이버 지도 워터마크 */}
+            <div className="absolute bottom-3 right-3 bg-white/90 rounded-lg px-2.5 py-1.5 flex items-center gap-1.5 shadow-sm">
+              <div className="w-4 h-4 rounded bg-[#03C75A] flex items-center justify-center text-white text-[8px] font-black">N</div>
+              <span className="text-[10px] font-bold text-[#03C75A]">NAVER MAP</span>
+            </div>
           </div>
-          <div className="px-4 py-3">
+
+          {/* 네이버 지도 열기 버튼 */}
+          <div className="p-4 space-y-3">
             <a
-              href={`https://map.kakao.com/link/search/${encodeURIComponent(form.address || '')}`}
+              href={naverMapSearchUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center justify-center gap-2 w-full py-2 rounded-xl bg-[#FEE500] text-[#191F28] text-sm font-bold hover:bg-[#F0D800] transition-colors"
+              className="flex items-center justify-center gap-2.5 w-full py-3.5 rounded-xl font-bold text-base text-white transition-all hover:opacity-90 active:scale-[0.98]"
+              style={{ background: 'linear-gradient(135deg, #03C75A, #019A44)' }}
             >
-              카카오맵에서 보기
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="white">
+                <path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/>
+              </svg>
+              네이버 지도에서 보기
             </a>
-            <p className="text-[10px] text-[#8B95A1] mt-2 text-center">
-              저장하면 지도가 업데이트됩니다
+            <div className="grid grid-cols-2 gap-2">
+              <a
+                href={`https://search.naver.com/search.naver?query=${encodeURIComponent(form.name + ' ' + form.address)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-semibold bg-[#EFF6FF] text-[#3182F6] hover:bg-[#DBEAFE] transition-colors"
+              >
+                🔍 플레이스 검색
+              </a>
+              <a
+                href={`https://map.naver.com/v5/directions/-/-/-/${encodeURIComponent(form.address)}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center gap-1.5 py-2.5 rounded-xl text-sm font-semibold bg-[#F0FDF4] text-[#059669] hover:bg-[#DCFCE7] transition-colors"
+              >
+                🗺️ 길 찾기
+              </a>
+            </div>
+            <p className="text-[11px] text-[#8B95A1] text-center">
+              저장 후 네이버 지도로 실제 위치를 확인해보세요
             </p>
           </div>
         </div>
