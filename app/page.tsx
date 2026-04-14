@@ -9,6 +9,7 @@ import PartnerSpotlight from './components/PartnerSpotlight'
 import Footer from './components/Footer'
 
 const LS_LINKS = 'localution.platform_links'
+const LS_SEEN  = 'localution.seen_review_ids'
 
 const WEEKLY = [
   { day: '월', v: 45, r: 3 },
@@ -30,9 +31,9 @@ const REVIEWS = [
 const PLATFORM_DEFS = [
   { key: 'google',  label: '구글',  color: '#4285F4', bg: '#EBF3FE', active: true  },
   { key: 'naver',   label: '네이버', color: '#03C75A', bg: '#E8FBF0', active: true  },
-  { key: 'kakao',   label: '카카오', color: '#F9D64F', bg: '#FFFDE7', active: false },
   { key: 'baemin',  label: '배민',   color: '#2AC1BC', bg: '#E6F9F8', active: false },
   { key: 'yogiyo',  label: '요기요', color: '#FA3C00', bg: '#FEF0EB', active: false },
+  { key: 'coupang', label: '쿠팡이츠', color: '#C00000', bg: '#FEECEC', active: false },
 ]
 
 interface LinkedPlatform {
@@ -212,13 +213,66 @@ export default function Dashboard() {
   const [chartMode, setChartMode] = useState<'visitors' | 'reviews'>('visitors')
   const [links, setLinks] = useState<LinkedPlatform[]>([])
   const [modalPlatform, setModalPlatform] = useState<string | null>(null)
+  const [newReviews, setNewReviews] = useState<{platform: string; author: string; text: string}[]>([])
+  const [notifDismissed, setNotifDismissed] = useState(false)
 
-  // localStorage 로드
+  // localStorage 로드 + 새 리뷰 알림 체크
   useEffect(() => {
+    let loaded: LinkedPlatform[] = []
     try {
       const raw = localStorage.getItem(LS_LINKS)
-      if (raw) setLinks(JSON.parse(raw))
+      if (raw) { loaded = JSON.parse(raw); setLinks(loaded) }
     } catch (_) {}
+
+    if (!loaded.length) return
+
+    // 알림 권한 요청
+    if (typeof Notification !== 'undefined' && Notification.permission === 'default') {
+      Notification.requestPermission()
+    }
+
+    // 새 리뷰 체크 (연동된 플랫폼 순회)
+    ;(async () => {
+      let seenIds: string[] = []
+      try { seenIds = JSON.parse(localStorage.getItem(LS_SEEN) || '[]') } catch (_) {}
+
+      const found: {platform: string; author: string; text: string}[] = []
+      const allIds: string[] = [...seenIds]
+
+      for (const link of loaded) {
+        try {
+          const res = await fetch(`/api/platforms/${link.platform}?placeId=${encodeURIComponent(link.placeId)}`)
+          if (!res.ok) continue
+          const data = await res.json()
+          // mock/unavailable 소스는 알림 대상에서 제외
+          if (data.source === 'mock' || data.source === 'unavailable') continue
+          const reviews: any[] = data.reviews || []
+          for (const r of reviews) {
+            const rid = r.id || `${link.platform}-${r.author}-${r.date}`
+            if (!seenIds.includes(rid)) {
+              found.push({ platform: link.platform, author: r.author, text: (r.text || '').slice(0, 60) })
+              if (!allIds.includes(rid)) allIds.push(rid)
+            }
+          }
+        } catch (_) {}
+      }
+
+      if (found.length) {
+        // 브라우저 푸시 알림
+        if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+          new Notification(`⭐ 새 리뷰 ${found.length}개`, {
+            body: found[0].author + ': ' + found[0].text,
+            icon: '/favicon.ico',
+          })
+        }
+        setNewReviews(found)
+        // seen IDs 업데이트 (최대 200개 유지)
+        localStorage.setItem(LS_SEEN, JSON.stringify(allIds.slice(-200)))
+      } else if (!seenIds.length && allIds.length) {
+        // 첫 연동 → 현재 리뷰 모두 seen으로 저장 (알림 발생 안 함)
+        localStorage.setItem(LS_SEEN, JSON.stringify(allIds.slice(-200)))
+      }
+    })()
   }, [])
 
   function saveLink(data: LinkedPlatform) {
@@ -275,6 +329,29 @@ export default function Dashboard() {
       <Sidebar />
       <main className="flex-1 md:ml-[220px] p-4 md:p-8 pt-16 md:pt-8 pr-16 md:pr-20">
 
+        {/* ──────────── 새 리뷰 알림 배너 ──────────── */}
+        {newReviews.length > 0 && !notifDismissed && (
+          <div className="bg-[#3182F6] text-white rounded-2xl p-4 mb-4 flex items-start gap-3 shadow-md">
+            <span className="text-2xl flex-shrink-0">🔔</span>
+            <div className="flex-1 min-w-0">
+              <p className="font-bold text-sm mb-1">새 리뷰 {newReviews.length}개가 달렸어요!</p>
+              <p className="text-xs text-blue-100 truncate">
+                {newReviews[0].author}: {newReviews[0].text}{newReviews[0].text.length >= 60 ? '...' : ''}
+              </p>
+            </div>
+            <div className="flex gap-2 flex-shrink-0">
+              <Link href="/review-admin"
+                className="px-3 py-1.5 bg-white text-[#3182F6] text-xs font-bold rounded-lg hover:bg-blue-50 transition-colors">
+                리뷰 보기
+              </Link>
+              <button onClick={() => setNotifDismissed(true)}
+                className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-blue-500 text-blue-200 font-bold text-lg">
+                ✕
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* ──────────── 매장 카드 ──────────── */}
         <div className="bg-white rounded-2xl p-5 shadow-sm mb-4 border border-[#E5E8EB]">
           <div className="flex items-start gap-4">
@@ -326,12 +403,13 @@ export default function Dashboard() {
           <div className="grid grid-cols-5 gap-2">
             {PLATFORM_DEFS.map(p => {
               const linked = links.find(l => l.platform === p.key)
+              const nCount = newReviews.filter(r => r.platform === p.key).length
               return (
                 <button
                   key={p.key}
                   onClick={() => p.active && setModalPlatform(p.key)}
                   disabled={!p.active}
-                  className={`flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all ${
+                  className={`relative flex flex-col items-center gap-2 p-3 rounded-xl border-2 transition-all ${
                     linked
                       ? 'border-green-400 bg-green-50'
                       : p.active
@@ -339,6 +417,11 @@ export default function Dashboard() {
                         : 'border-[#E5E8EB] bg-[#F8F9FA] cursor-not-allowed opacity-60'
                   }`}
                 >
+                  {nCount > 0 && (
+                    <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-red-500 text-white text-[10px] font-black rounded-full flex items-center justify-center z-10">
+                      {nCount}
+                    </span>
+                  )}
                   <div
                     className="w-8 h-8 rounded-lg flex items-center justify-center text-white text-xs font-black"
                     style={{ background: linked ? '#22C55E' : p.active ? p.color : '#B0B8C1' }}
