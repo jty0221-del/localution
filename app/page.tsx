@@ -69,6 +69,7 @@ function PlatformBadge({ name }: { name: string }) {
 }
 
 
+
 // ── ConnectModal ────────────────────────────────────────────────
 const MODAL_CONFIG: Record<string, { title: string; placeholder: string; accent: string; icon: string }> = {
   google: { title: '구글 매장 연동', placeholder: '매장명 검색 또는 Google Maps URL 붙여넣기', accent: '#4285F4', icon: 'G' },
