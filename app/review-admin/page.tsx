@@ -374,7 +374,7 @@ export default function ReviewAdmin() {
                     { key: 'storeName', placeholder: '매장명', label: '매장명' },
                     { key: 'region',    placeholder: '강남, 홍대, 해운대...', label: '지역' },
                     { key: 'bizType',   placeholder: '카페, 식당, 미용실...', label: '업종' },
-                    { key: 'mainKeyword', placeholder: '대표 SEO 키워드', label: '대표 키워드' },
+                    { key: 'mainKeyword', placeholder: '상위노출 키워드 입력', label: '상위노출 키워드' },
                   ].map(f => (
                     <div key={f.key}>
                       <label className="text-[11px] text-[#8B95A1] font-semibold block mb-1">{f.label}</label>
@@ -388,7 +388,7 @@ export default function ReviewAdmin() {
                   ))}
                 </div>
                 <div className="mt-3">
-                  <label className="text-[11px] text-[#8B95A1] font-semibold block mb-1">서브 키워드 (쉼표 구분)</label>
+                  <label className="text-[11px] text-[#8B95A1] font-semibold block mb-1">대표 키워드</label>
                   <input
                     value={settings.subKeywords}
                     onChange={e => saveSetting('subKeywords', e.target.value)}
