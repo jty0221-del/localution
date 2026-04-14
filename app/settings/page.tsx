@@ -406,61 +406,223 @@ function NotifyTab() {
 
 // ─── AI 설정 탭 ─────────────────────────
 function AITab() {
-  const [tone, setTone] = useState('friendly')
-  const [length, setLength] = useState('medium')
-  const [autoReply, setAutoReply] = useState(false)
-  const [keyword, setKeyword] = useState('')
+  const [tone, setTone] = useState(() => {
+    try { return localStorage.getItem('ai.tone') || 'friendly' } catch { return 'friendly' }
+  })
+  const [length, setLength] = useState(() => {
+    try { return localStorage.getItem('ai.length') || 'medium' } catch { return 'medium' }
+  })
+  const [autoReply, setAutoReply] = useState(() => {
+    try { return localStorage.getItem('ai.autoReply') === 'true' } catch { return false }
+  })
+  const [keyword, setKeyword] = useState(() => {
+    try { return localStorage.getItem('ai.keyword') || '' } catch { return '' }
+  })
+  const [gender, setGender] = useState(() => {
+    try { return localStorage.getItem('ai.gender') || 'all' } catch { return 'all' }
+  })
+  const [ageGroup, setAgeGroup] = useState(() => {
+    try { return localStorage.getItem('ai.ageGroup') || 'all' } catch { return 'all' }
+  })
+  const [speechStyle, setSpeechStyle] = useState(() => {
+    try { return localStorage.getItem('ai.speechStyle') || 'formal-yo' } catch { return 'formal-yo' }
+  })
+  const [emoji, setEmoji] = useState(() => {
+    try { return localStorage.getItem('ai.emoji') === 'true' } catch { return false }
+  })
+  const [saved, setSaved] = useState(false)
+
+  const save = (key: string, val: string | boolean) => {
+    try { localStorage.setItem(`ai.${key}`, String(val)) } catch {}
+  }
+  const set = (setter: any, key: string, val: any) => { setter(val); save(key, val) }
+
+  const handleSave = () => {
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2000)
+  }
+
+  const TONES = [
+    { value: 'friendly',    label: '친근하게',   emoji: '😊', desc: '따뜻하고 친근한 이웃 같은 톤' },
+    { value: 'formal',      label: '정중하게',   emoji: '🤝', desc: '격식 있고 신뢰감 주는 톤' },
+    { value: 'casual',      label: '캐주얼하게', emoji: '😎', desc: '편안하고 자연스러운 톤' },
+    { value: 'warm',        label: '따뜻하게',   emoji: '🌸', desc: '감성적이고 진심 어린 톤' },
+    { value: 'professional',label: '전문적으로', emoji: '💼', desc: '전문성·신뢰성 강조 톤' },
+    { value: 'cheerful',    label: '유쾌하게',   emoji: '🎉', desc: '밝고 에너지 넘치는 톤' },
+    { value: 'empathy',     label: '공감하며',   emoji: '💝', desc: '고객 감정에 깊이 공감' },
+    { value: 'concise',     label: '간결하게',   emoji: '✂️', desc: '핵심만 짧고 명확하게' },
+  ]
+
+  const GENDERS = [
+    { value: 'all',    label: '전체',  emoji: '👥' },
+    { value: 'male',   label: '남성',  emoji: '👨' },
+    { value: 'female', label: '여성',  emoji: '👩' },
+  ]
+
+  const AGE_GROUPS = [
+    { value: 'all',  label: '전체' },
+    { value: '10s',  label: '10대' },
+    { value: '20s',  label: '20대' },
+    { value: '30s',  label: '30대' },
+    { value: '40s',  label: '40대' },
+    { value: '50s',  label: '50대' },
+    { value: '60s+', label: '60대+' },
+  ]
+
+  const SPEECH_STYLES = [
+    { value: 'formal-hap', label: '합쇼체',  desc: '~합니다 / ~입니다', emoji: '📋' },
+    { value: 'formal-yo',  label: '해요체',  desc: '~해요 / ~예요',    emoji: '🗣️' },
+    { value: 'informal',   label: '친근체',  desc: '~해 / ~야',        emoji: '💬' },
+    { value: 'busan',      label: '부산 사투리', desc: '~예 / ~예요',  emoji: '🌊' },
+    { value: 'jeju',       label: '제주 방언',   desc: '~마씀 / ~우다', emoji: '🍊' },
+  ]
 
   return (
-    <div className="max-w-xl space-y-6">
-      <div className="bg-white rounded-2xl p-6 shadow-sm">
-        <h3 className="font-bold text-[#191F28] mb-4">AI 답변 톤</h3>
-        <div className="grid grid-cols-3 gap-3">
-          {[
-            { value: 'friendly', label: '친근하게' },
-            { value: 'formal', label: '정중하게' },
-            { value: 'casual', label: '캐주얼하게' },
-          ].map(opt => (
-            <button key={opt.value} onClick={() => setTone(opt.value)}
-              className={`p-4 rounded-xl border-2 text-center transition-colors ${tone === opt.value ? 'border-[#3182F6] bg-[#EFF6FF]' : 'border-[#E5E8EB] hover:border-[#3182F6]'}`}>
-              <div className="text-sm font-semibold text-[#191F28]">{opt.label}</div>
-            </button>
-          ))}
-        </div>
-      </div>
+    <div className="flex gap-6 flex-col xl:flex-row">
 
-      <div className="bg-white rounded-2xl p-6 shadow-sm">
-        <h3 className="font-bold text-[#191F28] mb-4">답변 길이</h3>
-        <div className="grid grid-cols-3 gap-3">
-          {[
-            { value: 'short', label: '짧게', desc: '1~2줄' },
-            { value: 'medium', label: '보통', desc: '3~4줄' },
-            { value: 'long', label: '길게', desc: '5줄 이상' },
-          ].map(opt => (
-            <button key={opt.value} onClick={() => setLength(opt.value)}
-              className={`p-4 rounded-xl border-2 text-center transition-colors ${length === opt.value ? 'border-[#3182F6] bg-[#EFF6FF]' : 'border-[#E5E8EB] hover:border-[#3182F6]'}`}>
-              <div className="text-sm font-semibold text-[#191F28]">{opt.label}</div>
-              <div className="text-xs text-[#8B95A1] mt-0.5">{opt.desc}</div>
-            </button>
-          ))}
-        </div>
-      </div>
+      {/* ── 좌측: AI 답변 설정 ── */}
+      <div className="flex-1 space-y-5 min-w-0">
 
-      <div className="bg-white rounded-2xl p-6 shadow-sm">
-        <div className="flex items-center justify-between mb-5">
-          <div>
-            <p className="font-bold text-[#191F28]">자동 답변</p>
-            <p className="text-xs text-[#8B95A1] mt-0.5">새 리뷰에 AI가 자동으로 답변을 달아요</p>
+        {/* 답변 톤 */}
+        <div className="bg-white rounded-2xl p-5 shadow-sm">
+          <h3 className="font-bold text-[#191F28] mb-1">AI 답변 톤</h3>
+          <p className="text-xs text-[#8B95A1] mb-4">리뷰 답변 시 사용할 전체적인 말투를 선택하세요</p>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
+            {TONES.map(opt => (
+              <button key={opt.value} onClick={() => set(setTone, 'tone', opt.value)}
+                className={`p-3.5 rounded-xl border-2 text-left transition-all ${tone === opt.value ? 'border-[#3182F6] bg-[#EFF6FF]' : 'border-[#E5E8EB] hover:border-[#93C5FD]'}`}>
+                <div className="text-xl mb-1.5">{opt.emoji}</div>
+                <div className={`text-sm font-bold mb-0.5 ${tone === opt.value ? 'text-[#3182F6]' : 'text-[#191F28]'}`}>{opt.label}</div>
+                <div className="text-[10px] text-[#8B95A1] leading-relaxed">{opt.desc}</div>
+                {tone === opt.value && (
+                  <div className="mt-2 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-[#3182F6]" />
+                    <span className="text-[10px] text-[#3182F6] font-semibold">선택됨</span>
+                  </div>
+                )}
+              </button>
+            ))}
           </div>
-          <Toggle checked={autoReply} onChange={setAutoReply} />
         </div>
-        <div>
-          <label className="block text-sm font-medium text-[#191F28] mb-2">필수 포함 키워드</label>
-          <input value={keyword} onChange={e => setKeyword(e.target.value)}
-            placeholder="예: 감사합니다, 방문 감사"
-            className="w-full border border-[#E5E8EB] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#3182F6] transition-colors" />
-          <p className="text-xs text-[#8B95A1] mt-1.5">쉼표로 구분하면 여러 개 입력 가능해요</p>
+
+        {/* 답변 길이 */}
+        <div className="bg-white rounded-2xl p-5 shadow-sm">
+          <h3 className="font-bold text-[#191F28] mb-4">답변 길이</h3>
+          <div className="grid grid-cols-3 gap-3">
+            {[
+              { value: 'short',  label: '짧게',  desc: '1~2줄', icon: '📝' },
+              { value: 'medium', label: '보통',  desc: '3~4줄', icon: '📄' },
+              { value: 'long',   label: '길게',  desc: '5줄+',  icon: '📃' },
+            ].map(opt => (
+              <button key={opt.value} onClick={() => set(setLength, 'length', opt.value)}
+                className={`p-4 rounded-xl border-2 text-center transition-colors ${length === opt.value ? 'border-[#3182F6] bg-[#EFF6FF]' : 'border-[#E5E8EB] hover:border-[#93C5FD]'}`}>
+                <div className="text-2xl mb-1">{opt.icon}</div>
+                <div className={`text-sm font-bold ${length === opt.value ? 'text-[#3182F6]' : 'text-[#191F28]'}`}>{opt.label}</div>
+                <div className="text-xs text-[#8B95A1] mt-0.5">{opt.desc}</div>
+              </button>
+            ))}
+          </div>
         </div>
+
+        {/* 자동 답변 */}
+        <div className="bg-white rounded-2xl p-5 shadow-sm">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <p className="font-bold text-[#191F28]">자동 답변</p>
+              <p className="text-xs text-[#8B95A1] mt-0.5">새 리뷰에 AI가 자동으로 답변을 달아요</p>
+            </div>
+            <Toggle checked={autoReply} onChange={(v: boolean) => set(setAutoReply, 'autoReply', v)} />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-[#191F28] mb-2">필수 포함 키워드</label>
+            <input value={keyword} onChange={e => { setKeyword(e.target.value); save('keyword', e.target.value) }}
+              placeholder="예: 감사합니다, 방문 감사"
+              className="w-full border border-[#E5E8EB] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#3182F6] transition-colors" />
+            <p className="text-xs text-[#8B95A1] mt-1.5">쉼표로 구분하면 여러 개 입력 가능해요</p>
+          </div>
+        </div>
+
+      </div>
+
+      {/* ── 우측: 타겟 고객 설정 ── */}
+      <div className="xl:w-[340px] space-y-5 flex-shrink-0">
+
+        {/* 섹션 타이틀 */}
+        <div className="bg-gradient-to-br from-[#EFF6FF] to-[#F5F3FF] rounded-2xl p-4 border border-[#BFDBFE]">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-lg">🎯</span>
+            <h3 className="font-bold text-[#191F28]">타겟 고객 설정</h3>
+          </div>
+          <p className="text-xs text-[#4E5968] leading-relaxed">
+            고객 성별·나이대·말투를 설정하면<br/>AI가 맞춤 답변을 생성합니다
+          </p>
+        </div>
+
+        {/* 성별 */}
+        <div className="bg-white rounded-2xl p-5 shadow-sm">
+          <h4 className="text-sm font-bold text-[#191F28] mb-3">👥 주요 고객 성별</h4>
+          <div className="flex gap-2">
+            {GENDERS.map(g => (
+              <button key={g.value} onClick={() => set(setGender, 'gender', g.value)}
+                className={`flex-1 py-3 rounded-xl border-2 text-center transition-all ${gender === g.value ? 'border-[#3182F6] bg-[#EFF6FF]' : 'border-[#E5E8EB] hover:border-[#93C5FD]'}`}>
+                <div className="text-xl mb-0.5">{g.emoji}</div>
+                <div className={`text-xs font-semibold ${gender === g.value ? 'text-[#3182F6]' : 'text-[#4E5968]'}`}>{g.label}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* 나이대 */}
+        <div className="bg-white rounded-2xl p-5 shadow-sm">
+          <h4 className="text-sm font-bold text-[#191F28] mb-3">📅 주요 고객 나이대</h4>
+          <div className="grid grid-cols-4 gap-1.5">
+            {AGE_GROUPS.map(a => (
+              <button key={a.value} onClick={() => set(setAgeGroup, 'ageGroup', a.value)}
+                className={`py-2.5 rounded-xl border-2 text-center transition-all ${ageGroup === a.value ? 'border-[#3182F6] bg-[#EFF6FF]' : 'border-[#E5E8EB] hover:border-[#93C5FD]'}`}>
+                <span className={`text-xs font-semibold ${ageGroup === a.value ? 'text-[#3182F6]' : 'text-[#4E5968]'}`}>{a.label}</span>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* 말투 스타일 */}
+        <div className="bg-white rounded-2xl p-5 shadow-sm">
+          <h4 className="text-sm font-bold text-[#191F28] mb-1">🗣️ 말투 스타일</h4>
+          <p className="text-xs text-[#8B95A1] mb-3">답변에 사용할 어미·표현 방식</p>
+          <div className="space-y-2">
+            {SPEECH_STYLES.map(s => (
+              <button key={s.value} onClick={() => set(setSpeechStyle, 'speechStyle', s.value)}
+                className={`w-full flex items-center gap-3 p-3 rounded-xl border-2 text-left transition-all ${speechStyle === s.value ? 'border-[#3182F6] bg-[#EFF6FF]' : 'border-[#E5E8EB] hover:border-[#93C5FD]'}`}>
+                <span className="text-lg flex-shrink-0">{s.emoji}</span>
+                <div className="flex-1 min-w-0">
+                  <div className={`text-sm font-semibold ${speechStyle === s.value ? 'text-[#3182F6]' : 'text-[#191F28]'}`}>{s.label}</div>
+                  <div className="text-[11px] text-[#8B95A1]">{s.desc}</div>
+                </div>
+                {speechStyle === s.value && (
+                  <span className="w-2 h-2 rounded-full bg-[#3182F6] flex-shrink-0" />
+                )}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* 이모티콘 포함 */}
+        <div className="bg-white rounded-2xl p-5 shadow-sm">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-bold text-[#191F28]">😄 이모티콘 포함</p>
+              <p className="text-xs text-[#8B95A1] mt-0.5">답변에 이모지를 자연스럽게 추가</p>
+            </div>
+            <Toggle checked={emoji} onChange={(v: boolean) => set(setEmoji, 'emoji', v)} />
+          </div>
+        </div>
+
+        {/* 저장 버튼 */}
+        <button onClick={handleSave}
+          className={`w-full py-3.5 rounded-2xl font-bold text-sm transition-all ${saved ? 'bg-green-500 text-white' : 'bg-[#3182F6] text-white hover:bg-[#1B64DA]'}`}>
+          {saved ? '✓ 설정이 저장되었습니다!' : '설정 저장하기'}
+        </button>
+
       </div>
     </div>
   )
