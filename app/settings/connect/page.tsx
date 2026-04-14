@@ -1,23 +1,49 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Sidebar from '../../components/Sidebar'
 
-// ── SVG 로고 ──────────────────────────────────────────────────
+// ── 대시보드 업체 목록 타입 ────────────────────────────────
+type Store = {
+  id: string
+  name: string
+  branch?: string
+  address?: string
+  category?: string
+}
 
-function NaverLogo() {
+// ── 플랫폼별 연동 매핑 타입 ────────────────────────────────
+type PlatformLink = {
+  platform: 'naver' | 'google' | 'kakao' | 'baemin' | 'yogiyo' | 'coupangeats'
+  storeId: string           // 대시보드 업체 ID
+  externalId: string        // 플랫폼 내부 ID (네이버 Place ID 등)
+  externalName: string
+  externalUrl: string
+  linkedAt: string
+}
+
+const LS_STORES = 'localution.stores'
+const LS_LINKS  = 'localution.platform_links'
+
+// 데모 기본 업체
+const DEFAULT_STORES: Store[] = [
+  { id: 'store-1', name: '하랑마케팅 카페', branch: '강남점', address: '서울 강남구', category: '카페·베이커리' },
+  { id: 'store-2', name: '하랑마케팅 카페', branch: '일산점', address: '경기 고양시 일산동구', category: '카페·베이커리' },
+]
+
+// ── SVG 로고 (간략) ────────────────────────────────────────
+function NaverLogo({ size = 48 }: { size?: number }) {
   return (
-    <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+    <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
       <rect width="48" height="48" rx="12" fill="#03C75A"/>
       <path d="M27 24.6L20.4 13.5H13.5v21H20V19.4l6.8 11.1H33.5v-21H27v15.1z" fill="white"/>
     </svg>
   )
 }
-
-function GoogleLogo() {
+function GoogleLogo({ size = 48 }: { size?: number }) {
   return (
-    <svg width="48" height="48" viewBox="0 0 48 48">
+    <svg width={size} height={size} viewBox="0 0 48 48">
       <rect width="48" height="48" rx="12" fill="white" stroke="#E5E8EB" strokeWidth="1.5"/>
       <path d="M43.6 24.5c0-1.5-.14-3-.38-4.5H24v8.5h10.94c-.5 2.5-1.96 4.6-4.16 6v5h6.74c3.94-3.62 6.08-9 6.08-15z" fill="#4285F4"/>
       <path d="M24 44c5.4 0 9.92-1.8 13.24-4.86l-6.46-5c-1.8 1.2-4.1 1.92-6.78 1.92-5.22 0-9.64-3.52-11.22-8.26H6.12v5.14C9.42 40.02 16.28 44 24 44z" fill="#34A853"/>
@@ -26,352 +52,376 @@ function GoogleLogo() {
     </svg>
   )
 }
-
-function KakaoLogo() {
+function KakaoLogo({ size = 48 }: { size?: number }) {
   return (
-    <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+    <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
       <rect width="48" height="48" rx="12" fill="#FEE500"/>
       <path d="M24 10C16.27 10 10 14.69 10 20.5c0 3.89 2.46 7.3 6.2 9.38L14.6 36l6.8-4.5c.84.11 1.71.17 2.6.17 7.73 0 14-4.69 14-10.5S31.73 10 24 10z" fill="#3B1E1E"/>
     </svg>
   )
 }
-
-function BaeminLogo() {
+function BaeminLogo({ size = 48 }: { size?: number }) {
   return (
-    <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+    <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
       <rect width="48" height="48" rx="12" fill="#2AC1BC"/>
-      <path d="M13 15h9.8c4.14 0 6.76 2.01 6.76 5.26 0 2.1-1.2 3.76-3 4.64 2.26.76 3.76 2.56 3.76 5.1 0 3.6-2.7 6-7.5 6H13V15zm6 7.8h3c1.36 0 2.26-.76 2.26-1.96 0-1.2-.9-1.94-2.26-1.94h-3v3.9zm0 8.27h3.3c1.5 0 2.4-.76 2.4-2.1 0-1.34-.9-2.1-2.4-2.1H19v4.2z" fill="white"/>
+      <path d="M13 15h9.8c4.14 0 6.76 2.01 6.76 5.26 0 2.1-1.2 3.76-3 4.64 2.26.76 3.76 2.56 3.76 5.1 0 3.6-2.7 6-7.5 6H13V15z" fill="white"/>
     </svg>
   )
 }
-
-function YogiyoLogo() {
+function YogiyoLogo({ size = 48 }: { size?: number }) {
   return (
-    <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+    <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
       <rect width="48" height="48" rx="12" fill="#FA0050"/>
-      <text x="9" y="28" fontSize="16" fontWeight="900" fill="white" fontFamily="'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif">요기</text>
-      <text x="9" y="40" fontSize="12" fontWeight="700" fill="white" fontFamily="'Apple SD Gothic Neo', 'Noto Sans KR', sans-serif">요</text>
+      <text x="24" y="30" fontSize="13" fontWeight="900" fill="white" textAnchor="middle">요기요</text>
     </svg>
   )
 }
-
-function CoupangEatsLogo() {
+function CoupangEatsLogo({ size = 48 }: { size?: number }) {
   return (
-    <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
+    <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
       <rect width="48" height="48" rx="12" fill="#FF4B30"/>
       <path d="M12 17h24M12 24h18M12 31h12" stroke="white" strokeWidth="3.5" strokeLinecap="round"/>
     </svg>
   )
 }
 
-function YeoshinLogo() {
-  return (
-    <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
-      <rect width="48" height="48" rx="12" fill="#003087"/>
-      {/* Credit card */}
-      <rect x="10" y="16" width="28" height="18" rx="3" stroke="white" strokeWidth="2.2" fill="none"/>
-      <rect x="10" y="22" width="28" height="4" fill="white"/>
-      <rect x="13" y="28" width="8" height="2.5" rx="1" fill="white" opacity="0.6"/>
-      <text x="24" y="12" fontSize="7" fontWeight="800" fill="white" fontFamily="Arial" textAnchor="middle">여신금융</text>
-    </svg>
-  )
-}
-
-function HometaxLogo() {
-  return (
-    <svg width="48" height="48" viewBox="0 0 48 48" fill="none">
-      <rect width="48" height="48" rx="12" fill="#006AB4"/>
-      {/* House icon */}
-      <path d="M24 11L9 22h4v14h10V28h2v8h10V22h4L24 11z" fill="white"/>
-      <text x="24" y="44" fontSize="6.5" fontWeight="800" fill="white" fontFamily="Arial" textAnchor="middle">홈택스</text>
-    </svg>
-  )
-}
-
-// ── 타입 ────────────────────────────────────────────────────
-
-type Platform = {
-  id: string
-  name: string
-  logo: React.ReactNode
-  category: '리뷰·검색' | '배달' | '금융·세무'
-  desc: string
-  connected: boolean
-  brandColor: string
-  helpText: string
-}
-
-const initialPlatforms: Platform[] = [
-  {
-    id: 'naver',
-    name: '네이버',
-    logo: <NaverLogo />,
-    category: '리뷰·검색',
-    desc: '네이버 플레이스 리뷰, 별점, 키워드 순위 통합 관리',
-    connected: true,
-    brandColor: '#03C75A',
-    helpText: '네이버 사업자 계정으로 연동',
-  },
-  {
-    id: 'google',
-    name: '구글',
-    logo: <GoogleLogo />,
-    category: '리뷰·검색',
-    desc: '구글 마이비즈니스 리뷰·평점·방문 통계 연동',
-    connected: true,
-    brandColor: '#4285F4',
-    helpText: 'Google 비즈니스 프로필로 연동',
-  },
-  {
-    id: 'kakao',
-    name: '카카오맵',
-    logo: <KakaoLogo />,
-    category: '리뷰·검색',
-    desc: '카카오맵 업체 정보, 리뷰, 즐겨찾기 수 관리',
-    connected: false,
-    brandColor: '#F5C500',
-    helpText: '카카오 사업자 계정으로 연동',
-  },
-  {
-    id: 'baemin',
-    name: '배달의민족',
-    logo: <BaeminLogo />,
-    category: '배달',
-    desc: '배민 주문 현황, 고객 리뷰, 사장님 댓글 일괄 관리',
-    connected: false,
-    brandColor: '#2AC1BC',
-    helpText: '배민 사장님 계정으로 연동',
-  },
-  {
-    id: 'yogiyo',
-    name: '요기요',
-    logo: <YogiyoLogo />,
-    category: '배달',
-    desc: '요기요 주문 수, 평점, 고객 리뷰 통합 분석',
-    connected: false,
-    brandColor: '#FA0050',
-    helpText: '요기요 사장님 계정으로 연동',
-  },
-  {
-    id: 'coupangeats',
-    name: '쿠팡이츠',
-    logo: <CoupangEatsLogo />,
-    category: '배달',
-    desc: '쿠팡이츠 주문 현황, 별점, 리뷰 모니터링',
-    connected: false,
-    brandColor: '#FF4B30',
-    helpText: '쿠팡이츠 사장님 계정으로 연동',
-  },
-  {
-    id: 'yeoshin',
-    name: '여신금융',
-    logo: <YeoshinLogo />,
-    category: '금융·세무',
-    desc: '카드 매출 현황, 월별 결제 데이터, 상권 순위 분석',
-    connected: false,
-    brandColor: '#003087',
-    helpText: '여신금융협회 사업자 인증으로 연동',
-  },
-  {
-    id: 'hometax',
-    name: '홈택스',
-    logo: <HometaxLogo />,
-    category: '금융·세무',
-    desc: '부가세 신고, 현금영수증, 사업자 세금 데이터 연동',
-    connected: false,
-    brandColor: '#006AB4',
-    helpText: '국세청 홈택스 공동인증서로 연동',
-  },
-]
-
-type CategoryFilter = '전체' | '리뷰·검색' | '배달' | '금융·세무'
+const PLATFORMS = [
+  { id: 'naver',       name: '네이버 플레이스', logo: NaverLogo,       brandColor: '#03C75A', category: '리뷰·검색', enabled: true,  desc: '네이버 플레이스 URL로 연동' },
+  { id: 'google',      name: '구글 비즈니스',   logo: GoogleLogo,      brandColor: '#4285F4', category: '리뷰·검색', enabled: false, desc: 'Google Business Profile (준비중)' },
+  { id: 'kakao',       name: '카카오맵',        logo: KakaoLogo,       brandColor: '#FEE500', category: '리뷰·검색', enabled: false, desc: '카카오맵 장소 연동 (준비중)' },
+  { id: 'baemin',      name: '배달의민족',      logo: BaeminLogo,      brandColor: '#2AC1BC', category: '배달',     enabled: false, desc: '배민 셀프서비스 연동 (준비중)' },
+  { id: 'yogiyo',      name: '요기요',          logo: YogiyoLogo,      brandColor: '#FA0050', category: '배달',     enabled: false, desc: '요기요 사장님 연동 (준비중)' },
+  { id: 'coupangeats', name: '쿠팡이츠',        logo: CoupangEatsLogo, brandColor: '#FF4B30', category: '배달',     enabled: false, desc: '쿠팡이츠 스토어 연동 (준비중)' },
+] as const
 
 export default function SettingsConnect() {
-  const [platforms, setPlatforms] = useState(initialPlatforms)
-  const [filter, setFilter] = useState<CategoryFilter>('전체')
-  const [connecting, setConnecting] = useState<string | null>(null)
-  const [tooltip, setTooltip] = useState<string | null>(null)
+  const [stores, setStores]   = useState<Store[]>([])
+  const [links, setLinks]     = useState<PlatformLink[]>([])
+  const [modal, setModal]     = useState<string | null>(null)   // platform id
+  const [selectedStore, setSelectedStore] = useState<string>('')
 
-  const categories: CategoryFilter[] = ['전체', '리뷰·검색', '배달', '금융·세무']
+  // 초기 로드
+  useEffect(() => {
+    try {
+      const s = localStorage.getItem(LS_STORES)
+      setStores(s ? JSON.parse(s) : DEFAULT_STORES)
+      const l = localStorage.getItem(LS_LINKS)
+      setLinks(l ? JSON.parse(l) : [])
+    } catch {
+      setStores(DEFAULT_STORES)
+      setLinks([])
+    }
+  }, [])
 
-  const filtered = filter === '전체' ? platforms : platforms.filter(p => p.category === filter)
-  const connectedList = platforms.filter(p => p.connected)
-  const disconnectedList = platforms.filter(p => !p.connected)
-
-  function handleConnect(id: string) {
-    setConnecting(id)
-    setTimeout(() => {
-      setPlatforms(prev => prev.map(p => p.id === id ? { ...p, connected: true } : p))
-      setConnecting(null)
-    }, 1800)
+  // 링크 저장 헬퍼
+  function saveLinks(next: PlatformLink[]) {
+    setLinks(next)
+    try { localStorage.setItem(LS_LINKS, JSON.stringify(next)) } catch {}
   }
 
-  function handleDisconnect(id: string) {
-    setPlatforms(prev => prev.map(p => p.id === id ? { ...p, connected: false } : p))
+  function openModal(platformId: string) {
+    const plat = PLATFORMS.find(p => p.id === platformId)
+    if (!plat?.enabled) return
+    setSelectedStore(stores[0]?.id || '')
+    setModal(platformId)
+  }
+
+  function getLinksForPlatform(platformId: string) {
+    return links.filter(l => l.platform === platformId)
+  }
+
+  function unlink(platform: string, storeId: string) {
+    if (!confirm('이 업체의 연동을 해제하시겠습니까?')) return
+    saveLinks(links.filter(l => !(l.platform === platform && l.storeId === storeId)))
   }
 
   return (
     <div className="min-h-screen bg-[#F2F4F6] flex">
       <Sidebar />
       <main className="flex-1 md:ml-[220px] p-4 md:p-8 pt-16 md:pt-8">
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-5xl mx-auto">
 
           {/* 헤더 */}
           <div className="mb-6">
             <h1 className="text-2xl font-bold text-[#191F28]">플랫폼 연동 관리</h1>
-            <p className="text-sm text-[#8B95A1] mt-1">여러 플랫폼을 한눈에! 리뷰·매출·세무를 통합 관리해요</p>
+            <p className="text-sm text-[#8B95A1] mt-1">
+              대시보드의 업체를 각 플랫폼과 연결하여 리뷰·평점·통계를 자동으로 가져오세요
+            </p>
           </div>
 
-          {/* 요약 배너 */}
-          <div className="bg-white rounded-2xl p-5 shadow-sm mb-6 flex items-center gap-6">
-            <div className="flex-1">
-              <p className="text-xs text-[#8B95A1] mb-1">연동된 플랫폼</p>
-              <div className="flex items-baseline gap-1">
-                <span className="text-3xl font-bold text-[#3182F6]">{connectedList.length}</span>
-                <span className="text-sm text-[#8B95A1]">/ {platforms.length}개</span>
-              </div>
+          {/* 업체 요약 */}
+          <div className="bg-white rounded-2xl p-5 shadow-sm mb-5">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="font-bold text-sm text-[#191F28]">등록된 업체 ({stores.length}개)</h2>
+              <button className="text-xs text-[#3182F6] font-semibold">+ 업체 추가</button>
             </div>
-            <div className="h-12 w-px bg-[#F2F4F6]" />
-            <div className="flex-1">
-              <p className="text-xs text-[#8B95A1] mb-1">통합 리뷰</p>
-              <div className="flex items-baseline gap-1">
-                <span className="text-3xl font-bold text-[#191F28]">190</span>
-                <span className="text-sm text-[#8B95A1]">건</span>
-              </div>
-            </div>
-            <div className="h-12 w-px bg-[#F2F4F6]" />
-            <div className="flex-1">
-              <p className="text-xs text-[#8B95A1] mb-1">통합 평점</p>
-              <div className="flex items-baseline gap-1">
-                <span className="text-3xl font-bold text-[#F5A623]">4.5</span>
-                <span className="text-sm text-[#8B95A1]">점</span>
-              </div>
-            </div>
-            <div className="h-12 w-px bg-[#F2F4F6]" />
-            <div className="flex-1">
-              <p className="text-xs text-[#8B95A1] mb-2">연동 현황</p>
-              <div className="flex gap-1">
-                {platforms.map(p => (
-                  <div
-                    key={p.id}
-                    className="w-2 h-2 rounded-full"
-                    style={{ backgroundColor: p.connected ? p.brandColor : '#E5E8EB' }}
-                    title={p.name}
-                  />
-                ))}
-              </div>
-            </div>
-          </div>
-
-          {/* 카테고리 필터 */}
-          <div className="flex gap-2 mb-5">
-            {categories.map(cat => (
-              <button
-                key={cat}
-                onClick={() => setFilter(cat)}
-                className={[
-                  'px-4 py-2 rounded-xl text-sm font-semibold transition-all',
-                  filter === cat
-                    ? 'bg-[#3182F6] text-white'
-                    : 'bg-white text-[#4E5968] border border-[#E5E8EB] hover:border-[#3182F6] hover:text-[#3182F6]',
-                ].join(' ')}
-              >
-                {cat === '전체' ? '전체' : cat === '리뷰·검색' ? '🔍 ' + cat : cat === '배달' ? '🛵 ' + cat : '💳 ' + cat}
-              </button>
-            ))}
-          </div>
-
-          {/* 플랫폼 그리드 */}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            {filtered.map(p => (
-              <div
-                key={p.id}
-                className={[
-                  'bg-white rounded-2xl p-5 shadow-sm flex flex-col items-center text-center transition-all group relative',
-                  p.connected ? 'ring-2 ring-[#3182F6]/20' : 'hover:shadow-md',
-                ].join(' ')}
-              >
-                {/* 연동됨 뱃지 */}
-                {p.connected && (
-                  <div className="absolute top-3 right-3 w-5 h-5 bg-[#00C896] rounded-full flex items-center justify-center">
-                    <svg width="10" height="10" viewBox="0 0 10 10" fill="none">
-                      <path d="M2 5l2 2 4-4" stroke="white" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                  </div>
-                )}
-
-                {/* 로고 */}
-                <div className="mb-3 mt-1">
-                  {p.logo}
+            <div className="flex flex-wrap gap-2">
+              {stores.map(s => (
+                <div key={s.id} className="px-3 py-2 bg-[#F8F9FA] rounded-xl text-xs">
+                  <span className="font-bold text-[#191F28]">{s.name}</span>
+                  {s.branch && <span className="text-[#8B95A1] ml-1">· {s.branch}</span>}
                 </div>
+              ))}
+            </div>
+          </div>
 
-                {/* 이름 */}
-                <p className="text-sm font-bold text-[#191F28] mb-1">{p.name}</p>
-
-                {/* 카테고리 */}
-                <span className="text-[10px] text-[#8B95A1] bg-[#F2F4F6] px-2 py-0.5 rounded-full mb-3">
-                  {p.category}
-                </span>
-
-                {/* 설명 (hover) */}
-                <p className="text-[11px] text-[#8B95A1] leading-snug mb-4 hidden group-hover:block absolute top-full left-0 right-0 bg-[#191F28] text-white p-2 rounded-xl z-10 shadow-lg mt-1 text-left">
-                  {p.desc}
-                </p>
-
-                {/* 버튼 */}
-                {p.connected ? (
-                  <div className="w-full space-y-2">
-                    <div className="text-xs text-[#00C896] font-semibold">✓ 연동됨</div>
+          {/* 플랫폼 카드 */}
+          <div className="space-y-4">
+            {PLATFORMS.map(p => {
+              const Logo = p.logo
+              const platLinks = getLinksForPlatform(p.id)
+              return (
+                <div key={p.id} className="bg-white rounded-2xl shadow-sm overflow-hidden">
+                  <div className="flex items-center gap-4 p-5">
+                    <Logo size={52} />
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-bold text-[#191F28]">{p.name}</h3>
+                        <span className="text-[10px] text-[#8B95A1] bg-[#F2F4F6] px-2 py-0.5 rounded-full">{p.category}</span>
+                        {!p.enabled && (
+                          <span className="text-[10px] text-[#FF8C00] bg-[#FFF4E5] px-2 py-0.5 rounded-full font-bold">준비중</span>
+                        )}
+                      </div>
+                      <p className="text-xs text-[#8B95A1] mt-1">{p.desc}</p>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-xs text-[#8B95A1]">연동된 업체</p>
+                      <p className="text-xl font-bold" style={{ color: p.brandColor }}>
+                        {platLinks.length}<span className="text-sm text-[#8B95A1]">/{stores.length}</span>
+                      </p>
+                    </div>
                     <button
-                      onClick={() => handleDisconnect(p.id)}
-                      className="w-full text-xs text-[#8B95A1] border border-[#E5E8EB] py-2 rounded-xl hover:bg-[#F2F4F6] transition-colors"
+                      onClick={() => openModal(p.id)}
+                      disabled={!p.enabled}
+                      className={[
+                        'px-4 py-2.5 rounded-xl text-sm font-bold transition-all whitespace-nowrap',
+                        p.enabled
+                          ? 'bg-[#3182F6] text-white hover:bg-[#1B64DA]'
+                          : 'bg-[#F2F4F6] text-[#B0B8C1] cursor-not-allowed',
+                      ].join(' ')}
                     >
-                      연동 해제
+                      + 업체 연결
                     </button>
                   </div>
-                ) : (
-                  <button
-                    onClick={() => handleConnect(p.id)}
-                    disabled={connecting === p.id}
-                    className={[
-                      'w-full text-xs font-bold py-2.5 rounded-xl transition-all',
-                      connecting === p.id
-                        ? 'bg-[#E5E8EB] text-[#8B95A1] cursor-not-allowed'
-                        : 'bg-[#3182F6] text-white hover:bg-[#1B64DA]',
-                    ].join(' ')}
-                  >
-                    {connecting === p.id ? (
-                      <span className="flex items-center justify-center gap-1">
-                        <svg className="animate-spin" width="12" height="12" viewBox="0 0 24 24" fill="none">
-                          <circle cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="3" strokeDasharray="31.4" strokeDashoffset="10"/>
-                        </svg>
-                        연동 중...
-                      </span>
-                    ) : '연결하러가기'}
-                  </button>
-                )}
-              </div>
-            ))}
+
+                  {/* 연동된 업체 목록 */}
+                  {platLinks.length > 0 && (
+                    <div className="border-t border-[#F2F4F6] bg-[#FAFBFC] divide-y divide-[#F2F4F6]">
+                      {platLinks.map(l => {
+                        const store = stores.find(s => s.id === l.storeId)
+                        return (
+                          <div key={l.storeId} className="flex items-center gap-3 px-5 py-3">
+                            <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: p.brandColor }} />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-sm font-semibold text-[#191F28]">
+                                {store?.name}{store?.branch ? ` · ${store.branch}` : ''}
+                                <span className="text-[#8B95A1] font-normal ml-2">→ {l.externalName}</span>
+                              </p>
+                              <p className="text-[10px] text-[#8B95A1]">ID: {l.externalId} · {l.linkedAt.slice(0, 10)}</p>
+                            </div>
+                            <a
+                              href={l.externalUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-xs text-[#3182F6] font-semibold hover:underline"
+                            >
+                              열기 ↗
+                            </a>
+                            <button
+                              onClick={() => unlink(p.id, l.storeId)}
+                              className="text-xs text-[#8B95A1] border border-[#E5E8EB] px-2.5 py-1 rounded-lg hover:bg-white transition-colors"
+                            >
+                              해제
+                            </button>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
           </div>
 
-          {/* 안내 */}
-          <div className="mt-6 bg-[#EFF6FF] border border-[#DBEAFE] rounded-2xl p-4 flex gap-3">
-            <span className="text-xl flex-shrink-0">💡</span>
-            <div>
-              <p className="text-sm font-semibold text-[#191F28] mb-1">연동 도움말</p>
-              <p className="text-xs text-[#4E5968] leading-relaxed">
-                <span className="font-semibold">여신금융</span>은 카드사 매출 조회를 위해 사업자등록번호 인증이 필요해요.
-                <span className="font-semibold ml-1">홈택스</span>는 공동인증서(구 공인인증서) 또는 간편인증으로 연동 가능합니다.
-                배달 플랫폼은 각 사장님 계정의 API 키가 필요해요.
-              </p>
-            </div>
-          </div>
-
-          <p className="text-xs text-[#8B95A1] mt-4 text-center">
-            * 일부 플랫폼은 해당 플랫폼의 API 승인 후 연동됩니다
-          </p>
+          {/* 네이버 연결 모달 */}
+          {modal === 'naver' && (
+            <NaverConnectModal
+              stores={stores}
+              selectedStore={selectedStore}
+              setSelectedStore={setSelectedStore}
+              onClose={() => setModal(null)}
+              onSave={(link) => {
+                const next = [...links.filter(l => !(l.platform === link.platform && l.storeId === link.storeId)), link]
+                saveLinks(next)
+                setModal(null)
+              }}
+            />
+          )}
         </div>
       </main>
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════
+// 네이버 플레이스 연결 모달
+// ═══════════════════════════════════════════════════════════
+function NaverConnectModal(props: {
+  stores: Store[]
+  selectedStore: string
+  setSelectedStore: (id: string) => void
+  onClose: () => void
+  onSave: (link: PlatformLink) => void
+}) {
+  const { stores, selectedStore, setSelectedStore, onClose, onSave } = props
+  const [urlInput, setUrlInput]   = useState('')
+  const [loading, setLoading]     = useState(false)
+  const [error, setError]         = useState('')
+  const [preview, setPreview]     = useState<{ placeId: string; name: string; desc: string; url: string } | null>(null)
+
+  async function handleVerify() {
+    setError('')
+    setPreview(null)
+    if (!urlInput.trim()) { setError('네이버 플레이스 URL을 입력하세요'); return }
+
+    setLoading(true)
+    try {
+      const res = await fetch('/api/platforms/naver', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'verify', input: urlInput }),
+      })
+      const data = await res.json()
+      if (!res.ok) { setError(data.error || '검증 실패'); return }
+      setPreview({
+        placeId: data.placeId,
+        name: data.name || '(이름 조회 실패)',
+        desc: data.desc || '',
+        url: data.url,
+      })
+    } catch (err) {
+      setError('네트워크 오류')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  function handleSave() {
+    if (!preview) return
+    if (!selectedStore) { setError('연결할 업체를 선택하세요'); return }
+    const store = stores.find(s => s.id === selectedStore)
+    if (!store) return
+
+    onSave({
+      platform: 'naver',
+      storeId: selectedStore,
+      externalId: preview.placeId,
+      externalName: preview.name || store.name,
+      externalUrl: preview.url,
+      linkedAt: new Date().toISOString(),
+    })
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div
+        className="bg-white rounded-2xl shadow-xl max-w-lg w-full max-h-[90vh] overflow-y-auto"
+        onClick={e => e.stopPropagation()}
+      >
+        {/* 헤더 */}
+        <div className="flex items-center gap-3 p-5 border-b border-[#F2F4F6]">
+          <NaverLogo size={40} />
+          <div className="flex-1">
+            <h2 className="font-bold text-[#191F28]">네이버 플레이스 연결</h2>
+            <p className="text-xs text-[#8B95A1]">업체와 네이버 플레이스를 연결합니다</p>
+          </div>
+          <button onClick={onClose} className="text-[#8B95A1] text-xl">✕</button>
+        </div>
+
+        <div className="p-5 space-y-4">
+          {/* Step 1: 업체 선택 */}
+          <div>
+            <label className="block text-xs font-bold text-[#4E5968] mb-2">1. 연결할 업체 선택</label>
+            <select
+              value={selectedStore}
+              onChange={e => setSelectedStore(e.target.value)}
+              className="w-full border border-[#E5E8EB] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#3182F6]"
+            >
+              {stores.map(s => (
+                <option key={s.id} value={s.id}>
+                  {s.name}{s.branch ? ` · ${s.branch}` : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Step 2: URL 입력 */}
+          <div>
+            <label className="block text-xs font-bold text-[#4E5968] mb-2">2. 네이버 플레이스 URL 또는 ID</label>
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={urlInput}
+                onChange={e => setUrlInput(e.target.value)}
+                placeholder="https://map.naver.com/p/entry/place/1234567890"
+                className="flex-1 border border-[#E5E8EB] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#03C75A]"
+              />
+              <button
+                onClick={handleVerify}
+                disabled={loading}
+                className="px-4 py-3 bg-[#03C75A] text-white text-sm font-bold rounded-xl hover:bg-[#02B350] disabled:bg-[#B0B8C1] whitespace-nowrap"
+              >
+                {loading ? '확인 중...' : '검증'}
+              </button>
+            </div>
+            <p className="text-[11px] text-[#8B95A1] mt-1.5">
+              네이버 지도에서 매장 검색 후 URL을 복사해서 붙여넣으세요
+            </p>
+          </div>
+
+          {/* 에러 */}
+          {error && (
+            <div className="bg-[#FFF0F0] border border-[#FFD4D4] rounded-xl p-3 text-xs text-[#F04452]">
+              ⚠ {error}
+            </div>
+          )}
+
+          {/* 미리보기 */}
+          {preview && (
+            <div className="bg-[#F0FFF4] border border-[#C8F0D4] rounded-xl p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="w-2 h-2 rounded-full bg-[#03C75A]" />
+                <span className="text-xs font-bold text-[#02B350]">검증 완료</span>
+              </div>
+              <p className="text-sm font-bold text-[#191F28]">{preview.name}</p>
+              {preview.desc && <p className="text-[11px] text-[#4E5968] mt-1 line-clamp-2">{preview.desc}</p>}
+              <div className="flex items-center justify-between mt-2 pt-2 border-t border-[#C8F0D4]">
+                <span className="text-[10px] text-[#8B95A1]">Place ID: {preview.placeId}</span>
+                <a href={preview.url} target="_blank" rel="noreferrer" className="text-[10px] text-[#03C75A] font-semibold hover:underline">
+                  페이지 열기 ↗
+                </a>
+              </div>
+            </div>
+          )}
+
+          {/* 저장 버튼 */}
+          <div className="flex gap-2 pt-2">
+            <button
+              onClick={onClose}
+              className="flex-1 py-3 border border-[#E5E8EB] text-[#4E5968] text-sm font-bold rounded-xl hover:bg-[#F8F9FA]"
+            >
+              취소
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={!preview}
+              className="flex-1 py-3 bg-[#3182F6] text-white text-sm font-bold rounded-xl hover:bg-[#1B64DA] disabled:bg-[#B0B8C1]"
+            >
+              연결 저장
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   )
 }
