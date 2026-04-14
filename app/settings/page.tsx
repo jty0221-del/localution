@@ -607,7 +607,7 @@ function ReviewTab() {
 
   // 매장 정보 — 매장 정보 탭 localStorage 동기화
   const [storeCtx, setStoreCtx] = useState({
-    bizType: '', storeName: '', mainKeyword: '', subKeywords: '', storeDesc: '',
+    bizType: '', storeName: '', region: '', mainKeyword: '', subKeywords: '', storeDesc: '',
     aiTone: 'friendly', aiLength: 'medium',
     aiIncludes: { thanks: true, revisit: true, mention: true, personalize: false, improve: true, keyword: true },
     aiClosing: '', aiExcludes: '',
@@ -624,6 +624,7 @@ function ReviewTab() {
         ...p,
         bizType: sd.category || p.bizType,
         storeName: sd.name || p.storeName,
+        region: sd.region || sd.address?.split(' ').slice(0, 2).join(' ') || p.region,
         mainKeyword: sd.mainKeyword || p.mainKeyword,
         subKeywords: sd.subKeywords || p.subKeywords,
         storeDesc: sd.desc || p.storeDesc,
@@ -657,6 +658,7 @@ function ReviewTab() {
           platform: plat.label,
           bizType: storeCtx.bizType,
           storeName: storeCtx.storeName,
+          region: storeCtx.region,
           mainKeyword: storeCtx.mainKeyword,
           subKeywords: storeCtx.subKeywords,
           storeDesc: storeCtx.storeDesc,
