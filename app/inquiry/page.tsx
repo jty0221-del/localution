@@ -60,6 +60,16 @@ export default function InquiryPage() {
 
   return (
     <div className="min-h-screen bg-[#F2F4F6] flex">
+      {/* 클립보드 복사 토스트 */}
+      {copied && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] animate-bounce">
+          <div className="flex items-center gap-2.5 px-5 py-3 bg-[#191F28] text-white rounded-2xl shadow-2xl text-sm font-semibold">
+            <span className="text-base">✅</span>
+            <span>이메일 주소가 복사되었습니다</span>
+            <span className="text-[#8B95A1] text-xs ml-1">harangmarketing@naver.com</span>
+          </div>
+        </div>
+      )}
       <Sidebar />
       <main className="flex-1 md:ml-[220px] p-4 md:p-8 pt-16 md:pt-8 max-w-2xl">
 
