@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
 
 const FLAT_NAV = [
-  { href: '/',          label: '대시보드',  icon: 'DB',  colors: { bg: '#EFF6FF', text: '#3182F6' } },
+  { href: '/dashboard', label: '대시보드',  icon: 'DB',  colors: { bg: '#EFF6FF', text: '#3182F6' } },
   { href: '/qr-admin',  label: 'QR 관리',   icon: 'QR',  colors: { bg: '#F5F3FF', text: '#8B5CF6' } },
   { href: '/customers', label: '고객 관리', icon: '고객', colors: { bg: '#ECFDF5', text: '#059669' } },
   { href: '/store',     label: '매장 관리', icon: '매장', colors: { bg: '#FFF1F2', text: '#E11D48' } },
