@@ -93,7 +93,10 @@ function ConnectModal({ platformKey, onClose, onSave }: {
 
   // URL 여부 판별
   function isUrl(s: string) {
-    return /^https?://|maps.google|goo.gl/maps|ChIJ[A-Za-z0-9_\-]{10}/.test(s.trim())
+    const t = s.trim().toLowerCase()
+    return t.startsWith('http://') || t.startsWith('https://') ||
+           t.includes('maps.google') || t.includes('goo.gl/maps') ||
+           t.includes('place_id:') || t.slice(0, 4) === 'chij'
   }
 
   async function handleVerify() {
