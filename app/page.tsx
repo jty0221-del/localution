@@ -7,6 +7,7 @@ import Link from 'next/link'
 import Sidebar from './components/Sidebar'
 import PartnerSpotlight from './components/PartnerSpotlight'
 import Footer from './components/Footer'
+import UserHeader from './components/UserHeader'
 
 const LS_LINKS = 'localution.platform_links'
 const LS_SEEN  = 'localution.seen_review_ids'
@@ -446,12 +447,18 @@ export default function Dashboard() {
               {new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })}
             </p>
           </div>
-          <button
-            onClick={() => setShowPartner(true)}
-            className="hidden sm:flex items-center gap-2 px-4 py-2 bg-white rounded-xl shadow-sm text-sm font-semibold text-[#3182F6] hover:bg-[#EFF6FF] transition-colors border border-[#E5E8EB]"
-          >
-            <span>🌟</span> 파트너 스포트라이트
-          </button>
+          <div className="flex items-center gap-3">
+            <button
+              onClick={() => setShowPartner(true)}
+              className="hidden sm:flex items-center gap-2 px-4 py-2 bg-white rounded-xl shadow-sm text-sm font-semibold text-[#3182F6] hover:bg-[#EFF6FF] transition-colors border border-[#E5E8EB]"
+            >
+              <span>🌟</span> 파트너 스포트라이트
+            </button>
+            {/* 로그인 유저 정보 */}
+            <div className="bg-white rounded-xl px-3 py-2 shadow-sm border border-[#E5E8EB]">
+              <UserHeader />
+            </div>
+          </div>
         </div>
 
         {/* ──────────── 통계 카드 4개 ──────────── */}
@@ -516,7 +523,7 @@ export default function Dashboard() {
                 { label: 'QR 생성', href: '/qr', bg: '#F5F3FF', color: '#8B5CF6' },
                 { label: '고객 추가', href: '/customers', bg: '#ECFDF5', color: '#059669' },
                 { label: '커뮤니티', href: '/community', bg: '#FDF2F8', color: '#EC4899' },
-                { label: '리포트', href: '/settings', bg: '#EFF6FF', color: '#3182F6' },
+                { label: '내 정보', href: '/my', bg: '#EFF6FF', color: '#3182F6' },
                 { label: '설정', href: '/settings', bg: '#F2F4F6', color: '#4E5968' },
               ].map(item => (
                 <Link key={item.label} href={item.href}
