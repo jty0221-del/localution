@@ -1,467 +1,290 @@
 'use client'
+
 export const dynamic = 'force-dynamic'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
+import Link from 'next/link'
 import Sidebar from './components/Sidebar'
+import PartnerSpotlight from './components/PartnerSpotlight'
+import Footer from './components/Footer'
 
-// ═══════════════════════════════════════════════════════════
-//  플랫폼 로고 SVG (정확도 최우선)
-// ═══════════════════════════════════════════════════════════
+// 주간 데이터 (실제는 API에서)
+const WEEKLY = [
+  { day: '월', v: 45, r: 3 },
+  { day: '화', v: 62, r: 7 },
+  { day: '수', v: 38, r: 4 },
+  { day: '목', v: 71, r: 12 },
+  { day: '금', v: 89, r: 8 },
+  { day: '토', v: 124, r: 15 },
+  { day: '일', v: 98, r: 9 },
+]
+const MAX_V = Math.max(...WEEKLY.map(d => d.v))
 
-function NaverPlaceLogo({ size = 28 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
-      <rect width="48" height="48" rx="10" fill="#03C75A"/>
-      <path d="M24 9C17.37 9 12 13.25 12 18.5c0 3.5 2.2 6.6 5.6 8.47L15.8 33l6.12-4.06c.67.09 1.37.14 2.08.14 6.63 0 12-4.25 12-9.5S30.63 9 24 9z" fill="white"/>
-    </svg>
-  )
-}
-
-function GoogleLogo({ size = 28 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 48 48">
-      <rect width="48" height="48" rx="10" fill="white" stroke="#E5E8EB" strokeWidth="1.5"/>
-      <path d="M43.6 24.5c0-1.5-.14-3-.38-4.5H24v8.5h10.94c-.5 2.5-1.96 4.6-4.16 6v5h6.74c3.94-3.62 6.08-9 6.08-15z" fill="#4285F4"/>
-      <path d="M24 44c5.4 0 9.92-1.8 13.24-4.86l-6.46-5c-1.8 1.2-4.1 1.92-6.78 1.92-5.22 0-9.64-3.52-11.22-8.26H6.12v5.14C9.42 40.02 16.28 44 24 44z" fill="#34A853"/>
-      <path d="M12.78 27.8A11.94 11.94 0 0112.2 24c0-1.32.22-2.6.58-3.8v-5.14H6.12A20 20 0 004 24c0 3.22.78 6.28 2.12 9.14l6.66-5.34z" fill="#FBBC05"/>
-      <path d="M24 12.08c2.94 0 5.58 1.02 7.66 3l5.74-5.74C33.9 6.06 29.38 4 24 4 16.28 4 9.42 7.98 6.12 14.86l6.66 5.14C14.36 15.6 18.78 12.08 24 12.08z" fill="#EA4335"/>
-    </svg>
-  )
-}
-
-function KakaoMapLogo({ size = 28 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
-      <rect width="48" height="48" rx="10" fill="#FEE500"/>
-      <path d="M24 8C16.27 8 10 12.69 10 18.5c0 3.89 2.46 7.3 6.2 9.38L14.6 34l6.8-4.5c.84.11 1.71.17 2.6.17 7.73 0 14-4.69 14-10.5S31.73 8 24 8z" fill="#3C1E1E"/>
-    </svg>
-  )
-}
-
-// ── 배달의민족 2025 새 아이콘: 밝은 민트 + 5개 세로 굵은 선 (배 글자 형상) ──
-function BaeminLogo({ size = 28 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
-      <rect width="48" height="48" rx="10" fill="#2AC1BC"/>
-      {/* 5개 세로선 – '배' 글자의 세로 획 형태 */}
-      <rect x="8"  y="10" width="5.5" height="28" rx="2.5" fill="white"/>
-      <rect x="16" y="10" width="5.5" height="20" rx="2.5" fill="white"/>
-      <rect x="24" y="10" width="5.5" height="28" rx="2.5" fill="white"/>
-      <rect x="32" y="10" width="5.5" height="16" rx="2.5" fill="white"/>
-      {/* 가로 연결선 */}
-      <rect x="8" y="10" width="29" height="5" rx="2" fill="white"/>
-    </svg>
-  )
-}
-
-// ── 요기요: KPOP Red + 스마일(웃는 입) 모티브 ──
-function YogiyoLogo({ size = 28 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
-      <rect width="48" height="48" rx="10" fill="#FA1A32"/>
-      {/* 두 눈 */}
-      <circle cx="17" cy="17" r="4.5" fill="white"/>
-      <circle cx="31" cy="17" r="4.5" fill="white"/>
-      {/* 스마일 호 */}
-      <path d="M11 27 Q24 40 37 27" stroke="white" strokeWidth="4.5" fill="none" strokeLinecap="round"/>
-    </svg>
-  )
-}
-
-// ── 쿠팡이츠: 오렌지 (#FF5A00) + 로켓/포크 아이콘 ──
-function CoupangEatsLogo({ size = 28 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
-      <rect width="48" height="48" rx="10" fill="#FF5A00"/>
-      {/* 로켓 모양 */}
-      <path d="M24 7 C24 7 33 14 33 24 L29 28 L19 28 L15 24 C15 14 24 7 24 7z" fill="white" opacity="0.95"/>
-      <circle cx="24" cy="22" r="4" fill="#FF5A00"/>
-      <path d="M19 28 L17 36 L24 32 L31 36 L29 28" fill="white" opacity="0.8"/>
-      <path d="M15 22 L10 26 L15 28" fill="white" opacity="0.6"/>
-      <path d="M33 22 L38 26 L33 28" fill="white" opacity="0.6"/>
-    </svg>
-  )
-}
-
-function NaverSearchLogo({ size = 28 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
-      <rect width="48" height="48" rx="10" fill="#03C75A"/>
-      <path d="M27 24.6L20.4 13.5H13.5v21H20V19.4l6.8 11.1H33.5v-21H27v15.1z" fill="white"/>
-    </svg>
-  )
-}
-
-function YeoshinLogo({ size = 28 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
-      <rect width="48" height="48" rx="10" fill="#003087"/>
-      <rect x="9" y="15" width="30" height="18" rx="3" stroke="white" strokeWidth="2.5" fill="none"/>
-      <rect x="9" y="21" width="30" height="5" fill="white"/>
-      <rect x="12" y="28" width="9" height="2.5" rx="1.2" fill="white" opacity="0.55"/>
-    </svg>
-  )
-}
-
-function HometaxLogo({ size = 28 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
-      <rect width="48" height="48" rx="10" fill="#006AB4"/>
-      <path d="M24 9L7 22h5v17h10v-9h4v9h10V22h5L24 9z" fill="white"/>
-    </svg>
-  )
-}
-
-// ═══════════════════════════════════════════════════════════
-//  타입 & 상수
-// ═══════════════════════════════════════════════════════════
-
-type PlatformId =
-  | 'naver_place' | 'google' | 'kakao' | 'baemin'
-  | 'yogiyo' | 'coupangeats' | 'naver_search' | 'yeoshin' | 'hometax'
-
-interface Platform {
-  id: PlatformId
-  name: string
-  shortName: string
-  logo: (size?: number) => JSX.Element
-  category: '리뷰·검색' | '배달' | '금융·세무'
-  connected: boolean
-  rating: number | null
-  reviews: number | null
-  color: string
-}
-
-const INITIAL_PLATFORMS: Platform[] = [
-  { id: 'naver_place',  name: '네이버 플레이스', shortName: '네이버',   logo: (s) => <NaverPlaceLogo size={s}/>,   category: '리뷰·검색', connected: true,  rating: 4.6, reviews: 127, color: '#03C75A' },
-  { id: 'google',       name: '구글 비즈니스',   shortName: '구글',     logo: (s) => <GoogleLogo size={s}/>,       category: '리뷰·검색', connected: true,  rating: 4.4, reviews: 63,  color: '#4285F4' },
-  { id: 'kakao',        name: '카카오맵',         shortName: '카카오',   logo: (s) => <KakaoMapLogo size={s}/>,     category: '리뷰·검색', connected: false, rating: null, reviews: null, color: '#F5C500' },
-  { id: 'baemin',       name: '배달의민족',        shortName: '배민',     logo: (s) => <BaeminLogo size={s}/>,       category: '배달',      connected: false, rating: null, reviews: null, color: '#2AC1BC' },
-  { id: 'yogiyo',       name: '요기요',            shortName: '요기요',   logo: (s) => <YogiyoLogo size={s}/>,       category: '배달',      connected: false, rating: null, reviews: null, color: '#FA1A32' },
-  { id: 'coupangeats',  name: '쿠팡이츠',          shortName: '쿠팡이츠', logo: (s) => <CoupangEatsLogo size={s}/>,  category: '배달',      connected: false, rating: null, reviews: null, color: '#FF5A00' },
-  { id: 'yeoshin',      name: '여신금융',           shortName: '여신금융', logo: (s) => <YeoshinLogo size={s}/>,      category: '금융·세무', connected: false, rating: null, reviews: null, color: '#003087' },
-  { id: 'hometax',      name: '홈택스',            shortName: '홈택스',   logo: (s) => <HometaxLogo size={s}/>,      category: '금융·세무', connected: false, rating: null, reviews: null, color: '#006AB4' },
+// 최근 리뷰
+const REVIEWS = [
+  { id: 1, platform: '네이버', name: '이정민', rating: 5, text: '커피가 너무 맛있어요! 분위기도 좋고 직원분들도 친절했습니다. 다음에 또 올게요 :)', time: '10분 전', replied: false },
+  { id: 2, platform: '구글', name: 'J.Park', rating: 4, text: 'Great place for brunch. Cozy atmosphere and friendly staff.', time: '1시간 전', replied: true },
+  { id: 3, platform: '카카오', name: '박소연', rating: 5, text: '친구랑 왔는데 둘다 너무 만족했어요. 루프탑 뷰가 최고입니다!', time: '3시간 전', replied: false },
 ]
 
-interface KeywordRank {
-  keyword: string
-  rank: number
-  prevRank: number | null
-  area: string
-  updatedAt: string
+// 연동된 매장 정보 (실제는 settings에서 가져옴)
+const STORE = {
+  name: '우리 카페',
+  initial: '우',
+  category: '카페·베이커리',
+  address: '서울시 마포구 합정동 123-4',
+  rating: 4.7,
+  reviewCount: 234,
+  keywords: ['카페', '브런치', '합정카페', '애완동물동반', '루프탑'],
+  connected: [
+    { name: '네이버', on: true, color: '#03C75A' },
+    { name: '구글', on: false, color: '#4285F4' },
+    { name: '카카오', on: true, color: '#F9D64F' },
+  ],
+  gradientFrom: '#3182F6',
+  gradientTo: '#1B64DA',
 }
 
-const MOCK_KEYWORDS: KeywordRank[] = [
-  { keyword: '강남 맛집',     rank: 3,  prevRank: 5,   area: '강남구', updatedAt: '방금 전' },
-  { keyword: '강남 한식당',   rank: 7,  prevRank: 7,   area: '강남구', updatedAt: '3분 전' },
-  { keyword: '테헤란로 점심', rank: 12, prevRank: 15,  area: '강남구', updatedAt: '10분 전' },
-  { keyword: '강남 회식장소', rank: 21, prevRank: 18,  area: '강남구', updatedAt: '18분 전' },
-  { keyword: '강남 단체석',   rank: 34, prevRank: null, area: '강남구', updatedAt: '방금 전' },
+const STATS = [
+  { label: '이번 주 리뷰', value: '58', unit: '건', delta: '+12', up: true, color: '#3182F6' },
+  { label: '평균 별점', value: '4.7', unit: '점', delta: '+0.2', up: true, color: '#F59E0B' },
+  { label: '신규 고객', value: '23', unit: '명', delta: '+5', up: true, color: '#10B981' },
+  { label: '답변률', value: '84', unit: '%', delta: '-3', up: false, color: '#8B5CF6' },
 ]
 
-const RECENT_REVIEWS = [
-  { platform: '네이버',  name: '김**', rating: 5, text: '음식도 맛있고 직원분들도 친절해요. 주차도 편하고 재방문 의사 있습니다!', time: '2시간 전', replied: false, color: '#03C75A' },
-  { platform: '구글',    name: 'J**',  rating: 4, text: 'Great food and cozy atmosphere. Service was excellent. Will definitely come back!', time: '5시간 전', replied: true,  color: '#4285F4' },
-  { platform: '네이버',  name: '박**', rating: 5, text: '회식으로 왔는데 음식 양도 많고 맛도 좋았어요. 사장님도 친절하시고 너무 좋았습니다', time: '어제',     replied: false, color: '#03C75A' },
-  { platform: '구글',    name: 'L**',  rating: 3, text: 'Food was okay but waiting time was a bit long. Interior is nice though.', time: '어제',     replied: false, color: '#4285F4' },
-]
-
-// ═══════════════════════════════════════════════════════════
-//  별점 컴포넌트
-// ═══════════════════════════════════════════════════════════
-function Stars({ rating, size = 'sm' }: { rating: number; size?: 'sm' | 'md' }) {
-  const full = Math.round(rating)
-  const cls = size === 'md' ? 'text-base' : 'text-xs'
+// 별점 렌더링
+function Stars({ rating }: { rating: number }) {
   return (
-    <span className={`${cls} text-[#F5A623] tracking-tight`}>
-      {'★'.repeat(full)}{'☆'.repeat(5 - full)}
-      <span className={`${size === 'md' ? 'text-sm' : 'text-[11px]'} ml-1 text-[#4E5968] font-bold`}>{rating}</span>
-    </span>
+    <div className="flex gap-0.5">
+      {[1, 2, 3, 4, 5].map(i => (
+        <span key={i} className={`text-sm ${i <= rating ? 'text-yellow-400' : 'text-[#E5E8EB]'}`}>★</span>
+      ))}
+    </div>
   )
 }
 
-// ═══════════════════════════════════════════════════════════
-//  키워드 순위 변동 아이콘
-// ═══════════════════════════════════════════════════════════
-function RankBadge({ current, prev }: { current: number; prev: number | null }) {
-  if (prev === null) return <span className="text-[10px] text-[#8B95A1] font-medium">신규</span>
-  const diff = prev - current
-  if (diff > 0) return <span className="text-[10px] text-[#12B76A] font-bold">▲{diff}</span>
-  if (diff < 0) return <span className="text-[10px] text-[#F04452] font-bold">▼{Math.abs(diff)}</span>
-  return <span className="text-[10px] text-[#8B95A1] font-bold">–</span>
+// 플랫폼 뱃지
+function PlatformBadge({ name }: { name: string }) {
+  const map: Record<string, string> = { 네이버: 'bg-green-100 text-green-700', 구글: 'bg-blue-100 text-blue-700', 카카오: 'bg-yellow-100 text-yellow-700' }
+  return <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${map[name] || 'bg-gray-100 text-gray-600'}`}>{name}</span>
 }
 
-// ═══════════════════════════════════════════════════════════
-//  메인 대시보드
-// ═══════════════════════════════════════════════════════════
 export default function Dashboard() {
-  const [platforms, setPlatforms] = useState(INITIAL_PLATFORMS)
-  const [keywords, setKeywords] = useState<KeywordRank[]>(MOCK_KEYWORDS)
-  const [lastSync, setLastSync] = useState('방금 전')
-  const [isSyncing, setIsSyncing] = useState(false)
-  const [storeName] = useState('하랑마케팅 강남점')
-  const [mainKeyword] = useState('강남 맛집')
-
-  const connectedCount = platforms.filter(p => p.connected).length
-  const totalReviews   = platforms.reduce((s, p) => s + (p.reviews ?? 0), 0)
-  const avgRating = (() => {
-    const rated = platforms.filter(p => p.rating !== null)
-    if (!rated.length) return 0
-    return +(rated.reduce((s, p) => s + p.rating!, 0) / rated.length).toFixed(1)
-  })()
-
-  // 실시간 키워드 순위 갱신 (실제: Naver Search API)
-  const refreshKeywords = useCallback(async () => {
-    setIsSyncing(true)
-    try {
-      // 실 API 호출 예시:
-      // const res = await fetch(`/api/naver-keyword?query=${mainKeyword}&display=5`)
-      // const data = await res.json()
-      // setKeywords(data.keywords)
-
-      // ─ 현재: 목업 데이터 (변동 시뮬레이션) ─
-      await new Promise(r => setTimeout(r, 800))
-      setKeywords(prev => prev.map(k => ({
-        ...k,
-        prevRank: k.rank,
-        rank: Math.max(1, k.rank + Math.floor(Math.random() * 3) - 1),
-        updatedAt: '방금 전',
-      })))
-      setLastSync('방금 전')
-    } finally {
-      setIsSyncing(false)
-    }
-  }, [mainKeyword])
-
-  // 10분마다 자동 갱신
-  useEffect(() => {
-    const id = setInterval(refreshKeywords, 600_000)
-    return () => clearInterval(id)
-  }, [refreshKeywords])
-
-  const stats = [
-    { label: '이번 달 방문자', value: '2,847', change: '+12.4%', up: true,  icon: '👥' },
-    { label: '총 리뷰 수',     value: `${totalReviews}건`,  change: '+34건', up: true,  icon: '💬' },
-    { label: '평균 별점',      value: `${avgRating}점`,    change: '+0.1',  up: true,  icon: '⭐' },
-    { label: '키워드 상위',    value: '3개',               change: '+1개',  up: true,  icon: '🔍' },
-  ]
+  const [showPartner, setShowPartner] = useState(false)
+  const [chartMode, setChartMode] = useState<'visitors' | 'reviews'>('visitors')
 
   return (
-    <div className="flex min-h-screen bg-[#F2F4F6]">
+    <div className="min-h-screen bg-[#F2F4F6] flex">
       <Sidebar />
-      <main className="flex-1 ml-[220px] p-6 min-w-0">
+      <main className="flex-1 md:ml-[220px] p-4 md:p-8 pt-16 md:pt-8 pr-16 md:pr-20">
 
-        {/* ── ① 플랫폼 연동 현황 바 ── */}
-        <div className="bg-white rounded-2xl shadow-sm px-5 py-4 mb-5">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-bold text-[#191F28]">플랫폼 연동 현황</span>
-              <span className="text-[11px] px-2 py-0.5 rounded-full bg-[#E8F4FD] text-[#3182F6] font-semibold">
-                {connectedCount}/{platforms.length} 연동
-              </span>
+        {/* ──────────── 매장 연동 카드 ──────────── */}
+        <div className="bg-white rounded-2xl p-5 shadow-sm mb-6 border border-[#E5E8EB]">
+          <div className="flex items-start gap-4">
+            {/* 매장 아바타 */}
+            <div
+              className="w-14 h-14 rounded-2xl flex items-center justify-center text-white font-black text-2xl flex-shrink-0 shadow-md"
+              style={{ background: `linear-gradient(135deg, ${STORE.gradientFrom}, ${STORE.gradientTo})` }}
+            >
+              {STORE.initial}
             </div>
-            <a href="/settings" className="text-[11px] text-[#3182F6] font-semibold hover:underline flex items-center gap-1">
-              연동 관리 →
-            </a>
-          </div>
-          <div className="grid grid-cols-8 gap-2">
-            {platforms.map(p => (
-              <div
-                key={p.id}
-                className={[
-                  'flex flex-col items-center gap-1.5 p-2.5 rounded-xl transition-all cursor-pointer',
-                  p.connected
-                    ? 'bg-white border border-[#E5E8EB] hover:border-[#3182F6]'
-                    : 'bg-[#F8F9FA] border border-dashed border-[#E0E0E0] opacity-60 hover:opacity-80',
-                ].join(' ')}
-                onClick={() => {
-                  setPlatforms(prev => prev.map(pl =>
-                    pl.id === p.id ? { ...pl, connected: !pl.connected } : pl
-                  ))
-                }}
-                title={p.connected ? '클릭하여 연동 해제' : '클릭하여 연동'}
-              >
-                {p.logo(32)}
-                <span className="text-[10px] font-semibold text-[#4E5968] text-center leading-tight">{p.shortName}</span>
-                <span className={[
-                  'text-[9px] font-bold px-1.5 py-0.5 rounded-full',
-                  p.connected ? 'bg-[#E8FFF0] text-[#12B76A]' : 'bg-[#F2F4F6] text-[#8B95A1]',
-                ].join(' ')}>
-                  {p.connected ? '연동됨' : '미연동'}
-                </span>
+
+            <div className="flex-1 min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h2 className="text-lg font-bold text-[#191F28]">{STORE.name}</h2>
+                <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-semibold">정상 운영 중</span>
               </div>
-            ))}
+              <p className="text-xs text-[#8B95A1] mt-0.5">{STORE.category} · {STORE.address}</p>
+
+              {/* 별점 */}
+              <div className="flex items-center gap-1.5 mt-1.5">
+                <Stars rating={Math.round(STORE.rating)} />
+                <span className="text-sm font-bold text-[#191F28]">{STORE.rating}</span>
+                <span className="text-xs text-[#8B95A1]">리뷰 {STORE.reviewCount.toLocaleString()}개</span>
+              </div>
+
+              {/* 메인 키워드 태그 */}
+              <div className="flex flex-wrap gap-1.5 mt-2.5">
+                {STORE.keywords.map(kw => (
+                  <span key={kw} className="text-[11px] px-2.5 py-1 bg-[#EFF6FF] text-[#3182F6] rounded-full font-semibold">
+                    #{kw}
+                  </span>
+                ))}
+              </div>
+            </div>
+
+            {/* 연동 상태 + 수정 링크 */}
+            <div className="flex-shrink-0 text-right hidden sm:block">
+              <div className="flex items-center gap-3 justify-end mb-2">
+                {STORE.connected.map(p => (
+                  <div key={p.name} className="flex items-center gap-1">
+                    <span
+                      className="w-2 h-2 rounded-full block"
+                      style={{ background: p.on ? p.color : '#E5E8EB' }}
+                    />
+                    <span className={`text-xs ${p.on ? 'text-[#4E5968]' : 'text-[#B0B8C1]'}`}>{p.name}</span>
+                  </div>
+                ))}
+              </div>
+              <Link href="/settings" className="text-xs text-[#3182F6] hover:underline font-medium">
+                매장 정보 수정 →
+              </Link>
+            </div>
           </div>
         </div>
 
-        {/* ── ② 통계 카드 4개 ── */}
-        <div className="grid grid-cols-4 gap-4 mb-5">
-          {stats.map((s, i) => (
-            <div key={i} className="bg-white rounded-2xl shadow-sm p-5 flex items-center gap-4">
-              <span className="text-3xl">{s.icon}</span>
-              <div>
-                <p className="text-xs text-[#8B95A1] font-medium mb-0.5">{s.label}</p>
-                <p className="text-xl font-black text-[#191F28]">{s.value}</p>
-                <p className={`text-[11px] font-bold mt-0.5 ${s.up ? 'text-[#12B76A]' : 'text-[#F04452]'}`}>
-                  {s.up ? '↑' : '↓'} {s.change} <span className="text-[#8B95A1] font-normal">전달 대비</span>
-                </p>
+        {/* ──────────── 헤더 ──────────── */}
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <h1 className="text-2xl font-bold text-[#191F28]">대시보드</h1>
+            <p className="text-sm text-[#8B95A1] mt-0.5">
+              {new Date().toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric', weekday: 'long' })}
+            </p>
+          </div>
+          <button
+            onClick={() => setShowPartner(true)}
+            className="hidden sm:flex items-center gap-2 px-4 py-2 bg-white rounded-xl shadow-sm text-sm font-semibold text-[#3182F6] hover:bg-[#EFF6FF] transition-colors border border-[#E5E8EB]"
+          >
+            <span>🌟</span> 파트너 스포트라이트
+          </button>
+        </div>
+
+        {/* ──────────── 통계 카드 4개 ──────────── */}
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+          {STATS.map(s => (
+            <div key={s.label} className="bg-white rounded-2xl p-5 shadow-sm">
+              <p className="text-xs text-[#8B95A1] font-medium mb-3">{s.label}</p>
+              <div className="flex items-end gap-1">
+                <span className="text-3xl font-black text-[#191F28]">{s.value}</span>
+                <span className="text-sm text-[#8B95A1] mb-0.5">{s.unit}</span>
+              </div>
+              <div className={`flex items-center gap-1 mt-2 text-xs font-semibold ${s.up ? 'text-green-600' : 'text-red-500'}`}>
+                <span>{s.up ? '▲' : '▼'}</span>
+                <span>{s.delta} 지난주 대비</span>
+              </div>
+              <div className="mt-3 h-1 bg-[#F2F4F6] rounded-full overflow-hidden">
+                <div className="h-full rounded-full transition-all" style={{ width: s.unit === '%' ? s.value + '%' : '60%', background: s.color }} />
               </div>
             </div>
           ))}
         </div>
 
-        {/* ── ③ 메인 2컬럼 ── */}
-        <div className="grid grid-cols-[1fr_340px] gap-5 mb-5">
-
-          {/* 좌: 연동 플랫폼 별점·리뷰 현황 */}
-          <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-            <div className="px-5 py-4 border-b border-[#F2F4F6] flex items-center justify-between">
-              <span className="text-sm font-bold text-[#191F28]">플랫폼별 별점 · 리뷰 현황</span>
-              <span className="text-[11px] text-[#8B95A1]">연동된 플랫폼만 표시</span>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+          {/* ──────────── 주간 차트 ──────────── */}
+          <div className="lg:col-span-2 bg-white rounded-2xl p-6 shadow-sm">
+            <div className="flex items-center justify-between mb-6">
+              <h3 className="font-bold text-[#191F28]">이번 주 현황</h3>
+              <div className="flex gap-1 bg-[#F2F4F6] rounded-xl p-1">
+                {(['visitors', 'reviews'] as const).map(m => (
+                  <button key={m} onClick={() => setChartMode(m)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${chartMode === m ? 'bg-white text-[#191F28] shadow-sm' : 'text-[#8B95A1]'}`}>
+                    {m === 'visitors' ? '방문자' : '리뷰'}
+                  </button>
+                ))}
+              </div>
             </div>
-            <div className="p-5 space-y-4">
-              {/* 연동 플랫폼 */}
-              {platforms.filter(p => p.connected).map(p => (
-                <div key={p.id} className="flex items-center gap-4">
-                  <div className="flex-shrink-0">{p.logo(36)}</div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-sm font-semibold text-[#191F28]">{p.name}</span>
-                      {p.rating !== null ? (
-                        <div className="flex items-center gap-3">
-                          <Stars rating={p.rating} />
-                          <span className="text-xs text-[#8B95A1]">리뷰 <strong className="text-[#191F28]">{p.reviews}건</strong></span>
-                        </div>
-                      ) : (
-                        <span className="text-xs text-[#8B95A1]">데이터 수집 중...</span>
-                      )}
+            <div className="flex items-end justify-between gap-2 h-40">
+              {WEEKLY.map((d, i) => {
+                const val = chartMode === 'visitors' ? d.v : d.r
+                const maxVal = chartMode === 'visitors' ? MAX_V : 15
+                const pct = Math.round((val / maxVal) * 100)
+                const isToday = i === 4
+                return (
+                  <div key={d.day} className="flex-1 flex flex-col items-center gap-1.5">
+                    <span className="text-[10px] font-semibold text-[#8B95A1]">{val}</span>
+                    <div className="w-full flex items-end" style={{ height: '120px' }}>
+                      <div
+                        className="w-full rounded-t-lg transition-all"
+                        style={{
+                          height: pct + '%',
+                          background: isToday ? '#3182F6' : '#DBEAFE',
+                          minHeight: '4px',
+                        }}
+                      />
                     </div>
-                    {p.rating !== null && (
-                      <div className="w-full bg-[#F2F4F6] rounded-full h-2 overflow-hidden">
-                        <div
-                          className="h-full rounded-full transition-all"
-                          style={{ width: `${(p.rating / 5) * 100}%`, background: p.color }}
-                        />
-                      </div>
-                    )}
+                    <span className={`text-[10px] font-medium ${isToday ? 'text-[#3182F6] font-bold' : 'text-[#8B95A1]'}`}>{d.day}</span>
                   </div>
-                </div>
-              ))}
-
-              {/* 미연동 플랫폼 안내 */}
-              {platforms.filter(p => !p.connected).length > 0 && (
-                <div className="mt-4 p-4 bg-[#F8F9FA] rounded-xl border border-dashed border-[#E0E0E0]">
-                  <p className="text-xs text-[#8B95A1] mb-2 font-medium">미연동 플랫폼 — 연동하면 데이터가 표시됩니다</p>
-                  <div className="flex flex-wrap gap-2">
-                    {platforms.filter(p => !p.connected).map(p => (
-                      <div key={p.id} className="flex items-center gap-1.5 bg-white rounded-lg px-2 py-1 border border-[#E5E8EB]">
-                        {p.logo(18)}
-                        <span className="text-[11px] text-[#8B95A1]">{p.shortName}</span>
-                      </div>
-                    ))}
-                  </div>
-                  <a href="/settings" className="inline-block mt-2 text-[11px] text-[#3182F6] font-semibold hover:underline">
-                    연동하러 가기 →
-                  </a>
-                </div>
-              )}
+                )
+              })}
             </div>
           </div>
 
-          {/* 우: 주요 키워드 실시간 순위 */}
-          <div className="bg-white rounded-2xl shadow-sm overflow-hidden flex flex-col">
-            <div className="px-5 py-4 border-b border-[#F2F4F6] flex items-center justify-between">
-              <div>
-                <span className="text-sm font-bold text-[#191F28]">주요 키워드 순위</span>
-                <div className="flex items-center gap-1.5 mt-0.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#12B76A] animate-pulse inline-block"/>
-                  <span className="text-[10px] text-[#8B95A1]">실시간 · {lastSync}</span>
-                  <span className="text-[10px] bg-orange-100 text-orange-600 px-1.5 py-0.5 rounded-full font-semibold">API 키 필요</span>
-                </div>
-              </div>
-              <button
-                onClick={refreshKeywords}
-                disabled={isSyncing}
-                className="text-[11px] text-[#3182F6] font-semibold border border-[#3182F6] px-2.5 py-1 rounded-lg hover:bg-[#E8F4FD] transition-colors disabled:opacity-50"
-              >
-                {isSyncing ? '갱신 중...' : '새로고침'}
-              </button>
-            </div>
-
-            <div className="flex-1 divide-y divide-[#F2F4F6]">
-              {keywords.map((kw, i) => (
-                <div key={kw.keyword} className="px-5 py-3.5 flex items-center gap-3 hover:bg-[#FAFBFF] transition-colors">
-                  {/* 순위 */}
-                  <div className={[
-                    'w-8 h-8 rounded-lg flex items-center justify-center text-sm font-black flex-shrink-0',
-                    kw.rank <= 3  ? 'bg-[#3182F6] text-white'
-                    : kw.rank <= 10 ? 'bg-[#E8F4FD] text-[#3182F6]'
-                    : 'bg-[#F2F4F6] text-[#8B95A1]',
-                  ].join(' ')}>
-                    {kw.rank}
-                  </div>
-                  {/* 키워드 정보 */}
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-[#191F28] truncate">{kw.keyword}</p>
-                    <p className="text-[10px] text-[#8B95A1]">{kw.area} · {kw.updatedAt}</p>
-                  </div>
-                  {/* 변동 */}
-                  <RankBadge current={kw.rank} prev={kw.prevRank} />
-                </div>
+          {/* ──────────── 빠른 실행 ──────────── */}
+          <div className="bg-white rounded-2xl p-5 shadow-sm">
+            <h3 className="font-bold text-[#191F28] mb-4">빠른 실행</h3>
+            <div className="grid grid-cols-2 gap-2">
+              {[
+                { label: '리뷰 답변', href: '/review-admin', bg: '#FFFBEB', color: '#F59E0B' },
+                { label: 'QR 생성', href: '/qr', bg: '#F5F3FF', color: '#8B5CF6' },
+                { label: '고객 추가', href: '/customers', bg: '#ECFDF5', color: '#059669' },
+                { label: '커뮤니티', href: '/community', bg: '#FDF2F8', color: '#EC4899' },
+                { label: '리포트', href: '/settings', bg: '#EFF6FF', color: '#3182F6' },
+                { label: '설정', href: '/settings', bg: '#F2F4F6', color: '#4E5968' },
+              ].map(item => (
+                <Link key={item.label} href={item.href}
+                  className="flex flex-col items-center justify-center p-3 rounded-xl transition-all hover:scale-105 active:scale-95"
+                  style={{ background: item.bg }}>
+                  <span className="text-sm font-bold" style={{ color: item.color }}>{item.label}</span>
+                </Link>
               ))}
-            </div>
-
-            {/* Naver API 안내 */}
-            <div className="px-5 py-3 bg-[#FAFBFF] border-t border-[#F2F4F6]">
-              <p className="text-[10px] text-[#8B95A1] leading-relaxed">
-                실시간 순위는 <strong className="text-[#3182F6]">네이버 Search API</strong> 키 설정 후 활성화됩니다.
-                <a href="/settings" className="ml-1 underline text-[#3182F6]">설정 →</a>
-              </p>
             </div>
           </div>
         </div>
 
-        {/* ── ④ 최근 리뷰 전체 폭 ── */}
-        <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-[#F2F4F6] flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-bold text-[#191F28]">최근 리뷰</span>
-              <span className="text-[11px] text-[#8B95A1]">미답변 {RECENT_REVIEWS.filter(r => !r.replied).length}건</span>
-            </div>
-            <a href="/reviews" className="text-[11px] text-[#3182F6] font-semibold hover:underline">전체보기 →</a>
+        {/* ──────────── 파트너 스포트라이트 배너 ──────────── */}
+        <div className="mb-6">
+          <PartnerSpotlight variant="banner" />
+        </div>
+
+        {/* ──────────── 최근 리뷰 ──────────── */}
+        <div className="bg-white rounded-2xl p-6 shadow-sm mb-6">
+          <div className="flex items-center justify-between mb-5">
+            <h3 className="font-bold text-[#191F28]">최근 리뷰</h3>
+            <Link href="/review-admin" className="text-xs text-[#3182F6] hover:underline font-medium">전체보기 →</Link>
           </div>
-          <div className="divide-y divide-[#F2F4F6]">
-            {RECENT_REVIEWS.map((r, i) => (
-              <div key={i} className="px-5 py-4 hover:bg-[#FAFBFF] transition-colors flex items-start gap-4">
-                {/* 플랫폼 뱃지 */}
-                <div
-                  className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-black text-white mt-0.5"
-                  style={{ background: r.color }}
-                >
-                  {r.platform.slice(0, 2)}
+          <div className="space-y-4">
+            {REVIEWS.map(r => (
+              <div key={r.id} className="flex items-start gap-3 p-4 rounded-xl bg-[#F8F9FA] hover:bg-[#F2F4F6] transition-colors">
+                <div className="w-9 h-9 rounded-full bg-gradient-to-br from-[#3182F6] to-[#8B5CF6] flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+                  {r.name[0]}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-xs font-bold text-[#4E5968]">{r.name}</span>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <span className="text-sm font-semibold text-[#191F28]">{r.name}</span>
+                    <PlatformBadge name={r.platform} />
                     <Stars rating={r.rating} />
-                    <span className="text-[10px] text-[#8B95A1]">{r.time}</span>
-                    {r.replied && (
-                      <span className="text-[10px] bg-[#E8FFF0] text-[#12B76A] px-1.5 py-0.5 rounded-full font-semibold">답변완료</span>
-                    )}
+                    <span className="text-xs text-[#B0B8C1] ml-auto">{r.time}</span>
                   </div>
-                  <p className="text-sm text-[#4E5968] line-clamp-1">{r.text}</p>
+                  <p className="text-sm text-[#4E5968] mt-1 line-clamp-2">{r.text}</p>
                 </div>
-                {!r.replied && (
-                  <button className="flex-shrink-0 ml-4 text-xs bg-[#3182F6] text-white px-3 py-1.5 rounded-xl font-semibold hover:bg-[#1B64DA] transition-colors">
-                    AI 답글
-                  </button>
-                )}
+                <Link href="/review-admin"
+                  className={`text-xs px-3 py-1.5 rounded-lg font-semibold flex-shrink-0 transition-colors ${
+                    r.replied
+                      ? 'bg-green-100 text-green-700'
+                      : 'bg-[#3182F6] text-white hover:bg-[#1B64DA]'
+                  }`}>
+                  {r.replied ? '답변완료' : '답변하기'}
+                </Link>
               </div>
             ))}
           </div>
         </div>
 
+        <Footer />
       </main>
+
+      {/* 파트너 팝업 */}
+      {showPartner && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
+          <div className="relative">
+            <PartnerSpotlight variant="popup" />
+            <button onClick={() => setShowPartner(false)}
+              className="absolute -top-2 -right-2 w-8 h-8 bg-white rounded-full shadow-lg flex items-center justify-center text-[#4E5968] hover:text-[#191F28] transition-colors font-bold text-lg">
+              ✕
+            </button>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

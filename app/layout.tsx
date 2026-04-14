@@ -1,29 +1,26 @@
 import type { Metadata } from 'next'
 import { Inter } from 'next/font/google'
 import './globals.css'
+import QuickSlot from './components/QuickSlot'
 
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata: Metadata = {
-  title: 'Localution — 로컬루션',
-  description: '소상공인·자영업자를 위한 AI 리뷰 관리 및 마케팅 플랫폼',
-  icons: {
-    icon: [
-      { url: '/favicon.svg', type: 'image/svg+xml' },
-      { url: '/favicon.ico', sizes: 'any' },
-    ],
-    apple: '/favicon.svg',
-  },
+  title: 'Localution | 소상공인 스마트 마케팅',
+  description: '네이버 플레이스·구글·카카오 리뷰를 한 곳에서 관리하는 소상공인 전용 마케팅 플랫폼',
 }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout({
+  children,
+}: {
+  children: React.ReactNode
+}) {
   return (
     <html lang="ko">
-      <head>
-        <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
-        <link rel="alternate icon" href="/favicon.ico" />
-      </head>
-      <body className={inter.className}>{children}</body>
+      <body className={inter.className}>
+        {children}
+        <QuickSlot />
+      </body>
     </html>
   )
 }
