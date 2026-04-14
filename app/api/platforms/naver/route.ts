@@ -28,7 +28,7 @@ function extractPlaceId(input: string): string | null {
 
 // ── 네이버 로컬 검색 API로 매장 정보 조회 ────────────────────
 async function searchNaverLocal(query: string) {
-  const clientId = process.env.NAVER_CLIENT_ID
+  const clientId = process.env.NAVER_CLIENT_ID || process.env.NEXT_PUBLIC_NAVER_CLIENT_ID
   const clientSecret = process.env.NAVER_CLIENT_SECRET
   if (!clientId || !clientSecret) return null
 
