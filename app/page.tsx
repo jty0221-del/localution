@@ -209,13 +209,40 @@ function ConnectModal({ platformKey, onClose, onSave }: {
 }
 
 // ── Main Dashboard ──────────────────────────────────────────────
+// ── 로그인된 경우에만 유저 헤더 표시 ────────────────────────────
+function UserHeaderIfLoggedIn() {
+  const [user, setUser] = useState<{name: string; profile_image?: string} | null>(null)
+  useEffect(() => {
+    const cached = sessionStorage.getItem('localution_user')
+    if (cached) { try { setUser(JSON.parse(cached)) } catch {} return }
+    fetch('/api/me').then(r => r.ok ? r.json() : null).then(d => {
+      if (d?.user) { setUser(d.user); sessionStorage.setItem('localution_user', JSON.stringify(d.user)) }
+    }).catch(() => {})
+  }, [])
+  if (!user) return null
+  const initials = user.name?.[0] || '?'
+  return (
+    <a href="/my" className="flex items-center gap-2 bg-white rounded-xl px-3 py-2 shadow-sm border border-[#E5E8EB] hover:border-[#3182F6] transition-colors group">
+      {user.profile_image
+        ? <img src={user.profile_image} alt={user.name} className="w-7 h-7 rounded-full object-cover border-2 border-white shadow-sm" />
+        : <div className="w-7 h-7 rounded-full bg-gradient-to-br from-[#3182F6] to-[#1B64DA] flex items-center justify-center text-white text-xs font-black shadow-sm">{initials}</div>
+      }
+      <span className="text-sm font-bold text-[#191F28] group-hover:text-[#3182F6] transition-colors">{user.name}</span>
+      <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#B0B8C1" strokeWidth="2"><path d="M9 18l6-6-6-6"/></svg>
+    </a>
+  )
+}
+
 export default function Dashboard() {
   const [showPartner, setShowPartner] = useState(false)
+  const [showQuickPanel, setShowQuickPanel] = useState(false)
   const [chartMode, setChartMode] = useState<'visitors' | 'reviews'>('visitors')
   const [links, setLinks] = useState<LinkedPlatform[]>([])
   const [modalPlatform, setModalPlatform] = useState<string | null>(null)
   const [newReviews, setNewReviews] = useState<{platform: string; author: string; text: string}[]>([])
   const [notifDismissed, setNotifDismissed] = useState(false)
+  const [inquiryForm, setInquiryForm] = useState({ name: '', message: '', category: '서비스문의' })
+  const [inquiryStatus, setInquiryStatus] = useState<'idle' | 'sending' | 'done'>('idle')
 
   // localStorage 로드 + 새 리뷰 알림 체크
   useEffect(() => {
@@ -541,10 +568,8 @@ export default function Dashboard() {
             >
               <span>🌟</span> 파트너 스포트라이트
             </button>
-            {/* 로그인 유저 정보 */}
-            <div className="bg-white rounded-xl px-3 py-2 shadow-sm border border-[#E5E8EB]">
-              <UserHeader />
-            </div>
+            {/* 로그인된 경우에만 표시 */}
+            <UserHeaderIfLoggedIn />
           </div>
         </div>
 
@@ -568,9 +593,9 @@ export default function Dashboard() {
           ))}
         </div>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+        <div className="grid grid-cols-1 lg:grid-cols-1 gap-6 mb-6">
           {/* ──────────── 주간 차트 ──────────── */}
-          <div className="lg:col-span-2 bg-white rounded-2xl p-6 shadow-sm">
+          <div className="bg-white rounded-2xl p-6 shadow-sm">
             <div className="flex items-center justify-between mb-6">
               <h3 className="font-bold text-[#191F28]">이번 주 현황</h3>
               <div className="flex gap-1 bg-[#F2F4F6] rounded-xl p-1">
@@ -600,28 +625,20 @@ export default function Dashboard() {
               })}
             </div>
           </div>
+        </div>
 
-          {/* ──────────── 빠른 실행 ──────────── */}
-          <div className="bg-white rounded-2xl p-5 shadow-sm">
-            <h3 className="font-bold text-[#191F28] mb-4">빠른 실행</h3>
-            <div className="grid grid-cols-2 gap-2">
-              {[
-                { label: '리뷰 답변', href: '/review-admin', bg: '#FFFBEB', color: '#F59E0B' },
-                { label: 'QR 생성', href: '/qr', bg: '#F5F3FF', color: '#8B5CF6' },
-                { label: '고객 추가', href: '/customers', bg: '#ECFDF5', color: '#059669' },
-                { label: '커뮤니티', href: '/community', bg: '#FDF2F8', color: '#EC4899' },
-                { label: '내 정보', href: '/my', bg: '#EFF6FF', color: '#3182F6' },
-                { label: '설정', href: '/settings', bg: '#F2F4F6', color: '#4E5968' },
-              ].map(item => (
+        {/* PLACEHOLDER_REMOVE_ME */}
+        {false && (
+          <div>
+              {[{ label: '빠른실행', href: '/', bg: '#fff', color: '#000' }].map(item => (
                 <Link key={item.label} href={item.href}
-                  className="flex flex-col items-center justify-center p-3 rounded-xl transition-all hover:scale-105 active:scale-95"
+                  className="flex flex-col items-center justify-center p-3 rounded-xl"
                   style={{ background: item.bg }}>
                   <span className="text-sm font-bold" style={{ color: item.color }}>{item.label}</span>
                 </Link>
               ))}
-            </div>
           </div>
-        </div>
+        )}
 
         {/* ──────────── 파트너 배너 ──────────── */}
         <div className="mb-6">
@@ -684,6 +701,118 @@ export default function Dashboard() {
           onSave={saveLink}
         />
       )}
+
+      {/* ──────────── 우측 플로팅 퀵패널 ──────────── */}
+      {/* 플로팅 버튼 */}
+      <button
+        onClick={() => setShowQuickPanel(v => !v)}
+        className="fixed bottom-6 right-6 z-40 w-14 h-14 rounded-2xl shadow-xl flex items-center justify-center transition-all hover:scale-105 active:scale-95"
+        style={{ background: showQuickPanel ? '#191F28' : 'linear-gradient(135deg, #3182F6, #1B64DA)' }}
+        title="빠른 실행"
+      >
+        {showQuickPanel
+          ? <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round"><path d="M18 6L6 18M6 6l12 12"/></svg>
+          : <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
+        }
+      </button>
+
+      {/* 오버레이 */}
+      {showQuickPanel && (
+        <div className="fixed inset-0 z-30" onClick={() => setShowQuickPanel(false)} />
+      )}
+
+      {/* 슬라이드 패널 */}
+      <div className={`fixed bottom-24 right-6 z-40 w-72 bg-white rounded-2xl shadow-2xl border border-[#E5E8EB] overflow-hidden transition-all duration-200 origin-bottom-right ${
+        showQuickPanel ? 'opacity-100 scale-100 translate-y-0' : 'opacity-0 scale-95 translate-y-2 pointer-events-none'
+      }`}>
+        {/* 패널 헤더 */}
+        <div className="bg-gradient-to-r from-[#3182F6] to-[#1B64DA] px-4 py-3">
+          <p className="text-white font-black text-sm">⚡ 빠른 실행</p>
+          <p className="text-blue-200 text-xs mt-0.5">자주 사용하는 기능</p>
+        </div>
+
+        {/* 퀵 메뉴 */}
+        <div className="p-3 grid grid-cols-3 gap-2 border-b border-[#F2F4F6]">
+          {[
+            { label: '리뷰 답변', href: '/review-admin', icon: '⭐', color: '#F59E0B', bg: '#FFFBEB' },
+            { label: 'QR 생성',  href: '/qr',           icon: '📱', color: '#8B5CF6', bg: '#F5F3FF' },
+            { label: '고객 관리',href: '/customers',     icon: '👥', color: '#059669', bg: '#ECFDF5' },
+            { label: '커뮤니티', href: '/community',     icon: '💬', color: '#EC4899', bg: '#FDF2F8' },
+            { label: '내 정보',  href: '/my',            icon: '👤', color: '#3182F6', bg: '#EFF6FF' },
+            { label: '설정',     href: '/settings',      icon: '⚙️', color: '#4E5968', bg: '#F2F4F6' },
+          ].map(item => (
+            <Link key={item.label} href={item.href} onClick={() => setShowQuickPanel(false)}
+              className="flex flex-col items-center gap-1 p-2.5 rounded-xl transition-all hover:scale-105 active:scale-95"
+              style={{ background: item.bg }}>
+              <span className="text-xl">{item.icon}</span>
+              <span className="text-[10px] font-bold text-center leading-tight" style={{ color: item.color }}>{item.label}</span>
+            </Link>
+          ))}
+        </div>
+
+        {/* 관리자 문의 */}
+        <div className="p-3">
+          <p className="text-xs font-bold text-[#191F28] mb-2.5">💬 관리자 문의</p>
+          {inquiryStatus === 'done' ? (
+            <div className="bg-green-50 rounded-xl p-3 text-center">
+              <p className="text-sm font-bold text-green-700">✅ 문의가 접수됐습니다!</p>
+              <p className="text-xs text-green-600 mt-1">1~2 영업일 내 답변드립니다</p>
+              <button onClick={() => setInquiryStatus('idle')}
+                className="mt-2 text-xs text-[#8B95A1] hover:text-[#4E5968]">다시 문의하기</button>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <div className="flex gap-1.5">
+                {['서비스문의', '기능요청', '오류신고'].map(c => (
+                  <button key={c} onClick={() => setInquiryForm(f => ({ ...f, category: c }))}
+                    className={`flex-1 py-1 rounded-lg text-[10px] font-semibold transition-colors ${
+                      inquiryForm.category === c ? 'bg-[#3182F6] text-white' : 'bg-[#F2F4F6] text-[#4E5968]'
+                    }`}>
+                    {c}
+                  </button>
+                ))}
+              </div>
+              <input
+                value={inquiryForm.name}
+                onChange={e => setInquiryForm(f => ({ ...f, name: e.target.value }))}
+                placeholder="이름"
+                className="w-full border border-[#E5E8EB] rounded-xl px-3 py-2 text-xs outline-none focus:border-[#3182F6] transition-colors"
+              />
+              <textarea
+                value={inquiryForm.message}
+                onChange={e => setInquiryForm(f => ({ ...f, message: e.target.value }))}
+                placeholder="문의 내용을 간단히 입력하세요..."
+                rows={3}
+                className="w-full border border-[#E5E8EB] rounded-xl px-3 py-2 text-xs outline-none focus:border-[#3182F6] transition-colors resize-none"
+              />
+              <button
+                disabled={inquiryStatus === 'sending' || !inquiryForm.name.trim() || !inquiryForm.message.trim()}
+                onClick={async () => {
+                  setInquiryStatus('sending')
+                  try {
+                    await fetch('/api/inquiry', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify(inquiryForm),
+                    })
+                    setInquiryStatus('done')
+                    setInquiryForm({ name: '', message: '', category: '서비스문의' })
+                  } catch {
+                    setInquiryStatus('idle')
+                  }
+                }}
+                className="w-full py-2 bg-[#3182F6] text-white text-xs font-bold rounded-xl hover:bg-[#1B64DA] disabled:opacity-50 transition-colors"
+              >
+                {inquiryStatus === 'sending' ? '접수 중...' : '문의 접수하기'}
+              </button>
+              <Link href="/inquiry" onClick={() => setShowQuickPanel(false)}
+                className="block text-center text-[10px] text-[#8B95A1] hover:text-[#3182F6] transition-colors mt-1">
+                상세 문의 페이지 →
+              </Link>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   )
 }
