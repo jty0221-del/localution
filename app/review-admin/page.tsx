@@ -6,13 +6,28 @@ import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import Sidebar from '../components/Sidebar'
 
-const LS_LINKS = 'localution.platform_links'
+const LS_LINKS     = 'localution.platform_links'
+const LS_SETTINGS  = 'localution.review_settings'
+const LS_SCHEDULED = 'localution.scheduled_replies'
 
-// 플랫폼 설정
-const PLATFORM_META: Record<string, { label: string; color: string; bg: string; textColor: string }> = {
-  google: { label: '구글', color: '#4285F4', bg: '#EBF3FE', textColor: '#1A56B0' },
-  naver:  { label: '네이버', color: '#03C75A', bg: '#E8FBF0', textColor: '#015C2C' },
+const PLATFORM_META: Record<string, { label: string; color: string; bg: string; textColor: string; icon: string }> = {
+  google: { label: '구글',    color: '#4285F4', bg: '#EBF3FE', textColor: '#1A56B0', icon: 'G' },
+  naver:  { label: '네이버',  color: '#03C75A', bg: '#E8FBF0', textColor: '#015C2C', icon: 'N' },
+  baemin: { label: '배민',    color: '#2AC1BC', bg: '#E6F9F8', textColor: '#0B7B78', icon: 'B' },
+  yogiyo: { label: '요기요',  color: '#FA3C00', bg: '#FEF0EB', textColor: '#B32B00', icon: 'Y' },
+  coupang:{ label: '쿠팡이츠', color: '#C00000', bg: '#FEECEC', textColor: '#900000', icon: 'C' },
 }
+
+const INCLUDES_LIST = [
+  { key: 'thanks',      label: '감사 인사',       desc: '방문·리뷰에 진심 어린 감사' },
+  { key: 'revisit',     label: '재방문 유도',      desc: '자연스러운 재방문 유도 문구' },
+  { key: 'mention',     label: '리뷰 내용 호응',   desc: '고객 언급 메뉴·경험에 공감' },
+  { key: 'personalize', label: '닉네임 호칭',       desc: '"OO님"으로 개인화 시작' },
+  { key: 'improve',     label: '개선 의지',        desc: '부정 리뷰 시 사과 + 개선 의지' },
+  { key: 'keyword',     label: 'SEO 키워드 삽입',  desc: '핵심 키워드 자연스럽게 삽입' },
+  { key: 'strengths',   label: '매장 강점 어필',   desc: '설정한 강점을 자연스럽게 노출' },
+  { key: 'mindset',     label: '사장 마인드 반영',  desc: '사장의 철학·가치관이 배어있게' },
+]
 
 interface LinkedPlatform {
   platform: string; placeId: string; name: string; rating: number | null; reviewCount: number
@@ -24,6 +39,26 @@ interface Review {
 
 interface ReviewState extends Review {
   aiReply: string; editReply: string; aiLoading: boolean; aiDone: boolean; showEdit: boolean
+}
+
+interface ScheduledReply {
+  reviewId: string; reply: string; scheduledAt: number; platform: string; author: string
+}
+
+interface StoreSettings {
+  storeName: string; region: string; bizType: string; mainKeyword: string;
+  subKeywords: string; storeDesc: string; storeStrengths: string; ownerMindset: string;
+  tone: string; length: string; closing: string; excludes: string;
+  includes: Record<string, boolean>;
+  autoReply: boolean; autoDelayHours: number;
+}
+
+const DEFAULT_SETTINGS: StoreSettings = {
+  storeName: '', region: '', bizType: '', mainKeyword: '', subKeywords: '',
+  storeDesc: '', storeStrengths: '', ownerMindset: '',
+  tone: 'friendly', length: 'medium', closing: '', excludes: '',
+  includes: { thanks: true, revisit: true, mention: true, personalize: false, improve: true, keyword: true, strengths: true, mindset: false },
+  autoReply: false, autoDelayHours: 24,
 }
 
 function Stars({ rating }: { rating: number }) {
@@ -46,35 +81,86 @@ function PlatformBadge({ platform }: { platform: string }) {
   )
 }
 
+function ReviewTypeTag({ text, rating }: { text: string; rating: number }) {
+  if (!text?.trim() || text.trim().length < 5) {
+    return <span className="text-[10px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 font-semibold">무텍스트</span>
+  }
+  if (rating <= 2) {
+    return <span className="text-[10px] px-2 py-0.5 rounded-full bg-red-100 text-red-600 font-semibold">부정리뷰</span>
+  }
+  return null
+}
+
+// 남은 시간 포맷
+function formatTimeLeft(scheduledAt: number): string {
+  const diff = scheduledAt - Date.now()
+  if (diff <= 0) return '발행 가능'
+  const h = Math.floor(diff / 3600000)
+  const m = Math.floor((diff % 3600000) / 60000)
+  return h > 0 ? `${h}시간 ${m}분 후` : `${m}분 후`
+}
+
 export default function ReviewAdmin() {
   const [links, setLinks] = useState<LinkedPlatform[]>([])
   const [reviews, setReviews] = useState<ReviewState[]>([])
   const [loading, setLoading] = useState(false)
+  const [settings, setSettings] = useState<StoreSettings>(DEFAULT_SETTINGS)
+  const [showSettings, setShowSettings] = useState(false)
   const [filterPlatform, setFilterPlatform] = useState<string>('all')
   const [filterRating, setFilterRating] = useState<number>(0)
   const [filterReplied, setFilterReplied] = useState<'all' | 'pending' | 'done'>('all')
-  const [storeName, setStoreName] = useState('')
-  const [storeRegion, setStoreRegion] = useState('')
-  const [storeType, setStoreType] = useState('')
+  const [scheduled, setScheduled] = useState<ScheduledReply[]>([])
+  const [, forceUpdate] = useState(0)
 
-  // localStorage에서 연동된 플랫폼 로드
+  // localStorage 초기 로드
   useEffect(() => {
     try {
       const raw = localStorage.getItem(LS_LINKS)
       if (raw) {
         const parsed = JSON.parse(raw) as LinkedPlatform[]
         setLinks(parsed)
-        if (parsed[0]) setStoreName(parsed[0].name || '')
       }
+    } catch (_) {}
+
+    try {
+      const rawS = localStorage.getItem(LS_SETTINGS)
+      if (rawS) setSettings({ ...DEFAULT_SETTINGS, ...JSON.parse(rawS) })
+    } catch (_) {}
+
+    try {
+      const rawSch = localStorage.getItem(LS_SCHEDULED)
+      if (rawSch) setScheduled(JSON.parse(rawSch))
     } catch (_) {}
   }, [])
 
-  // 연동된 플랫폼에서 리뷰 불러오기
+  // 예약 답변 타이머 (1분마다 체크)
+  useEffect(() => {
+    const timer = setInterval(() => forceUpdate(n => n + 1), 60000)
+    return () => clearInterval(timer)
+  }, [])
+
+  // 설정 저장
+  function saveSetting<K extends keyof StoreSettings>(key: K, val: StoreSettings[K]) {
+    setSettings(prev => {
+      const next = { ...prev, [key]: val }
+      localStorage.setItem(LS_SETTINGS, JSON.stringify(next))
+      return next
+    })
+  }
+
+  function toggleInclude(key: string) {
+    setSettings(prev => {
+      const next = { ...prev, includes: { ...prev.includes, [key]: !prev.includes[key] } }
+      localStorage.setItem(LS_SETTINGS, JSON.stringify(next))
+      return next
+    })
+  }
+
+  // 리뷰 불러오기
   const loadReviews = useCallback(async () => {
     if (!links.length) return
     setLoading(true)
     const all: ReviewState[] = []
-
     for (const link of links) {
       try {
         const res = await fetch(`/api/platforms/${link.platform}?placeId=${encodeURIComponent(link.placeId)}`)
@@ -88,8 +174,6 @@ export default function ReviewAdmin() {
         }))
       } catch (_) {}
     }
-
-    // 날짜 내림차순 정렬
     all.sort((a, b) => (b.date > a.date ? 1 : -1))
     setReviews(all)
     setLoading(false)
@@ -106,27 +190,54 @@ export default function ReviewAdmin() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          review: r.text,
+          review: r.text || '',
+          rating: r.rating,
           platform: PLATFORM_META[r.platform]?.label || r.platform,
-          storeName: storeName || '저희 매장',
-          region: storeRegion,
-          bizType: storeType,
+          storeName: settings.storeName || '저희 매장',
+          region: settings.region,
+          bizType: settings.bizType,
+          mainKeyword: settings.mainKeyword,
+          subKeywords: settings.subKeywords,
+          storeDesc: settings.storeDesc,
+          storeStrengths: settings.storeStrengths,
+          ownerMindset: settings.ownerMindset,
           aiSettings: {
-            tone: 'friendly', length: 'medium',
-            includes: { thanks: true, revisit: true, mention: true, personalize: false, improve: true, keyword: true },
-            closing: '', excludes: '',
+            tone: settings.tone,
+            length: settings.length,
+            includes: settings.includes,
+            closing: settings.closing,
+            excludes: settings.excludes,
           },
         }),
       })
       const data = await res.json()
       const reply = data.reply || '답글 생성 실패'
-      setReviews(prev => prev.map((x, i) => i === idx
-        ? { ...x, aiLoading: false, aiDone: true, aiReply: reply, editReply: reply, showEdit: true }
-        : x
-      ))
+
+      // 자동 예약 모드
+      if (settings.autoReply) {
+        const scheduledAt = Date.now() + settings.autoDelayHours * 3600000
+        const newSch: ScheduledReply = {
+          reviewId: r.id, reply, scheduledAt,
+          platform: r.platform, author: r.author,
+        }
+        setScheduled(prev => {
+          const next = [...prev.filter(s => s.reviewId !== r.id), newSch]
+          localStorage.setItem(LS_SCHEDULED, JSON.stringify(next))
+          return next
+        })
+        setReviews(prev => prev.map((x, i) => i === idx
+          ? { ...x, aiLoading: false, aiDone: true, aiReply: reply, editReply: reply, showEdit: false }
+          : x
+        ))
+      } else {
+        setReviews(prev => prev.map((x, i) => i === idx
+          ? { ...x, aiLoading: false, aiDone: true, aiReply: reply, editReply: reply, showEdit: true }
+          : x
+        ))
+      }
     } catch {
       setReviews(prev => prev.map((x, i) => i === idx
-        ? { ...x, aiLoading: false, aiDone: false, aiReply: '⚠ AI 오류. 다시 시도해 주세요.' }
+        ? { ...x, aiLoading: false, aiDone: false }
         : x
       ))
     }
@@ -137,7 +248,21 @@ export default function ReviewAdmin() {
   }
 
   function markReplied(idx: number) {
+    const r = reviews[idx]
+    setScheduled(prev => {
+      const next = prev.filter(s => s.reviewId !== r.id)
+      localStorage.setItem(LS_SCHEDULED, JSON.stringify(next))
+      return next
+    })
     setReviews(prev => prev.map((x, i) => i === idx ? { ...x, replied: true, showEdit: false } : x))
+  }
+
+  function removeScheduled(reviewId: string) {
+    setScheduled(prev => {
+      const next = prev.filter(s => s.reviewId !== reviewId)
+      localStorage.setItem(LS_SCHEDULED, JSON.stringify(next))
+      return next
+    })
   }
 
   // 필터링
@@ -149,32 +274,52 @@ export default function ReviewAdmin() {
     return true
   })
 
-  const pendingCount = reviews.filter(r => !r.replied).length
-  const totalCount   = reviews.length
+  // 플랫폼별 카운트
+  const platformCounts = links.reduce((acc, l) => {
+    acc[l.platform] = reviews.filter(r => r.platform === l.platform).length
+    return acc
+  }, {} as Record<string, number>)
+
+  const pendingCount  = reviews.filter(r => !r.replied).length
+  const readyCount    = scheduled.filter(s => s.scheduledAt <= Date.now()).length
 
   return (
     <div className="min-h-screen bg-[#F2F4F6] flex">
       <Sidebar />
       <main className="flex-1 md:ml-[220px] p-4 md:p-8 pt-16 md:pt-8 pr-16 md:pr-20">
 
-        {/* 헤더 */}
-        <div className="flex items-center justify-between mb-6">
+        {/* ── 헤더 ── */}
+        <div className="flex items-center justify-between mb-5">
           <div>
             <h1 className="text-2xl font-bold text-[#191F28]">리뷰 관리</h1>
             <p className="text-sm text-[#8B95A1] mt-0.5">
-              {totalCount}개 리뷰 · <span className="text-red-500 font-semibold">{pendingCount}개 미답변</span>
+              {reviews.length}개 리뷰 ·{' '}
+              <span className="text-red-500 font-semibold">{pendingCount}개 미답변</span>
+              {scheduled.length > 0 && (
+                <> · <span className="text-orange-500 font-semibold">예약 {scheduled.length}개</span>
+                {readyCount > 0 && <span className="text-green-600 font-bold"> ({readyCount}개 발행 가능)</span>}
+                </>
+              )}
             </p>
           </div>
-          <button
-            onClick={loadReviews}
-            disabled={loading || !links.length}
-            className="px-4 py-2 bg-[#3182F6] text-white text-sm font-semibold rounded-xl hover:bg-[#1B64DA] disabled:opacity-50 transition-colors"
-          >
-            {loading ? '불러오는 중...' : '새로고침'}
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setShowSettings(v => !v)}
+              className={`px-4 py-2 text-sm font-semibold rounded-xl border transition-colors ${showSettings ? 'bg-[#191F28] text-white border-[#191F28]' : 'bg-white text-[#4E5968] border-[#E5E8EB] hover:border-[#3182F6]'}`}
+            >
+              ⚙️ AI 설정
+            </button>
+            <button
+              onClick={loadReviews}
+              disabled={loading || !links.length}
+              className="px-4 py-2 bg-[#3182F6] text-white text-sm font-semibold rounded-xl hover:bg-[#1B64DA] disabled:opacity-50 transition-colors"
+            >
+              {loading ? '불러오는 중...' : '새로고침'}
+            </button>
+          </div>
         </div>
 
-        {/* 미연동 안내 */}
+        {/* ── 미연동 안내 ── */}
         {!links.length && (
           <div className="bg-white rounded-2xl p-8 shadow-sm text-center mb-6">
             <div className="text-4xl mb-3">📡</div>
@@ -186,47 +331,292 @@ export default function ReviewAdmin() {
           </div>
         )}
 
-        {/* AI 설정 바 */}
-        {links.length > 0 && (
-          <div className="bg-white rounded-2xl p-4 shadow-sm mb-4 border border-[#E5E8EB]">
-            <p className="text-xs font-semibold text-[#8B95A1] mb-3">AI 답글 설정 (매장 정보)</p>
-            <div className="flex gap-3 flex-wrap">
-              <input value={storeName} onChange={e => setStoreName(e.target.value)}
-                placeholder="매장명" className="border border-[#E5E8EB] rounded-lg px-3 py-2 text-sm outline-none focus:border-[#3182F6] flex-1 min-w-[120px]" />
-              <input value={storeRegion} onChange={e => setStoreRegion(e.target.value)}
-                placeholder="지역 (예: 강남)" className="border border-[#E5E8EB] rounded-lg px-3 py-2 text-sm outline-none focus:border-[#3182F6] flex-1 min-w-[100px]" />
-              <input value={storeType} onChange={e => setStoreType(e.target.value)}
-                placeholder="업종 (예: 카페)" className="border border-[#E5E8EB] rounded-lg px-3 py-2 text-sm outline-none focus:border-[#3182F6] flex-1 min-w-[100px]" />
+        {/* ── AI 설정 패널 (토글) ── */}
+        {showSettings && links.length > 0 && (
+          <div className="bg-white rounded-2xl shadow-sm border border-[#E5E8EB] mb-5 overflow-hidden">
+            <div className="p-5 border-b border-[#F2F4F6]">
+              <h2 className="font-bold text-[#191F28] text-sm">⚙️ AI 답글 설정</h2>
+              <p className="text-xs text-[#8B95A1] mt-0.5">여기서 설정한 내용을 기반으로 모든 리뷰 답글이 생성됩니다</p>
+            </div>
+
+            <div className="p-5 space-y-5">
+              {/* 기본 매장 정보 */}
+              <div>
+                <p className="text-xs font-bold text-[#4E5968] mb-3 uppercase tracking-wide">기본 정보</p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  {[
+                    { key: 'storeName', placeholder: '매장명', label: '매장명' },
+                    { key: 'region',    placeholder: '강남, 홍대, 해운대...', label: '지역' },
+                    { key: 'bizType',   placeholder: '카페, 식당, 미용실...', label: '업종' },
+                    { key: 'mainKeyword', placeholder: '대표 SEO 키워드', label: '대표 키워드' },
+                  ].map(f => (
+                    <div key={f.key}>
+                      <label className="text-[11px] text-[#8B95A1] font-semibold block mb-1">{f.label}</label>
+                      <input
+                        value={(settings as any)[f.key]}
+                        onChange={e => saveSetting(f.key as keyof StoreSettings, e.target.value as any)}
+                        placeholder={f.placeholder}
+                        className="w-full border border-[#E5E8EB] rounded-xl px-3 py-2 text-sm outline-none focus:border-[#3182F6] transition-colors"
+                      />
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-3">
+                  <label className="text-[11px] text-[#8B95A1] font-semibold block mb-1">서브 키워드 (쉼표 구분)</label>
+                  <input
+                    value={settings.subKeywords}
+                    onChange={e => saveSetting('subKeywords', e.target.value)}
+                    placeholder="분위기 좋은 카페, 테라스 카페, 감성 카페..."
+                    className="w-full border border-[#E5E8EB] rounded-xl px-3 py-2 text-sm outline-none focus:border-[#3182F6] transition-colors"
+                  />
+                </div>
+              </div>
+
+              {/* 매장 소개 & 강점 & 마인드 */}
+              <div>
+                <p className="text-xs font-bold text-[#4E5968] mb-3 uppercase tracking-wide">매장 특성 (핵심!)</p>
+                <div className="space-y-3">
+                  <div>
+                    <label className="text-[11px] text-[#8B95A1] font-semibold block mb-1">매장 소개</label>
+                    <input
+                      value={settings.storeDesc}
+                      onChange={e => saveSetting('storeDesc', e.target.value)}
+                      placeholder="예: 10년 전통의 직화 삼겹살 전문점, 국내산 재료만 사용"
+                      className="w-full border border-[#E5E8EB] rounded-xl px-3 py-2 text-sm outline-none focus:border-[#3182F6] transition-colors"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] text-[#8B95A1] font-semibold block mb-1">
+                      매장 강점 <span className="text-[#3182F6]">(빈 리뷰·악플 시 이 내용으로 답글 생성)</span>
+                    </label>
+                    <input
+                      value={settings.storeStrengths}
+                      onChange={e => saveSetting('storeStrengths', e.target.value)}
+                      placeholder="예: 신선한 재료 매일 새벽 직접 수령, 20년 셰프 경력, 루프탑 뷰"
+                      className="w-full border border-[#E5E8EB] rounded-xl px-3 py-2 text-sm outline-none focus:border-[#3182F6] transition-colors"
+                    />
+                  </div>
+                  <div>
+                    <label className="text-[11px] text-[#8B95A1] font-semibold block mb-1">
+                      사장 마인드·철학 <span className="text-[#3182F6]">(답글 전체에 사장님의 가치관이 배어나오게)</span>
+                    </label>
+                    <input
+                      value={settings.ownerMindset}
+                      onChange={e => saveSetting('ownerMindset', e.target.value)}
+                      placeholder="예: 손님 한 분 한 분께 집밥처럼 정성을 다합니다"
+                      className="w-full border border-[#E5E8EB] rounded-xl px-3 py-2 text-sm outline-none focus:border-[#3182F6] transition-colors"
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* 답변 스타일 */}
+              <div>
+                <p className="text-xs font-bold text-[#4E5968] mb-3 uppercase tracking-wide">답변 스타일</p>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="text-[11px] text-[#8B95A1] font-semibold block mb-2">톤</label>
+                    <div className="flex gap-1.5">
+                      {[{ v: 'friendly', l: '친근한' }, { v: 'formal', l: '정중한' }, { v: 'expert', l: '전문적' }].map(t => (
+                        <button key={t.v} onClick={() => saveSetting('tone', t.v)}
+                          className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-colors ${settings.tone === t.v ? 'bg-[#3182F6] text-white' : 'bg-[#F2F4F6] text-[#4E5968] hover:bg-[#E5E8EB]'}`}>
+                          {t.l}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="text-[11px] text-[#8B95A1] font-semibold block mb-2">길이</label>
+                    <div className="flex gap-1.5">
+                      {[{ v: 'short', l: '짧게' }, { v: 'medium', l: '중간' }, { v: 'long', l: '길게' }].map(t => (
+                        <button key={t.v} onClick={() => saveSetting('length', t.v)}
+                          className={`flex-1 py-1.5 rounded-lg text-xs font-semibold transition-colors ${settings.length === t.v ? 'bg-[#3182F6] text-white' : 'bg-[#F2F4F6] text-[#4E5968] hover:bg-[#E5E8EB]'}`}>
+                          {t.l}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* 포함 요소 체크박스 */}
+              <div>
+                <p className="text-xs font-bold text-[#4E5968] mb-3 uppercase tracking-wide">포함할 요소</p>
+                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                  {INCLUDES_LIST.map(item => (
+                    <button
+                      key={item.key}
+                      onClick={() => toggleInclude(item.key)}
+                      className={`flex items-start gap-2 p-2.5 rounded-xl border-2 text-left transition-all ${
+                        settings.includes[item.key]
+                          ? 'border-[#3182F6] bg-[#EFF6FF]'
+                          : 'border-[#E5E8EB] bg-white hover:border-[#B0B8C1]'
+                      }`}
+                    >
+                      <div className={`w-4 h-4 rounded-md flex-shrink-0 mt-0.5 flex items-center justify-center border-2 transition-colors ${settings.includes[item.key] ? 'bg-[#3182F6] border-[#3182F6]' : 'border-[#E5E8EB]'}`}>
+                        {settings.includes[item.key] && <svg width="10" height="10" viewBox="0 0 12 12" fill="white"><polyline points="2,6 5,9 10,3" strokeWidth="2" stroke="white" fill="none" strokeLinecap="round"/></svg>}
+                      </div>
+                      <div>
+                        <div className="text-[11px] font-bold text-[#191F28]">{item.label}</div>
+                        <div className="text-[10px] text-[#8B95A1] leading-snug">{item.desc}</div>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              {/* 마무리 문구 + 금지 표현 */}
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[11px] text-[#8B95A1] font-semibold block mb-1">고정 마무리 문구</label>
+                  <input
+                    value={settings.closing}
+                    onChange={e => saveSetting('closing', e.target.value)}
+                    placeholder="예: 항상 감사드립니다 🙏"
+                    className="w-full border border-[#E5E8EB] rounded-xl px-3 py-2 text-sm outline-none focus:border-[#3182F6] transition-colors"
+                  />
+                </div>
+                <div>
+                  <label className="text-[11px] text-[#8B95A1] font-semibold block mb-1">사용 금지 표현</label>
+                  <input
+                    value={settings.excludes}
+                    onChange={e => saveSetting('excludes', e.target.value)}
+                    placeholder="예: 죄송합니다, 저렴한"
+                    className="w-full border border-[#E5E8EB] rounded-xl px-3 py-2 text-sm outline-none focus:border-[#3182F6] transition-colors"
+                  />
+                </div>
+              </div>
+
+              {/* 자동 답변 예약 설정 */}
+              <div className="bg-[#FFF8EC] border border-orange-200 rounded-xl p-4">
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <p className="text-sm font-bold text-[#191F28]">⏰ 자동 답변 예약</p>
+                    <p className="text-xs text-[#8B95A1] mt-0.5">AI 생성 후 즉시 발행하지 않고, 설정한 시간 후에 발행 준비 상태로 변경</p>
+                  </div>
+                  <button
+                    onClick={() => saveSetting('autoReply', !settings.autoReply)}
+                    className={`relative w-12 h-6 rounded-full transition-colors ${settings.autoReply ? 'bg-[#3182F6]' : 'bg-[#E5E8EB]'}`}
+                  >
+                    <div className={`absolute top-1 w-4 h-4 bg-white rounded-full shadow transition-transform ${settings.autoReply ? 'translate-x-7' : 'translate-x-1'}`} />
+                  </button>
+                </div>
+                {settings.autoReply && (
+                  <div className="flex items-center gap-3">
+                    <label className="text-xs text-[#4E5968] font-semibold">발행 대기 시간:</label>
+                    <div className="flex gap-1.5">
+                      {[12, 24, 48].map(h => (
+                        <button key={h} onClick={() => saveSetting('autoDelayHours', h)}
+                          className={`px-3 py-1 rounded-lg text-xs font-semibold transition-colors ${settings.autoDelayHours === h ? 'bg-orange-500 text-white' : 'bg-white text-[#4E5968] border border-[#E5E8EB] hover:border-orange-300'}`}>
+                          {h}시간
+                        </button>
+                      ))}
+                    </div>
+                    <p className="text-xs text-[#8B95A1]">※ 발행 가능 상태가 되면 직접 확인 후 등록</p>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         )}
 
-        {/* 필터 바 */}
+        {/* ── 예약된 답변 섹션 ── */}
+        {scheduled.length > 0 && (
+          <div className="bg-white rounded-2xl shadow-sm border border-orange-200 mb-5 overflow-hidden">
+            <div className="px-5 py-3 bg-orange-50 border-b border-orange-100 flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <span className="text-base">⏰</span>
+                <span className="text-sm font-bold text-[#191F28]">예약된 답변 ({scheduled.length}개)</span>
+              </div>
+              {readyCount > 0 && (
+                <span className="text-xs font-bold text-green-600 bg-green-100 px-2.5 py-1 rounded-full">
+                  {readyCount}개 발행 가능
+                </span>
+              )}
+            </div>
+            <div className="divide-y divide-[#F2F4F6]">
+              {scheduled.map(s => {
+                const isReady = s.scheduledAt <= Date.now()
+                const timeLeft = formatTimeLeft(s.scheduledAt)
+                const pm = PLATFORM_META[s.platform]
+                return (
+                  <div key={s.reviewId} className="p-4 flex items-start gap-3">
+                    <div className={`w-8 h-8 rounded-xl flex items-center justify-center text-white text-xs font-black flex-shrink-0`}
+                      style={{ background: pm?.color || '#8B95A1' }}>
+                      {pm?.icon || '?'}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1">
+                        <span className="text-sm font-semibold text-[#191F28]">{s.author}</span>
+                        <PlatformBadge platform={s.platform} />
+                        {isReady
+                          ? <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-bold">✅ 발행 가능</span>
+                          : <span className="text-[10px] px-2 py-0.5 rounded-full bg-orange-100 text-orange-700 font-semibold">⏰ {timeLeft}</span>
+                        }
+                      </div>
+                      <p className="text-xs text-[#4E5968] line-clamp-2 bg-[#F8F9FA] rounded-lg px-3 py-2">{s.reply}</p>
+                    </div>
+                    <div className="flex flex-col gap-1.5 flex-shrink-0">
+                      {isReady && (
+                        <button
+                          onClick={() => removeScheduled(s.reviewId)}
+                          className="px-3 py-1.5 text-xs bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors font-semibold"
+                        >
+                          발행 완료
+                        </button>
+                      )}
+                      <button
+                        onClick={() => removeScheduled(s.reviewId)}
+                        className="px-3 py-1.5 text-xs text-[#8B95A1] border border-[#E5E8EB] rounded-lg hover:bg-[#F2F4F6] transition-colors font-semibold"
+                      >
+                        취소
+                      </button>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        {/* ── 플랫폼 탭 + 필터 ── */}
         {reviews.length > 0 && (
           <div className="flex gap-2 flex-wrap mb-4">
-            {/* 플랫폼 */}
+            {/* 플랫폼 탭 (큰 탭) */}
             <div className="flex gap-1 bg-white rounded-xl p-1 shadow-sm">
-              {['all', ...links.map(l => l.platform)].map(p => (
-                <button key={p} onClick={() => setFilterPlatform(p)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${filterPlatform === p ? 'bg-[#3182F6] text-white' : 'text-[#8B95A1] hover:bg-[#F2F4F6]'}`}>
-                  {p === 'all' ? '전체' : PLATFORM_META[p]?.label || p}
-                </button>
-              ))}
+              <button onClick={() => setFilterPlatform('all')}
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${filterPlatform === 'all' ? 'bg-[#191F28] text-white' : 'text-[#8B95A1] hover:bg-[#F2F4F6]'}`}>
+                전체 {reviews.length}
+              </button>
+              {links.map(l => {
+                const pm = PLATFORM_META[l.platform]
+                const cnt = platformCounts[l.platform] || 0
+                return (
+                  <button key={l.platform} onClick={() => setFilterPlatform(l.platform)}
+                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${filterPlatform === l.platform ? 'text-white' : 'text-[#8B95A1] hover:bg-[#F2F4F6]'}`}
+                    style={filterPlatform === l.platform ? { background: pm?.color } : {}}>
+                    <span>{pm?.label || l.platform}</span>
+                    <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${filterPlatform === l.platform ? 'bg-white/20 text-white' : 'bg-[#F2F4F6] text-[#4E5968]'}`}>{cnt}</span>
+                  </button>
+                )
+              })}
             </div>
+
             {/* 미답변/완료 */}
             <div className="flex gap-1 bg-white rounded-xl p-1 shadow-sm">
               {(['all', 'pending', 'done'] as const).map(f => (
                 <button key={f} onClick={() => setFilterReplied(f)}
                   className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${filterReplied === f ? 'bg-[#3182F6] text-white' : 'text-[#8B95A1] hover:bg-[#F2F4F6]'}`}>
-                  {f === 'all' ? '전체' : f === 'pending' ? '미답변' : '완료'}
+                  {f === 'all' ? '전체' : f === 'pending' ? `미답변 ${pendingCount}` : '완료'}
                 </button>
               ))}
             </div>
+
             {/* 별점 필터 */}
             <div className="flex gap-1 bg-white rounded-xl p-1 shadow-sm">
               {[0,1,2,3,4,5].map(n => (
                 <button key={n} onClick={() => setFilterRating(n)}
-                  className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${filterRating === n ? 'bg-[#3182F6] text-white' : 'text-[#8B95A1] hover:bg-[#F2F4F6]'}`}>
+                  className={`px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-colors ${filterRating === n ? 'bg-[#3182F6] text-white' : 'text-[#8B95A1] hover:bg-[#F2F4F6]'}`}>
                   {n === 0 ? '전체' : '★'.repeat(n)}
                 </button>
               ))}
@@ -234,7 +624,7 @@ export default function ReviewAdmin() {
           </div>
         )}
 
-        {/* 리뷰 목록 */}
+        {/* ── 플랫폼별 섹션 헤더 (탭이 '전체'일 때) ── */}
         {loading && (
           <div className="bg-white rounded-2xl p-8 shadow-sm text-center">
             <div className="text-3xl mb-2 animate-pulse">⏳</div>
@@ -248,91 +638,159 @@ export default function ReviewAdmin() {
           </div>
         )}
 
-        <div className="space-y-4">
-          {filtered.map((r, idx) => {
-            const realIdx = reviews.indexOf(r)
-            return (
-              <div key={r.id} className={`bg-white rounded-2xl p-5 shadow-sm border-l-4 ${r.replied ? 'border-green-400' : 'border-[#3182F6]'}`}>
-                {/* 리뷰 헤더 */}
-                <div className="flex items-start gap-3 mb-3">
-                  <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#3182F6] to-[#8B5CF6] flex items-center justify-center text-white font-bold flex-shrink-0">
-                    {r.author[0] || '?'}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <span className="font-semibold text-sm text-[#191F28]">{r.author}</span>
-                      <PlatformBadge platform={r.platform} />
-                      <Stars rating={r.rating} />
-                      {r.replied && <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-semibold">답변완료</span>}
+        {/* ── 리뷰 목록 (플랫폼별 그룹) ── */}
+        {!loading && (
+          filterPlatform === 'all'
+            ? links.map(link => {
+                const pm = PLATFORM_META[link.platform]
+                const platformReviews = filtered.filter(r => r.platform === link.platform)
+                if (!platformReviews.length) return null
+                return (
+                  <div key={link.platform} className="mb-6">
+                    {/* 플랫폼 섹션 헤더 */}
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="w-8 h-8 rounded-xl flex items-center justify-center text-white font-black text-sm"
+                        style={{ background: pm?.color || '#8B95A1' }}>
+                        {pm?.icon || link.platform[0]}
+                      </div>
+                      <h2 className="font-bold text-[#191F28]">{pm?.label || link.platform} 리뷰</h2>
+                      <span className="text-xs px-2 py-0.5 rounded-full font-semibold"
+                        style={{ background: pm?.bg, color: pm?.textColor }}>
+                        {platformReviews.length}개
+                      </span>
+                      <div className="flex-1 h-px bg-[#E5E8EB]" />
                     </div>
-                    <p className="text-xs text-[#B0B8C1] mt-0.5">{r.date}</p>
-                  </div>
-                </div>
-
-                {/* 리뷰 본문 */}
-                <p className="text-sm text-[#4E5968] bg-[#F8F9FA] rounded-xl p-3 mb-3">{r.text || '(텍스트 없음)'}</p>
-
-                {/* AI 답글 영역 */}
-                {r.aiDone && r.showEdit && (
-                  <div className="mb-3">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-xs font-semibold text-[#3182F6]">✨ AI 생성 답글 (편집 가능)</span>
-                    </div>
-                    <textarea
-                      value={r.editReply}
-                      onChange={e => updateEditReply(realIdx, e.target.value)}
-                      rows={4}
-                      className="w-full border border-[#3182F6] rounded-xl px-4 py-3 text-sm outline-none focus:border-[#1B64DA] resize-none transition-colors"
-                    />
-                    <div className="flex gap-2 mt-2 justify-end">
-                      <button
-                        onClick={() => generateAI(realIdx)}
-                        className="px-3 py-1.5 text-xs text-[#3182F6] border border-[#3182F6] rounded-lg hover:bg-[#EFF6FF] transition-colors font-semibold"
-                      >
-                        재생성
-                      </button>
-                      <button
-                        onClick={() => markReplied(realIdx)}
-                        className="px-4 py-1.5 text-xs bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors font-semibold"
-                      >
-                        답변 완료 표시
-                      </button>
+                    <div className="space-y-3">
+                      {platformReviews.map(r => {
+                        const realIdx = reviews.indexOf(r)
+                        return <ReviewCard key={r.id} r={r} idx={realIdx} reviews={reviews} scheduled={scheduled}
+                          generateAI={generateAI} updateEditReply={updateEditReply} markReplied={markReplied} settings={settings} />
+                      })}
                     </div>
                   </div>
-                )}
-
-                {r.aiLoading && (
-                  <div className="mb-3 p-3 bg-[#EFF6FF] rounded-xl text-sm text-[#3182F6] animate-pulse">
-                    ✨ AI가 답글을 작성하고 있습니다...
-                  </div>
-                )}
-
-                {/* 액션 버튼 */}
-                {!r.replied && !r.showEdit && (
-                  <div className="flex gap-2">
-                    <button
-                      onClick={() => generateAI(realIdx)}
-                      disabled={r.aiLoading}
-                      className="flex items-center gap-1.5 px-4 py-2 bg-[#3182F6] text-white text-xs font-semibold rounded-xl hover:bg-[#1B64DA] disabled:opacity-50 transition-colors"
-                    >
-                      ✨ AI 답글 생성
-                    </button>
-                    <button
-                      onClick={() => markReplied(realIdx)}
-                      className="px-4 py-2 text-xs text-[#8B95A1] border border-[#E5E8EB] rounded-xl hover:bg-[#F2F4F6] transition-colors font-semibold"
-                    >
-                      수동 완료
-                    </button>
-                  </div>
-                )}
+                )
+              })
+            : (
+              <div className="space-y-3">
+                {filtered.map(r => {
+                  const realIdx = reviews.indexOf(r)
+                  return <ReviewCard key={r.id} r={r} idx={realIdx} reviews={reviews} scheduled={scheduled}
+                    generateAI={generateAI} updateEditReply={updateEditReply} markReplied={markReplied} settings={settings} />
+                })}
               </div>
             )
-          })}
-        </div>
+        )}
 
-        {/* 하단 여백 */}
         <div className="h-8" />
       </main>
+    </div>
+  )
+}
+
+// ── 리뷰 카드 컴포넌트 ────────────────────────────────────────
+function ReviewCard({ r, idx, reviews, scheduled, generateAI, updateEditReply, markReplied, settings }: {
+  r: ReviewState; idx: number; reviews: ReviewState[]; scheduled: ScheduledReply[];
+  generateAI: (i: number) => void; updateEditReply: (i: number, v: string) => void;
+  markReplied: (i: number) => void; settings: StoreSettings
+}) {
+  const pm = PLATFORM_META[r.platform]
+  const isScheduled = scheduled.some(s => s.reviewId === r.id)
+  const scheduledItem = scheduled.find(s => s.reviewId === r.id)
+  const isReady = scheduledItem && scheduledItem.scheduledAt <= Date.now()
+
+  return (
+    <div className={`bg-white rounded-2xl p-5 shadow-sm border-l-4 ${
+      r.replied ? 'border-green-400' : isScheduled ? 'border-orange-400' : 'border-[#3182F6]'
+    }`}>
+      {/* 리뷰 헤더 */}
+      <div className="flex items-start gap-3 mb-3">
+        <div className="w-10 h-10 rounded-full flex items-center justify-center text-white font-bold flex-shrink-0"
+          style={{ background: pm?.color || '#8B95A1' }}>
+          {r.author?.[0] || '?'}
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="font-semibold text-sm text-[#191F28]">{r.author}</span>
+            <PlatformBadge platform={r.platform} />
+            <Stars rating={r.rating} />
+            <ReviewTypeTag text={r.text} rating={r.rating} />
+            {r.replied && <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-semibold">답변완료</span>}
+            {isScheduled && !r.replied && (
+              <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${isReady ? 'bg-green-100 text-green-700' : 'bg-orange-100 text-orange-700'}`}>
+                {isReady ? '✅ 발행 가능' : `⏰ ${formatTimeLeft(scheduledItem!.scheduledAt)}`}
+              </span>
+            )}
+          </div>
+          <p className="text-xs text-[#B0B8C1] mt-0.5">{r.date}</p>
+        </div>
+      </div>
+
+      {/* 리뷰 본문 */}
+      <div className={`text-sm rounded-xl p-3 mb-3 ${
+        !r.text?.trim() || r.text.trim().length < 5
+          ? 'bg-gray-50 text-[#8B95A1] italic'
+          : r.rating <= 2
+          ? 'bg-red-50 text-[#4E5968]'
+          : 'bg-[#F8F9FA] text-[#4E5968]'
+      }`}>
+        {r.text?.trim() && r.text.trim().length >= 5 ? r.text : '(텍스트 없음 — 별점/사진만 남긴 리뷰)'}
+      </div>
+
+      {/* 예약된 답변 미리보기 */}
+      {isScheduled && scheduledItem && (
+        <div className="mb-3 p-3 bg-orange-50 border border-orange-200 rounded-xl">
+          <p className="text-xs font-bold text-orange-700 mb-1">
+            {isReady ? '✅ 발행 가능한 AI 답글' : `⏰ ${formatTimeLeft(scheduledItem.scheduledAt)} 후 발행 예정`}
+          </p>
+          <p className="text-xs text-[#4E5968] line-clamp-3">{scheduledItem.reply}</p>
+        </div>
+      )}
+
+      {/* AI 답글 편집 */}
+      {r.aiDone && r.showEdit && (
+        <div className="mb-3">
+          <div className="flex items-center gap-2 mb-2">
+            <span className="text-xs font-semibold text-[#3182F6]">✨ AI 생성 답글 (편집 가능)</span>
+          </div>
+          <textarea
+            value={r.editReply}
+            onChange={e => updateEditReply(idx, e.target.value)}
+            rows={4}
+            className="w-full border border-[#3182F6] rounded-xl px-4 py-3 text-sm outline-none focus:border-[#1B64DA] resize-none transition-colors"
+          />
+          <div className="flex gap-2 mt-2 justify-end">
+            <button onClick={() => generateAI(idx)}
+              className="px-3 py-1.5 text-xs text-[#3182F6] border border-[#3182F6] rounded-lg hover:bg-[#EFF6FF] transition-colors font-semibold">
+              재생성
+            </button>
+            <button onClick={() => markReplied(idx)}
+              className="px-4 py-1.5 text-xs bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors font-semibold">
+              답변 완료 표시
+            </button>
+          </div>
+        </div>
+      )}
+
+      {r.aiLoading && (
+        <div className="mb-3 p-3 bg-[#EFF6FF] rounded-xl text-sm text-[#3182F6] animate-pulse">
+          ✨ AI가 답글을 작성하고 있습니다...
+        </div>
+      )}
+
+      {/* 액션 버튼 */}
+      {!r.replied && !r.showEdit && !isScheduled && (
+        <div className="flex gap-2">
+          <button onClick={() => generateAI(idx)} disabled={r.aiLoading}
+            className="flex items-center gap-1.5 px-4 py-2 bg-[#3182F6] text-white text-xs font-semibold rounded-xl hover:bg-[#1B64DA] disabled:opacity-50 transition-colors">
+            ✨ AI 답글 생성
+            {settings.autoReply && <span className="text-[10px] opacity-75">({settings.autoDelayHours}h 예약)</span>}
+          </button>
+          <button onClick={() => markReplied(idx)}
+            className="px-4 py-2 text-xs text-[#8B95A1] border border-[#E5E8EB] rounded-xl hover:bg-[#F2F4F6] transition-colors font-semibold">
+            수동 완료
+          </button>
+        </div>
+      )}
     </div>
   )
 }
