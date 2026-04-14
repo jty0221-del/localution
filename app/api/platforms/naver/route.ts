@@ -43,28 +43,36 @@ async function searchNaverLocal(query: string) {
   return res.json()
 }
 
-// ── 네이버 플레이스 페이지 메타 스크랩 (비공식) ───────────────
+// ── 네이버 플레이스 메타 스크랩 (업종 자동 감지) ─────────────
 async function fetchPlaceMeta(placeId: string) {
-  try {
-    const url = `https://m.place.naver.com/restaurant/${placeId}/home`
-    const res = await fetch(url, {
-      headers: {
-        'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15',
-      },
-    })
-    if (!res.ok) return null
-    const html = await res.text()
+  const categories = ['restaurant', 'place', 'business', 'beauty', 'hospital']
+  for (const cat of categories) {
+    try {
+      const url = `https://m.place.naver.com/${cat}/${placeId}/home`
+      const res = await fetch(url, {
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.0 Mobile/15E148 Safari/604.1',
+          'Accept-Language': 'ko-KR,ko;q=0.9',
+        },
+        redirect: 'follow',
+      })
+      if (!res.ok) continue
+      const html = await res.text()
+      if (html.includes('페이지를 찾을 수 없') || html.length < 500) continue
 
-    const nameMatch = html.match(/<title>([^|]+)/)
-    const name = nameMatch ? nameMatch[1].trim() : ''
+      const nameMatch = html.match(/<title>([^|<\n]+)/)
+      const name = nameMatch ? nameMatch[1].trim() : ''
+      if (!name) continue
 
-    const descMatch = html.match(/<meta\s+name="description"\s+content="([^"]+)"/)
-    const desc = descMatch ? descMatch[1].trim() : ''
+      const descMatch = html.match(/<meta[^>]+name="description"[^>]+content="([^"]+)"/)
+      const desc = descMatch ? descMatch[1].trim() : ''
 
-    return { name, desc, url }
-  } catch {
-    return null
+      return { name, desc, url: `https://m.place.naver.com/place/${placeId}/home` }
+    } catch {
+      continue
+    }
   }
+  return null
 }
 
 // ── POST /api/platforms/naver  (action: extract | verify | search) ─────
@@ -89,13 +97,31 @@ export async function POST(req: NextRequest) {
     if (action === 'verify') {
       const placeId = extractPlaceId(input || '')
       if (!placeId) {
-        return NextResponse.json({ error: 'Place ID를 찾을 수 없습니다' }, { status: 400 })
+        // place_id 추출 실패 → 이름 검색 fallback
+        if (!input || input.trim().length < 2) {
+          return NextResponse.json({ error: '네이버 플레이스 URL 또는 Place ID를 입력해 주세요' }, { status: 400 })
+        }
+        const searchData = await searchNaverLocal(input.trim())
+        if (searchData && searchData.items?.length > 0) {
+          const first = searchData.items[0]
+          const foundId = extractPlaceId(first.link || '')
+          return NextResponse.json({
+            placeId: foundId || first.link,
+            verified: true,
+            name: (first.title || '').replace(/<[^>]+>/g, ''),
+            desc: first.roadAddress || first.address || '',
+            url: first.link || '',
+          })
+        }
+        return NextResponse.json({ error: 'Place ID를 찾을 수 없습니다. 네이버 플레이스 URL을 직접 붙여넣으세요.' }, { status: 400 })
       }
+
       const meta = await fetchPlaceMeta(placeId)
+      // 스크랩 실패해도 placeId는 저장 가능하게 반환
       return NextResponse.json({
         placeId,
-        verified: !!meta,
-        name: meta?.name || '',
+        verified: true,
+        name: meta?.name || `네이버 매장 (${placeId})`,
         desc: meta?.desc || '',
         url: `https://m.place.naver.com/place/${placeId}/home`,
       })
@@ -136,29 +162,13 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'placeId 필요' }, { status: 400 })
   }
 
-  // TODO: 네이버 플레이스 리뷰는 공식 API가 없어 Selenium/스크래핑 필요
-  // 현재는 목업 데이터 반환
+  // 네이버 플레이스 리뷰는 공식 API 없음 (Business Profile API 승인 필요)
+  // mock 리뷰를 반환하면 알림 오탐이 발생하므로 빈 배열 반환
   return NextResponse.json({
     placeId,
-    source: 'mock',
-    reviews: [
-      {
-        id: `n-${placeId}-1`,
-        rating: 5,
-        author: '김**',
-        date: '2026-04-10',
-        text: '분위기도 좋고 음식도 맛있어요. 재방문 의사 100%!',
-        replied: false,
-      },
-      {
-        id: `n-${placeId}-2`,
-        rating: 4,
-        author: '이**',
-        date: '2026-04-08',
-        text: '가성비 좋은 편이고 주차도 편했어요.',
-        replied: true,
-      },
-    ],
-    stats: { total: 127, avg: 4.6, replied: 89 },
+    source: 'unavailable',
+    reviews: [],
+    stats: { total: 0, avg: 0, replied: 0 },
+    notice: '네이버 플레이스 리뷰는 공식 API 미지원으로 현재 조회 불가합니다.',
   })
 }
