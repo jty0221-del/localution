@@ -1,6 +1,6 @@
 'use client'
 import { useState, useEffect, useRef } from 'react'
-import { useRouter, usePathname } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import Link from 'next/link'
 
 interface UserInfo {
@@ -31,11 +31,9 @@ export default function Sidebar() {
   const [open, setOpen]     = useState(false)
   const [imgOk, setImgOk]   = useState(true)
   const pathname = usePathname()
-  const router   = useRouter()
   const popRef   = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    // sessionStorage 캐시 먼저 확인
     try {
       const cached = sessionStorage.getItem('localution_user')
       if (cached) {
@@ -66,18 +64,17 @@ export default function Sidebar() {
 
   function handleLogout() {
     setOpen(false)
-    // 쿠키 즉시 삭제
+    // 쿠키 삭제
     document.cookie = 'localution_session=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT'
-    // sessionStorage 삭제 (홈페이지 자동 리다이렉트 방지)
-    try { sessionStorage.removeItem('localution_user') } catch (_) {}
+    // 스토리지 전체 삭제
     try { sessionStorage.clear() } catch (_) {}
+    try { localStorage.clear() } catch (_) {}
     // API 로그아웃 (fire-and-forget)
     fetch('/api/auth/logout', { method: 'POST' }).catch(function() {})
-    // 즉시 로그인 페이지로
-    router.push('/login')
+    // 완전 페이지 새로고침으로 /login 이동 (React 상태 초기화)
+    window.location.href = '/login'
   }
 
-  // pathname null 안전 체크
   const pn = pathname || ''
   const show = PROTECTED.some(function(p) { return pn === p || pn.startsWith(p + '/') })
   if (!show) return null
@@ -91,8 +88,6 @@ export default function Sidebar() {
       zIndex: 50,
       fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
     }}>
-
-      {/* ── 상단 로고 ── */}
       <div style={{
         padding: '22px 18px 18px',
         borderBottom: '1px solid rgba(255,255,255,0.07)',
@@ -101,8 +96,7 @@ export default function Sidebar() {
         <div style={{ display: 'flex', alignItems: 'center', gap: '11px' }}>
           {imgOk ? (
             <img
-              src="/logo.png"
-              alt="로컬루션"
+              src="/logo.png" alt="logo"
               style={{ height: '32px', width: 'auto', flexShrink: 0 }}
               onError={function() { setImgOk(false) }}
             />
@@ -111,25 +105,21 @@ export default function Sidebar() {
               width: '32px', height: '32px', borderRadius: '8px', flexShrink: 0,
               background: 'linear-gradient(135deg, #3182F6 0%, #6366F1 100%)',
               display: 'flex', alignItems: 'center', justifyContent: 'center',
-              boxShadow: '0 0 12px rgba(49,130,246,0.4)',
             }}>
               <span style={{ color: '#fff', fontWeight: 900, fontSize: '15px' }}>L</span>
             </div>
           )}
           <div>
-            <div style={{
-              fontSize: '20px', fontWeight: 800, color: '#ffffff',
-              letterSpacing: '-0.6px', lineHeight: '1.1',
-            }}>로컬루션</div>
-            <div style={{
-              fontSize: '10px', color: 'rgba(255,255,255,0.35)',
-              marginTop: '1px', letterSpacing: '0.02em',
-            }}>AI 마케팅 자동화</div>
+            <div style={{ fontSize: '20px', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.6px', lineHeight: '1.1' }}>
+              로컬루션
+            </div>
+            <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.35)', marginTop: '1px' }}>
+              AI 마케팅 자동화
+            </div>
           </div>
         </div>
       </div>
 
-      {/* ── 네비게이션 ── */}
       <nav style={{ flex: 1, padding: '10px 8px', overflowY: 'auto' }}>
         {NAV.map(function(item) {
           const active = pn === item.href || pn.startsWith(item.href + '/')
@@ -145,19 +135,6 @@ export default function Sidebar() {
                 textDecoration: 'none', fontSize: '13px',
                 fontWeight: active ? 600 : 400,
                 borderLeft: active ? '3px solid #3182F6' : '3px solid transparent',
-                transition: 'all 0.15s ease',
-              }}
-              onMouseEnter={function(e) {
-                if (!active) {
-                  (e.currentTarget as HTMLAnchorElement).style.background = 'rgba(255,255,255,0.05)'
-                  ;(e.currentTarget as HTMLAnchorElement).style.color = 'rgba(255,255,255,0.85)'
-                }
-              }}
-              onMouseLeave={function(e) {
-                if (!active) {
-                  (e.currentTarget as HTMLAnchorElement).style.background = 'transparent'
-                  ;(e.currentTarget as HTMLAnchorElement).style.color = 'rgba(255,255,255,0.6)'
-                }
               }}
             >
               <span style={{ fontSize: '15px', flexShrink: 0 }}>{item.icon}</span>
@@ -167,11 +144,8 @@ export default function Sidebar() {
         })}
       </nav>
 
-      {/* ── 유저 프로필 ── */}
       <div style={{ padding: '8px', borderTop: '1px solid rgba(255,255,255,0.07)', flexShrink: 0 }}>
         <div ref={popRef} style={{ position: 'relative' }}>
-
-          {/* 팝업 */}
           {open && (
             <div style={{
               position: 'absolute', bottom: 'calc(100% + 6px)', left: 0, right: 0,
@@ -196,12 +170,6 @@ export default function Sidebar() {
                       color: 'rgba(255,255,255,0.78)', textDecoration: 'none',
                       fontSize: '13px', fontWeight: 500,
                     }}
-                    onMouseEnter={function(e) {
-                      (e.currentTarget as HTMLAnchorElement).style.background = 'rgba(255,255,255,0.07)'
-                    }}
-                    onMouseLeave={function(e) {
-                      (e.currentTarget as HTMLAnchorElement).style.background = 'transparent'
-                    }}
                   >
                     <span>{item.icon}</span><span>{item.label}</span>
                   </Link>
@@ -216,19 +184,12 @@ export default function Sidebar() {
                   background: 'transparent', border: 'none', cursor: 'pointer',
                   color: '#F87171', fontSize: '13px', fontWeight: 500, textAlign: 'left',
                 }}
-                onMouseEnter={function(e) {
-                  (e.currentTarget as HTMLButtonElement).style.background = 'rgba(248,113,113,0.1)'
-                }}
-                onMouseLeave={function(e) {
-                  (e.currentTarget as HTMLButtonElement).style.background = 'transparent'
-                }}
               >
                 <span>🚪</span><span>로그아웃</span>
               </button>
             </div>
           )}
 
-          {/* 프로필 버튼 */}
           <button
             onClick={function() { setOpen(function(v) { return !v }) }}
             style={{
@@ -236,13 +197,7 @@ export default function Sidebar() {
               width: '100%', padding: '10px 12px', borderRadius: '10px',
               background: open ? 'rgba(255,255,255,0.07)' : 'transparent',
               border: '1px solid rgba(255,255,255,0.07)',
-              cursor: 'pointer', textAlign: 'left', transition: 'background 0.15s',
-            }}
-            onMouseEnter={function(e) {
-              if (!open) (e.currentTarget as HTMLButtonElement).style.background = 'rgba(255,255,255,0.05)'
-            }}
-            onMouseLeave={function(e) {
-              if (!open) (e.currentTarget as HTMLButtonElement).style.background = 'transparent'
+              cursor: 'pointer', textAlign: 'left',
             }}
           >
             <div style={{
@@ -269,7 +224,7 @@ export default function Sidebar() {
                 fontSize: '11px', color: 'rgba(255,255,255,0.38)', marginTop: '1px',
                 overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
               }}>
-                {user ? (user.provider ? user.provider + ' 로그인' : user.email) : ''}
+                {user ? (user.provider ? user.provider + ' login' : user.email) : ''}
               </div>
             </div>
             <span style={{
