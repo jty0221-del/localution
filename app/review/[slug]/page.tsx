@@ -494,80 +494,294 @@ function catLabel(cat: string): string {
 }
 
 // ─────────────────────────────────────────────
-// ★ 핵심 알고리즘: AI 리뷰 생성
-//   3단계 키워드 + 방문유도 + 친절함 + 재방문 + 추천 필수 포함
+// ★ 핵심 알고리즘 v3: AI 리뷰 생성
+//
+//  [말투 4종 완전 차별화]
+//  warm   → 감성 스토리텔링, "~했어요/~이에요" 부드러운 어미
+//  short  → 단문 나열, 핵심 팩트만, "~임/~음/~함" 스타일
+//  detail → 격식체 "~습니다", 구체적 묘사, 항목별 서술
+//  casual → 구어체, "진짜/대박/완전/ㅋㅋ", 친구 말투
+//
+//  [나이대 5종 완전 차별화]
+//  10s  → SNS/인스타 중심, "각 나옴", 친구들
+//  20s  → 데이트 or 혼자 작업, "취향 저격", 트렌디
+//  30s  → 커플/소모임, "힐링", gender 반영
+//  40s  → 가족/아이들, "편안한", 나들이
+//  50s+ → 지인/동창 모임, "격조", "정성스러운"
+//
+//  [랜덤 변형] 각 파트 3~5개 문구 풀 → 방문자마다 다른 리뷰
+//  [사진 강도] 음식 2장+→복수메뉴, 인테리어→공간묘사, 서비스→친절 강화
 // ─────────────────────────────────────────────
 function buildReview(store: Store, gender: string, age: string, tone: string, photos: Photo[]): string {
-  const sig = store.signatures[Math.floor(Math.random() * store.signatures.length)]
-  const hasFood = photos.some(p => p.cat === 'food')
+  const rnd = (arr: string[]): string => arr[Math.floor(Math.random() * arr.length)]
+
+  const hasFood     = photos.some(p => p.cat === 'food')
   const hasInterior = photos.some(p => p.cat === 'interior')
-  const hasService = photos.some(p => p.cat === 'service')
+  const hasService  = photos.some(p => p.cat === 'service')
+  const foodCount   = photos.filter(p => p.cat === 'food').length
 
-  // ── 키워드 추출
-  const mainKw  = store.mainKeywords[0]    || store.keywords[0] || store.name
-  const mainKw2 = store.mainKeywords[1]    || store.mainKeywords[0] || mainKw
-  const relKw   = store.relatedKeywords[0] || store.keywords[1] || '분위기 좋은 곳'
-  const relKw2  = store.relatedKeywords[1] || relKw
-  const subKw   = store.subKeywords[0]     || store.keywords[2] || '맛있는 곳'
-  const subKw2  = store.subKeywords[1]     || subKw
+  const sigs    = store.signatures
+  const sig     = rnd(sigs)
+  const sig2    = rnd(sigs.filter(s => s !== sig).length > 0 ? sigs.filter(s => s !== sig) : sigs)
+  const mainKw  = store.mainKeywords[0] || store.name
+  const mainKw2 = rnd(store.mainKeywords)
+  const relKw   = rnd(store.relatedKeywords)
+  const relKw2  = rnd(store.relatedKeywords)
+  const subKw   = rnd(store.subKeywords)
+  const subKw2  = rnd(store.subKeywords)
 
-  // ── PART 1: 오프닝 - 방문 계기 (대표 키워드 자연 삽입)
-  const opening: Record<string, string> = {
-    warm:   mainKw + ' 찾다가 우연히 발견했는데, 와보길 정말 잘했다 싶었어요. ',
-    short:  mainKw + ' 검색하다 방문. ',
-    detail: mainKw + '를 검색하다 평점 보고 직접 찾아간 ' + store.name + '입니다. ',
-    casual: mainKw + ' 찾다가 친구 추천으로 처음 왔는데, 진짜 대박이에요! ',
+  // ══ PART 1: 오프닝 (말투별 문체 완전 다름) ══
+  const opening: Record<string, string[]> = {
+    warm: [
+      mainKw + '를 찾다가 우연히 발견했는데, 들어서는 순간부터 마음이 포근해지는 곳이에요. ',
+      '오래 다닐 단골이 생겼어요. ' + mainKw + ' 검색하다 알게 된 ' + store.name + ', 첫 방문부터 마음에 쏙 들었어요. ',
+      store.name + ', 처음 방문인데 ' + mainKw + ' 중에서 이렇게 감성적인 공간은 처음이에요. ',
+    ],
+    short: [
+      mainKw + ' 검색 후 방문. ',
+      '지인 추천으로 ' + mainKw + ' 방문. ',
+      mainKw + ' 찾다 들름. 평점 보고 결정. ',
+    ],
+    detail: [
+      mainKw + '로 검색하여 평점과 리뷰를 꼼꼼히 확인한 후 방문하게 된 ' + store.name + '입니다. ',
+      '지인의 추천으로 ' + mainKw + ' 중 ' + store.name + '을 선택하여 방문하였으며, 사전에 메뉴와 분위기를 확인하고 왔습니다. ',
+      mainKw + ' 관련 여러 곳을 비교 검토한 끝에 ' + store.name + '을 방문하게 되었습니다. ',
+    ],
+    casual: [
+      mainKw + ' 찾다가 여기 발견했는데 진짜 대박이에요!! ',
+      '친구가 ' + mainKw + ' 강추해서 반신반의하고 왔는데 완전 취향저격이에요!! ',
+      '야 여기 진짜 대박임ㅋㅋ ' + mainKw + ' 검색하다 발견했는데, ',
+    ],
   }
 
-  // ── PART 2: 메뉴 경험 (서브 키워드 삽입)
-  const menuPart = hasFood
-    ? sig + ' 비주얼부터 너무 예뻐서 먹기 아까울 정도였는데 맛도 ' + subKw + ' 답게 기대 이상이었어요. '
-    : sig + '를 시켰는데 ' + subKw2 + ' 이라는 소문이 딱 맞더라고요. '
-
-  // ── PART 3: 분위기·공간 (연관 키워드 삽입)
-  const atmosPart = hasInterior
-    ? relKw + ' 답게 매장 분위기가 너무 감성적이라 오래 머물러도 전혀 지루하지 않았어요. '
-    : relKw + ' 로 딱 맞는 곳이에요. 공간 자체가 너무 좋아서 다음에도 또 오고 싶더라고요. '
-
-  // ── PART 4: 친절함 (필수 포함)
-  const kindnessPart = hasService
-    ? '사장님이 처음 오는 손님한테도 이것저것 친절하게 안내해주셔서 기분 너무 좋았고, '
-    : '사장님이 너무 친절하게 맞이해주셔서 혼자 와도 전혀 어색하지 않았고, '
-
-  // ── PART 5: 나이대별 동반자·상황 문구 (연관 키워드 2번째 삽입)
-  const companionMap: Record<string, string> = {
-    '10s':  relKw2 + ' 로 친구들이랑 오기 딱 좋은 곳이에요. ',
-    '20s':  relKw2 + ' 로 데이트나 친구 모임 장소로 완벽해요. ',
-    '30s':  relKw2 + ' 로 여자친구·남자친구 데려오면 무조건 좋아할 것 같아요. ',
-    '40s':  relKw2 + ' 로 가족이랑 함께 오기에도 편하고 좋은 곳이에요. ',
-    '50s+': relKw2 + ' 로 지인들이랑 오기에도 전혀 부담 없는 분위기예요. ',
+  // ══ PART 2: 메뉴 경험 (사진 수량 + 말투) ══
+  const menuMulti = foodCount >= 2
+  const menu: Record<string, string[]> = {
+    warm: menuMulti ? [
+      sig + '와 ' + sig2 + ' 둘 다 시켰는데, 각각의 매력이 달라서 없어지는 게 아쉬웠어요. ' + subKw + ' 답게 퀄리티가 제대로 느껴졌고, ',
+      '메뉴 고르기가 너무 힘들어서 시그니처 두 개 다 시켰는데 둘 다 실망 없이 맛있었어요. ',
+    ] : [
+      sig + '를 주문했는데 ' + subKw + ' 답게 한 입에 반해버렸어요. 비주얼도 예쁘고 맛도 기대 이상이었어요. ',
+      '메뉴판 보다가 ' + sig + '가 눈에 들어와 시켰는데, 시그니처 답게 정말 특별했어요. ',
+      sig + ', 비주얼부터 너무 예쁜데 맛은 더 좋았어요. ' + subKw2 + ' 소문이 괜히 난 게 아니었어요. ',
+    ],
+    short: menuMulti ? [
+      sig + ', ' + sig2 + ' 주문. 둘 다 맛있음. ' + subKw + ' 인증. ',
+      '메뉴 여러 개 시킴. ' + subKw + ' 맞음. 가성비 좋음. ',
+    ] : [
+      sig + ' 주문. 맛있음. ' + subKw + ' 인증. ',
+      subKw + ' 맞음. ' + sig + ' 강추. ',
+      sig + ' 먹음. 맛 좋음. 비주얼 ok. ',
+    ],
+    detail: menuMulti ? [
+      sig + '와 ' + sig2 + '를 함께 주문하였습니다. ' + sig + '의 경우 ' + subKw + '로서 완성도가 높았으며, ' + sig2 + ' 또한 재료의 신선함이 돋보였습니다. ',
+      '두 가지 메뉴를 주문하여 비교한 결과, ' + subKw + ' 수준에 부합하는 품질이었습니다. 특히 ' + sig + '의 완성도가 인상적이었습니다. ',
+    ] : [
+      sig + '를 주문하였으며, ' + subKw + '로서의 완성도가 상당히 높았습니다. 재료의 신선도와 조화로운 맛이 인상적이었습니다. ',
+      '대표 메뉴인 ' + sig + '를 주문하였고, ' + subKw2 + ' 기준에서도 충분히 경쟁력 있는 퀄리티였습니다. ',
+      sig + '의 경우 ' + subKw + ' 면에서 이 지역 내 높은 수준을 보여주었습니다. ',
+    ],
+    casual: menuMulti ? [
+      sig + '랑 ' + sig2 + ' 둘 다 시켰는데 완전 다 맛있어요ㅠㅠ 사진도 엄청 찍었어요ㅋㅋ ' + subKw + ' 진짜 맞음!! ',
+      '여러 개 시켰는데 다 맛있어서 당황했어요!! ' + subKw + ' 이라는 말이 과언이 아니에요. ',
+    ] : [
+      sig + ' 먹었는데 완전 대박이에요!! ' + subKw + ' 소문 진짜였어요ㅋㅋ 비주얼부터 다름. ',
+      '주변에서 ' + subKw + ' 라길래 기대했는데 기대 이상이에요!! ' + sig + ' 강추강추. ',
+      sig + ' 시켰는데 와... 진짜 맛있어요ㅠㅠ ' + subKw2 + ' 완전 맞음ㅎㅎ ',
+    ],
   }
-  const companionPart = companionMap[age] || companionMap['30s']
 
-  // ── PART 6: 방문 유도 문구 (필수 - 다른 소비자가 꼭 오고 싶게)
-  const visitUrge: Record<string, string> = {
-    warm:   mainKw2 + ' 고민하고 계신 분들, 여기 한 번만 와보시면 단골 되실 거예요. ',
-    short:  mainKw2 + ' 찾으신다면 무조건 여기 추천합니다. ',
-    detail: mainKw2 + ' 기준으로 이 가격에 이 퀄리티면 주변에서 손에 꼽히는 곳이라고 생각해요. ',
-    casual: mainKw2 + ' 고민 중이면 무조건 와보세요! 한 번 오면 계속 오고 싶어질 거예요. ',
+  // ══ PART 3: 친절함 — 필수, 말투별 표현 완전 다름 ══
+  const kindness: Record<string, string[]> = {
+    warm: hasService ? [
+      '사장님의 따뜻한 응대가 오래 기억에 남을 것 같아요. 처음 방문한 손님인데도 세심하게 챙겨주셔서 감동이었어요. ',
+      '직원분이 먼저 챙겨주시는 세심함이 있어서 기분 좋은 시간을 보냈어요. 이런 친절함이 단골 만드는 것 같아요. ',
+    ] : [
+      '사장님이 따뜻하게 맞이해주셔서 처음 방문이었는데도 전혀 어색하지 않았어요. ',
+      '직원분이 미소로 맞아주셔서 기분 좋게 시간을 보낼 수 있었어요. ',
+      '사장님 친절함 덕분에 편안하게 즐기다 왔어요. ',
+    ],
+    short: hasService ? [
+      '직원 응대 매우 친절. 서비스 수준 높음. ',
+      '사장님 친절도 최상. 응대 좋음. ',
+    ] : [
+      '사장님 친절. 응대 좋음. ',
+      '직원 응대 친절. ',
+      '서비스 좋음. 친절함 인상적. ',
+    ],
+    detail: hasService ? [
+      '직원 응대 수준이 상당히 높았습니다. 처음 방문하는 고객에게도 메뉴 설명을 상세히 해주시고 필요한 것을 먼저 확인해주시는 세심함이 돋보였습니다. ',
+      '서비스 품질이 전반적으로 우수하였습니다. 주문부터 퇴장까지 불편함 없이 응대해주셨으며, 직원들의 친절도가 매우 높았습니다. ',
+    ] : [
+      '사장님의 친절한 응대가 인상 깊었습니다. 편안한 분위기를 조성해주셔서 방문 내내 만족스럽게 시간을 보낼 수 있었습니다. ',
+      '직원분들의 서비스 마인드가 훌륭하여 전체적인 방문 경험의 만족도를 높여주었습니다. ',
+      '응대 수준이 높아 서비스 면에서도 높은 만족감을 느꼈습니다. ',
+    ],
+    casual: hasService ? [
+      '사장님 진짜 너무 친절해요ㅠㅠ 먼저 챙겨주시고 질문에도 다 답해주셔서 기분이 너무 좋았어요!! ',
+      '직원분이 완전 친절해서 기분 업됐어요ㅎㅎ 이런 서비스는 처음이에요 진짜. ',
+    ] : [
+      '사장님 완전 친절해요!! 혼자 왔는데도 전혀 어색하지 않았어요ㅎㅎ ',
+      '사장님이 너무 친절하게 맞아주셔서 기분 좋게 즐겼어요!! ',
+      '여기 사장님 진짜 최고예요ㅠㅠ 친절함이 레전드임ㅋㅋ ',
+    ],
   }
 
-  // ── PART 7: 재방문 + 지인 추천 클로징 (필수)
-  const closing: Record<string, string> = {
-    warm:   '다음에 꼭 또 올 것 같고, 주변 지인들한테도 강력 추천하고 싶은 곳이에요!',
-    short:  '재방문 확정. 주변에 강력 추천.',
-    detail: '전반적인 만족도가 매우 높아서 재방문 의사 확실하고, 지인들에게도 적극 추천할 것 같습니다.',
-    casual: '진짜 자주 올 것 같아요! 주변 사람들한테 다 알려줄 거예요!!',
+  // ══ PART 4: 분위기 (인테리어 사진 + 말투) ══
+  const atmos: Record<string, string[]> = {
+    warm: hasInterior ? [
+      relKw + ' 로 이보다 더 완벽한 공간은 없을 것 같아요. 시간이 천천히 흐르는 것 같은 분위기예요. ',
+      '공간 자체가 너무 감성적이에요. ' + relKw + ' 으로 딱 맞는 분위기고, 오래 머물러도 전혀 지루하지 않아요. ',
+    ] : [
+      relKw + ' 분위기가 물씬 풍기는 곳이에요. 들어서는 순간 편안해지는 느낌이었어요. ',
+      '공간이 정말 아늑해서 ' + relKw + ' 로 자주 올 것 같아요. ',
+      relKw + ' 답게 공간 전체에서 정성이 느껴졌어요. ',
+    ],
+    short: hasInterior ? [
+      '분위기 ' + relKw + ' 그 자체. 인테리어 감성 있음. ',
+      relKw + ' 완벽. 공간 깔끔하고 좋음. ',
+    ] : [
+      relKw + ' 딱 맞음. 분위기 좋음. ',
+      '공간 좋음. ' + relKw + ' 추천. ',
+      '분위기 조용하고 쾌적. ' + relKw + '. ',
+    ],
+    detail: hasInterior ? [
+      '매장 인테리어는 ' + relKw + '에 최적화된 구성으로, 조명과 공간 배치가 세련되게 이루어져 있었습니다. 소음 차단도 잘 되어 있어 쾌적한 환경이었습니다. ',
+      '내부 공간은 ' + relKw + ' 콘셉트에 맞게 일관된 톤으로 꾸며져 있으며, 좌석 간격도 적당하여 프라이버시가 보장되었습니다. ',
+    ] : [
+      relKw + '으로서 전반적인 공간 구성이 만족스러웠습니다. 특히 조용한 환경이 집중하기에 좋았습니다. ',
+      '분위기가 ' + relKw + ' 목적에 부합하였으며, 청결함과 쾌적함도 높은 수준이었습니다. ',
+      relKw + ' 관점에서 공간의 완성도가 상당히 높았습니다. ',
+    ],
+    casual: hasInterior ? [
+      relKw + ' 로 진짜 이 집 분위기 너무 감성터짐ㅠㅠ 사진 찍기에도 너무 좋아요!! ',
+      '분위기가 완전 ' + relKw + ' 그 자체예요ㅋㅋ 인테리어 너무 예뻐서 사진 엄청 찍었어요. ',
+    ] : [
+      '분위기도 완전 ' + relKw + ' 딱이에요!! 오래 있어도 전혀 안 질려요. ',
+      relKw + ' 찾으시는 분들 여기 완전 정답이에요!! ',
+      '공간 분위기 완전 ' + relKw + '!! 여기 앉아있는 것만으로도 힐링돼요ㅠㅠ ',
+    ],
   }
+
+  // ══ PART 5: 나이대별 동반자·상황 완전 차별화 ══
+  const companionByAge: Record<string, Record<string, string[]>> = {
+    '10s': {
+      warm:   ['친구들이랑 왔는데 인스타 사진 잔뜩 찍고 갔어요. 또래끼리 오기 정말 좋은 곳이에요. '],
+      short:  ['친구들이랑 방문. 인스타 각 잘 나옴. '],
+      detail: ['10대들이 방문하기에 가격 부담이 없으며, 인스타그램 촬영 포인트가 여럿 있어 또래 친구들과 오기 좋은 환경이었습니다. '],
+      casual: ['친구들이랑 왔는데 인스타 각 완전 나와요ㅋㅋ 다음에 또 오자고 난리났어요ㅎㅎ '],
+    },
+    '20s': {
+      warm:   ['혼자 작업하러 왔는데 집중도 잘 되고, 데이트 장소로도 너무 좋을 것 같았어요. 20대 취향을 정확히 저격하는 곳이에요. '],
+      short:  ['혼자 작업·데이트 코스 둘 다 가능. 20대 취향 저격. '],
+      detail: ['20대 방문객들을 위한 공간으로, 혼자 방문하여 작업하기에도, 동반자와 함께 데이트 코스로 방문하기에도 적합한 환경이었습니다. '],
+      casual: ['혼자 왔는데 작업하기 완전 좋아요!! 데이트 코스로 와도 완전 좋을 것 같아요ㅎㅎ 20대 취향 저격 확실. '],
+    },
+    '30s': {
+      warm: [
+        gender === 'F'
+          ? '남자친구랑 왔는데 둘 다 너무 만족해서 자주 올 것 같아요. ' + relKw2 + ' 로 이보다 완벽한 곳은 없어요. '
+          : gender === 'M'
+          ? '여자친구랑 왔는데 엄청 좋아했어요. ' + relKw2 + ' 로 완벽한 선택이었어요. '
+          : '소중한 사람과 오기 딱 좋은 곳이에요. ' + relKw2 + ' 로 주말마다 오고 싶어요. ',
+      ],
+      short: [
+        gender === 'F'
+          ? '남자친구랑 방문. 둘 다 만족. ' + relKw2 + ' 완벽. '
+          : gender === 'M'
+          ? '여자친구랑 방문. 완전 성공. ' + relKw2 + ' 딱. '
+          : relKw2 + ' 최적. 커플 추천. ',
+      ],
+      detail: [
+        gender === 'F'
+          ? '남자친구와 함께 방문하였으며, 두 사람 모두 매우 만족스러운 경험을 했습니다. ' + relKw2 + ' 목적으로 방문하기에 최적화된 공간이었습니다. '
+          : gender === 'M'
+          ? '여자친구와 함께 방문하였고, 전반적으로 높은 만족도를 보였습니다. ' + relKw2 + '으로서 완성도가 높은 공간이었습니다. '
+          : relKw2 + ' 목적의 방문으로, 동반자 모두 매우 만족스러운 결과였습니다. ',
+      ],
+      casual: [
+        gender === 'F'
+          ? '남자친구랑 왔는데 완전 좋아했어요ㅎㅎ ' + relKw2 + ' 로 완전 정답이에요!! '
+          : gender === 'M'
+          ? '여자친구랑 왔는데 엄청 좋아하더라구요ㅋㅋ ' + relKw2 + ' 로 강추해요!! '
+          : relKw2 + ' 로 진짜 최고예요!! 커플들 무조건 와보세요. ',
+      ],
+    },
+    '40s': {
+      warm:   ['가족들이랑 왔는데 아이들도 편안하게 즐길 수 있는 분위기예요. 가족 나들이 장소로 이보다 더 좋을 수 없어요. '],
+      short:  ['가족 나들이로 방문. 아이들 좋아함. 가족 모두 만족. '],
+      detail: ['가족 단위 방문을 위한 공간으로, 어린 자녀들도 편안하게 이용할 수 있는 환경이 갖추어져 있었습니다. 가족 나들이 코스로 적극 추천드립니다. '],
+      casual: ['가족이랑 왔는데 아이들도 너무 좋아했어요ㅋㅋ 가족 나들이 코스로 진짜 완벽이에요!! '],
+    },
+    '50s+': {
+      warm:   ['오래된 지인들과 함께 방문했는데, 조용하고 격조 있는 분위기가 천천히 대화 나누기에 딱이었어요. 품격 있는 공간이에요. '],
+      short:  ['지인 모임으로 방문. 조용하고 품격 있음. 대화 나누기 최적. '],
+      detail: ['지인들과의 모임 장소로 방문하였습니다. 조용하고 품격 있는 분위기가 편안한 대화를 나누기에 최적이었으며, 서비스 수준도 기대에 부응하였습니다. '],
+      casual: ['지인들이랑 왔는데 분위기 너무 좋아요!! 조용하고 격조 있어서 대화 나누기 딱이에요ㅎㅎ '],
+    },
+  }
+
+  // ══ PART 6: 방문 유도 — 필수, 말투별 강도 다름 ══
+  const urge: Record<string, string[]> = {
+    warm: [
+      mainKw2 + ' 고민 중이신 분들, 한 번만 와보시면 단골 되실 거예요. ',
+      mainKw2 + ' 찾고 계신다면 망설이지 마시고 꼭 한번 방문해보세요. 후회 없으실 거예요. ',
+      '이 근처에서 ' + mainKw2 + ' 찾으신다면 여기가 정답이에요. ',
+    ],
+    short: [
+      mainKw2 + ' 찾으신다면 여기 강추. ',
+      mainKw2 + ' 최강. 무조건 방문 권장. ',
+      mainKw2 + ' = 여기. ',
+    ],
+    detail: [
+      mainKw2 + ' 기준으로 가격 대비 품질이 상당히 우수하여, 이 지역에서 손꼽히는 매장이라고 생각합니다. ',
+      '전반적인 경험을 종합했을 때 ' + mainKw2 + ' 중 최상위권에 해당하는 매장으로 판단됩니다. ',
+      mainKw2 + '을 검토 중이신 분들께 적극 추천드릴 수 있는 곳입니다. ',
+    ],
+    casual: [
+      mainKw2 + ' 찾으시는 분들 무조건 여기예요!! 한 번 오면 계속 오고 싶어질 거예요ㅋㅋ ',
+      mainKw2 + ' 고민이면 그냥 여기로 오세요!! 후회 없어요 진짜!! ',
+      '여기 알고도 안 오면 진짜 손해예요!! ' + mainKw2 + ' 중에 여기가 최고예요. ',
+    ],
+  }
+
+  // ══ PART 7: 재방문 + 지인 추천 클로징 — 필수 ══
+  const closing: Record<string, string[]> = {
+    warm: [
+      '다음에 꼭 또 들를 것 같고, 소중한 분들께 강력 추천하고 싶은 곳이에요.',
+      '재방문 의사 100%예요. 주변 지인들한테 입이 닳도록 추천할 것 같아요.',
+      '자주 오고 싶은 곳이 생겼어요. 아직 안 와보신 분들께 꼭 추천드려요.',
+    ],
+    short: [
+      '재방문 확정. 주변 전부 추천.',
+      '재방문 의사 있음. 지인 추천 예정.',
+      '또 올 예정. 강추.',
+    ],
+    detail: [
+      '종합적인 만족도를 기준으로 재방문 의사가 매우 높으며, 지인들에게도 적극 추천드릴 예정입니다.',
+      '전체적인 경험에 높은 만족감을 느꼈으며, 향후 재방문 및 주변 인원들에게 추천할 의향이 충분합니다.',
+      '서비스·메뉴·분위기 세 가지 모두 높은 수준을 유지하고 있어, 재방문과 추천을 망설임 없이 결정하였습니다.',
+    ],
+    casual: [
+      '진짜 자주 올 것 같아요!! 주변 사람들한테 다 알려줄 거예요 강추강추!!',
+      '이미 친구들한테 다 공유했어요ㅋㅋ 다음에 또 올게요!!',
+      '재방문 확정이고 주변에 다 자랑할 것 같아요!! 너무 좋아서 기분 좋게 집에 갔어요ㅎㅎ',
+    ],
+  }
+
+  // ── 나이대 + 말투 조합으로 동반자 문구 선택
+  const ageData  = companionByAge[age]  || companionByAge['30s']
+  const ageTone  = ageData[tone]        || ageData['warm']
+  const companion = rnd(ageTone)
 
   return (
-    (opening[tone]      || opening.warm)      +
-    menuPart                                  +
-    kindnessPart                              +
-    atmosPart                                 +
-    companionPart                             +
-    (visitUrge[tone]    || visitUrge.warm)    +
-    (closing[tone]      || closing.warm)
+    rnd(opening[tone]  || opening.warm)  +
+    rnd(menu[tone]     || menu.warm)     +
+    rnd(kindness[tone] || kindness.warm) +
+    rnd(atmos[tone]    || atmos.warm)    +
+    companion                            +
+    rnd(urge[tone]     || urge.warm)     +
+    rnd(closing[tone]  || closing.warm)
   )
 }
 
@@ -580,11 +794,11 @@ function polishText(raw: string): string {
   while (out.indexOf('..') >= 0) out = out.split('..').join('.')
   out = out.split(' ,').join(',').split(' .').join('.')
   out = out.split(', ,').join(',')
-  // 중복 조사 정리
   out = out.split('이이').join('이').split('가가').join('가')
-  // 문장 끝 자연스럽게
-  if (out.length > 0 && out[out.length - 1] !== '!' && out[out.length - 1] !== '.') {
-    out = out + '.'
+  out = out.split('요. 요.').join('요.')
+  if (out.length > 0) {
+    const last = out[out.length - 1]
+    if (last !== '!' && last !== '.' && last !== '~') out = out + '.'
   }
   return out
 }
