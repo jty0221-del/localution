@@ -2,7 +2,6 @@
 export const dynamic = 'force-dynamic'
 
 import { useState, useEffect, useCallback } from 'react'
-import { useRouter } from 'next/navigation'
 import Sidebar from '../components/Sidebar'
 
 // ═══════════════════════════════════════════════════════════
@@ -410,8 +409,86 @@ function AIReplyModal({ review, onClose }: ReplyModalProps) {
     }
   }, [review])
 
-  useEffect(() => { /* auth-bypass: no redirect */ }, [])
+  useEffect(() => { generate() }, [generate])
 
+  const post = () => {
+    // 실제 플랫폼 API 연동 전 — 목업 성공
+    setPosted(true)
+    setTimeout(onClose, 1200)
+  }
+
+  return (
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-6" onClick={e => e.stopPropagation()}>
+        <div className="flex items-center justify-between mb-4">
+          <h3 className="text-lg font-black text-[#191F28]">AI 답글 생성</h3>
+          <button onClick={onClose} className="text-[#8B95A1] hover:text-[#191F28] text-xl">×</button>
+        </div>
+
+        {/* 원본 리뷰 */}
+        <div className="bg-[#F8F9FA] rounded-xl p-4 mb-4">
+          <div className="flex items-center gap-2 mb-2">
+            <span
+              className="text-[10px] font-black text-white px-2 py-0.5 rounded-full"
+              style={{ background: review.color }}
+            >
+              {review.platform}
+            </span>
+            <span className="text-xs font-bold text-[#4E5968]">{review.name}</span>
+            <Stars rating={review.rating} />
+            <span className="text-[10px] text-[#8B95A1]">{review.time}</span>
+          </div>
+          <p className="text-sm text-[#191F28]">{review.text}</p>
+        </div>
+
+        {/* AI 답변 */}
+        <label className="block text-xs font-bold text-[#4E5968] mb-1.5">AI 추천 답변 (수정 가능)</label>
+        {loading ? (
+          <div className="bg-[#FAFBFF] rounded-xl p-6 text-center text-sm text-[#8B95A1]">
+            AI가 SEO 최적화된 답변을 생성 중입니다...
+          </div>
+        ) : error ? (
+          <div className="bg-[#FFF0F0] text-[#F04452] rounded-xl p-4 text-sm">{error}</div>
+        ) : (
+          <textarea
+            value={reply}
+            onChange={e => setReply(e.target.value)}
+            rows={8}
+            className="w-full px-3 py-2.5 border border-[#E5E8EB] rounded-xl text-sm focus:border-[#3182F6] focus:outline-none resize-none"
+          />
+        )}
+
+        {posted && (
+          <div className="bg-[#E8FFF0] text-[#12B76A] rounded-xl p-3 text-sm font-bold text-center mt-3">
+            ✓ 답글이 게시되었습니다
+          </div>
+        )}
+
+        <div className="flex gap-2 mt-4">
+          <button
+            onClick={generate}
+            disabled={loading}
+            className="flex-1 border border-[#E5E8EB] text-[#4E5968] py-2.5 rounded-xl text-sm font-bold hover:bg-[#F8F9FA] disabled:opacity-50"
+          >
+            다시 생성
+          </button>
+          <button
+            onClick={post}
+            disabled={loading || !reply.trim() || posted}
+            className="flex-1 bg-[#3182F6] text-white py-2.5 rounded-xl text-sm font-bold hover:bg-[#1B64DA] disabled:opacity-40"
+          >
+            {posted ? '게시 완료' : '답변 게시하기'}
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════
+//  메인 대시보드
+// ═══════════════════════════════════════════════════════════
+export default function Dashboard() {
   const [platforms, setPlatforms] = useState(INITIAL_PLATFORMS)
   const [keywords, setKeywords] = useState<KeywordRank[]>(MOCK_KEYWORDS)
   const [lastSync, setLastSync] = useState('방금 전')
