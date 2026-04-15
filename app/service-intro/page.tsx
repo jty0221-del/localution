@@ -15,7 +15,7 @@ const SAMPLE_STORE = {
 
 const SAMPLE_REVIEWS = [
   {
-    id: 'r1', platform: 'google', author: '김민준', rating: 5,
+    id: 'r1', platform: 'naver', author: '김민준', rating: 5,
     date: '2026-04-10',
     text: '해운대에서 태국 음식 찾다가 우연히 들어갔는데 정말 맛있었어요. 팟타이가 특히 인상적이었고 직원분들도 친절했습니다. 뷰도 너무 예쁘고 재방문 의사 200%입니다.',
   },
@@ -25,34 +25,77 @@ const SAMPLE_REVIEWS = [
     text: 'Great Thai food in Haeundae. The green curry was amazing and the ocean view is beautiful. Staff were very friendly. Will definitely come back.',
   },
   {
-    id: 'r3', platform: 'naver', author: '박지현', rating: 5,
+    id: 'r3', platform: 'coupang', author: '박지현', rating: 5,
     date: '2026-04-06',
     text: '분위기도 너무 좋고 음식도 정말 맛있었어요. 망고스티키라이스가 최고. 해운대 뷰 보면서 먹으니까 더 맛있는 것 같아요.',
   },
 ]
 
+// 플랫폼 순서: 네이버가 가장 좌측
+const PLATFORMS = [
+  { key: 'naver',   label: '네이버 플레이스', bg: '#03C75A', letter: 'N', text: '#FFFFFF' },
+  { key: 'google',  label: '구글 맵',         bg: '#4285F4', letter: 'G', text: '#FFFFFF' },
+  { key: 'coupang', label: '쿠팡이츠',        bg: '#FF3C3C', letter: 'C', text: '#FFFFFF' },
+  { key: 'baemin',  label: '배달의민족',      bg: '#2AC1BC', letter: 'B', text: '#FFFFFF' },
+  { key: 'yogiyo',  label: '요기요',          bg: '#FA0050', letter: 'Y', text: '#FFFFFF' },
+]
+
+// 6종 톤
+const TONES = [
+  { key: 'friendly', title: '따뜻한 사장님',  desc: '사장님이 직접 쓴 듯한 친근 구어체',           color: '#F59E0B' },
+  { key: 'expert',   title: '전문업체',        desc: '정중하고 담백한 서면 톤. 이모티콘 없음',      color: '#1B64DA' },
+  { key: 'witty',    title: '유쾌한',          desc: '위트 있고 밝은 톤. 살짝 장난스럽게',           color: '#8B5CF6' },
+  { key: 'simple',   title: '심플',            desc: '짧고 깔끔한 담백 톤. 군더더기 없음',           color: '#10B981' },
+  { key: 'emo',      title: '감성적',          desc: '잔잔하고 진심 담긴 편지 같은 톤',              color: '#EC4899' },
+  { key: 'mz',       title: 'MZ 트렌디',       desc: '요즘 말투. 너무 과하지 않게 트렌디',           color: '#F43F5E' },
+]
+
+const GENDERS = [
+  { key: 'none',   label: '선택 안 함' },
+  { key: 'male',   label: '남자' },
+  { key: 'female', label: '여자' },
+]
+
+const AGES = [
+  { key: 'teen', label: '10대' },
+  { key: '20s',  label: '20대' },
+  { key: '30s',  label: '30대' },
+  { key: '40s',  label: '40대' },
+  { key: '50s',  label: '50대' },
+  { key: '60s',  label: '60대+' },
+]
+
 const STEPS = [
-  { num: 1, icon: '1', title: '플랫폼 연동', desc: '구글 맵, 네이버 플레이스, 쿠팡이츠, 배민, 요기요 등 매장 URL이나 매장명을 입력하면 자동으로 매장 정보를 가져옵니다.' },
-  { num: 2, icon: '2', title: '리뷰 목록 확인', desc: '연동된 플랫폼의 최신 리뷰를 한 화면에서 확인합니다. 별점·미답변 필터를 지원합니다.' },
-  { num: 3, icon: '3', title: 'AI 답글 생성', desc: '리뷰 내용과 매장 특성을 분석해서 SEO 맞춤 답글을 만들어 줍니다. 따뜻한 사장님 톤과 전문업체 톤 중에서 고를 수 있어요.' },
-  { num: 4, icon: '4', title: '검토 및 수정', desc: '생성된 답글을 직접 편집하고 다듬을 수 있습니다.' },
-  { num: 5, icon: '5', title: '직접 게시', desc: '완성된 답글을 복사해서 각 플랫폼에 직접 게시합니다.' },
+  { num: 1, title: '플랫폼 연동', desc: '네이버 플레이스, 구글 맵, 쿠팡이츠, 배달의민족, 요기요 등 매장 URL이나 매장명을 입력하면 자동으로 가져옵니다.' },
+  { num: 2, title: '리뷰 목록 확인', desc: '연동된 플랫폼의 최신 리뷰를 한 화면에서 확인합니다. 별점·미답변 필터 지원.' },
+  { num: 3, title: 'AI 답글 생성', desc: '리뷰 내용과 매장 특성, 고객 프로필(성별·연령대)을 반영해 SEO 맞춤 답글을 만들어 줍니다. 톤은 6가지 중 선택.' },
+  { num: 4, title: '검토 및 수정', desc: '생성된 답글을 직접 편집하고 다듬을 수 있습니다.' },
+  { num: 5, title: '직접 게시', desc: '완성된 답글을 복사해서 각 플랫폼에 직접 게시합니다.' },
 ]
 
 function Stars({ n }: { n: number }) {
   return <span className="text-yellow-400 text-lg">{'★'.repeat(n)}{'☆'.repeat(5 - n)}</span>
 }
 
+function PlatformMark({ keyName, size = 28 }: { keyName: string; size?: number }) {
+  const p = PLATFORMS.find(x => x.key === keyName) || PLATFORMS[0]
+  return (
+    <span
+      className="inline-flex items-center justify-center rounded-md font-black flex-shrink-0"
+      style={{ width: size, height: size, background: p.bg, color: p.text, fontSize: size * 0.55 }}>
+      {p.letter}
+    </span>
+  )
+}
+
 function PlatformBadge({ p }: { p: string }) {
-  const map: Record<string, { label: string; bg: string; color: string }> = {
-    google: { label: '구글', bg: 'bg-blue-100', color: 'text-blue-700' },
-    naver:  { label: '네이버', bg: 'bg-green-100', color: 'text-green-700' },
-    coupang:{ label: '쿠팡이츠', bg: 'bg-red-100', color: 'text-red-700' },
-    baemin: { label: '배민', bg: 'bg-teal-100', color: 'text-teal-700' },
-    yogiyo: { label: '요기요', bg: 'bg-pink-100', color: 'text-pink-700' },
-  }
-  const m = map[p] || map.google
-  return <span className={`text-xs px-2.5 py-1 rounded-full ${m.bg} ${m.color} font-bold`}>{m.label}</span>
+  const plat = PLATFORMS.find(x => x.key === p) || PLATFORMS[0]
+  return (
+    <span className="inline-flex items-center gap-1.5 text-sm px-2.5 py-1 rounded-full bg-[#F2F4F6] text-[#191F28] font-bold">
+      <PlatformMark keyName={p} size={18} />
+      {plat.label}
+    </span>
+  )
 }
 
 export default function ServiceIntro() {
@@ -63,7 +106,9 @@ export default function ServiceIntro() {
   const [storeName, setStoreName] = useState(SAMPLE_STORE.name)
   const [region, setRegion] = useState('해운대')
   const [bizType, setBizType] = useState('태국 음식점')
-  const [tone, setTone] = useState<'friendly' | 'expert'>('friendly')
+  const [tone, setTone] = useState<string>('friendly')
+  const [gender, setGender] = useState<string>('none')
+  const [age, setAge] = useState<string>('30s')
 
   async function generateReply(reviewId: string, reviewText: string) {
     setLoading(prev => ({ ...prev, [reviewId]: true }))
@@ -75,15 +120,16 @@ export default function ServiceIntro() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           review: reviewText,
-          platform: '구글',
+          platform: '네이버',
           storeName,
           region,
           bizType,
+          customerProfile: { gender, age },
           aiSettings: {
             tone,
             length: 'medium',
             includes: { thanks: true, revisit: true, mention: true, personalize: true, improve: true, keyword: true },
-            closing: tone === 'expert' ? '' : '해운대에서 또 만나요',
+            closing: tone === 'expert' ? '' : '',
             excludes: '',
           },
         }),
@@ -100,7 +146,6 @@ export default function ServiceIntro() {
   return (
     <div className="min-h-screen bg-[#F2F4F6]">
 
-      {/* 헤더 */}
       <div style={{ background: 'linear-gradient(135deg, #1B3FD8 0%, #3182F6 100%)' }} className="text-white">
         <div className="max-w-5xl mx-auto px-6 py-14">
           <div className="flex items-center gap-3 mb-8">
@@ -112,10 +157,10 @@ export default function ServiceIntro() {
           <h1 className="text-5xl font-black mb-5 leading-tight">AI 리뷰 답글 자동화 서비스</h1>
           <p className="text-white/85 text-xl leading-relaxed max-w-3xl">
             네이버 플레이스, 구글, 쿠팡이츠, 배달의민족, 요기요 리뷰를<br/>
-            한 곳에서 확인하고 매장에 맞는 SEO 답글을 만들어 드립니다.
+            한 곳에서 확인하고 매장과 고객 프로필에 맞는 답글을 만들어 드립니다.
           </p>
           <div className="flex gap-10 mt-8">
-            {[['5개+', '연동 플랫폼'], ['Claude', 'AI 엔진'], ['5개 언어', '다국어 지원']].map(([v, l]) => (
+            {[['5개+', '연동 플랫폼'], ['6종', '답글 톤'], ['Claude', 'AI 엔진']].map(([v, l]) => (
               <div key={l}>
                 <div className="text-3xl font-black">{v}</div>
                 <div className="text-white/70 text-sm mt-1">{l}</div>
@@ -146,7 +191,7 @@ export default function ServiceIntro() {
           {STEPS.map(s => activeStep === s.num && (
             <div key={s.num} className="bg-white rounded-2xl p-8 shadow-sm border border-[#E5E8EB]">
               <div className="flex items-center gap-4 mb-4">
-                <div className="w-14 h-14 rounded-xl bg-[#3182F6] flex items-center justify-center text-white font-black text-2xl">{s.icon}</div>
+                <div className="w-14 h-14 rounded-xl bg-[#3182F6] flex items-center justify-center text-white font-black text-2xl">{s.num}</div>
                 <div>
                   <p className="text-sm text-[#3182F6] font-bold">Step {s.num}</p>
                   <h3 className="text-2xl font-black text-[#191F28]">{s.title}</h3>
@@ -157,15 +202,19 @@ export default function ServiceIntro() {
           ))}
         </div>
 
-        {/* 매장 정보 설정 */}
+        {/* 매장 정보 */}
         <div className="bg-white rounded-2xl p-8 shadow-sm border border-[#E5E8EB] mb-8">
           <h2 className="text-2xl font-black text-[#191F28] mb-2">Step 1 · 연동된 매장 정보</h2>
-          <p className="text-base text-[#8B95A1] mb-6">실제 사용 시 구글 맵, 네이버 플레이스, 쿠팡이츠, 배민, 요기요 등 URL이나 매장명을 입력하면 자동으로 가져옵니다.</p>
+          <p className="text-base text-[#8B95A1] mb-6">네이버 플레이스, 구글 맵, 쿠팡이츠, 배달의민족, 요기요 URL이나 매장명을 입력하면 자동으로 가져옵니다.</p>
 
-          {/* 지원 플랫폼 칩 */}
-          <div className="flex flex-wrap gap-2 mb-5">
-            {['구글 맵', '네이버 플레이스', '쿠팡이츠', '배달의민족', '요기요'].map(name => (
-              <span key={name} className="text-sm px-4 py-2 rounded-full bg-[#EFF6FF] border border-[#BFDBFE] text-[#1B64DA] font-bold">{name}</span>
+          {/* 플랫폼 칩 (네이버가 가장 좌측) */}
+          <div className="flex flex-wrap gap-2 mb-6">
+            {PLATFORMS.map(p => (
+              <span key={p.key}
+                className="inline-flex items-center gap-2 text-base px-4 py-2.5 rounded-full bg-white border-2 border-[#E5E8EB] text-[#191F28] font-bold">
+                <PlatformMark keyName={p.key} size={24} />
+                {p.label}
+              </span>
             ))}
           </div>
 
@@ -175,7 +224,9 @@ export default function ServiceIntro() {
             <div className="flex-1">
               <div className="flex items-center gap-3 flex-wrap">
                 <h3 className="text-xl font-black text-[#191F28]">{SAMPLE_STORE.name}</h3>
-                <span className="text-sm px-3 py-1 rounded-full bg-green-100 text-green-700 font-bold">구글 연동됨</span>
+                <span className="inline-flex items-center gap-1.5 text-sm px-3 py-1 rounded-full bg-[#E8F9EF] text-[#03C75A] font-bold">
+                  <PlatformMark keyName="naver" size={18} /> 연동됨
+                </span>
               </div>
               <p className="text-base text-[#8B95A1] mt-1">{SAMPLE_STORE.category} · {SAMPLE_STORE.address}</p>
               <div className="flex items-center gap-2 mt-2">
@@ -204,31 +255,70 @@ export default function ServiceIntro() {
           </div>
         </div>
 
-        {/* 톤 선택 */}
+        {/* 톤 선택 (6종) */}
         <div className="bg-white rounded-2xl p-8 shadow-sm border border-[#E5E8EB] mb-8">
           <h2 className="text-2xl font-black text-[#191F28] mb-2">답글 톤 선택</h2>
-          <p className="text-base text-[#8B95A1] mb-5">매장 성격에 맞춰서 답글 분위기를 고르세요.</p>
-          <div className="grid grid-cols-2 gap-4">
-            <button
-              onClick={() => setTone('friendly')}
-              className={`text-left p-6 rounded-xl border-2 transition-all ${
-                tone === 'friendly'
-                  ? 'border-[#3182F6] bg-[#EFF6FF]'
-                  : 'border-[#E5E8EB] bg-white hover:border-[#BFDBFE]'
-              }`}>
-              <div className="text-lg font-black text-[#191F28] mb-1">따뜻한 사장님</div>
-              <div className="text-sm text-[#4E5968] leading-relaxed">사장님이 직접 쓴 듯한 친근한 톤. 카페, 식당 같은 동네 가게에 잘 어울립니다.</div>
-            </button>
-            <button
-              onClick={() => setTone('expert')}
-              className={`text-left p-6 rounded-xl border-2 transition-all ${
-                tone === 'expert'
-                  ? 'border-[#3182F6] bg-[#EFF6FF]'
-                  : 'border-[#E5E8EB] bg-white hover:border-[#BFDBFE]'
-              }`}>
-              <div className="text-lg font-black text-[#191F28] mb-1">전문업체</div>
-              <div className="text-sm text-[#4E5968] leading-relaxed">정중하고 전문적인 톤. 이모티콘과 과장 표현 없이 담백하게 나갑니다.</div>
-            </button>
+          <p className="text-base text-[#8B95A1] mb-5">매장 성격과 분위기에 맞춰 6가지 중 하나를 고르세요.</p>
+          <div className="grid grid-cols-3 gap-4">
+            {TONES.map(t => (
+              <button
+                key={t.key}
+                onClick={() => setTone(t.key)}
+                className={`text-left p-5 rounded-xl border-2 transition-all ${
+                  tone === t.key
+                    ? 'border-[#3182F6] bg-[#EFF6FF]'
+                    : 'border-[#E5E8EB] bg-white hover:border-[#BFDBFE]'
+                }`}>
+                <div className="w-10 h-10 rounded-lg mb-3 flex items-center justify-center text-white font-black text-lg"
+                  style={{ background: t.color }}>
+                  {t.title.slice(0, 1)}
+                </div>
+                <div className="text-lg font-black text-[#191F28] mb-1">{t.title}</div>
+                <div className="text-sm text-[#4E5968] leading-relaxed">{t.desc}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+
+        {/* 고객 프로필 (성별·연령대) */}
+        <div className="bg-white rounded-2xl p-8 shadow-sm border border-[#E5E8EB] mb-8">
+          <h2 className="text-2xl font-black text-[#191F28] mb-2">고객 프로필</h2>
+          <p className="text-base text-[#8B95A1] mb-6">리뷰를 남긴 고객의 성별과 연령대를 알려주시면, AI가 더 자연스러운 말투로 답글을 만들어 드립니다.</p>
+
+          <div className="mb-6">
+            <label className="text-base font-bold text-[#191F28] block mb-3">성별</label>
+            <div className="flex gap-3">
+              {GENDERS.map(g => (
+                <button
+                  key={g.key}
+                  onClick={() => setGender(g.key)}
+                  className={`px-6 py-3 rounded-xl border-2 text-base font-bold transition-all ${
+                    gender === g.key
+                      ? 'border-[#3182F6] bg-[#3182F6] text-white'
+                      : 'border-[#E5E8EB] bg-white text-[#4E5968] hover:border-[#3182F6]'
+                  }`}>
+                  {g.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div>
+            <label className="text-base font-bold text-[#191F28] block mb-3">연령대</label>
+            <div className="flex gap-3 flex-wrap">
+              {AGES.map(a => (
+                <button
+                  key={a.key}
+                  onClick={() => setAge(a.key)}
+                  className={`px-6 py-3 rounded-xl border-2 text-base font-bold transition-all ${
+                    age === a.key
+                      ? 'border-[#3182F6] bg-[#3182F6] text-white'
+                      : 'border-[#E5E8EB] bg-white text-[#4E5968] hover:border-[#3182F6]'
+                  }`}>
+                  {a.label}
+                </button>
+              ))}
+            </div>
           </div>
         </div>
 
@@ -267,13 +357,13 @@ export default function ServiceIntro() {
                     <p className="text-sm font-black text-[#3182F6] mb-3">AI 생성 답글 · 편집 후 플랫폼에 직접 게시</p>
                     <textarea defaultValue={aiReplies[r.id]} rows={5}
                       className="w-full border border-[#93C5FD] rounded-xl px-4 py-3 text-base outline-none focus:border-[#3182F6] resize-none bg-white leading-relaxed" />
-                    <div className="flex gap-2 justify-between mt-3">
+                    <div className="flex gap-2 justify-between mt-3 flex-wrap">
                       <button onClick={() => generateReply(r.id, r.text)}
                         className="text-sm px-4 py-2 border border-[#3182F6] text-[#3182F6] rounded-lg hover:bg-[#EFF6FF] font-bold">
                         재생성
                       </button>
                       <div className="flex items-center gap-2 text-sm text-[#8B95A1]">
-                        <span>복사 후 네이버/구글/쿠팡이츠/배민/요기요에 직접 게시</span>
+                        <span>복사 후 각 플랫폼에 직접 게시</span>
                       </div>
                     </div>
                   </div>
