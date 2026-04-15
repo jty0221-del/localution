@@ -586,32 +586,134 @@ export default function Dashboard() {
     return () => clearInterval(id)
   }, [refreshKeywords])
 
+  // 24시간 방문자 차트 mock (오늘자)
+  const hourlyVisitors = [
+    { h: '9시', v: 12 }, { h: '10시', v: 24 }, { h: '11시', v: 48 },
+    { h: '12시', v: 92 }, { h: '13시', v: 76 }, { h: '14시', v: 41 },
+    { h: '15시', v: 35 }, { h: '16시', v: 44 }, { h: '17시', v: 63 },
+    { h: '18시', v: 88 }, { h: '19시', v: 104 }, { h: '20시', v: 72 },
+  ]
+  const maxVisitor = Math.max(...hourlyVisitors.map(x => x.v))
+
+  // 리뷰 감정 분석 mock
+  const sentiment = { positive: 78, neutral: 14, negative: 8 }
+
+  // VIP 고객 TOP
+  const vipCustomers = [
+    { name: '김정수', visits: 14, spent: '82만원', last: '3일 전', tag: 'VIP' },
+    { name: '이수연', visits: 11, spent: '67만원', last: '1주 전', tag: 'VIP' },
+    { name: '박민준', visits: 9,  spent: '55만원', last: '2일 전', tag: '단골' },
+    { name: '최유진', visits: 8,  spent: '48만원', last: '5일 전', tag: '단골' },
+    { name: '정하늘', visits: 7,  spent: '42만원', last: '1주 전', tag: '단골' },
+  ]
+
+  // 이번 주 매출 (월-일)
+  const weekSales = [
+    { d: '월', v: 142 }, { d: '화', v: 168 }, { d: '수', v: 195 },
+    { d: '목', v: 178 }, { d: '금', v: 247 }, { d: '토', v: 312 }, { d: '일', v: 228 },
+  ]
+  const maxSale = Math.max(...weekSales.map(x => x.v))
+  const totalWeekSale = weekSales.reduce((s, x) => s + x.v, 0)
+
+  // 오늘의 할 일
+  const unansweredCount = RECENT_REVIEWS.filter(r => !r.replied).length
+  const todoList = [
+    { icon: '💬', title: '미답변 리뷰 답글', count: unansweredCount + '건', color: '#F04452', link: '/reviews' },
+    { icon: '🔁', title: '재방문 유도 대상', count: '5명',  color: '#F59E0B', link: '/crm' },
+    { icon: '📅', title: '오늘 예약',        count: '7건',  color: '#3182F6', link: '/reservations' },
+    { icon: '💰', title: '세금계산서 발행',    count: '2건',  color: '#12B76A', link: '/settlement' },
+  ]
+
+  // 경쟁사 비교 mock
+  const compareData = [
+    { label: '평균 별점', me: avgRating || 4.6, area: 4.2, unit: '점' },
+    { label: '월 리뷰 수', me: totalReviews || 142, area: 87, unit: '건' },
+    { label: '답글률',    me: 94, area: 61, unit: '%' },
+  ]
+
   const stats = [
-    { label: '이번 달 방문자', value: '2,847', change: '+12.4%', up: true,  icon: '👥' },
-    { label: '총 리뷰 수',     value: `${totalReviews}건`,  change: '+34건', up: true,  icon: '💬' },
-    { label: '평균 별점',      value: `${avgRating}점`,    change: '+0.1',  up: true,  icon: '⭐' },
-    { label: '키워드 상위',    value: '3개',               change: '+1개',  up: true,  icon: '🔍' },
+    { label: '이번 달 방문자', value: '2,847',             sub: '전달 대비 +12.4%', up: true,  color: '#3182F6', ring: '#E8F4FD' },
+    { label: '총 리뷰 수',     value: (totalReviews || 142) + '건', sub: '이번 주 +34건',   up: true,  color: '#03C75A', ring: '#E8FFF0' },
+    { label: '평균 별점',      value: (avgRating || 4.6) + '점',    sub: '지역 평균 4.2',   up: true,  color: '#F5A623', ring: '#FFF7E8' },
+    { label: '키워드 상위',    value: '3개',                sub: '신규 진입 +1',    up: true,  color: '#9B5CFB', ring: '#F3ECFF' },
+    { label: '이번 주 매출',   value: totalWeekSale + '만원', sub: '지난주 +18%',      up: true,  color: '#F04452', ring: '#FFF0F0' },
+    { label: '단골 고객',      value: '38명',               sub: '이번 달 +6명',    up: true,  color: '#12B76A', ring: '#E8FFF0' },
   ]
 
   return (
     <div className="flex min-h-screen bg-[#F2F4F6]">
       <Sidebar />
-      <main className="flex-1 ml-[220px] p-6 min-w-0">
+      <main className="flex-1 ml-[220px] p-7 min-w-0">
 
-        {/* ── ① 플랫폼 연동 현황 바 ── */}
-        <div className="bg-white rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.04),0_8px_24px_rgba(17,24,39,0.06)] px-5 py-4 mb-5">
-          <div className="flex items-center justify-between mb-3">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-bold text-[#191F28]">플랫폼 연동 현황</span>
-              <span className="text-[11px] px-2 py-0.5 rounded-full bg-[#E8F4FD] text-[#3182F6] font-semibold">
+        {/* ── Hero 인사 바 ── */}
+        <div className="bg-gradient-to-r from-[#3182F6] to-[#1B64DA] rounded-3xl px-8 py-7 mb-6 text-white shadow-[0_8px_32px_rgba(49,130,246,0.28)]">
+          <div className="flex items-center justify-between flex-wrap gap-4">
+            <div>
+              <h1 className="text-3xl font-black tracking-tight mb-1.5">안녕하세요, 사장님 👋</h1>
+              <p className="text-sm text-white/85 font-medium">
+                오늘 처리할 일이 <strong className="text-white">{unansweredCount + 5 + 7 + 2}건</strong> 있어요 · 지금 바로 시작해보세요
+              </p>
+            </div>
+            <div className="flex gap-2.5">
+              <a href="/reviews" className="bg-white/18 backdrop-blur text-white font-bold text-sm px-5 py-3 rounded-2xl hover:bg-white/25 transition-colors border border-white/25">
+                AI 답글 쓰기
+              </a>
+              <a href="/settlement" className="bg-white text-[#1B64DA] font-bold text-sm px-5 py-3 rounded-2xl hover:bg-white/90 transition-colors">
+                매출 확인
+              </a>
+            </div>
+          </div>
+        </div>
+
+        {/* ── 정부지원금 알림 배너 ── */}
+        <div className="bg-white rounded-2xl border-l-4 border-[#F59E0B] shadow-sm px-6 py-4 mb-6 flex items-center justify-between flex-wrap gap-3">
+          <div className="flex items-center gap-4">
+            <div className="w-11 h-11 rounded-xl bg-[#FFF7E8] flex items-center justify-center text-2xl flex-shrink-0">📢</div>
+            <div>
+              <p className="text-sm font-black text-[#191F28]">소상공인 경영안정자금 신청 마감 임박</p>
+              <p className="text-xs text-[#8B95A1] mt-0.5 font-medium">최대 2천만원 · 연 1.5% · 5월 31일까지 · 사장님 매출 기준 자격 충족</p>
+            </div>
+          </div>
+          <a href="/community" className="text-xs font-bold text-[#F59E0B] border border-[#F59E0B] px-4 py-2 rounded-xl hover:bg-[#FFF7E8] transition-colors flex-shrink-0">자세히 보기 →</a>
+        </div>
+
+        {/* ── 오늘의 할 일 위젯 ── */}
+        <div className="bg-white rounded-2xl shadow-sm p-6 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="text-lg font-black text-[#191F28]">오늘의 할 일</h2>
+              <p className="text-xs text-[#8B95A1] font-medium mt-0.5">우선순위 순으로 정렬되어 있어요</p>
+            </div>
+            <span className="text-xs font-bold text-[#3182F6] bg-[#E8F4FD] px-3 py-1.5 rounded-full">실시간 업데이트</span>
+          </div>
+          <div className="grid grid-cols-4 gap-4">
+            {todoList.map((t, i) => (
+              <a key={i} href={t.link} className="group flex items-center gap-4 bg-[#FAFBFF] hover:bg-white hover:shadow-md transition-all rounded-2xl p-5 border border-[#F2F4F6] hover:border-[#3182F6]">
+                <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl flex-shrink-0" style={{ background: t.color + '18' }}>{t.icon}</div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-xs text-[#8B95A1] font-semibold">{t.title}</p>
+                  <p className="text-2xl font-black mt-0.5" style={{ color: t.color }}>{t.count}</p>
+                </div>
+                <span className="text-[#CBD2DC] group-hover:text-[#3182F6] text-xl">→</span>
+              </a>
+            ))}
+          </div>
+        </div>
+
+        {/* ── 플랫폼 연동 현황 바 ── */}
+        <div className="bg-white rounded-2xl shadow-sm px-6 py-5 mb-6">
+          <div className="flex items-center justify-between mb-4">
+            <div className="flex items-center gap-2.5">
+              <span className="text-base font-black text-[#191F28]">플랫폼 연동 현황</span>
+              <span className="text-xs px-2.5 py-1 rounded-full bg-[#E8F4FD] text-[#3182F6] font-bold">
                 {connectedCount}/{platforms.length} 연동
               </span>
             </div>
-            <a href="/settings" className="text-[11px] text-[#3182F6] font-semibold hover:underline flex items-center gap-1">
+            <a href="/settings" className="text-xs text-[#3182F6] font-bold hover:underline flex items-center gap-1">
               연동 관리 →
             </a>
           </div>
-          <div className="grid grid-cols-7 gap-2.5">
+          <div className="grid grid-cols-9 gap-2.5">
             {platforms.map(p => (
               <button
                 key={p.id}
@@ -619,15 +721,15 @@ export default function Dashboard() {
                 className={[
                   'flex flex-col items-center gap-2 p-3 rounded-2xl transition-all cursor-pointer',
                   p.connected
-                    ? 'bg-white border border-[#E5E8EB] hover:border-[#3182F6] hover:shadow-[0_4px_16px_rgba(49,130,246,0.15)] hover:-translate-y-0.5'
-                    : 'bg-[#F8F9FA] border border-dashed border-[#E0E0E0] hover:border-[#3182F6] hover:bg-white hover:-translate-y-0.5 hover:shadow-[0_4px_16px_rgba(49,130,246,0.15)]',
+                    ? 'bg-white border border-[#E5E8EB] hover:border-[#3182F6] hover:shadow-md'
+                    : 'bg-[#F8F9FA] border border-dashed border-[#E0E0E0] hover:border-[#3182F6] hover:bg-white',
                 ].join(' ')}
                 title={p.connected ? '클릭하여 연동 정보 수정' : '클릭하여 연동하기'}
               >
-                {p.logo(32)}
-                <span className="text-[10px] font-semibold text-[#4E5968] text-center leading-tight">{p.shortName}</span>
+                {p.logo(36)}
+                <span className="text-[11px] font-bold text-[#4E5968] text-center leading-tight">{p.shortName}</span>
                 <span className={[
-                  'text-[9px] font-bold px-1.5 py-0.5 rounded-full',
+                  'text-[9px] font-black px-1.5 py-0.5 rounded-full',
                   p.connected ? 'bg-[#E8FFF0] text-[#12B76A]' : 'bg-[#F2F4F6] text-[#8B95A1]',
                 ].join(' ')}>
                   {p.connected ? '연동됨' : '연동하기'}
@@ -637,61 +739,151 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* ── ② 통계 카드 4개 ── */}
-        <div className="grid grid-cols-4 gap-4 mb-5">
+        {/* ── 통계 카드 6개 ── */}
+        <div className="grid grid-cols-6 gap-4 mb-6">
           {stats.map((s, i) => (
-            <div key={i} className="bg-white rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.04),0_8px_24px_rgba(17,24,39,0.06)] p-5 flex items-center gap-4 hover:shadow-[0_2px_6px_rgba(0,0,0,0.05),0_16px_40px_rgba(17,24,39,0.08)] transition-shadow">
-              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#F8FBFF] to-[#EFF6FF] flex items-center justify-center text-2xl flex-shrink-0 ring-1 ring-[#E8F4FD]">
-                <span>{s.icon}</span>
+            <div key={i} className="bg-white rounded-2xl shadow-sm p-5 border border-[#F2F4F6] hover:shadow-md transition-shadow">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center mb-3" style={{ background: s.ring }}>
+                <div className="w-4 h-4 rounded-full" style={{ background: s.color }} />
               </div>
-              <div className="min-w-0 flex-1">
-                <p className="text-[11px] text-[#8B95A1] font-semibold mb-0.5 tracking-wide">{s.label}</p>
-                <p className="text-2xl font-black text-[#191F28] tracking-tight">{s.value}</p>
-                <p className={`text-[11px] font-bold mt-1 ${s.up ? 'text-[#12B76A]' : 'text-[#F04452]'}`}>
-                  {s.up ? '↑' : '↓'} {s.change} <span className="text-[#8B95A1] font-medium">전달 대비</span>
-                </p>
-              </div>
+              <p className="text-xs text-[#8B95A1] font-bold mb-1">{s.label}</p>
+              <p className="text-2xl font-black text-[#191F28] tracking-tight">{s.value}</p>
+              <p className="text-[11px] font-bold mt-1.5" style={{ color: s.up ? '#12B76A' : '#F04452' }}>
+                {s.up ? '↑' : '↓'} {s.sub}
+              </p>
             </div>
           ))}
         </div>
 
-        {/* ── ③ 메인 2컬럼 ── */}
-        <div className="grid grid-cols-[1fr_420px] gap-6 mb-6">
+        {/* ── 3컬럼: 시간대별 방문자 / 리뷰 감정 / 경쟁사 비교 ── */}
+        <div className="grid grid-cols-[1.3fr_1fr_1fr] gap-5 mb-6">
 
-          {/* 좌: 연동 플랫폼 별점·리뷰 현황 */}
-          <div className="bg-white rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.04),0_8px_24px_rgba(17,24,39,0.06)] overflow-hidden">
-            <div className="px-5 py-4 border-b border-[#F2F4F6] flex items-center justify-between">
-              <span className="text-sm font-bold text-[#191F28]">플랫폼별 별점 · 리뷰 현황</span>
-              <span className="text-[11px] text-[#8B95A1]">연동된 플랫폼만 표시</span>
+          {/* 시간대별 방문자 */}
+          <div className="bg-white rounded-2xl shadow-sm p-6">
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <h3 className="text-base font-black text-[#191F28]">시간대별 방문자</h3>
+                <p className="text-xs text-[#8B95A1] font-semibold mt-0.5">오늘 · 실시간</p>
+              </div>
+              <span className="text-[11px] bg-[#E8FFF0] text-[#12B76A] font-black px-2.5 py-1 rounded-full">LIVE</span>
             </div>
-            <div className="p-5 space-y-4">
+            <div className="flex items-end gap-2 h-[140px]">
+              {hourlyVisitors.map((hv, i) => {
+                const h = Math.max(8, (hv.v / maxVisitor) * 120)
+                const peak = hv.v === maxVisitor
+                return (
+                  <div key={i} className="flex-1 flex flex-col items-center gap-1.5">
+                    <span className={peak ? 'text-[10px] font-black text-[#3182F6]' : 'text-[10px] font-bold text-[#8B95A1]'}>{hv.v}</span>
+                    <div className="w-full rounded-t-lg transition-all" style={{ height: h + 'px', background: peak ? 'linear-gradient(180deg,#3182F6,#1B64DA)' : '#E8F4FD' }} />
+                    <span className="text-[10px] font-semibold text-[#8B95A1]">{hv.h}</span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* 리뷰 감정 분석 */}
+          <div className="bg-white rounded-2xl shadow-sm p-6">
+            <h3 className="text-base font-black text-[#191F28] mb-0.5">리뷰 감정 분석</h3>
+            <p className="text-xs text-[#8B95A1] font-semibold mb-4">최근 30일 기준</p>
+            <div className="flex items-center gap-5">
+              <div className="relative w-[108px] h-[108px] flex-shrink-0">
+                <svg viewBox="0 0 36 36" className="w-full h-full -rotate-90">
+                  <circle cx="18" cy="18" r="15.915" fill="none" stroke="#F2F4F6" strokeWidth="4" />
+                  <circle cx="18" cy="18" r="15.915" fill="none" stroke="#12B76A" strokeWidth="4" strokeDasharray={sentiment.positive + ' 100'} />
+                  <circle cx="18" cy="18" r="15.915" fill="none" stroke="#F59E0B" strokeWidth="4" strokeDasharray={sentiment.neutral + ' 100'} strokeDashoffset={-sentiment.positive} />
+                  <circle cx="18" cy="18" r="15.915" fill="none" stroke="#F04452" strokeWidth="4" strokeDasharray={sentiment.negative + ' 100'} strokeDashoffset={-(sentiment.positive + sentiment.neutral)} />
+                </svg>
+                <div className="absolute inset-0 flex flex-col items-center justify-center">
+                  <span className="text-2xl font-black text-[#12B76A]">{sentiment.positive}%</span>
+                  <span className="text-[9px] text-[#8B95A1] font-bold">긍정</span>
+                </div>
+              </div>
+              <div className="flex-1 space-y-2.5">
+                <div className="flex items-center gap-2">
+                  <div className="w-2.5 h-2.5 rounded-full bg-[#12B76A]" />
+                  <span className="text-xs font-bold text-[#4E5968] flex-1">긍정</span>
+                  <span className="text-xs font-black text-[#191F28]">{sentiment.positive}%</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-2.5 h-2.5 rounded-full bg-[#F59E0B]" />
+                  <span className="text-xs font-bold text-[#4E5968] flex-1">중립</span>
+                  <span className="text-xs font-black text-[#191F28]">{sentiment.neutral}%</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <div className="w-2.5 h-2.5 rounded-full bg-[#F04452]" />
+                  <span className="text-xs font-bold text-[#4E5968] flex-1">부정</span>
+                  <span className="text-xs font-black text-[#191F28]">{sentiment.negative}%</span>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* 경쟁사 비교 */}
+          <div className="bg-white rounded-2xl shadow-sm p-6">
+            <h3 className="text-base font-black text-[#191F28] mb-0.5">경쟁사 비교</h3>
+            <p className="text-xs text-[#8B95A1] font-semibold mb-4">강남구 동종업계 평균</p>
+            <div className="space-y-4">
+              {compareData.map((c, i) => {
+                const meNum = Number(c.me)
+                const areaNum = Number(c.area)
+                const total = meNum + areaNum || 1
+                const mePct = (meNum / total) * 100
+                return (
+                  <div key={i}>
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-xs font-bold text-[#4E5968]">{c.label}</span>
+                      <span className="text-[10px] font-black text-[#12B76A]">내가 우위</span>
+                    </div>
+                    <div className="flex h-7 rounded-lg overflow-hidden border border-[#F2F4F6]">
+                      <div className="bg-[#3182F6] text-white text-[10px] font-black flex items-center justify-center" style={{ width: mePct + '%' }}>
+                        내 {c.me}{c.unit}
+                      </div>
+                      <div className="bg-[#F2F4F6] text-[#8B95A1] text-[10px] font-bold flex items-center justify-center flex-1">
+                        지역 {c.area}{c.unit}
+                      </div>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+
+        {/* ── 2컬럼: 플랫폼별 별점 / 키워드 순위 ── */}
+        <div className="grid grid-cols-[1fr_380px] gap-5 mb-6">
+
+          {/* 좌: 플랫폼 별점 */}
+          <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+            <div className="px-6 py-5 border-b border-[#F2F4F6] flex items-center justify-between">
+              <span className="text-base font-black text-[#191F28]">플랫폼별 별점 · 리뷰 현황</span>
+              <span className="text-xs text-[#8B95A1] font-semibold">연동된 플랫폼만 표시</span>
+            </div>
+            <div className="p-6 space-y-5">
               {platforms.filter(p => p.connected).length === 0 ? (
                 <div className="text-center py-8">
-                  <p className="text-sm text-[#8B95A1] mb-3">아직 연동된 플랫폼이 없습니다</p>
+                  <p className="text-sm text-[#8B95A1] mb-3 font-semibold">아직 연동된 플랫폼이 없어요</p>
                   <p className="text-xs text-[#8B95A1]">상단 로고를 클릭해 연동을 시작하세요</p>
                 </div>
               ) : (
                 platforms.filter(p => p.connected).map(p => (
                   <div key={p.id} className="flex items-center gap-4">
-                    <div className="flex-shrink-0">{p.logo(36)}</div>
+                    <div className="flex-shrink-0">{p.logo(40)}</div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-sm font-semibold text-[#191F28]">{p.name}</span>
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-black text-[#191F28]">{p.name}</span>
                         {p.rating !== null ? (
                           <div className="flex items-center gap-3">
-                            <Stars rating={p.rating} />
-                            <span className="text-xs text-[#8B95A1]">리뷰 <strong className="text-[#191F28]">{p.reviews}건</strong></span>
+                            <Stars rating={p.rating} size="md" />
+                            <span className="text-xs text-[#8B95A1] font-semibold">리뷰 <strong className="text-[#191F28] font-black">{p.reviews}건</strong></span>
                           </div>
                         ) : (
                           <span className="text-xs text-[#8B95A1]">데이터 수집 중...</span>
                         )}
                       </div>
                       {p.rating !== null && (
-                        <div className="w-full bg-[#F2F4F6] rounded-full h-2 overflow-hidden">
-                          <div
-                            className="h-full rounded-full transition-all"
-                            style={{ width: `${(p.rating / 5) * 100}%`, background: p.color }}
-                          />
+                        <div className="w-full bg-[#F2F4F6] rounded-full h-2.5 overflow-hidden">
+                          <div className="h-full rounded-full transition-all" style={{ width: ((p.rating / 5) * 100) + '%', background: p.color }} />
                         </div>
                       )}
                     </div>
@@ -700,17 +892,14 @@ export default function Dashboard() {
               )}
 
               {platforms.filter(p => !p.connected).length > 0 && (
-                <div className="mt-4 p-4 bg-[#F8F9FA] rounded-xl border border-dashed border-[#E0E0E0]">
-                  <p className="text-xs text-[#8B95A1] mb-2 font-medium">미연동 플랫폼 — 클릭하여 바로 연동</p>
+                <div className="mt-5 p-4 bg-[#F8F9FA] rounded-xl border border-dashed border-[#E0E0E0]">
+                  <p className="text-xs text-[#8B95A1] mb-2.5 font-bold">미연동 플랫폼 · 클릭하여 바로 연동</p>
                   <div className="flex flex-wrap gap-2">
                     {platforms.filter(p => !p.connected).map(p => (
-                      <button
-                        key={p.id}
-                        onClick={() => handlePlatformClick(p)}
-                        className="flex items-center gap-1.5 bg-white rounded-lg px-2 py-1 border border-[#E5E8EB] hover:border-[#3182F6] transition-colors"
-                      >
-                        {p.logo(18)}
-                        <span className="text-[11px] text-[#4E5968] font-semibold">{p.shortName}</span>
+                      <button key={p.id} onClick={() => handlePlatformClick(p)}
+                        className="flex items-center gap-1.5 bg-white rounded-lg px-2.5 py-1.5 border border-[#E5E8EB] hover:border-[#3182F6] transition-colors">
+                        {p.logo(20)}
+                        <span className="text-[11px] text-[#4E5968] font-bold">{p.shortName}</span>
                       </button>
                     ))}
                   </div>
@@ -719,39 +908,35 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* 우: 주요 키워드 실시간 순위 */}
-          <div className="bg-white rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.04),0_8px_24px_rgba(17,24,39,0.06)] overflow-hidden flex flex-col">
-            <div className="px-6 py-5 border-b border-[#F2F4F6] flex items-center justify-between bg-gradient-to-r from-[#F8FBFF] to-white">
+          {/* 우: 키워드 순위 */}
+          <div className="bg-white rounded-2xl shadow-sm overflow-hidden flex flex-col">
+            <div className="px-6 py-5 border-b border-[#F2F4F6] flex items-center justify-between">
               <div>
-                <span className="text-base font-black text-[#191F28] tracking-tight">주요 키워드 순위</span>
+                <span className="text-base font-black text-[#191F28]">주요 키워드 순위</span>
                 <div className="flex items-center gap-1.5 mt-1">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#12B76A] animate-pulse inline-block"/>
-                  <span className="text-[11px] text-[#8B95A1] font-medium">실시간 · {lastSync}</span>
+                  <span className="w-1.5 h-1.5 rounded-full bg-[#12B76A] animate-pulse inline-block" />
+                  <span className="text-[11px] text-[#8B95A1] font-semibold">실시간 · {lastSync}</span>
                 </div>
               </div>
-              <button
-                onClick={refreshKeywords}
-                disabled={isSyncing}
-                className="text-[11px] text-[#3182F6] font-semibold border border-[#3182F6] px-2.5 py-1 rounded-lg hover:bg-[#E8F4FD] transition-colors disabled:opacity-50"
-              >
+              <button onClick={refreshKeywords} disabled={isSyncing}
+                className="text-xs text-[#3182F6] font-black border border-[#3182F6] px-3 py-1.5 rounded-lg hover:bg-[#E8F4FD] transition-colors disabled:opacity-50">
                 {isSyncing ? '갱신 중...' : '새로고침'}
               </button>
             </div>
-
             <div className="flex-1 divide-y divide-[#F2F4F6]">
-              {keywords.map((kw) => (
-                <div key={kw.keyword} className="px-6 py-4 flex items-center gap-4 hover:bg-[#FAFBFF] transition-colors cursor-pointer group">
+              {keywords.map(kw => (
+                <div key={kw.keyword} className="px-5 py-4 flex items-center gap-3 hover:bg-[#FAFBFF] transition-colors">
                   <div className={[
-                    'w-11 h-11 rounded-xl flex items-center justify-center text-base font-black flex-shrink-0 transition-transform group-hover:scale-105',
-                    kw.rank <= 3  ? 'bg-gradient-to-br from-[#3182F6] to-[#1B64DA] text-white shadow-[0_4px_12px_rgba(49,130,246,0.3)]'
+                    'w-9 h-9 rounded-xl flex items-center justify-center text-sm font-black flex-shrink-0',
+                    kw.rank <= 3  ? 'bg-[#3182F6] text-white'
                     : kw.rank <= 10 ? 'bg-[#E8F4FD] text-[#3182F6]'
                     : 'bg-[#F2F4F6] text-[#8B95A1]',
                   ].join(' ')}>
                     {kw.rank}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-[15px] font-bold text-[#191F28] truncate">{kw.keyword}</p>
-                    <p className="text-[11px] text-[#8B95A1] font-medium mt-0.5">{kw.area} · {kw.updatedAt}</p>
+                    <p className="text-sm font-black text-[#191F28] truncate">{kw.keyword}</p>
+                    <p className="text-[11px] text-[#8B95A1] font-semibold">{kw.area} · {kw.updatedAt}</p>
                   </div>
                   <RankBadge current={kw.rank} prev={kw.prevRank} />
                 </div>
@@ -760,40 +945,102 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* ── ④ 최근 리뷰 ── */}
-        <div className="bg-white rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.04),0_8px_24px_rgba(17,24,39,0.06)] overflow-hidden">
-          <div className="px-5 py-4 border-b border-[#F2F4F6] flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-sm font-bold text-[#191F28]">최근 리뷰</span>
-              <span className="text-[11px] text-[#8B95A1]">미답변 {RECENT_REVIEWS.filter(r => !r.replied).length}건</span>
+        {/* ── 2컬럼: 이번 주 매출 / VIP 고객 ── */}
+        <div className="grid grid-cols-[1.2fr_1fr] gap-5 mb-6">
+
+          {/* 이번 주 매출 */}
+          <div className="bg-white rounded-2xl shadow-sm p-6">
+            <div className="flex items-center justify-between mb-5">
+              <div>
+                <h3 className="text-base font-black text-[#191F28]">이번 주 매출</h3>
+                <p className="text-xs text-[#8B95A1] font-semibold mt-0.5">총 {totalWeekSale}만원 · 지난주 대비 +18%</p>
+              </div>
+              <a href="/settlement" className="text-xs text-[#3182F6] font-black hover:underline">전체 보기 →</a>
             </div>
-            <a href="/reviews" className="text-[11px] text-[#3182F6] font-semibold hover:underline">전체보기 →</a>
+            <div className="flex items-end gap-3 h-[180px]">
+              {weekSales.map((w, i) => {
+                const h = (w.v / maxSale) * 160
+                const isMax = w.v === maxSale
+                return (
+                  <div key={i} className="flex-1 flex flex-col items-center gap-2">
+                    <span className={isMax ? 'text-xs font-black text-[#F04452]' : 'text-xs font-bold text-[#4E5968]'}>{w.v}</span>
+                    <div className="w-full rounded-t-xl relative" style={{ height: h + 'px', background: isMax ? 'linear-gradient(180deg,#F04452,#D63B4B)' : 'linear-gradient(180deg,#3182F6,#1B64DA)' }}>
+                      {isMax && (
+                        <span className="absolute -top-6 left-1/2 -translate-x-1/2 text-[9px] font-black bg-[#F04452] text-white px-1.5 py-0.5 rounded">최고</span>
+                      )}
+                    </div>
+                    <span className="text-xs font-black text-[#191F28]">{w.d}</span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* VIP 고객 TOP */}
+          <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+            <div className="px-6 py-5 border-b border-[#F2F4F6] flex items-center justify-between">
+              <div>
+                <h3 className="text-base font-black text-[#191F28]">VIP 고객 TOP 5</h3>
+                <p className="text-xs text-[#8B95A1] font-semibold mt-0.5">방문 횟수 기준</p>
+              </div>
+              <a href="/crm" className="text-xs text-[#3182F6] font-black hover:underline">전체 →</a>
+            </div>
+            <div className="divide-y divide-[#F2F4F6]">
+              {vipCustomers.map((c, i) => (
+                <div key={i} className="px-6 py-3.5 flex items-center gap-3 hover:bg-[#FAFBFF] transition-colors">
+                  <div className={[
+                    'w-9 h-9 rounded-xl flex items-center justify-center text-xs font-black flex-shrink-0',
+                    i < 3 ? 'bg-[#FFF7E8] text-[#F59E0B]' : 'bg-[#F2F4F6] text-[#8B95A1]',
+                  ].join(' ')}>
+                    {i + 1}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-black text-[#191F28]">{c.name}</span>
+                      <span className={[
+                        'text-[9px] font-black px-1.5 py-0.5 rounded-full',
+                        c.tag === 'VIP' ? 'bg-[#FFF7E8] text-[#F59E0B]' : 'bg-[#E8F4FD] text-[#3182F6]',
+                      ].join(' ')}>
+                        {c.tag}
+                      </span>
+                    </div>
+                    <p className="text-[11px] text-[#8B95A1] font-semibold mt-0.5">방문 {c.visits}회 · {c.spent} · {c.last}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* ── 최근 리뷰 ── */}
+        <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+          <div className="px-6 py-5 border-b border-[#F2F4F6] flex items-center justify-between">
+            <div className="flex items-center gap-2.5">
+              <span className="text-base font-black text-[#191F28]">최근 리뷰</span>
+              <span className="text-xs text-[#F04452] font-black bg-[#FFF0F0] px-2.5 py-1 rounded-full">미답변 {unansweredCount}건</span>
+            </div>
+            <a href="/reviews" className="text-xs text-[#3182F6] font-black hover:underline">전체보기 →</a>
           </div>
           <div className="divide-y divide-[#F2F4F6]">
             {RECENT_REVIEWS.map((r, i) => (
-              <div key={i} className="px-5 py-4 hover:bg-[#FAFBFF] transition-colors flex items-start gap-4">
-                <div
-                  className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-black text-white mt-0.5"
-                  style={{ background: r.color }}
-                >
+              <div key={i} className="px-6 py-5 hover:bg-[#FAFBFF] transition-colors flex items-start gap-4">
+                <div className="flex-shrink-0 w-9 h-9 rounded-xl flex items-center justify-center text-[10px] font-black text-white mt-0.5" style={{ background: r.color }}>
                   {r.platform.slice(0, 2)}
                 </div>
                 <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-xs font-bold text-[#4E5968]">{r.name}</span>
+                  <div className="flex items-center gap-2.5 mb-1.5">
+                    <span className="text-sm font-black text-[#191F28]">{r.name}</span>
                     <Stars rating={r.rating} />
-                    <span className="text-[10px] text-[#8B95A1]">{r.time}</span>
+                    <span className="text-[11px] text-[#8B95A1] font-semibold">{r.time}</span>
                     {r.replied && (
-                      <span className="text-[10px] bg-[#E8FFF0] text-[#12B76A] px-1.5 py-0.5 rounded-full font-semibold">답변완료</span>
+                      <span className="text-[10px] bg-[#E8FFF0] text-[#12B76A] px-2 py-0.5 rounded-full font-black">답변완료</span>
                     )}
                   </div>
-                  <p className="text-sm text-[#4E5968] line-clamp-1">{r.text}</p>
+                  <p className="text-sm text-[#4E5968] line-clamp-1 font-medium">{r.text}</p>
                 </div>
                 {!r.replied && (
-                  <button
-                    onClick={() => setReplyReview(r)}
-                    className="flex-shrink-0 ml-4 text-xs bg-[#3182F6] text-white px-3 py-1.5 rounded-xl font-semibold hover:bg-[#1B64DA] transition-colors"
-                  >
+                  <button onClick={() => setReplyReview(r)}
+                    className="flex-shrink-0 ml-4 text-xs bg-[#3182F6] text-white px-4 py-2 rounded-xl font-black hover:bg-[#1B64DA] transition-colors">
                     AI 답글
                   </button>
                 )}
