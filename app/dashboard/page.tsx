@@ -42,11 +42,11 @@ function BaeminLogo({ size = 28 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
       <rect width="48" height="48" rx="10" fill="#2AC1BC"/>
-      <rect x="8"  y="10" width="5.5" height="28" rx="2.5" fill="white"/>
-      <rect x="16" y="10" width="5.5" height="20" rx="2.5" fill="white"/>
-      <rect x="24" y="10" width="5.5" height="28" rx="2.5" fill="white"/>
-      <rect x="32" y="10" width="5.5" height="16" rx="2.5" fill="white"/>
-      <rect x="8" y="10" width="29" height="5" rx="2" fill="white"/>
+      <rect x="8"  y="10" width="5.5" height="28" rx="2.5" fill="#1A1A1A"/>
+      <rect x="16" y="10" width="5.5" height="20" rx="2.5" fill="#1A1A1A"/>
+      <rect x="24" y="10" width="5.5" height="28" rx="2.5" fill="#1A1A1A"/>
+      <rect x="32" y="10" width="5.5" height="16" rx="2.5" fill="#1A1A1A"/>
+      <rect x="8"  y="10" width="29" height="5"  rx="2"   fill="#1A1A1A"/>
     </svg>
   )
 }
