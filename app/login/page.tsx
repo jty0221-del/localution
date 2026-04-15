@@ -3,8 +3,6 @@
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 
-export const dynamic = 'force-dynamic'
-
 interface Particle {
   top: string
   left: string
@@ -15,40 +13,40 @@ interface Particle {
 
 export default function LoginPage() {
   const router = useRouter()
-  const [errMsg, setErrMsg] = useState('')
+  const [errMsg, setErrMsg]         = useState('')
   const [reviewCount, setReviewCount] = useState(0)
   const [newCustomer, setNewCustomer] = useState(0)
-  const [liveDot, setLiveDot] = useState(true)
-  const [tiltX, setTiltX] = useState(0)
-  const [tiltY, setTiltY] = useState(0)
-  const [imgOk, setImgOk] = useState(true)
+  const [liveDot, setLiveDot]       = useState(true)
+  const [tiltX, setTiltX]           = useState(0)
+  const [tiltY, setTiltY]           = useState(0)
+  const [imgOk, setImgOk]           = useState(true)
 
   useEffect(() => {
     // 이미 로그인된 경우 대시보드로
-    const hasCookie = document.cookie.split(';').some(function(c) {
-      return c.trim().indexOf('localution_session=') === 0 && c.trim().length > 'localution_session='.length
-    })
-    if (hasCookie) {
-      router.replace('/dashboard')
-      return
-    }
+    try {
+      const hasCookie = document.cookie.split(';').some(function(c) {
+        const t = c.trim()
+        return t.indexOf('localution_session=') === 0 && t.length > 'localution_session='.length
+      })
+      if (hasCookie) { window.location.href = '/dashboard'; return }
+    } catch (_) {}
 
     // URL 에러 파라미터 파싱
-    const search = window.location.search
-    if (search.indexOf('error=') >= 0) {
-      const pairs = search.slice(1).split('&')
-      let errVal = ''
-      pairs.forEach(function(p) {
-        if (p.indexOf('error=') === 0) errVal = decodeURIComponent(p.slice(6))
-      })
-      if (errVal === 'kakao_denied')       setErrMsg('카카오 로그인이 취소되었습니다.')
-      else if (errVal === 'google_denied') setErrMsg('구글 로그인이 취소되었습니다.')
-      else if (errVal === 'naver_denied')  setErrMsg('네이버 로그인이 취소되었습니다.')
-      else if (errVal === 'kakao_config')  setErrMsg('카카오 설정 오류입니다. 관리자에게 문의하세요.')
-      else if (errVal === 'google_config') setErrMsg('구글 설정 오류입니다. 관리자에게 문의하세요.')
-      else if (errVal === 'token_failed')  setErrMsg('인증 토큰 발급에 실패했습니다. 다시 시도해주세요.')
-      else if (errVal)                     setErrMsg('로그인 중 오류가 발생했습니다. 다시 시도해주세요.')
-    }
+    try {
+      const search = window.location.search
+      if (search.indexOf('error=') >= 0) {
+        const pairs = search.slice(1).split('&')
+        let errVal = ''
+        pairs.forEach(function(p) {
+          if (p.indexOf('error=') === 0) errVal = decodeURIComponent(p.slice(6))
+        })
+        if (errVal === 'kakao_denied')       setErrMsg('카카오 로그인이 취소되었습니다.')
+        else if (errVal === 'google_denied') setErrMsg('구글 로그인이 취소되었습니다.')
+        else if (errVal === 'naver_denied')  setErrMsg('네이버 로그인이 취소되었습니다.')
+        else if (errVal === 'token_failed')  setErrMsg('인증 토큰 발급에 실패했습니다. 다시 시도해주세요.')
+        else if (errVal)                     setErrMsg('로그인 중 오류가 발생했습니다. 다시 시도해주세요.')
+      }
+    } catch (_) {}
 
     // 카운터 애니메이션
     let rv = 0, nc = 0
@@ -60,27 +58,23 @@ export default function LoginPage() {
     }, 25)
 
     // LIVE 점멸
-    const tv = setInterval(function() {
-      setLiveDot(function(v) { return !v })
-    }, 900)
+    const tv = setInterval(function() { setLiveDot(function(v) { return !v }) }, 900)
 
     return function() { clearInterval(iv); clearInterval(tv) }
-  }, [router])
+  }, [])
 
   function handleMouseMove(e: React.MouseEvent<HTMLDivElement>) {
     const rect = e.currentTarget.getBoundingClientRect()
-    const cx = e.clientX - rect.left - rect.width / 2
-    const cy = e.clientY - rect.top  - rect.height / 2
-    setTiltX(cy / rect.height * 10)
-    setTiltY(cx / rect.width  * (-10))
+    setTiltX((e.clientY - rect.top  - rect.height / 2) / rect.height * 10)
+    setTiltY((e.clientX - rect.left - rect.width  / 2) / rect.width  * (-10))
   }
 
-  function handleMouseLeave() { setTiltX(0); setTiltY(0) }
-
-  const tiltTransform  = 'perspective(900px) rotateX(' + tiltX + 'deg) rotateY(' + tiltY + 'deg)'
-  const tiltTransition = (tiltX === 0 && tiltY === 0)
-    ? 'transform 0.5s cubic-bezier(0.23,1,0.32,1)'
-    : 'transform 0.1s linear'
+  const tiltStyle = {
+    transform: 'perspective(900px) rotateX(' + tiltX + 'deg) rotateY(' + tiltY + 'deg)',
+    transition: (tiltX === 0 && tiltY === 0)
+      ? 'transform 0.5s cubic-bezier(0.23,1,0.32,1)'
+      : 'transform 0.1s linear',
+  }
 
   const particles: Particle[] = [
     { top: '12%', left: '7%',  size: 3, delay: '0s',   dur: '8s'  },
@@ -111,18 +105,18 @@ export default function LoginPage() {
           50%      { transform: translate(48px,52px); }
         }
         @keyframes floatParticle {
-          0%   { transform: translateY(0px) translateX(0px); opacity: 0; }
+          0%   { transform: translateY(0px); opacity: 0; }
           15%  { opacity: 0.9; }
-          80%  { opacity: 0.3; }
-          100% { transform: translateY(-115px) translateX(14px); opacity: 0; }
+          85%  { opacity: 0.3; }
+          100% { transform: translateY(-120px); opacity: 0; }
         }
         @keyframes fadeInUp {
           from { opacity: 0; transform: translateY(22px); }
-          to   { opacity: 1; transform: translateY(0px); }
+          to   { opacity: 1; transform: translateY(0); }
         }
         @keyframes scanLine {
-          0%   { top: -1px; }
-          100% { top: 101%; }
+          0%   { top: 0; }
+          100% { top: 100%; }
         }
         @keyframes shimmerSweep {
           0%   { transform: translateX(-100%) skewX(-15deg); }
@@ -134,21 +128,17 @@ export default function LoginPage() {
         }
         @keyframes countGlow {
           0%,100% { opacity: 1; }
-          50%      { opacity: 0.75; text-shadow: 0 0 8px currentColor; }
+          50%      { opacity: 0.7; }
         }
-        .login-btn { transition: transform 0.15s ease, box-shadow 0.15s ease; }
-        .login-btn:hover { transform: translateY(-2px) !important; }
       `}</style>
 
       <div style={{
-        minHeight: '100vh',
-        background: '#060D1A',
+        minHeight: '100vh', background: '#060D1A',
         display: 'flex', alignItems: 'center', justifyContent: 'center',
         padding: '24px 16px', position: 'relative', overflow: 'hidden',
         fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
       }}>
-
-        {/* ── 배경 레이어 ── */}
+        {/* 배경 */}
         <div style={{ position: 'fixed', inset: 0, overflow: 'hidden', pointerEvents: 'none', zIndex: 0 }}>
           <div style={{
             position: 'absolute', width: '660px', height: '660px', borderRadius: '50%',
@@ -173,10 +163,7 @@ export default function LoginPage() {
           }} />
           <div style={{
             position: 'absolute', inset: 0,
-            backgroundImage: [
-              'linear-gradient(rgba(49,130,246,0.032) 1px, transparent 1px)',
-              'linear-gradient(90deg, rgba(49,130,246,0.032) 1px, transparent 1px)',
-            ].join(', '),
+            backgroundImage: 'linear-gradient(rgba(49,130,246,0.032) 1px, transparent 1px), linear-gradient(90deg, rgba(49,130,246,0.032) 1px, transparent 1px)',
             backgroundSize: '58px 58px',
           }} />
           {particles.map(function(p, i) {
@@ -185,7 +172,6 @@ export default function LoginPage() {
                 position: 'absolute', top: p.top, left: p.left,
                 width: String(p.size) + 'px', height: String(p.size) + 'px', borderRadius: '50%',
                 background: 'rgba(49,130,246,0.85)',
-                boxShadow: '0 0 ' + String(p.size * 3) + 'px rgba(49,130,246,0.5)',
                 animationName: 'floatParticle', animationDuration: p.dur,
                 animationDelay: p.delay, animationTimingFunction: 'ease-in-out',
                 animationIterationCount: 'infinite',
@@ -194,18 +180,16 @@ export default function LoginPage() {
           })}
         </div>
 
-        {/* ── 메인 콘텐츠 ── */}
+        {/* 콘텐츠 */}
         <div style={{
           width: '100%', maxWidth: '420px', position: 'relative', zIndex: 1,
           animationName: 'fadeInUp', animationDuration: '0.65s',
           animationTimingFunction: 'cubic-bezier(0.23,1,0.32,1)', animationFillMode: 'both',
         }}>
-
           {/* 로고 */}
           <div style={{ textAlign: 'center', marginBottom: '28px' }}>
             {imgOk ? (
-              <img
-                src="/logo.png" alt="로컬루션"
+              <img src="/logo.png" alt="logo"
                 style={{
                   height: '56px', width: 'auto', display: 'block', margin: '0 auto',
                   animationName: 'logoGlow', animationDuration: '3s',
@@ -214,21 +198,17 @@ export default function LoginPage() {
                 onError={function() { setImgOk(false) }}
               />
             ) : (
-              <div style={{
-                display: 'flex', alignItems: 'center', justifyContent: 'center',
-                gap: '10px', marginBottom: '4px',
-              }}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
                 <div style={{
                   width: '48px', height: '48px', borderRadius: '12px',
                   background: 'linear-gradient(135deg, #3182F6 0%, #6366F1 100%)',
                   display: 'flex', alignItems: 'center', justifyContent: 'center',
-                  boxShadow: '0 0 24px rgba(49,130,246,0.5)',
                 }}>
                   <span style={{ color: '#fff', fontWeight: 900, fontSize: '22px' }}>L</span>
                 </div>
                 <div>
                   <div style={{ fontSize: '28px', fontWeight: 900, color: '#fff', letterSpacing: '-1px' }}>로컬루션</div>
-                  <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)', marginTop: '1px' }}>AI 마케팅 자동화</div>
+                  <div style={{ fontSize: '11px', color: 'rgba(255,255,255,0.35)' }}>AI 마케팅 자동화</div>
                 </div>
               </div>
             )}
@@ -236,8 +216,7 @@ export default function LoginPage() {
 
           {/* AI 상태 패널 */}
           <div style={{
-            background: 'rgba(49,130,246,0.06)',
-            border: '1px solid rgba(49,130,246,0.18)',
+            background: 'rgba(49,130,246,0.06)', border: '1px solid rgba(49,130,246,0.18)',
             borderRadius: '14px', padding: '14px 16px', marginBottom: '20px',
             position: 'relative', overflow: 'hidden',
           }}>
@@ -251,11 +230,10 @@ export default function LoginPage() {
               <div style={{
                 width: '8px', height: '8px', borderRadius: '50%',
                 background: liveDot ? '#22D3EE' : 'rgba(34,211,238,0.2)',
-                boxShadow: liveDot ? '0 0 7px rgba(34,211,238,0.9)' : 'none',
                 transition: 'all 0.3s',
               }} />
-              <span style={{ fontSize: '11px', fontWeight: 700, color: '#22D3EE', letterSpacing: '0.08em' }}>LIVE</span>
-              <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)', marginLeft: '4px' }}>AI 실시간 현황</span>
+              <span style={{ fontSize: '11px', fontWeight: 700, color: '#22D3EE' }}>LIVE</span>
+              <span style={{ fontSize: '11px', color: 'rgba(255,255,255,0.4)' }}>AI 실시간 현황</span>
             </div>
             <div style={{ display: 'flex', gap: '20px' }}>
               <div>
@@ -264,7 +242,9 @@ export default function LoginPage() {
                   animationName: 'countGlow', animationDuration: '2s',
                   animationTimingFunction: 'ease-in-out', animationIterationCount: 'infinite',
                 }}>
-                  {reviewCount >= 1000 ? Math.floor(reviewCount / 1000) + ',' + String(reviewCount % 1000).padStart(3, '0') : String(reviewCount)}
+                  {reviewCount >= 1000
+                    ? Math.floor(reviewCount / 1000) + ',' + String(reviewCount % 1000).padStart(3, '0')
+                    : String(reviewCount)}
                 </div>
                 <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.35)', marginTop: '2px' }}>오늘 AI 답글</div>
               </div>
@@ -274,9 +254,7 @@ export default function LoginPage() {
                   fontSize: '20px', fontWeight: 800, color: '#34D399',
                   animationName: 'countGlow', animationDuration: '2.3s',
                   animationTimingFunction: 'ease-in-out', animationIterationCount: 'infinite',
-                }}>
-                  +{newCustomer}
-                </div>
+                }}>+{newCustomer}</div>
                 <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.35)', marginTop: '2px' }}>신규 고객</div>
               </div>
             </div>
@@ -285,8 +263,8 @@ export default function LoginPage() {
           {/* 로그인 카드 */}
           <div
             onMouseMove={handleMouseMove}
-            onMouseLeave={handleMouseLeave}
-            style={{ transform: tiltTransform, transition: tiltTransition }}
+            onMouseLeave={function() { setTiltX(0); setTiltY(0) }}
+            style={tiltStyle}
           >
             <div style={{
               position: 'relative', overflow: 'hidden',
@@ -306,16 +284,12 @@ export default function LoginPage() {
 
               <h2 style={{
                 fontSize: '17px', fontWeight: 700, color: 'rgba(255,255,255,0.92)',
-                textAlign: 'center', marginBottom: '6px', letterSpacing: '-0.2px',
-              }}>
-                SNS 계정으로 간편하게 로그인
-              </h2>
+                textAlign: 'center', marginBottom: '6px',
+              }}>SNS 계정으로 간편하게 로그인</h2>
               <p style={{
                 fontSize: '13px', color: 'rgba(255,255,255,0.36)',
                 textAlign: 'center', marginBottom: '22px',
-              }}>
-                기존 계정으로 바로 시작하세요
-              </p>
+              }}>기존 계정으로 바로 시작하세요</p>
 
               {errMsg !== '' && (
                 <div style={{
@@ -329,12 +303,13 @@ export default function LoginPage() {
               )}
 
               <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                <a href="/api/oauth/kakao" className="login-btn" style={{
+                <a href="/api/oauth/kakao" style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
                   padding: '14px 16px', borderRadius: '14px',
                   background: '#FEE500', color: '#191F28',
                   fontWeight: 700, fontSize: '15px', textDecoration: 'none',
                   boxShadow: '0 4px 14px rgba(254,229,0,0.25)',
+                  transition: 'transform 0.15s, box-shadow 0.15s',
                 }}>
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="#191F28">
                     <path d="M12 3C6.48 3 2 6.48 2 10.8c0 2.7 1.62 5.1 4.08 6.6L5.04 21l4.44-2.94C10.26 18.3 11.1 18.42 12 18.42c5.52 0 10-3.48 10-7.8S17.52 3 12 3z"/>
@@ -342,13 +317,13 @@ export default function LoginPage() {
                   카카오로 로그인
                 </a>
 
-                <a href="/api/oauth/google" className="login-btn" style={{
+                <a href="/api/oauth/google" style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
                   padding: '14px 16px', borderRadius: '14px',
                   background: 'rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.88)',
                   fontWeight: 600, fontSize: '15px', textDecoration: 'none',
                   border: '1px solid rgba(255,255,255,0.12)',
-                  boxShadow: '0 4px 14px rgba(0,0,0,0.2)',
+                  transition: 'transform 0.15s, box-shadow 0.15s',
                 }}>
                   <svg width="20" height="20" viewBox="0 0 24 24">
                     <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
@@ -359,14 +334,15 @@ export default function LoginPage() {
                   구글로 로그인
                 </a>
 
-                <a href="/api/oauth/naver" className="login-btn" style={{
+                <a href="/api/oauth/naver" style={{
                   display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
                   padding: '14px 16px', borderRadius: '14px',
                   background: '#03C75A', color: '#ffffff',
                   fontWeight: 700, fontSize: '15px', textDecoration: 'none',
                   boxShadow: '0 4px 14px rgba(3,199,90,0.25)',
+                  transition: 'transform 0.15s, box-shadow 0.15s',
                 }}>
-                  <span style={{ fontWeight: 900, fontSize: '16px', letterSpacing: '-1px' }}>N</span>
+                  <span style={{ fontWeight: 900, fontSize: '16px' }}>N</span>
                   네이버로 로그인
                 </a>
               </div>
