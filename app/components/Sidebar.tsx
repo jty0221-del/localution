@@ -35,10 +35,22 @@ export default function Sidebar() {
   const popRef   = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
+    // sessionStorage 캐시 먼저 확인
+    try {
+      const cached = sessionStorage.getItem('localution_user')
+      if (cached) {
+        const u = JSON.parse(cached)
+        if (u && u.name) { setUser(u); setLoaded(true); return }
+      }
+    } catch (_) {}
+
     fetch('/api/me')
       .then(function(r) { return r.json() })
       .then(function(data) {
-        if (data && data.user && data.user.name) setUser(data.user)
+        if (data && data.user && data.user.name) {
+          setUser(data.user)
+          try { sessionStorage.setItem('localution_user', JSON.stringify(data.user)) } catch (_) {}
+        }
         setLoaded(true)
       })
       .catch(function() { setLoaded(true) })
@@ -54,9 +66,14 @@ export default function Sidebar() {
 
   function handleLogout() {
     setOpen(false)
-    // 쿠키 즉시 삭제 (API 성공 여부 무관)
+    // 쿠키 즉시 삭제
     document.cookie = 'localution_session=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT'
+    // sessionStorage 삭제 (홈페이지 자동 리다이렉트 방지)
+    try { sessionStorage.removeItem('localution_user') } catch (_) {}
+    try { sessionStorage.clear() } catch (_) {}
+    // API 로그아웃 (fire-and-forget)
     fetch('/api/auth/logout', { method: 'POST' }).catch(function() {})
+    // 즉시 로그인 페이지로
     router.push('/login')
   }
 
