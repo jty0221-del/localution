@@ -1,8 +1,8 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
-import { usePathname, useSearchParams } from 'next/navigation'
+import { usePathname, useSearchParams, useRouter } from 'next/navigation'
 
 const FLAT_NAV = [
   { href: '/dashboard', label: '대시보드',  icon: 'DB',  colors: { bg: '#EFF6FF', text: '#3182F6' } },
@@ -14,6 +14,7 @@ const FLAT_NAV = [
 const REVIEW_SUB = [
   { href: '/review-admin/naver',   label: '네이버',     icon: '🟢', color: '#03C75A' },
   { href: '/review-admin/google',  label: '구글',       icon: '🔵', color: '#4285F4' },
+  { href: '/review-admin/kakao',   label: '카카오',     icon: '🟡', color: '#F59E0B' },
   { href: '/review-admin/baemin',  label: '배달의민족', icon: '🩵', color: '#2AC1BC' },
   { href: '/review-admin/yogiyo',  label: '요기요',     icon: '🔴', color: '#FA0050' },
   { href: '/review-admin/coupang', label: '쿠팡이츠',   icon: '🟠', color: '#FF4B30' },
@@ -45,17 +46,23 @@ const REGIONS = [
   { key: 'jeju',     label: '제주', icon: '🍊', sub: ['제주시','서귀포시'] },
 ]
 
-const BOTTOM_NAV = [
-  { href: '/inquiry', label: '1:1 문의', icon: '💬', colors: { bg: '#FFF7ED', text: '#EA580C' } },
-  { href: '/settings', label: '설정',    icon: '⚙️', colors: { bg: '#F2F4F6', text: '#4E5968' } },
-]
+interface UserInfo {
+  name: string
+  email: string
+  avatar: string
+  provider: string
+}
 
 export default function Sidebar() {
-  const pathname      = usePathname()
-  const searchParams  = useSearchParams()
+  const pathname       = usePathname()
+  const searchParams   = useSearchParams()
+  const router         = useRouter()
   const currentRegion  = searchParams?.get('r') || ''
   const currentDistrict = searchParams?.get('d') || ''
   const [mobileOpen, setMobileOpen] = useState(false)
+  const [profileOpen, setProfileOpen] = useState(false)
+  const [user, setUser] = useState<UserInfo | null>(null)
+  const profileRef = useRef<HTMLDivElement>(null)
 
   const isReviewSection    = pathname.startsWith('/review-admin')
   const isMarketingSection = pathname.startsWith('/marketing')
@@ -66,7 +73,39 @@ export default function Sidebar() {
   const [communityOpen, setCommunityOpen] = useState(isCommunitySection)
   const [openRegion, setOpenRegion] = useState<string>(currentRegion)
 
+  // 세션에서 유저 정보 로드
+  useEffect(() => {
+    fetch('/api/me').then(r => r.json()).then(data => {
+      if (data && data.name) setUser(data)
+    }).catch(() => {})
+  }, [])
+
+  // 외부 클릭 시 팝업 닫기
+  useEffect(() => {
+    function handleClick(e: MouseEvent) {
+      if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
+        setProfileOpen(false)
+      }
+    }
+    if (profileOpen) document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [profileOpen])
+
+  const handleLogout = async () => {
+    try {
+      await fetch('/api/auth/logout', { method: 'POST' })
+    } catch (_) {}
+    document.cookie = 'localution_session=; max-age=0; path=/'
+    router.push('/login')
+    router.refresh()
+  }
+
   const toggleRegion = (key: string) => setOpenRegion(prev => prev === key ? '' : key)
+
+  // 유저 이름 첫 글자 (아바타용)
+  const avatarChar = user ? (user.name.charAt(0) || '?') : '?'
+  const displayName = user ? user.name : '로딩 중...'
+  const displaySub  = user ? (user.email || user.provider || '') : ''
 
   const NavItems = () => (
     <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
@@ -75,7 +114,7 @@ export default function Sidebar() {
         const active = pathname === item.href
         return (
           <Link key={item.href} href={item.href} onClick={() => setMobileOpen(false)}
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${active ? 'bg-[#EFF6FF] text-[#3182F6] font-semibold' : 'text-[#4E5968] hover:bg-[#F2F4F6] font-medium'}`}>
+            className={"flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all " + (active ? 'bg-[#EFF6FF] text-[#3182F6] font-semibold' : 'text-[#4E5968] hover:bg-[#F2F4F6] font-medium')}>
             <div className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold flex-shrink-0"
               style={active ? { background: '#3182F6', color: '#fff' } : { background: item.colors.bg, color: item.colors.text }}>
               {item.icon}
@@ -89,23 +128,23 @@ export default function Sidebar() {
       {/* 리뷰 관리 */}
       <div>
         <button onClick={() => setReviewOpen(v => !v)}
-          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left ${isReviewSection ? 'bg-[#FFFBEB] text-[#F59E0B] font-semibold' : 'text-[#4E5968] hover:bg-[#F2F4F6] font-medium'}`}>
+          className={"w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left " + (isReviewSection ? 'bg-[#FFFBEB] text-[#F59E0B] font-semibold' : 'text-[#4E5968] hover:bg-[#F2F4F6] font-medium')}>
           <div className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold flex-shrink-0"
             style={isReviewSection ? { background: '#F59E0B', color: '#fff' } : { background: '#FFFBEB', color: '#F59E0B' }}>리뷰</div>
           <span className="text-sm">리뷰 관리</span>
-          <span className={`ml-auto text-xs transition-transform duration-200 ${reviewOpen ? 'rotate-180' : ''}`}>▾</span>
+          <span className={"ml-auto text-xs transition-transform duration-200 " + (reviewOpen ? 'rotate-180' : '')}>▾</span>
         </button>
         {reviewOpen && (
           <div className="mt-1 ml-3 pl-4 border-l-2 border-[#FDE68A] space-y-0.5">
             <Link href="/review-admin" onClick={() => setMobileOpen(false)}
-              className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium ${pathname === '/review-admin' ? 'bg-[#FFFBEB] text-[#F59E0B] font-semibold' : 'text-[#4E5968] hover:bg-[#F8F9FA]'}`}>
+              className={"flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium " + (pathname === '/review-admin' ? 'bg-[#FFFBEB] text-[#F59E0B] font-semibold' : 'text-[#4E5968] hover:bg-[#F8F9FA]')}>
               <span>📋</span><span>전체 리뷰</span>
             </Link>
             {REVIEW_SUB.map(sub => {
               const active = pathname === sub.href || pathname.startsWith(sub.href + '/')
               return (
                 <Link key={sub.href} href={sub.href} onClick={() => setMobileOpen(false)}
-                  className={`flex items-center gap-2.5 px-3 py-1.5 rounded-xl ${active ? 'bg-[#FFFBEB] text-[#F59E0B] font-semibold' : 'text-[#4E5968] hover:bg-[#F8F9FA] font-medium'}`}>
+                  className={"flex items-center gap-2.5 px-3 py-1.5 rounded-xl " + (active ? 'bg-[#FFFBEB] text-[#F59E0B] font-semibold' : 'text-[#4E5968] hover:bg-[#F8F9FA] font-medium')}>
                   <span className="text-sm">{sub.icon}</span>
                   <span className="text-xs">{sub.label}</span>
                 </Link>
@@ -118,11 +157,11 @@ export default function Sidebar() {
       {/* 마케팅 관리 */}
       <div>
         <button onClick={() => setMarketingOpen(v => !v)}
-          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left ${isMarketingSection ? 'bg-[#FFF7ED] text-[#EA580C] font-semibold' : 'text-[#4E5968] hover:bg-[#F2F4F6] font-medium'}`}>
+          className={"w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left " + (isMarketingSection ? 'bg-[#FFF7ED] text-[#EA580C] font-semibold' : 'text-[#4E5968] hover:bg-[#F2F4F6] font-medium')}>
           <div className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold flex-shrink-0"
             style={isMarketingSection ? { background: '#EA580C', color: '#fff' } : { background: '#FFF7ED', color: '#EA580C' }}>마케</div>
           <span className="text-sm">마케팅 관리</span>
-          <span className={`ml-auto text-xs transition-transform duration-200 ${marketingOpen ? 'rotate-180' : ''}`}>▾</span>
+          <span className={"ml-auto text-xs transition-transform duration-200 " + (marketingOpen ? 'rotate-180' : '')}>▾</span>
         </button>
         {marketingOpen && (
           <div className="mt-1 ml-3 pl-4 border-l-2 border-[#FFE4CC] space-y-0.5">
@@ -130,7 +169,7 @@ export default function Sidebar() {
               const active = pathname === sub.href
               return (
                 <Link key={sub.href} href={sub.href} onClick={() => setMobileOpen(false)}
-                  className={`flex items-center gap-2.5 px-3 py-2 rounded-xl ${active ? 'bg-[#FFF7ED] text-[#EA580C] font-semibold' : 'text-[#4E5968] hover:bg-[#F8F9FA] font-medium'}`}>
+                  className={"flex items-center gap-2.5 px-3 py-2 rounded-xl " + (active ? 'bg-[#FFF7ED] text-[#EA580C] font-semibold' : 'text-[#4E5968] hover:bg-[#F8F9FA] font-medium')}>
                   <span>{sub.icon}</span>
                   <span className="text-xs">{sub.label}</span>
                 </Link>
@@ -140,19 +179,19 @@ export default function Sidebar() {
         )}
       </div>
 
-      {/* 커뮤니티 (지역 3단계) */}
+      {/* 커뮤니티 */}
       <div>
         <button onClick={() => setCommunityOpen(v => !v)}
-          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left ${isCommunitySection ? 'bg-[#FDF2F8] text-[#EC4899] font-semibold' : 'text-[#4E5968] hover:bg-[#F2F4F6] font-medium'}`}>
+          className={"w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left " + (isCommunitySection ? 'bg-[#FDF2F8] text-[#EC4899] font-semibold' : 'text-[#4E5968] hover:bg-[#F2F4F6] font-medium')}>
           <div className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold flex-shrink-0"
             style={isCommunitySection ? { background: '#EC4899', color: '#fff' } : { background: '#FDF2F8', color: '#EC4899' }}>커뮤</div>
           <span className="text-sm">커뮤니티</span>
-          <span className={`ml-auto text-xs transition-transform duration-200 ${communityOpen ? 'rotate-180' : ''}`}>▾</span>
+          <span className={"ml-auto text-xs transition-transform duration-200 " + (communityOpen ? 'rotate-180' : '')}>▾</span>
         </button>
         {communityOpen && (
           <div className="mt-1 ml-3 pl-4 border-l-2 border-[#FBCFE8] space-y-0.5">
             <Link href="/community" onClick={() => { setMobileOpen(false); setOpenRegion('') }}
-              className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium ${pathname === '/community' && !currentRegion ? 'bg-[#FDF2F8] text-[#EC4899] font-semibold' : 'text-[#4E5968] hover:bg-[#F8F9FA]'}`}>
+              className={"flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium " + (pathname === '/community' && !currentRegion ? 'bg-[#FDF2F8] text-[#EC4899] font-semibold' : 'text-[#4E5968] hover:bg-[#F8F9FA]')}>
               <span>🗺️</span><span>전국</span>
             </Link>
             {REGIONS.map(region => {
@@ -161,12 +200,12 @@ export default function Sidebar() {
               return (
                 <div key={region.key}>
                   <button onClick={() => toggleRegion(region.key)}
-                    className={`w-full flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-left ${isRegionActive ? 'bg-[#FDF2F8] text-[#EC4899] font-semibold' : 'text-[#4E5968] hover:bg-[#F8F9FA] font-medium'}`}>
+                    className={"w-full flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-left " + (isRegionActive ? 'bg-[#FDF2F8] text-[#EC4899] font-semibold' : 'text-[#4E5968] hover:bg-[#F8F9FA] font-medium')}>
                     <span className="text-sm w-5 text-center flex-shrink-0">{region.icon}</span>
-                    <Link href={`/community?r=${encodeURIComponent(region.label)}`}
+                    <Link href={"/community?r=" + encodeURIComponent(region.label)}
                       onClick={e => { e.stopPropagation(); setMobileOpen(false) }}
                       className="text-xs flex-1 text-left">{region.label}</Link>
-                    <span className={`text-[10px] transition-transform duration-150 flex-shrink-0 ${isRegionOpen ? 'rotate-180' : ''}`}>▾</span>
+                    <span className={"text-[10px] transition-transform duration-150 flex-shrink-0 " + (isRegionOpen ? 'rotate-180' : '')}>▾</span>
                   </button>
                   {isRegionOpen && (
                     <div className="mt-0.5 ml-2 pl-3 border-l border-[#FBCFE8] space-y-0.5 max-h-48 overflow-y-auto">
@@ -174,9 +213,9 @@ export default function Sidebar() {
                         const active = currentRegion === region.label && currentDistrict === district
                         return (
                           <Link key={district}
-                            href={`/community?r=${encodeURIComponent(region.label)}&d=${encodeURIComponent(district)}`}
+                            href={"/community?r=" + encodeURIComponent(region.label) + "&d=" + encodeURIComponent(district)}
                             onClick={() => setMobileOpen(false)}
-                            className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[11px] ${active ? 'bg-[#FDF2F8] text-[#EC4899] font-semibold' : 'text-[#8B95A1] hover:bg-[#F8F9FA] hover:text-[#4E5968]'}`}>
+                            className={"flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[11px] " + (active ? 'bg-[#FDF2F8] text-[#EC4899] font-semibold' : 'text-[#8B95A1] hover:bg-[#F8F9FA] hover:text-[#4E5968]')}>
                             <span className="w-1 h-1 rounded-full flex-shrink-0" style={{ background: active ? '#EC4899' : '#D1D5DB' }} />
                             {district}
                           </Link>
@@ -190,61 +229,86 @@ export default function Sidebar() {
           </div>
         )}
       </div>
-
-      <div className="border-t border-[#F2F4F6] my-2" />
-
-      {BOTTOM_NAV.map(item => {
-        const active = pathname === item.href || pathname.startsWith(item.href + '/')
-        return (
-          <Link key={item.href} href={item.href} onClick={() => setMobileOpen(false)}
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${active ? 'font-semibold' : 'text-[#4E5968] hover:bg-[#F2F4F6] font-medium'}`}
-            style={active ? { background: item.colors.bg, color: item.colors.text } : {}}>
-            <span className="text-base w-7 text-center flex-shrink-0">{item.icon}</span>
-            <span className="text-sm">{item.label}</span>
-            {active && <span className="ml-auto w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: item.colors.text }} />}
-          </Link>
-        )
-      })}
     </nav>
   )
 
   return (
     <>
+      {/* 모바일 상단 바 */}
       <div className="md:hidden fixed top-0 left-0 right-0 h-14 bg-white border-b border-[#E5E8EB] z-30 flex items-center justify-between px-4">
         <div>
           <span className="font-black text-[#191F28] text-lg tracking-tight">Localution</span>
           <span className="text-[11px] text-[#8B95A1] ml-1.5 font-medium">(로컬루션)</span>
         </div>
         <button onClick={() => setMobileOpen(!mobileOpen)} className="w-9 h-9 flex flex-col justify-center items-center gap-1.5">
-          <span className={`block w-5 h-0.5 bg-[#191F28] rounded transition-all ${mobileOpen ? 'rotate-45 translate-y-2' : ''}`} />
-          <span className={`block h-0.5 bg-[#191F28] rounded transition-all ${mobileOpen ? 'opacity-0 w-0' : 'w-5'}`} />
-          <span className={`block w-5 h-0.5 bg-[#191F28] rounded transition-all ${mobileOpen ? '-rotate-45 -translate-y-2' : ''}`} />
+          <span className={"block w-5 h-0.5 bg-[#191F28] rounded transition-all " + (mobileOpen ? 'rotate-45 translate-y-2' : '')} />
+          <span className={"block h-0.5 bg-[#191F28] rounded transition-all " + (mobileOpen ? 'opacity-0 w-0' : 'w-5')} />
+          <span className={"block w-5 h-0.5 bg-[#191F28] rounded transition-all " + (mobileOpen ? '-rotate-45 -translate-y-2' : '')} />
         </button>
       </div>
+
       {mobileOpen && <div className="md:hidden fixed inset-0 bg-black/30 z-30" onClick={() => setMobileOpen(false)} />}
-      <aside className={`fixed top-0 left-0 h-screen w-[220px] bg-white border-r border-[#E5E8EB] z-40 flex flex-col transition-transform duration-300 ${mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
+
+      <aside className={"fixed top-0 left-0 h-screen w-[220px] bg-white border-r border-[#E5E8EB] z-40 flex flex-col transition-transform duration-300 " + (mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0')}>
+        {/* 로고 */}
         <div className="px-5 py-5 border-b border-[#F2F4F6]">
           <Link href="/" className="block">
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl overflow-hidden flex-shrink-0 shadow-[0_2px_8px_rgba(49,130,246,0.25)] ring-1 ring-[#E8F4FD] bg-white flex items-center justify-center">
-                <img src="/favicon.ico" alt="로컬루션" width={28} height={28} style={{ objectFit: 'contain' }} />
+              <div className="w-8 h-8 rounded-lg bg-[#3182F6] flex items-center justify-center">
+                <span className="text-white font-black text-sm">L</span>
               </div>
               <div>
-                <p className="font-black text-[#191F28] text-[15px] tracking-tight leading-none">Localution</p>
-                <p className="text-[10px] text-[#8B95A1] font-semibold leading-none mt-1 tracking-wide">로컬루션</p>
+                <p className="font-black text-[#191F28] text-sm tracking-tight leading-none">Localution</p>
+                <p className="text-[10px] text-[#8B95A1] font-medium leading-none mt-0.5">로컬루션</p>
               </div>
             </div>
           </Link>
         </div>
+
         <NavItems />
-        <div className="px-4 py-4 border-t border-[#F2F4F6]">
-          <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-[#F8F9FA]">
-            <div className="w-8 h-8 rounded-full bg-[#3182F6] flex items-center justify-center text-white text-xs font-bold flex-shrink-0">하</div>
-            <div className="min-w-0">
-              <p className="text-xs font-bold text-[#191F28] truncate">하랑마케팅</p>
-              <p className="text-[10px] text-[#8B95A1] truncate">강남점</p>
+
+        {/* 하단 프로필 영역 */}
+        <div className="px-4 py-4 border-t border-[#F2F4F6] relative" ref={profileRef}>
+
+          {/* 팝업 메뉴 (위쪽으로 열림) */}
+          {profileOpen && (
+            <div className="absolute bottom-[72px] left-4 right-4 bg-white rounded-xl shadow-lg border border-[#E5E8EB] overflow-hidden z-50">
+              <Link href="/settings"
+                onClick={() => { setProfileOpen(false); setMobileOpen(false) }}
+                className="flex items-center gap-3 px-4 py-3 text-sm text-[#4E5968] hover:bg-[#F2F4F6] transition-colors">
+                <span className="text-base">⚙️</span>
+                <span className="font-medium">설정</span>
+              </Link>
+              <div className="h-px bg-[#F2F4F6]" />
+              <Link href="/inquiry"
+                onClick={() => { setProfileOpen(false); setMobileOpen(false) }}
+                className="flex items-center gap-3 px-4 py-3 text-sm text-[#4E5968] hover:bg-[#F2F4F6] transition-colors">
+                <span className="text-base">💬</span>
+                <span className="font-medium">1:1 문의</span>
+              </Link>
+              <div className="h-px bg-[#F2F4F6]" />
+              <button
+                onClick={handleLogout}
+                className="w-full flex items-center gap-3 px-4 py-3 text-sm text-[#E11D48] hover:bg-[#FFF1F2] transition-colors">
+                <span className="text-base">🚪</span>
+                <span className="font-medium">로그아웃</span>
+              </button>
             </div>
-          </div>
+          )}
+
+          {/* 클릭 가능한 프로필 카드 */}
+          <button
+            onClick={() => setProfileOpen(v => !v)}
+            className={"w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all " + (profileOpen ? 'bg-[#EFF6FF]' : 'bg-[#F8F9FA] hover:bg-[#F2F4F6]')}>
+            <div className="w-8 h-8 rounded-full bg-[#3182F6] flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+              {avatarChar}
+            </div>
+            <div className="min-w-0 flex-1 text-left">
+              <p className="text-xs font-bold text-[#191F28] truncate">{displayName}</p>
+              <p className="text-[10px] text-[#8B95A1] truncate">{displaySub}</p>
+            </div>
+            <span className={"text-[10px] text-[#8B95A1] flex-shrink-0 transition-transform " + (profileOpen ? 'rotate-180' : '')}>▴</span>
+          </button>
         </div>
       </aside>
     </>
