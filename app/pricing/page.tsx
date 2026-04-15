@@ -36,23 +36,74 @@ const categoryColor: Record<string, string> = {
   '공통':   'bg-green-100 text-green-600',
 }
 
+// 번들 할인율 계산: 3개+ 10%, 5개+ 15%, 8개+ 20%
+function getDiscountRate(count: number): number {
+  if (count >= 8) return 0.20
+  if (count >= 5) return 0.15
+  if (count >= 3) return 0.10
+  return 0
+}
+
+function getNextTier(count: number): { need: number; rate: number } | null {
+  if (count < 3) return { need: 3 - count, rate: 10 }
+  if (count < 5) return { need: 5 - count, rate: 15 }
+  if (count < 8) return { need: 8 - count, rate: 20 }
+  return null
+}
+
+const faqs = [
+  {
+    q: '무료 체험은 어떻게 진행되나요?',
+    a: '회원가입 후 14일간 모든 기능을 무료로 써볼 수 있어요. 신용카드 등록도 필요 없고, 기간이 끝나면 자동 결제되지 않으니 안심하세요.',
+  },
+  {
+    q: '중간에 기능을 추가하거나 빼도 되나요?',
+    a: '네, 언제든 가능해요. 마이페이지에서 기능을 추가하거나 해지하면 다음 결제일부터 바로 반영됩니다. 위약금이나 해지 수수료는 없어요.',
+  },
+  {
+    q: '환불 정책은 어떻게 되나요?',
+    a: '결제 후 7일 이내, 기능을 전혀 사용하지 않은 경우 100% 환불해드려요. 부분 사용 시에는 잔여 기간 일할 계산으로 환불 가능합니다.',
+  },
+  {
+    q: '여러 매장을 운영 중인데 한 계정으로 쓸 수 있나요?',
+    a: '사장님 플랜은 1개 매장 기준이에요. 2개 이상 매장은 매장별로 따로 결제하거나, 마케터·대행사용 멀티 매장 플랜(준비 중)을 이용하시면 됩니다.',
+  },
+  {
+    q: '세금계산서 발행이 가능한가요?',
+    a: '네, 사업자 등록증을 제출해주시면 월 단위로 세금계산서를 자동 발행해드려요. 홈택스 연동도 지원합니다.',
+  },
+]
+
 export default function PricingPage() {
   const [cart,   setCart]   = useState<string[]>([])
   const [filter, setFilter] = useState<'전체' | '사장님' | '마케터' | '공통'>('전체')
+  const [openFaq, setOpenFaq] = useState<number | null>(0)
 
   const toggle = (id: string) =>
     setCart(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
 
   const cartItems = features.filter(f => cart.includes(f.id))
-  const total     = cartItems.reduce((sum, f) => sum + f.price, 0)
+  const subtotal  = cartItems.reduce((sum, f) => sum + f.price, 0)
+  const discountRate = getDiscountRate(cart.length)
+  const discountAmount = Math.round(subtotal * discountRate)
+  const total = subtotal - discountAmount
+  const nextTier = getNextTier(cart.length)
   const filtered  = filter === '전체' ? features : features.filter(f => f.category === filter)
 
   return (
     <div className="min-h-screen bg-[#F2F4F6]">
-
-            <TopNav />
+      <TopNav />
 
       <div className="pt-24 pb-20 px-4 max-w-6xl mx-auto">
+
+        {/* 신뢰 배너 */}
+        <div className="flex justify-center mb-6">
+          <div className="inline-flex items-center gap-2 bg-white border border-[#E5E8EB] rounded-full px-4 py-2 shadow-sm">
+            <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
+            <span className="text-xs font-bold text-[#4E5968]">베타 오픈</span>
+            <span className="text-xs text-[#8B95A1]">· 전국 400+ 사장님이 함께하고 있어요</span>
+          </div>
+        </div>
 
         {/* 헤더 */}
         <div className="text-center mb-10">
@@ -64,8 +115,27 @@ export default function PricingPage() {
           </h1>
           <p className="text-[#4E5968] text-lg max-w-xl mx-auto">
             정해진 요금제 없이 원하는 기능을 골라 담으세요.<br/>
-            평균 <span className="font-bold text-[#3182F6]">월 3,000원대</span>로 시작할 수 있어요.
+            <span className="font-bold text-[#3182F6]">3개 이상 선택 시 최대 20% 할인</span>까지 받을 수 있어요.
           </p>
+        </div>
+
+        {/* 할인 티어 안내 */}
+        <div className="max-w-3xl mx-auto mb-10 bg-white rounded-2xl p-4 border border-[#E5E8EB] shadow-sm">
+          <div className="text-xs font-bold text-[#8B95A1] mb-3 text-center">💸 묶음 할인 · 많이 담을수록 저렴해요</div>
+          <div className="grid grid-cols-3 gap-2">
+            <div className={`rounded-xl p-3 text-center transition-all ${cart.length >= 3 && cart.length < 5 ? 'bg-blue-50 border-2 border-[#3182F6]' : 'bg-[#F9FAFB] border border-[#E5E8EB]'}`}>
+              <div className="text-[10px] text-[#8B95A1] mb-0.5">3개+</div>
+              <div className="text-sm font-black text-[#3182F6]">10% OFF</div>
+            </div>
+            <div className={`rounded-xl p-3 text-center transition-all ${cart.length >= 5 && cart.length < 8 ? 'bg-blue-50 border-2 border-[#3182F6]' : 'bg-[#F9FAFB] border border-[#E5E8EB]'}`}>
+              <div className="text-[10px] text-[#8B95A1] mb-0.5">5개+</div>
+              <div className="text-sm font-black text-[#3182F6]">15% OFF</div>
+            </div>
+            <div className={`rounded-xl p-3 text-center transition-all ${cart.length >= 8 ? 'bg-blue-50 border-2 border-[#3182F6]' : 'bg-[#F9FAFB] border border-[#E5E8EB]'}`}>
+              <div className="text-[10px] text-[#8B95A1] mb-0.5">8개+</div>
+              <div className="text-sm font-black text-[#3182F6]">20% OFF</div>
+            </div>
+          </div>
         </div>
 
         <div className="flex gap-6 items-start">
@@ -142,7 +212,7 @@ export default function PricingPage() {
                 </div>
               ) : (
                 <>
-                  <div className="space-y-2 mb-4 max-h-64 overflow-y-auto">
+                  <div className="space-y-2 mb-4 max-h-56 overflow-y-auto">
                     {cartItems.map(item => (
                       <div key={item.id} className="flex items-center justify-between py-2 border-b border-[#F2F4F6]">
                         <div className="flex items-center gap-2">
@@ -157,12 +227,33 @@ export default function PricingPage() {
                     ))}
                   </div>
 
-                  <div className="border-t border-[#F2F4F6] pt-4 mb-4">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-[#8B95A1]">월 합계</span>
+                  {/* 다음 티어 유도 */}
+                  {nextTier && (
+                    <div className="mb-3 bg-yellow-50 border border-yellow-200 rounded-xl p-3">
+                      <div className="text-[11px] text-[#8B6914] font-semibold">
+                        🎁 <b>{nextTier.need}개</b> 더 담으면 <b>{nextTier.rate}%</b> 할인!
+                      </div>
+                    </div>
+                  )}
+
+                  <div className="border-t border-[#F2F4F6] pt-4 mb-4 space-y-1.5">
+                    {discountRate > 0 && (
+                      <>
+                        <div className="flex justify-between items-center text-xs">
+                          <span className="text-[#8B95A1]">원가</span>
+                          <span className="text-[#8B95A1] line-through">{subtotal.toLocaleString()}원</span>
+                        </div>
+                        <div className="flex justify-between items-center text-xs">
+                          <span className="text-green-600 font-bold">묶음 할인 {Math.round(discountRate * 100)}%</span>
+                          <span className="text-green-600 font-bold">-{discountAmount.toLocaleString()}원</span>
+                        </div>
+                      </>
+                    )}
+                    <div className="flex justify-between items-center pt-1">
+                      <span className="text-sm text-[#191F28] font-bold">월 합계</span>
                       <span className="text-xl font-black text-[#3182F6]">{total.toLocaleString()}원</span>
                     </div>
-                    <div className="text-xs text-[#B0B8C1] text-right mt-0.5">VAT 포함 · 언제든 변경 가능</div>
+                    <div className="text-xs text-[#B0B8C1] text-right">VAT 포함 · 언제든 변경 가능</div>
                   </div>
 
                   <Link href="/login"
@@ -175,22 +266,95 @@ export default function PricingPage() {
             </div>
 
             <div className="bg-blue-50 rounded-2xl p-4 mt-3">
-              <div className="text-xs font-bold text-[#3182F6] mb-2">💡 이런 분들께 추천해요</div>
+              <div className="text-xs font-bold text-[#3182F6] mb-2">💡 이런 조합 인기예요</div>
               <div className="space-y-1.5 text-xs text-[#4E5968]">
-                <div>🏪 사장님 → 리뷰+알림톡+정산 = <b className="text-[#3182F6]">2,970원/월</b></div>
-                <div>📣 마케터 → 키워드+블로그+경쟁사 = <b className="text-[#3182F6]">5,470원/월</b></div>
-                <div>🤝 모두 담기 → 전체 기능 = <b className="text-[#3182F6]">{features.reduce((s, f) => s + f.price, 0).toLocaleString()}원/월</b></div>
+                <div>🏪 사장님 기본 3종 <b className="text-[#3182F6]">2,673원/월</b> (10%↓)</div>
+                <div>📣 마케터 5종 <b className="text-[#3182F6]">6,341원/월</b> (15%↓)</div>
+                <div>🤝 전체 12종 <b className="text-[#3182F6]">{Math.round(features.reduce((s, f) => s + f.price, 0) * 0.8).toLocaleString()}원/월</b> (20%↓)</div>
               </div>
             </div>
           </div>
         </div>
 
+        {/* FAQ 섹션 */}
+        <div className="max-w-3xl mx-auto mt-20">
+          <div className="text-center mb-8">
+            <h2 className="text-2xl md:text-3xl font-black text-[#191F28] mb-2">자주 묻는 질문</h2>
+            <p className="text-sm text-[#8B95A1]">결제 전에 궁금한 점을 확인해보세요</p>
+          </div>
+          <div className="space-y-3">
+            {faqs.map((faq, idx) => (
+              <div key={idx} className="bg-white rounded-2xl border border-[#E5E8EB] overflow-hidden">
+                <button
+                  onClick={() => setOpenFaq(openFaq === idx ? null : idx)}
+                  className="w-full flex items-center justify-between p-5 text-left hover:bg-gray-50 transition-colors">
+                  <span className="font-bold text-[#191F28] text-sm md:text-base">Q. {faq.q}</span>
+                  <span className={`text-[#8B95A1] transition-transform ${openFaq === idx ? 'rotate-180' : ''}`}>▼</span>
+                </button>
+                {openFaq === idx && (
+                  <div className="px-5 pb-5 text-sm text-[#4E5968] leading-relaxed border-t border-[#F2F4F6] pt-4">
+                    A. {faq.a}
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* 하단 CTA */}
+        <div className="max-w-3xl mx-auto mt-16 text-center">
+          <div className="bg-gradient-to-br from-[#3182F6] to-[#1B64DA] rounded-3xl p-8 md:p-12 text-white shadow-xl shadow-blue-200">
+            <h3 className="text-2xl md:text-3xl font-black mb-3">아직 고민되신다면?</h3>
+            <p className="text-blue-100 mb-6 text-sm md:text-base">무료 체험 14일 동안 전체 기능을 모두 써볼 수 있어요.<br/>신용카드 없이도 가입 가능합니다.</p>
+            <Link href="/login" className="inline-block bg-white text-[#3182F6] font-black px-8 py-4 rounded-2xl hover:bg-gray-50 transition-all shadow-lg">
+              지금 바로 무료 시작하기 →
+            </Link>
+          </div>
+        </div>
+
+        {/* 푸터 */}
+        <div className="max-w-5xl mx-auto mt-20 pt-8 border-t border-[#E5E8EB]">
+          <div className="grid md:grid-cols-4 gap-6 text-xs text-[#8B95A1]">
+            <div>
+              <div className="font-black text-[#191F28] text-sm mb-2">로컬루션</div>
+              <p className="leading-relaxed">AI 기반 소상공인 올인원<br/>비즈니스 자동화 플랫폼</p>
+            </div>
+            <div>
+              <div className="font-bold text-[#4E5968] mb-2">서비스</div>
+              <div className="space-y-1.5">
+                <Link href="/service-intro" className="block hover:text-[#3182F6]">서비스 소개</Link>
+                <Link href="/pricing" className="block hover:text-[#3182F6]">요금 안내</Link>
+                <Link href="/community" className="block hover:text-[#3182F6]">커뮤니티</Link>
+              </div>
+            </div>
+            <div>
+              <div className="font-bold text-[#4E5968] mb-2">고객지원</div>
+              <div className="space-y-1.5">
+                <Link href="/inquiry" className="block hover:text-[#3182F6]">1:1 문의</Link>
+                <div>이메일: help@localution.co.kr</div>
+                <div>운영시간: 평일 10:00–18:00</div>
+              </div>
+            </div>
+            <div>
+              <div className="font-bold text-[#4E5968] mb-2">회사 정보</div>
+              <div className="space-y-1.5">
+                <div>상호: 하랑마케팅</div>
+                <div>대표: 전태영</div>
+                <div>사업자번호: 준비 중</div>
+              </div>
+            </div>
+          </div>
+          <div className="mt-8 pt-6 border-t border-[#F2F4F6] text-center text-xs text-[#B0B8C1]">
+            © 2026 Localution. All rights reserved.
+          </div>
+        </div>
+
         {/* 모바일 장바구니 하단 고정 */}
         {cart.length > 0 && (
-          <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-[#E5E8EB] p-4 shadow-lg">
-            <div className="flex items-center justify-between mb-3">
+          <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-[#E5E8EB] p-4 shadow-lg z-50">
+            <div className="flex items-center justify-between mb-1">
               <div>
-                <div className="text-xs text-[#8B95A1]">{cart.length}개 기능 선택</div>
+                <div className="text-xs text-[#8B95A1]">{cart.length}개 선택{discountRate > 0 ? ' · ' + Math.round(discountRate * 100) + '% 할인' : ''}</div>
                 <div className="text-lg font-black text-[#3182F6]">월 {total.toLocaleString()}원</div>
               </div>
               <Link href="/login" className="bg-[#3182F6] text-white font-bold text-sm px-6 py-3 rounded-xl hover:bg-[#1B64DA] transition-colors shadow-sm">
