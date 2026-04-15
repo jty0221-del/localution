@@ -110,7 +110,6 @@ export default function ServiceIntro() {
   const [gender, setGender] = useState<string>('none')
   const [age, setAge] = useState<string>('30s')
   const [postStatus, setPostStatus] = useState<Record<string, 'idle' | 'posting' | 'done'>>({})
-  const [postStatus, setPostStatus] = useState<Record<string, 'idle' | 'posting' | 'done'>>({})
 
   async function generateReply(reviewId: string, reviewText: string) {
     setLoading(prev => ({ ...prev, [reviewId]: true }))
