@@ -11,52 +11,58 @@ interface UserInfo {
 }
 
 const NAV = [
-  { href: '/dashboard',     icon: '🏠', label: '대시보드' },
-  { href: '/review',        icon: '⭐', label: 'AI 리뷰·마케팅' },
-  { href: '/qr',            icon: '📱', label: 'QR 리뷰 자동화' },
-  { href: '/crm',           icon: '👥', label: 'CRM 고객관리' },
-  { href: '/settlement',    icon: '💰', label: '정산·행정' },
-  { href: '/community',     icon: '💬', label: '커뮤니티' },
-  { href: '/pricing',       icon: '💎', label: '요금제' },
+  { href: '/dashboard',   icon: '🏠', label: '대시보드' },
+  { href: '/review',      icon: '⭐', label: 'AI 리뷰·마케팅' },
+  { href: '/qr',          icon: '📱', label: 'QR 리뷰 자동화' },
+  { href: '/crm',         icon: '👥', label: 'CRM 고객관리' },
+  { href: '/settlement',  icon: '💰', label: '정산·행정' },
+  { href: '/community',   icon: '💬', label: '커뮤니티' },
+  { href: '/pricing',     icon: '💎', label: '요금제' },
 ]
 
-const PROTECTED = ['/dashboard', '/review', '/qr', '/crm', '/settlement', '/community', '/pricing', '/settings', '/inquiry']
+const PROTECTED = [
+  '/dashboard', '/review', '/qr', '/crm',
+  '/settlement', '/community', '/pricing', '/settings', '/inquiry',
+]
 
 export default function Sidebar() {
-  const [user, setUser]   = useState<UserInfo | null>(null)
-  const [open, setOpen]   = useState(false)
-  const [imgOk, setImgOk] = useState(true)
-  const pathname  = usePathname()
-  const router    = useRouter()
-  const popupRef  = useRef<HTMLDivElement>(null)
+  const [user, setUser]     = useState<UserInfo | null>(null)
+  const [loaded, setLoaded] = useState(false)
+  const [open, setOpen]     = useState(false)
+  const [imgOk, setImgOk]   = useState(true)
+  const pathname = usePathname()
+  const router   = useRouter()
+  const popRef   = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     fetch('/api/me')
       .then(function(r) { return r.json() })
       .then(function(data) {
         if (data && data.user && data.user.name) setUser(data.user)
+        setLoaded(true)
       })
-      .catch(function() {})
+      .catch(function() { setLoaded(true) })
   }, [])
 
   useEffect(() => {
-    function onClickOutside(e: MouseEvent) {
-      if (popupRef.current && !popupRef.current.contains(e.target as Node)) setOpen(false)
+    function onOut(e: MouseEvent) {
+      if (popRef.current && !popRef.current.contains(e.target as Node)) setOpen(false)
     }
-    document.addEventListener('mousedown', onClickOutside)
-    return function() { document.removeEventListener('mousedown', onClickOutside) }
+    document.addEventListener('mousedown', onOut)
+    return function() { document.removeEventListener('mousedown', onOut) }
   }, [])
 
   function handleLogout() {
     setOpen(false)
-    fetch('/api/auth/logout', { method: 'POST' })
-      .finally(function() {
-        document.cookie = 'localution_session=; path=/; max-age=0'
-        router.push('/login')
-      })
+    // 쿠키 즉시 삭제 (API 성공 여부 무관)
+    document.cookie = 'localution_session=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT'
+    fetch('/api/auth/logout', { method: 'POST' }).catch(function() {})
+    router.push('/login')
   }
 
-  const show = PROTECTED.some(function(p) { return pathname === p || pathname.startsWith(p + '/') })
+  // pathname null 안전 체크
+  const pn = pathname || ''
+  const show = PROTECTED.some(function(p) { return pn === p || pn.startsWith(p + '/') })
   if (!show) return null
 
   return (
@@ -69,7 +75,7 @@ export default function Sidebar() {
       fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
     }}>
 
-      {/* ── 상단 로고 영역 ── */}
+      {/* ── 상단 로고 ── */}
       <div style={{
         padding: '22px 18px 18px',
         borderBottom: '1px solid rgba(255,255,255,0.07)',
@@ -98,9 +104,10 @@ export default function Sidebar() {
               fontSize: '20px', fontWeight: 800, color: '#ffffff',
               letterSpacing: '-0.6px', lineHeight: '1.1',
             }}>로컬루션</div>
-            <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.35)', marginTop: '1px', letterSpacing: '0.02em' }}>
-              AI 마케팅 자동화
-            </div>
+            <div style={{
+              fontSize: '10px', color: 'rgba(255,255,255,0.35)',
+              marginTop: '1px', letterSpacing: '0.02em',
+            }}>AI 마케팅 자동화</div>
           </div>
         </div>
       </div>
@@ -108,7 +115,7 @@ export default function Sidebar() {
       {/* ── 네비게이션 ── */}
       <nav style={{ flex: 1, padding: '10px 8px', overflowY: 'auto' }}>
         {NAV.map(function(item) {
-          const active = pathname === item.href || pathname.startsWith(item.href + '/')
+          const active = pn === item.href || pn.startsWith(item.href + '/')
           return (
             <Link
               key={item.href}
@@ -143,11 +150,11 @@ export default function Sidebar() {
         })}
       </nav>
 
-      {/* ── 하단 유저 프로필 ── */}
+      {/* ── 유저 프로필 ── */}
       <div style={{ padding: '8px', borderTop: '1px solid rgba(255,255,255,0.07)', flexShrink: 0 }}>
-        <div ref={popupRef} style={{ position: 'relative' }}>
+        <div ref={popRef} style={{ position: 'relative' }}>
 
-          {/* 팝업 메뉴 */}
+          {/* 팝업 */}
           {open && (
             <div style={{
               position: 'absolute', bottom: 'calc(100% + 6px)', left: 0, right: 0,
@@ -170,7 +177,7 @@ export default function Sidebar() {
                       display: 'flex', alignItems: 'center', gap: '10px',
                       padding: '10px 12px', borderRadius: '8px',
                       color: 'rgba(255,255,255,0.78)', textDecoration: 'none',
-                      fontSize: '13px', fontWeight: 500, transition: 'background 0.1s',
+                      fontSize: '13px', fontWeight: 500,
                     }}
                     onMouseEnter={function(e) {
                       (e.currentTarget as HTMLAnchorElement).style.background = 'rgba(255,255,255,0.07)'
@@ -190,8 +197,7 @@ export default function Sidebar() {
                   display: 'flex', alignItems: 'center', gap: '10px',
                   width: '100%', padding: '10px 12px', borderRadius: '8px',
                   background: 'transparent', border: 'none', cursor: 'pointer',
-                  color: '#F87171', fontSize: '13px', fontWeight: 500,
-                  textAlign: 'left', transition: 'background 0.1s',
+                  color: '#F87171', fontSize: '13px', fontWeight: 500, textAlign: 'left',
                 }}
                 onMouseEnter={function(e) {
                   (e.currentTarget as HTMLButtonElement).style.background = 'rgba(248,113,113,0.1)'
@@ -240,7 +246,7 @@ export default function Sidebar() {
                 fontSize: '13px', fontWeight: 600, color: '#ffffff',
                 overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
               }}>
-                {user ? user.name : '로딩 중...'}
+                {loaded ? (user ? user.name : '사용자') : '···'}
               </div>
               <div style={{
                 fontSize: '11px', color: 'rgba(255,255,255,0.38)', marginTop: '1px',
@@ -249,7 +255,10 @@ export default function Sidebar() {
                 {user ? (user.provider ? user.provider + ' 로그인' : user.email) : ''}
               </div>
             </div>
-            <span style={{ color: 'rgba(255,255,255,0.25)', fontSize: '10px', flexShrink: 0, transform: open ? 'rotate(0deg)' : 'rotate(180deg)', transition: 'transform 0.2s' }}>▲</span>
+            <span style={{
+              color: 'rgba(255,255,255,0.25)', fontSize: '10px', flexShrink: 0,
+              transform: open ? 'rotate(0deg)' : 'rotate(180deg)', transition: 'transform 0.2s',
+            }}>▲</span>
           </button>
         </div>
       </div>
