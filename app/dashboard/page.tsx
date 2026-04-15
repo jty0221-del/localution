@@ -29,24 +29,20 @@ function GoogleLogo({ size = 28 }: { size?: number }) {
   )
 }
 
-function KakaoMapLogo({ size = 28 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
-      <rect width="48" height="48" rx="10" fill="#FEE500"/>
-      <path d="M24 8C16.27 8 10 12.69 10 18.5c0 3.89 2.46 7.3 6.2 9.38L14.6 34l6.8-4.5c.84.11 1.71.17 2.6.17 7.73 0 14-4.69 14-10.5S31.73 8 24 8z" fill="#3C1E1E"/>
-    </svg>
-  )
-}
-
 function BaeminLogo({ size = 28 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
-      <rect width="48" height="48" rx="10" fill="#2AC1BC"/>
-      <rect x="8"  y="10" width="5.5" height="28" rx="2.5" fill="#1A1A1A"/>
-      <rect x="16" y="10" width="5.5" height="20" rx="2.5" fill="#1A1A1A"/>
-      <rect x="24" y="10" width="5.5" height="28" rx="2.5" fill="#1A1A1A"/>
-      <rect x="32" y="10" width="5.5" height="16" rx="2.5" fill="#1A1A1A"/>
-      <rect x="8"  y="10" width="29" height="5"  rx="2"   fill="#1A1A1A"/>
+      <rect width="48" height="48" rx="12" fill="#2AC1BC"/>
+      <text
+        x="24"
+        y="31"
+        fontSize="18"
+        fontWeight="900"
+        fill="#1A1A1A"
+        fontFamily="'Apple SD Gothic Neo','Noto Sans KR',sans-serif"
+        textAnchor="middle"
+        letterSpacing="-0.5"
+      >배민</text>
     </svg>
   )
 }
@@ -108,7 +104,7 @@ function HometaxLogo({ size = 28 }: { size?: number }) {
 // ═══════════════════════════════════════════════════════════
 
 type PlatformId =
-  | 'naver_place' | 'google' | 'kakao' | 'baemin'
+  | 'naver_place' | 'google' | 'baemin'
   | 'yogiyo' | 'coupangeats' | 'naver_search' | 'yeoshin' | 'hometax'
 
 interface Platform {
@@ -126,7 +122,6 @@ interface Platform {
 const INITIAL_PLATFORMS: Platform[] = [
   { id: 'naver_place',  name: '네이버 플레이스', shortName: '네이버',   logo: (s) => <NaverPlaceLogo size={s}/>,   category: '리뷰·검색', connected: false, rating: null, reviews: null, color: '#03C75A' },
   { id: 'google',       name: '구글 비즈니스',   shortName: '구글',     logo: (s) => <GoogleLogo size={s}/>,       category: '리뷰·검색', connected: false, rating: null, reviews: null, color: '#4285F4' },
-  { id: 'kakao',        name: '카카오맵',         shortName: '카카오',   logo: (s) => <KakaoMapLogo size={s}/>,     category: '리뷰·검색', connected: false, rating: null, reviews: null, color: '#F5C500' },
   { id: 'baemin',       name: '배달의민족',        shortName: '배민',     logo: (s) => <BaeminLogo size={s}/>,       category: '배달',      connected: false, rating: null, reviews: null, color: '#2AC1BC' },
   { id: 'yogiyo',       name: '요기요',            shortName: '요기요',   logo: (s) => <YogiyoLogo size={s}/>,       category: '배달',      connected: false, rating: null, reviews: null, color: '#FA1A32' },
   { id: 'coupangeats',  name: '쿠팡이츠',          shortName: '쿠팡이츠', logo: (s) => <CoupangEatsLogo size={s}/>,  category: '배달',      connected: false, rating: null, reviews: null, color: '#FF5A00' },
@@ -213,14 +208,12 @@ function ConnectModal({ platform, onClose, onSave }: ConnectModalProps) {
   const apiEndpoint = (() => {
     if (platform.id === 'naver_place') return '/api/platforms/naver'
     if (platform.id === 'google') return '/api/platforms/google'
-    if (platform.id === 'kakao') return '/api/platforms/kakao'
     return '/api/platforms/delivery'
   })()
 
   const placeholder = (() => {
     if (platform.id === 'naver_place') return 'https://map.naver.com/p/entry/place/1234567890'
     if (platform.id === 'google') return 'https://www.google.com/maps/place/... 또는 Place ID (ChIJ...)'
-    if (platform.id === 'kakao') return 'https://place.map.kakao.com/1234567890'
     if (platform.id === 'baemin') return 'https://baemin.me/... 또는 배민 매장 URL'
     if (platform.id === 'yogiyo') return 'https://www.yogiyo.co.kr/mobile/#/123456'
     if (platform.id === 'coupangeats') return 'https://www.coupangeats.com/restaurants/...'
@@ -248,7 +241,6 @@ function ConnectModal({ platform, onClose, onSave }: ConnectModalProps) {
         // 플랫폼별 필드 정규화
         const placeId =
           data.placeId ||
-          data.kakaoId ||
           data.googlePlaceId ||
           data.naverPlaceId ||
           data.externalId ||
@@ -607,7 +599,7 @@ export default function Dashboard() {
       <main className="flex-1 ml-[220px] p-6 min-w-0">
 
         {/* ── ① 플랫폼 연동 현황 바 ── */}
-        <div className="bg-white rounded-2xl shadow-sm px-5 py-4 mb-5">
+        <div className="bg-white rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.04),0_8px_24px_rgba(17,24,39,0.06)] px-5 py-4 mb-5">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
               <span className="text-sm font-bold text-[#191F28]">플랫폼 연동 현황</span>
@@ -619,16 +611,16 @@ export default function Dashboard() {
               연동 관리 →
             </a>
           </div>
-          <div className="grid grid-cols-8 gap-2">
+          <div className="grid grid-cols-7 gap-2.5">
             {platforms.map(p => (
               <button
                 key={p.id}
                 onClick={() => handlePlatformClick(p)}
                 className={[
-                  'flex flex-col items-center gap-1.5 p-2.5 rounded-xl transition-all cursor-pointer',
+                  'flex flex-col items-center gap-2 p-3 rounded-2xl transition-all cursor-pointer',
                   p.connected
-                    ? 'bg-white border border-[#E5E8EB] hover:border-[#3182F6] hover:shadow-md'
-                    : 'bg-[#F8F9FA] border border-dashed border-[#E0E0E0] hover:border-[#3182F6] hover:bg-white',
+                    ? 'bg-white border border-[#E5E8EB] hover:border-[#3182F6] hover:shadow-[0_4px_16px_rgba(49,130,246,0.15)] hover:-translate-y-0.5'
+                    : 'bg-[#F8F9FA] border border-dashed border-[#E0E0E0] hover:border-[#3182F6] hover:bg-white hover:-translate-y-0.5 hover:shadow-[0_4px_16px_rgba(49,130,246,0.15)]',
                 ].join(' ')}
                 title={p.connected ? '클릭하여 연동 정보 수정' : '클릭하여 연동하기'}
               >
@@ -648,13 +640,15 @@ export default function Dashboard() {
         {/* ── ② 통계 카드 4개 ── */}
         <div className="grid grid-cols-4 gap-4 mb-5">
           {stats.map((s, i) => (
-            <div key={i} className="bg-white rounded-2xl shadow-sm p-5 flex items-center gap-4">
-              <span className="text-3xl">{s.icon}</span>
-              <div>
-                <p className="text-xs text-[#8B95A1] font-medium mb-0.5">{s.label}</p>
-                <p className="text-xl font-black text-[#191F28]">{s.value}</p>
-                <p className={`text-[11px] font-bold mt-0.5 ${s.up ? 'text-[#12B76A]' : 'text-[#F04452]'}`}>
-                  {s.up ? '↑' : '↓'} {s.change} <span className="text-[#8B95A1] font-normal">전달 대비</span>
+            <div key={i} className="bg-white rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.04),0_8px_24px_rgba(17,24,39,0.06)] p-5 flex items-center gap-4 hover:shadow-[0_2px_6px_rgba(0,0,0,0.05),0_16px_40px_rgba(17,24,39,0.08)] transition-shadow">
+              <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#F8FBFF] to-[#EFF6FF] flex items-center justify-center text-2xl flex-shrink-0 ring-1 ring-[#E8F4FD]">
+                <span>{s.icon}</span>
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-[11px] text-[#8B95A1] font-semibold mb-0.5 tracking-wide">{s.label}</p>
+                <p className="text-2xl font-black text-[#191F28] tracking-tight">{s.value}</p>
+                <p className={`text-[11px] font-bold mt-1 ${s.up ? 'text-[#12B76A]' : 'text-[#F04452]'}`}>
+                  {s.up ? '↑' : '↓'} {s.change} <span className="text-[#8B95A1] font-medium">전달 대비</span>
                 </p>
               </div>
             </div>
@@ -662,10 +656,10 @@ export default function Dashboard() {
         </div>
 
         {/* ── ③ 메인 2컬럼 ── */}
-        <div className="grid grid-cols-[1fr_340px] gap-5 mb-5">
+        <div className="grid grid-cols-[1fr_420px] gap-6 mb-6">
 
           {/* 좌: 연동 플랫폼 별점·리뷰 현황 */}
-          <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+          <div className="bg-white rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.04),0_8px_24px_rgba(17,24,39,0.06)] overflow-hidden">
             <div className="px-5 py-4 border-b border-[#F2F4F6] flex items-center justify-between">
               <span className="text-sm font-bold text-[#191F28]">플랫폼별 별점 · 리뷰 현황</span>
               <span className="text-[11px] text-[#8B95A1]">연동된 플랫폼만 표시</span>
@@ -726,13 +720,13 @@ export default function Dashboard() {
           </div>
 
           {/* 우: 주요 키워드 실시간 순위 */}
-          <div className="bg-white rounded-2xl shadow-sm overflow-hidden flex flex-col">
-            <div className="px-5 py-4 border-b border-[#F2F4F6] flex items-center justify-between">
+          <div className="bg-white rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.04),0_8px_24px_rgba(17,24,39,0.06)] overflow-hidden flex flex-col">
+            <div className="px-6 py-5 border-b border-[#F2F4F6] flex items-center justify-between bg-gradient-to-r from-[#F8FBFF] to-white">
               <div>
-                <span className="text-sm font-bold text-[#191F28]">주요 키워드 순위</span>
-                <div className="flex items-center gap-1.5 mt-0.5">
+                <span className="text-base font-black text-[#191F28] tracking-tight">주요 키워드 순위</span>
+                <div className="flex items-center gap-1.5 mt-1">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#12B76A] animate-pulse inline-block"/>
-                  <span className="text-[10px] text-[#8B95A1]">실시간 · {lastSync}</span>
+                  <span className="text-[11px] text-[#8B95A1] font-medium">실시간 · {lastSync}</span>
                 </div>
               </div>
               <button
@@ -746,18 +740,18 @@ export default function Dashboard() {
 
             <div className="flex-1 divide-y divide-[#F2F4F6]">
               {keywords.map((kw) => (
-                <div key={kw.keyword} className="px-5 py-3.5 flex items-center gap-3 hover:bg-[#FAFBFF] transition-colors">
+                <div key={kw.keyword} className="px-6 py-4 flex items-center gap-4 hover:bg-[#FAFBFF] transition-colors cursor-pointer group">
                   <div className={[
-                    'w-8 h-8 rounded-lg flex items-center justify-center text-sm font-black flex-shrink-0',
-                    kw.rank <= 3  ? 'bg-[#3182F6] text-white'
+                    'w-11 h-11 rounded-xl flex items-center justify-center text-base font-black flex-shrink-0 transition-transform group-hover:scale-105',
+                    kw.rank <= 3  ? 'bg-gradient-to-br from-[#3182F6] to-[#1B64DA] text-white shadow-[0_4px_12px_rgba(49,130,246,0.3)]'
                     : kw.rank <= 10 ? 'bg-[#E8F4FD] text-[#3182F6]'
                     : 'bg-[#F2F4F6] text-[#8B95A1]',
                   ].join(' ')}>
                     {kw.rank}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-semibold text-[#191F28] truncate">{kw.keyword}</p>
-                    <p className="text-[10px] text-[#8B95A1]">{kw.area} · {kw.updatedAt}</p>
+                    <p className="text-[15px] font-bold text-[#191F28] truncate">{kw.keyword}</p>
+                    <p className="text-[11px] text-[#8B95A1] font-medium mt-0.5">{kw.area} · {kw.updatedAt}</p>
                   </div>
                   <RankBadge current={kw.rank} prev={kw.prevRank} />
                 </div>
@@ -767,7 +761,7 @@ export default function Dashboard() {
         </div>
 
         {/* ── ④ 최근 리뷰 ── */}
-        <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+        <div className="bg-white rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.04),0_8px_24px_rgba(17,24,39,0.06)] overflow-hidden">
           <div className="px-5 py-4 border-b border-[#F2F4F6] flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="text-sm font-bold text-[#191F28]">최근 리뷰</span>
