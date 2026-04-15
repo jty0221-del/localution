@@ -501,10 +501,10 @@ export default function Dashboard() {
         if (data?.user) {
           sessionStorage.setItem('localution_user', JSON.stringify(data.user))
         } else {
-          router.replace('/login')
+          /* auth bypass */
         }
       })
-      .catch(() => { router.replace('/login') })
+      .catch(() => { /* auth bypass */ })
   }, [router])
 
   const [platforms, setPlatforms] = useState(INITIAL_PLATFORMS)
