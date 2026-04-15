@@ -14,7 +14,6 @@ const FLAT_NAV = [
 const REVIEW_SUB = [
   { href: '/review-admin/naver',   label: '네이버',     icon: '🟢', color: '#03C75A' },
   { href: '/review-admin/google',  label: '구글',       icon: '🔵', color: '#4285F4' },
-  { href: '/review-admin/kakao',   label: '카카오',     icon: '🟡', color: '#F59E0B' },
   { href: '/review-admin/baemin',  label: '배달의민족', icon: '🩵', color: '#2AC1BC' },
   { href: '/review-admin/yogiyo',  label: '요기요',     icon: '🔴', color: '#FA0050' },
   { href: '/review-admin/coupang', label: '쿠팡이츠',   icon: '🟠', color: '#FF4B30' },
@@ -227,12 +226,12 @@ export default function Sidebar() {
         <div className="px-5 py-5 border-b border-[#F2F4F6]">
           <Link href="/" className="block">
             <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-lg bg-[#3182F6] flex items-center justify-center">
-                <span className="text-white font-black text-sm">L</span>
+              <div className="w-9 h-9 rounded-xl overflow-hidden flex-shrink-0 shadow-[0_2px_8px_rgba(49,130,246,0.25)] ring-1 ring-[#E8F4FD] bg-white flex items-center justify-center">
+                <img src="/favicon.ico" alt="로컬루션" width={28} height={28} style={{ objectFit: 'contain' }} />
               </div>
               <div>
-                <p className="font-black text-[#191F28] text-sm tracking-tight leading-none">Localution</p>
-                <p className="text-[10px] text-[#8B95A1] font-medium leading-none mt-0.5">로컬루션</p>
+                <p className="font-black text-[#191F28] text-[15px] tracking-tight leading-none">Localution</p>
+                <p className="text-[10px] text-[#8B95A1] font-semibold leading-none mt-1 tracking-wide">로컬루션</p>
               </div>
             </div>
           </Link>
