@@ -76,7 +76,7 @@ export default function Sidebar() {
   // 세션에서 유저 정보 로드
   useEffect(() => {
     fetch('/api/me').then(r => r.json()).then(data => {
-      if (data && data.name) setUser(data)
+      if (data && data.user && data.user.name) setUser(data.user)
     }).catch(() => {})
   }, [])
 
