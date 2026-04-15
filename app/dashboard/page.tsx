@@ -54,10 +54,10 @@ function BaeminLogo({ size = 28 }: { size?: number }) {
 function YogiyoLogo({ size = 28 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
-      <rect width="48" height="48" rx="10" fill="#FA1A32"/>
-      <circle cx="17" cy="17" r="4.5" fill="white"/>
-      <circle cx="31" cy="17" r="4.5" fill="white"/>
-      <path d="M11 27 Q24 40 37 27" stroke="white" strokeWidth="4.5" fill="none" strokeLinecap="round"/>
+      <rect width="48" height="48" rx="12" fill="#E5007F"/>
+      <text x="24" y="23" fontSize="11" fontWeight="900" fill="white" fontFamily="'Apple SD Gothic Neo','Noto Sans KR',sans-serif" textAnchor="middle">요기요</text>
+      <circle cx="24" cy="33" r="4" fill="white"/>
+      <path d="M16 43 Q24 39 32 43" stroke="white" strokeWidth="2.2" fill="none" strokeLinecap="round"/>
     </svg>
   )
 }
@@ -65,12 +65,11 @@ function YogiyoLogo({ size = 28 }: { size?: number }) {
 function CoupangEatsLogo({ size = 28 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
-      <rect width="48" height="48" rx="10" fill="#FF5A00"/>
-      <path d="M24 7 C24 7 33 14 33 24 L29 28 L19 28 L15 24 C15 14 24 7 24 7z" fill="white" opacity="0.95"/>
-      <circle cx="24" cy="22" r="4" fill="#FF5A00"/>
-      <path d="M19 28 L17 36 L24 32 L31 36 L29 28" fill="white" opacity="0.8"/>
-      <path d="M15 22 L10 26 L15 28" fill="white" opacity="0.6"/>
-      <path d="M33 22 L38 26 L33 28" fill="white" opacity="0.6"/>
+      <rect width="48" height="48" rx="12" fill="white" stroke="#E5E7EB" strokeWidth="1.5"/>
+      <text x="5" y="25" fontSize="9.5" fontWeight="800" fontFamily="Arial,sans-serif" letterSpacing="0.2">
+        <tspan fill="#E31837">c</tspan><tspan fill="#F4A900">o</tspan><tspan fill="#E31837">u</tspan><tspan fill="#5BAD48">p</tspan><tspan fill="#3B79BE">a</tspan><tspan fill="#E31837">n</tspan><tspan fill="#F4A900">g</tspan>
+      </text>
+      <text x="5" y="39" fontSize="13" fontWeight="900" fill="#4A2C0A" fontFamily="Arial,sans-serif">eats</text>
     </svg>
   )
 }
