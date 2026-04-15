@@ -12,7 +12,7 @@ function NaverPlaceLogo({ size = 28 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
       <rect width="48" height="48" rx="10" fill="#03C75A"/>
-      <path d="M24 9C17.37 9 12 13.25 12 18.5c0 3.5 2.2 6.6 5.6 8.47L15.8 33l6.12-4.06c.67.09 1.37.14 2.08.14 6.63 0 12-4.25 12-9.5S30.63 9 24 9z" fill="white"/>
+      <path d="M9 39V9h8L31 27V9h8v30h-8L17 21v18H9Z" fill="white"/>
     </svg>
   )
 }
@@ -79,7 +79,7 @@ function NaverSearchLogo({ size = 28 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
       <rect width="48" height="48" rx="10" fill="#03C75A"/>
-      <path d="M27 24.6L20.4 13.5H13.5v21H20V19.4l6.8 11.1H33.5v-21H27v15.1z" fill="white"/>
+      <path d="M9 39V9h8L31 27V9h8v30h-8L17 21v18H9Z" fill="white"/>
     </svg>
   )
 }
