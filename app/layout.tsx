@@ -29,6 +29,7 @@ export const metadata: Metadata = {
   creator: '하랑마케팅',
   publisher: '로컬루션',
   category: '마케팅 소프트웨어',
+  themeColor: '#3182F6',
   robots: {
     index: true,
     follow: true,
@@ -51,14 +52,7 @@ export const metadata: Metadata = {
     siteName: '로컬루션',
     title: '로컬루션 | 소상공인·자영업자 AI 마케팅 자동화 플랫폼',
     description: '네이버 플레이스·구글·배민 리뷰 AI 자동 답글, QR 리뷰 자동화, CRM 고객관리. 소상공인 올인원 마케팅 플랫폼.',
-    images: [
-      {
-        url: OG_IMAGE,
-        width: 1200,
-        height: 630,
-        alt: '로컬루션 - 소상공인 AI 마케팅 자동화 플랫폼',
-      },
-    ],
+    images: [{ url: OG_IMAGE, width: 1200, height: 630, alt: '로컬루션 - 소상공인 AI 마케팅 자동화 플랫폼' }],
   },
   twitter: {
     card: 'summary_large_image',
@@ -84,11 +78,6 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="ko">
-      <head>
-        <meta name="theme-color" content="#3182F6" />
-        <meta name="viewport" content="width=device-width, initial-scale=1" />
-        <link rel="preconnect" href="https://fonts.googleapis.com" />
-      </head>
       <body className={inter.className}>
         <JsonLd />
         {children}
