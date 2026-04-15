@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
+import TopNav from './components/TopNav'
 
 const FEATURES = [
   {
@@ -83,7 +84,6 @@ const NAV_LINKS = [
 export default function LandingPage() {
   const router = useRouter()
   const [checked, setChecked] = useState(false)
-  const [menuOpen, setMenuOpen] = useState(false)
 
   useEffect(() => {
     const check = async () => {
@@ -115,63 +115,7 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-white">
 
-      {/* ── 네비게이션 ── */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-b border-gray-100 shadow-sm">
-        <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
-          {/* 로고 */}
-          <Link href="/" className="flex items-center gap-2 select-none">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#3182F6] to-[#1B64DA] flex items-center justify-center shadow">
-              <span className="text-white font-black text-base">L</span>
-            </div>
-            <span className="text-xl font-black text-[#191F28] tracking-tight">로컬루션</span>
-          </Link>
-
-          {/* 데스크탑 메뉴 */}
-          <div className="hidden md:flex items-center gap-6">
-            {NAV_LINKS.map(l => (
-              <Link key={l.href} href={l.href} className="text-sm text-[#4E5968] hover:text-[#3182F6] font-medium transition-colors">
-                {l.label}
-              </Link>
-            ))}
-          </div>
-
-          {/* 우측 버튼 */}
-          <div className="hidden md:flex items-center gap-2">
-            <Link href="/login" className="text-sm text-[#4E5968] font-medium px-4 py-2 hover:text-[#3182F6] transition-colors">
-              로그인
-            </Link>
-            <Link href="/login" className="text-sm font-semibold bg-[#3182F6] text-white px-4 py-2 rounded-xl hover:bg-[#1B64DA] transition-colors shadow-sm">
-              무료 시작하기
-            </Link>
-          </div>
-
-          {/* 모바일 메뉴 버튼 */}
-          <button className="md:hidden p-2" onClick={() => setMenuOpen(!menuOpen)}>
-            <div className="w-5 h-0.5 bg-gray-600 mb-1" />
-            <div className="w-5 h-0.5 bg-gray-600 mb-1" />
-            <div className="w-5 h-0.5 bg-gray-600" />
-          </button>
-        </div>
-
-        {/* 모바일 드롭다운 */}
-        {menuOpen && (
-          <div className="md:hidden bg-white border-t border-gray-100 px-4 py-4 space-y-3">
-            {NAV_LINKS.map(l => (
-              <Link key={l.href} href={l.href} className="block text-sm text-[#4E5968] font-medium py-1" onClick={() => setMenuOpen(false)}>
-                {l.label}
-              </Link>
-            ))}
-            <div className="pt-2 flex flex-col gap-2">
-              <Link href="/login" className="text-center text-sm text-[#4E5968] font-medium py-2 border border-gray-200 rounded-xl">
-                로그인
-              </Link>
-              <Link href="/login" className="text-center text-sm font-semibold bg-[#3182F6] text-white py-2 rounded-xl">
-                무료 시작하기
-              </Link>
-            </div>
-          </div>
-        )}
-      </nav>
+            <TopNav />
 
       {/* ── 히어로 ── */}
       <section className="pt-32 pb-20 px-4 bg-gradient-to-b from-[#EFF6FF] to-white">
