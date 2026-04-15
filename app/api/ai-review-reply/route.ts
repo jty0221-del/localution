@@ -59,28 +59,66 @@ function classifyReview(text: string, rating: number): 'positive' | 'negative' |
   return 'neutral'
 }
 
-// 전문업체(expert) 톤일 때 출력에서 이모지·마크다운을 제거하는 후처리
-function stripExpertArtifacts(text: string): string {
+// 전문업체(expert)/심플(simple) 톤에서 이모지·마크다운 제거
+function stripArtifacts(text: string, dropEmoji: boolean): string {
   let out = text
-  // 굵은 글씨, 기울임 마크다운 제거
   out = out.split('**').join('')
   out = out.split('__').join('')
   out = out.split('##').join('')
-  out = out.split('`').join('')
-  // 이모지 대략 제거 (문자 코드 범위)
-  let cleaned = ''
-  for (const ch of out) {
-    const code = ch.codePointAt(0) || 0
-    const isEmoji =
-      (code >= 0x1F300 && code <= 0x1FAFF) ||
-      (code >= 0x2600 && code <= 0x27BF) ||
-      (code >= 0x1F000 && code <= 0x1F2FF) ||
-      code === 0xFE0F
-    if (!isEmoji) cleaned += ch
+  if (dropEmoji) {
+    let cleaned = ''
+    for (const ch of out) {
+      const code = ch.codePointAt(0) || 0
+      const isEmoji =
+        (code >= 0x1F300 && code <= 0x1FAFF) ||
+        (code >= 0x2600 && code <= 0x27BF) ||
+        (code >= 0x1F000 && code <= 0x1F2FF) ||
+        code === 0xFE0F
+      if (!isEmoji) cleaned += ch
+    }
+    out = cleaned
   }
-  // 연속 공백 정리
-  while (cleaned.indexOf('  ') !== -1) cleaned = cleaned.split('  ').join(' ')
-  return cleaned.trim()
+  while (out.indexOf('  ') !== -1) out = out.split('  ').join(' ')
+  return out.trim()
+}
+
+// 6종 톤 정의
+function toneDescription(tone: string): string {
+  const map: Record<string, string> = {
+    friendly: '친근하고 따뜻한 사장님 어투. 구어체("~거든요", "~잖아요", "~더라고요")를 자연스럽게 섞고, 사장님이 단골한테 말하듯 작성. 이모지는 전체에서 최대 1개.',
+    expert:   '정중하고 담백한 전문업체 서면 톤. 이모티콘·과장 표현·마크다운 일절 금지. 느낌표는 최대 1회. 짧고 단정한 문장.',
+    witty:    '밝고 위트 있는 톤. 살짝 장난스러운 농담을 한두 줄 섞되 무례하지 않게. 이모지는 전체에서 최대 1개.',
+    simple:   '짧고 깔끔한 담백 톤. 4~5문장 이내로 군더더기 없이 정리. 이모지·마크다운 금지.',
+    emo:      '잔잔하고 진심 담긴 편지 같은 감성 톤. 과장 없이 차분하고 따뜻하게. 이모지는 전체에서 최대 1개.',
+    mz:       '요즘 20대가 쓰는 자연스러운 톤. 너무 과한 밈이나 은어는 피하고, "~같아요", "~네요" 같은 부드러운 어미로. 이모지는 최대 1개.',
+    formal:   '정중하고 담백한 전문업체 서면 톤. 이모티콘 금지. 단정하게.',
+  }
+  return map[tone] || map.friendly
+}
+
+function genderLabel(g: string): string {
+  if (g === 'male') return '남성 고객'
+  if (g === 'female') return '여성 고객'
+  return ''
+}
+
+function ageLabel(a: string): string {
+  const map: Record<string, string> = {
+    teen: '10대', '20s': '20대', '30s': '30대', '40s': '40대', '50s': '50대', '60s': '60대 이상',
+  }
+  return map[a] || ''
+}
+
+function ageToneHint(a: string): string {
+  const map: Record<string, string> = {
+    teen: '10대 고객. 너무 어른스럽지 않게, 밝고 경쾌한 톤. 과한 존댓말은 피하고 부드럽게',
+    '20s': '20대 고객. 자연스러운 구어체, 트렌디하되 과하지 않게',
+    '30s': '30대 고객. 정중하면서도 친근한 균형 잡힌 톤',
+    '40s': '40대 고객. 안정감 있고 따뜻한 톤. 너무 가볍지 않게',
+    '50s': '50대 고객. 정중하고 따뜻한 톤. 예의를 갖춰서',
+    '60s': '60대 이상 고객. 정중하고 차분한 톤. 존중하는 어투로, 어려운 단어는 피할 것',
+  }
+  return map[a] || ''
 }
 
 function buildSystemPrompt(ctx: {
@@ -103,27 +141,20 @@ function buildSystemPrompt(ctx: {
     closing: string
     excludes: string
   }
+  customerProfile: { gender: string; age: string }
 }): string {
   const { lang, platform, bizType, storeName, region, mainKeyword, subKeywords,
-          storeDesc, storeStrengths, ownerMindset, reviewType, rating, aiSettings } = ctx
+          storeDesc, storeStrengths, ownerMindset, reviewType, rating, aiSettings, customerProfile } = ctx
   const lc = LANG_CONFIG[lang] || LANG_CONFIG['ko']
-  const isKo = lang === 'ko'
-  const isExpert = aiSettings.tone === 'expert' || aiSettings.tone === 'formal'
-
-  const toneMap: Record<string, string> = {
-    friendly: isKo ? '친근하고 따뜻한 어투. 사장님이 직접 단골손님한테 말하듯 구어체를 섞어 쓰는 느낌' : 'warm, friendly, and genuine',
-    formal:   isKo ? '정중하고 담백한 전문업체 어투. 과장 표현과 이모티콘을 일절 쓰지 않음' : 'polite and professional, no emoji',
-    expert:   isKo ? '전문업체가 쓰는 정중하고 담백한 어투. 이모티콘·과장 표현·마크다운 없이 짧고 단정한 문장으로 작성' : 'expert and trustworthy, no emoji, no markdown',
-  }
+  const isExpert = aiSettings.tone === 'expert' || aiSettings.tone === 'formal' || aiSettings.tone === 'simple'
 
   const lengthMap: Record<string, string> = {
-    short:  isKo ? '4~5문장 (120~180자)'   : '4-5 sentences',
-    medium: isKo ? '7~9문장 (220~360자)'   : '7-9 sentences',
-    long:   isKo ? '10~13문장 (360~520자)' : '10-13 sentences',
+    short:  '4~5문장 (120~180자)',
+    medium: '7~9문장 (220~360자)',
+    long:   '10~13문장 (360~520자)',
   }
-
-  const tone   = toneMap[aiSettings.tone]   || toneMap['friendly']
   const length = lengthMap[aiSettings.length] || lengthMap['medium']
+  const toneText = toneDescription(aiSettings.tone)
 
   const kwArr = [
     region && mainKeyword ? region + ' ' + mainKeyword : '',
@@ -152,27 +183,37 @@ function buildSystemPrompt(ctx: {
   if (kwArr.length)    lines.push('- SEO 핵심 키워드: ' + kwArr.join(' / '))
   lines.push('')
 
+  // 고객 프로필
+  const g = genderLabel(customerProfile.gender)
+  const a = ageLabel(customerProfile.age)
+  if (g || a) {
+    lines.push('[고객 프로필]')
+    if (g) lines.push('- 성별: ' + g)
+    if (a) lines.push('- 연령대: ' + a)
+    const hint = ageToneHint(customerProfile.age)
+    if (hint) lines.push('- 말투 가이드: ' + hint)
+    lines.push('- 단, 답글 본문에 성별이나 나이를 직접 언급하지는 마세요. 말투에만 반영하세요.')
+    lines.push('')
+  }
+
   lines.push('[이 리뷰의 상황 및 답글 전략]')
   if (reviewType === 'empty' || reviewType === 'photo_only') {
     lines.push('- 고객은 텍스트 없이 ' + (rating > 0 ? '별점 ' + rating + '점' : '사진만') + ' 남겼습니다.')
-    lines.push('- 방문에 대한 감사와 매장의 강점을 자연스럽게 녹여 작성하세요.')
-    lines.push('- 다음 방문 시 기대할 수 있는 경험을 간단히 언급해 주세요.')
+    lines.push('- 방문 감사와 매장 강점을 자연스럽게 녹여 작성하세요.')
   } else if (reviewType === 'negative') {
-    lines.push('- 별점 ' + rating + '점의 부정적 리뷰입니다.')
-    lines.push('- 변명은 금지. 진심 어린 사과가 먼저입니다.')
+    lines.push('- 별점 ' + rating + '점의 부정 리뷰입니다.')
+    lines.push('- 변명 금지. 진심 어린 사과가 먼저입니다.')
     lines.push('- 불만을 구체적으로 인정하고 개선 의지를 전달하세요.')
-    lines.push('- 마지막에 재방문 기회를 정중하게 요청하세요 (강요 금지).')
   } else if (reviewType === 'positive') {
     lines.push('- 별점 ' + rating + '점의 긍정 리뷰입니다.')
-    lines.push('- 리뷰에서 언급된 구체적인 내용에 직접 반응하세요.')
-    lines.push('- 매장 강점을 자연스럽게 녹여 브랜드 신뢰를 높이세요.')
+    lines.push('- 리뷰에서 언급된 구체적 내용에 직접 반응하세요.')
   } else {
     lines.push('- 별점 ' + rating + '점 리뷰입니다. 균형 잡힌 답변을 작성하세요.')
   }
   lines.push('')
 
   lines.push('[답변 기준]')
-  lines.push('- 톤: ' + tone)
+  lines.push('- 톤: ' + toneText)
   lines.push('- 길이: ' + length)
   lines.push('')
 
@@ -180,68 +221,44 @@ function buildSystemPrompt(ctx: {
     lines.push('[SEO 최적화]')
     lines.push('- 아래 키워드를 자연스럽게 2~3회 녹여 넣으세요: ' + kwArr.slice(0, 4).join(', '))
     lines.push('- 매장명 또는 지역+업종을 첫 문단이나 마지막 문단에 1회 이상 언급')
-    lines.push('- 억지로 박아 넣지 말고 문맥에 맞게 자연스럽게')
     lines.push('')
   }
 
-  const includeItems: string[] = []
-  if (aiSettings.includes['thanks'])      includeItems.push('방문과 리뷰에 대한 감사 (과장 없이)')
-  if (aiSettings.includes['revisit'])     includeItems.push('자연스러운 재방문 유도')
-  if (aiSettings.includes['mention'])     includeItems.push('고객이 언급한 메뉴·서비스·경험에 직접 공감')
-  if (aiSettings.includes['personalize']) includeItems.push('닉네임 확인 시 "OO님"으로 시작')
-  if (aiSettings.includes['improve'])     includeItems.push('부정 언급 시 진정성 있는 사과와 개선 의지')
-  if (aiSettings.includes['keyword'])     includeItems.push('매장 핵심 키워드를 문맥에 맞게 자연 삽입')
-  if (aiSettings.includes['strengths'])   includeItems.push('매장의 강점을 자연스럽게 어필')
-  if (aiSettings.includes['mindset'])     includeItems.push('사장의 마인드가 답변 전체에 배어 있어야 함')
-
-  if (includeItems.length) {
-    lines.push('[필수 포함 요소]')
-    includeItems.forEach(item => lines.push('- ' + item))
-    lines.push('')
-  }
-
-  // ── 공통 · AI 말투 금지 규칙 (모든 톤 공통) ──
-  lines.push('[AI 말투 금지 · 모든 답글 공통]')
-  lines.push('- 다음 과장된 형용사·부사 사용 금지: 혁신적인, 경이로운, 단연코, 필수적, 주목할 만한, 완벽한, 최고의, 압도적, 궁극의')
-  lines.push('- 영혼 없는 마무리 문구 금지: 결론적으로, 요약하자면, 마지막으로, 이처럼, 이상으로, 정리하자면')
+  // 공통 AI 말투 금지
+  lines.push('[AI 말투 금지 · 모든 톤 공통]')
+  lines.push('- 다음 과장 형용사 금지: 혁신적인, 경이로운, 단연코, 필수적, 주목할 만한, 완벽한, 최고의, 압도적, 궁극의')
+  lines.push('- 영혼 없는 마무리 금지: 결론적으로, 요약하자면, 마지막으로, 이처럼, 이상으로, 정리하자면')
   lines.push('- 번역투 금지: "~에 있어서", "~하는 것은 중요합니다", "~을 제공합니다", "당신은"')
-  lines.push('- 딱딱한 다나까만 반복 금지. "~거든요", "~잖아요", "~더라고요", "~인 것 같아요" 같은 구어체를 섞어서 자연스럽게')
-  lines.push('- 뻔한 도입 금지: "안녕하세요. 오늘은 ...에 대해 알아보겠습니다" 같은 블로그 AI 서두')
-  lines.push('- 마크다운 서식 금지: 별 두 개, 별 하나, 밑줄 두 개, 우물정 두 개, 백틱 모두 절대 사용 금지. 일반 문장으로만')
-  lines.push('- 키워드 기계적 볼드 금지. 모든 키워드에 강조를 걸지 말 것')
-  lines.push('- 규칙적 이모지 패턴 금지. 문장 끝마다 이모지를 박지 말 것')
+  lines.push('- 딱딱한 다나까 반복 금지. 구어체 어미를 자연스럽게 섞을 것')
+  lines.push('- 뻔한 도입부 금지: "안녕하세요. 오늘은 ..."')
+  lines.push('- 마크다운 서식 금지: 별표 두 개, 별표 하나, 밑줄 두 개, 우물정 두 개, 백틱 모두 금지. 평문으로만')
+  lines.push('- 키워드 기계적 볼드 금지')
+  lines.push('- 규칙적 이모지 패턴 금지. 문장마다 이모지를 박지 말 것')
   lines.push('')
 
   if (isExpert) {
-    lines.push('[전문업체 톤 · 추가 규칙]')
-    lines.push('- 이모티콘, 이모지 절대 사용 금지. 단 한 개도 쓰지 마세요')
-    lines.push('- 느낌표는 답글 전체에서 최대 1회까지만 사용')
-    lines.push('- 마크다운(**, *, __, ##) 절대 금지. 일반 평문으로만 작성')
-    lines.push('- 과한 감탄사나 "와~", "진짜", "완전" 같은 구어체 강조 금지')
-    lines.push('- 문장은 짧고 단정하게. 정중한 전문가 서면 톤을 유지')
-    lines.push('- 고정 마무리 문구 없으면 "감사합니다." 같은 담백한 한 문장으로 끝내도 됨')
-    lines.push('')
-  } else {
-    lines.push('[따뜻한 사장님 톤 · 추가 규칙]')
-    lines.push('- 이모지는 전체 답글에서 최대 1개까지만. 모든 문장 끝에 박지 말 것')
-    lines.push('- 사장님이 직접 쓰듯 구어체 어미를 자연스럽게 섞어 쓰기')
+    lines.push('[전문업체/심플 톤 · 추가 규칙]')
+    lines.push('- 이모티콘 절대 금지. 단 한 개도 쓰지 마세요')
+    lines.push('- 느낌표는 전체 답글에서 최대 1회')
+    lines.push('- 마크다운 절대 금지. 평문으로만')
+    lines.push('- 짧고 단정한 문장. 정중한 서면 톤')
     lines.push('')
   }
 
   lines.push('[절대 금지]')
   lines.push('- ' + lc.forbidden)
   lines.push('- 동일 표현 반복')
-  lines.push('- 마크다운 볼드 및 이탤릭')
+  lines.push('- 마크다운 볼드/이탤릭')
   if (aiSettings.excludes) lines.push('- 사용 금지 표현: ' + aiSettings.excludes)
   lines.push('')
 
   if (aiSettings.closing) {
-    lines.push('[고정 마무리 문구]')
+    lines.push('[고정 마무리]')
     lines.push('마지막 문장은 반드시: "' + aiSettings.closing + '"')
     lines.push('')
   }
 
-  lines.push('리뷰 상황에 맞게 매장의 강점과 사장 마인드를 담아 작성하세요. 마크다운 없이 일반 평문만 출력하세요.')
+  lines.push('리뷰 상황에 맞게 매장 강점과 사장 마인드를 담아 작성하세요. 마크다운 없이 평문으로만 출력하세요.')
   return lines.join('\n')
 }
 
@@ -260,6 +277,7 @@ export async function POST(req: NextRequest) {
       storeDesc = '',
       storeStrengths = '',
       ownerMindset = '',
+      customerProfile = { gender: 'none', age: '' },
       aiSettings = {
         tone: 'friendly',
         length: 'medium',
@@ -274,11 +292,12 @@ export async function POST(req: NextRequest) {
     const reviewType = classifyReview(reviewText, rating)
     const lang = detectLang(reviewText)
     const lc   = LANG_CONFIG[lang] || LANG_CONFIG['ko']
-    const isExpert = aiSettings.tone === 'expert' || aiSettings.tone === 'formal'
+    const isExpert = aiSettings.tone === 'expert' || aiSettings.tone === 'formal' || aiSettings.tone === 'simple'
 
     const systemPrompt = buildSystemPrompt({
       lang, platform, bizType, storeName, region, mainKeyword, subKeywords,
       storeDesc, storeStrengths, ownerMindset, reviewType, rating, aiSettings,
+      customerProfile,
     })
 
     let userMessage: string
@@ -292,25 +311,54 @@ export async function POST(req: NextRequest) {
 
     const apiKey = process.env.ANTHROPIC_API_KEY
     if (!apiKey) {
-      // 목업 응답
       const name = storeName || '저희 매장'
       const reg  = region || ''
-      const mocksFriendly: Record<string, string> = {
-        empty: '방문해 주셔서 감사해요. 별점 남겨 주신 것만으로도 힘이 되거든요. ' + (reg ? reg + '에서 ' : '') + name + ' 운영하면서 하나하나 신경 쓰고 있어요. 다음에 오실 때는 더 좋은 시간 드릴 수 있게 준비할게요.',
-        negative: '불편하셨던 부분 정말 죄송해요. 말씀해 주신 내용 꼼꼼히 확인하고 바로잡겠습니다. 다시 한 번 기회를 주시면 더 나아진 모습으로 맞이하겠습니다.',
-        positive: '이렇게 따뜻하게 써 주셔서 정말 감사해요. 말씀하신 부분 읽으면서 저희도 기분 좋아졌거든요. 다음에도 같은 정성으로 준비해 둘게요.',
-        neutral: '리뷰 남겨 주셔서 감사합니다. 말씀해 주신 부분 참고해서 더 좋게 만들어 나갈게요. 다음에 또 뵙길 바랍니다.',
+      const tone = aiSettings.tone
+
+      const mocks: Record<string, Record<string, string>> = {
+        friendly: {
+          empty: '방문해 주셔서 감사해요. 별점 남겨 주신 것만으로도 힘이 나더라고요. ' + (reg ? reg + ' ' : '') + name + ' 운영하면서 하나하나 신경 쓰고 있거든요. 다음에 오시면 더 좋은 시간 드릴게요.',
+          negative: '불편하셨던 부분 정말 죄송해요. 말씀해 주신 내용 꼼꼼히 보고 바로잡을게요. 다시 한 번 기회 주시면 더 나아진 모습으로 맞이할게요.',
+          positive: '이렇게 따뜻하게 써 주셔서 정말 감사해요. 말씀하신 부분 읽으면서 저희도 기분 좋아졌거든요. 다음에도 같은 정성으로 준비해 둘게요.',
+          neutral: '리뷰 남겨 주셔서 감사해요. 부족했던 부분 더 다듬어서 다음엔 더 좋은 경험 드릴게요.',
+        },
+        expert: {
+          empty: '방문해 주셔서 감사합니다. ' + (reg ? reg + ' ' : '') + name + '은 매장 운영에 최선을 다하고 있습니다. 다음 방문 시에도 만족스러운 경험을 드릴 수 있도록 준비하겠습니다.',
+          negative: '불편을 드려 죄송합니다. 남겨 주신 의견을 진지하게 받아들이고 개선에 반영하겠습니다. 다시 방문해 주시면 더 나은 모습으로 맞이하겠습니다.',
+          positive: '소중한 리뷰 감사드립니다. 언급해 주신 부분은 저희가 지속적으로 신경 쓰는 영역입니다. 앞으로도 일관된 품질로 준비하겠습니다.',
+          neutral: '리뷰 남겨 주셔서 감사합니다. 말씀하신 부분은 내부적으로 검토하여 개선하겠습니다.',
+        },
+        witty: {
+          empty: '별점 감사합니다. 저희가 준비한 정성이 조금이라도 전해졌다면 그걸로 충분하거든요. 다음에 오시면 메뉴판 숨겨둔 비밀 하나 살짝 알려드릴게요.',
+          negative: '이번엔 저희가 많이 부족했네요. 솔직하게 말씀해 주신 게 제일 감사해요. 다음엔 꼭 달라진 모습으로 만나뵐게요.',
+          positive: '리뷰 읽으면서 주방에서 다 같이 웃었거든요. 다음에 오시면 살짝 더 신경 써서 준비해 둘게요. 또 뵙고 싶어요.',
+          neutral: '리뷰 감사해요. 아쉬운 부분 하나씩 다듬어 나가는 중이거든요. 다음엔 더 마음에 드시면 좋겠어요.',
+        },
+        simple: {
+          empty: '방문과 별점 감사합니다. 다음에도 좋은 시간 드릴 수 있도록 준비하겠습니다.',
+          negative: '불편을 드려 죄송합니다. 말씀해 주신 부분 개선하겠습니다. 다시 찾아주시면 감사하겠습니다.',
+          positive: '좋은 리뷰 감사합니다. 다음에도 같은 정성으로 준비하겠습니다.',
+          neutral: '리뷰 감사합니다. 부족한 부분 다듬어 나가겠습니다.',
+        },
+        emo: {
+          empty: '저희 가게 찾아 주셔서 고마워요. 말 없이 남기신 별 하나하나가 저희에겐 오래 기억되거든요. 다음 걸음도 따뜻하게 맞이할게요.',
+          negative: '마음 불편하게 해드려 정말 죄송해요. 꾸며내지 않고 말씀해 주셔서 오히려 감사한 마음이에요. 다시 기회 주시면 꼭 달라진 모습으로 뵐게요.',
+          positive: '이렇게 정성스러운 리뷰, 오래 간직할게요. 글 하나하나 읽으면서 저희도 괜히 뭉클해졌거든요. 다음 걸음도 기다릴게요.',
+          neutral: '리뷰 남겨 주셔서 고마워요. 부족했던 부분, 조용히 하나씩 채워 나갈게요.',
+        },
+        mz: {
+          empty: '방문해 주셔서 감사해요. 별점 남겨 주신 것만으로도 진짜 힘 나거든요. 다음에 오시면 더 신경 써서 준비해 둘게요.',
+          negative: '이번엔 저희가 많이 부족했네요. 솔직한 후기 정말 감사해요. 말씀해 주신 부분 바로 손볼게요. 다음엔 꼭 더 나은 모습으로 뵙고 싶어요.',
+          positive: '리뷰 읽다가 혼자 괜히 미소 지었어요. 이런 말 해주셔서 진짜 감사해요. 다음에도 같은 느낌 드릴 수 있게 준비해 둘게요.',
+          neutral: '리뷰 감사해요. 아쉬운 부분 하나씩 다듬어 보고 있어요. 다음엔 더 좋아진 모습으로 뵐게요.',
+        },
       }
-      const mocksExpert: Record<string, string> = {
-        empty: '방문해 주셔서 감사합니다. ' + (reg ? reg + ' ' : '') + name + '은 매장 운영에 최선을 다하고 있습니다. 다음 방문 시에도 만족스러운 경험을 드릴 수 있도록 준비하겠습니다.',
-        negative: '불편을 드려 죄송합니다. 남겨 주신 의견을 진지하게 받아들이고 개선에 반영하겠습니다. 다시 방문해 주시면 더 나은 모습으로 맞이하겠습니다.',
-        positive: '소중한 리뷰 감사드립니다. 언급해 주신 부분은 저희가 지속적으로 신경 쓰는 영역입니다. 앞으로도 일관된 품질로 준비하겠습니다.',
-        neutral: '리뷰 남겨 주셔서 감사합니다. 말씀하신 부분은 내부적으로 검토하여 개선해 나가겠습니다.',
-      }
-      const set = isExpert ? mocksExpert : mocksFriendly
+      mocks.formal = mocks.expert
+
+      const set = mocks[tone] || mocks.friendly
       const typeKey = reviewType === 'photo_only' ? 'empty' : reviewType
       let reply = set[typeKey] || set['positive']
-      if (isExpert) reply = stripExpertArtifacts(reply)
+      if (isExpert) reply = stripArtifacts(reply, true)
       return NextResponse.json({ reply, lang, reviewType, mock: true })
     }
 
@@ -337,7 +385,7 @@ export async function POST(req: NextRequest) {
 
     const data  = await resp.json()
     let reply = data.content?.[0]?.text?.trim() || '답변 생성 실패'
-    if (isExpert) reply = stripExpertArtifacts(reply)
+    if (isExpert) reply = stripArtifacts(reply, true)
 
     return NextResponse.json({ reply, lang, reviewType })
   } catch (err) {
