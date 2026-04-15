@@ -2,8 +2,8 @@
 export const dynamic = 'force-dynamic'
 
 import { useState } from 'react'
+import Sidebar from '../components/Sidebar'
 import Link from 'next/link'
-import TopNav from '../components/TopNav'
 
 type Feature = {
   id: string
@@ -91,10 +91,11 @@ export default function PricingPage() {
   const filtered  = filter === '전체' ? features : features.filter(f => f.category === filter)
 
   return (
-    <div className="min-h-screen bg-[#F2F4F6]">
-      <TopNav />
+    <div className="min-h-screen bg-[#F2F4F6] flex">
+      <Sidebar />
+      <main className="flex-1 md:ml-[220px] p-4 md:p-8 pt-8">
 
-      <div className="pt-24 pb-20 px-4 max-w-6xl mx-auto">
+      <div className="max-w-6xl mx-auto pb-10">
 
         {/* 신뢰 배너 */}
         <div className="flex justify-center mb-6">
@@ -364,6 +365,8 @@ export default function PricingPage() {
           </div>
         )}
       </div>
+      </div>
+    </main>
     </div>
   )
 }
