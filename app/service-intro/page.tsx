@@ -2,8 +2,8 @@
 export const dynamic = 'force-dynamic'
 
 import { useState } from 'react'
+import Sidebar from '../components/Sidebar'
 import Link from 'next/link'
-import TopNav from '../components/TopNav'
 
 const SAMPLE_STORE = {
   name: '타이백스트릿 해운대점',
@@ -82,9 +82,9 @@ export default function ServiceIntro() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F2F4F6]">
-
-            <TopNav />
+    <div className="min-h-screen bg-[#F2F4F6] flex">
+      <Sidebar />
+      <main className="flex-1 md:ml-[220px] overflow-y-auto">
 
       {/* 헤더 히어로 */}
       <div style={{ background: 'linear-gradient(135deg, #1B3FD8 0%, #3182F6 100%)' }} className="text-white pt-16">
@@ -234,6 +234,7 @@ export default function ServiceIntro() {
           </Link>
         </div>
       </div>
+    </main>
     </div>
   )
 }
