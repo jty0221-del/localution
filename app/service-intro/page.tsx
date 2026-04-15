@@ -70,7 +70,7 @@ const STEPS = [
   { num: 2, title: '리뷰 목록 확인', desc: '연동된 플랫폼의 최신 리뷰를 한 화면에서 확인합니다. 별점·미답변 필터 지원.' },
   { num: 3, title: 'AI 답글 생성', desc: '리뷰 내용과 매장 특성, 고객 프로필(성별·연령대)을 반영해 SEO 맞춤 답글을 만들어 줍니다. 톤은 6가지 중 선택.' },
   { num: 4, title: '검토 및 수정', desc: '생성된 답글을 직접 편집하고 다듬을 수 있습니다.' },
-  { num: 5, title: '직접 게시', desc: '완성된 답글을 복사해서 각 플랫폼에 직접 게시합니다.' },
+  { num: 5, title: '원클릭 자동 게시', desc: '연동된 플랫폼에 버튼 한 번으로 답글이 자동 게시됩니다. 복사·붙여넣기 불필요.' },
 ]
 
 function Stars({ n }: { n: number }) {
@@ -109,6 +109,7 @@ export default function ServiceIntro() {
   const [tone, setTone] = useState<string>('friendly')
   const [gender, setGender] = useState<string>('none')
   const [age, setAge] = useState<string>('30s')
+  const [postStatus, setPostStatus] = useState<Record<string, 'idle' | 'posting' | 'done'>>({})
 
   async function generateReply(reviewId: string, reviewText: string) {
     setLoading(prev => ({ ...prev, [reviewId]: true }))
@@ -354,18 +355,31 @@ export default function ServiceIntro() {
 
                 {aiReplies[r.id] && (
                   <div className="border-t border-[#E5E8EB] bg-[#F0F9FF] p-5">
-                    <p className="text-sm font-black text-[#3182F6] mb-3">AI 생성 답글 · 편집 후 플랫폼에 직접 게시</p>
+                    <p className="text-sm font-black text-[#3182F6] mb-3">AI 생성 답글 · 편집 후 원클릭으로 게시하세요</p>
                     <textarea defaultValue={aiReplies[r.id]} rows={5}
                       className="w-full border border-[#93C5FD] rounded-xl px-4 py-3 text-base outline-none focus:border-[#3182F6] resize-none bg-white leading-relaxed" />
-                    <div className="flex gap-2 justify-between mt-3 flex-wrap">
-                      <button onClick={() => generateReply(r.id, r.text)}
-                        className="text-sm px-4 py-2 border border-[#3182F6] text-[#3182F6] rounded-lg hover:bg-[#EFF6FF] font-bold">
-                        재생성
+                    <div className="flex gap-3 mt-4 flex-wrap">
+                      <button onClick={() => generateReply(r.id, r.text)} disabled={loading[r.id] || postStatus[r.id] === 'posting'}
+                        className="flex-1 min-w-[120px] text-base px-5 py-3.5 border-2 border-[#3182F6] text-[#3182F6] rounded-xl hover:bg-[#EFF6FF] font-black transition-colors disabled:opacity-50">
+                        ↻ 재생성
                       </button>
-                      <div className="flex items-center gap-2 text-sm text-[#8B95A1]">
-                        <span>복사 후 각 플랫폼에 직접 게시</span>
-                      </div>
+                      <button onClick={() => autoPost(r.id, r.platform)} disabled={postStatus[r.id] === 'posting' || postStatus[r.id] === 'done'}
+                        className="flex-[2] min-w-[220px] text-base px-5 py-3.5 bg-[#3182F6] text-white rounded-xl hover:bg-[#1B64DA] font-black disabled:opacity-70 transition-colors shadow-[0_4px_16px_rgba(49,130,246,0.35)]">
+                        {postStatus[r.id] === 'posting' ? (
+                          <span className="inline-flex items-center gap-2"><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block" />게시 중...</span>
+                        ) : postStatus[r.id] === 'done' ? (
+                          <span>✓ 게시 완료</span>
+                        ) : (
+                          <span>원클릭 게시</span>
+                        )}
+                      </button>
                     </div>
+                    {postStatus[r.id] === 'done' && (
+                      <p className="text-sm text-[#12B76A] font-bold mt-3 flex items-center gap-1.5">
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#12B76A]" />
+                        {PLATFORMS.find(p => p.key === r.platform)?.label || r.platform}에 답글이 성공적으로 등록되었습니다
+                      </p>
+                    )}
                   </div>
                 )}
               </div>
@@ -378,7 +392,7 @@ export default function ServiceIntro() {
           <h2 className="text-2xl font-black text-[#191F28] mb-6">서비스 이용 안내</h2>
           <div className="grid grid-cols-2 gap-5">
             {[
-              { title: '자동 게시 없음', desc: '로컬루션은 사용자 계정으로 답글을 자동 게시하지 않습니다. 생성된 답글은 사업자가 직접 플랫폼에 등록합니다.', color: '#F0FDF4', border: '#BBF7D0', titleColor: '#166534' },
+              { title: '원클릭 자동 게시', desc: '매장 플랫폼 연동만 완료하면 버튼 한 번으로 답글이 자동 게시됩니다. 복사·붙여넣기 없이 5초 내 완료.', color: '#F0FDF4', border: '#BBF7D0', titleColor: '#166534' },
               { title: 'AI 처리 범위', desc: '공개된 리뷰 텍스트와 사업자가 입력한 매장 정보만 AI 처리에 사용됩니다. 고객 개인정보는 수집하지 않습니다.', color: '#EFF6FF', border: '#93C5FD', titleColor: '#1B64DA' },
               { title: '데이터 보관', desc: '매장 연동 정보는 사용자 브라우저에만 저장됩니다. 서버에 개인 식별 데이터를 저장하지 않습니다.', color: '#FFF7ED', border: '#FED7AA', titleColor: '#9A3412' },
               { title: '서비스 대상', desc: '카페, 음식점, 미용실 같은 소상공인과 여러 매장을 관리하는 마케팅 대행사를 위한 서비스입니다.', color: '#F5F3FF', border: '#C4B5FD', titleColor: '#5B21B6' },
