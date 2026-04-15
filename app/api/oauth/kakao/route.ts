@@ -1,15 +1,19 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 export const dynamic = 'force-dynamic'
 
-export async function GET() {
-  const clientId    = process.env.KAKAO_CLIENT_ID
-  const redirectUri = process.env.KAKAO_REDIRECT_URI ||
-    'https://localution.vercel.app/api/oauth/kakao/callback'
-  const baseUrl     = process.env.NEXT_PUBLIC_BASE_URL || 'https://localution.vercel.app'
+export async function GET(req: NextRequest) {
+  const clientId = process.env.KAKAO_CLIENT_ID
+  const baseUrl  = process.env.NEXT_PUBLIC_BASE_URL || 'https://www.localution.co.kr'
 
   if (!clientId) {
+    console.error('[Kakao OAuth] KAKAO_CLIENT_ID 환경변수 없음')
     return NextResponse.redirect(baseUrl + '/login?error=kakao_config')
   }
+
+  const host        = req.headers.get('host') || 'www.localution.co.kr'
+  const proto       = host.indexOf('localhost') >= 0 ? 'http' : 'https'
+  const autoUri     = proto + '://' + host + '/api/oauth/kakao/callback'
+  const redirectUri = process.env.KAKAO_REDIRECT_URI || autoUri
 
   const state = Math.random().toString(36).slice(2) + Date.now().toString(36)
 
@@ -20,15 +24,11 @@ export async function GET() {
     state,
   })
 
-  const res = NextResponse.redirect(
-    'https://kauth.kakao.com/oauth/authorize?' + params.toString()
-  )
-  res.cookies.set('kakao_oauth_state', state, {
-    httpOnly: true,
-    secure: process.env.NODE_ENV === 'production',
-    sameSite: 'lax',
-    maxAge: 300,
-    path: '/',
-  })
+  console.log('[Kakao OAuth] redirect_uri =', redirectUri)
+
+  const authUrl = 'https://kauth.kakao.com/oauth/authorize?' + params.toString()
+  const res = NextResponse.redirect(authUrl)
+  res.cookies.set('kakao_oauth_state', state, { httpOnly: true, secure: true, sameSite: 'lax', maxAge: 300, path: '/' })
+  res.cookies.set('kakao_redirect_uri', redirectUri, { httpOnly: true, secure: true, sameSite: 'lax', maxAge: 300, path: '/' })
   return res
 }
