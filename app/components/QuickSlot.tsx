@@ -17,7 +17,7 @@ const LINKS = [
 export default function QuickSlot() {
   const [open, setOpen] = useState(false)
   const pathname = usePathname()
-  if (pathname === '/login') return null
+  if (!pathname || pathname === '/login') return null
   const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
