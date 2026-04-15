@@ -38,8 +38,8 @@ export default function TopNav() {
 
         {/* 로고 */}
         <Link href="/" className="flex items-center gap-2 select-none">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#3182F6] to-[#1B64DA] flex items-center justify-center shadow">
-            <span className="text-white font-black text-base">L</span>
+          <div className="w-10 h-10 rounded-xl overflow-hidden flex-shrink-0 shadow-[0_2px_10px_rgba(49,130,246,0.22)] ring-1 ring-[#E8F4FD] bg-white flex items-center justify-center">
+            <img src="/favicon.ico" alt="로컬루션" width={32} height={32} style={{ objectFit: 'contain' }} />
           </div>
           <span className="text-xl font-black text-[#191F28] tracking-tight">로컬루션</span>
         </Link>
