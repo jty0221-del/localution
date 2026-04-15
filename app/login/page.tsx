@@ -7,12 +7,17 @@ import { useRouter } from 'next/navigation'
 export default function LoginPage() {
   const router = useRouter()
   const [errMsg, setErrMsg] = useState('')
+  const [reviewCount, setReviewCount] = useState(0)
+  const [newCustomer, setNewCustomer] = useState(0)
+  const [liveDot, setLiveDot] = useState(true)
+  const [tiltX, setTiltX] = useState(0)
+  const [tiltY, setTiltY] = useState(0)
 
   useEffect(() => {
     const hasCookie = document.cookie.split(';').some(function(c) {
       return c.trim().indexOf('localution_session=') === 0
     })
-    if (hasCookie) { router.replace('/'); return; }
+    if (hasCookie) { router.replace('/'); return }
 
     const search = window.location.search
     if (search.indexOf('error=') >= 0) {
@@ -21,7 +26,7 @@ export default function LoginPage() {
       pairs.forEach(function(p) {
         if (p.indexOf('error=') === 0) errVal = decodeURIComponent(p.slice(6))
       })
-      if (errVal === 'kakao_denied')   setErrMsg('카카오 로그인이 취소되었습니다.')
+      if (errVal === 'kakao_denied')        setErrMsg('카카오 로그인이 취소되었습니다.')
       else if (errVal === 'google_denied')  setErrMsg('구글 로그인이 취소되었습니다.')
       else if (errVal === 'naver_denied')   setErrMsg('네이버 로그인이 취소되었습니다.')
       else if (errVal === 'kakao_config')   setErrMsg('카카오 설정 오류입니다. 관리자에게 문의하세요.')
@@ -29,162 +34,461 @@ export default function LoginPage() {
       else if (errVal === 'token_failed')   setErrMsg('인증 토큰 발급에 실패했습니다. 다시 시도해주세요.')
       else if (errVal)                      setErrMsg('로그인 중 오류가 발생했습니다. 다시 시도해주세요.')
     }
+
+    // 카운터 애니메이션
+    let rv = 0, nc = 0
+    const iv = setInterval(function() {
+      let done = true
+      if (rv < 1284) { rv = rv + 43 > 1284 ? 1284 : rv + 43; setReviewCount(rv); done = false }
+      if (nc < 34)   { nc = nc + 1  >   34 ?    34 : nc + 1;  setNewCustomer(nc); done = false }
+      if (done) clearInterval(iv)
+    }, 25)
+
+    // LIVE 점멸
+    const tv = setInterval(function() {
+      setLiveDot(function(v) { return !v })
+    }, 900)
+
+    return function() { clearInterval(iv); clearInterval(tv) }
   }, [router])
 
+  function handleMouseMove(e: React.MouseEvent<HTMLDivElement>) {
+    const rect = e.currentTarget.getBoundingClientRect()
+    const cx = e.clientX - rect.left - rect.width / 2
+    const cy = e.clientY - rect.top  - rect.height / 2
+    setTiltX(cy / rect.height * 10)
+    setTiltY(cx / rect.width  * (-10))
+  }
+
+  function handleMouseLeave() { setTiltX(0); setTiltY(0) }
+
+  const tiltTransform  = 'perspective(900px) rotateX(' + tiltX + 'deg) rotateY(' + tiltY + 'deg)'
+  const tiltTransition = (tiltX === 0 && tiltY === 0)
+    ? 'transform 0.5s cubic-bezier(0.23,1,0.32,1)'
+    : 'transform 0.1s linear'
+
+  const particles = [
+    { top: '12%', left: '7%',  size: 3, delay: '0s',   dur: '8s'  },
+    { top: '22%', left: '91%', size: 2, delay: '1.8s', dur: '10s' },
+    { top: '38%', left: '14%', size: 4, delay: '3.2s', dur: '7s'  },
+    { top: '55%', left: '82%', size: 2, delay: '0.6s', dur: '11s' },
+    { top: '68%', left: '23%', size: 3, delay: '2.4s', dur: '9s'  },
+    { top: '78%', left: '68%', size: 4, delay: '4.1s', dur: '8s'  },
+    { top: '8%',  left: '52%', size: 2, delay: '1.1s', dur: '12s' },
+    { top: '48%', left: '96%', size: 3, delay: '3.7s', dur: '9s'  },
+  ]
+
   return (
-    <div style={{
-      minHeight: '100vh',
-      background: 'linear-gradient(145deg, #EEF3FF 0%, #F0F7FF 40%, #EAF4FF 100%)',
-      display: 'flex',
-      alignItems: 'center',
-      justifyContent: 'center',
-      padding: '24px 16px',
-      fontFamily: 'inherit',
-    }}>
+    <>
+      <style>{`
+        @keyframes orbMove1 {
+          0%,100% { transform: translate(0px,0px) scale(1); }
+          33%      { transform: translate(70px,-55px) scale(1.12); }
+          66%      { transform: translate(-38px,72px) scale(0.9); }
+        }
+        @keyframes orbMove2 {
+          0%,100% { transform: translate(0px,0px) scale(1.08); }
+          33%      { transform: translate(-92px,38px) scale(0.88); }
+          66%      { transform: translate(52px,-82px) scale(1.18); }
+        }
+        @keyframes orbMove3 {
+          0%,100% { transform: translate(0px,0px); }
+          50%      { transform: translate(48px,52px); }
+        }
+        @keyframes floatParticle {
+          0%   { transform: translateY(0px) translateX(0px); opacity: 0; }
+          15%  { opacity: 0.9; }
+          80%  { opacity: 0.3; }
+          100% { transform: translateY(-115px) translateX(14px); opacity: 0; }
+        }
+        @keyframes fadeInUp {
+          from { opacity: 0; transform: translateY(22px); }
+          to   { opacity: 1; transform: translateY(0px); }
+        }
+        @keyframes scanLine {
+          0%   { top: -1px; }
+          100% { top: 101%; }
+        }
+        @keyframes livePulse {
+          0%,100% { opacity: 1; box-shadow: 0 0 7px rgba(34,211,238,0.9); }
+          50%      { opacity: 0.35; box-shadow: 0 0 2px rgba(34,211,238,0.2); }
+        }
+        @keyframes outerRing {
+          0%,100% { transform: scale(1); opacity: 0.5; }
+          50%      { transform: scale(2.2); opacity: 0; }
+        }
+        @keyframes shimmerSweep {
+          0%   { transform: translateX(-100%) skewX(-15deg); }
+          100% { transform: translateX(350%) skewX(-15deg); }
+        }
+        @keyframes logoGlow {
+          0%,100% { filter: drop-shadow(0 0 8px rgba(49,130,246,0.3)); }
+          50%      { filter: drop-shadow(0 0 20px rgba(49,130,246,0.65)); }
+        }
+        @keyframes countGlow {
+          0%,100% { opacity: 1; }
+          50%      { opacity: 0.75; text-shadow: 0 0 8px currentColor; }
+        }
+      `}</style>
 
-      {/* 배경 장식 원 */}
-      <div style={{ position: 'fixed', top: '-120px', right: '-120px', width: '400px', height: '400px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(49,130,246,0.08) 0%, transparent 70%)', pointerEvents: 'none' }} />
-      <div style={{ position: 'fixed', bottom: '-80px', left: '-80px', width: '300px', height: '300px', borderRadius: '50%', background: 'radial-gradient(circle, rgba(49,130,246,0.06) 0%, transparent 70%)', pointerEvents: 'none' }} />
+      <div style={{
+        minHeight: '100vh',
+        background: '#060D1A',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        padding: '24px 16px',
+        position: 'relative',
+        overflow: 'hidden',
+        fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
+      }}>
 
-      <div style={{ width: '100%', maxWidth: '400px', position: 'relative', zIndex: 1 }}>
+        {/* ── 배경 레이어 ── */}
+        <div style={{ position: 'fixed', inset: 0, overflow: 'hidden', pointerEvents: 'none', zIndex: 0 }}>
 
-        {/* 로고 영역 */}
-        <div style={{ textAlign: 'center', marginBottom: '28px' }}>
-          <img
-            src="/logo.png"
-            alt="로컬루션"
-            style={{ height: '52px', width: 'auto', margin: '0 auto', display: 'block' }}
-            onError={function(e) {
-              (e.target as HTMLImageElement).style.display = 'none'
-              const el = document.getElementById('logo-fallback')
-              if (el) el.style.display = 'flex'
-            }}
-          />
-          <div id="logo-fallback" style={{ display: 'none', alignItems: 'center', justifyContent: 'center', gap: '10px' }}>
-            <div style={{ width: '40px', height: '40px', borderRadius: '10px', background: '#3182F6', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <span style={{ color: '#fff', fontWeight: 900, fontSize: '18px' }}>L</span>
-            </div>
-            <span style={{ fontWeight: 900, fontSize: '20px', color: '#191F28', letterSpacing: '-0.5px' }}>LOCALUTION</span>
-          </div>
-          <p style={{ marginTop: '8px', fontSize: '13px', color: '#6B7684', fontWeight: 500 }}>사장님의 모든 업무, AI가 대신합니다</p>
-        </div>
-
-        {/* AI 통계 미니 카드 */}
-        <div style={{
-          background: 'linear-gradient(135deg, #1A4FBB 0%, #3182F6 100%)',
-          borderRadius: '16px',
-          padding: '16px 20px',
-          marginBottom: '20px',
-          color: '#fff',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          boxShadow: '0 8px 24px rgba(49,130,246,0.25)',
-        }}>
-          <div>
-            <div style={{ fontSize: '11px', opacity: 0.75, fontWeight: 500, marginBottom: '4px' }}>AI 자동 운영 중 · 이번 달</div>
-            <div style={{ fontSize: '13px', fontWeight: 700 }}>리뷰 답글률 98% · 신규고객 +34%</div>
-          </div>
+          {/* 그라디언트 오브 3개 */}
           <div style={{
-            width: '36px', height: '36px', borderRadius: '50%',
-            background: 'rgba(255,255,255,0.2)',
-            display: 'flex', alignItems: 'center', justifyContent: 'center',
-            fontSize: '16px', flexShrink: 0,
-          }}>⚡</div>
+            position: 'absolute', width: '660px', height: '660px', borderRadius: '50%',
+            top: '-220px', left: '-130px',
+            background: 'radial-gradient(circle, rgba(49,130,246,0.17) 0%, transparent 60%)',
+            animationName: 'orbMove1',
+            animationDuration: '13s',
+            animationTimingFunction: 'ease-in-out',
+            animationIterationCount: 'infinite',
+          }} />
+          <div style={{
+            position: 'absolute', width: '560px', height: '560px', borderRadius: '50%',
+            bottom: '-170px', right: '-130px',
+            background: 'radial-gradient(circle, rgba(99,102,241,0.13) 0%, transparent 60%)',
+            animationName: 'orbMove2',
+            animationDuration: '16s',
+            animationTimingFunction: 'ease-in-out',
+            animationIterationCount: 'infinite',
+          }} />
+          <div style={{
+            position: 'absolute', width: '420px', height: '420px', borderRadius: '50%',
+            top: '35%', left: '32%',
+            background: 'radial-gradient(circle, rgba(14,165,233,0.09) 0%, transparent 60%)',
+            animationName: 'orbMove3',
+            animationDuration: '11s',
+            animationTimingFunction: 'ease-in-out',
+            animationIterationCount: 'infinite',
+          }} />
+
+          {/* 격자 그리드 */}
+          <div style={{
+            position: 'absolute', inset: 0,
+            backgroundImage: [
+              'linear-gradient(rgba(49,130,246,0.032) 1px, transparent 1px)',
+              'linear-gradient(90deg, rgba(49,130,246,0.032) 1px, transparent 1px)',
+            ].join(', '),
+            backgroundSize: '58px 58px',
+          }} />
+
+          {/* 파티클 */}
+          {particles.map(function(p, i) {
+            return (
+              <div key={i} style={{
+                position: 'absolute', top: p.top, left: p.left,
+                width: String(p.size) + 'px', height: String(p.size) + 'px', borderRadius: '50%',
+                background: 'rgba(49,130,246,0.85)',
+                boxShadow: '0 0 ' + String(p.size * 3) + 'px rgba(49,130,246,0.5)',
+                animationName: 'floatParticle',
+                animationDuration: p.dur,
+                animationDelay: p.delay,
+                animationTimingFunction: 'ease-in-out',
+                animationIterationCount: 'infinite',
+              }} />
+            )
+          })}
         </div>
 
-        {/* 로그인 카드 */}
+        {/* ── 메인 콘텐츠 ── */}
         <div style={{
-          background: '#ffffff',
-          borderRadius: '20px',
-          padding: '28px 24px',
-          boxShadow: '0 4px 24px rgba(0,0,0,0.08), 0 1px 4px rgba(0,0,0,0.04)',
-          border: '1px solid rgba(49,130,246,0.08)',
+          width: '100%', maxWidth: '420px', position: 'relative', zIndex: 1,
+          animationName: 'fadeInUp',
+          animationDuration: '0.65s',
+          animationTimingFunction: 'cubic-bezier(0.23,1,0.32,1)',
+          animationFillMode: 'both',
         }}>
-          <h2 style={{ fontSize: '17px', fontWeight: 700, color: '#191F28', textAlign: 'center', marginBottom: '6px' }}>
-            SNS 계정으로 간편하게 로그인
-          </h2>
-          <p style={{ fontSize: '13px', color: '#8B95A1', textAlign: 'center', marginBottom: '24px' }}>
-            기존 계정으로 바로 시작하세요
-          </p>
 
-          {errMsg && (
-            <div style={{
-              background: '#FFF1F2', border: '1px solid #FCA5A5',
-              borderRadius: '10px', padding: '12px 14px',
-              marginBottom: '16px', fontSize: '13px', color: '#E11D48',
-              display: 'flex', alignItems: 'center', gap: '8px',
+          {/* 로고 */}
+          <div style={{ textAlign: 'center', marginBottom: '30px' }}>
+            <img
+              src="/logo.png"
+              alt="로컬루션"
+              style={{
+                height: '56px', width: 'auto', display: 'block', margin: '0 auto',
+                animationName: 'logoGlow',
+                animationDuration: '3s',
+                animationTimingFunction: 'ease-in-out',
+                animationIterationCount: 'infinite',
+              }}
+              onError={function(e) {
+                const t = e.target as HTMLImageElement
+                t.style.display = 'none'
+                const el = document.getElementById('lft')
+                if (el) el.style.display = 'flex'
+              }}
+            />
+            <div id="lft" style={{
+              display: 'none', alignItems: 'center', justifyContent: 'center',
+              gap: '10px', marginBottom: '4px',
             }}>
-              <span>⚠️</span><span>{errMsg}</span>
+              <div style={{
+                width: '48px', height: '48px', borderRadius: '12px',
+                background: 'linear-gradient(135deg, #3182F6 0%, #6366F1 100%)',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+                boxShadow: '0 0 24px rgba(49,130,246,0.5)',
+              }}>
+                <span style={{ color: '#fff', fontWeight: 900, fontSize: '22px' }}>L</span>
+              </div>
+              <span style={{ fontWeight: 900, fontSize: '22px', color: '#fff', letterSpacing: '-0.5px' }}>
+                LOCALUTION
+              </span>
             </div>
-          )}
-
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-
-            {/* 카카오 */}
-            <a href="/api/oauth/kakao" style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
-              padding: '13px 16px', borderRadius: '12px',
-              background: '#FEE500', color: '#191F28',
-              fontWeight: 700, fontSize: '15px',
-              textDecoration: 'none', border: 'none', cursor: 'pointer',
-              transition: 'opacity 0.15s',
-            }}
-            onMouseEnter={function(e){(e.currentTarget as HTMLAnchorElement).style.opacity='0.88'}}
-            onMouseLeave={function(e){(e.currentTarget as HTMLAnchorElement).style.opacity='1'}}>
-              <svg width="20" height="20" viewBox="0 0 24 24" fill="#191F28">
-                <path d="M12 3C6.48 3 2 6.48 2 10.8c0 2.7 1.62 5.1 4.08 6.6L5.04 21l4.44-2.94C10.26 18.3 11.1 18.42 12 18.42c5.52 0 10-3.48 10-7.8S17.52 3 12 3z"/>
-              </svg>
-              카카오로 로그인
-            </a>
-
-            {/* 구글 */}
-            <a href="/api/oauth/google" style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
-              padding: '13px 16px', borderRadius: '12px',
-              background: '#ffffff', color: '#191F28',
-              fontWeight: 600, fontSize: '15px',
-              textDecoration: 'none', border: '1.5px solid #E5E8EB', cursor: 'pointer',
-              transition: 'background 0.15s',
-            }}
-            onMouseEnter={function(e){(e.currentTarget as HTMLAnchorElement).style.background='#F8F9FA'}}
-            onMouseLeave={function(e){(e.currentTarget as HTMLAnchorElement).style.background='#ffffff'}}>
-              <svg width="20" height="20" viewBox="0 0 24 24">
-                <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
-                <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
-                <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
-                <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
-              </svg>
-              구글로 로그인
-            </a>
-
-            {/* 네이버 */}
-            <a href="/api/oauth/naver" style={{
-              display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
-              padding: '13px 16px', borderRadius: '12px',
-              background: '#03C75A', color: '#ffffff',
-              fontWeight: 700, fontSize: '15px',
-              textDecoration: 'none', border: 'none', cursor: 'pointer',
-              transition: 'opacity 0.15s',
-            }}
-            onMouseEnter={function(e){(e.currentTarget as HTMLAnchorElement).style.opacity='0.88'}}
-            onMouseLeave={function(e){(e.currentTarget as HTMLAnchorElement).style.opacity='1'}}>
-              <span style={{ fontWeight: 900, fontSize: '16px', letterSpacing: '-1px' }}>N</span>
-              네이버로 로그인
-            </a>
-
+            <p style={{ marginTop: '10px', fontSize: '13px', color: 'rgba(255,255,255,0.42)', fontWeight: 400, letterSpacing: '0.03em' }}>
+              사장님의 모든 업무, AI가 대신합니다
+            </p>
           </div>
 
-          <p style={{ marginTop: '20px', fontSize: '11px', color: '#B0B8C1', textAlign: 'center', lineHeight: 1.5 }}>
-            로그인 시 <span style={{ color: '#3182F6' }}>이용약관</span> 및 <span style={{ color: '#3182F6' }}>개인정보처리방침</span>에<br/>동의하는 것으로 간주됩니다.
+          {/* ── AI 상태 패널 ── */}
+          <div style={{
+            position: 'relative', overflow: 'hidden',
+            background: 'linear-gradient(135deg, rgba(49,130,246,0.11) 0%, rgba(99,102,241,0.07) 100%)',
+            border: '1px solid rgba(49,130,246,0.2)',
+            borderRadius: '20px', padding: '18px 20px', marginBottom: '14px',
+            backdropFilter: 'blur(16px)',
+            WebkitBackdropFilter: 'blur(16px)',
+            boxShadow: '0 0 40px rgba(49,130,246,0.05), inset 0 1px 0 rgba(255,255,255,0.05)',
+          }}>
+            {/* 스캔라인 */}
+            <div style={{
+              position: 'absolute', left: 0, right: 0, height: '1px',
+              background: 'linear-gradient(90deg, transparent 0%, rgba(49,130,246,0.7) 50%, transparent 100%)',
+              animationName: 'scanLine',
+              animationDuration: '2.8s',
+              animationTimingFunction: 'linear',
+              animationIterationCount: 'infinite',
+            }} />
+
+            {/* 헤더 행 */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '9px' }}>
+                {/* 라이브 도트 */}
+                <div style={{ position: 'relative', width: '10px', height: '10px', flexShrink: 0 }}>
+                  <div style={{
+                    position: 'absolute', inset: 0, borderRadius: '50%', background: '#22D3EE',
+                    animationName: 'livePulse',
+                    animationDuration: '1.6s',
+                    animationTimingFunction: 'ease-in-out',
+                    animationIterationCount: 'infinite',
+                  }} />
+                  <div style={{
+                    position: 'absolute', inset: '-4px', borderRadius: '50%', background: 'rgba(34,211,238,0.22)',
+                    animationName: 'outerRing',
+                    animationDuration: '1.6s',
+                    animationTimingFunction: 'ease-out',
+                    animationIterationCount: 'infinite',
+                  }} />
+                </div>
+                <span style={{ fontSize: '13px', fontWeight: 600, color: 'rgba(255,255,255,0.88)', letterSpacing: '0.02em' }}>
+                  AI 실시간 가동 중
+                </span>
+              </div>
+              <div style={{
+                padding: '3px 10px', borderRadius: '20px',
+                background: liveDot ? 'rgba(34,211,238,0.16)' : 'rgba(34,211,238,0.05)',
+                border: liveDot ? '1px solid rgba(34,211,238,0.45)' : '1px solid rgba(34,211,238,0.15)',
+                fontSize: '10px', fontWeight: 700, color: '#22D3EE',
+                letterSpacing: '0.08em', transition: 'all 0.4s ease',
+              }}>● LIVE</div>
+            </div>
+
+            {/* 통계 3칸 */}
+            <div style={{ display: 'flex', gap: '8px' }}>
+              {[
+                { label: '리뷰 답글', value: reviewCount.toLocaleString() + '개', icon: '💬', color: '#60A5FA', sub: '이번 달' },
+                { label: '신규 고객', value: '+' + String(newCustomer) + '%',       icon: '📈', color: '#34D399', sub: '증가율' },
+                { label: 'AI 정확도', value: '99.9%',                               icon: '⚡', color: '#FBBF24', sub: '응답률' },
+              ].map(function(s, i) {
+                return (
+                  <div key={i} style={{
+                    flex: 1, textAlign: 'center', padding: '10px 4px',
+                    background: 'rgba(255,255,255,0.03)',
+                    borderRadius: '12px', border: '1px solid rgba(255,255,255,0.05)',
+                  }}>
+                    <div style={{ fontSize: '18px', marginBottom: '5px' }}>{s.icon}</div>
+                    <div style={{
+                      fontSize: '14px', fontWeight: 800, color: s.color, letterSpacing: '-0.3px',
+                      animationName: 'countGlow',
+                      animationDuration: '2s',
+                      animationTimingFunction: 'ease-in-out',
+                      animationIterationCount: 'infinite',
+                    }}>{s.value}</div>
+                    <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.32)', marginTop: '2px' }}>{s.sub}</div>
+                    <div style={{ fontSize: '9px', color: 'rgba(255,255,255,0.22)', marginTop: '1px' }}>{s.label}</div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* ── 로그인 카드 (3D 틸트) ── */}
+          <div
+            onMouseMove={handleMouseMove}
+            onMouseLeave={handleMouseLeave}
+            style={{ transform: tiltTransform, transition: tiltTransition, transformStyle: 'preserve-3d' }}
+          >
+            <div style={{
+              position: 'relative', overflow: 'hidden',
+              background: 'rgba(255,255,255,0.04)',
+              backdropFilter: 'blur(28px)',
+              WebkitBackdropFilter: 'blur(28px)',
+              borderRadius: '24px', padding: '28px 24px',
+              border: '1px solid rgba(255,255,255,0.09)',
+              boxShadow: '0 20px 60px rgba(0,0,0,0.55), 0 0 0 0.5px rgba(255,255,255,0.04), inset 0 1px 0 rgba(255,255,255,0.07)',
+            }}>
+              {/* 광택 흐름 */}
+              <div style={{
+                position: 'absolute', top: 0, bottom: 0, width: '40%',
+                background: 'linear-gradient(105deg, transparent, rgba(255,255,255,0.04), transparent)',
+                animationName: 'shimmerSweep',
+                animationDuration: '4s',
+                animationDelay: '1.5s',
+                animationTimingFunction: 'ease-in-out',
+                animationIterationCount: 'infinite',
+                pointerEvents: 'none',
+              }} />
+
+              <h2 style={{
+                fontSize: '17px', fontWeight: 700, color: 'rgba(255,255,255,0.92)',
+                textAlign: 'center', marginBottom: '6px', letterSpacing: '-0.2px',
+              }}>
+                SNS 계정으로 간편하게 로그인
+              </h2>
+              <p style={{
+                fontSize: '13px', color: 'rgba(255,255,255,0.36)',
+                textAlign: 'center', marginBottom: '22px',
+              }}>
+                기존 계정으로 바로 시작하세요
+              </p>
+
+              {errMsg !== '' && (
+                <div style={{
+                  background: 'rgba(239,68,68,0.12)', border: '1px solid rgba(239,68,68,0.25)',
+                  borderRadius: '10px', padding: '12px 14px', marginBottom: '16px',
+                  fontSize: '13px', color: '#FCA5A5',
+                  display: 'flex', alignItems: 'center', gap: '8px',
+                }}>
+                  <span>⚠️</span><span>{errMsg}</span>
+                </div>
+              )}
+
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+
+                {/* 카카오 */}
+                <a href="/api/oauth/kakao" style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
+                  padding: '14px 16px', borderRadius: '14px',
+                  background: '#FEE500', color: '#191F28',
+                  fontWeight: 700, fontSize: '15px',
+                  textDecoration: 'none', cursor: 'pointer',
+                  boxShadow: '0 4px 14px rgba(254,229,0,0.18)',
+                  transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+                }}
+                onMouseEnter={function(e) {
+                  const a = e.currentTarget as HTMLAnchorElement
+                  a.style.transform = 'translateY(-2px)'
+                  a.style.boxShadow = '0 8px 26px rgba(254,229,0,0.38)'
+                }}
+                onMouseLeave={function(e) {
+                  const a = e.currentTarget as HTMLAnchorElement
+                  a.style.transform = 'translateY(0px)'
+                  a.style.boxShadow = '0 4px 14px rgba(254,229,0,0.18)'
+                }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24" fill="#191F28">
+                    <path d="M12 3C6.48 3 2 6.48 2 10.8c0 2.7 1.62 5.1 4.08 6.6L5.04 21l4.44-2.94C10.26 18.3 11.1 18.42 12 18.42c5.52 0 10-3.48 10-7.8S17.52 3 12 3z"/>
+                  </svg>
+                  카카오로 로그인
+                </a>
+
+                {/* 구글 */}
+                <a href="/api/oauth/google" style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
+                  padding: '14px 16px', borderRadius: '14px',
+                  background: 'rgba(255,255,255,0.07)', color: 'rgba(255,255,255,0.88)',
+                  fontWeight: 600, fontSize: '15px',
+                  textDecoration: 'none', cursor: 'pointer',
+                  border: '1px solid rgba(255,255,255,0.12)',
+                  boxShadow: '0 4px 14px rgba(0,0,0,0.2)',
+                  transition: 'transform 0.15s ease, box-shadow 0.15s ease, background 0.15s ease',
+                }}
+                onMouseEnter={function(e) {
+                  const a = e.currentTarget as HTMLAnchorElement
+                  a.style.transform = 'translateY(-2px)'
+                  a.style.background = 'rgba(255,255,255,0.12)'
+                  a.style.boxShadow = '0 8px 26px rgba(255,255,255,0.06)'
+                }}
+                onMouseLeave={function(e) {
+                  const a = e.currentTarget as HTMLAnchorElement
+                  a.style.transform = 'translateY(0px)'
+                  a.style.background = 'rgba(255,255,255,0.07)'
+                  a.style.boxShadow = '0 4px 14px rgba(0,0,0,0.2)'
+                }}>
+                  <svg width="20" height="20" viewBox="0 0 24 24">
+                    <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
+                    <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
+                    <path fill="#FBBC05" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/>
+                    <path fill="#EA4335" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/>
+                  </svg>
+                  구글로 로그인
+                </a>
+
+                {/* 네이버 */}
+                <a href="/api/oauth/naver" style={{
+                  display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '10px',
+                  padding: '14px 16px', borderRadius: '14px',
+                  background: '#03C75A', color: '#ffffff',
+                  fontWeight: 700, fontSize: '15px',
+                  textDecoration: 'none', cursor: 'pointer',
+                  boxShadow: '0 4px 14px rgba(3,199,90,0.2)',
+                  transition: 'transform 0.15s ease, box-shadow 0.15s ease',
+                }}
+                onMouseEnter={function(e) {
+                  const a = e.currentTarget as HTMLAnchorElement
+                  a.style.transform = 'translateY(-2px)'
+                  a.style.boxShadow = '0 8px 26px rgba(3,199,90,0.38)'
+                }}
+                onMouseLeave={function(e) {
+                  const a = e.currentTarget as HTMLAnchorElement
+                  a.style.transform = 'translateY(0px)'
+                  a.style.boxShadow = '0 4px 14px rgba(3,199,90,0.2)'
+                }}>
+                  <span style={{ fontWeight: 900, fontSize: '16px', letterSpacing: '-1px' }}>N</span>
+                  네이버로 로그인
+                </a>
+
+              </div>
+
+              <p style={{
+                marginTop: '20px', fontSize: '11px', color: 'rgba(255,255,255,0.2)',
+                textAlign: 'center', lineHeight: '1.7',
+              }}>
+                로그인 시{' '}
+                <span style={{ color: 'rgba(96,165,250,0.65)' }}>이용약관</span>
+                {' '}및{' '}
+                <span style={{ color: 'rgba(96,165,250,0.65)' }}>개인정보처리방침</span>
+                에 동의합니다
+              </p>
+            </div>
+          </div>
+
+          <p style={{ textAlign: 'center', marginTop: '22px', fontSize: '11px', color: 'rgba(255,255,255,0.15)' }}>
+            © 2025 Localution · Powered by 하랑마케팅
           </p>
         </div>
-
-        {/* 하단 카피 */}
-        <p style={{ textAlign: 'center', marginTop: '20px', fontSize: '12px', color: '#B0B8C1' }}>
-          © 2025 Localution · Powered by 하랑마케팅
-        </p>
       </div>
-    </div>
+    </>
   )
 }
