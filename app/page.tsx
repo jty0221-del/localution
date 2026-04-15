@@ -133,7 +133,7 @@ export default function LandingPage() {
             복잡한 건 AI가, 사장님은 장사에만 집중하세요
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <Link href="/login"
+            <Link href="/login" onClick={function(e){e.preventDefault();window.location.href="/login"}}
               className="inline-flex items-center justify-center gap-2 bg-[#3182F6] text-white font-bold text-base px-8 py-4 rounded-2xl hover:bg-[#1B64DA] transition-all shadow-lg shadow-blue-200 hover:shadow-blue-300 hover:-translate-y-0.5">
               무료로 시작하기
               <span className="text-lg">→</span>
@@ -212,7 +212,7 @@ export default function LandingPage() {
                     <span key={t} className="text-xs bg-white/20 text-white px-3 py-1.5 rounded-full font-medium">{t}</span>
                   ))}
                 </div>
-                <Link href="/login"
+                <Link href="/login" onClick={function(e){e.preventDefault();window.location.href="/login"}}
                   className="inline-flex items-center gap-2 bg-white text-[#3182F6] font-bold text-sm px-6 py-3 rounded-xl hover:bg-blue-50 transition-colors">
                   QR 리뷰 체험하기 →
                 </Link>
@@ -275,7 +275,7 @@ export default function LandingPage() {
               className="inline-flex items-center justify-center gap-2 border-2 border-[#3182F6] text-[#3182F6] font-bold px-8 py-4 rounded-2xl hover:bg-blue-50 transition-colors">
               요금 보기
             </Link>
-            <Link href="/login"
+            <Link href="/login" onClick={function(e){e.preventDefault();window.location.href="/login"}}
               className="inline-flex items-center justify-center gap-2 bg-[#3182F6] text-white font-bold px-8 py-4 rounded-2xl hover:bg-[#1B64DA] transition-colors shadow-lg shadow-blue-200">
               지금 무료로 시작하기
             </Link>
