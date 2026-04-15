@@ -1,6 +1,6 @@
 'use client'
 export const dynamic = 'force-dynamic'
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import Sidebar from '../components/Sidebar'
 // Footer import removed — component may not exist in repo
@@ -37,6 +37,72 @@ interface NaverPlace {
   roadAddress: string;
   mapx: string;
   mapy: string;
+}
+
+function NaverMapBox({ address }: { address: string }) {
+  const mapRef = useRef<HTMLDivElement>(null)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const clientId = process.env.NEXT_PUBLIC_NAVER_MAP_CLIENT_ID
+    if (!clientId) { setError('API 키 미설정'); return }
+    if (!address) { setError('주소 입력 대기 중'); return }
+
+    const w = window as unknown as { naver?: any }
+    const init = () => {
+      if (!w.naver || !w.naver.maps || !mapRef.current) return
+      try {
+        w.naver.maps.Service.geocode({ query: address }, (status: number, res: any) => {
+          if (status !== w.naver.maps.Service.Status.OK) { setError('주소 검색 실패'); return }
+          const item = res && res.v2 && res.v2.addresses && res.v2.addresses[0]
+          if (!item) { setError('해당 주소를 찾을 수 없습니다'); return }
+          const latlng = new w.naver.maps.LatLng(parseFloat(item.y), parseFloat(item.x))
+          const map = new w.naver.maps.Map(mapRef.current, {
+            center: latlng,
+            zoom: 16,
+            zoomControl: true,
+            zoomControlOptions: { position: w.naver.maps.Position.TOP_RIGHT },
+          })
+          new w.naver.maps.Marker({ position: latlng, map })
+          setError('')
+        })
+      } catch (_e) {
+        setError('지도 초기화 오류')
+      }
+    }
+
+    if (w.naver && w.naver.maps) { init(); return }
+    const existing = document.getElementById('naver-maps-sdk')
+    if (existing) { existing.addEventListener('load', init); return }
+    const script = document.createElement('script')
+    script.id = 'naver-maps-sdk'
+    script.src = 'https://oapi.map.naver.com/openapi/v3/maps.js?ncpClientId=' + clientId + '&submodules=geocoder'
+    script.async = true
+    script.onload = init
+    script.onerror = () => setError('네이버 지도 스크립트 로드 실패')
+    document.head.appendChild(script)
+  }, [address])
+
+  return (
+    <div className="relative w-full bg-[#F8FAFF]" style={{ height: 620 }}>
+      <div ref={mapRef} className="absolute inset-0 w-full h-full" />
+      {error && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-[#F0FDF4] via-[#F8FAFF] to-[#EFF6FF] text-center px-6">
+          <div className="w-16 h-16 rounded-2xl bg-[#03C75A] flex items-center justify-center text-white font-black text-2xl mb-3 shadow-lg">N</div>
+          <p className="text-base font-bold text-[#191F28] mb-1">네이버 지도</p>
+          <p className="text-xs text-[#8B95A1] mb-4">{error}</p>
+          <div className="bg-white rounded-xl px-4 py-3 shadow-sm max-w-[300px]">
+            <p className="text-xs font-semibold text-[#4E5968] mb-1">주소</p>
+            <p className="text-sm text-[#191F28] leading-relaxed">{address || '주소 미입력'}</p>
+          </div>
+          <a href={'https://map.naver.com/v5/search/' + encodeURIComponent(address || '')} target="_blank" rel="noopener noreferrer" className="mt-4 px-5 py-2.5 rounded-xl bg-[#03C75A] text-white text-xs font-bold hover:bg-[#02A84A] transition-colors">
+            네이버지도 앱에서 열기 →
+          </a>
+        </div>
+      )}
+    </div>
+  )
 }
 
 function StoreTab() {
@@ -199,33 +265,35 @@ function StoreTab() {
           {saved ? '저장됨' : '저장하기'}
         </button>
       </div>
-      <div className="w-[360px] flex-shrink-0 hidden lg:block">
-        <div className="bg-white rounded-2xl shadow-sm overflow-hidden sticky top-8">
-          <div className="px-4 pt-4 pb-3 border-b border-[#F2F4F6]">
-            <p className="font-bold text-[#191F28] text-sm">우리 매장 위치</p>
-            <p className="text-xs text-[#8B95A1] mt-0.5 truncate">{form.address || '주소를 입력하면 지도가 표시됩니다'}</p>
-          </div>
-          <iframe src={`https://map.kakao.com/link/search/${encodeURIComponent(mapAddress)}`} width="100%" height="430" style={{ border: 'none', display: 'block' }} title="매장 위치 지도" loading="lazy" />
-          <div className="px-4 py-3 space-y-2">
-            <a href={`https://map.kakao.com/link/search/${encodeURIComponent(form.address || '')}`} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 w-full py-2 rounded-xl bg-[#FEE500] text-[#191F28] text-sm font-bold hover:bg-[#F0D800] transition-colors">
-              카카오맵에서 보기
-            </a>
+      <div className="flex-1 min-w-0 hidden lg:block space-y-4">
+        <div className="bg-white rounded-2xl shadow-[0_1px_3px_rgba(0,0,0,0.04),0_8px_24px_rgba(17,24,39,0.06)] overflow-hidden sticky top-8">
+          <div className="px-5 pt-5 pb-4 border-b border-[#F2F4F6] flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 mb-1">
+                <div className="w-6 h-6 rounded-md bg-[#03C75A] flex items-center justify-center text-white text-[10px] font-black">N</div>
+                <p className="font-bold text-[#191F28] text-base">우리 매장 위치</p>
+              </div>
+              <p className="text-xs text-[#8B95A1] truncate">{form.address || '주소를 입력하면 지도가 표시됩니다'}</p>
+            </div>
             {form.address && (
-              <a href={`https://map.naver.com/v5/search/${encodeURIComponent(form.address)}`} target="_blank" rel="noopener noreferrer" className="flex items-center justify-center gap-2 w-full py-2 rounded-xl bg-[#03C75A] text-white text-sm font-bold hover:bg-[#02A84A] transition-colors">
-                네이버지도에서 보기
+              <a href={`https://map.naver.com/v5/search/${encodeURIComponent(form.address)}`} target="_blank" rel="noopener noreferrer" className="flex-shrink-0 px-3 py-1.5 rounded-lg bg-[#03C75A] text-white text-[11px] font-bold hover:bg-[#02A84A] transition-colors whitespace-nowrap">
+                앱에서 열기 →
               </a>
             )}
           </div>
+          <NaverMapBox address={mapAddress} />
         </div>
-        <div className="bg-[#FFFBEB] rounded-2xl p-4 mt-4 border border-[#FDE68A]">
-          <p className="text-xs font-bold text-[#92400E] mb-2">네이버 API 키 설정 필요</p>
-          <p className="text-[11px] text-[#78350F] leading-relaxed mb-2">실제 연동을 위해 Vercel 환경변수에 추가해주세요:</p>
+        <div className="bg-[#FFFBEB] rounded-2xl p-4 border border-[#FDE68A]">
+          <p className="text-xs font-bold text-[#92400E] mb-2">네이버 지도 API 키 설정</p>
+          <p className="text-[11px] text-[#78350F] leading-relaxed mb-2">실제 지도 렌더링을 위해 Vercel 환경변수에 추가해주세요:</p>
           <div className="bg-white rounded-lg p-2 font-mono text-[10px] text-[#4E5968] space-y-1">
+            <p>NEXT_PUBLIC_NAVER_MAP_CLIENT_ID=발급받은_ID</p>
+            <p className="text-[#9CA3AF]"># 플레이스 검색용</p>
             <p>NAVER_CLIENT_ID=발급받은_ID</p>
             <p>NAVER_CLIENT_SECRET=발급받은_시크릿</p>
           </div>
-          <a href="https://developers.naver.com/apps" target="_blank" rel="noopener noreferrer" className="block mt-2 text-[11px] text-[#3182F6] hover:underline font-semibold">
-            네이버 개발자센터에서 발급받기 →
+          <a href="https://console.ncloud.com/naver-service/application" target="_blank" rel="noopener noreferrer" className="block mt-2 text-[11px] text-[#3182F6] hover:underline font-semibold">
+            네이버 클라우드 플랫폼에서 Maps API 발급 →
           </a>
         </div>
       </div>
