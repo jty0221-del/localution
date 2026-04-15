@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 
 import { useState } from 'react'
 import Link from 'next/link'
+import TopNav from '../components/TopNav'
 
 const SAMPLE_STORE = {
   name: '타이백스트릿 해운대점',
@@ -83,28 +84,7 @@ export default function ServiceIntro() {
   return (
     <div className="min-h-screen bg-[#F2F4F6]">
 
-      {/* ── 네비게이션 ── */}
-      <nav className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-b border-gray-100 shadow-sm">
-        <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
-          <Link href="/" className="flex items-center gap-2 select-none">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#3182F6] to-[#1B64DA] flex items-center justify-center shadow">
-              <span className="text-white font-black text-base">L</span>
-            </div>
-            <span className="text-xl font-black text-[#191F28] tracking-tight">로컬루션</span>
-          </Link>
-          <div className="hidden md:flex items-center gap-6">
-            <Link href="/service-intro" className="text-sm text-[#3182F6] font-bold border-b-2 border-[#3182F6] pb-0.5">서비스 소개</Link>
-            <Link href="/pricing"       className="text-sm text-[#4E5968] hover:text-[#3182F6] font-medium transition-colors">요금</Link>
-            <Link href="/community"     className="text-sm text-[#4E5968] hover:text-[#3182F6] font-medium transition-colors">커뮤니티</Link>
-            <Link href="/inquiry"       className="text-sm text-[#4E5968] hover:text-[#3182F6] font-medium transition-colors">문의</Link>
-          </div>
-          <div className="hidden md:flex items-center gap-2">
-            <Link href="/login" className="text-sm text-[#4E5968] font-medium px-4 py-2 hover:text-[#3182F6] transition-colors">로그인</Link>
-            <Link href="/login" className="text-sm font-semibold bg-[#3182F6] text-white px-4 py-2 rounded-xl hover:bg-[#1B64DA] transition-colors shadow-sm">무료 시작하기</Link>
-          </div>
-          <Link href="/login" className="md:hidden text-sm font-semibold bg-[#3182F6] text-white px-3 py-2 rounded-xl">시작</Link>
-        </div>
-      </nav>
+            <TopNav />
 
       {/* 헤더 히어로 */}
       <div style={{ background: 'linear-gradient(135deg, #1B3FD8 0%, #3182F6 100%)' }} className="text-white pt-16">
