@@ -13,6 +13,44 @@ const CATEGORIES = [
   { value: '기타',         label: '기타',           icon: '📝' },
 ]
 
+function FAQSection() {
+  const [open, setOpen] = useState<number | null>(0)
+  const faqs = [
+    { q: '무료 체험이 있나요?', a: '네, 핵심 모듈은 14일 무료 체험이 가능합니다. 카드 등록 없이 바로 시작할 수 있어요.' },
+    { q: '요금제는 어떻게 구성되나요?', a: '필요한 기능만 골라 담는 모듈형입니다. 3개 이상 선택 시 최대 20% 번들 할인이 자동 적용돼요.' },
+    { q: '해지는 언제든 가능한가요?', a: '월 단위 구독이며 언제든 해지할 수 있습니다. 해지 즉시 다음 결제일부터 과금이 중단돼요.' },
+    { q: '세금계산서 발행되나요?', a: '네, 사업자 회원은 매월 자동으로 전자세금계산서가 발행됩니다. 홈택스 연동 지원.' },
+    { q: '매장이 여러 개여도 쓸 수 있나요?', a: '다중 매장 관리 기능으로 한 계정에서 여러 지점을 통합 운영할 수 있습니다. 마케팅 대행사용 멀티 클라이언트 모드도 제공해요.' },
+    { q: '기존 데이터 이관이 가능한가요?', a: '기존 리뷰·고객 데이터 CSV 임포트를 지원합니다. 도입 담당자가 이관 과정을 직접 도와드려요.' },
+  ]
+  return (
+    <aside className="bg-white rounded-2xl p-6 shadow-sm lg:sticky lg:top-6">
+      <h2 className="text-xl md:text-2xl font-black text-[#191F28] mb-1">자주 묻는 질문</h2>
+      <p className="text-sm text-[#8B95A1] mb-5">문의 전에 먼저 확인해 보세요</p>
+      <div className="space-y-2">
+        {faqs.map((f, i) => (
+          <div key={i} className="border border-[#E5E8EB] rounded-xl overflow-hidden">
+            <button onClick={() => setOpen(open === i ? null : i)}
+              className="w-full flex items-center justify-between gap-3 px-4 py-3.5 text-left hover:bg-[#F9FAFB] transition-colors">
+              <span className="font-bold text-[#191F28] text-sm">{f.q}</span>
+              <span className={'text-[#8B95A1] text-xl flex-shrink-0 transition-transform ' + (open === i ? 'rotate-45' : '')}>+</span>
+            </button>
+            {open === i && (
+              <div className="px-4 pb-4 pt-0 text-sm text-[#4E5968] leading-relaxed border-t border-[#F2F4F6]">
+                {f.a}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+      <div className="mt-5 p-4 rounded-xl bg-[#EFF6FF] border border-[#DBEAFE]">
+        <p className="text-xs font-black text-[#3182F6] mb-1">원하시는 답변을 못 찾으셨나요?</p>
+        <p className="text-xs text-[#4E5968] leading-relaxed">왼쪽 양식으로 문의하시거나 카카오톡 채널로 빠르게 상담받아 보세요.</p>
+      </div>
+    </aside>
+  )
+}
+
 export default function InquiryPage() {
   const [tab, setTab] = useState<'new' | 'history'>('new')
   const [form, setForm] = useState({ name: '', contact: '', category: '서비스문의', message: '' })
@@ -71,11 +109,11 @@ export default function InquiryPage() {
         </div>
       )}
       <Sidebar />
-      <main className="flex-1 md:ml-[220px] p-4 md:p-8 pt-16 md:pt-8 max-w-2xl">
+      <main className="flex-1 md:ml-[220px] p-4 md:p-8 pt-16 md:pt-8 max-w-[1280px] w-full mx-auto">
 
         <div className="mb-8">
-          <h1 className="text-2xl font-bold text-[#191F28]">1:1 문의</h1>
-          <p className="text-[#8B95A1] mt-1">빠른 답변을 원하시면 카카오톡 채널을 이용해 주세요</p>
+          <h1 className="text-3xl md:text-4xl font-black text-[#191F28]">1:1 문의</h1>
+          <p className="text-base text-[#8B95A1] mt-2">궁금하신 내용을 편하게 남겨주세요. 영업일 기준 1-2일 내 답변드립니다.</p>
         </div>
 
         {/* 빠른 연락 */}
@@ -103,6 +141,8 @@ export default function InquiryPage() {
           </button>
         </div>
 
+        <div className="grid lg:grid-cols-[minmax(0,1fr)_380px] gap-6 items-start">
+          <div className="min-w-0 space-y-6">
         {/* 탭 */}
         <div className="flex gap-1 bg-white rounded-2xl p-1.5 shadow-sm mb-6 w-fit">
           {([['new', '문의하기'], ['history', `내 문의 내역${myInquiries.length ? ` (${myInquiries.length})` : ''}`]] as const).map(([t, l]) => (
@@ -112,7 +152,7 @@ export default function InquiryPage() {
         </div>
 
         {tab === 'new' && (
-          <div className="bg-white rounded-2xl p-6 shadow-sm">
+          <div className="bg-white rounded-2xl p-7 md:p-8 shadow-sm">
             {submitted ? (
               <div className="text-center py-8">
                 <div className="text-5xl mb-4">✅</div>
@@ -126,7 +166,7 @@ export default function InquiryPage() {
             ) : (
               <div className="space-y-5">
                 <div>
-                  <label className="text-sm font-bold text-[#191F28] block mb-3">문의 분류</label>
+                  <label className="text-base font-black text-[#191F28] block mb-3">문의 분류</label>
                   <div className="flex flex-wrap gap-2">
                     {CATEGORIES.map(cat => (
                       <button key={cat.value} onClick={() => setForm(p => ({ ...p, category: cat.value }))}
@@ -138,25 +178,25 @@ export default function InquiryPage() {
                 </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
-                    <label className="text-sm font-bold text-[#191F28] block mb-2">이름 <span className="text-red-500">*</span></label>
+                    <label className="text-base font-black text-[#191F28] block mb-2">이름 <span className="text-red-500">*</span></label>
                     <input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
-                      placeholder="홍길동" className="w-full border border-[#E5E8EB] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#3182F6]" />
+                      placeholder="홍길동" className="w-full border border-[#E5E8EB] rounded-xl px-5 py-3.5 text-base focus:outline-none focus:border-[#3182F6]" />
                   </div>
                   <div>
-                    <label className="text-sm font-bold text-[#191F28] block mb-2">연락처</label>
+                    <label className="text-base font-black text-[#191F28] block mb-2">연락처</label>
                     <input value={form.contact} onChange={e => setForm(p => ({ ...p, contact: e.target.value }))}
-                      placeholder="010-0000-0000 또는 이메일" className="w-full border border-[#E5E8EB] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#3182F6]" />
+                      placeholder="010-0000-0000 또는 이메일" className="w-full border border-[#E5E8EB] rounded-xl px-5 py-3.5 text-base focus:outline-none focus:border-[#3182F6]" />
                   </div>
                 </div>
                 <div>
-                  <label className="text-sm font-bold text-[#191F28] block mb-2">문의 내용 <span className="text-red-500">*</span></label>
+                  <label className="text-base font-black text-[#191F28] block mb-2">문의 내용 <span className="text-red-500">*</span></label>
                   <textarea value={form.message} onChange={e => setForm(p => ({ ...p, message: e.target.value }))}
-                    rows={5} placeholder="문의하실 내용을 자세히 작성해 주세요."
-                    className="w-full border border-[#E5E8EB] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#3182F6] resize-none" />
+                    rows={7} placeholder="문의하실 내용을 자세히 작성해 주세요. 자세할수록 정확한 답변을 드릴 수 있어요."
+                    className="w-full border border-[#E5E8EB] rounded-xl px-5 py-4 text-base leading-relaxed focus:outline-none focus:border-[#3182F6] resize-none" />
                 </div>
                 {error && <p className="text-red-500 text-sm">{error}</p>}
                 <button onClick={handleSubmit} disabled={submitting}
-                  className={`w-full py-3.5 rounded-xl font-bold text-sm transition-colors ${submitting ? 'bg-[#93C5FD] cursor-not-allowed text-white' : 'bg-[#3182F6] text-white hover:bg-[#1B64DA]'}`}>
+                  className={`w-full py-4 rounded-xl font-black text-base transition-colors ${submitting ? 'bg-[#93C5FD] cursor-not-allowed text-white' : 'bg-[#3182F6] text-white hover:bg-[#1B64DA] shadow-[0_4px_16px_rgba(49,130,246,0.28)]'}`}>
                   {submitting ? '접수 중...' : '문의 접수하기'}
                 </button>
                 <div className="pt-2 border-t border-[#F2F4F6] flex items-center justify-center gap-4 text-xs text-[#8B95A1]">
@@ -169,7 +209,7 @@ export default function InquiryPage() {
         )}
 
         {tab === 'history' && (
-          <div className="bg-white rounded-2xl p-6 shadow-sm">
+          <div className="bg-white rounded-2xl p-7 md:p-8 shadow-sm">
             {myInquiries.length === 0 ? (
               <div className="text-center py-8">
                 <div className="text-4xl mb-3">📭</div>
@@ -193,6 +233,9 @@ export default function InquiryPage() {
             )}
           </div>
         )}
+          </div>
+          <FAQSection />
+        </div>
       </main>
 
       {/* 이메일 복사 토스트 */}
