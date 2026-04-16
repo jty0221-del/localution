@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect } from 'react'
+import {} from 'react'
 import Link from 'next/link'
 import Sidebar from '../components/Sidebar'
 
@@ -27,12 +27,6 @@ const PLATFORM_COLOR: Record<string, string> = {
 }
 
 export default function ReviewAdminPage() {
-  useEffect(() => {
-    const ok = document.cookie.split(';').some(function(c) {
-      return c.trim().startsWith('localution_session=')
-    })
-    if (!ok) { window.location.href = '/login' }
-  }, [])
 
   const totalPending = PLATFORMS.reduce((a, p) => a + p.pending, 0)
 
