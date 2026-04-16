@@ -2,7 +2,6 @@
 
 import {} from 'react'
 import Link from 'next/link'
-import Sidebar from '../components/Sidebar'
 
 const PLATFORMS = [
   { name: '네이버',     href: '/review-admin/naver',   color: '#03C75A', bg: '#E8F9EF', icon: 'N', total: 47, pending: 3, score: 4.8 },
@@ -31,9 +30,6 @@ export default function ReviewAdminPage() {
   const totalPending = PLATFORMS.reduce((a, p) => a + p.pending, 0)
 
   return (
-    <div className="flex min-h-screen bg-[#F8F9FA]">
-      <Sidebar />
-      <main className="flex-1 md:ml-[220px] pt-14 md:pt-0">
         <div className="p-4 md:p-6 max-w-6xl mx-auto">
 
           <div className="flex items-center justify-between mb-6">
@@ -102,7 +98,5 @@ export default function ReviewAdminPage() {
           </div>
 
         </div>
-      </main>
-    </div>
   )
 }
