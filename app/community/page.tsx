@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { useSearchParams } from 'next/navigation'
-import Sidebar from '../components/Sidebar'
 
 const POSTS = [
   { id: 1, author: '강남 카페사장', region: '서울 · 강남구', title: '배달앱 수수료 올랐는데 다들 어떻게 하세요?', content: '요기요, 배민 수수료가 너무 올라서 힘드네요. 다른 사장님들은 어떻게 대응하시나요?', likes: 23, comments: 12, time: '1시간 전', tag: '배달/배민' },
@@ -27,9 +26,6 @@ export default function CommunityPage() {
   const title = district ? region + ' ' + district : region
 
   return (
-    <div className="flex min-h-screen bg-[#F8F9FA]">
-      <Sidebar />
-      <main className="flex-1 md:ml-[220px] pt-14 md:pt-0">
         <div className="p-4 md:p-6 max-w-4xl mx-auto">
 
           <div className="flex items-center justify-between mb-6">
@@ -104,7 +100,5 @@ export default function CommunityPage() {
           )}
 
         </div>
-      </main>
-    </div>
   )
 }
