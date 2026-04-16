@@ -211,9 +211,6 @@ export default function LandingPage() {
                     <span key={t} className="text-xs bg-white/20 text-white px-3 py-1.5 rounded-full font-medium">{t}</span>
                   ))}
                 </div>
-                <a href="/login" className="inline-flex items-center gap-2 bg-white text-[#3182F6] font-bold text-sm px-6 py-3 rounded-xl hover:bg-blue-50 transition-colors">
-                  QR 리뷰 체험하기 →
-                </a>
               </div>
               <div className="flex-shrink-0 bg-white/10 rounded-2xl p-6 text-center w-52">
                 <div className="text-5xl mb-3">📱</div>
