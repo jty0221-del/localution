@@ -1,18 +1,19 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 
-export async function GET(request) {
+export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const code = searchParams.get('code')
+  const baseUrl = new URL(request.url).origin
 
   if (!code) {
-    return NextResponse.redirect('/login?error=kakao_denied')
+    return NextResponse.redirect(new URL('/login?error=kakao_denied', baseUrl))
   }
 
   try {
     const restApiKey = process.env.KAKAO_REST_API_KEY || ''
     const clientSecret = process.env.KAKAO_CLIENT_SECRET || ''
-    const redirectUri = process.env.KAKAO_CALLBACK_URL || 'https://www.localution.co.kr/api/oauth/kakao/callback'
+    const redirectUri = process.env.KAKAO_CALLBACK_URL || (baseUrl + '/api/oauth/kakao/callback')
 
     const formData = new URLSearchParams()
     formData.append('grant_type', 'authorization_code')
@@ -30,7 +31,7 @@ export async function GET(request) {
     const tokenData = await tokenRes.json()
 
     if (!tokenData.access_token) {
-      return NextResponse.redirect('/login?error=token_failed')
+      return NextResponse.redirect(new URL('/login?error=token_failed', baseUrl))
     }
 
     const userRes = await fetch('https://kapi.kakao.com/v2/user/me', {
@@ -40,7 +41,7 @@ export async function GET(request) {
     const userData = await userRes.json()
 
     if (!userData.id) {
-      return NextResponse.redirect('/login?error=token_failed')
+      return NextResponse.redirect(new URL('/login?error=profile_failed', baseUrl))
     }
 
     const kakaoAccount = userData.kakao_account || {}
@@ -57,19 +58,21 @@ export async function GET(request) {
     cookieStore.set('localution_session', tokenData.access_token, {
       httpOnly: true,
       secure: true,
-      sameSite: 'lax',
-      maxAge: 30 * 24 * 60 * 60
+      sameSite: 'lax' as const,
+      maxAge: 30 * 24 * 60 * 60,
+      path: '/'
     })
     cookieStore.set('localution_user', JSON.stringify(sessionData), {
       httpOnly: false,
       secure: true,
-      sameSite: 'lax',
-      maxAge: 30 * 24 * 60 * 60
+      sameSite: 'lax' as const,
+      maxAge: 30 * 24 * 60 * 60,
+      path: '/'
     })
 
-    return NextResponse.redirect('/dashboard')
+    return NextResponse.redirect(new URL('/dashboard', baseUrl))
   } catch (error) {
     console.error('Kakao OAuth error:', error)
-    return NextResponse.redirect('/login?error=token_failed')
+    return NextResponse.redirect(new URL('/login?error=server_error', baseUrl))
   }
 }
