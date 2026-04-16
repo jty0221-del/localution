@@ -555,46 +555,6 @@ function AITab() {
           </div>
         </div>
       </div>
-      {/* 성별 · 나이 */}
-      <div className="bg-white rounded-2xl p-6 shadow-sm">
-        <div className="mb-5">
-          <h3 className="font-bold text-[#191F28] mb-3">화자 성별</h3>
-          <p className="text-xs text-[#8B95A1] mb-3">답변의 말투 느낌을 설정합니다</p>
-          <div className="grid grid-cols-4 gap-3">
-            {[
-              { v:'none',    label:'미설정', desc:'기본' },
-              { v:'male',    label:'남성',   desc:'남성적 어투' },
-              { v:'female',  label:'여성',   desc:'여성적 어투' },
-              { v:'neutral', label:'중성',   desc:'성별 무관' },
-            ].map(opt => (
-              <button key={opt.v} onClick={() => setGender(opt.v)}
-                className={`p-3 rounded-xl border-2 text-center transition-colors ${gender === opt.v ? 'border-[#3182F6] bg-[#EFF6FF]' : 'border-[#E5E8EB] hover:border-[#BFDBFE]'}`}>
-                <div className="text-sm font-bold text-[#191F28]">{opt.label}</div>
-                <div className="text-[10px] text-[#8B95A1] mt-0.5">{opt.desc}</div>
-              </button>
-            ))}
-          </div>
-        </div>
-        <div>
-          <h3 className="font-bold text-[#191F28] mb-3">화자 연령대</h3>
-          <p className="text-xs text-[#8B95A1] mb-3">답변 어투의 연령대 느낌을 설정합니다</p>
-          <div className="grid grid-cols-5 gap-3">
-            {[
-              { v:'none', label:'미설정', desc:'기본' },
-              { v:'20s',  label:'20대',  desc:'젊고 발랄' },
-              { v:'30s',  label:'30대',  desc:'균형 잡힌' },
-              { v:'40s',  label:'40대',  desc:'안정적인' },
-              { v:'50s',  label:'50대+', desc:'노련한' },
-            ].map(opt => (
-              <button key={opt.v} onClick={() => setAge(opt.v)}
-                className={`p-3 rounded-xl border-2 text-center transition-colors ${age === opt.v ? 'border-[#3182F6] bg-[#EFF6FF]' : 'border-[#E5E8EB] hover:border-[#BFDBFE]'}`}>
-                <div className="text-sm font-bold text-[#191F28]">{opt.label}</div>
-                <div className="text-[10px] text-[#8B95A1] mt-0.5">{opt.desc}</div>
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
 
       {/* 포함 요소 체크리스트 */}
       <div className="bg-white rounded-2xl p-6 shadow-sm">
