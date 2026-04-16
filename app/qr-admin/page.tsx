@@ -194,11 +194,19 @@ function downloadQR(url: string, fileName: string) {
 
 // storeId 생성 (상호명 기반 slug)
 function makeStoreId(name: string): string {
-  return name.toLowerCase()
-    .replace(/[^a-zA-Z0-9\uAC00-\uD7A3]/g, '-')
-    .replace(/-+/g, '-')
-    .replace(/^-|-$/g, '')
-    || 'store-' + Date.now()
+  let result = ''
+  const lower = name.toLowerCase()
+  for (let i = 0; i < lower.length; i++) {
+    const c = lower.charCodeAt(i)
+    const isAlpha = (c >= 97 && c <= 122)
+    const isDigit = (c >= 48 && c <= 57)
+    const isKorean = (c >= 0xAC00 && c <= 0xD7A3)
+    result += (isAlpha || isDigit || isKorean) ? lower[i] : '-'
+  }
+  while (result.includes('--')) result = result.split('--').join('-')
+  if (result.startsWith('-')) result = result.slice(1)
+  if (result.endsWith('-')) result = result.slice(0, -1)
+  return result || 'store-' + Date.now()
 }
 
 // 리뷰 URL 생성
@@ -788,10 +796,7 @@ export default function QRAdmin() {
                       className="w-16 h-16 bg-white rounded-xl shadow-sm flex items-center justify-center cursor-pointer flex-shrink-0 border border-[#E5E8EB] hover:border-[#3182F6] transition-colors p-1">
                       {storeInfo.connected
                         ? <QRCodeImage url={buildReviewUrl(storeInfo, { ...settings, mainKeyword: qr.keyword || settings.mainKeyword })} size={56} />
-                        : {storeInfo.connected
-                        ? <QRCodeImage url={buildReviewUrl(storeInfo, { ...settings, mainKeyword: qr.keyword || settings.mainKeyword })} size={56} />
                         : <QRPreview text={qr.name + qr.keyword} size={56} />
-                      }
                       }
                     </div>
                     <div className="flex-1 min-w-0">
@@ -981,10 +986,7 @@ export default function QRAdmin() {
               <div className="p-4 bg-white rounded-2xl border-2 border-[#E5E8EB] shadow-sm">
                 {storeInfo.connected
                   ? <QRCodeImage url={buildReviewUrl(storeInfo, { ...settings, mainKeyword: previewQR.keyword || settings.mainKeyword })} size={180} />
-                  : {storeInfo.connected
-                  ? <QRCodeImage url={buildReviewUrl(storeInfo, { ...settings, mainKeyword: previewQR.keyword || settings.mainKeyword })} size={180} />
                   : <QRPreview text={previewQR.name + previewQR.keyword} size={180} />
-                }
                 }
               </div>
               {storeInfo.connected && (
