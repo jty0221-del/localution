@@ -404,7 +404,7 @@ export default function ReviewAdmin() {
             <div className="text-4xl mb-3">📡</div>
             <p className="font-bold text-[#191F28] mb-1">연동된 플랫폼이 없습니다</p>
             <p className="text-sm text-[#8B95A1] mb-4">대시보드에서 구글·네이버 매장을 먼저 연동해 주세요.</p>
-            <Link href="/" className="inline-block px-5 py-2 bg-[#3182F6] text-white text-sm font-semibold rounded-xl hover:bg-[#1B64DA] transition-colors">
+            <Link href="/dashboard" className="inline-block px-5 py-2 bg-[#3182F6] text-white text-sm font-semibold rounded-xl hover:bg-[#1B64DA] transition-colors">
               대시보드로 이동
             </Link>
           </div>
