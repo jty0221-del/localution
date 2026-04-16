@@ -9,6 +9,7 @@ import { useState, useEffect, useCallback } from 'react'
 
 function NaverPlaceLogo({ size = 28 }: { size?: number }) {
   return (
+    <>
     <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
       <rect width="48" height="48" rx="10" fill="#03C75A"/>
       <path d="M9 39V9h8L31 27V9h8v30h-8L17 21v18H9Z" fill="white"/>
@@ -1080,6 +1081,7 @@ export default function Dashboard() {
           onClose={() => setReplyReview(null)}
         />
       )}
+    </>
   )
                   </>
 }
