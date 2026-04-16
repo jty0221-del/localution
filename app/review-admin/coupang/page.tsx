@@ -1,117 +1,314 @@
 'use client'
 
-import { useState } from 'react'
+export const dynamic = 'force-dynamic'
+
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import Sidebar from '../../components/Sidebar'
 
-const REVIEWS = [
-  { name: '김**', rating: 5, text: '진짜 최고예요! 다음에 또 올게요 ㅎㅎ 분위기도 좋고 음식도 맛있어요.', date: '2026-04-16', replied: false },
-  { name: '이**', rating: 4, text: '전반적으로 만족스러웠어요. 주차 공간이 조금 아쉬웠어요.', date: '2026-04-15', replied: true, reply: '방문해주셔서 감사합니다! 주차 환경 개선을 위해 노력하겠습니다.' },
-  { name: '박**', rating: 5, text: '여기 단골입니다. 항상 맛있고 서비스도 훌륭해요!', date: '2026-04-14', replied: false },
-  { name: '최**', rating: 3, text: '기대에 비해 조금 아쉬웠어요. 개선 부탁드려요.', date: '2026-04-13', replied: false },
-  { name: '정**', rating: 5, text: '사장님 너무 친절하세요. 항상 감사합니다!', date: '2026-04-12', replied: true, reply: '항상 변함없이 찾아주시는 정 고객님, 정말 감사합니다!' },
-]
+const PLATFORM = {
+  key:   'coupang',
+  label: '쿠팡이츠',
+  color: '#FF4B30',
+  bg:    '#FFF3F0',
+  icon:  '🟠',
+  apiPath: '/api/reviews/coupang',
+}
 
-export default function ReviewPage_Coupang() {
-  const [replyModal, setReplyModal] = useState<number | null>(null)
-  const [replyText, setReplyText] = useState('')
+interface Review {
+  id: string
+  rating: number
+  content: string
+  author: string
+  orderedMenu?: string
+  createdAt: string
+  replied: boolean
+  replyContent?: string
+}
 
+export default function ReviewPage() {
+  const [reviews, setReviews]       = useState<Review[]>([])
+  const [loading, setLoading]       = useState(false)
+  const [connected, setConnected]   = useState(false)
+  const [error, setError]           = useState('')
+  const [replyMap, setReplyMap]     = useState<Record<string, string>>({})
+  const [sendingId, setSendingId]   = useState<string | null>(null)
+  const [filterRating, setFilterRating] = useState<number | null>(null)
+  const [filterReplied, setFilterReplied] = useState<'all' | 'replied' | 'unreplied'>('all')
 
-  const pendingCount = REVIEWS.filter(r => !r.replied).length
+  useEffect(() => {
+    // 연동 상태 확인
+    const savedConn = localStorage.getItem(`localution.${PLATFORM.key}.connected`)
+    if (savedConn === 'true') {
+      setConnected(true)
+      fetchReviews()
+    }
+  }, [])
+
+  const fetchReviews = async () => {
+    setLoading(true)
+    setError('')
+    try {
+      const res = await fetch(PLATFORM.apiPath)
+      if (res.ok) {
+        const data = await res.json()
+        setReviews(data.reviews || [])
+      } else if (res.status === 401) {
+        setError('인증이 만료되었습니다. 재연동해 주세요.')
+        setConnected(false)
+        localStorage.removeItem(`localution.${PLATFORM.key}.connected`)
+      } else if (res.status === 503) {
+        setError('플랫폼 서버 연결에 실패했습니다. 잠시 후 다시 시도해 주세요.')
+      } else {
+        const err = await res.json().catch(() => ({}))
+        setError(err.message || '리뷰를 가져오는 중 오류가 발생했습니다.')
+      }
+    } catch (e) {
+      setError('네트워크 오류가 발생했습니다.')
+    }
+    setLoading(false)
+  }
+
+  const handleConnect = () => {
+    localStorage.setItem(`localution.${PLATFORM.key}.connected`, 'true')
+    setConnected(true)
+    fetchReviews()
+  }
+
+  const handleSendReply = async (reviewId: string) => {
+    const content = replyMap[reviewId]?.trim()
+    if (!content) return
+    setSendingId(reviewId)
+    try {
+      const res = await fetch(`${PLATFORM.apiPath}/reply`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reviewId, content }),
+      })
+      if (res.ok) {
+        setReviews(prev => prev.map(r =>
+          r.id === reviewId ? { ...r, replied: true, replyContent: content } : r
+        ))
+        setReplyMap(prev => ({ ...prev, [reviewId]: '' }))
+      } else {
+        alert('답글 등록에 실패했습니다.')
+      }
+    } catch {
+      alert('네트워크 오류가 발생했습니다.')
+    }
+    setSendingId(null)
+  }
+
+  const handleAIReply = async (reviewId: string, reviewContent: string) => {
+    const tone = localStorage.getItem('ai.tone') || 'friendly'
+    const keyword = localStorage.getItem('ai.keyword') || ''
+    try {
+      const res = await fetch('/api/ai-review-reply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ review: reviewContent, tone, keyword, platform: PLATFORM.key }),
+      })
+      if (res.ok) {
+        const data = await res.json()
+        setReplyMap(prev => ({ ...prev, [reviewId]: data.reply || '' }))
+      }
+    } catch {}
+  }
+
+  const filtered = reviews.filter(r => {
+    if (filterRating && r.rating !== filterRating) return false
+    if (filterReplied === 'replied' && !r.replied) return false
+    if (filterReplied === 'unreplied' && r.replied) return false
+    return true
+  })
+
+  const unrepliedCount = reviews.filter(r => !r.replied).length
+  const avgRating = reviews.length > 0
+    ? (reviews.reduce((s, r) => s + r.rating, 0) / reviews.length).toFixed(1)
+    : '0.0'
 
   return (
-        <div className="p-4 md:p-6 max-w-4xl mx-auto">
+    <div className="min-h-screen bg-[#F2F4F6] flex">
+      <Sidebar />
+      <main className="flex-1 md:ml-[220px] p-4 md:p-8 pt-16 md:pt-8">
 
-          <div className="flex items-center gap-3 mb-6">
-            <Link href="/review-admin" className="w-8 h-8 flex items-center justify-center rounded-xl bg-white border border-[#E5E8EB] text-[#8B95A1] hover:bg-[#F2F4F6] text-sm">←</Link>
+        {/* 헤더 */}
+        <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
+          <div className="flex items-center gap-3">
+            <Link href="/review-admin" className="text-[#8B95A1] hover:text-[#191F28] text-sm">← 전체</Link>
+            <div className="w-8 h-8 rounded-xl flex items-center justify-center text-lg"
+              style={{ background: PLATFORM.bg }}>{PLATFORM.icon}</div>
             <div>
-              <h1 className="text-xl font-black text-[#191F28]">쿠팡이츠 리뷰</h1>
-              <p className="text-sm text-[#8B95A1] mt-0.5">총 12개 · 별점 4.3 · 미답변 1개</p>
+              <h1 className="text-xl font-bold text-[#191F28]">{PLATFORM.label} 리뷰</h1>
+              <p className="text-xs text-[#8B95A1]">리뷰 조회 및 AI 답글 관리</p>
             </div>
           </div>
+          {connected && (
+            <button onClick={fetchReviews} disabled={loading}
+              className="flex items-center gap-2 px-4 py-2 bg-white text-sm font-semibold text-[#4E5968] rounded-xl shadow-sm hover:bg-[#F2F4F6] transition-colors">
+              {loading ? '⏳' : '🔄'} 새로고침
+            </button>
+          )}
+        </div>
 
-          {/* 요약 */}
-          <div className="grid grid-cols-3 gap-3 mb-5">
-            <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#F2F4F6] text-center">
-              <p className="text-2xl font-black text-[#191F28]">12</p>
-              <p className="text-xs text-[#8B95A1] mt-0.5">전체 리뷰</p>
-            </div>
-            <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#F2F4F6] text-center">
-              <p className="text-2xl font-black" style={{ color: '#FF4B30' }}>4.3</p>
-              <p className="text-xs text-[#8B95A1] mt-0.5">평균 별점</p>
-            </div>
-            <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#F2F4F6] text-center">
-              <p className="text-2xl font-black text-[#DC2626]">{pendingCount}</p>
-              <p className="text-xs text-[#8B95A1] mt-0.5">미답변</p>
+        {!connected ? (
+          /* 연동 안내 */
+          <div className="max-w-lg mx-auto mt-12">
+            <div className="bg-white rounded-2xl p-8 shadow-sm text-center">
+              <div className="w-16 h-16 rounded-2xl mx-auto mb-4 flex items-center justify-center text-3xl"
+                style={{ background: PLATFORM.bg }}>{PLATFORM.icon}</div>
+              <h2 className="text-xl font-bold text-[#191F28] mb-2">{PLATFORM.label} 연동</h2>
+              <p className="text-sm text-[#4E5968] mb-2 leading-relaxed">쿠팡이츠는 공식 EatApp Partner API를 제공합니다. WING에서 API 키를 발급받아 연동하세요.</p>
+
+              {/* 환경변수 안내 */}
+              <div className="mt-4 p-4 bg-[#F8F9FA] rounded-xl text-left mb-6">
+                <p className="text-xs font-bold text-[#4E5968] mb-2">⚙️ Vercel 환경변수 설정 필요:</p>
+                <p className="text-xs text-[#8B95A1] font-mono">COUPANG_VENDOR_ID=...</p>
+                <p className="text-xs text-[#8B95A1] font-mono">COUPANG_ACCESS_KEY=...</p>
+                <p className="text-xs text-[#8B95A1] font-mono">COUPANG_SECRET_KEY=...</p>
+                <p className="text-[11px] text-[#8B95A1] mt-2">WING > 계정관리 > API 키 발급 후 환경변수에 추가하세요.</p>
+              </div>
+
+              <div className="flex gap-3">
+                <a href="https://wing.coupang.com" target="_blank" rel="noopener noreferrer"
+                  className="flex-1 py-3 rounded-xl text-sm font-semibold text-white transition-colors"
+                  style={{ background: PLATFORM.color }}>
+                  {PLATFORM.label} 사장님 포털 →
+                </a>
+                <button onClick={handleConnect}
+                  className="flex-1 py-3 rounded-xl text-sm font-semibold bg-[#191F28] text-white hover:bg-[#333D4B] transition-colors">
+                  연동 테스트
+                </button>
+              </div>
             </div>
           </div>
+        ) : (
+          <>
+            {/* 통계 카드 */}
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+              {[
+                { label: '전체 리뷰', value: reviews.length + '개', icon: '📝', color: PLATFORM.color },
+                { label: '평균 별점', value: '⭐ ' + avgRating, icon: '⭐', color: '#D97706' },
+                { label: '미답변',   value: unrepliedCount + '개', icon: '💬', color: unrepliedCount > 0 ? '#EF4444' : '#059669' },
+                { label: '답변율',  value: reviews.length > 0 ? Math.round(((reviews.length - unrepliedCount) / reviews.length) * 100) + '%' : '0%', icon: '✅', color: '#059669' },
+              ].map((s, i) => (
+                <div key={i} className="bg-white rounded-2xl p-4 shadow-sm">
+                  <p className="text-xs text-[#8B95A1] mb-1">{s.label}</p>
+                  <p className="text-lg font-bold" style={{ color: s.color }}>{s.value}</p>
+                </div>
+              ))}
+            </div>
 
-          {/* 리뷰 목록 */}
-          <div className="space-y-3">
-            {REVIEWS.map((r, i) => (
-              <div key={i} className="bg-white rounded-2xl shadow-sm border border-[#F2F4F6] p-5">
-                <div className="flex items-center justify-between mb-2">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold"
-                      style={{ background: '#FF4B30' }}>{r.name[0]}</div>
-                    <div>
-                      <p className="text-sm font-semibold text-[#191F28]">{r.name}</p>
-                      <p className="text-xs text-[#8B95A1]">{r.date}</p>
+            {/* 필터 */}
+            <div className="flex gap-2 mb-4 flex-wrap">
+              <div className="flex gap-1 bg-white rounded-xl p-1 shadow-sm">
+                {([null, 1, 2, 3, 4, 5] as const).map(r => (
+                  <button key={String(r)} onClick={() => setFilterRating(r as any)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${filterRating === r ? 'text-white' : 'text-[#4E5968] hover:bg-[#F2F4F6]'}`}
+                    style={filterRating === r ? { background: PLATFORM.color } : {}}>
+                    {r === null ? '전체' : '★' + r}
+                  </button>
+                ))}
+              </div>
+              <div className="flex gap-1 bg-white rounded-xl p-1 shadow-sm">
+                {([['all','전체'],['unreplied','미답변'],['replied','답변완료']] as const).map(([v,l]) => (
+                  <button key={v} onClick={() => setFilterReplied(v)}
+                    className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${filterReplied === v ? 'text-white' : 'text-[#4E5968] hover:bg-[#F2F4F6]'}`}
+                    style={filterReplied === v ? { background: PLATFORM.color } : {}}>
+                    {l}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* 에러 */}
+            {error && (
+              <div className="bg-red-50 border border-red-200 rounded-xl p-4 mb-4 text-sm text-red-600">{error}</div>
+            )}
+
+            {/* 로딩 */}
+            {loading && (
+              <div className="bg-white rounded-2xl p-12 text-center shadow-sm">
+                <div className="text-3xl mb-3 animate-spin inline-block">⏳</div>
+                <p className="text-[#8B95A1] text-sm">{PLATFORM.label}에서 리뷰를 가져오는 중...</p>
+              </div>
+            )}
+
+            {/* 리뷰 없음 */}
+            {!loading && filtered.length === 0 && (
+              <div className="bg-white rounded-2xl p-12 text-center shadow-sm">
+                <div className="text-4xl mb-3">{reviews.length === 0 ? PLATFORM.icon : '🔍'}</div>
+                <p className="font-semibold text-[#191F28] mb-1">
+                  {reviews.length === 0 ? '리뷰가 없어요' : '필터 조건에 맞는 리뷰가 없어요'}
+                </p>
+                <p className="text-sm text-[#8B95A1]">
+                  {reviews.length === 0 ? '새로고침하거나 나중에 다시 확인해 주세요.' : '필터를 변경해 보세요.'}
+                </p>
+              </div>
+            )}
+
+            {/* 리뷰 목록 */}
+            {!loading && filtered.map(review => (
+              <div key={review.id}
+                className={`bg-white rounded-2xl p-5 shadow-sm mb-3 border-l-4 ${review.replied ? 'border-gray-200' : 'border-[' + PLATFORM.color + ']'}`}>
+                <div className="flex items-start justify-between mb-3">
+                  <div>
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="font-bold text-[#191F28] text-sm">{review.author}</span>
+                      <span className="text-xs text-[#8B95A1]">{review.createdAt}</span>
+                      {review.replied && (
+                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-semibold">답변완료</span>
+                      )}
                     </div>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <span className="text-[#F59E0B] text-sm">{'★'.repeat(r.rating)}{'☆'.repeat(5-r.rating)}</span>
+                    <div className="flex gap-0.5 mb-1">
+                      {Array.from({ length: 5 }).map((_, i) => (
+                        <span key={i} className={`text-sm ${i < review.rating ? 'text-yellow-400' : 'text-gray-200'}`}>★</span>
+                      ))}
+                    </div>
+                    {review.orderedMenu && (
+                      <p className="text-xs text-[#8B95A1] mb-1">주문: {review.orderedMenu}</p>
+                    )}
                   </div>
                 </div>
-                <p className="text-sm text-[#4E5968] leading-relaxed">{r.text}</p>
+                <p className="text-sm text-[#191F28] leading-relaxed mb-3">{review.content}</p>
 
-                {r.replied && (r as typeof r & { reply: string }).reply && (
-                  <div className="mt-3 p-3 rounded-xl border-l-3" style={{ background: '#FFF4F2', borderLeft: '3px solid #FF4B30' }}>
-                    <p className="text-xs font-semibold mb-1" style={{ color: '#FF4B30' }}>사장님 답글</p>
-                    <p className="text-sm text-[#4E5968]">{r.reply}</p>
+                {review.replied && review.replyContent && (
+                  <div className="bg-[#F8F9FA] rounded-xl p-3 mb-3 border-l-2" style={{ borderColor: PLATFORM.color }}>
+                    <p className="text-xs font-semibold mb-1" style={{ color: PLATFORM.color }}>사장님 답글</p>
+                    <p className="text-xs text-[#4E5968]">{review.replyContent}</p>
                   </div>
                 )}
 
-                {!r.replied && (
-                  <div className="mt-3 flex gap-2">
-                    <button onClick={() => { setReplyModal(i); setReplyText('') }}
-                      className="px-3 py-1.5 text-white text-xs font-semibold rounded-xl hover:opacity-90 transition-opacity"
-                      style={{ background: '#FF4B30' }}>
-                      AI 답글 생성
-                    </button>
-                    <button className="px-3 py-1.5 bg-[#F2F4F6] text-[#4E5968] text-xs font-semibold rounded-xl hover:bg-[#E5E8EB]">
-                      직접 작성
-                    </button>
+                {!review.replied && (
+                  <div className="space-y-2">
+                    <textarea
+                      value={replyMap[review.id] || ''}
+                      onChange={e => setReplyMap(prev => ({ ...prev, [review.id]: e.target.value }))}
+                      placeholder="답글을 작성하세요..."
+                      rows={3}
+                      className="w-full border border-[#E5E8EB] rounded-xl px-3 py-2.5 text-sm resize-none focus:outline-none focus:border-[#3182F6] transition-colors"
+                    />
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => handleAIReply(review.id, review.content)}
+                        className="flex-1 py-2 rounded-xl text-xs font-semibold bg-[#F5F3FF] text-[#8B5CF6] hover:bg-[#EDE9FE] transition-colors">
+                        ✨ AI 답글 생성
+                      </button>
+                      <button
+                        onClick={() => handleSendReply(review.id)}
+                        disabled={!replyMap[review.id]?.trim() || sendingId === review.id}
+                        className={`flex-1 py-2 rounded-xl text-xs font-semibold text-white transition-colors ${!replyMap[review.id]?.trim() ? 'bg-[#E5E8EB] cursor-not-allowed' : 'hover:opacity-90'}`}
+                        style={replyMap[review.id]?.trim() ? { background: PLATFORM.color } : {}}>
+                        {sendingId === review.id ? '등록 중...' : '답글 등록'}
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>
             ))}
-          </div>
-
-          {/* AI 답글 모달 */}
-          {replyModal !== null && (
-            <div className="fixed inset-0 bg-black/40 z-50 flex items-end sm:items-center justify-center p-4">
-              <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl p-6">
-                <h2 className="text-base font-black text-[#191F28] mb-3">AI 답글 생성</h2>
-                <div className="p-3 bg-[#F8F9FA] rounded-xl mb-3 text-xs text-[#4E5968]">
-                  {replyModal !== null ? REVIEWS[replyModal].text : ''}
-                </div>
-                <div className="flex gap-2 mb-3">
-                  {['따뜻한','전문적','유쾌한','심플'].map(tone => (
-                    <button key={tone} className="px-3 py-1 rounded-full text-xs bg-[#EFF6FF] text-[#3182F6] font-medium hover:bg-[#DBEAFE]">{tone}</button>
-                  ))}
-                </div>
-                <div className="p-3 bg-[#EFF6FF] rounded-xl mb-4 text-sm text-[#191F28] leading-relaxed">
-                  소중한 리뷰 남겨주셔서 진심으로 감사드립니다 😊 사장님의 말씀을 마음 깊이 새기겠습니다. 다음 방문 때 더욱 만족스러운 경험을 드릴 수 있도록 최선을 다하겠습니다. 또 찾아주세요!
-                </div>
-                <div className="flex gap-2">
-                  <button onClick={() => setReplyModal(null)} className="flex-1 py-2.5 border border-[#E5E8EB] rounded-xl text-sm text-[#4E5968] font-medium hover:bg-[#F8F9FA]">취소</button>
-                  <button onClick={() => setReplyModal(null)} className="flex-1 py-2.5 text-white rounded-xl text-sm font-semibold hover:opacity-90"
-                    style={{ background: '#FF4B30' }}>등록하기</button>
-                </div>
-              </div>
-            </div>
-          )}
-
-        </div>
+          </>
+        )}
+      </main>
+    </div>
   )
 }

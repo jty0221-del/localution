@@ -1,238 +1,252 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
-import { usePathname } from 'next/navigation'
+
+import { useState } from 'react'
 import Link from 'next/link'
+import { usePathname, useSearchParams } from 'next/navigation'
 
-interface UserInfo {
-  name: string
-  email: string
-  avatar?: string
-  provider?: string
-}
-
-const NAV = [
-  { href: '/dashboard',   icon: '🏠', label: '대시보드' },
-  { href: '/review-admin', icon: '⭐', label: 'AI 리뷰·마케팅' },
-  { href: '/qr',          icon: '📱', label: 'QR 리뷰 자동화' },
-  { href: '/crm',         icon: '👥', label: 'CRM 고객관리' },
-  { href: '/community',   icon: '💬', label: '커뮤니티' },
-  { href: '/pricing',     icon: '💎', label: '요금제' },
+const FLAT_NAV = [
+  { href: '/dashboard', label: '대시보드',  icon: 'DB',  colors: { bg: '#EFF6FF', text: '#3182F6' } },
+  { href: '/qr-admin',  label: 'QR 관리',   icon: 'QR',  colors: { bg: '#F5F3FF', text: '#8B5CF6' } },
+  { href: '/customers', label: '고객 관리', icon: '고객', colors: { bg: '#ECFDF5', text: '#059669' } },
+  { href: '/store',     label: '매장 관리', icon: '매장', colors: { bg: '#FFF1F2', text: '#E11D48' } },
 ]
 
-const PROTECTED = [
-  '/dashboard', '/review-admin', '/qr', '/crm',
-  '/community', '/pricing', '/settings', '/inquiry',
+const REVIEW_SUB = [
+  { href: '/review-admin/naver',   label: '네이버',     icon: '🟢', color: '#03C75A' },
+  { href: '/review-admin/google',  label: '구글',       icon: '🔵', color: '#4285F4' },
+  { href: '/review-admin/baemin',  label: '배달의민족', icon: '🩵', color: '#2AC1BC' },
+  { href: '/review-admin/yogiyo',  label: '요기요',     icon: '🔴', color: '#FA0050' },
+  { href: '/review-admin/coupang', label: '쿠팡이츠',   icon: '🟠', color: '#FF4B30' },
+]
+
+const MARKETING_SUB = [
+  { href: '/marketing/place',        label: '플레이스 진단',   icon: '📍' },
+  { href: '/marketing/keyword-rank', label: '키워드 순위',     icon: '🔍' },
+  { href: '/marketing/keyword-score',label: '키워드 점수분석', icon: '📊' },
+]
+
+const REGIONS = [
+  { key: 'seoul',    label: '서울', icon: '🏙️', sub: ['강남구','강동구','강북구','강서구','관악구','광진구','구로구','금천구','노원구','도봉구','동대문구','동작구','마포구','서대문구','서초구','성동구','성북구','송파구','양천구','영등포구','용산구','은평구','종로구','중구','중랑구'] },
+  { key: 'gyeonggi', label: '경기', icon: '🌿', sub: ['수원시','성남시','의정부시','안양시','부천시','광명시','평택시','동두천시','안산시','고양시','과천시','구리시','남양주시','오산시','시흥시','군포시','의왕시','하남시','용인시','파주시','이천시','안성시','김포시','화성시','광주시','양주시','포천시','여주시','연천군','가평군','양평군'] },
+  { key: 'incheon',  label: '인천', icon: '✈️', sub: ['중구','동구','미추홀구','연수구','남동구','부평구','계양구','서구','강화군','옹진군'] },
+  { key: 'busan',    label: '부산', icon: '🌊', sub: ['중구','서구','동구','영도구','부산진구','동래구','남구','북구','해운대구','사하구','금정구','강서구','연제구','수영구','사상구','기장군'] },
+  { key: 'daegu',    label: '대구', icon: '🍎', sub: ['중구','동구','서구','남구','북구','수성구','달서구','달성군','군위군'] },
+  { key: 'daejeon',  label: '대전', icon: '🔬', sub: ['동구','중구','서구','유성구','대덕구'] },
+  { key: 'gwangju',  label: '광주', icon: '🌸', sub: ['동구','서구','남구','북구','광산구'] },
+  { key: 'ulsan',    label: '울산', icon: '🏭', sub: ['중구','남구','동구','북구','울주군'] },
+  { key: 'sejong',   label: '세종', icon: '🏛️', sub: ['세종시'] },
+  { key: 'gangwon',  label: '강원', icon: '⛰️', sub: ['춘천시','원주시','강릉시','동해시','태백시','속초시','삼척시','홍천군','횡성군','영월군','평창군','정선군','철원군','화천군','양구군','인제군','고성군','양양군'] },
+  { key: 'chungbuk', label: '충북', icon: '🌾', sub: ['청주시','충주시','제천시','보은군','옥천군','영동군','증평군','진천군','괴산군','음성군','단양군'] },
+  { key: 'chungnam', label: '충남', icon: '🦀', sub: ['천안시','공주시','보령시','아산시','서산시','논산시','계룡시','당진시','금산군','부여군','서천군','청양군','홍성군','예산군','태안군'] },
+  { key: 'jeonbuk',  label: '전북', icon: '🌻', sub: ['전주시','군산시','익산시','정읍시','남원시','김제시','완주군','진안군','무주군','장수군','임실군','순창군','고창군','부안군'] },
+  { key: 'jeonnam',  label: '전남', icon: '🐚', sub: ['목포시','여수시','순천시','나주시','광양시','담양군','곡성군','구례군','고흥군','보성군','화순군','장흥군','강진군','해남군','영암군','무안군','함평군','영광군','장성군','완도군','진도군','신안군'] },
+  { key: 'gyeongbuk',label: '경북', icon: '🏯', sub: ['포항시','경주시','김천시','안동시','구미시','영주시','영천시','상주시','문경시','경산시','군위군','의성군','청송군','영양군','영덕군','청도군','고령군','성주군','칠곡군','예천군','봉화군','울진군','울릉군'] },
+  { key: 'gyeongnam',label: '경남', icon: '🏖️', sub: ['창원시','진주시','통영시','사천시','김해시','밀양시','거제시','양산시','의령군','함안군','창녕군','고성군','남해군','하동군','산청군','함양군','거창군','합천군'] },
+  { key: 'jeju',     label: '제주', icon: '🍊', sub: ['제주시','서귀포시'] },
+]
+
+const BOTTOM_NAV = [
+  { href: '/inquiry', label: '1:1 문의', icon: '💬', colors: { bg: '#FFF7ED', text: '#EA580C' } },
+  { href: '/settings', label: '설정',    icon: '⚙️', colors: { bg: '#F2F4F6', text: '#4E5968' } },
 ]
 
 export default function Sidebar() {
-  const [user, setUser]     = useState<UserInfo | null>(null)
-  const [loaded, setLoaded] = useState(false)
-  const [open, setOpen]     = useState(false)
-  const [imgOk, setImgOk]   = useState(true)
-  const pathname = usePathname()
-  const popRef   = useRef<HTMLDivElement>(null)
+  const pathname      = usePathname()
+  const searchParams  = useSearchParams()
+  const currentRegion  = searchParams?.get('r') || ''
+  const currentDistrict = searchParams?.get('d') || ''
+  const [mobileOpen, setMobileOpen] = useState(false)
 
-  useEffect(() => {
-    try {
-      const cached = sessionStorage.getItem('localution_user')
-      if (cached) {
-        const u = JSON.parse(cached)
-        if (u && u.name) { setUser(u); setLoaded(true); return }
-      }
-    } catch (_) {}
+  const isReviewSection    = pathname.startsWith('/review-admin')
+  const isMarketingSection = pathname.startsWith('/marketing')
+  const isCommunitySection = pathname === '/community'
 
-    fetch('/api/me')
-      .then(function(r) { return r.json() })
-      .then(function(data) {
-        if (data && data.user && data.user.name) {
-          setUser(data.user)
-          try { sessionStorage.setItem('localution_user', JSON.stringify(data.user)) } catch (_) {}
-        }
-        setLoaded(true)
-      })
-      .catch(function() { setLoaded(true) })
-  }, [])
+  const [reviewOpen,    setReviewOpen]    = useState(isReviewSection)
+  const [marketingOpen, setMarketingOpen] = useState(isMarketingSection)
+  const [communityOpen, setCommunityOpen] = useState(isCommunitySection)
+  const [openRegion, setOpenRegion] = useState<string>(currentRegion)
 
-  useEffect(() => {
-    function onOut(e: MouseEvent) {
-      if (popRef.current && !popRef.current.contains(e.target as Node)) setOpen(false)
-    }
-    document.addEventListener('mousedown', onOut)
-    return function() { document.removeEventListener('mousedown', onOut) }
-  }, [])
+  const toggleRegion = (key: string) => setOpenRegion(prev => prev === key ? '' : key)
 
-  function handleLogout() {
-    setOpen(false)
-    // 쿠키 삭제
-    document.cookie = 'localution_session=; path=/; max-age=0; expires=Thu, 01 Jan 1970 00:00:00 GMT'
-    // 스토리지 전체 삭제
-    try { sessionStorage.clear() } catch (_) {}
-    try { localStorage.clear() } catch (_) {}
-    // API 로그아웃 (fire-and-forget)
-    fetch('/api/auth/logout', { method: 'POST' }).catch(function() {})
-    // 완전 페이지 새로고침으로 /login 이동 (React 상태 초기화)
-    window.location.href = '/login'
-  }
+  const NavItems = () => (
+    <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
 
-  const pn = pathname || ''
-  const show = PROTECTED.some(function(p) { return pn === p || pn.startsWith(p + '/') })
-  if (!show) return null
+      {FLAT_NAV.map(item => {
+        const active = pathname === item.href
+        return (
+          <Link key={item.href} href={item.href} onClick={() => setMobileOpen(false)}
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${active ? 'bg-[#EFF6FF] text-[#3182F6] font-semibold' : 'text-[#4E5968] hover:bg-[#F2F4F6] font-medium'}`}>
+            <div className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold flex-shrink-0"
+              style={active ? { background: '#3182F6', color: '#fff' } : { background: item.colors.bg, color: item.colors.text }}>
+              {item.icon}
+            </div>
+            <span className="text-sm">{item.label}</span>
+            {active && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-[#3182F6]" />}
+          </Link>
+        )
+      })}
+
+      {/* 리뷰 관리 */}
+      <div>
+        <button onClick={() => setReviewOpen(v => !v)}
+          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left ${isReviewSection ? 'bg-[#FFFBEB] text-[#F59E0B] font-semibold' : 'text-[#4E5968] hover:bg-[#F2F4F6] font-medium'}`}>
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold flex-shrink-0"
+            style={isReviewSection ? { background: '#F59E0B', color: '#fff' } : { background: '#FFFBEB', color: '#F59E0B' }}>리뷰</div>
+          <span className="text-sm">리뷰 관리</span>
+          <span className={`ml-auto text-xs transition-transform duration-200 ${reviewOpen ? 'rotate-180' : ''}`}>▾</span>
+        </button>
+        {reviewOpen && (
+          <div className="mt-1 ml-3 pl-4 border-l-2 border-[#FDE68A] space-y-0.5">
+            <Link href="/review-admin" onClick={() => setMobileOpen(false)}
+              className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium ${pathname === '/review-admin' ? 'bg-[#FFFBEB] text-[#F59E0B] font-semibold' : 'text-[#4E5968] hover:bg-[#F8F9FA]'}`}>
+              <span>📋</span><span>전체 리뷰</span>
+            </Link>
+            {REVIEW_SUB.map(sub => {
+              const active = pathname === sub.href || pathname.startsWith(sub.href + '/')
+              return (
+                <Link key={sub.href} href={sub.href} onClick={() => setMobileOpen(false)}
+                  className={`flex items-center gap-2.5 px-3 py-1.5 rounded-xl ${active ? 'bg-[#FFFBEB] text-[#F59E0B] font-semibold' : 'text-[#4E5968] hover:bg-[#F8F9FA] font-medium'}`}>
+                  <span className="text-sm">{sub.icon}</span>
+                  <span className="text-xs">{sub.label}</span>
+                </Link>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* 마케팅 관리 */}
+      <div>
+        <button onClick={() => setMarketingOpen(v => !v)}
+          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left ${isMarketingSection ? 'bg-[#FFF7ED] text-[#EA580C] font-semibold' : 'text-[#4E5968] hover:bg-[#F2F4F6] font-medium'}`}>
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold flex-shrink-0"
+            style={isMarketingSection ? { background: '#EA580C', color: '#fff' } : { background: '#FFF7ED', color: '#EA580C' }}>마케</div>
+          <span className="text-sm">마케팅 관리</span>
+          <span className={`ml-auto text-xs transition-transform duration-200 ${marketingOpen ? 'rotate-180' : ''}`}>▾</span>
+        </button>
+        {marketingOpen && (
+          <div className="mt-1 ml-3 pl-4 border-l-2 border-[#FFE4CC] space-y-0.5">
+            {MARKETING_SUB.map(sub => {
+              const active = pathname === sub.href
+              return (
+                <Link key={sub.href} href={sub.href} onClick={() => setMobileOpen(false)}
+                  className={`flex items-center gap-2.5 px-3 py-2 rounded-xl ${active ? 'bg-[#FFF7ED] text-[#EA580C] font-semibold' : 'text-[#4E5968] hover:bg-[#F8F9FA] font-medium'}`}>
+                  <span>{sub.icon}</span>
+                  <span className="text-xs">{sub.label}</span>
+                </Link>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* 커뮤니티 (지역 3단계) */}
+      <div>
+        <button onClick={() => setCommunityOpen(v => !v)}
+          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left ${isCommunitySection ? 'bg-[#FDF2F8] text-[#EC4899] font-semibold' : 'text-[#4E5968] hover:bg-[#F2F4F6] font-medium'}`}>
+          <div className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold flex-shrink-0"
+            style={isCommunitySection ? { background: '#EC4899', color: '#fff' } : { background: '#FDF2F8', color: '#EC4899' }}>커뮤</div>
+          <span className="text-sm">커뮤니티</span>
+          <span className={`ml-auto text-xs transition-transform duration-200 ${communityOpen ? 'rotate-180' : ''}`}>▾</span>
+        </button>
+        {communityOpen && (
+          <div className="mt-1 ml-3 pl-4 border-l-2 border-[#FBCFE8] space-y-0.5">
+            <Link href="/community" onClick={() => { setMobileOpen(false); setOpenRegion('') }}
+              className={`flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium ${pathname === '/community' && !currentRegion ? 'bg-[#FDF2F8] text-[#EC4899] font-semibold' : 'text-[#4E5968] hover:bg-[#F8F9FA]'}`}>
+              <span>🗺️</span><span>전국</span>
+            </Link>
+            {REGIONS.map(region => {
+              const isRegionActive = currentRegion === region.label
+              const isRegionOpen   = openRegion === region.key
+              return (
+                <div key={region.key}>
+                  <button onClick={() => toggleRegion(region.key)}
+                    className={`w-full flex items-center gap-2.5 px-3 py-1.5 rounded-xl text-left ${isRegionActive ? 'bg-[#FDF2F8] text-[#EC4899] font-semibold' : 'text-[#4E5968] hover:bg-[#F8F9FA] font-medium'}`}>
+                    <span className="text-sm w-5 text-center flex-shrink-0">{region.icon}</span>
+                    <Link href={`/community?r=${encodeURIComponent(region.label)}`}
+                      onClick={e => { e.stopPropagation(); setMobileOpen(false) }}
+                      className="text-xs flex-1 text-left">{region.label}</Link>
+                    <span className={`text-[10px] transition-transform duration-150 flex-shrink-0 ${isRegionOpen ? 'rotate-180' : ''}`}>▾</span>
+                  </button>
+                  {isRegionOpen && (
+                    <div className="mt-0.5 ml-2 pl-3 border-l border-[#FBCFE8] space-y-0.5 max-h-48 overflow-y-auto">
+                      {region.sub.map(district => {
+                        const active = currentRegion === region.label && currentDistrict === district
+                        return (
+                          <Link key={district}
+                            href={`/community?r=${encodeURIComponent(region.label)}&d=${encodeURIComponent(district)}`}
+                            onClick={() => setMobileOpen(false)}
+                            className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[11px] ${active ? 'bg-[#FDF2F8] text-[#EC4899] font-semibold' : 'text-[#8B95A1] hover:bg-[#F8F9FA] hover:text-[#4E5968]'}`}>
+                            <span className="w-1 h-1 rounded-full flex-shrink-0" style={{ background: active ? '#EC4899' : '#D1D5DB' }} />
+                            {district}
+                          </Link>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      <div className="border-t border-[#F2F4F6] my-2" />
+
+      {BOTTOM_NAV.map(item => {
+        const active = pathname === item.href || pathname.startsWith(item.href + '/')
+        return (
+          <Link key={item.href} href={item.href} onClick={() => setMobileOpen(false)}
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${active ? 'font-semibold' : 'text-[#4E5968] hover:bg-[#F2F4F6] font-medium'}`}
+            style={active ? { background: item.colors.bg, color: item.colors.text } : {}}>
+            <span className="text-base w-7 text-center flex-shrink-0">{item.icon}</span>
+            <span className="text-sm">{item.label}</span>
+            {active && <span className="ml-auto w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: item.colors.text }} />}
+          </Link>
+        )
+      })}
+    </nav>
+  )
 
   return (
-    <div style={{
-      position: 'fixed', left: 0, top: 0, bottom: 0, width: '220px',
-      background: '#0F172A',
-      borderRight: '1px solid rgba(255,255,255,0.07)',
-      display: 'flex', flexDirection: 'column',
-      zIndex: 50,
-      fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif",
-    }}>
-      <div style={{
-        padding: '22px 18px 18px',
-        borderBottom: '1px solid rgba(255,255,255,0.07)',
-        flexShrink: 0,
-      }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '11px' }}>
-          {imgOk ? (
-            <img
-              src="/logo.png" alt="logo"
-              style={{ height: '32px', width: 'auto', flexShrink: 0 }}
-              onError={function() { setImgOk(false) }}
-            />
-          ) : (
-            <div style={{
-              width: '32px', height: '32px', borderRadius: '8px', flexShrink: 0,
-              background: 'linear-gradient(135deg, #3182F6 0%, #6366F1 100%)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-            }}>
-              <span style={{ color: '#fff', fontWeight: 900, fontSize: '15px' }}>L</span>
+    <>
+      <div className="md:hidden fixed top-0 left-0 right-0 h-14 bg-white border-b border-[#E5E8EB] z-30 flex items-center justify-between px-4">
+        <div>
+          <span className="font-black text-[#191F28] text-lg tracking-tight">Localution</span>
+          <span className="text-[11px] text-[#8B95A1] ml-1.5 font-medium">(로컬루션)</span>
+        </div>
+        <button onClick={() => setMobileOpen(!mobileOpen)} className="w-9 h-9 flex flex-col justify-center items-center gap-1.5">
+          <span className={`block w-5 h-0.5 bg-[#191F28] rounded transition-all ${mobileOpen ? 'rotate-45 translate-y-2' : ''}`} />
+          <span className={`block h-0.5 bg-[#191F28] rounded transition-all ${mobileOpen ? 'opacity-0 w-0' : 'w-5'}`} />
+          <span className={`block w-5 h-0.5 bg-[#191F28] rounded transition-all ${mobileOpen ? '-rotate-45 -translate-y-2' : ''}`} />
+        </button>
+      </div>
+      {mobileOpen && <div className="md:hidden fixed inset-0 bg-black/30 z-30" onClick={() => setMobileOpen(false)} />}
+      <aside className={`fixed top-0 left-0 h-screen w-[220px] bg-white border-r border-[#E5E8EB] z-40 flex flex-col transition-transform duration-300 ${mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
+        <div className="px-5 py-5 border-b border-[#F2F4F6]">
+          <Link href="/" className="block">
+            <div className="flex items-center gap-2.5">
+              <div className="w-9 h-9 rounded-xl overflow-hidden flex-shrink-0 shadow-[0_2px_8px_rgba(49,130,246,0.25)] ring-1 ring-[#E8F4FD] bg-white flex items-center justify-center">
+                <img src="/favicon.ico" alt="로컬루션" width={28} height={28} style={{ objectFit: 'contain' }} />
+              </div>
+              <div>
+                <p className="font-black text-[#191F28] text-[15px] tracking-tight leading-none">Localution</p>
+                <p className="text-[10px] text-[#8B95A1] font-semibold leading-none mt-1 tracking-wide">로컬루션</p>
+              </div>
             </div>
-          )}
-          <div>
-            <div style={{ fontSize: '20px', fontWeight: 800, color: '#ffffff', letterSpacing: '-0.6px', lineHeight: '1.1' }}>
-              로컬루션
-            </div>
-            <div style={{ fontSize: '10px', color: 'rgba(255,255,255,0.35)', marginTop: '1px' }}>
-              AI 마케팅 자동화
+          </Link>
+        </div>
+        <NavItems />
+        <div className="px-4 py-4 border-t border-[#F2F4F6]">
+          <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-[#F8F9FA]">
+            <div className="w-8 h-8 rounded-full bg-[#3182F6] flex items-center justify-center text-white text-xs font-bold flex-shrink-0">하</div>
+            <div className="min-w-0">
+              <p className="text-xs font-bold text-[#191F28] truncate">하랑마케팅</p>
+              <p className="text-[10px] text-[#8B95A1] truncate">강남점</p>
             </div>
           </div>
         </div>
-      </div>
-
-      <nav style={{ flex: 1, padding: '10px 8px', overflowY: 'auto' }}>
-        {NAV.map(function(item) {
-          const active = pn === item.href || pn.startsWith(item.href + '/')
-          return (
-            <Link
-              key={item.href}
-              href={item.href}
-              style={{
-                display: 'flex', alignItems: 'center', gap: '10px',
-                padding: '9px 12px', borderRadius: '10px', marginBottom: '2px',
-                background: active ? 'rgba(49,130,246,0.16)' : 'transparent',
-                color: active ? '#60A5FA' : 'rgba(255,255,255,0.6)',
-                textDecoration: 'none', fontSize: '13px',
-                fontWeight: active ? 600 : 400,
-                borderLeft: active ? '3px solid #3182F6' : '3px solid transparent',
-              }}
-            >
-              <span style={{ fontSize: '15px', flexShrink: 0 }}>{item.icon}</span>
-              <span>{item.label}</span>
-            </Link>
-          )
-        })}
-      </nav>
-
-      <div style={{ padding: '8px', borderTop: '1px solid rgba(255,255,255,0.07)', flexShrink: 0 }}>
-        <div ref={popRef} style={{ position: 'relative' }}>
-          {open && (
-            <div style={{
-              position: 'absolute', bottom: 'calc(100% + 6px)', left: 0, right: 0,
-              background: '#1E293B',
-              border: '1px solid rgba(255,255,255,0.1)',
-              borderRadius: '12px', padding: '6px',
-              boxShadow: '0 -12px 32px rgba(0,0,0,0.5)',
-              zIndex: 10,
-            }}>
-              {[
-                { icon: '⚙️', label: '설정', href: '/settings' },
-                { icon: '💬', label: '1:1 문의', href: '/inquiry' },
-              ].map(function(item) {
-                return (
-                  <Link
-                    key={item.href}
-                    href={item.href}
-                    onClick={function() { setOpen(false) }}
-                    style={{
-                      display: 'flex', alignItems: 'center', gap: '10px',
-                      padding: '10px 12px', borderRadius: '8px',
-                      color: 'rgba(255,255,255,0.78)', textDecoration: 'none',
-                      fontSize: '13px', fontWeight: 500,
-                    }}
-                  >
-                    <span>{item.icon}</span><span>{item.label}</span>
-                  </Link>
-                )
-              })}
-              <div style={{ height: '1px', background: 'rgba(255,255,255,0.06)', margin: '4px 2px' }} />
-              <button
-                onClick={handleLogout}
-                style={{
-                  display: 'flex', alignItems: 'center', gap: '10px',
-                  width: '100%', padding: '10px 12px', borderRadius: '8px',
-                  background: 'transparent', border: 'none', cursor: 'pointer',
-                  color: '#F87171', fontSize: '13px', fontWeight: 500, textAlign: 'left',
-                }}
-              >
-                <span>🚪</span><span>로그아웃</span>
-              </button>
-            </div>
-          )}
-
-          <button
-            onClick={function() { setOpen(function(v) { return !v }) }}
-            style={{
-              display: 'flex', alignItems: 'center', gap: '10px',
-              width: '100%', padding: '10px 12px', borderRadius: '10px',
-              background: open ? 'rgba(255,255,255,0.07)' : 'transparent',
-              border: '1px solid rgba(255,255,255,0.07)',
-              cursor: 'pointer', textAlign: 'left',
-            }}
-          >
-            <div style={{
-              width: '34px', height: '34px', borderRadius: '50%', flexShrink: 0,
-              background: 'linear-gradient(135deg, #3182F6 0%, #6366F1 100%)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center', overflow: 'hidden',
-            }}>
-              {user && user.avatar ? (
-                <img src={user.avatar} alt="" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-              ) : (
-                <span style={{ color: '#fff', fontWeight: 700, fontSize: '14px' }}>
-                  {user ? user.name.charAt(0) : '?'}
-                </span>
-              )}
-            </div>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{
-                fontSize: '13px', fontWeight: 600, color: '#ffffff',
-                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-              }}>
-                {loaded ? (user ? user.name : '사용자') : '···'}
-              </div>
-              <div style={{
-                fontSize: '11px', color: 'rgba(255,255,255,0.38)', marginTop: '1px',
-                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-              }}>
-                {user ? (user.provider ? user.provider + ' login' : user.email) : ''}
-              </div>
-            </div>
-            <span style={{
-              color: 'rgba(255,255,255,0.25)', fontSize: '10px', flexShrink: 0,
-              transform: open ? 'rotate(0deg)' : 'rotate(180deg)', transition: 'transform 0.2s',
-            }}>▲</span>
-          </button>
-        </div>
-      </div>
-    </div>
+      </aside>
+    </>
   )
 }

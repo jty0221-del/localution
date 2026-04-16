@@ -150,7 +150,7 @@ export default function ServiceIntro() {
       <div style={{ background: 'linear-gradient(135deg, #1B3FD8 0%, #3182F6 100%)' }} className="text-white">
         <div className="max-w-5xl mx-auto px-6 py-14">
           <div className="flex items-center gap-3 mb-8">
-            <Link href="/dashboard" className="text-white/70 text-base hover:text-white transition-colors">← 대시보드</Link>
+            <Link href="/" className="text-white/70 text-base hover:text-white transition-colors">← 대시보드</Link>
           </div>
           <div className="inline-block bg-white/15 border border-white/30 text-white/90 text-sm font-bold px-5 py-2 rounded-full mb-5">
             서비스 소개 · 이용 흐름
@@ -406,7 +406,7 @@ export default function ServiceIntro() {
         </div>
 
         <div className="mt-8 text-center">
-          <Link href="/dashboard" className="inline-flex items-center gap-2 px-8 py-4 bg-[#3182F6] text-white text-lg font-bold rounded-xl hover:bg-[#1B64DA] transition-colors">
+          <Link href="/" className="inline-flex items-center gap-2 px-8 py-4 bg-[#3182F6] text-white text-lg font-bold rounded-xl hover:bg-[#1B64DA] transition-colors">
             대시보드로 이동 →
           </Link>
         </div>

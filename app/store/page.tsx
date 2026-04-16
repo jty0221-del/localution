@@ -1,122 +1,56 @@
 'use client'
+export const dynamic = 'force-dynamic'
 
-import { useState } from 'react'
+import Link from 'next/link'
+import Sidebar from '../components/Sidebar'
+
+const CARDS = [
+  { href: '/settings',         icon: '🏪', title: '매장 기본 정보',  desc: '상호명, 주소, 전화번호, 영업시간을 설정하세요',    color: '#3182F6' },
+  { href: '/settings',         icon: '🔗', title: '플랫폼 연동',     desc: '네이버·구글·카카오 등 리뷰 플랫폼을 연동하세요', color: '#8B5CF6' },
+  { href: '/marketing/place',  icon: '📍', title: '플레이스 진단',   desc: '네이버 플레이스 노출 점수와 개선 방안을 확인하세요', color: '#059669' },
+  { href: '/marketing/keyword-rank', icon: '🔍', title: '키워드 순위', desc: '내 매장이 몇 위에 노출되는지 확인하세요',     color: '#F59E0B' },
+  { href: '/qr-admin',         icon: '📱', title: 'QR 리뷰 관리',   desc: 'QR 코드 생성 및 리뷰 현황을 관리하세요',          color: '#EA580C' },
+  { href: '/customers',        icon: '👥', title: '고객 관리',       desc: '단골·VIP·신규 고객을 태그로 분류 관리하세요',     color: '#E11D48' },
+]
 
 export default function StorePage() {
-  const [storeName, setStoreName] = useState('하랑마케팅 강남점')
-  const [category, setCategory] = useState('마케팅 대행업')
-  const [address, setAddress] = useState('서울시 강남구 테헤란로 123')
-  const [phone, setPhone] = useState('02-1234-5678')
-  const [saved, setSaved] = useState(false)
-  const [activeTab, setActiveTab] = useState('기본정보')
-
-  const handleSave = () => {
-    setSaved(true)
-    setTimeout(() => setSaved(false), 2500)
-  }
-
-  const tabs = ['기본정보', '운영시간', '연동 플랫폼', '알림 설정']
-  const platforms = [
-    { name: '네이버 플레이스', color: '#03C75A', status: '연동됨' },
-    { name: '구글 비즈니스', color: '#4285F4', status: '미연동' },
-    { name: '카카오맵', color: '#F59E0B', status: '연동됨' },
-    { name: '배달의민족', color: '#2AC1BC', status: '미연동' },
-    { name: '요기요', color: '#FA0050', status: '미연동' },
-    { name: '쿠팡이츠', color: '#FF4B30', status: '미연동' },
-  ]
-
   return (
-    <div className="p-4 md:p-6 max-w-3xl mx-auto">
-      <div className="mb-6">
-        <h1 className="text-xl font-black text-[#191F28]">매장 관리</h1>
-        <p className="text-sm text-[#8B95A1] mt-0.5">매장 정보 · 운영시간 · 플랫폼 연동</p>
-      </div>
+    <div className="flex min-h-screen bg-[#F2F4F6]">
+      <Sidebar />
+      <main className="flex-1 ml-[220px] p-6 min-w-0">
 
-      <div className="flex gap-1 bg-[#F2F4F6] rounded-xl p-1 mb-6">
-        {tabs.map(tab => (
-          <button key={tab} onClick={() => setActiveTab(tab)}
-            className={"flex-1 py-2 rounded-lg text-xs font-semibold transition-all " + (activeTab === tab ? "bg-white text-[#191F28] shadow-sm" : "text-[#8B95A1]")}>
-            {tab}
-          </button>
-        ))}
-      </div>
-
-      {activeTab === '기본정보' && (
-        <div className="bg-white rounded-2xl shadow-sm border border-[#F2F4F6] p-6 space-y-4">
-          {[
-            { label: '매장명', value: storeName, set: setStoreName },
-            { label: '업종', value: category, set: setCategory },
-            { label: '주소', value: address, set: setAddress },
-            { label: '전화번호', value: phone, set: setPhone },
-          ].map(item => (
-            <div key={item.label}>
-              <label className="text-xs font-semibold text-[#4E5968] mb-1.5 block">{item.label}</label>
-              <input value={item.value} onChange={e => item.set(e.target.value)}
-                className="w-full px-3 py-2.5 rounded-xl border border-[#E5E8EB] text-sm focus:outline-none focus:border-[#3182F6]" />
-            </div>
-          ))}
-          <button onClick={handleSave}
-            className={"w-full py-3 rounded-xl text-sm font-semibold transition-all " + (saved ? "bg-[#10B981] text-white" : "bg-[#3182F6] text-white hover:bg-[#1a6fd6]")}>
-            {saved ? '✓ 저장됐어요!' : '저장하기'}
-          </button>
+        <div className="mb-6">
+          <h1 className="text-2xl font-black text-[#191F28]">매장 관리</h1>
+          <p className="text-sm text-[#8B95A1] mt-0.5">매장 운영에 필요한 모든 기능을 한눈에</p>
         </div>
-      )}
 
-      {activeTab === '운영시간' && (
-        <div className="bg-white rounded-2xl shadow-sm border border-[#F2F4F6] p-6">
-          {['월','화','수','목','금','토','일'].map(day => (
-            <div key={day} className="flex items-center justify-between py-3 border-b border-[#F2F4F6] last:border-0">
-              <span className="text-sm font-semibold text-[#191F28] w-8">{day}</span>
-              <div className="flex items-center gap-2">
-                <input defaultValue="09:00" type="time" className="px-2 py-1 border border-[#E5E8EB] rounded-lg text-sm focus:outline-none" />
-                <span className="text-[#8B95A1]">~</span>
-                <input defaultValue="22:00" type="time" className="px-2 py-1 border border-[#E5E8EB] rounded-lg text-sm focus:outline-none" />
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          {CARDS.map(c => (
+            <Link key={c.title} href={c.href}
+              className="bg-white rounded-2xl p-6 shadow-sm hover:shadow-md transition-all border border-transparent hover:border-[#E5E8EB] group">
+              <div className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl mb-4"
+                style={{ background: c.color + '18' }}>
+                {c.icon}
               </div>
-            </div>
-          ))}
-          <button onClick={handleSave} className="w-full mt-4 py-3 bg-[#3182F6] text-white rounded-xl text-sm font-semibold">
-            {saved ? '✓ 저장됐어요!' : '저장하기'}
-          </button>
-        </div>
-      )}
-
-      {activeTab === '연동 플랫폼' && (
-        <div className="space-y-3">
-          {platforms.map(p => (
-            <div key={p.name} className="bg-white rounded-2xl shadow-sm border border-[#F2F4F6] p-4 flex items-center justify-between">
-              <div>
-                <p className="text-sm font-semibold text-[#191F28]">{p.name}</p>
-                <p className="text-xs" style={{ color: p.status === '연동됨' ? '#10B981' : '#8B95A1' }}>{p.status}</p>
-              </div>
-              <button style={{ background: p.status === '연동됨' ? '#F2F4F6' : '#3182F6', color: p.status === '연동됨' ? '#4E5968' : 'white' }}
-                className="px-4 py-1.5 rounded-xl text-xs font-semibold">
-                {p.status === '연동됨' ? '연동 해제' : '연동하기'}
-              </button>
-            </div>
+              <h3 className="font-black text-[#191F28] mb-1 group-hover:text-[#3182F6] transition-colors">
+                {c.title}
+              </h3>
+              <p className="text-sm text-[#8B95A1] leading-relaxed">{c.desc}</p>
+            </Link>
           ))}
         </div>
-      )}
 
-      {activeTab === '알림 설정' && (
-        <div className="bg-white rounded-2xl shadow-sm border border-[#F2F4F6] p-6 space-y-4">
-          {[
-            { label: '새 리뷰 알림', desc: '새로운 리뷰가 등록되면 알림', on: true },
-            { label: '리뷰 미답변 알림', desc: '24시간 내 미답변 리뷰 알림', on: true },
-            { label: '키워드 순위 변동', desc: '키워드 순위가 변동될 때 알림', on: false },
-            { label: '정부지원금 알림', desc: '신규 지원금 공고 알림', on: true },
-          ].map(item => (
-            <div key={item.label} className="flex items-center justify-between py-2">
-              <div>
-                <p className="text-sm font-semibold text-[#191F28]">{item.label}</p>
-                <p className="text-xs text-[#8B95A1]">{item.desc}</p>
-              </div>
-              <div className={"w-11 h-6 rounded-full cursor-pointer " + (item.on ? "bg-[#3182F6]" : "bg-[#E5E8EB]")}>
-                <div className={"w-5 h-5 rounded-full bg-white shadow mt-0.5 transition-transform " + (item.on ? "translate-x-5" : "translate-x-0.5")} />
-              </div>
-            </div>
-          ))}
+        {/* 빠른 설정 링크 */}
+        <div className="mt-6 bg-gradient-to-r from-[#1B3FD8] to-[#3182F6] rounded-2xl p-5 flex items-center justify-between">
+          <div className="text-white">
+            <div className="font-black text-base mb-0.5">매장 정보가 완성될수록 더 많은 고객이 찾아옵니다</div>
+            <div className="text-white/70 text-xs">설정 완성도가 높을수록 AI가 더 정확한 답글을 생성해요</div>
+          </div>
+          <Link href="/settings" className="flex-shrink-0 bg-white text-[#3182F6] font-bold text-sm px-5 py-2.5 rounded-xl hover:bg-blue-50 transition-colors shadow-sm">
+            설정하기 →
+          </Link>
         </div>
-      )}
+      </main>
     </div>
   )
 }

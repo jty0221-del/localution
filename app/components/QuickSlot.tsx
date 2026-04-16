@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
 const LINKS = [
-  { href: '/dashboard', label: '대시보드', short: 'DB', bg: '#EFF6FF', color: '#3182F6' },
+  { href: '/', label: '대시보드', short: 'DB', bg: '#EFF6FF', color: '#3182F6' },
   { href: '/review-admin', label: '리뷰 관리', short: '리뷰', bg: '#FFFBEB', color: '#F59E0B' },
   { href: '/qr', label: 'QR 관리', short: 'QR', bg: '#F5F3FF', color: '#8B5CF6' },
   { href: '/customers', label: '고객 관리', short: '고객', bg: '#ECFDF5', color: '#059669' },
@@ -17,7 +17,6 @@ const LINKS = [
 export default function QuickSlot() {
   const [open, setOpen] = useState(false)
   const pathname = usePathname()
-  if (!pathname || pathname === '/login') return null
   const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {

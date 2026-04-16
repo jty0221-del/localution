@@ -1260,7 +1260,6 @@ export default function Settings() {
   const [activeTab, setActiveTab] = useState<Tab>('매장 정보')
 
   return (
-    <>
     <div className="min-h-screen bg-[#F2F4F6] flex">
       <Sidebar />
       <main className="flex-1 md:ml-[220px] p-4 md:p-8 pt-16 md:pt-8 pr-16 md:pr-20">
@@ -1287,6 +1286,5 @@ export default function Settings() {
         {activeTab === '플랜 관리 (결제내역)' && <PlanTab />}
       </main>
     </div>
-    </>
   )
 }

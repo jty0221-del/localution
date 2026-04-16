@@ -2,6 +2,7 @@
 export const dynamic = 'force-dynamic'
 
 import { useState, useEffect, useCallback } from 'react'
+import Sidebar from '../components/Sidebar'
 
 // ═══════════════════════════════════════════════════════════
 //  플랫폼 로고 SVG
@@ -583,8 +584,6 @@ export default function Dashboard() {
   useEffect(() => {
     const id = setInterval(refreshKeywords, 600_000)
     return () => clearInterval(id)
-      <div>
-      <div>
   }, [refreshKeywords])
 
   // 24시간 방문자
@@ -619,10 +618,10 @@ export default function Dashboard() {
   // 오늘의 할 일
   const unansweredCount = RECENT_REVIEWS.filter(r => !r.replied).length
   const todoList = [
-    { title: '미답변 리뷰',    count: unansweredCount, unit: '건', color: '#F04452', bg: '#FFF0F0', link: '/review-admin' },
+    { title: '미답변 리뷰',    count: unansweredCount, unit: '건', color: '#F04452', bg: '#FFF0F0', link: '/reviews' },
     { title: '재방문 유도',    count: 5,  unit: '명', color: '#F59E0B', bg: '#FFF7E8', link: '/crm' },
-    { title: '오늘 예약',      count: 7,  unit: '건', color: '#3182F6', bg: '#E8F4FD', link: null },
-    { title: '세금계산서 발행', count: 2,  unit: '건', color: '#12B76A', bg: '#E8FFF0', link: null },
+    { title: '오늘 예약',      count: 7,  unit: '건', color: '#3182F6', bg: '#E8F4FD', link: '/reservations' },
+    { title: '세금계산서 발행', count: 2,  unit: '건', color: '#12B76A', bg: '#E8FFF0', link: '/settlement' },
   ]
 
   // 경쟁사 비교
@@ -646,7 +645,10 @@ export default function Dashboard() {
   const dateStr = today.getFullYear() + '년 ' + (today.getMonth() + 1) + '월 ' + today.getDate() + '일 ' + ['일','월','화','수','목','금','토'][today.getDay()] + '요일'
 
   return (
-    <>
+    <div className="flex min-h-screen bg-[#F2F4F6]">
+      <Sidebar />
+      <main className="flex-1 ml-[220px] p-8 min-w-0">
+
         {/* ── Hero 바 ── */}
         <div className="bg-white rounded-3xl px-8 py-7 mb-7 shadow-[0_4px_24px_rgba(17,24,39,0.06)] border border-[#F2F4F6]">
           <div className="flex items-center justify-between flex-wrap gap-5">
@@ -656,12 +658,12 @@ export default function Dashboard() {
               <p className="text-[15px] text-[#4E5968] font-medium mt-2">{dateStr} · 매출, 리뷰, 고객 현황을 한 눈에 확인하세요</p>
             </div>
             <div className="flex gap-3">
-              <a href="/review-admin" className="bg-[#F2F4F6] text-[#191F28] font-bold text-[15px] px-6 py-3.5 rounded-2xl hover:bg-[#E8F4FD] hover:text-[#3182F6] transition-colors">
+              <a href="/reviews" className="bg-[#F2F4F6] text-[#191F28] font-bold text-[15px] px-6 py-3.5 rounded-2xl hover:bg-[#E8F4FD] hover:text-[#3182F6] transition-colors">
                 AI 답글 작성
               </a>
-              <span className="bg-[#D1D6DC] text-white font-bold text-[15px] px-6 py-3.5 rounded-2xl cursor-not-allowed opacity-60" style={{cursor:"not-allowed"}}>
+              <a href="/settlement" className="bg-[#3182F6] text-white font-bold text-[15px] px-6 py-3.5 rounded-2xl hover:bg-[#1B64DA] transition-colors shadow-[0_4px_16px_rgba(49,130,246,0.35)]">
                 매출 확인
-              </span>
+              </a>
             </div>
           </div>
         </div>
@@ -972,14 +974,13 @@ export default function Dashboard() {
                 <h3 className="text-[18px] font-black text-[#191F28] tracking-tight">이번 주 매출</h3>
                 <p className="text-[13px] text-[#8B95A1] font-bold mt-1">총 <strong className="text-[#191F28] font-black">{totalWeekSale}만원</strong> · 지난주 대비 +18%</p>
               </div>
-              <span className="text-[13px] text-[#3182F6] font-black hover:underline" style={{opacity:0.4, cursor:"not-allowed"}}>전체 보기 →</span>
+              <a href="/settlement" className="text-[13px] text-[#3182F6] font-black hover:underline">전체 보기 →</a>
             </div>
             <div className="flex items-end gap-3 h-[200px]">
               {weekSales.map((w, i) => {
                 const h = (w.v / maxSale) * 180
                 const isMax = w.v === maxSale
                 return (
-                  <>
                   <div key={i} className="flex-1 flex flex-col items-center gap-2.5">
                     <span className={isMax ? 'text-[13px] font-black text-[#F04452]' : 'text-[12px] font-black text-[#4E5968]'}>{w.v}</span>
                     <div className="w-full rounded-t-2xl relative" style={{ height: h + 'px', background: isMax ? 'linear-gradient(180deg,#F04452,#D63B4B)' : 'linear-gradient(180deg,#3182F6,#1B64DA)' }}>
@@ -989,7 +990,6 @@ export default function Dashboard() {
                     </div>
                     <span className="text-[14px] font-black text-[#191F28]">{w.d}</span>
                   </div>
-                  </>
                 )
               })}
             </div>
@@ -1038,7 +1038,7 @@ export default function Dashboard() {
               <span className="text-[18px] font-black text-[#191F28] tracking-tight">최근 리뷰</span>
               <span className="text-[12px] text-[#F04452] font-black bg-[#FFF0F0] px-3 py-1 rounded-full">미답변 {unansweredCount}건</span>
             </div>
-            <a href="/review-admin" className="text-[13px] text-[#3182F6] font-black hover:underline">전체보기 →</a>
+            <a href="/reviews" className="text-[13px] text-[#3182F6] font-black hover:underline">전체보기 →</a>
           </div>
           <div className="divide-y divide-[#F2F4F6]">
             {RECENT_REVIEWS.map((r, i) => (
@@ -1068,6 +1068,7 @@ export default function Dashboard() {
           </div>
         </div>
 
+      </main>
 
       {/* 모달들 */}
       {connectPlatform && (
@@ -1083,6 +1084,6 @@ export default function Dashboard() {
           onClose={() => setReplyReview(null)}
         />
       )}
-    </>
+    </div>
   )
 }
