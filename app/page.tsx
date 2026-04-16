@@ -133,10 +133,7 @@ export default function LandingPage() {
             복잡한 건 AI가, 사장님은 장사에만 집중하세요
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <a href="/login" className="inline-flex items-center justify-center gap-2 bg-[#3182F6] text-white font-bold text-base px-8 py-4 rounded-2xl hover:bg-[#1B64DA] transition-all shadow-lg shadow-blue-200 hover:shadow-blue-300 hover:-translate-y-0.5">
-              무료로 시작하기
-              <span className="text-lg">→</span>
-            </a>
+            
             <Link href="/service-intro"
               className="inline-flex items-center justify-center gap-2 bg-white text-[#191F28] font-semibold text-base px-8 py-4 rounded-2xl border border-gray-200 hover:border-gray-300 transition-all hover:-translate-y-0.5">
               서비스 소개 보기
@@ -270,9 +267,7 @@ export default function LandingPage() {
               className="inline-flex items-center justify-center gap-2 border-2 border-[#3182F6] text-[#3182F6] font-bold px-8 py-4 rounded-2xl hover:bg-blue-50 transition-colors">
               요금 보기
             </Link>
-            <a href="/login" className="inline-flex items-center justify-center gap-2 bg-[#3182F6] text-white font-bold px-8 py-4 rounded-2xl hover:bg-[#1B64DA] transition-colors shadow-lg shadow-blue-200">
-              지금 무료로 시작하기
-            </a>
+            
           </div>
         </div>
       </section>
