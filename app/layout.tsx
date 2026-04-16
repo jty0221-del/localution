@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google'
 import './globals.css'
 import QuickSlot from './components/QuickSlot'
 import JsonLd from './components/JsonLd'
+import DashboardShell from './components/DashboardShell'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -75,12 +76,12 @@ export const metadata: Metadata = {
   manifest: '/manifest.json',
 }
 
-export default function RootLayout({ children }: { children: React.ReactNode }) {
+export default function RootLayout(<DashboardShell>{children}</DashboardShell>: { children: React.ReactNode }) {
   return (
     <html lang="ko">
       <body className={inter.className}>
         <JsonLd />
-        {children}
+        <DashboardShell>{children}</DashboardShell>
         <QuickSlot />
       </body>
     </html>
