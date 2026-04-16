@@ -250,6 +250,6 @@ export default function InquiryPage() {
         </div>
       )}
     </div>
-  )
     </>
+  )
 }
