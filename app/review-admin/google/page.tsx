@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
-import Sidebar from '../../components/Sidebar'
 
 const REVIEWS = [
   { name: '김**', rating: 5, text: '진짜 최고예요! 다음에 또 올게요 ㅎㅎ 분위기도 좋고 음식도 맛있어요.', date: '2026-04-16', replied: false },
@@ -20,9 +19,6 @@ export default function ReviewPage_Google() {
   const pendingCount = REVIEWS.filter(r => !r.replied).length
 
   return (
-    <div className="flex min-h-screen bg-[#F8F9FA]">
-      <Sidebar />
-      <main className="flex-1 md:ml-[220px] pt-14 md:pt-0">
         <div className="p-4 md:p-6 max-w-4xl mx-auto">
 
           <div className="flex items-center gap-3 mb-6">
@@ -117,7 +113,5 @@ export default function ReviewPage_Google() {
           )}
 
         </div>
-      </main>
-    </div>
   )
 }
