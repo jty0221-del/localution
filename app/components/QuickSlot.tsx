@@ -20,6 +20,7 @@ export default function QuickSlot() {
   const pathname = usePathname()
   if (pathname === '/login') return null
 
+
   const [open, setOpen] = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
