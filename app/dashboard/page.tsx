@@ -618,10 +618,10 @@ export default function Dashboard() {
   // 오늘의 할 일
   const unansweredCount = RECENT_REVIEWS.filter(r => !r.replied).length
   const todoList = [
-    { title: '미답변 리뷰',    count: unansweredCount, unit: '건', color: '#F04452', bg: '#FFF0F0', link: '/reviews' },
+    { title: '미답변 리뷰',    count: unansweredCount, unit: '건', color: '#F04452', bg: '#FFF0F0', link: '/review-admin' },
     { title: '재방문 유도',    count: 5,  unit: '명', color: '#F59E0B', bg: '#FFF7E8', link: '/crm' },
-    { title: '오늘 예약',      count: 7,  unit: '건', color: '#3182F6', bg: '#E8F4FD', link: '/reservations' },
-    { title: '세금계산서 발행', count: 2,  unit: '건', color: '#12B76A', bg: '#E8FFF0', link: '/settlement' },
+    { title: '오늘 예약',      count: 7,  unit: '건', color: '#3182F6', bg: '#E8F4FD', link: null },
+    { title: '세금계산서 발행', count: 2,  unit: '건', color: '#12B76A', bg: '#E8FFF0', link: null },
   ]
 
   // 경쟁사 비교
@@ -658,7 +658,7 @@ export default function Dashboard() {
               <p className="text-[15px] text-[#4E5968] font-medium mt-2">{dateStr} · 매출, 리뷰, 고객 현황을 한 눈에 확인하세요</p>
             </div>
             <div className="flex gap-3">
-              <a href="/reviews" className="bg-[#F2F4F6] text-[#191F28] font-bold text-[15px] px-6 py-3.5 rounded-2xl hover:bg-[#E8F4FD] hover:text-[#3182F6] transition-colors">
+              <a href="/review-admin" className="bg-[#F2F4F6] text-[#191F28] font-bold text-[15px] px-6 py-3.5 rounded-2xl hover:bg-[#E8F4FD] hover:text-[#3182F6] transition-colors">
                 AI 답글 작성
               </a>
               <a href="/settlement" className="bg-[#3182F6] text-white font-bold text-[15px] px-6 py-3.5 rounded-2xl hover:bg-[#1B64DA] transition-colors shadow-[0_4px_16px_rgba(49,130,246,0.35)]">
@@ -974,7 +974,7 @@ export default function Dashboard() {
                 <h3 className="text-[18px] font-black text-[#191F28] tracking-tight">이번 주 매출</h3>
                 <p className="text-[13px] text-[#8B95A1] font-bold mt-1">총 <strong className="text-[#191F28] font-black">{totalWeekSale}만원</strong> · 지난주 대비 +18%</p>
               </div>
-              <a href="/settlement" className="text-[13px] text-[#3182F6] font-black hover:underline">전체 보기 →</a>
+              <span className="text-[13px] text-[#3182F6] font-black hover:underline" style={{opacity:0.4, cursor:"not-allowed"}}>전체 보기 →</span>
             </div>
             <div className="flex items-end gap-3 h-[200px]">
               {weekSales.map((w, i) => {
@@ -1038,7 +1038,7 @@ export default function Dashboard() {
               <span className="text-[18px] font-black text-[#191F28] tracking-tight">최근 리뷰</span>
               <span className="text-[12px] text-[#F04452] font-black bg-[#FFF0F0] px-3 py-1 rounded-full">미답변 {unansweredCount}건</span>
             </div>
-            <a href="/reviews" className="text-[13px] text-[#3182F6] font-black hover:underline">전체보기 →</a>
+            <a href="/review-admin" className="text-[13px] text-[#3182F6] font-black hover:underline">전체보기 →</a>
           </div>
           <div className="divide-y divide-[#F2F4F6]">
             {RECENT_REVIEWS.map((r, i) => (
