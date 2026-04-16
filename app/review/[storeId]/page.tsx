@@ -238,6 +238,12 @@ export default function ReviewPage() {
                   <span className="text-[11px] font-bold" style={{ color: '#03C75A' }}>네이버 플레이스 인증 매장</span>
                 </div>
               )}
+              {store.naverUrl && store.naverUrl !== 'https://m.place.naver.com/' && (
+                <div className="flex items-center gap-1.5 mb-2">
+                  <span className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[10px] font-black" style={{ background: '#03C75A' }}>N</span>
+                  <span className="text-[11px] font-bold" style={{ color: '#03C75A' }}>네이버 플레이스 인증 매장</span>
+                </div>
+              )}
               <p className="text-sm leading-relaxed" style={{ color: GRAY }}>
                 사장님을 위해 방문 후기를 AI가 대신 써드려요.<br />
                 영수증과 사진만 올려주시면 끝!
