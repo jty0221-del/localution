@@ -64,7 +64,7 @@ export default function ReviewPage_Coupang() {
                 </div>
                 <p className="text-sm text-[#4E5968] leading-relaxed">{r.text}</p>
 
-                {r.replied && 'reply' in r && (
+                {r.replied && (r as typeof r & { reply: string }).reply && (
                   <div className="mt-3 p-3 rounded-xl border-l-3" style={{ background: '#FFF4F2', borderLeft: '3px solid #FF4B30' }}>
                     <p className="text-xs font-semibold mb-1" style={{ color: '#FF4B30' }}>사장님 답글</p>
                     <p className="text-sm text-[#4E5968]">{r.reply}</p>
