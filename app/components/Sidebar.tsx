@@ -12,17 +12,16 @@ interface UserInfo {
 
 const NAV = [
   { href: '/dashboard',   icon: '🏠', label: '대시보드' },
-  { href: '/review',      icon: '⭐', label: 'AI 리뷰·마케팅' },
+  { href: '/review-admin', icon: '⭐', label: 'AI 리뷰·마케팅' },
   { href: '/qr',          icon: '📱', label: 'QR 리뷰 자동화' },
   { href: '/crm',         icon: '👥', label: 'CRM 고객관리' },
-  { href: '/settlement',  icon: '💰', label: '정산·행정' },
   { href: '/community',   icon: '💬', label: '커뮤니티' },
   { href: '/pricing',     icon: '💎', label: '요금제' },
 ]
 
 const PROTECTED = [
-  '/dashboard', '/review', '/qr', '/crm',
-  '/settlement', '/community', '/pricing', '/settings', '/inquiry',
+  '/dashboard', '/review-admin', '/qr', '/crm',
+  '/community', '/pricing', '/settings', '/inquiry',
 ]
 
 export default function Sidebar() {
