@@ -30,6 +30,7 @@ export default function ReviewAdminPage() {
   const totalPending = PLATFORMS.reduce((a, p) => a + p.pending, 0)
 
   return (
+    <>
         <div className="p-4 md:p-6 max-w-6xl mx-auto">
 
           <div className="flex items-center justify-between mb-6">
@@ -99,4 +100,5 @@ export default function ReviewAdminPage() {
 
         </div>
   )
+    </>
 }
