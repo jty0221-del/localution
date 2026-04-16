@@ -1,0 +1,10 @@
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = {
+  title: 'AI 리뷰·마케팅 | 로컬루션',
+  description: '네이버·구글·배민 리뷰 AI 자동 답글. 플랫폼별 맞춤 말투로 답글률 100% 유지.',
+}
+
+export default function Layout({ children }: { children: React.ReactNode }) {
+  return <>{children}</>
+}
