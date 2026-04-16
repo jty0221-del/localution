@@ -1,7 +1,7 @@
 'use client'
 import { useSearchParams } from 'next/navigation'
 export const dynamic = 'force-dynamic'
-import { useState, useEffect, useRef } from 'react'
+import { useState, Suspense, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import Sidebar from '../components/Sidebar'
 // Footer import removed — component may not exist in repo
@@ -1356,7 +1356,7 @@ function PlanTab() {
   )
 }
 
-export default function Settings() {
+function SettingsInner() {
   const searchParams = useSearchParams()
   const tabParam = searchParams.get('tab') || ''
   const tabMap: Record<string, Tab> = { ai: 'AI 설정', store: '매장 정보', notify: '알림 설정', review: '리뷰 관리', connect: '연동 관리', plan: '플랜 관리' }
@@ -1389,5 +1389,14 @@ export default function Settings() {
         {activeTab === '플랜 관리 (결제내역)' && <PlanTab />}
       </main>
     </div>
+  )
+}
+
+
+export default function Settings() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-[#F2F4F6] flex items-center justify-center"><p className="text-[#8B95A1]">\uB85C\uB529 \uC911...</p></div>}>
+      <SettingsInner />
+    </Suspense>
   )
 }
