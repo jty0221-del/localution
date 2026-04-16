@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import Sidebar from '../components/Sidebar'
 
@@ -23,12 +23,6 @@ export default function CommunityPage() {
   const district = searchParams?.get('d') || ''
   const [showWrite, setShowWrite] = useState(false)
 
-  useEffect(() => {
-    const ok = document.cookie.split(';').some(function(c) {
-      return c.trim().startsWith('localution_session=')
-    })
-    if (!ok) { window.location.href = '/login' }
-  }, [])
 
   const title = district ? region + ' ' + district : region
 
