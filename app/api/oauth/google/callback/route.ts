@@ -31,6 +31,7 @@ export async function GET(request: Request) {
     const tokenData = await tokenRes.json()
 
     if (!tokenData.access_token) {
+      console.error('Google token error:', JSON.stringify(tokenData))
       return NextResponse.redirect(new URL('/login?error=token_failed', baseUrl))
     }
 
