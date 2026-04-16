@@ -64,7 +64,7 @@ export default function ReviewPage_Naver() {
                 </div>
                 <p className="text-sm text-[#4E5968] leading-relaxed">{r.text}</p>
 
-                {r.replied && 'reply' in r && (
+                {r.replied && (r as typeof r & { reply: string }).reply && (
                   <div className="mt-3 p-3 rounded-xl border-l-3" style={{ background: '#E8F9EF', borderLeft: '3px solid #03C75A' }}>
                     <p className="text-xs font-semibold mb-1" style={{ color: '#03C75A' }}>사장님 답글</p>
                     <p className="text-sm text-[#4E5968]">{r.reply}</p>
