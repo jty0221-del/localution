@@ -31,6 +31,7 @@ export async function GET(request: Request) {
     const tokenData = await tokenRes.json()
 
     if (!tokenData.access_token) {
+      console.error('Kakao token error:', JSON.stringify(tokenData))
       return NextResponse.redirect(new URL('/login?error=token_failed', baseUrl))
     }
 
@@ -45,12 +46,13 @@ export async function GET(request: Request) {
     }
 
     const kakaoAccount = userData.kakao_account || {}
+    const profile = kakaoAccount.profile || {}
     const sessionData = {
       id: String(userData.id),
-      name: kakaoAccount.profile ? kakaoAccount.profile.nickname : 'User',
+      name: profile.nickname || 'User',
       email: kakaoAccount.email || '',
       provider: 'kakao',
-      profile_image: kakaoAccount.profile ? kakaoAccount.profile.profile_image_url : '',
+      profile_image: profile.profile_image_url || '',
       access_token: tokenData.access_token
     }
 
