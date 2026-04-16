@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import Sidebar from '../components/Sidebar'
 
 const MOCK_CUSTOMERS = [
   { id: 1, name: '김민수', phone: '010-1234-5678', tag: 'VIP', visits: 12, lastVisit: '2026-04-14', spend: '₩128,000' },
@@ -45,9 +44,6 @@ export default function CustomersPage() {
   ]
 
   return (
-    <div className="flex min-h-screen bg-[#F8F9FA]">
-      <Sidebar />
-      <main className="flex-1 md:ml-[220px] pt-14 md:pt-0">
         <div className="p-4 md:p-6 max-w-6xl mx-auto">
 
           {/* 헤더 */}
@@ -151,7 +147,5 @@ export default function CustomersPage() {
           )}
 
         </div>
-      </main>
-    </div>
   )
 }
