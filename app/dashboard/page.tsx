@@ -584,6 +584,7 @@ export default function Dashboard() {
     const id = setInterval(refreshKeywords, 600_000)
     return () => clearInterval(id)
       <div>
+      <div>
   }, [refreshKeywords])
 
   // 24시간 방문자
@@ -1084,6 +1085,7 @@ export default function Dashboard() {
       )}
     </>
     </>
+      </div>
       </div>
   )
 }
