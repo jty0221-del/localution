@@ -1,7 +1,7 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useParams } from 'next/navigation'
 
 // ─────────────────────────────────────────────
@@ -73,7 +73,50 @@ type LengthKey = 'short' | 'mid' | 'long'
 export default function ReviewPage() {
   const params = useParams<{ storeId: string }>()
   const storeId = params?.storeId || 'default'
-  const store = getStore(storeId)
+  const baseStore = getStore(storeId)
+  const [store, setStore] = useState<Store>(baseStore)
+
+  // localStorage에서 매장 정보 자동 로드 (QR 관리에서 저장한 데이터)
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem('localution.store_info')
+      if (!raw) return
+      const info = JSON.parse(raw)
+      if (!info || !info.connected) return
+      // slug 매칭: storeId와 localStorage 매장명 비교
+      let slug = ''
+      const lower = (info.name || '').toLowerCase()
+      for (let i = 0; i < lower.length; i++) {
+        const c = lower.charCodeAt(i)
+        const ok = (c >= 97 && c <= 122) || (c >= 48 && c <= 57) || (c >= 0xAC00 && c <= 0xD7A3)
+        slug += ok ? lower[i] : '-'
+      }
+      while (slug.includes('--')) slug = slug.split('--').join('-')
+      if (slug.startsWith('-')) slug = slug.slice(1)
+      if (slug.endsWith('-')) slug = slug.slice(0, -1)
+      // storeId 매칭되면 로컬 정보로 덮어쓰기
+      if (storeId === slug || storeId.includes(slug) || slug.includes(storeId) || !STORES[storeId]) {
+        setStore(prev => ({
+          ...prev,
+          name: info.name || prev.name,
+          category: info.category || prev.category,
+          address: info.location || prev.address,
+          naverUrl: info.naverUrl || prev.naverUrl,
+        }))
+      }
+      // QR 설정에서 키워드도 로드
+      const kwRaw = window.localStorage.getItem('localution.qr_settings')
+      if (kwRaw) {
+        const kwInfo = JSON.parse(kwRaw)
+        if (kwInfo.mainKeyword) {
+          setStore(prev => ({
+            ...prev,
+            keywords: [kwInfo.mainKeyword, ...(kwInfo.subKeywords || []), ...prev.keywords.slice(0, 2)],
+          }))
+        }
+      }
+    } catch (_) {}
+  }, [storeId])
 
   const [step, setStep] = useState<0 | 1 | 2 | 3 | 4>(0)
   const [photos, setPhotos] = useState<Photo[]>([])
@@ -189,6 +232,12 @@ export default function ReviewPage() {
           <div className="space-y-4">
             <div className="bg-white rounded-2xl p-5 shadow-sm">
               <h2 className="text-xl font-black mb-2">1분만에 네이버 리뷰 작성</h2>
+              {store.naverUrl && store.naverUrl !== 'https://m.place.naver.com/' && (
+                <div className="flex items-center gap-1.5 mb-2">
+                  <span className="w-5 h-5 rounded-full flex items-center justify-center text-white text-[10px] font-black" style={{ background: '#03C75A' }}>N</span>
+                  <span className="text-[11px] font-bold" style={{ color: '#03C75A' }}>네이버 플레이스 인증 매장</span>
+                </div>
+              )}
               <p className="text-sm leading-relaxed" style={{ color: GRAY }}>
                 사장님을 위해 방문 후기를 AI가 대신 써드려요.<br />
                 영수증과 사진만 올려주시면 끝!
@@ -409,7 +458,7 @@ export default function ReviewPage() {
             </div>
 
             <button onClick={copyAndGoNaver} className="w-full py-4 rounded-2xl font-black text-white text-base shadow-lg" style={{ background: BLUE }}>
-              {copied ? '✓ 복사 완료 · 네이버로 이동 중' : '리뷰 복사하고 네이버로 이동'}
+              {copied ? '✓ 복사 완료 · 네이버로 이동 중' : '네이버 리뷰 등록하기'}
             </button>
 
             <div className="bg-white rounded-xl p-4" style={{ border: '1px solid ' + BORDER }}>
