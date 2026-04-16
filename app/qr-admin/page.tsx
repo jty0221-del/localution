@@ -796,7 +796,10 @@ export default function QRAdmin() {
                         ? <QRCodeImage url={buildReviewUrl(storeInfo, { ...settings, mainKeyword: qr.keyword || settings.mainKeyword })} size={56} />
                         {storeInfo.connected
                           ? <QRCodeImage url={buildReviewUrl(storeInfo, { ...settings, mainKeyword: qr.keyword || settings.mainKeyword })} size={56} />
-                          : <QRPreview text={qr.name + qr.keyword} size={56} />
+                          {storeInfo.connected
+                            ? <QRCodeImage url={buildReviewUrl(storeInfo, { ...settings, mainKeyword: qr.keyword || settings.mainKeyword })} size={56} />
+                            : <QRPreview text={qr.name + qr.keyword} size={56} />
+                          }
                         }
                       }
                     </div>
@@ -990,6 +993,11 @@ export default function QRAdmin() {
                   : <QRPreview text={previewQR.name + previewQR.keyword} size={180} />
                 }
               </div>
+              {storeInfo.connected && (
+                <p className="text-[10px] text-[#8B95A1] text-center break-all max-w-[260px] leading-relaxed mt-2">
+                  {buildReviewUrl(storeInfo, { ...settings, mainKeyword: previewQR.keyword || settings.mainKeyword }).slice(0, 80)}...
+                </p>
+              )}
               {storeInfo.connected && (
                 <p className="text-[10px] text-[#8B95A1] text-center break-all max-w-[260px] leading-relaxed mt-2">
                   {buildReviewUrl(storeInfo, { ...settings, mainKeyword: previewQR.keyword || settings.mainKeyword }).slice(0, 80)}...
