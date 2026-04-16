@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 
-interface User {
+interface UserData {
   id: string
   name: string
   email: string
@@ -11,17 +11,23 @@ interface User {
 }
 
 export function useUser() {
-  const [user, setUser] = useState(null)
+  const [user, setUser] = useState<UserData | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(function() {
     try {
-      const userCookie = document.cookie.split(';').find(function(c) {
-        return c.trim().indexOf('localution_user=') === 0
-      })
+      const cookies = document.cookie.split(';')
+      let userCookie = ''
+      for (let i = 0; i < cookies.length; i++) {
+        const c = cookies[i].trim()
+        if (c.indexOf('localution_user=') === 0) {
+          userCookie = c.substring('localution_user='.length)
+          break
+        }
+      }
       if (userCookie) {
-        const userData = decodeURIComponent(userCookie.split('=')[1])
-        const parsed = JSON.parse(userData)
+        const decoded = decodeURIComponent(userCookie)
+        const parsed = JSON.parse(decoded)
         setUser(parsed)
       }
     } catch (_) {
@@ -31,5 +37,9 @@ export function useUser() {
     }
   }, [])
 
-  return { user, loading }
+  const logout = function() {
+    window.location.href = '/api/auth/logout'
+  }
+
+  return { user, loading, logout }
 }
