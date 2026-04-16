@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import Sidebar from '../../components/Sidebar'
 
 const ANALYZE_RESULTS = [
   { keyword: '강남 마케팅 대행', score: 87, competition: '높음', volume: '월 2.4만', opportunity: '높음', recommend: true },
@@ -23,9 +22,6 @@ export default function KeywordScorePage() {
   }
 
   return (
-    <div className="flex min-h-screen bg-[#F8F9FA]">
-      <Sidebar />
-      <main className="flex-1 md:ml-[220px] pt-14 md:pt-0">
         <div className="p-4 md:p-6 max-w-4xl mx-auto">
 
           <div className="mb-6">
@@ -105,7 +101,5 @@ export default function KeywordScorePage() {
           )}
 
         </div>
-      </main>
-    </div>
   )
 }
