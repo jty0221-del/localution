@@ -97,6 +97,7 @@ export default function InquiryPage() {
   }
 
   return (
+    <>
     <div className="min-h-screen bg-[#F2F4F6] flex">
       {/* 클립보드 복사 토스트 */}
       {copied && (
@@ -250,4 +251,5 @@ export default function InquiryPage() {
       )}
     </div>
   )
+    </>
 }
