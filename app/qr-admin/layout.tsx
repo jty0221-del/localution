@@ -2,7 +2,7 @@ import type { Metadata } from 'next'
 import type { ReactNode } from 'react'
 
 export const metadata: Metadata = {
-  title: 'QR 리뷰 자동화 | 로컬루션',
+  title: 'QR 리뷰 자동화',
   description: 'QR 코드 한 번 스캔으로 리뷰 자동 생성. 네이버·구글·카카오 원클릭 등록.',
 }
 
