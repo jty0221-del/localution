@@ -645,7 +645,7 @@ export default function Dashboard() {
   const dateStr = today.getFullYear() + '년 ' + (today.getMonth() + 1) + '월 ' + today.getDate() + '일 ' + ['일','월','화','수','목','금','토'][today.getDay()] + '요일'
 
   return (
-
+    <>
         {/* ── Hero 바 ── */}
         <div className="bg-white rounded-3xl px-8 py-7 mb-7 shadow-[0_4px_24px_rgba(17,24,39,0.06)] border border-[#F2F4F6]">
           <div className="flex items-center justify-between flex-wrap gap-5">
@@ -988,6 +988,7 @@ export default function Dashboard() {
                     </div>
                     <span className="text-[14px] font-black text-[#191F28]">{w.d}</span>
                   </div>
+                  </>
                 )
               })}
             </div>
