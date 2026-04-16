@@ -1287,6 +1287,6 @@ export default function Settings() {
         {activeTab === '플랜 관리 (결제내역)' && <PlanTab />}
       </main>
     </div>
-  )
     </>
+  )
 }
