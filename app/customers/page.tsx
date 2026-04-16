@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Sidebar from '../components/Sidebar'
 
 const MOCK_CUSTOMERS = [
@@ -28,6 +28,12 @@ export default function CustomersPage() {
   const [showAdd, setShowAdd] = useState(false)
   const [customers, setCustomers] = useState(MOCK_CUSTOMERS)
 
+  useEffect(() => {
+    const ok = document.cookie.split(';').some(function(c) {
+      return c.trim().startsWith('localution_session=')
+    })
+    if (!ok) { window.location.href = '/login' }
+  }, [])
 
   const tags = ['전체', 'VIP', '단골', '신규', '휴면', '블랙리스트']
 
