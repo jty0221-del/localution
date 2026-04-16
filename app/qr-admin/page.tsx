@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Sidebar from '../components/Sidebar'
 
 const MOCK_QR = [
@@ -15,6 +15,12 @@ export default function QrAdminPage() {
   const [showCreate, setShowCreate] = useState(false)
   const [qrName, setQrName] = useState('')
 
+  useEffect(() => {
+    const ok = document.cookie.split(';').some(function(c) {
+      return c.trim().startsWith('localution_session=')
+    })
+    if (!ok) { window.location.href = '/login' }
+  }, [])
 
   const tabs = ['QR 목록', 'AI 설정', '성과 리포트']
   const totalScans = MOCK_QR.reduce((a, q) => a + q.scans, 0)
