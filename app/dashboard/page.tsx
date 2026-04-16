@@ -661,9 +661,9 @@ export default function Dashboard() {
               <a href="/review-admin" className="bg-[#F2F4F6] text-[#191F28] font-bold text-[15px] px-6 py-3.5 rounded-2xl hover:bg-[#E8F4FD] hover:text-[#3182F6] transition-colors">
                 AI 답글 작성
               </a>
-              <a href="/settlement" className="bg-[#3182F6] text-white font-bold text-[15px] px-6 py-3.5 rounded-2xl hover:bg-[#1B64DA] transition-colors shadow-[0_4px_16px_rgba(49,130,246,0.35)]">
+              <span className="bg-[#D1D6DC] text-white font-bold text-[15px] px-6 py-3.5 rounded-2xl cursor-not-allowed opacity-60" style={{cursor:"not-allowed"}}>
                 매출 확인
-              </a>
+              </span>
             </div>
           </div>
         </div>
