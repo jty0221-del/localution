@@ -92,6 +92,129 @@ function QRPreview({ text, size = 120 }: { text: string; size?: number }) {
   )
 }
 
+
+// ── SEO 키워드 자동 추천 엔진 ──
+const CATEGORY_KW_MAP: Record<string, string[]> = {
+  '카페': ['카페', '커피', '디저트', '브런치카페', '분위기좋은카페'],
+  '음식점': ['맛집', '한식', '술집', '데이트코스', '회식장소'],
+  '한식': ['맛집', '한식당', '한정식', '백반', '가정식'],
+  '중식': ['중국집', '짜장면', '중화요리', '짬뽕맛집'],
+  '일식': ['초밥', '라멘', '일식당', '오마카세', '회'],
+  '양식': ['파스타', '스테이크', '브런치', '이탈리안'],
+  '치킨': ['치킨', '치맥', '배달맛집', '야식'],
+  '고기': ['고깃집', '삼겹살', '소고기', '회식장소'],
+  '술집': ['술집', '호프', '이자카야', '와인바', '칵테일바'],
+  '미용실': ['미용실', '헤어샵', '펌', '염색', '커트'],
+  '네일': ['네일샵', '젤네일', '네일아트', '손톱관리'],
+  '피부관리': ['피부관리', '에스테틱', '피부과', '관리샵'],
+  '헬스': ['헬스장', 'PT', '운동', '다이어트', '피트니스'],
+  '학원': ['학원', '과외', '교육', '입시', '공부'],
+  '병원': ['병원', '의원', '진료', '건강검진'],
+  '약국': ['약국', '건강', '비타민'],
+  '꽃집': ['꽃집', '플라워샵', '꽃배달', '꽃다발'],
+  '세탁': ['세탁소', '드라이클리닝', '빨래'],
+  '인테리어': ['인테리어', '리모델링', '시공'],
+}
+
+function generateSeoKeywords(location: string, category: string, storeName: string): string[] {
+  const results: string[] = []
+  const loc = location.trim()
+  const cat = category.trim()
+
+  // 1. 기본: 지역+업종 조합
+  if (loc && cat) {
+    results.push(loc + cat)
+    results.push(loc + ' ' + cat)
+  }
+
+  // 2. 카테고리 매핑 키워드
+  const matchedCat = Object.keys(CATEGORY_KW_MAP).find(k => cat.includes(k))
+  if (matchedCat && loc) {
+    const mapped = CATEGORY_KW_MAP[matchedCat]
+    mapped.forEach(kw => {
+      const combined = loc + kw
+      if (!results.includes(combined)) results.push(combined)
+    })
+  }
+
+  // 3. 매장명 기반
+  if (storeName && loc) {
+    results.push(loc + ' ' + storeName)
+  }
+
+  // 최대 8개까지
+  return results.slice(0, 8)
+}
+
+
+// ── QR 코드 생성기 (Google Charts API 활용) ──
+function QRCodeImage({ url, size = 180 }: { url: string; size?: number }) {
+  const [imgSrc, setImgSrc] = useState('')
+  const [error, setError] = useState(false)
+
+  useEffect(() => {
+    // Google Chart API로 QR 생성
+    const encoded = encodeURIComponent(url)
+    const src = 'https://chart.googleapis.com/chart?cht=qr&chs=' + size + 'x' + size + '&chl=' + encoded + '&choe=UTF-8&chld=M|2'
+    setImgSrc(src)
+    setError(false)
+  }, [url, size])
+
+  if (error || !imgSrc) {
+    // 폴백: 더미 QR
+    return <QRPreview text={url} size={size} />
+  }
+
+  return (
+    <img
+      src={imgSrc}
+      alt="QR Code"
+      width={size}
+      height={size}
+      className="block rounded"
+      onError={() => setError(true)}
+    />
+  )
+}
+
+// QR 다운로드 함수
+function downloadQR(url: string, fileName: string) {
+  const size = 400
+  const encoded = encodeURIComponent(url)
+  const src = 'https://chart.googleapis.com/chart?cht=qr&chs=' + size + 'x' + size + '&chl=' + encoded + '&choe=UTF-8&chld=M|2'
+
+  const link = document.createElement('a')
+  link.href = src
+  link.download = fileName + '.png'
+  link.target = '_blank'
+  document.body.appendChild(link)
+  link.click()
+  document.body.removeChild(link)
+}
+
+// storeId 생성 (상호명 기반 slug)
+function makeStoreId(name: string): string {
+  return name.toLowerCase()
+    .replace(/[^a-zA-Z0-9\uAC00-\uD7A3]/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '')
+    || 'store-' + Date.now()
+}
+
+// 리뷰 URL 생성
+function buildReviewUrl(storeInfo: StoreInfo, settings: QRSettings): string {
+  const storeId = makeStoreId(storeInfo.name)
+  const base = (typeof window !== 'undefined' ? window.location.origin : 'https://localution.co.kr')
+  const params = new URLSearchParams()
+  if (storeInfo.name) params.set('n', storeInfo.name)
+  if (storeInfo.category) params.set('t', storeInfo.category)
+  if (settings.mainKeyword) params.set('kw', settings.mainKeyword)
+  if (storeInfo.naverUrl) params.set('naver', storeInfo.naverUrl)
+  if (settings.rewardType !== 'none' && settings.rewardValue) params.set('reward', settings.rewardValue)
+  const qs = params.toString()
+  return base + '/review/' + storeId + (qs ? '?' + qs : '')
+}
+
 // ─── 메인 ─────────────────────────────────────────────────────────
 export default function QRAdmin() {
   const [activeTab, setActiveTab] = useState<'settings' | 'list' | 'stats'>('settings')
@@ -106,6 +229,7 @@ export default function QRAdmin() {
   const [creating, setCreating] = useState(false)
   const [created, setCreated] = useState(false)
   const [previewQR, setPreviewQR] = useState<QRCode | null>(null)
+  const [suggestedKws, setSuggestedKws] = useState<string[]>([])
   const kwInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
@@ -159,12 +283,19 @@ export default function QRAdmin() {
     setStoreInfo(next)
     try { localStorage.setItem(LS_STORE_INFO, JSON.stringify(next)) } catch (_) {}
     setStoreEdit(false)
-    // 상호명이 있으면 메인키워드 제안
-    if (storeDraft.name && !settings.mainKeyword) {
-      const suggested = storeDraft.location ? storeDraft.location + ' ' + storeDraft.category : storeDraft.category
-      if (suggested.trim()) {
-        const next2 = { ...settings, mainKeyword: suggested.trim() }
+    // SEO 키워드 자동 추천
+    if (storeDraft.name && storeDraft.location) {
+      const suggestions = generateSeoKeywords(storeDraft.location, storeDraft.category, storeDraft.name)
+      if (suggestions.length > 0) {
+        const mainKw = suggestions[0]
+        const subKws = suggestions.slice(1, 6)
+        const next2 = {
+          ...settings,
+          mainKeyword: settings.mainKeyword || mainKw,
+          subKeywords: settings.subKeywords.length === 0 ? subKws : settings.subKeywords,
+        }
         saveSettings(next2)
+        setSuggestedKws(suggestions)
       }
     }
   }
@@ -317,7 +448,8 @@ export default function QRAdmin() {
                 {!storeEdit && !storeInfo.connected ? (
                   <div>
                     <p className="text-sm text-[#4E5968] mb-4 leading-relaxed">
-                      업체 정보를 입력하면 AI가 더 정확한 리뷰를 생성해요.
+                      업체 정보를 입력하면 AI가 더 정확한 리뷰를 생성하고,<br/>
+                      <span className="text-[#3182F6] font-semibold">QR 코드에 리뷰 URL이 자동 연결</span>돼요.
                     </p>
                     <button
                       onClick={() => { setStoreDraft(DEFAULT_STORE); setStoreEdit(true) }}
@@ -398,6 +530,9 @@ export default function QRAdmin() {
                         네이버 플레이스 보기 →
                       </a>
                     )}
+                    <div className="mt-2 pl-4">
+                      <p className="text-[10px] text-[#8B95A1]">리뷰 URL: <span className="text-[#3182F6] font-mono">/review/{makeStoreId(storeInfo.name)}</span></p>
+                    </div>
                   </div>
                 )}
               </div>
@@ -462,6 +597,37 @@ export default function QRAdmin() {
                     {settings.subKeywords.length}/5개 등록됨
                   </p>
                 </div>
+
+                {/* AI 추천 키워드 */}
+                {suggestedKws.length > 0 && (
+                  <div className="mt-4 p-3.5 bg-gradient-to-r from-[#F0FDF4] to-[#ECFDF5] rounded-xl border border-[#BBF7D0]">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-sm">🤖</span>
+                      <p className="text-xs font-bold text-[#059669]">AI 추천 키워드</p>
+                      <span className="text-[10px] px-1.5 py-0.5 bg-[#059669] text-white rounded font-bold">자동</span>
+                    </div>
+                    <p className="text-[11px] text-[#4E5968] mb-2">
+                      네이버 연동 정보 기반으로 추천된 키워드에요. 클릭하면 추가돼요.
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {suggestedKws.filter(kw => kw !== settings.mainKeyword && !settings.subKeywords.includes(kw)).map(kw => (
+                        <button
+                          key={kw}
+                          onClick={() => {
+                            if (settings.subKeywords.length < 5) {
+                              const next = { ...settings, subKeywords: [...settings.subKeywords, kw] }
+                              saveSettings(next)
+                            }
+                          }}
+                          disabled={settings.subKeywords.length >= 5}
+                          className="text-xs px-2.5 py-1.5 bg-white text-[#059669] rounded-full font-medium border border-[#BBF7D0] hover:bg-[#DCFCE7] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          + {kw}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
 
                 {/* 키워드 미리보기 */}
                 {(settings.mainKeyword || settings.subKeywords.length > 0) && (
@@ -608,7 +774,10 @@ export default function QRAdmin() {
                     <div
                       onClick={() => setPreviewQR(qr)}
                       className="w-16 h-16 bg-white rounded-xl shadow-sm flex items-center justify-center cursor-pointer flex-shrink-0 border border-[#E5E8EB] hover:border-[#3182F6] transition-colors p-1">
-                      <QRPreview text={qr.name + qr.keyword} size={56} />
+                      {storeInfo.connected
+                        ? <QRCodeImage url={buildReviewUrl(storeInfo, { ...settings, mainKeyword: qr.keyword || settings.mainKeyword })} size={56} />
+                        : <QRPreview text={qr.name + qr.keyword} size={56} />
+                      }
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2 mb-1 flex-wrap">
@@ -795,8 +964,16 @@ export default function QRAdmin() {
             </div>
             <div className="p-6 flex flex-col items-center gap-4">
               <div className="p-4 bg-white rounded-2xl border-2 border-[#E5E8EB] shadow-sm">
-                <QRPreview text={previewQR.name + previewQR.keyword} size={180} />
+                {storeInfo.connected
+                  ? <QRCodeImage url={buildReviewUrl(storeInfo, { ...settings, mainKeyword: previewQR.keyword || settings.mainKeyword })} size={180} />
+                  : <QRPreview text={previewQR.name + previewQR.keyword} size={180} />
+                }
               </div>
+              {storeInfo.connected && (
+                <p className="text-[10px] text-[#8B95A1] text-center break-all max-w-[260px] leading-relaxed">
+                  {buildReviewUrl(storeInfo, { ...settings, mainKeyword: previewQR.keyword || settings.mainKeyword }).slice(0, 80)}...
+                </p>
+              )}
               {previewQR.keyword && (
                 <span className="text-xs px-3 py-1.5 rounded-full bg-[#EFF6FF] text-[#3182F6] font-semibold">#{previewQR.keyword}</span>
               )}
@@ -810,8 +987,14 @@ export default function QRAdmin() {
                   닫기
                 </button>
                 <button
-                  className="flex-1 py-3 rounded-xl text-sm font-semibold bg-[#3182F6] text-white hover:bg-[#1B64DA] transition-colors">
-                  이미지 저장
+                  onClick={() => {
+                    if (storeInfo.connected) {
+                      downloadQR(buildReviewUrl(storeInfo, { ...settings, mainKeyword: previewQR.keyword || settings.mainKeyword }), previewQR.name)
+                    }
+                  }}
+                  disabled={!storeInfo.connected}
+                  className={'flex-1 py-3 rounded-xl text-sm font-semibold transition-colors ' + (storeInfo.connected ? 'bg-[#3182F6] text-white hover:bg-[#1B64DA]' : 'bg-[#E5E8EB] text-[#8B95A1] cursor-not-allowed')}>
+                  {storeInfo.connected ? 'QR 이미지 저장' : '업체 연동 필요'}
                 </button>
               </div>
             </div>
