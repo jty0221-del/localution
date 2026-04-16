@@ -9,18 +9,15 @@ import { useState, useEffect, useCallback } from 'react'
 
 function NaverPlaceLogo({ size = 28 }: { size?: number }) {
   return (
-    <>
     <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
       <rect width="48" height="48" rx="10" fill="#03C75A"/>
       <path d="M9 39V9h8L31 27V9h8v30h-8L17 21v18H9Z" fill="white"/>
     </svg>
-    </>
   )
 }
 
 function GoogleLogo({ size = 28 }: { size?: number }) {
   return (
-    <>
     <svg width={size} height={size} viewBox="0 0 48 48">
       <rect width="48" height="48" rx="10" fill="white" stroke="#E5E8EB" strokeWidth="1.5"/>
       <path d="M43.6 24.5c0-1.5-.14-3-.38-4.5H24v8.5h10.94c-.5 2.5-1.96 4.6-4.16 6v5h6.74c3.94-3.62 6.08-9 6.08-15z" fill="#4285F4"/>
