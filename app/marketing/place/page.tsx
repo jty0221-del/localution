@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import Sidebar from '../../components/Sidebar'
 
 const SCORE_ITEMS = [
@@ -15,13 +15,6 @@ const SCORE_ITEMS = [
 export default function PlacePage() {
   const [loading, setLoading] = useState(true)
 
-  useEffect(() => {
-    const ok = document.cookie.split(';').some(function(c) {
-      return c.trim().startsWith('localution_session=')
-    })
-    if (!ok) { window.location.href = '/login' }
-    setTimeout(() => setLoading(false), 800)
-  }, [])
 
   const totalScore = Math.round(SCORE_ITEMS.reduce((a, i) => a + i.score, 0) / SCORE_ITEMS.length)
   const scoreColor = totalScore >= 80 ? '#10B981' : totalScore >= 60 ? '#F59E0B' : '#DC2626'
