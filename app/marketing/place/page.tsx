@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import Sidebar from '../../components/Sidebar'
 
 const SCORE_ITEMS = [
   { label: '리뷰 수량', score: 82, max: 100, tip: '리뷰가 많을수록 상위 노출에 유리해요' },
@@ -21,9 +20,6 @@ export default function PlacePage() {
 
   if (loading) {
     return (
-      <div className="flex min-h-screen bg-[#F8F9FA]">
-        <Sidebar />
-        <main className="flex-1 md:ml-[220px] pt-14 md:pt-0 flex items-center justify-center">
           <div className="text-center">
             <div className="w-12 h-12 border-4 border-[#3182F6] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
             <p className="text-sm text-[#8B95A1]">플레이스 진단 중...</p>
@@ -92,7 +88,5 @@ export default function PlacePage() {
           </button>
 
         </div>
-      </main>
-    </div>
   )
 }
