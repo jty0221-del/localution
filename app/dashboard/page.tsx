@@ -483,95 +483,242 @@ function AIReplyModal({ review, onClose }: ReplyModalProps) {
 // ═══════════════════════════════════════════════════════════
 //  롤링 공지 배너 (5초 자동 전환)
 // ═══════════════════════════════════════════════════════════
-const NOTICES = [
+const BANNER_SLIDES = [
   {
-    icon: '💰',
+    title: 'AI가 대신 답변하는 시대',
+    sub: '리뷰 답글, 이제 AI에게 맡기세요',
+    desc: '네이버 · 구글 · 배민 · 요기요 통합 AI 리뷰 자동 답글',
+    bg: 'linear-gradient(135deg, #1e3a5f 0%, #3182F6 100%)',
+    emoji: '🤖',
+    link: '/review-admin',
+  },
+  {
+    title: 'QR 스캔 한 번으로',
+    sub: '고객이 직접 리뷰를 쓰는 시대',
+    desc: 'QR 코드 스캔 → AI 리뷰 생성 → 플랫폼 자동 등록',
+    bg: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)',
+    emoji: '📱',
+    link: '/qr-admin',
+  },
+  {
+    title: '매출과 고객을 한 눈에',
+    sub: '대시보드 하나로 끝',
+    desc: '매출 캘린더 · 고객 CRM · 정산 자동화 모두 통합',
+    bg: 'linear-gradient(135deg, #065f46 0%, #10b981 100%)',
+    emoji: '📊',
+    link: '/dashboard',
+  },
+  {
     title: '소상공인 경영안정자금',
+    sub: '최대 2천만원 · 연 1.5%',
     desc: '지금 사장님 매출이면 신청 가능합니다',
-    detail: '최대 2천만원 · 연 1.5% 고정금리 · 담보 불필요',
-    deadline: '5월 31일 마감',
-    url: 'https://ols.semas.or.kr/ols/man/SMAN010M/page.do',
-    bg: 'linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%)',
+    bg: 'linear-gradient(135deg, #92400e 0%, #f59e0b 100%)',
+    emoji: '💰',
+    link: 'https://ols.semas.or.kr',
   },
   {
-    icon: '🖥️',
-    title: '소상공인 디지털 전환 지원',
-    desc: '스마트 매장 구축 비용 최대 400만원 지원',
-    detail: '키오스크·POS·예약시스템 도입 지원',
-    deadline: '6월 15일 마감',
-    url: 'https://www.semas.or.kr',
-    bg: 'linear-gradient(135deg, #065f46 0%, #059669 100%)',
-  },
-  {
-    icon: '📊',
-    title: '2026년 매출세액 공제 안내',
-    desc: '연매출 8천만원 이하 개인사업자 세액공제 확대',
-    detail: '부가세 간이과세 기준 상향 · 최대 20% 공제',
-    deadline: '연중 상시',
-    url: 'https://www.hometax.go.kr',
-    bg: 'linear-gradient(135deg, #4c1d95 0%, #7c3aed 100%)',
-  },
-  {
-    icon: '👥',
-    title: '고용보험료 80% 지원',
-    desc: '5인 미만 사업장 사장님, 고용보험료 돌려받으세요',
-    detail: '월 최대 4만원 환급 · 근로자도 동시 지원',
-    deadline: '상시 접수',
-    url: 'https://www.ei.go.kr',
-    bg: 'linear-gradient(135deg, #92400e 0%, #d97706 100%)',
-  },
-  {
-    icon: '⚡',
-    title: '에너지 절감 설비 지원사업',
-    desc: '냉난방·조명 교체 비용 최대 70% 지원',
-    detail: 'LED 조명, 고효율 에어컨 등 · 최대 500만원',
-    deadline: '7월 31일 마감',
-    url: 'https://www.semas.or.kr',
+    title: '플레이스 상위 노출 비법',
+    sub: '키워드 + 리뷰 + 답글률 = 상위 노출',
+    desc: '로컬루션 AI가 키워드 분석부터 리뷰 답글까지 자동화',
     bg: 'linear-gradient(135deg, #0f766e 0%, #14b8a6 100%)',
+    emoji: '🚀',
+    link: '/marketing',
   },
 ]
 
-function NoticeBanner() {
-  const [idx, setIdx] = useState(0)
-  const [fade, setFade] = useState(true)
+
+// ═══════════════════════════════════════════════════════════
+//  인기 서비스 TOP 10 (순위 애니메이션)
+// ═══════════════════════════════════════════════════════════
+const SERVICE_RANKING_INIT = [
+  { id: 1,  name: 'AI 리뷰 자동 답글',  category: '리뷰', badge: 'HOT',  color: '#F04452' },
+  { id: 2,  name: '네이버 플레이스 관리', category: '플레이스', badge: '',     color: '#03C75A' },
+  { id: 3,  name: 'QR 리뷰 자동화',         category: 'QR',     badge: 'NEW',  color: '#7C3AED' },
+  { id: 4,  name: '매출 캘린더 · 정산',     category: '정산', badge: '',     color: '#3182F6' },
+  { id: 5,  name: '고객 CRM 관리',              category: 'CRM',    badge: '',     color: '#F59E0B' },
+  { id: 6,  name: '키워드 순위 추적',          category: 'SEO',    badge: '',     color: '#10B981' },
+  { id: 7,  name: '숫폼 퍼블리셔',           category: '마케팅', badge: '',     color: '#EC4899' },
+  { id: 8,  name: '배민 리뷰 연동',            category: '배달', badge: '',     color: '#2AC1BC' },
+  { id: 9,  name: '구글 리뷰 연동',            category: '구글', badge: '',     color: '#4285F4' },
+  { id: 10, name: '세금계산서 자동 발행',      category: '행정', badge: '',     color: '#6B7280' },
+]
+
+function ServiceRanking() {
+  const [items, setItems] = useState(SERVICE_RANKING_INIT.map((s, i) => ({ ...s, rank: i + 1, prevRank: i + 1, score: 100 - i * 8 })))
+  const [isShuffling, setIsShuffling] = useState(false)
 
   useEffect(() => {
     const timer = setInterval(() => {
-      setFade(false)
+      setIsShuffling(true)
       setTimeout(() => {
-        setIdx(prev => (prev + 1) % NOTICES.length)
-        setFade(true)
+        setItems(prev => {
+          const arr = [...prev]
+          // 2~3개 항목의 순위를 랜덤 교환
+          const swapCount = 2 + Math.floor(Math.random() * 2)
+          for (let s = 0; s < swapCount; s++) {
+            const a = Math.floor(Math.random() * arr.length)
+            let b = Math.floor(Math.random() * arr.length)
+            while (b === a) b = Math.floor(Math.random() * arr.length)
+            // 점수 살짝 변동
+            arr[a].score += Math.floor(Math.random() * 10) - 4
+            arr[b].score += Math.floor(Math.random() * 10) - 4
+          }
+          // 점수순 재정렬
+          arr.sort((a, b) => b.score - a.score)
+          arr.forEach((item, i) => {
+            item.prevRank = item.rank
+            item.rank = i + 1
+          })
+          return arr
+        })
+        setIsShuffling(false)
       }, 300)
     }, 5000)
     return () => clearInterval(timer)
   }, [])
 
-  const n = NOTICES[idx]
   return (
-    <div
-      className="rounded-2xl shadow-sm px-5 py-4 mb-5 relative overflow-hidden cursor-pointer transition-all hover:shadow-md"
-      style={{ background: n.bg }}
-      onClick={() => window.open(n.url, '_blank')}
-    >
-      <div className="flex items-center justify-between" style={{ opacity: fade ? 1 : 0, transition: 'opacity 0.3s ease' }}>
-        <div className="flex items-center gap-4 flex-1 min-w-0">
-          <span className="text-3xl flex-shrink-0">{n.icon}</span>
-          <div className="min-w-0">
-            <div className="flex items-center gap-2 mb-0.5">
-              <span className="text-sm font-bold text-white">{n.title}</span>
-              <span className="text-[10px] bg-white/20 text-white/90 px-2 py-0.5 rounded-full font-semibold flex-shrink-0">{n.deadline}</span>
-            </div>
-            <p className="text-xs text-white/80">{n.desc}</p>
-            <p className="text-[11px] text-white/60 mt-0.5">{n.detail}</p>
+    <div className="bg-white rounded-2xl shadow-sm overflow-hidden flex flex-col">
+      <div className="px-5 py-4 border-b border-[#F2F4F6] flex items-center justify-between">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-bold text-[#191F28]">인기 서비스 TOP 10</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-[#F04452] animate-pulse inline-block"/>
           </div>
+          <p className="text-[10px] text-[#8B95A1] mt-0.5">실시간 사용량 기준</p>
         </div>
-        <div className="flex items-center gap-3 flex-shrink-0 ml-4">
-          <div className="flex gap-1">
-            {NOTICES.map((_, i) => (
-              <div key={i} className="w-1.5 h-1.5 rounded-full" style={{ background: i === idx ? 'white' : 'rgba(255,255,255,0.3)' }} />
-            ))}
+        <span className="text-[10px] text-[#8B95A1] bg-[#F2F4F6] px-2 py-1 rounded-full">5초마다 갱신</span>
+      </div>
+      <div className="flex-1">
+        {items.map((item) => {
+          const diff = item.prevRank - item.rank
+          return (
+            <div
+              key={item.id}
+              className="px-5 py-3 flex items-center gap-3 border-b border-[#F8F9FA] hover:bg-[#FAFBFF] transition-all duration-500"
+              style={{
+                transform: isShuffling ? 'translateX(4px)' : 'translateX(0)',
+                opacity: isShuffling ? 0.7 : 1,
+                transition: 'all 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+              }}
+            >
+              <div className={'w-7 h-7 rounded-lg flex items-center justify-center text-xs font-black flex-shrink-0 ' + (item.rank <= 3 ? 'bg-[#3182F6] text-white' : 'bg-[#F2F4F6] text-[#8B95A1]')}>
+                {item.rank}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm font-semibold text-[#191F28] truncate">{item.name}</span>
+                  {item.badge && (
+                    <span className={'text-[9px] px-1.5 py-0.5 rounded-full font-bold ' + (item.badge === 'HOT' ? 'bg-[#FFF0F0] text-[#F04452]' : 'bg-[#EFF6FF] text-[#3182F6]')}>{item.badge}</span>
+                  )}
+                </div>
+                <span className="text-[10px] text-[#8B95A1]">{item.category}</span>
+              </div>
+              <div className="flex-shrink-0 w-12 text-right">
+                {diff > 0 && <span className="text-[11px] font-bold text-[#12B76A]">▲{diff}</span>}
+                {diff < 0 && <span className="text-[11px] font-bold text-[#F04452]">▼{Math.abs(diff)}</span>}
+                {diff === 0 && <span className="text-[11px] text-[#8B95A1]">—</span>}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
+function NoticeBanner() {
+  const [idx, setIdx] = useState(0)
+  const [isAnimating, setIsAnimating] = useState(false)
+  const [slideDir, setSlideDir] = useState(1) // 1=right, -1=left
+  const touchStart = useRef(0)
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setSlideDir(1)
+      setIsAnimating(true)
+      setTimeout(() => {
+        setIdx(prev => (prev + 1) % BANNER_SLIDES.length)
+        setIsAnimating(false)
+      }, 400)
+    }, 4000)
+    return () => clearInterval(timer)
+  }, [])
+
+  const goTo = (i: number) => {
+    if (i === idx) return
+    setSlideDir(i > idx ? 1 : -1)
+    setIsAnimating(true)
+    setTimeout(() => { setIdx(i); setIsAnimating(false) }, 400)
+  }
+
+  const s = BANNER_SLIDES[idx]
+  const isExternal = s.link.startsWith('http')
+
+  return (
+    <div className="mb-5 relative">
+      <div
+        className="rounded-2xl overflow-hidden cursor-pointer transition-all hover:shadow-lg relative"
+        style={{ background: s.bg, minHeight: 160 }}
+        onClick={() => isExternal ? window.open(s.link, '_blank') : (window.location.href = s.link)}
+        onTouchStart={(e) => { touchStart.current = e.touches[0].clientX }}
+        onTouchEnd={(e) => {
+          const diff = e.changedTouches[0].clientX - touchStart.current
+          if (Math.abs(diff) > 50) {
+            goTo(diff > 0 ? (idx - 1 + BANNER_SLIDES.length) % BANNER_SLIDES.length : (idx + 1) % BANNER_SLIDES.length)
+          }
+        }}
+      >
+        <div
+          className="px-8 py-7 flex items-center justify-between"
+          style={{
+            opacity: isAnimating ? 0 : 1,
+            transform: isAnimating ? 'translateX(' + (slideDir * 30) + 'px)' : 'translateX(0)',
+            transition: 'all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+          }}
+        >
+          <div className="flex-1 min-w-0">
+            <p className="text-white/60 text-xs font-semibold mb-1 tracking-wide uppercase">{s.sub}</p>
+            <h2 className="text-2xl font-black text-white mb-2 leading-tight">{s.title}</h2>
+            <p className="text-sm text-white/80">{s.desc}</p>
           </div>
-          <span className="text-xs text-white font-semibold bg-white/20 px-3 py-1.5 rounded-lg hover:bg-white/30 transition-colors">자세히 보기 →</span>
+          <span className="text-6xl ml-6 flex-shrink-0 drop-shadow-lg" style={{ filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.2))' }}>{s.emoji}</span>
+        </div>
+
+        {/* 도트 인디케이터 */}
+        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-2">
+          {BANNER_SLIDES.map((_, i) => (
+            <button
+              key={i}
+              onClick={(e) => { e.stopPropagation(); goTo(i) }}
+              className="transition-all duration-300"
+              style={{
+                width: i === idx ? 24 : 8,
+                height: 8,
+                borderRadius: 4,
+                background: i === idx ? 'white' : 'rgba(255,255,255,0.4)',
+              }}
+            />
+          ))}
+        </div>
+
+        {/* 좌우 화살표 */}
+        <button
+          onClick={(e) => { e.stopPropagation(); goTo((idx - 1 + BANNER_SLIDES.length) % BANNER_SLIDES.length) }}
+          className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/20 hover:bg-black/40 flex items-center justify-center text-white text-sm transition-colors"
+        >
+          &#8249;
+        </button>
+        <button
+          onClick={(e) => { e.stopPropagation(); goTo((idx + 1) % BANNER_SLIDES.length) }}
+          className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/20 hover:bg-black/40 flex items-center justify-center text-white text-sm transition-colors"
+        >
+          &#8250;
+        </button>
+
+        {/* 슬라이드 카운터 */}
+        <div className="absolute top-4 right-4 bg-black/30 text-white text-[10px] px-2.5 py-1 rounded-full font-semibold">
+          {idx + 1} / {BANNER_SLIDES.length}
         </div>
       </div>
     </div>
@@ -877,7 +1024,7 @@ export default function Dashboard() {
         </div>
 
         {/* ── 메인 2컬럼 ── */}
-        <div className="grid grid-cols-[1fr_340px] gap-5 mb-5">
+        <div className="grid grid-cols-[1fr_300px_300px] gap-4 mb-5">
 
           {/* 좌: 연동 플랫폼 별점·리뷰 현황 */}
           <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
@@ -978,6 +1125,10 @@ export default function Dashboard() {
                 </div>
               ))}
             </div>
+
+          {/* 우2: 인기 서비스 랭킹 */}
+          <ServiceRanking />
+
           </div>
         </div>
 
