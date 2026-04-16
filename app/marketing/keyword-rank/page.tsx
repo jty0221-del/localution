@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import Sidebar from '../../components/Sidebar'
 
 const KEYWORDS = [
   { keyword: '강남 마케팅 대행', rank: 3,  prev: 5,  volume: '월 2.4만', trend: 'up' },
@@ -18,9 +17,6 @@ export default function KeywordRankPage() {
 
 
   return (
-    <div className="flex min-h-screen bg-[#F8F9FA]">
-      <Sidebar />
-      <main className="flex-1 md:ml-[220px] pt-14 md:pt-0">
         <div className="p-4 md:p-6 max-w-4xl mx-auto">
 
           <div className="flex items-center justify-between mb-6">
@@ -76,7 +72,5 @@ export default function KeywordRankPage() {
           <p className="text-xs text-[#8B95A1] text-center mt-4">📊 키워드 순위는 매일 오전 9시에 자동 업데이트됩니다</p>
 
         </div>
-      </main>
-    </div>
   )
 }
