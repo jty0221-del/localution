@@ -977,6 +977,7 @@ export default function Dashboard() {
                 const h = (w.v / maxSale) * 180
                 const isMax = w.v === maxSale
                 return (
+                  <>
                   <div key={i} className="flex-1 flex flex-col items-center gap-2.5">
                     <span className={isMax ? 'text-[13px] font-black text-[#F04452]' : 'text-[12px] font-black text-[#4E5968]'}>{w.v}</span>
                     <div className="w-full rounded-t-2xl relative" style={{ height: h + 'px', background: isMax ? 'linear-gradient(180deg,#F04452,#D63B4B)' : 'linear-gradient(180deg,#3182F6,#1B64DA)' }}>
@@ -1080,4 +1081,5 @@ export default function Dashboard() {
         />
       )}
   )
+                  </>
 }
