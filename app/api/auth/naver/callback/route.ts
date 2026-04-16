@@ -14,7 +14,6 @@ export async function GET(request: Request) {
   try {
     const clientId = process.env.NAVER_CLIENT_ID || ''
     const clientSecret = process.env.NAVER_CLIENT_SECRET || ''
-    const callbackUrl = process.env.NAVER_CALLBACK_URL || (baseUrl + '/api/auth/naver/callback')
 
     const tokenUrl = 'https://nid.naver.com/oauth2.0/token?grant_type=authorization_code&client_id=' + clientId + '&client_secret=' + clientSecret + '&code=' + code + '&state=' + (state || '')
 
@@ -22,21 +21,18 @@ export async function GET(request: Request) {
     const tokenData = await tokenRes.json()
 
     if (!tokenData.access_token) {
-      console.error('Naver token error:', JSON.stringify(tokenData))
+      console.error('Naver auth token error:', JSON.stringify(tokenData))
       return NextResponse.redirect(new URL('/login?error=token_failed', baseUrl))
     }
 
     const userRes = await fetch('https://openapi.naver.com/v1/nid/me', {
-      headers: {
-        'Authorization': 'Bearer ' + tokenData.access_token
-      }
+      headers: { 'Authorization': 'Bearer ' + tokenData.access_token }
     })
 
     const userData = await userRes.json()
     const userInfo = userData.response
 
     if (!userInfo || !userInfo.id) {
-      console.error('Naver user info error:', JSON.stringify(userData))
       return NextResponse.redirect(new URL('/login?error=profile_failed', baseUrl))
     }
 
