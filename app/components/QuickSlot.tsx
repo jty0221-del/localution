@@ -1,5 +1,8 @@
 'use client'
 
+  const pathname = usePathname()
+  if (pathname === '/login') return null
+
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
@@ -16,7 +19,6 @@ const LINKS = [
 
 export default function QuickSlot() {
   const [open, setOpen] = useState(false)
-  const pathname = usePathname()
   const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
