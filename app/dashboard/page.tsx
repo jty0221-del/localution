@@ -1,7 +1,7 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import Sidebar from '../components/Sidebar'
 
 // ═══════════════════════════════════════════════════════════
@@ -1130,13 +1130,7 @@ export default function Dashboard() {
               ))}
             </div>
 
-          {/* 우2: 인기 서비스 랭킹 */}
-          <ServiceRanking />
-
-          {/* 우2: 인기 서비스 랭킹 */}
-          <ServiceRanking />
-
-          {/* 우2: 인기 서비스 랭킹 */}
+          {/* 인기 서비스 랭킹 */}
           <ServiceRanking />
 
 
