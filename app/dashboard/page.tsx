@@ -2,7 +2,6 @@
 export const dynamic = 'force-dynamic'
 
 import { useState, useEffect, useCallback } from 'react'
-import Sidebar from '../components/Sidebar'
 
 // ═══════════════════════════════════════════════════════════
 //  플랫폼 로고 SVG
@@ -645,9 +644,6 @@ export default function Dashboard() {
   const dateStr = today.getFullYear() + '년 ' + (today.getMonth() + 1) + '월 ' + today.getDate() + '일 ' + ['일','월','화','수','목','금','토'][today.getDay()] + '요일'
 
   return (
-    <div className="flex min-h-screen bg-[#F2F4F6]">
-      <Sidebar />
-      <main className="flex-1 ml-[220px] p-8 min-w-0">
 
         {/* ── Hero 바 ── */}
         <div className="bg-white rounded-3xl px-8 py-7 mb-7 shadow-[0_4px_24px_rgba(17,24,39,0.06)] border border-[#F2F4F6]">
@@ -1068,7 +1064,6 @@ export default function Dashboard() {
           </div>
         </div>
 
-      </main>
 
       {/* 모달들 */}
       {connectPlatform && (
@@ -1084,6 +1079,5 @@ export default function Dashboard() {
           onClose={() => setReplyReview(null)}
         />
       )}
-    </div>
   )
 }
