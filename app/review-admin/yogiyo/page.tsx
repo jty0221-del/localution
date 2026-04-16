@@ -1,401 +1,129 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import Sidebar from '../../components/Sidebar'
 
-interface Review {
-  id: string
-  rating: number
-  author: string
-  date: string
-  text: string
-  orderId?: string
-  menuItems?: string[]
-  replied: boolean
-  replyText?: string
-}
+const REVIEWS = [
+  { name: '김**', rating: 5, text: '진짜 최고예요! 다음에 또 올게요 ㅎㅎ 분위기도 좋고 음식도 맛있어요.', date: '2026-04-16', replied: false },
+  { name: '이**', rating: 4, text: '전반적으로 만족스러웠어요. 주차 공간이 조금 아쉬웠어요.', date: '2026-04-15', replied: true, reply: '방문해주셔서 감사합니다! 주차 환경 개선을 위해 노력하겠습니다.' },
+  { name: '박**', rating: 5, text: '여기 단골입니다. 항상 맛있고 서비스도 훌륭해요!', date: '2026-04-14', replied: false },
+  { name: '최**', rating: 3, text: '기대에 비해 조금 아쉬웠어요. 개선 부탁드려요.', date: '2026-04-13', replied: false },
+  { name: '정**', rating: 5, text: '사장님 너무 친절하세요. 항상 감사합니다!', date: '2026-04-12', replied: true, reply: '항상 변함없이 찾아주시는 정 고객님, 정말 감사합니다!' },
+]
 
-interface ReviewState extends Review {
-  aiReply: string
-  editReply: string
-  aiLoading: boolean
-  aiDone: boolean
-  showEdit: boolean
-}
-
-const LS_CONNECTED = 'localution.yogiyo.connected'
-const LS_STORE_ID  = 'localution.yogiyo.storeId'
-const LS_TOKEN     = 'localution.yogiyo.token'
-
-function Stars({ n }: { n: number }) {
-  return (
-    <span className="text-sm">
-      {'★'.repeat(n)}<span className="text-[#E5E8EB]">{'★'.repeat(5 - n)}</span>
-    </span>
-  )
-}
-
-export default function ReviewPage() {
-  const [connected, setConnected] = useState(false)
-  const [storeId, setStoreId]     = useState('')
-  const [token, setToken]         = useState('')
-  const [reviews, setReviews]     = useState<ReviewState[]>([])
-  const [loading, setLoading]     = useState(false)
-  const [error, setError]         = useState('')
-  const [filterRating, setFilterRating] = useState(0)
-  const [filterReplied, setFilterReplied] = useState<'all' | 'pending' | 'done'>('all')
-  const [connectInput, setConnectInput] = useState({ storeId: '', token: '' })
-  const [connectLoading, setConnectLoading] = useState(false)
+export default function ReviewPage_Yogiyo() {
+  const [replyModal, setReplyModal] = useState<number | null>(null)
+  const [replyText, setReplyText] = useState('')
 
   useEffect(() => {
-    try {
-      const isConn = localStorage.getItem(LS_CONNECTED) === 'true'
-      const sid    = localStorage.getItem(LS_STORE_ID) || ''
-      const tok    = localStorage.getItem(LS_TOKEN) || ''
-      setConnected(isConn); setStoreId(sid); setToken(tok)
-    } catch {}
+    const ok = document.cookie.split(';').some(function(c) {
+      return c.trim().startsWith('localution_session=')
+    })
+    if (!ok) { window.location.href = '/login' }
   }, [])
 
-  const handleConnect = async () => {
-    if (!connectInput.storeId || !connectInput.token) {
-      setError('매장 ID와 토큰을 모두 입력해주세요')
-      return
-    }
-    setConnectLoading(true); setError('')
-    try {
-      const res = await fetch(`/api/yogiyo-reviews?storeId=${connectInput.storeId}&token=${encodeURIComponent(connectInput.token)}&test=true`)
-      const data = await res.json()
-      if (!res.ok || data.error) throw new Error(data.error || '연동 실패')
-
-      localStorage.setItem(LS_CONNECTED, 'true')
-      localStorage.setItem(LS_STORE_ID, connectInput.storeId)
-      localStorage.setItem(LS_TOKEN, connectInput.token)
-      setConnected(true); setStoreId(connectInput.storeId); setToken(connectInput.token)
-    } catch (e: any) {
-      setError(e.message || '연동 중 오류가 발생했습니다')
-    } finally { setConnectLoading(false) }
-  }
-
-  const loadReviews = useCallback(async () => {
-    if (!storeId || !token) return
-    setLoading(true); setError('')
-    try {
-      const res = await fetch(`/api/yogiyo-reviews?storeId=${storeId}&token=${encodeURIComponent(token)}`)
-      const data = await res.json()
-      if (!res.ok || data.error) throw new Error(data.error || '리뷰 로딩 실패')
-      const items: Review[] = data.reviews || []
-      setReviews(items.map(r => ({
-        ...r, aiReply: '', editReply: '', aiLoading: false, aiDone: false, showEdit: false,
-      })))
-    } catch (e: any) {
-      setError(e.message)
-    } finally { setLoading(false) }
-  }, [storeId, token])
-
-  useEffect(() => { if (connected) loadReviews() }, [connected, loadReviews])
-
-  async function generateAI(idx: number) {
-    const r = reviews[idx]
-    setReviews(prev => prev.map((x, i) => i === idx ? { ...x, aiLoading: true, aiDone: false } : x))
-    try {
-      let gs: any = {}
-      try { const raw = localStorage.getItem('localution_store'); if (raw) gs = JSON.parse(raw) } catch {}
-      const aiS: any = {}
-      try {
-        const keys = ['tone','length','gender','ageGroup','speechStyle','emoji']
-        keys.forEach(k => { const v = localStorage.getItem('ai.' + k); if (v) aiS[k] = v })
-      } catch {}
-
-      const res = await fetch('/api/ai-review-reply', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          review: r.text || '', rating: r.rating,
-          platform: '요기요',
-          storeName: gs.name || '저희 매장',
-          region: gs.region || '',
-          bizType: gs.category || '',
-          mainKeyword: gs.mainKeyword || '',
-          subKeywords: gs.subKeywords || '',
-          storeDesc: gs.desc || '',
-          storeStrengths: gs.strengths || '',
-          ownerMindset: gs.ownerMindset || '',
-          aiSettings: aiS,
-        }),
-      })
-      const d = await res.json()
-      setReviews(prev => prev.map((x, i) =>
-        i === idx ? { ...x, aiLoading: false, aiDone: true, aiReply: d.reply || '생성 실패', editReply: d.reply || '' } : x
-      ))
-    } catch {
-      setReviews(prev => prev.map((x, i) => i === idx ? { ...x, aiLoading: false } : x))
-    }
-  }
-
-  async function submitReply(idx: number) {
-    const r = reviews[idx]
-    const reply = r.editReply || r.aiReply
-    if (!reply) return
-    try {
-      const res = await fetch('/api/yogiyo-reply', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ storeId, token, reviewId: r.id, reply }),
-      })
-      const d = await res.json()
-      if (d.ok) {
-        setReviews(prev => prev.map((x, i) =>
-          i === idx ? { ...x, replied: true, replyText: reply, showEdit: false } : x
-        ))
-        alert('✅ 답글이 등록되었습니다!')
-      } else {
-        alert('❌ 등록 실패: ' + (d.error || '알 수 없는 오류'))
-      }
-    } catch { alert('❌ 네트워크 오류') }
-  }
-
-  const filtered = reviews.filter(r => {
-    if (filterRating > 0 && r.rating !== filterRating) return false
-    if (filterReplied === 'pending' && r.replied) return false
-    if (filterReplied === 'done' && !r.replied) return false
-    return true
-  })
-
-  const pendingCount = reviews.filter(r => !r.replied).length
+  const pendingCount = REVIEWS.filter(r => !r.replied).length
 
   return (
-    <div className="flex min-h-screen bg-[#F2F4F6]">
-      <div className="flex-1 p-5 md:p-8 max-w-4xl mx-auto">
+    <div className="flex min-h-screen bg-[#F8F9FA]">
+      <Sidebar />
+      <main className="flex-1 md:ml-[220px] pt-14 md:pt-0">
+        <div className="p-4 md:p-6 max-w-4xl mx-auto">
 
-        {/* 헤더 */}
-        <div className="flex items-center gap-3 mb-6">
-          <Link href="/review-admin" className="text-sm text-[#8B95A1] hover:text-[#4E5968]">← 리뷰 관리</Link>
-          <span className="text-[#E5E8EB]">/</span>
-          <div className="flex items-center gap-2">
-            <span className="text-xl">🍕</span>
-            <h1 className="text-lg font-bold text-[#191F28]">요기요 리뷰 관리</h1>
-          </div>
-          {connected && (
-            <span className="ml-auto text-xs px-2.5 py-1 rounded-full font-semibold" style={{ background: '#FFF0F4', color: '#C40040' }}>
-              ● 연동됨
-            </span>
-          )}
-        </div>
-
-        {error && (
-          <div className="mb-4 p-3.5 bg-red-50 border border-red-200 rounded-xl text-sm text-red-600 flex items-center gap-2">
-            <span>⚠️</span> {error}
-          </div>
-        )}
-
-        {/* ── 미연동 상태 ── */}
-        {!connected && (
-          <div className="space-y-5">
-            {/* API 신청 안내 */}
-            <div className="bg-white rounded-2xl p-6 shadow-sm border-l-4" style={{ borderColor: '#FA0050' }}>
-              <div className="flex items-center gap-2 mb-3">
-                <span className="text-2xl">🍕</span>
-                <h2 className="font-bold text-[#191F28]">요기요 API 연동 안내</h2>
-              </div>
-              <div className="grid md:grid-cols-2 gap-4">
-                <div className="bg-[#F8FAFC] rounded-xl p-4">
-                  <p className="text-xs font-bold text-[#4E5968] mb-2">📋 API 신청 방법</p>
-                  <p className="text-xs text-[#8B95A1] leading-relaxed">partner@yogiyo.co.kr 이메일 문의 → 파트너 계약</p>
-                  <a href="https://ceo.yogiyo.co.kr" target="_blank" rel="noopener noreferrer"
-                    className="mt-3 flex items-center gap-1 text-xs font-semibold hover:underline"
-                    style={{ color: '#FA0050' }}>
-                    개발자 포털 바로가기 →
-                  </a>
-                </div>
-                <div className="bg-[#F8FAFC] rounded-xl p-4">
-                  <p className="text-xs font-bold text-[#4E5968] mb-2">🔑 필요한 정보</p>
-                  <ul className="text-xs text-[#8B95A1] space-y-1">
-                    <li>• <strong>매장(Store) ID</strong> — 플랫폼 사장님 포털에서 확인</li>
-                    <li>• <strong>API Token</strong> — 개발자 포털에서 발급</li>
-                  </ul>
-                </div>
-              </div>
-            </div>
-
-            {/* 연동 입력 */}
-            <div className="bg-white rounded-2xl p-6 shadow-sm">
-              <h3 className="font-bold text-[#191F28] mb-4">🔗 연동 설정</h3>
-              <div className="space-y-3">
-                <div>
-                  <label className="text-xs font-semibold text-[#4E5968] block mb-1">매장 ID (Store ID)</label>
-                  <input
-                    value={connectInput.storeId}
-                    onChange={e => setConnectInput(p => ({ ...p, storeId: e.target.value }))}
-                    placeholder="예: 12345678"
-                    className="w-full border border-[#E5E8EB] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#3182F6]"
-                  />
-                </div>
-                <div>
-                  <label className="text-xs font-semibold text-[#4E5968] block mb-1">API Token</label>
-                  <input
-                    type="password"
-                    value={connectInput.token}
-                    onChange={e => setConnectInput(p => ({ ...p, token: e.target.value }))}
-                    placeholder="발급받은 API 토큰 입력"
-                    className="w-full border border-[#E5E8EB] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#3182F6]"
-                  />
-                </div>
-                <button
-                  onClick={handleConnect}
-                  disabled={connectLoading}
-                  className="w-full py-3 rounded-xl font-bold text-sm text-white transition-all disabled:opacity-50"
-                  style={{ background: '#FA0050' }}>
-                  {connectLoading ? '연동 확인 중...' : '🍕 요기요 연동하기'}
-                </button>
-              </div>
+          <div className="flex items-center gap-3 mb-6">
+            <Link href="/review-admin" className="w-8 h-8 flex items-center justify-center rounded-xl bg-white border border-[#E5E8EB] text-[#8B95A1] hover:bg-[#F2F4F6] text-sm">←</Link>
+            <div>
+              <h1 className="text-xl font-black text-[#191F28]">요기요 리뷰</h1>
+              <p className="text-sm text-[#8B95A1] mt-0.5">총 18개 · 별점 4.4 · 미답변 0개</p>
             </div>
           </div>
-        )}
 
-        {/* ── 연동 후 리뷰 목록 ── */}
-        {connected && (
-          <div className="space-y-4">
-            {/* 요약 바 */}
-            <div className="grid grid-cols-3 gap-3">
-              {[
-                { label: '전체 리뷰', value: reviews.length, icon: '📋' },
-                { label: '답글 대기', value: pendingCount, icon: '⏳', alert: pendingCount > 0 },
-                { label: '답글 완료', value: reviews.length - pendingCount, icon: '✅' },
-              ].map(s => (
-                <div key={s.label} className={`bg-white rounded-2xl p-4 shadow-sm text-center ${s.alert ? 'border-2 border-orange-200' : ''}`}>
-                  <div className="text-xl mb-1">{s.icon}</div>
-                  <div className={`text-2xl font-bold ${s.alert ? 'text-orange-500' : 'text-[#191F28]'}`}>{s.value}</div>
-                  <div className="text-xs text-[#8B95A1]">{s.label}</div>
-                </div>
-              ))}
+          {/* 요약 */}
+          <div className="grid grid-cols-3 gap-3 mb-5">
+            <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#F2F4F6] text-center">
+              <p className="text-2xl font-black text-[#191F28]">18</p>
+              <p className="text-xs text-[#8B95A1] mt-0.5">전체 리뷰</p>
             </div>
-
-            {/* 필터 + 새로고침 */}
-            <div className="bg-white rounded-2xl p-4 shadow-sm flex flex-wrap items-center gap-3">
-              <div className="flex gap-1.5">
-                {[0,1,2,3,4,5].map(n => (
-                  <button key={n} onClick={() => setFilterRating(n)}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors ${filterRating === n ? 'text-white' : 'bg-[#F2F4F6] text-[#4E5968]'}`}
-                    style={filterRating === n ? { background: '#FA0050' } : {}}>
-                    {n === 0 ? '전체' : '★'.repeat(n)}
-                  </button>
-                ))}
-              </div>
-              <div className="flex gap-1.5">
-                {(['all','pending','done'] as const).map(v => (
-                  <button key={v} onClick={() => setFilterReplied(v)}
-                    className={`px-2.5 py-1 rounded-lg text-xs font-semibold transition-colors ${filterReplied === v ? 'text-white' : 'bg-[#F2F4F6] text-[#4E5968]'}`}
-                    style={filterReplied === v ? { background: '#FA0050' } : {}}>
-                    {v === 'all' ? '전체' : v === 'pending' ? '답글 대기' : '답글 완료'}
-                  </button>
-                ))}
-              </div>
-              <button onClick={loadReviews} disabled={loading}
-                className="ml-auto text-xs font-semibold px-3 py-1.5 rounded-lg bg-[#F2F4F6] text-[#4E5968] hover:bg-[#E5E8EB] disabled:opacity-50">
-                {loading ? '불러오는 중...' : '🔄 새로고침'}
-              </button>
+            <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#F2F4F6] text-center">
+              <p className="text-2xl font-black" style={{ color: '#FA0050' }}>4.4</p>
+              <p className="text-xs text-[#8B95A1] mt-0.5">평균 별점</p>
             </div>
+            <div className="bg-white rounded-2xl p-4 shadow-sm border border-[#F2F4F6] text-center">
+              <p className="text-2xl font-black text-[#DC2626]">{pendingCount}</p>
+              <p className="text-xs text-[#8B95A1] mt-0.5">미답변</p>
+            </div>
+          </div>
 
-            {/* 리뷰 목록 */}
-            {loading && (
-              <div className="bg-white rounded-2xl p-10 text-center shadow-sm">
-                <div className="text-3xl mb-3 animate-spin">⏳</div>
-                <p className="text-sm text-[#8B95A1]">요기요 리뷰를 불러오는 중...</p>
-              </div>
-            )}
-
-            {!loading && filtered.length === 0 && (
-              <div className="bg-white rounded-2xl p-10 text-center shadow-sm">
-                <div className="text-4xl mb-3">📭</div>
-                <p className="font-bold text-[#191F28] mb-1">리뷰가 없습니다</p>
-                <p className="text-sm text-[#8B95A1]">조건을 변경하거나 새로고침을 해보세요</p>
-              </div>
-            )}
-
-            {!loading && filtered.map((r, idx) => (
-              <div key={r.id} className={`bg-white rounded-2xl shadow-sm overflow-hidden ${!r.replied ? 'border-l-4' : ''}`}
-                style={!r.replied ? { borderColor: '#FA0050' } : {}}>
-                <div className="p-5">
-                  <div className="flex items-start justify-between gap-3 mb-3">
+          {/* 리뷰 목록 */}
+          <div className="space-y-3">
+            {REVIEWS.map((r, i) => (
+              <div key={i} className="bg-white rounded-2xl shadow-sm border border-[#F2F4F6] p-5">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold"
+                      style={{ background: '#FA0050' }}>{r.name[0]}</div>
                     <div>
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="font-semibold text-sm text-[#191F28]">{r.author}</span>
-                        <Stars n={r.rating} />
-                        {!r.replied && (
-                          <span className="text-[10px] px-2 py-0.5 rounded-full font-bold text-white" style={{ background: '#FA0050' }}>
-                            답글 대기
-                          </span>
-                        )}
-                        {r.replied && (
-                          <span className="text-[10px] px-2 py-0.5 rounded-full font-bold bg-green-100 text-green-700">
-                            답글 완료
-                          </span>
-                        )}
-                      </div>
-                      <p className="text-[11px] text-[#8B95A1]">{r.date}</p>
+                      <p className="text-sm font-semibold text-[#191F28]">{r.name}</p>
+                      <p className="text-xs text-[#8B95A1]">{r.date}</p>
                     </div>
-                    {!r.replied && !r.aiDone && (
-                      <button onClick={() => generateAI(idx)} disabled={r.aiLoading}
-                        className="flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold text-white transition-all disabled:opacity-50"
-                        style={{ background: '#FA0050' }}>
-                        {r.aiLoading ? 'AI 생성 중...' : '🤖 AI 답글'}
-                      </button>
-                    )}
                   </div>
-
-                  {r.text ? (
-                    <p className="text-sm text-[#191F28] leading-relaxed bg-[#F8FAFC] rounded-xl p-3">{r.text}</p>
-                  ) : (
-                    <p className="text-sm text-[#B0B8C1] italic bg-[#F8FAFC] rounded-xl p-3">텍스트 없는 별점 리뷰</p>
-                  )}
-
-                  {r.menuItems && r.menuItems.length > 0 && (
-                    <div className="mt-2 flex flex-wrap gap-1">
-                      {r.menuItems.map((m, i) => (
-                        <span key={i} className="text-[10px] px-2 py-0.5 bg-[#EFF6FF] text-[#3182F6] rounded-full">{m}</span>
-                      ))}
-                    </div>
-                  )}
-
-                  {/* AI 답글 영역 */}
-                  {r.aiDone && !r.replied && (
-                    <div className="mt-3 space-y-2">
-                      <div className="p-3 rounded-xl text-sm text-[#191F28] leading-relaxed border-2" style={{ borderColor: '#FA005020', background: '#FFF0F4' }}>
-                        <p className="text-[10px] font-bold mb-1.5" style={{ color: '#FA0050' }}>AI 생성 답글</p>
-                        <textarea
-                          value={r.editReply || r.aiReply}
-                          onChange={e => setReviews(prev => prev.map((x, i) => i === idx ? { ...x, editReply: e.target.value } : x))}
-                          rows={4}
-                          className="w-full bg-transparent resize-none outline-none text-sm"
-                        />
-                      </div>
-                      <div className="flex gap-2">
-                        <button onClick={() => generateAI(idx)}
-                          className="flex-1 py-2 rounded-xl text-xs font-semibold bg-[#F2F4F6] text-[#4E5968] hover:bg-[#E5E8EB]">
-                          🔄 재생성
-                        </button>
-                        <button onClick={() => submitReply(idx)}
-                          className="flex-1 py-2 rounded-xl text-xs font-bold text-white"
-                          style={{ background: '#FA0050' }}>
-                          📤 요기요에 등록
-                        </button>
-                      </div>
-                    </div>
-                  )}
-
-                  {/* 기존 답글 */}
-                  {r.replied && r.replyText && (
-                    <div className="mt-3 p-3 bg-green-50 border border-green-100 rounded-xl">
-                      <p className="text-[10px] font-bold text-green-600 mb-1">사장님 답글</p>
-                      <p className="text-xs text-[#4E5968] leading-relaxed">{r.replyText}</p>
-                    </div>
-                  )}
+                  <div className="flex items-center gap-1">
+                    <span className="text-[#F59E0B] text-sm">{'★'.repeat(r.rating)}{'☆'.repeat(5-r.rating)}</span>
+                  </div>
                 </div>
+                <p className="text-sm text-[#4E5968] leading-relaxed">{r.text}</p>
+
+                {r.replied && 'reply' in r && (
+                  <div className="mt-3 p-3 rounded-xl border-l-3" style={{ background: '#FFF1F3', borderLeft: '3px solid #FA0050' }}>
+                    <p className="text-xs font-semibold mb-1" style={{ color: '#FA0050' }}>사장님 답글</p>
+                    <p className="text-sm text-[#4E5968]">{r.reply}</p>
+                  </div>
+                )}
+
+                {!r.replied && (
+                  <div className="mt-3 flex gap-2">
+                    <button onClick={() => { setReplyModal(i); setReplyText('') }}
+                      className="px-3 py-1.5 text-white text-xs font-semibold rounded-xl hover:opacity-90 transition-opacity"
+                      style={{ background: '#FA0050' }}>
+                      AI 답글 생성
+                    </button>
+                    <button className="px-3 py-1.5 bg-[#F2F4F6] text-[#4E5968] text-xs font-semibold rounded-xl hover:bg-[#E5E8EB]">
+                      직접 작성
+                    </button>
+                  </div>
+                )}
               </div>
             ))}
           </div>
-        )}
-      </div>
+
+          {/* AI 답글 모달 */}
+          {replyModal !== null && (
+            <div className="fixed inset-0 bg-black/40 z-50 flex items-end sm:items-center justify-center p-4">
+              <div className="bg-white rounded-2xl w-full max-w-lg shadow-2xl p-6">
+                <h2 className="text-base font-black text-[#191F28] mb-3">AI 답글 생성</h2>
+                <div className="p-3 bg-[#F8F9FA] rounded-xl mb-3 text-xs text-[#4E5968]">
+                  {replyModal !== null ? REVIEWS[replyModal].text : ''}
+                </div>
+                <div className="flex gap-2 mb-3">
+                  {['따뜻한','전문적','유쾌한','심플'].map(tone => (
+                    <button key={tone} className="px-3 py-1 rounded-full text-xs bg-[#EFF6FF] text-[#3182F6] font-medium hover:bg-[#DBEAFE]">{tone}</button>
+                  ))}
+                </div>
+                <div className="p-3 bg-[#EFF6FF] rounded-xl mb-4 text-sm text-[#191F28] leading-relaxed">
+                  소중한 리뷰 남겨주셔서 진심으로 감사드립니다 😊 사장님의 말씀을 마음 깊이 새기겠습니다. 다음 방문 때 더욱 만족스러운 경험을 드릴 수 있도록 최선을 다하겠습니다. 또 찾아주세요!
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={() => setReplyModal(null)} className="flex-1 py-2.5 border border-[#E5E8EB] rounded-xl text-sm text-[#4E5968] font-medium hover:bg-[#F8F9FA]">취소</button>
+                  <button onClick={() => setReplyModal(null)} className="flex-1 py-2.5 text-white rounded-xl text-sm font-semibold hover:opacity-90"
+                    style={{ background: '#FA0050' }}>등록하기</button>
+                </div>
+              </div>
+            </div>
+          )}
+
+        </div>
+      </main>
     </div>
   )
 }
