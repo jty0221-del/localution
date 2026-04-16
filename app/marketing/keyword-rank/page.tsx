@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Sidebar from '../../components/Sidebar'
 
 const KEYWORDS = [
@@ -16,6 +16,12 @@ const KEYWORDS = [
 export default function KeywordRankPage() {
   const [addKeyword, setAddKeyword] = useState('')
 
+  useEffect(() => {
+    const ok = document.cookie.split(';').some(function(c) {
+      return c.trim().startsWith('localution_session=')
+    })
+    if (!ok) { window.location.href = '/login' }
+  }, [])
 
   return (
     <div className="flex min-h-screen bg-[#F8F9FA]">
