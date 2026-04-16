@@ -542,6 +542,9 @@ export default function QRAdmin() {
                     <div className="mt-2 pl-4">
                       <p className="text-[10px] text-[#8B95A1]">리뷰 URL: <span className="text-[#3182F6] font-mono">/review/{makeStoreId(storeInfo.name)}</span></p>
                     </div>
+                    <div className="mt-2 pl-4">
+                      <p className="text-[10px] text-[#8B95A1]">리뷰 URL: <span className="text-[#3182F6] font-mono">/review/{makeStoreId(storeInfo.name)}</span></p>
+                    </div>
                   </div>
                 )}
               </div>
