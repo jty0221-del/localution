@@ -622,21 +622,27 @@ export default function QRAdmin() {
                       네이버 연동 정보 기반으로 추천된 키워드에요. 클릭하면 추가돼요.
                     </p>
                     <div className="flex flex-wrap gap-1.5">
-                      {suggestedKws.filter(kw => kw !== settings.mainKeyword && !settings.subKeywords.includes(kw)).map(kw => (
-                        <button
-                          key={kw}
-                          onClick={() => {
-                            if (settings.subKeywords.length < 5) {
-                              const next = { ...settings, subKeywords: [...settings.subKeywords, kw] }
-                              saveSettings(next)
-                            }
-                          }}
-                          disabled={settings.subKeywords.length >= 5}
-                          className="text-xs px-2.5 py-1.5 bg-white text-[#059669] rounded-full font-medium border border-[#BBF7D0] hover:bg-[#DCFCE7] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                        >
-                          + {kw}
-                        </button>
-                      ))}
+    // SEO 키워드 자동 추천 (generateSeoKeywords 활용)
+    if (storeDraft.name && storeDraft.location) {
+      const suggestions = generateSeoKeywords(storeDraft.location, storeDraft.category, storeDraft.name)
+      if (suggestions.length > 0) {
+        const mainKw = suggestions[0]
+        const subKws = suggestions.slice(1, 6)
+        const next2 = {
+          ...settings,
+          mainKeyword: settings.mainKeyword || mainKw,
+          subKeywords: settings.subKeywords.length === 0 ? subKws : settings.subKeywords,
+        }
+        saveSettings(next2)
+        setSuggestedKws(suggestions)
+      }
+    } else if (storeDraft.name && !settings.mainKeyword) {
+      const suggested = storeDraft.location ? storeDraft.location + ' ' + storeDraft.category : storeDraft.category
+      if (suggested.trim()) {
+        const next2 = { ...settings, mainKeyword: suggested.trim() }
+        saveSettings(next2)
+      }
+    }
                     </div>
                   </div>
                 )}
@@ -788,7 +794,10 @@ export default function QRAdmin() {
                       className="w-16 h-16 bg-white rounded-xl shadow-sm flex items-center justify-center cursor-pointer flex-shrink-0 border border-[#E5E8EB] hover:border-[#3182F6] transition-colors p-1">
                       {storeInfo.connected
                         ? <QRCodeImage url={buildReviewUrl(storeInfo, { ...settings, mainKeyword: qr.keyword || settings.mainKeyword })} size={56} />
-                        : <QRPreview text={qr.name + qr.keyword} size={56} />
+                        {storeInfo.connected
+                          ? <QRCodeImage url={buildReviewUrl(storeInfo, { ...settings, mainKeyword: qr.keyword || settings.mainKeyword })} size={56} />
+                          : <QRPreview text={qr.name + qr.keyword} size={56} />
+                        }
                       }
                     </div>
                     <div className="flex-1 min-w-0">
@@ -981,6 +990,11 @@ export default function QRAdmin() {
                   : <QRPreview text={previewQR.name + previewQR.keyword} size={180} />
                 }
               </div>
+              {storeInfo.connected && (
+                <p className="text-[10px] text-[#8B95A1] text-center break-all max-w-[260px] leading-relaxed mt-2">
+                  {buildReviewUrl(storeInfo, { ...settings, mainKeyword: previewQR.keyword || settings.mainKeyword }).slice(0, 80)}...
+                </p>
+              )}
               {storeInfo.connected && (
                 <p className="text-[10px] text-[#8B95A1] text-center break-all max-w-[260px] leading-relaxed">
                   {buildReviewUrl(storeInfo, { ...settings, mainKeyword: previewQR.keyword || settings.mainKeyword }).slice(0, 80)}...
