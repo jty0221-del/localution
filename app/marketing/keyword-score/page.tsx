@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import Sidebar from '../../components/Sidebar'
 
 const ANALYZE_RESULTS = [
@@ -15,12 +15,6 @@ export default function KeywordScorePage() {
   const [analyzed, setAnalyzed] = useState(false)
   const [loading, setLoading] = useState(false)
 
-  useEffect(() => {
-    const ok = document.cookie.split(';').some(function(c) {
-      return c.trim().startsWith('localution_session=')
-    })
-    if (!ok) { window.location.href = '/login' }
-  }, [])
 
   const handleAnalyze = () => {
     if (!keyword.trim()) return
