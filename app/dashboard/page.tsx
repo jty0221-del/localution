@@ -1099,6 +1099,8 @@ export default function Dashboard() {
               {weekSales.map((w, i) => {
                 const h = (w.v / maxSale) * 180
                 const isMax = w.v === maxSale
+  }
+  }
                 return (
     <div className="flex min-h-screen bg-[#F2F4F6]">
       <Sidebar />
