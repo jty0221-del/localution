@@ -479,7 +479,116 @@ function AIReplyModal({ review, onClose }: ReplyModalProps) {
 // ═══════════════════════════════════════════════════════════
 //  메인 대시보드
 // ═══════════════════════════════════════════════════════════
+
+// ═══════════════════════════════════════════════════════════
+//  롤링 공지 배너 (5초 자동 전환)
+// ═══════════════════════════════════════════════════════════
+const NOTICES = [
+  {
+    icon: '💰',
+    title: '소상공인 경영안정자금',
+    desc: '지금 사장님 매출이면 신청 가능합니다',
+    detail: '최대 2천만원 · 연 1.5% 고정금리 · 담보 불필요',
+    deadline: '5월 31일 마감',
+    url: 'https://ols.semas.or.kr/ols/man/SMAN010M/page.do',
+    bg: 'linear-gradient(135deg, #1e3a5f 0%, #2563eb 100%)',
+  },
+  {
+    icon: '🖥️',
+    title: '소상공인 디지털 전환 지원',
+    desc: '스마트 매장 구축 비용 최대 400만원 지원',
+    detail: '키오스크·POS·예약시스템 도입 지원',
+    deadline: '6월 15일 마감',
+    url: 'https://www.semas.or.kr',
+    bg: 'linear-gradient(135deg, #065f46 0%, #059669 100%)',
+  },
+  {
+    icon: '📊',
+    title: '2026년 매출세액 공제 안내',
+    desc: '연매출 8천만원 이하 개인사업자 세액공제 확대',
+    detail: '부가세 간이과세 기준 상향 · 최대 20% 공제',
+    deadline: '연중 상시',
+    url: 'https://www.hometax.go.kr',
+    bg: 'linear-gradient(135deg, #4c1d95 0%, #7c3aed 100%)',
+  },
+  {
+    icon: '👥',
+    title: '고용보험료 80% 지원',
+    desc: '5인 미만 사업장 사장님, 고용보험료 돌려받으세요',
+    detail: '월 최대 4만원 환급 · 근로자도 동시 지원',
+    deadline: '상시 접수',
+    url: 'https://www.ei.go.kr',
+    bg: 'linear-gradient(135deg, #92400e 0%, #d97706 100%)',
+  },
+  {
+    icon: '⚡',
+    title: '에너지 절감 설비 지원사업',
+    desc: '냉난방·조명 교체 비용 최대 70% 지원',
+    detail: 'LED 조명, 고효율 에어컨 등 · 최대 500만원',
+    deadline: '7월 31일 마감',
+    url: 'https://www.semas.or.kr',
+    bg: 'linear-gradient(135deg, #0f766e 0%, #14b8a6 100%)',
+  },
+]
+
+function NoticeBanner() {
+  const [idx, setIdx] = useState(0)
+  const [fade, setFade] = useState(true)
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setFade(false)
+      setTimeout(() => {
+        setIdx(prev => (prev + 1) % NOTICES.length)
+        setFade(true)
+      }, 300)
+    }, 5000)
+    return () => clearInterval(timer)
+  }, [])
+
+  const n = NOTICES[idx]
+  return (
+    <div
+      className="rounded-2xl shadow-sm px-5 py-4 mb-5 relative overflow-hidden cursor-pointer transition-all hover:shadow-md"
+      style={{ background: n.bg }}
+      onClick={() => window.open(n.url, '_blank')}
+    >
+      <div className="flex items-center justify-between" style={{ opacity: fade ? 1 : 0, transition: 'opacity 0.3s ease' }}>
+        <div className="flex items-center gap-4 flex-1 min-w-0">
+          <span className="text-3xl flex-shrink-0">{n.icon}</span>
+          <div className="min-w-0">
+            <div className="flex items-center gap-2 mb-0.5">
+              <span className="text-sm font-bold text-white">{n.title}</span>
+              <span className="text-[10px] bg-white/20 text-white/90 px-2 py-0.5 rounded-full font-semibold flex-shrink-0">{n.deadline}</span>
+            </div>
+            <p className="text-xs text-white/80">{n.desc}</p>
+            <p className="text-[11px] text-white/60 mt-0.5">{n.detail}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-3 flex-shrink-0 ml-4">
+          <div className="flex gap-1">
+            {NOTICES.map((_, i) => (
+              <div key={i} className="w-1.5 h-1.5 rounded-full" style={{ background: i === idx ? 'white' : 'rgba(255,255,255,0.3)' }} />
+            ))}
+          </div>
+          <span className="text-xs text-white font-semibold bg-white/20 px-3 py-1.5 rounded-lg hover:bg-white/30 transition-colors">자세히 보기 →</span>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function Dashboard() {
+  
+  // 로그인 상태 체크
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  useEffect(() => {
+    const cookies = document.cookie
+    if (cookies.indexOf('localution_session=') !== -1) {
+      setIsLoggedIn(true)
+    }
+  }, [])
+
   const [platforms, setPlatforms] = useState(INITIAL_PLATFORMS)
   const [keywords, setKeywords] = useState<KeywordRank[]>(MOCK_KEYWORDS)
   const [lastSync, setLastSync] = useState('방금 전')
@@ -521,6 +630,12 @@ export default function Dashboard() {
   })()
 
   const handlePlatformClick = (p: Platform) => {
+    if (!isLoggedIn) {
+      if (confirm('로그인 후 플랫폼을 연동할 수 있습니다.\n로그인 페이지로 이동하시겠습니까?')) {
+        window.location.href = '/login'
+      }
+      return
+    }
     if (p.id === 'naver_search' || p.id === 'yeoshin' || p.id === 'hometax') {
       alert(`${p.name} 연동은 /settings 페이지에서 설정하세요.`)
       return
@@ -648,6 +763,8 @@ export default function Dashboard() {
     <div className="flex min-h-screen bg-[#F2F4F6]">
       <Sidebar />
       <main className="flex-1 ml-[220px] p-8 min-w-0">
+        <NoticeBanner />
+
 
         {/* ── Hero 바 ── */}
         <div className="bg-white rounded-3xl px-8 py-7 mb-7 shadow-[0_4px_24px_rgba(17,24,39,0.06)] border border-[#F2F4F6]">
@@ -726,7 +843,7 @@ export default function Dashboard() {
               </span>
             </div>
             <a href="/settings" className="text-[13px] text-[#3182F6] font-black hover:underline">
-              연동 관리 →
+              {isLoggedIn ? '연동 관리 →' : '로그인 후 연동 가능'}
             </a>
           </div>
           <div className="grid grid-cols-9 gap-3">
