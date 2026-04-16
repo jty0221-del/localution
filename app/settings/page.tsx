@@ -1,4 +1,5 @@
 'use client'
+import { useSearchParams } from 'next/navigation'
 export const dynamic = 'force-dynamic'
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
@@ -375,32 +376,48 @@ function NotifyTab() {
 
 function buildPrompt(cfg: {
   bizType: string; tone: string; length: string;
+  gender: string; age: string;
   includes: Record<string, boolean>; closing: string; excludes: string; storeDesc: string;
 }) {
-  const toneMap: Record<string,string> = { friendly:'친근하고 따뜻한', formal:'정중하고 예의 바른', expert:'전문적이고 신뢰감 있는' }
-  const lengthMap: Record<string,string> = { short:'2~3문장(50자 내외)', medium:'4~5문장(100~150자)', long:'6문장 이상(200자 이상)' }
+  const toneMap: Record<string,string> = {
+    warm: '따뜻하고 다정한',
+    polite: '정중하고 예의 바른',
+    pro: '전문적이고 신뢰감 있는',
+    witty: '재치 있고 유쾌한',
+    calm: '차분하고 담백한',
+    energetic: '밝고 에너지 넘치는'
+  }
+  const lengthMap: Record<string,string> = { short:'150자 내외', medium:'250자 내외', long:'400자 내외' }
+  const genderMap: Record<string,string> = { male:'남성', female:'여성', neutral:'중성' }
+  const ageMap: Record<string,string> = { '20s':'20대', '30s':'30대', '40s':'40대', '50s':'50대 이상' }
   const parts: string[] = []
-  parts.push(`당신은 ${cfg.bizType || '소상공인 매장'}의 사장님을 대신해 리뷰에 답변하는 AI입니다.`)
-  if (cfg.storeDesc) parts.push(`매장 소개: ${cfg.storeDesc}`)
-  parts.push(`\n[답변 스타일]`)
-  parts.push(`- 톤: ${toneMap[cfg.tone] || '친근하고 따뜻한'} 어투`)
-  parts.push(`- 길이: ${lengthMap[cfg.length] || '4~5문장'}`)
-  parts.push(`\n[필수 포함 요소]`)
-  if (cfg.includes['thanks'])    parts.push(`- 방문 감사 인사를 자연스럽게 포함`)
-  if (cfg.includes['revisit'])   parts.push(`- 재방문 유도 문구 포함 (예: "다음에도 꼭 찾아주세요")`)
-  if (cfg.includes['mention'])   parts.push(`- 리뷰에서 언급된 메뉴 또는 서비스를 직접 언급`)
-  if (cfg.includes['personalize']) parts.push(`- 리뷰어의 닉네임으로 개인화 인사 (예: "OO님,")`)
-  if (cfg.includes['improve'])   parts.push(`- 부정적 내용은 개선 의지와 사과를 진정성 있게 표현`)
-  if (cfg.includes['keyword'])   parts.push(`- 매장 핵심 키워드를 자연스럽게 1~2회 포함`)
-  if (cfg.closing) parts.push(`\n[고정 마무리 문구]\n답변 마지막에 반드시 포함: "${cfg.closing}"`)
-  if (cfg.excludes) parts.push(`\n[사용 금지 표현]\n다음 표현은 절대 사용하지 마세요: ${cfg.excludes}`)
-  parts.push(`\n[추가 규칙]\n- 이모지는 1~2개 이하로 절제\n- 같은 표현을 반복하지 말 것\n- 번역투 / 기계적 표현 금지\n- 리뷰 내용을 읽고 맞춤 답변`)
+  parts.push('당신은 ' + (cfg.bizType || '소상공인 매장') + '의 사장님을 대신해 리뷰에 답변하는 AI입니다.')
+  if (cfg.storeDesc) parts.push('매장 소개: ' + cfg.storeDesc)
+  parts.push('')
+  parts.push('[답변 스타일]')
+  parts.push('- 톤: ' + (toneMap[cfg.tone] || '따뜻하고 다정한') + ' 어투')
+  parts.push('- 길이: ' + (lengthMap[cfg.length] || '250자 내외'))
+  if (cfg.gender && cfg.gender !== 'none') parts.push('- 화자 성별감: ' + (genderMap[cfg.gender] || '중성') + ' 느낌')
+  if (cfg.age && cfg.age !== 'none') parts.push('- 화자 연령대: ' + (ageMap[cfg.age] || '30대') + ' 느낌의 말투')
+  parts.push('')
+  parts.push('[필수 포함 요소]')
+  if (cfg.includes['thanks'])    parts.push('- 방문 감사 인사를 자연스럽게 포함')
+  if (cfg.includes['revisit'])   parts.push('- 재방문 유도 문구 포함 (예: "다음에도 꼭 찾아주세요")')
+  if (cfg.includes['mention'])   parts.push('- 리뷰에서 언급된 메뉴 또는 서비스를 직접 언급')
+  if (cfg.includes['personalize']) parts.push('- 리뷰어의 닉네임으로 개인화 인사 (예: "OO님,")')
+  if (cfg.includes['improve'])   parts.push('- 부정적 내용은 개선 의지와 사과를 진정성 있게 표현')
+  if (cfg.includes['keyword'])   parts.push('- 매장 핵심 키워드를 자연스럽게 1~2회 포함')
+  if (cfg.closing) parts.push('\n[고정 마무리 문구]\n답변 마지막에 반드시 포함: "' + cfg.closing + '"')
+  if (cfg.excludes) parts.push('\n[사용 금지 표현]\n다음 표현은 절대 사용하지 마세요: ' + cfg.excludes)
+  parts.push('\n[추가 규칙]\n- 이모지는 1~2개 이하로 절제\n- 같은 표현을 반복하지 말 것\n- 번역투 / 기계적 표현 금지\n- 리뷰 내용을 읽고 맞춤 답변')
   return parts.join('\n')
 }
 
 function AITab() {
-  const [tone, setTone] = useState('friendly')
+  const [tone, setTone] = useState('warm')
   const [length, setLength] = useState('medium')
+  const [gender, setGender] = useState('none')
+  const [age, setAge] = useState('none')
   const [autoReply, setAutoReply] = useState(false)
   const [bizType, setBizType] = useState('')
   const [storeDesc, setStoreDesc] = useState('')
@@ -415,7 +432,7 @@ function AITab() {
     personalize: false, improve: true, keyword: false,
   })
 
-  const prompt = buildPrompt({ bizType, tone, length, includes, closing, excludes, storeDesc })
+  const prompt = buildPrompt({ bizType, tone, length, gender, age, includes, closing, excludes, storeDesc })
 
   const handleTest = async () => {
     if (!testReview.trim()) return
@@ -466,9 +483,12 @@ function AITab() {
           <h3 className="font-bold text-[#191F28] mb-3">답변 톤</h3>
           <div className="grid grid-cols-3 gap-3">
             {[
-              { v:'friendly', label:'친근하게', desc:'따뜻하고 부드러운 어투' },
-              { v:'formal',   label:'정중하게', desc:'예의 바르고 격식 있는 어투' },
-              { v:'expert',   label:'전문적으로', desc:'신뢰감 있는 전문가 어투' },
+              { v:'warm',      label:'따뜻하게',   desc:'다정하고 부드러운 어투' },
+              { v:'polite',    label:'정중하게',   desc:'예의 바르고 격식 있는 어투' },
+              { v:'pro',       label:'전문적으로', desc:'신뢰감 있는 전문가 어투' },
+              { v:'witty',     label:'재치있게',   desc:'유머러스하고 센스 있는 어투' },
+              { v:'calm',      label:'담백하게',   desc:'차분하고 간결한 어투' },
+              { v:'energetic', label:'활발하게',   desc:'밝고 에너지 넘치는 어투' },
             ].map(opt => (
               <button key={opt.v} onClick={() => setTone(opt.v)}
                 className={`p-3 rounded-xl border-2 text-center transition-colors ${tone === opt.v ? 'border-[#3182F6] bg-[#EFF6FF]' : 'border-[#E5E8EB] hover:border-[#BFDBFE]'}`}>
@@ -482,12 +502,52 @@ function AITab() {
           <h3 className="font-bold text-[#191F28] mb-3">답변 길이</h3>
           <div className="grid grid-cols-3 gap-3">
             {[
-              { v:'short',  label:'짧게',  desc:'2~3문장' },
-              { v:'medium', label:'보통',  desc:'4~5문장' },
-              { v:'long',   label:'길게',  desc:'6문장+' },
+              { v:'short',  label:'짧게',  desc:'150자\u00B1' },
+              { v:'medium', label:'보통',  desc:'250자\u00B1' },
+              { v:'long',   label:'길게',  desc:'400자\u00B1' },
             ].map(opt => (
               <button key={opt.v} onClick={() => setLength(opt.v)}
                 className={`p-3 rounded-xl border-2 text-center transition-colors ${length === opt.v ? 'border-[#3182F6] bg-[#EFF6FF]' : 'border-[#E5E8EB] hover:border-[#BFDBFE]'}`}>
+                <div className="text-sm font-bold text-[#191F28]">{opt.label}</div>
+                <div className="text-[10px] text-[#8B95A1] mt-0.5">{opt.desc}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+      </div>
+      {/* 성별 · 나이 */}
+      <div className="bg-white rounded-2xl p-6 shadow-sm">
+        <div className="mb-5">
+          <h3 className="font-bold text-[#191F28] mb-3">화자 성별</h3>
+          <p className="text-xs text-[#8B95A1] mb-3">답변의 말투 느낌을 설정합니다</p>
+          <div className="grid grid-cols-4 gap-3">
+            {[
+              { v:'none',    label:'미설정', desc:'기본' },
+              { v:'male',    label:'남성',   desc:'남성적 어투' },
+              { v:'female',  label:'여성',   desc:'여성적 어투' },
+              { v:'neutral', label:'중성',   desc:'성별 무관' },
+            ].map(opt => (
+              <button key={opt.v} onClick={() => setGender(opt.v)}
+                className={`p-3 rounded-xl border-2 text-center transition-colors ${gender === opt.v ? 'border-[#3182F6] bg-[#EFF6FF]' : 'border-[#E5E8EB] hover:border-[#BFDBFE]'}`}>
+                <div className="text-sm font-bold text-[#191F28]">{opt.label}</div>
+                <div className="text-[10px] text-[#8B95A1] mt-0.5">{opt.desc}</div>
+              </button>
+            ))}
+          </div>
+        </div>
+        <div>
+          <h3 className="font-bold text-[#191F28] mb-3">화자 연령대</h3>
+          <p className="text-xs text-[#8B95A1] mb-3">답변 어투의 연령대 느낌을 설정합니다</p>
+          <div className="grid grid-cols-5 gap-3">
+            {[
+              { v:'none', label:'미설정', desc:'기본' },
+              { v:'20s',  label:'20대',  desc:'젊고 발랄' },
+              { v:'30s',  label:'30대',  desc:'균형 잡힌' },
+              { v:'40s',  label:'40대',  desc:'안정적인' },
+              { v:'50s',  label:'50대+', desc:'노련한' },
+            ].map(opt => (
+              <button key={opt.v} onClick={() => setAge(opt.v)}
+                className={`p-3 rounded-xl border-2 text-center transition-colors ${age === opt.v ? 'border-[#3182F6] bg-[#EFF6FF]' : 'border-[#E5E8EB] hover:border-[#BFDBFE]'}`}>
                 <div className="text-sm font-bold text-[#191F28]">{opt.label}</div>
                 <div className="text-[10px] text-[#8B95A1] mt-0.5">{opt.desc}</div>
               </button>
@@ -676,7 +736,7 @@ function ReviewTab() {
   // 매장 정보 — 매장 정보 탭 localStorage 동기화
   const [storeCtx, setStoreCtx] = useState({
     bizType: '', storeName: '', region: '', mainKeyword: '', subKeywords: '', storeDesc: '',
-    aiTone: 'friendly', aiLength: 'medium',
+    aiTone: 'warm', aiLength: 'medium',
     aiIncludes: { thanks: true, revisit: true, mention: true, personalize: false, improve: true, keyword: true },
     aiClosing: '', aiExcludes: '',
   })
@@ -778,8 +838,8 @@ function ReviewTab() {
               { label:'매장명', val: storeCtx.storeName },
               { label:'메인키워드', val: storeCtx.mainKeyword },
               { label:'서브키워드', val: storeCtx.subKeywords },
-              { label:'AI 톤', val: ({ friendly:'친근하게', formal:'정중하게', expert:'전문적으로' })[storeCtx.aiTone] || storeCtx.aiTone },
-              { label:'답변 길이', val: ({ short:'짧게', medium:'보통', long:'길게' })[storeCtx.aiLength] || storeCtx.aiLength },
+              { label:'AI 톤', val: ({ warm:'따뜻하게', polite:'정중하게', pro:'전문적으로', witty:'재치있게', calm:'담백하게', energetic:'활발하게' })[storeCtx.aiTone] || storeCtx.aiTone },
+              { label:'답변 길이', val: ({ short:'짧게 150자\u00B1', medium:'보통 250자\u00B1', long:'길게 400자\u00B1' })[storeCtx.aiLength] || storeCtx.aiLength },
             ].map(row => (
               <div key={row.label} className="flex gap-2 items-start">
                 <span className="text-[10px] text-[#8B95A1] font-semibold w-20 flex-shrink-0">{row.label}</span>
@@ -1257,7 +1317,10 @@ function PlanTab() {
 }
 
 export default function Settings() {
-  const [activeTab, setActiveTab] = useState<Tab>('매장 정보')
+  const searchParams = useSearchParams()
+  const tabParam = searchParams.get('tab') || ''
+  const tabMap: Record<string, Tab> = { ai: 'AI 설정', store: '매장 정보', notify: '알림 설정', review: '리뷰 관리', connect: '연동 관리', plan: '플랜 관리' }
+  const [activeTab, setActiveTab] = useState<Tab>(tabMap[tabParam] || '매장 정보')
 
   return (
     <div className="min-h-screen bg-[#F2F4F6] flex">
