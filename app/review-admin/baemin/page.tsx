@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Sidebar from '../../components/Sidebar'
 
@@ -16,6 +16,12 @@ export default function ReviewPage_Baemin() {
   const [replyModal, setReplyModal] = useState<number | null>(null)
   const [replyText, setReplyText] = useState('')
 
+  useEffect(() => {
+    const ok = document.cookie.split(';').some(function(c) {
+      return c.trim().startsWith('localution_session=')
+    })
+    if (!ok) { window.location.href = '/login' }
+  }, [])
 
   const pendingCount = REVIEWS.filter(r => !r.replied).length
 
