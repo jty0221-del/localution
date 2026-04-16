@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import Sidebar from '../components/Sidebar'
 
 export default function StorePage() {
   const [storeName, setStoreName] = useState('하랑마케팅 강남점')
@@ -29,9 +28,6 @@ export default function StorePage() {
   ]
 
   return (
-    <div className="flex min-h-screen bg-[#F8F9FA]">
-      <Sidebar />
-      <main className="flex-1 md:ml-[220px] pt-14 md:pt-0">
         <div className="p-4 md:p-6 max-w-3xl mx-auto">
 
           <div className="mb-6">
@@ -142,7 +138,5 @@ export default function StorePage() {
           )}
 
         </div>
-      </main>
-    </div>
   )
 }
