@@ -14,6 +14,7 @@ function NaverPlaceLogo({ size = 28 }: { size?: number }) {
       <rect width="48" height="48" rx="10" fill="#03C75A"/>
       <path d="M9 39V9h8L31 27V9h8v30h-8L17 21v18H9Z" fill="white"/>
     </svg>
+    </>
   )
 }
 
