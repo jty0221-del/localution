@@ -2,95 +2,129 @@
 
 import { useState } from 'react'
 
-const SCORE_ITEMS = [
-  { label: '리뷰 수량', score: 82, max: 100, tip: '리뷰가 많을수록 상위 노출에 유리해요' },
-  { label: '답글률', score: 74, max: 100, tip: '24시간 내 답글 비율을 높여주세요' },
-  { label: '사진 품질', score: 91, max: 100, tip: '고품질 사진이 클릭률을 높입니다' },
-  { label: '키워드 최적화', score: 63, max: 100, tip: '업종+지역 키워드를 메뉴/상호에 활용하세요' },
-  { label: '업데이트 빈도', score: 55, max: 100, tip: '주 2회 이상 정보 업데이트를 권장합니다' },
-  { label: '영업시간 정확도', score: 95, max: 100, tip: '영업시간이 정확하면 신뢰도가 올라가요' },
+const MOCK_KEYWORDS = [
+  { kw: '강남 마케팅 대행', rank: 3, change: 2, searches: 1240 },
+  { kw: '소상공인 마케팅', rank: 7, change: -1, searches: 3800 },
+  { kw: '네이버 플레이스 최적화', rank: 12, change: 5, searches: 920 },
+  { kw: '하랑마케팅', rank: 1, change: 0, searches: 340 },
+  { kw: '강남 SNS 마케팅', rank: 18, change: 3, searches: 580 },
+]
+
+const MOCK_CHECKLIST = [
+  { item: '매장 사진 10장 이상', done: true },
+  { item: '영업시간 등록', done: true },
+  { item: '메뉴/서비스 등록', done: true },
+  { item: '최근 30일 리뷰 5개 이상', done: true },
+  { item: '리뷰 답글률 80% 이상', done: false },
+  { item: '키워드 태그 10개 이상', done: false },
+  { item: '스마트플레이스 소식 등록', done: false },
 ]
 
 export default function PlacePage() {
-  const [loading, setLoading] = useState(true)
-
-
-  const totalScore = Math.round(SCORE_ITEMS.reduce((a, i) => a + i.score, 0) / SCORE_ITEMS.length)
-  const scoreColor = totalScore >= 80 ? '#10B981' : totalScore >= 60 ? '#F59E0B' : '#DC2626'
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <div className="text-center">
-            <div className="w-12 h-12 border-4 border-[#3182F6] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
-            <p className="text-sm text-[#8B95A1]">플레이스 진단 중...</p>
-          </div>
-        </main>
-      </div>
-      </div>
-    )
-  }
+  const [activeTab, setActiveTab] = useState('진단')
+  const tabs = ['진단', '키워드', '최적화 팁']
+  const score = Math.round(MOCK_CHECKLIST.filter(c => c.done).length / MOCK_CHECKLIST.length * 100)
 
   return (
-    <>
-    <div className="flex min-h-screen bg-[#F8F9FA]">
-      <Sidebar />
-      <main className="flex-1 md:ml-[220px] pt-14 md:pt-0">
-        <div className="p-4 md:p-6 max-w-4xl mx-auto">
+    <div className="p-4 md:p-6 max-w-4xl mx-auto">
+      <div className="mb-6">
+        <h1 className="text-xl font-black text-[#191F28]">플레이스 관리</h1>
+        <p className="text-sm text-[#8B95A1] mt-0.5">네이버 플레이스 진단 · 키워드 · 최적화</p>
+      </div>
 
-          <div className="mb-6">
-            <h1 className="text-xl font-black text-[#191F28]">플레이스 진단</h1>
-            <p className="text-sm text-[#8B95A1] mt-0.5">네이버 플레이스 상위 노출 점수 분석</p>
-          </div>
+      <div className="flex gap-1 bg-[#F2F4F6] rounded-xl p-1 mb-5">
+        {tabs.map(tab => (
+          <button key={tab} onClick={() => setActiveTab(tab)}
+            className={"flex-1 py-2 rounded-lg text-xs font-semibold transition-all " + (activeTab === tab ? "bg-white text-[#191F28] shadow-sm" : "text-[#8B95A1]")}>
+            {tab}
+          </button>
+        ))}
+      </div>
 
-          {/* 종합 점수 */}
-          <div className="bg-white rounded-2xl shadow-sm border border-[#F2F4F6] p-6 mb-5 flex items-center gap-6">
-            <div className="w-24 h-24 rounded-full border-8 flex items-center justify-center flex-shrink-0"
-              style={{ borderColor: scoreColor }}>
-              <div className="text-center">
-                <p className="text-2xl font-black" style={{ color: scoreColor }}>{totalScore}</p>
-                <p className="text-[10px] text-[#8B95A1]">점</p>
+      {activeTab === '진단' && (
+        <div className="space-y-4">
+          <div className="bg-white rounded-2xl shadow-sm border border-[#F2F4F6] p-6 flex items-center gap-6">
+            <div className="relative w-24 h-24 flex-shrink-0">
+              <svg className="w-24 h-24 -rotate-90" viewBox="0 0 36 36">
+                <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                  fill="none" stroke="#F2F4F6" strokeWidth="3" />
+                <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831"
+                  fill="none" stroke="#3182F6" strokeWidth="3" strokeDasharray={score + ", 100"} />
+              </svg>
+              <div className="absolute inset-0 flex items-center justify-center">
+                <span className="text-2xl font-black text-[#191F28]">{score}</span>
               </div>
             </div>
             <div>
-              <p className="text-lg font-black text-[#191F28]">
-                {totalScore >= 80 ? '상위 노출 양호 🎉' : totalScore >= 60 ? '개선 필요 ⚠️' : '즉각 개선 필요 🚨'}
+              <p className="text-lg font-black text-[#191F28]">플레이스 최적화 점수</p>
+              <p className="text-sm text-[#8B95A1] mt-1">
+                {score >= 80 ? '최적화 우수! 유지하세요' : score >= 60 ? '보통 — 개선 여지 있음' : '즉시 개선이 필요해요'}
               </p>
-              <p className="text-sm text-[#4E5968] mt-1">
-                {totalScore >= 80
-                  ? '전반적으로 잘 관리되고 있어요. 키워드 최적화를 더 강화해보세요.'
-                  : '몇 가지 항목을 개선하면 상위 노출이 가능해요!'}
-              </p>
-              <button className="mt-3 px-4 py-2 bg-[#03C75A] text-white text-xs font-semibold rounded-xl hover:opacity-90">
-                네이버 플레이스 바로가기
-              </button>
             </div>
           </div>
 
-          {/* 항목별 점수 */}
-          <div className="space-y-3">
-            {SCORE_ITEMS.map(item => (
-              <div key={item.label} className="bg-white rounded-2xl shadow-sm border border-[#F2F4F6] p-4">
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-sm font-semibold text-[#191F28]">{item.label}</span>
-                  <span className="text-sm font-black" style={{ color: item.score >= 80 ? '#10B981' : item.score >= 60 ? '#F59E0B' : '#DC2626' }}>
-                    {item.score}점
-                  </span>
+          <div className="bg-white rounded-2xl shadow-sm border border-[#F2F4F6] p-5">
+            <p className="text-sm font-bold text-[#191F28] mb-3">체크리스트</p>
+            <div className="space-y-2">
+              {MOCK_CHECKLIST.map(item => (
+                <div key={item.item} className="flex items-center gap-3 py-2 border-b border-[#F2F4F6] last:border-0">
+                  <div className={"w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 " + (item.done ? "bg-[#10B981]" : "bg-[#F2F4F6]")}>
+                    {item.done && <span className="text-white text-xs">✓</span>}
+                  </div>
+                  <p className={"text-sm " + (item.done ? "text-[#191F28]" : "text-[#8B95A1]")}>{item.item}</p>
+                  {!item.done && <span className="ml-auto text-xs text-[#3182F6] font-semibold">개선 필요</span>}
                 </div>
-                <div className="w-full bg-[#F2F4F6] rounded-full h-2 mb-2">
-                  <div className="h-2 rounded-full transition-all"
-                    style={{ width: item.score + '%', background: item.score >= 80 ? '#10B981' : item.score >= 60 ? '#F59E0B' : '#DC2626' }} />
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === '키워드' && (
+        <div className="bg-white rounded-2xl shadow-sm border border-[#F2F4F6] overflow-hidden">
+          <div className="p-4 border-b border-[#F2F4F6]">
+            <p className="text-sm font-bold text-[#191F28]">키워드 순위 현황</p>
+          </div>
+          <div className="divide-y divide-[#F2F4F6]">
+            {MOCK_KEYWORDS.map(k => (
+              <div key={k.kw} className="flex items-center gap-4 p-4">
+                <div className="w-10 h-10 bg-[#EFF6FF] rounded-xl flex items-center justify-center flex-shrink-0">
+                  <span className="text-sm font-black text-[#3182F6]">{k.rank}</span>
                 </div>
-                <p className="text-xs text-[#8B95A1]">💡 {item.tip}</p>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-semibold text-[#191F28] truncate">{k.kw}</p>
+                  <p className="text-xs text-[#8B95A1]">월간 검색 {k.searches.toLocaleString()}회</p>
+                </div>
+                <div className={"text-xs font-bold px-2 py-1 rounded-lg " + (k.change > 0 ? "bg-[#DCFCE7] text-[#15803D]" : k.change < 0 ? "bg-[#FEE2E2] text-[#DC2626]" : "bg-[#F2F4F6] text-[#8B95A1]")}>
+                  {k.change > 0 ? '▲' + k.change : k.change < 0 ? '▼' + Math.abs(k.change) : '—'}
+                </div>
               </div>
             ))}
           </div>
-
-          <button className="w-full mt-5 py-3 bg-[#3182F6] text-white rounded-xl text-sm font-semibold hover:bg-[#1a6fd6] transition-colors">
-            AI 최적화 가이드 받기
-          </button>
-
         </div>
+      )}
+
+      {activeTab === '최적화 팁' && (
+        <div className="space-y-3">
+          {[
+            { title: '리뷰 답글 달기', desc: '24시간 내 답글을 달면 노출 점수 +15점', icon: '💬', color: '#3182F6' },
+            { title: '사진 주기적 업로드', desc: '월 4장 이상 신규 사진 등록 권장', icon: '📸', color: '#10B981' },
+            { title: '스마트플레이스 소식', desc: '월 2회 이상 소식 등록 시 상위 노출 유리', icon: '📢', color: '#F59E0B' },
+            { title: '키워드 태그 최적화', desc: '업종·지역 키워드 10개 이상 설정', icon: '🏷️', color: '#8B5CF6' },
+            { title: '예약 기능 활성화', desc: '예약 기능 ON 시 클릭률 최대 2.3배', icon: '📅', color: '#EC4899' },
+          ].map(tip => (
+            <div key={tip.title} className="bg-white rounded-2xl shadow-sm border border-[#F2F4F6] p-4 flex items-start gap-4">
+              <div className="w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 text-xl" style={{ background: tip.color + '1A' }}>
+                {tip.icon}
+              </div>
+              <div>
+                <p className="text-sm font-bold text-[#191F28]">{tip.title}</p>
+                <p className="text-xs text-[#8B95A1] mt-0.5">{tip.desc}</p>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
   )
-    </>
 }
