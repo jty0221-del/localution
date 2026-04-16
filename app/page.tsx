@@ -165,6 +165,7 @@ export default function LandingPage() {
             <p className="text-[#4E5968] text-base md:text-lg">
               네이버 플레이스 상위 노출부터 고객 재방문 유도까지, 한 플랫폼에서
             </p>
+            <a href="/login" className="inline-block mt-6 px-8 py-4 bg-[#3182F6] text-white text-base font-bold rounded-2xl hover:bg-[#1a6fd6] transition-all shadow-lg">무료 시작하기</a>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {FEATURES.map(f => (
