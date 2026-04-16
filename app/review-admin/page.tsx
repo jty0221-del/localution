@@ -99,6 +99,6 @@ export default function ReviewAdminPage() {
           </div>
 
         </div>
-  )
     </>
+  )
 }
