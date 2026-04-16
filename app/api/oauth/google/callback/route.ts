@@ -1,18 +1,19 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 
-export async function GET(request) {
+export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
   const code = searchParams.get('code')
+  const baseUrl = new URL(request.url).origin
 
   if (!code) {
-    return NextResponse.redirect('/login?error=google_denied')
+    return NextResponse.redirect(new URL('/login?error=google_denied', baseUrl))
   }
 
   try {
     const clientId = process.env.GOOGLE_CLIENT_ID || ''
     const clientSecret = process.env.GOOGLE_CLIENT_SECRET || ''
-    const redirectUri = process.env.GOOGLE_CALLBACK_URL || 'https://www.localution.co.kr/api/oauth/google/callback'
+    const redirectUri = process.env.GOOGLE_CALLBACK_URL || (baseUrl + '/api/oauth/google/callback')
 
     const formData = new URLSearchParams()
     formData.append('client_id', clientId)
@@ -30,7 +31,7 @@ export async function GET(request) {
     const tokenData = await tokenRes.json()
 
     if (!tokenData.access_token) {
-      return NextResponse.redirect('/login?error=token_failed')
+      return NextResponse.redirect(new URL('/login?error=token_failed', baseUrl))
     }
 
     const userRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
@@ -40,7 +41,7 @@ export async function GET(request) {
     const userData = await userRes.json()
 
     if (!userData.id) {
-      return NextResponse.redirect('/login?error=token_failed')
+      return NextResponse.redirect(new URL('/login?error=profile_failed', baseUrl))
     }
 
     const sessionData = {
@@ -56,19 +57,21 @@ export async function GET(request) {
     cookieStore.set('localution_session', tokenData.access_token, {
       httpOnly: true,
       secure: true,
-      sameSite: 'lax',
-      maxAge: 30 * 24 * 60 * 60
+      sameSite: 'lax' as const,
+      maxAge: 30 * 24 * 60 * 60,
+      path: '/'
     })
     cookieStore.set('localution_user', JSON.stringify(sessionData), {
       httpOnly: false,
       secure: true,
-      sameSite: 'lax',
-      maxAge: 30 * 24 * 60 * 60
+      sameSite: 'lax' as const,
+      maxAge: 30 * 24 * 60 * 60,
+      path: '/'
     })
 
-    return NextResponse.redirect('/dashboard')
+    return NextResponse.redirect(new URL('/dashboard', baseUrl))
   } catch (error) {
     console.error('Google OAuth error:', error)
-    return NextResponse.redirect('/login?error=token_failed')
+    return NextResponse.redirect(new URL('/login?error=server_error', baseUrl))
   }
 }
