@@ -289,12 +289,31 @@ export default function LandingPage() {
           <div className="flex flex-col md:flex-row justify-between gap-8 mb-8">
             {/* 브랜드 */}
             <div className="flex-shrink-0">
-              <div className="flex items-center gap-2 mb-3">
-                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#3182F6] to-[#1B64DA] flex items-center justify-center">
-                  <span className="text-white font-black text-sm">L</span>
-                </div>
-                <span className="text-lg font-black">로컬루션</span>
-              </div>
+              <div className="flex items-center gap-3 mb-3">
+          <svg width="36" height="36" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
+            {/* 배경 없이 로고만 */}
+            {/* L 좌측 곡선 */}
+            <path d="M20 25C20 25 12 40 12 60C12 80 20 95 20 95" stroke="white" strokeWidth="5" strokeLinecap="round" fill="none"/>
+            <path d="M28 30C28 30 22 43 22 60C22 77 28 90 28 90" stroke="white" strokeWidth="5" strokeLinecap="round" fill="none"/>
+            {/* L 메인 */}
+            <path d="M35 28L35 88L55 88" stroke="white" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+            {/* T 자 */}
+            <path d="M52 28L78 28M65 28L65 70" stroke="white" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+            {/* U 자 */}
+            <path d="M75 28L75 68C75 80 82 88 92 88C102 88 108 80 108 68L108 28" stroke="white" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+            {/* 화살표 (파란색) */}
+            <path d="M90 18L102 6L108 18" stroke="#3182F6" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+            <line x1="102" y1="6" x2="102" y2="25" stroke="#3182F6" strokeWidth="5" strokeLinecap="round"/>
+            {/* 점 */}
+            <circle cx="102" cy="32" r="3" fill="#3182F6"/>
+            {/* LOCALUTION 텍스트 */}
+            <text x="60" y="110" textAnchor="middle" fill="white" fontSize="14" fontWeight="900" fontFamily="Arial, sans-serif" letterSpacing="3">LOCALUTION</text>
+          </svg>
+          <div>
+            <span className="text-lg font-black text-white">로컬루션</span>
+            <span className="text-[10px] text-[#3182F6] font-bold block tracking-widest">LOCALUTION</span>
+          </div>
+        </div>
               <p className="text-[#8B95A1] text-xs leading-relaxed max-w-xs">
                 소상공인과 마케터를 위한<br />AI 기반 올인원 비즈니스 자동화 플랫폼
               </p>
@@ -334,7 +353,7 @@ export default function LandingPage() {
               <div>주소: 경기 고양시 일산동구 장백로19 더루벤투스카운티 501호</div>
               <div>전화: 010-7510-9054 | 이메일: harangmarketing@naver.com</div>
             </div>
-            <div className="self-end">© 2024 하랑. All rights reserved.</div>
+            <div className="self-end">© 2025 하랑. All rights reserved.</div>
           </div>
         </div>
       </footer>
