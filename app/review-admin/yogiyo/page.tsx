@@ -64,7 +64,7 @@ export default function ReviewPage_Yogiyo() {
                 </div>
                 <p className="text-sm text-[#4E5968] leading-relaxed">{r.text}</p>
 
-                {r.replied && 'reply' in r && (
+                {r.replied && (r as typeof r & { reply: string }).reply && (
                   <div className="mt-3 p-3 rounded-xl border-l-3" style={{ background: '#FFF1F3', borderLeft: '3px solid #FA0050' }}>
                     <p className="text-xs font-semibold mb-1" style={{ color: '#FA0050' }}>사장님 답글</p>
                     <p className="text-sm text-[#4E5968]">{r.reply}</p>
