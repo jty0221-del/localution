@@ -1,7 +1,6 @@
 'use client'
 
 import { useState } from 'react'
-import Sidebar from '../components/Sidebar'
 
 const MOCK_QR = [
   { id: 'QR-001', name: '테이블 1번', scans: 47, reviews: 12, active: true, created: '2026-03-10' },
@@ -21,9 +20,6 @@ export default function QrAdminPage() {
   const totalReviews = MOCK_QR.reduce((a, q) => a + q.reviews, 0)
 
   return (
-    <div className="flex min-h-screen bg-[#F8F9FA]">
-      <Sidebar />
-      <main className="flex-1 md:ml-[220px] pt-14 md:pt-0">
         <div className="p-4 md:p-6 max-w-5xl mx-auto">
 
           <div className="flex items-center justify-between mb-6">
@@ -186,7 +182,5 @@ export default function QrAdminPage() {
           )}
 
         </div>
-      </main>
-    </div>
   )
 }
