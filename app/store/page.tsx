@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Sidebar from '../components/Sidebar'
 
 export default function StorePage() {
@@ -11,6 +11,12 @@ export default function StorePage() {
   const [saved, setSaved] = useState(false)
   const [activeTab, setActiveTab] = useState('기본정보')
 
+  useEffect(() => {
+    const ok = document.cookie.split(';').some(function(c) {
+      return c.trim().startsWith('localution_session=')
+    })
+    if (!ok) { window.location.href = '/login' }
+  }, [])
 
   const handleSave = () => {
     setSaved(true)
