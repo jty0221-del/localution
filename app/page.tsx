@@ -149,7 +149,7 @@ export default function LandingPage() {
 
       {/* ── 통계 ── */}
       <section className="py-12 px-4 bg-white border-y border-gray-100">
-        <div className="max-w-4xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-8">
+        <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 md:grid-cols-4 gap-8">
           {STATS.map(s => (
             <div key={s.num} className="text-center">
               <div className="text-3xl font-black text-[#3182F6] mb-1">{s.num}</div>
@@ -320,7 +320,7 @@ export default function LandingPage() {
             </div>
 
             {/* 링크 */}
-            <div className="grid grid-cols-2 md:grid-cols-3 gap-6 text-sm">
+            <div className="grid grid-cols-1 md:grid-cols-2 md:grid-cols-3 gap-6 text-sm">
               <div>
                 <div className="font-semibold text-gray-300 mb-3">서비스</div>
                 <div className="space-y-2">
