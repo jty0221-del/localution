@@ -862,8 +862,18 @@ export default function Dashboard() {
   ]
   const maxVisitor = Math.max(...hourlyVisitors.map(x => x.v))
 
-  // 리뷰 감정 분석
-  const sentiment = { positive: 78, neutral: 14, negative: 8 }
+  // 리뷰 감정 분석 (RECENT_REVIEWS 기반 실시간 계산, 별점 기준)
+  const sentimentCount = {
+    positive: RECENT_REVIEWS.filter(r => r.rating >= 4).length,
+    neutral:  RECENT_REVIEWS.filter(r => r.rating === 3).length,
+    negative: RECENT_REVIEWS.filter(r => r.rating <= 2).length,
+  }
+  const sentimentTotal = RECENT_REVIEWS.length || 1
+  const sentiment = {
+    positive: Math.round(sentimentCount.positive / sentimentTotal * 100),
+    neutral:  Math.round(sentimentCount.neutral  / sentimentTotal * 100),
+    negative: Math.round(sentimentCount.negative / sentimentTotal * 100),
+  }
 
   // VIP 고객
   const vipCustomers = [
@@ -1179,6 +1189,21 @@ export default function Dashboard() {
             <div className="flex items-center gap-2">
               <span className="text-sm font-bold text-[#191F28]">최근 리뷰</span>
               <span className="text-[11px] text-[#8B95A1]">미답변 {RECENT_REVIEWS.filter(r => !r.replied).length}건</span>
+              <span className="flex items-center gap-1 ml-2">
+                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-[#ECFDF5] text-[10px] font-bold text-[#059669]" title={`긍정 ${sentimentCount.positive}건`}>
+                  😊 {sentiment.positive}%
+                </span>
+                {sentimentCount.neutral > 0 && (
+                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-[#F2F4F6] text-[10px] font-bold text-[#4E5968]" title={`중립 ${sentimentCount.neutral}건`}>
+                    😐 {sentiment.neutral}%
+                  </span>
+                )}
+                {sentimentCount.negative > 0 && (
+                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-[#FEF2F2] text-[10px] font-bold text-[#DC2626]" title={`부정 ${sentimentCount.negative}건`}>
+                    😟 {sentiment.negative}%
+                  </span>
+                )}
+              </span>
             </div>
             <Link href="/reviews" className="text-[11px] text-[#3182F6] font-semibold hover:underline">전체보기 →</Link>
           </div>
