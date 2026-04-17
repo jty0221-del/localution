@@ -177,7 +177,7 @@ function StoreTab() {
             <span className="text-sm font-bold text-[#191F28]">네이버 플레이스 연동</span>
             <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#3182F6] text-white font-semibold">자동 입력</span>
           </div>
-          <div className="flex gap-2">
+          <div className="flex flex-col sm:flex-row gap-2">
             <input
               value={form.naverUrl}
               onChange={e => { setForm(p => ({ ...p, naverUrl: e.target.value })); setSyncError(''); setShowResults(false) }}
