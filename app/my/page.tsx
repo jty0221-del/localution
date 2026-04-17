@@ -160,7 +160,7 @@ export default function MyPage() {
         {/* 서비스 이용 현황 */}
         <div className="bg-white rounded-2xl p-6 shadow-sm">
           <h2 className="text-sm font-bold text-[#191F28] mb-4">서비스 이용 현황</h2>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             {[
               { label: '관리 매장', value: '1', unit: '곳' },
               { label: '등록 리뷰', value: '24', unit: '개' },
