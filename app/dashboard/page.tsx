@@ -914,7 +914,7 @@ export default function Dashboard() {
                 return (
     <div className="flex min-h-screen bg-[#F2F4F6]">
       <Sidebar />
-      <main className="flex-1 ml-[220px] p-6 min-w-0">
+      <main className="flex-1 ml-0 md:ml-[220px] p-6 min-w-0">
 
         {/* ── 상단 롤링 공지 배너 ── */}
         <NoticeBanner />
@@ -1028,7 +1028,7 @@ export default function Dashboard() {
         </div>
 
         {/* ── 메인 2컬럼 ── */}
-        <div className="grid grid-cols-[1fr_300px_300px] gap-4 mb-5">
+        <div className="grid grid-cols-1 md:grid-cols-[1fr_300px_300px] gap-4 mb-5">
 
           {/* 좌: 연동 플랫폼 별점·리뷰 현황 */}
           <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
