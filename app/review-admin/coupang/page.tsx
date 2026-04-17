@@ -185,7 +185,7 @@ export default function ReviewPage() {
         ) : (
           <>
             {/* 통계 카드 */}
-            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
+            <div className="grid grid-cols-1 md:grid-cols-2 md:grid-cols-4 gap-3 mb-6">
               {[
                 { label: '전체 리뷰', value: reviews.length + '개', icon: '📝', color: PLATFORM.color },
                 { label: '평균 별점', value: '⭐ ' + avgRating, icon: '⭐', color: '#D97706' },
