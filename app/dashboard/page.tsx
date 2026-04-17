@@ -920,6 +920,40 @@ export default function Dashboard() {
         {/* ── 상단 롤링 공지 배너 ── */}
         <NoticeBanner />
 
+        {/* ── 신규 사용자 온보딩 (연결 0개일 때만) ── */}
+        {isLoggedIn && connectedCount === 0 && (
+          <div id="start-onboarding-card" className="relative overflow-hidden rounded-2xl shadow-sm mb-5 p-5 md:p-6"
+            style={{ background: 'linear-gradient(135deg, #3182F6 0%, #1B64DA 100%)' }}>
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+              <div className="text-white">
+                <div className="flex items-center gap-2 mb-1.5">
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/20 backdrop-blur">👋 시작하기</span>
+                  <span className="text-[10px] text-white/70">3분이면 충분해요</span>
+                </div>
+                <h2 className="text-xl md:text-2xl font-black mb-1.5 leading-tight">처음이세요? 여기서부터 시작하세요</h2>
+                <p className="text-xs md:text-sm text-white/80 leading-relaxed">
+                  우리 가게 정보를 등록하고 네이버·구글·배민·요기요 같은 플랫폼을 연결하면
+                  <br className="hidden md:block"/>
+                  리뷰·예약·매출 데이터가 한 곳에 모입니다.
+                </p>
+              </div>
+              <div className="flex flex-col sm:flex-row gap-2 shrink-0">
+                <Link href="/settings/connect"
+                  className="px-4 py-2.5 rounded-xl bg-white text-[#1B64DA] text-sm font-bold hover:bg-[#F2F4F6] transition-all text-center whitespace-nowrap">
+                  🚀 1단계: 플랫폼 연결
+                </Link>
+                <Link href="/settings"
+                  className="px-4 py-2.5 rounded-xl bg-white/10 backdrop-blur text-white text-sm font-bold hover:bg-white/20 transition-all text-center whitespace-nowrap border border-white/20">
+                  가게 정보 입력
+                </Link>
+              </div>
+            </div>
+            {/* 장식 */}
+            <div className="absolute -top-8 -right-8 w-32 h-32 rounded-full bg-white/5 pointer-events-none"/>
+            <div className="absolute -bottom-4 -right-12 w-24 h-24 rounded-full bg-white/5 pointer-events-none"/>
+          </div>
+        )}
+
         {/* ── 오늘 처리할 작업 (오늘의 할 일 통합) ── */}
         <div className="bg-white rounded-2xl shadow-sm px-6 py-5 mb-5">
           <div className="mb-4">
