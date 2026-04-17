@@ -198,7 +198,7 @@ export default function PlaceDiagnosisPage() {
               <div className="flex justify-center mb-4">
                 <ScoreGauge score={TOTAL_SCORE} />
               </div>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                 {DIAGNOSIS_ITEMS.map(item => (
                   <div key={item.category} className="flex items-center justify-between bg-[#F8F9FA] rounded-xl px-3 py-2">
                     <span className="text-[11px] text-[#8B95A1]">{item.icon} {item.category}</span>
