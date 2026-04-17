@@ -168,7 +168,7 @@ export default function PlaceDiagnosisPage() {
   return (
     <div className="flex min-h-screen bg-[#F2F4F6]">
       <Sidebar />
-      <main className="flex-1 ml-0 md:ml-[220px] p-6">
+      <main className="flex-1 ml-0 md:ml-[220px] p-4 pt-20 md:p-6 md:pt-6">
 
         {/* 페이지 헤더 */}
         <div className="flex items-start justify-between mb-6">
