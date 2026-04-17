@@ -152,7 +152,7 @@ export default function ReviewPage() {
       } else {
         alert('❌ 등록 실패: ' + (d.error || '알 수 없는 오류'))
       }
-    } catch { alert('❌ 네트워크 오류') }
+    } catch { alert('❌ 연결이 잠깐 불안정했어요. 다시 시도해주세요 🙏') }
   }
 
   const filtered = reviews.filter(r => {
