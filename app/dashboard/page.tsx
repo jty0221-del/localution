@@ -896,6 +896,14 @@ export default function Dashboard() {
   const unansweredCount = RECENT_REVIEWS.filter(r => !r.replied).length
   const negativeUnansweredReviews = RECENT_REVIEWS.filter(r => r.rating <= 2 && !r.replied)
   const negativeUnansweredCount = negativeUnansweredReviews.length
+
+  // 탭바/사이드바와 미답변 개수 공유
+  useEffect(() => {
+    try {
+      localStorage.setItem('localution.unanswered_count', String(unansweredCount))
+      window.dispatchEvent(new CustomEvent('localution:unanswered-change'))
+    } catch {}
+  }, [unansweredCount])
   const todoList = [
     { title: '미답변 리뷰',    count: unansweredCount, unit: '건', color: '#F04452', bg: '#FFF0F0', link: '/reviews' },
     { title: '재방문 유도',    count: 5,  unit: '명', color: '#F59E0B', bg: '#FFF7E8', link: '/crm' },
