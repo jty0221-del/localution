@@ -88,9 +88,9 @@ export default function NaverReviewPage() {
         }),
       })
       const data = await res.json()
-      setAiReply(data.reply || data.message || 'AI 답글 생성 실패')
+      setAiReply(data.reply || data.message || '답글을 만들지 못했어요. 재생성을 눌러주세요 🔁')
     } catch {
-      setAiReply('네트워크 오류')
+      setAiReply('연결이 잠깐 불안정했어요. 다시 시도해주세요 🙏')
     } finally {
       setGenerating(false)
     }
@@ -103,7 +103,7 @@ export default function NaverReviewPage() {
       setTimeout(() => setCopied(false), 2000)
       window.open('https://new.smartplace.naver.com/', '_blank', 'noopener,noreferrer')
     } catch {
-      alert('복사 실패 — 직접 답글을 선택해 복사하세요')
+      alert('자동 복사가 안 돼요. 답글을 직접 드래그해서 복사해주세요 ✍️')
     }
   }
 
@@ -139,13 +139,13 @@ export default function NaverReviewPage() {
           )}
         </div>
         <p className="text-xs md:text-sm text-[#8B95A1] mb-4">
-          {connected ? `${storeName} · 실시간 리뷰` : '연결 전 샘플 데이터입니다. 설정 > 플랫폼 연결에서 연동하세요.'}
+          {connected ? `${storeName} · 실시간 리뷰` : '아직 연결 전이라 샘플로 보여드려요. 설정 → 플랫폼 연결에서 1분이면 연동 완료! 🔌'}
         </p>
 
         {!connected && (
           <div className="bg-[#FFFBEB] border border-[#FDE68A] rounded-2xl p-4 mb-5 flex items-center justify-between gap-3 flex-wrap">
             <p className="text-xs md:text-sm text-[#92400E]">
-              네이버 플레이스를 연동하면 실시간 리뷰를 불러올 수 있습니다.
+              네이버 플레이스를 연결하면 리뷰가 실시간으로 들어와요. 지금 연결해볼까요?
             </p>
             <Link href="/settings/connect?platform=naver"
               className="px-4 py-2 rounded-xl text-xs font-bold text-white hover:opacity-90 whitespace-nowrap"
@@ -196,7 +196,7 @@ export default function NaverReviewPage() {
         <div className="space-y-3">
           {filtered.length === 0 ? (
             <div className="bg-white rounded-2xl p-8 text-center text-sm text-[#8B95A1] border border-[#E5E8EB]">
-              조건에 맞는 리뷰가 없습니다.
+              선택하신 조건에 맞는 리뷰는 아직 없어요 😊
             </div>
           ) : filtered.map(review => (
             <div key={review.id} className="bg-white rounded-2xl border border-[#E5E8EB] p-4 md:p-5">
