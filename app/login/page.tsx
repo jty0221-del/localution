@@ -315,7 +315,7 @@ export default function LoginPage() {
             </div>
 
             <div className='footer'>
-              &copy; 2025 Localution<br/>
+              &copy; 2026 하랑<br/>
               Powered by 하랑마케팅
             </div>
           </div>
