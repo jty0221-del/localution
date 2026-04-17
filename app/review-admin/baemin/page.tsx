@@ -256,7 +256,7 @@ export default function ReviewPage() {
         {connected && (
           <div className="space-y-4">
             {/* 요약 바 */}
-            <div className="grid grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
               {[
                 { label: '전체 리뷰', value: reviews.length, icon: '📋' },
                 { label: '답글 대기', value: pendingCount, icon: '⏳', alert: pendingCount > 0 },
