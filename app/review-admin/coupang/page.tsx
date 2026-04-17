@@ -64,7 +64,7 @@ export default function ReviewPage() {
         setError(err.message || '리뷰를 가져오는 중 오류가 발생했습니다.')
       }
     } catch (e) {
-      setError('네트워크 오류가 발생했습니다.')
+      setError('연결이 잠깐 불안정했어요. 다시 시도해주세요 🙏가 발생했습니다.')
     }
     setLoading(false)
   }
@@ -94,7 +94,7 @@ export default function ReviewPage() {
         alert('답글 등록에 실패했습니다.')
       }
     } catch {
-      alert('네트워크 오류가 발생했습니다.')
+      alert('연결이 잠깐 불안정했어요. 다시 시도해주세요 🙏가 발생했습니다.')
     }
     setSendingId(null)
   }
