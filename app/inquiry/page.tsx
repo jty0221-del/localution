@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Sidebar from '../components/Sidebar'
 
 const CATEGORIES = [
@@ -59,6 +59,32 @@ export default function InquiryPage() {
   const [error, setError]   = useState('')
   const [myInquiries, setMyInquiries] = useState<any[]>([])
   const [copied, setCopied] = useState(false)
+  const [quoteBanner, setQuoteBanner] = useState<string>('')
+
+  // /pricing 에서 넘어온 장바구니 견적을 읽어 문의 본문 자동 채움
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    try {
+      const raw = localStorage.getItem('localution.pricing_quote')
+      if (!raw) return
+      const q = JSON.parse(raw) as { items: { name: string; price: number }[]; subtotal: number; discountRate: number; discountAmount: number; total: number }
+      if (!q.items || q.items.length === 0) return
+      const lines = q.items.map((it, i) => `${i + 1}. ${it.name}  ${it.price.toLocaleString()}원/월`)
+      const discountText = q.discountRate > 0 ? `\n- 묶음 할인: ${Math.round(q.discountRate * 100)}% (-${q.discountAmount.toLocaleString()}원)` : ''
+      const msg =
+`[견적 문의] 가격 페이지에서 선택한 구성
+${lines.join('\n')}
+
+- 원가: ${q.subtotal.toLocaleString()}원${discountText}
+- 월 합계: ${q.total.toLocaleString()}원 (VAT 포함)
+
+※ 이 구성으로 시작 가능한지, 세금계산서/결제수단/도입 일정 안내 부탁드립니다.`
+      setForm(p => ({ ...p, category: '서비스문의', message: msg }))
+      setQuoteBanner(`가격 페이지에서 ${q.items.length}개 기능(월 ${q.total.toLocaleString()}원)을 선택하셨어요. 이름·연락처만 입력해주세요.`)
+      // 한 번 읽고 지운다 — 새로고침 시 매번 덮어쓰지 않도록
+      localStorage.removeItem('localution.pricing_quote')
+    } catch {}
+  }, [])
 
   const copyEmail = async () => {
     try {
@@ -115,6 +141,16 @@ export default function InquiryPage() {
           <h1 className="text-3xl md:text-4xl font-black text-[#191F28]">1:1 문의</h1>
           <p className="text-base text-[#8B95A1] mt-2">궁금하신 내용을 편하게 남겨주세요. 영업일 기준 1-2일 내 답변드립니다.</p>
         </div>
+
+        {quoteBanner && (
+          <div className="mb-6 flex items-start gap-3 p-4 bg-gradient-to-r from-[#EFF6FF] to-[#F5F3FF] border border-[#3182F6]/30 rounded-2xl">
+            <span className="text-xl flex-shrink-0">🛒</span>
+            <div className="flex-1">
+              <div className="text-sm font-bold text-[#191F28]">견적 내용이 문의 본문에 자동 입력되었어요</div>
+              <div className="text-xs text-[#4E5968] mt-0.5">{quoteBanner}</div>
+            </div>
+          </div>
+        )}
 
         {/* 빠른 연락 */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">
@@ -251,3 +287,4 @@ export default function InquiryPage() {
     </div>
   )
 }
+
