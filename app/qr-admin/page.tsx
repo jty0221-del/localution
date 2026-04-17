@@ -24,6 +24,9 @@ interface StoreInfo {
   location: string
   naverUrl: string
   connected: boolean
+  // 플랫폼 연동 메타 (localution.platform_links 에서 가져옴)
+  naverPlaceId?: string
+  linkedSource?: 'platform_links' | 'manual'
 }
 
 interface QRCode {
@@ -52,6 +55,49 @@ const DEFAULT_STORE: StoreInfo = {
   location: '',
   naverUrl: '',
   connected: false,
+  naverPlaceId: '',
+  linkedSource: 'manual',
+}
+
+// /settings/connect 에서 저장한 네이버 링크 읽어오기
+const LS_PLATFORM_LINKS = 'localution.platform_links'
+function readNaverLink(): {
+  externalId: string
+  externalName: string
+  externalUrl: string
+  address?: string
+  category?: string
+} | null {
+  try {
+    const raw = typeof window !== 'undefined' ? window.localStorage.getItem(LS_PLATFORM_LINKS) : null
+    if (!raw) return null
+    const parsed = JSON.parse(raw)
+    // array 포맷 (/settings/connect)
+    if (Array.isArray(parsed)) {
+      const n = parsed.find((l: any) => l?.platform === 'naver')
+      return n ? {
+        externalId: n.externalId || n.placeId || '',
+        externalName: n.externalName || n.name || '',
+        externalUrl: n.externalUrl || n.url || '',
+        address: n.address,
+        category: n.category,
+      } : null
+    }
+    // object 포맷 (dashboard)
+    if (parsed && typeof parsed === 'object' && parsed.naver) {
+      const n = parsed.naver
+      return {
+        externalId: n.externalId || n.placeId || '',
+        externalName: n.externalName || n.name || '',
+        externalUrl: n.externalUrl || n.url || '',
+        address: n.address,
+        category: n.category,
+      }
+    }
+    return null
+  } catch {
+    return null
+  }
 }
 
 const INITIAL_QR_LIST: QRCode[] = [
@@ -209,7 +255,7 @@ function makeStoreId(name: string): string {
   return result || 'store-' + Date.now()
 }
 
-// 리뷰 URL 생성
+// 리뷰 URL 생성 (네이버 Place ID 포함 시 정확한 리뷰 페이지로 연결)
 function buildReviewUrl(storeInfo: StoreInfo, settings: QRSettings): string {
   const storeId = makeStoreId(storeInfo.name)
   const base = (typeof window !== 'undefined' ? window.location.origin : 'https://localution.co.kr')
@@ -218,6 +264,8 @@ function buildReviewUrl(storeInfo: StoreInfo, settings: QRSettings): string {
   if (storeInfo.category) params.set('t', storeInfo.category)
   if (settings.mainKeyword) params.set('kw', settings.mainKeyword)
   if (storeInfo.naverUrl) params.set('naver', storeInfo.naverUrl)
+  // 네이버 Place ID — 리뷰 페이지에서 실제 네이버 리뷰 작성으로 리다이렉트 가능
+  if (storeInfo.naverPlaceId) params.set('pid', storeInfo.naverPlaceId)
   if (settings.rewardType !== 'none' && settings.rewardValue) params.set('reward', settings.rewardValue)
   const qs = params.toString()
   return base + '/review/' + storeId + (qs ? '?' + qs : '')
@@ -240,6 +288,8 @@ export default function QRAdmin() {
   const [suggestedKws, setSuggestedKws] = useState<string[]>([])
   const kwInputRef = useRef<HTMLInputElement>(null)
 
+  const [naverLinked, setNaverLinked] = useState(false)
+
   useEffect(() => {
     try {
       const raw = localStorage.getItem(LS_QR_SETTINGS)
@@ -248,8 +298,47 @@ export default function QRAdmin() {
       if (rawList) setQrList(JSON.parse(rawList))
       const rawStore = localStorage.getItem(LS_STORE_INFO)
       if (rawStore) setStoreInfo(JSON.parse(rawStore))
+
+      // /settings/connect 에서 저장한 네이버 링크 감지
+      const naver = readNaverLink()
+      setNaverLinked(!!naver)
     } catch (_) {}
   }, [])
+
+  // ⚡ 네이버 플레이스 연결 정보에서 자동으로 불러오기
+  const importFromNaverLink = () => {
+    const naver = readNaverLink()
+    if (!naver) {
+      alert('네이버 플레이스 연결 정보가 없습니다.\n설정 > 플랫폼 연결에서 먼저 네이버를 연결해주세요.')
+      return
+    }
+    const next: StoreInfo = {
+      name: naver.externalName || storeInfo.name,
+      category: naver.category || storeInfo.category,
+      location: naver.address || storeInfo.location,
+      naverUrl: naver.externalUrl || storeInfo.naverUrl,
+      connected: true,
+      naverPlaceId: naver.externalId,
+      linkedSource: 'platform_links',
+    }
+    setStoreInfo(next)
+    setStoreDraft(next)
+    try { localStorage.setItem(LS_STORE_INFO, JSON.stringify(next)) } catch (_) {}
+
+    // 키워드 자동 추천도 트리거
+    if (next.location && next.category) {
+      const suggestions = generateSeoKeywords(next.location, next.category, next.name)
+      if (suggestions.length > 0 && !settings.mainKeyword) {
+        const updated = {
+          ...settings,
+          mainKeyword: suggestions[0],
+          subKeywords: settings.subKeywords.length === 0 ? suggestions.slice(1, 6) : settings.subKeywords,
+        }
+        saveSettings(updated)
+        setSuggestedKws(suggestions)
+      }
+    }
+  }
 
   function saveSettings(next: QRSettings) {
     setSettings(next)
@@ -436,21 +525,38 @@ export default function QRAdmin() {
 
               {/* 네이버 업체 연동 */}
               <div className="bg-white rounded-2xl p-6 shadow-sm">
-                <div className="flex items-center justify-between mb-4">
-                  <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-xl bg-[#F0FDF4] flex items-center justify-center text-base">🟢</div>
-                    <div>
+                <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="w-8 h-8 rounded-xl bg-[#F0FDF4] flex items-center justify-center text-base flex-shrink-0">🟢</div>
+                    <div className="min-w-0">
                       <h3 className="font-bold text-[#191F28]">네이버 업체 연동</h3>
-                      <p className="text-xs text-[#8B95A1]">연동 시 키워드 자동 설정</p>
+                      <p className="text-xs text-[#8B95A1]">
+                        {naverLinked ? '플랫폼 연결 감지됨 · 원클릭으로 불러오세요' : '연동 시 키워드 자동 설정'}
+                      </p>
                     </div>
                   </div>
-                  {storeInfo.connected && !storeEdit && (
-                    <button
-                      onClick={() => { setStoreDraft(storeInfo); setStoreEdit(true) }}
-                      className="text-xs text-[#3182F6] font-semibold hover:underline">
-                      수정
-                    </button>
-                  )}
+                  <div className="flex items-center gap-1.5">
+                    {naverLinked && (
+                      <button
+                        onClick={importFromNaverLink}
+                        className="flex items-center gap-1 text-[11px] font-bold px-2.5 py-1.5 rounded-lg bg-[#03C75A] text-white hover:opacity-90 whitespace-nowrap">
+                        ⚡ 설정에서 불러오기
+                      </button>
+                    )}
+                    {!naverLinked && (
+                      <a href="/settings/connect?platform=naver"
+                        className="flex items-center gap-1 text-[11px] font-bold px-2.5 py-1.5 rounded-lg bg-[#EFF6FF] text-[#3182F6] hover:bg-[#DBEAFE] whitespace-nowrap">
+                        + 네이버 연결하기
+                      </a>
+                    )}
+                    {storeInfo.connected && !storeEdit && (
+                      <button
+                        onClick={() => { setStoreDraft(storeInfo); setStoreEdit(true) }}
+                        className="text-[11px] text-[#3182F6] font-semibold hover:underline whitespace-nowrap px-2">
+                        수정
+                      </button>
+                    )}
+                  </div>
                 </div>
 
                 {!storeEdit && !storeInfo.connected ? (
@@ -525,31 +631,29 @@ export default function QRAdmin() {
                   </div>
                 ) : (
                   <div className="p-3.5 bg-[#F0FDF4] rounded-xl border border-[#BBF7D0]">
-                    <div className="flex items-center gap-2 mb-1">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
                       <span className="w-2 h-2 rounded-full bg-[#059669] flex-shrink-0" />
                       <span className="font-bold text-[#191F28] text-sm">{storeInfo.name}</span>
+                      {storeInfo.linkedSource === 'platform_links' && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#03C75A] text-white font-bold">
+                          네이버 플레이스 연동
+                        </span>
+                      )}
                     </div>
                     <p className="text-xs text-[#4E5968] pl-4">
                       {[storeInfo.category, storeInfo.location].filter(Boolean).join(' · ')}
                     </p>
+                    {storeInfo.naverPlaceId && (
+                      <p className="text-[10px] text-[#8B95A1] pl-4 mt-0.5">
+                        Place ID: <span className="font-mono text-[#4E5968]">{storeInfo.naverPlaceId}</span>
+                      </p>
+                    )}
                     {storeInfo.naverUrl && (
                       <a href={storeInfo.naverUrl} target="_blank" rel="noopener noreferrer"
                         className="text-xs text-[#3182F6] pl-4 hover:underline block mt-0.5">
                         네이버 플레이스 보기 →
                       </a>
                     )}
-                    <div className="mt-2 pl-4">
-                      <p className="text-[10px] text-[#8B95A1]">리뷰 URL: <span className="text-[#3182F6] font-mono">/review/{makeStoreId(storeInfo.name)}</span></p>
-                    </div>
-                    <div className="mt-2 pl-4">
-                      <p className="text-[10px] text-[#8B95A1]">리뷰 URL: <span className="text-[#3182F6] font-mono">/review/{makeStoreId(storeInfo.name)}</span></p>
-                    </div>
-                    <div className="mt-2 pl-4">
-                      <p className="text-[10px] text-[#8B95A1]">리뷰 URL: <span className="text-[#3182F6] font-mono">/review/{makeStoreId(storeInfo.name)}</span></p>
-                    </div>
-                    <div className="mt-2 pl-4">
-                      <p className="text-[10px] text-[#8B95A1]">리뷰 URL: <span className="text-[#3182F6] font-mono">/review/{makeStoreId(storeInfo.name)}</span></p>
-                    </div>
                     <div className="mt-2 pl-4">
                       <p className="text-[10px] text-[#8B95A1]">리뷰 URL: <span className="text-[#3182F6] font-mono">/review/{makeStoreId(storeInfo.name)}</span></p>
                     </div>
