@@ -19,7 +19,7 @@ const TABS: { key: TabKey; href: string; label: string; icon: string; prefix: st
   { key: 'home',      href: '/dashboard',     label: '홈',   icon: '🏠', prefix: ['/dashboard'] },
   { key: 'review',    href: '/review-admin',  label: '리뷰', icon: '💬', prefix: ['/review-admin', '/reviews', '/review'] },
   { key: 'customers', href: '/customers',     label: '고객', icon: '👥', prefix: ['/customers', '/crm'] },
-  { key: 'store',     href: '/store',         label: '매장', icon: '🏪', prefix: ['/store', '/reservations', '/settlement'] },
+  { key: 'store',     href: '/settings',      label: '매장', icon: '🏪', prefix: ['/reservations', '/settlement'] },
   { key: 'settings',  href: '/settings',      label: '설정', icon: '⚙️', prefix: ['/settings', '/my', '/inquiry'] },
 ]
 
