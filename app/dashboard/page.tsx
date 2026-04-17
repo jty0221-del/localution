@@ -914,7 +914,7 @@ export default function Dashboard() {
                 return (
     <div className="flex min-h-screen bg-[#F2F4F6]">
       <Sidebar />
-      <main className="flex-1 ml-0 md:ml-[220px] p-6 min-w-0">
+      <main className="flex-1 ml-0 md:ml-[220px] p-4 pt-20 md:p-6 md:pt-6 min-w-0">
 
         {/* ── 상단 롤링 공지 배너 ── */}
         <NoticeBanner />
