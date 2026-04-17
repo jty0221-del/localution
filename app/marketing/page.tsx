@@ -477,7 +477,7 @@ export default function MarketingPage() {
   return (
     <div className="flex min-h-screen bg-[#F2F4F6]">
       <Sidebar/>
-      <main className="flex-1 ml-0 md:ml-[220px] p-8">
+      <main className="flex-1 ml-0 md:ml-[220px] p-4 pt-20 md:p-8 md:pt-8">
         <div className="max-w-5xl mx-auto">
           <div className="mb-6">
             <h1 className="text-2xl font-black text-[#191F28]">마케팅 관리</h1>
