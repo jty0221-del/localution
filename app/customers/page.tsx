@@ -92,7 +92,7 @@ export default function CustomersPage() {
         </div>
 
         {/* 통계 카드 */}
-        <div className="grid grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
           {[
             { label: '전체 고객',   value: stats.total,   icon: '👥', color: '#3182F6' },
             { label: 'VIP',         value: stats.vip,     icon: '⭐', color: '#F59E0B' },
