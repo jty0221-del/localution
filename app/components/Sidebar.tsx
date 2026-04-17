@@ -19,10 +19,10 @@ const REVIEW_SUB = [
 ]
 
 const MARKETING_SUB = [
-  { href: '/marketing/place',        label: '플레이스 진단',   icon: '📍' },
-  { href: '/marketing/keyword-rank', label: '키워드 순위',     icon: '🔍' },
-  { href: '/marketing/keyword-score',label: '키워드 점수분석', icon: '📊' },
-  { href: '/marketing/reels',        label: '릴스·쇼츠 생성',  icon: '✨' },
+  { href: '/marketing/place',        label: '플레이스 진단',   icon: '📍', badge: '' },
+  { href: '/marketing/keyword-rank', label: '키워드 순위',     icon: '🔍', badge: '' },
+  { href: '/marketing/keyword-score',label: '키워드 점수분석', icon: '📊', badge: '' },
+  { href: '/marketing/reels',        label: '릴스·쇼츠 생성',  icon: '✨', badge: 'NEW' },
 ]
 
 const REGIONS = [
@@ -133,6 +133,9 @@ export default function Sidebar() {
                   className={`flex items-center gap-2.5 px-3 py-2 rounded-xl ${active ? 'bg-[#FFF7ED] text-[#EA580C] font-semibold' : 'text-[#4E5968] hover:bg-[#F8F9FA] font-medium'}`}>
                   <span>{sub.icon}</span>
                   <span className="text-xs">{sub.label}</span>
+                  {sub.badge && (
+                    <span className="ml-auto text-[9px] font-black px-1.5 py-0.5 rounded-md bg-gradient-to-r from-[#8B5CF6] to-[#EC4899] text-white tracking-wide">{sub.badge}</span>
+                  )}
                 </Link>
               )
             })}
@@ -256,3 +259,4 @@ export default function Sidebar() {
     </>
   )
 }
+
