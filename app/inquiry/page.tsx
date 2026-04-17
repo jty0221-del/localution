@@ -117,7 +117,7 @@ export default function InquiryPage() {
         </div>
 
         {/* 빠른 연락 */}
-        <div className="grid grid-cols-2 gap-3 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">
           <a href="https://open.kakao.com/o/gSC9jrqi" target="_blank" rel="noopener noreferrer"
             className="flex items-center gap-3 p-4 bg-[#FEE500] rounded-2xl shadow-sm hover:shadow-md transition-all group">
             <div className="w-10 h-10 rounded-xl bg-[#191F28] flex items-center justify-center flex-shrink-0">
@@ -176,7 +176,7 @@ export default function InquiryPage() {
                     ))}
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="text-base font-black text-[#191F28] block mb-2">이름 <span className="text-red-500">*</span></label>
                     <input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
