@@ -432,7 +432,7 @@ export default function ReviewAdmin() {
               {/* 기본 매장 정보 */}
               <div>
                 <p className="text-xs font-bold text-[#4E5968] mb-3 uppercase tracking-wide">기본 정보</p>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <div className="grid grid-cols-1 md:grid-cols-2 md:grid-cols-4 gap-3">
                   {[
                     { key: 'storeName', placeholder: '매장명', label: '매장명' },
                     { key: 'region',    placeholder: '강남, 홍대, 해운대...', label: '지역' },
@@ -502,7 +502,7 @@ export default function ReviewAdmin() {
               {/* 답변 스타일 */}
               <div>
                 <p className="text-xs font-bold text-[#4E5968] mb-3 uppercase tracking-wide">답변 스타일</p>
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
                     <label className="text-[11px] text-[#8B95A1] font-semibold block mb-2">톤</label>
                     <div className="flex gap-1.5">
@@ -531,7 +531,7 @@ export default function ReviewAdmin() {
               {/* 포함 요소 체크박스 */}
               <div>
                 <p className="text-xs font-bold text-[#4E5968] mb-3 uppercase tracking-wide">포함할 요소</p>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-2">
+                <div className="grid grid-cols-1 md:grid-cols-2 md:grid-cols-4 gap-2">
                   {INCLUDES_LIST.map(item => (
                     <button
                       key={item.key}
@@ -555,7 +555,7 @@ export default function ReviewAdmin() {
               </div>
 
               {/* 마무리 문구 + 금지 표현 */}
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
                   <label className="text-[11px] text-[#8B95A1] font-semibold block mb-1">고정 마무리 문구</label>
                   <input
