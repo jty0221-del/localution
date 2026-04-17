@@ -217,7 +217,7 @@ export default function KeywordScorePage() {
         </div>
 
         {/* 요약 카드 */}
-        <div className="grid grid-cols-4 gap-4 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
           <div className="bg-white rounded-2xl shadow-sm p-5 text-center">
             <p className="text-xs text-[#8B95A1] mb-1">총 키워드</p>
             <p className="text-2xl font-black text-[#191F28]">{KEYWORD_SCORES.length}개</p>
