@@ -762,7 +762,7 @@ export default function Dashboard() {
   return (
     <div className="flex min-h-screen bg-[#F2F4F6]">
       <Sidebar />
-      <main className="flex-1 ml-[220px] p-8 min-w-0">
+      <main className="flex-1 ml-0 md:ml-[220px] p-8 min-w-0">
         <NoticeBanner />
 
 
@@ -889,7 +889,7 @@ export default function Dashboard() {
         </div>
 
         {/* ── 3컬럼: 시간대 / 감정 / 경쟁사 ── */}
-        <div className="grid grid-cols-[1.3fr_1fr_1fr] gap-5 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-[1.3fr_1fr_1fr] gap-5 mb-6">
 
           {/* 시간대별 방문자 */}
           <div className="bg-white rounded-2xl shadow-sm p-7 border border-[#F2F4F6]">
@@ -987,7 +987,7 @@ export default function Dashboard() {
         </div>
 
         {/* ── 2컬럼: 플랫폼 별점 / 키워드 순위 ── */}
-        <div className="grid grid-cols-[1fr_400px] gap-5 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-[1fr_400px] gap-5 mb-6">
 
           {/* 플랫폼 별점 */}
           <div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-[#F2F4F6]">
@@ -1082,7 +1082,7 @@ export default function Dashboard() {
         </div>
 
         {/* ── 2컬럼: 이번 주 매출 / VIP 고객 ── */}
-        <div className="grid grid-cols-[1.2fr_1fr] gap-5 mb-6">
+        <div className="grid grid-cols-1 md:grid-cols-[1.2fr_1fr] gap-5 mb-6">
 
           {/* 이번 주 매출 */}
           <div className="bg-white rounded-2xl shadow-sm p-7 border border-[#F2F4F6]">
@@ -1100,7 +1100,7 @@ export default function Dashboard() {
                 return (
     <div className="flex min-h-screen bg-[#F2F4F6]">
       <Sidebar />
-      <main className="flex-1 ml-[220px] p-6 min-w-0">
+      <main className="flex-1 ml-0 md:ml-[220px] p-6 min-w-0">
 
         {/* ── 상단 롤링 공지 배너 ── */}
         <NoticeBanner />
@@ -1214,7 +1214,7 @@ export default function Dashboard() {
         </div>
 
         {/* ── 메인 2컬럼 ── */}
-        <div className="grid grid-cols-[1fr_340px] gap-5 mb-5">
+        <div className="grid grid-cols-1 md:grid-cols-[1fr_340px] gap-5 mb-5">
 
           {/* 좌: 연동 플랫폼 별점·리뷰 현황 */}
           <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
