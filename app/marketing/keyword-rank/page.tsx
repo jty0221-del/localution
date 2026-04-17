@@ -215,7 +215,7 @@ export default function KeywordRankPage() {
   return (
     <div className="flex min-h-screen bg-[#F2F4F6]">
       <Sidebar />
-      <main className="flex-1 ml-[220px] flex flex-col min-h-screen">
+      <main className="flex-1 ml-0 md:ml-[220px] flex flex-col min-h-screen">
 
         {/* 상단 필터 바 */}
         <div className="bg-white border-b border-[#E5E8EB] px-6 py-3 sticky top-0 z-20">
