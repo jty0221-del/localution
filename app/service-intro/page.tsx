@@ -237,7 +237,7 @@ export default function ServiceIntro() {
               </div>
             </div>
           </div>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div>
               <label className="text-sm font-bold text-[#8B95A1] block mb-2">매장명</label>
               <input value={storeName} onChange={e => setStoreName(e.target.value)}
@@ -260,7 +260,7 @@ export default function ServiceIntro() {
         <div className="bg-white rounded-2xl p-8 shadow-sm border border-[#E5E8EB] mb-8">
           <h2 className="text-2xl font-black text-[#191F28] mb-2">답글 톤 선택</h2>
           <p className="text-base text-[#8B95A1] mb-5">매장 성격과 분위기에 맞춰 6가지 중 하나를 고르세요.</p>
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             {TONES.map(t => (
               <button
                 key={t.key}
@@ -390,7 +390,7 @@ export default function ServiceIntro() {
         {/* 안내 박스 */}
         <div className="bg-white rounded-2xl p-8 shadow-sm border border-[#E5E8EB]">
           <h2 className="text-2xl font-black text-[#191F28] mb-6">서비스 이용 안내</h2>
-          <div className="grid grid-cols-2 gap-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
             {[
               { title: '원클릭 자동 게시', desc: '매장 플랫폼 연동만 완료하면 버튼 한 번으로 답글이 자동 게시됩니다. 복사·붙여넣기 없이 5초 내 완료.', color: '#F0FDF4', border: '#BBF7D0', titleColor: '#166534' },
               { title: 'AI 처리 범위', desc: '공개된 리뷰 텍스트와 사업자가 입력한 매장 정보만 AI 처리에 사용됩니다. 고객 개인정보는 수집하지 않습니다.', color: '#EFF6FF', border: '#93C5FD', titleColor: '#1B64DA' },
