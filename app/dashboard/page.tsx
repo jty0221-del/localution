@@ -970,14 +970,22 @@ export default function Dashboard() {
             <p className="text-[11px] text-[#3182F6] font-bold mb-1">로컬루션 대시보드</p>
             <div className="flex items-center justify-between">
               <div>
-                <h1 className="text-xl font-black text-[#191F28] mb-1">오늘 처리할 작업</h1>
+                <div className="flex items-center gap-2 mb-1">
+                  <h1 className="text-xl font-black text-[#191F28]">오늘 처리할 작업</h1>
+                  {connectedCount === 0 && (
+                    <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#FEF3C7] text-[#92400E] font-bold">데모</span>
+                  )}
+                </div>
                 <p className="text-xs text-[#8B95A1]">
-                  {new Date().toLocaleDateString('ko-KR', { year:'numeric', month:'long', day:'numeric', weekday:'long' })} · 우선순위가 높은 작업 순으로 표시됩니다
+                  {connectedCount === 0
+                    ? '샘플 데이터입니다. 플랫폼을 연결하면 실시간으로 표시됩니다'
+                    : new Date().toLocaleDateString('ko-KR', { year:'numeric', month:'long', day:'numeric', weekday:'long' }) + ' · 우선순위가 높은 작업 순으로 표시됩니다'
+                  }
                 </p>
               </div>
               <div className="flex items-center gap-1.5">
-                <span className="w-1.5 h-1.5 rounded-full bg-[#12B76A] animate-pulse inline-block"/>
-                <span className="text-[10px] text-[#8B95A1] font-medium">실시간 업데이트</span>
+                <span className={`w-1.5 h-1.5 rounded-full inline-block ${connectedCount === 0 ? 'bg-[#F59E0B]' : 'bg-[#12B76A] animate-pulse'}`}/>
+                <span className="text-[10px] text-[#8B95A1] font-medium">{connectedCount === 0 ? '데모 데이터' : '실시간 업데이트'}</span>
               </div>
             </div>
           </div>
