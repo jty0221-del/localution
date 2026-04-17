@@ -144,6 +144,33 @@ export default function ReviewPage() {
     } catch (_) {}
   }, [storeId])
 
+  // Supabase stores 테이블에서 slug로 조회 — 어떤 기기/경로로 접근해도 업체 정보 자동 적용
+  useEffect(() => {
+    if (qpName || qpNaver || qpPid) return // URL 파라미터 우선
+    if (!storeId || storeId === 'default') return
+    let alive = true
+    ;(async () => {
+      try {
+        const res = await fetch('/api/stores/' + encodeURIComponent(storeId), { cache: 'no-store' })
+        if (!res.ok) return
+        const j = await res.json()
+        if (!alive || !j?.ok || !j.store) return
+        const s = j.store
+        setStore(prev => ({
+          ...prev,
+          name:     s.name     || prev.name,
+          category: s.category || prev.category,
+          address:  s.address  || s.location || prev.address,
+          naverUrl: s.naver_url || (s.naver_place_id ? `https://m.place.naver.com/place/${s.naver_place_id}/review/visitor/write` : prev.naverUrl),
+          keywords: (s.main_keyword || (s.sub_keywords && s.sub_keywords.length))
+            ? [s.main_keyword, ...(s.sub_keywords || []), ...prev.keywords.slice(0, 2)].filter(Boolean)
+            : prev.keywords,
+        }))
+      } catch (_) {}
+    })()
+    return () => { alive = false }
+  }, [storeId])
+
   const [step, setStep] = useState<0 | 1 | 2 | 3 | 4>(0)
   const [photos, setPhotos] = useState<Photo[]>([])
   const [gender, setGender] = useState<'F' | 'M' | '-'>('-')
