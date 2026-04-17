@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
+import Sidebar from '../../components/Sidebar'
 
 interface Review {
   id: string
@@ -164,8 +165,9 @@ export default function ReviewPage() {
   const pendingCount = reviews.filter(r => !r.replied).length
 
   return (
-    <div className="flex min-h-screen bg-[#F2F4F6]">
-      <div className="flex-1 p-5 md:p-8 max-w-4xl mx-auto">
+    <div className="min-h-screen bg-[#F8F9FA]">
+      <Sidebar />
+      <main className="flex-1 md:ml-[220px] p-4 pt-20 md:p-8 md:pt-8 max-w-4xl mx-auto">
 
         {/* 헤더 */}
         <div className="flex items-center gap-3 mb-6">
@@ -395,7 +397,7 @@ export default function ReviewPage() {
             ))}
           </div>
         )}
-      </div>
+      </main>
     </div>
   )
 }
