@@ -237,7 +237,7 @@ export default function Sidebar() {
           </Link>
         </div>
         <NavItems />
-        <div className="px-4 py-4 border-t border-[#F2F4F6]">
+        <div className="px-4 py-4 border-t border-[#F2F4F6] space-y-2">
           <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-[#F8F9FA]">
             <div className="w-8 h-8 rounded-full bg-[#3182F6] flex items-center justify-center text-white text-xs font-bold flex-shrink-0">하</div>
             <div className="min-w-0">
@@ -245,6 +245,12 @@ export default function Sidebar() {
               <p className="text-[10px] text-[#8B95A1] truncate">강남점</p>
             </div>
           </div>
+          <a href="/api/auth/logout"
+            onClick={() => setMobileOpen(false)}
+            className="flex items-center justify-center gap-2 w-full px-3 py-2.5 rounded-xl bg-[#FEF2F2] text-[#DC2626] hover:bg-[#FEE2E2] transition-all text-sm font-semibold">
+            <span className="text-base">↩</span>
+            <span>로그아웃</span>
+          </a>
         </div>
       </aside>
     </>
