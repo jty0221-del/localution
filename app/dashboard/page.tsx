@@ -936,7 +936,7 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
             <a href="/reviews" className="group flex flex-col p-4 rounded-xl border border-[#F2F4F6] hover:border-[#3182F6] hover:shadow-md transition-all cursor-pointer">
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-1 h-8 rounded-full bg-[#F04452]"/>
@@ -985,7 +985,7 @@ export default function Dashboard() {
               {isLoggedIn ? '연동 관리 →' : '로그인 후 연동 가능'}
             </a>
           </div>
-          <div className="grid grid-cols-8 gap-2">
+          <div className="grid grid-cols-1 md:grid-cols-8 gap-2">
             {platforms.map(p => (
               <button
                 key={p.id}
@@ -1012,7 +1012,7 @@ export default function Dashboard() {
         </div>
 
         {/* ── 통계 카드 4개 ── */}
-        <div className="grid grid-cols-4 gap-4 mb-5">
+        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-5">
           {stats.map((s, i) => (
             <div key={i} className="bg-white rounded-2xl shadow-sm p-5 flex items-center gap-4">
               <span className="text-3xl">{s.icon}</span>
