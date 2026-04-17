@@ -51,6 +51,43 @@ function getNextTier(count: number): { need: number; rate: number } | null {
   return null
 }
 
+
+// 역할별 추천 번들 — 옵션 부담 없이 한 번에 시작
+const PERSONAS = [
+  {
+    key: 'owner-solo',
+    title: '1인 소상공인',
+    desc: '혼자 매장 운영 · 리뷰/AI 답글 중심',
+    icon: '🧑‍🍳',
+    color: '#FF6B35',
+    features: ['ai-review', 'qr-stamp', 'alimtalk', 'crm'],
+  },
+  {
+    key: 'owner-team',
+    title: '자영업자',
+    desc: '직원·가족 함께 운영 · 리뷰+성과+CRM',
+    icon: '🏪',
+    color: '#3182F6',
+    features: ['ai-review', 'qr-stamp', 'alimtalk', 'crm', 'report', 'ai-chat'],
+  },
+  {
+    key: 'marketer',
+    title: '마케터 · 대행사',
+    desc: '키워드·경쟁사·블로그 중심',
+    icon: '📣',
+    color: '#8B5CF6',
+    features: ['keyword', 'competitor', 'blog-ai', 'sns-manage', 'report'],
+  },
+  {
+    key: 'sales',
+    title: '영업·다매장 관리',
+    desc: 'CRM·성과 리포트·AI 비서',
+    icon: '💼',
+    color: '#059669',
+    features: ['crm', 'report', 'ai-chat', 'ai-review', 'competitor'],
+  },
+] as const
+
 const faqs = [
   {
     q: '무료 체험은 어떻게 진행되나요?',
@@ -79,6 +116,15 @@ export default function PricingPage() {
   const [filter, setFilter] = useState<'전체' | '사장님' | '마케터' | '공통'>('전체')
   const [openFaq, setOpenFaq] = useState<number | null>(0)
 
+  const applyPersona = (features: readonly string[]) => {
+    setCart(Array.from(new Set(features)))
+    if (typeof window !== 'undefined') {
+      setTimeout(() => {
+        const target = document.getElementById('pricing-feature-list')
+        if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' })
+      }, 100)
+    }
+  }
   const toggle = (id: string) =>
     setCart(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
 
@@ -120,6 +166,25 @@ export default function PricingPage() {
           </p>
         </div>
 
+        {/* 역할별 추천 번들 — 옵션 고민 없이 원클릭 시작 */}
+        <div className="max-w-5xl mx-auto mb-8">
+          <div className="text-center mb-4">
+            <div className="text-xs font-bold text-[#3182F6] mb-1">🎯 어떤 분이세요?</div>
+            <div className="text-sm text-[#4E5968]">역할에 맞는 기능을 한 번에 담아드려요. 언제든 수정 가능합니다.</div>
+          </div>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+            {PERSONAS.map(p => (
+              <button key={p.key} onClick={() => applyPersona(p.features)}
+                className="bg-white rounded-2xl p-4 border border-[#E5E8EB] hover:border-[#3182F6] hover:shadow-md transition-all text-left group">
+                <div className="w-10 h-10 rounded-xl flex items-center justify-center text-2xl mb-2" style={{ background: p.color + '18' }}>{p.icon}</div>
+                <div className="font-black text-[#191F28] text-sm mb-1 group-hover:text-[#3182F6] transition-colors">{p.title}</div>
+                <div className="text-[11px] text-[#8B95A1] leading-relaxed mb-2">{p.desc}</div>
+                <div className="text-[10px] font-bold text-[#3182F6]">{p.features.length}개 기능 → 담기</div>
+              </button>
+            ))}
+          </div>
+        </div>
+
         {/* 할인 티어 안내 */}
         <div className="max-w-3xl mx-auto mb-10 bg-white rounded-2xl p-4 border border-[#E5E8EB] shadow-sm">
           <div className="text-xs font-bold text-[#8B95A1] mb-3 text-center">💸 묶음 할인 · 많이 담을수록 저렴해요</div>
@@ -142,6 +207,7 @@ export default function PricingPage() {
         <div className="flex gap-6 items-start">
 
           {/* 왼쪽: 기능 목록 */}
+          <div id="pricing-feature-list" className="scroll-mt-6" />
           <div className="flex-1">
             {/* 필터 */}
             <div className="flex gap-2 mb-5 flex-wrap">
