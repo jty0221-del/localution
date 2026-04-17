@@ -123,7 +123,7 @@ export default function PricingPage() {
         {/* 할인 티어 안내 */}
         <div className="max-w-3xl mx-auto mb-10 bg-white rounded-2xl p-4 border border-[#E5E8EB] shadow-sm">
           <div className="text-xs font-bold text-[#8B95A1] mb-3 text-center">💸 묶음 할인 · 많이 담을수록 저렴해요</div>
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
             <div className={`rounded-xl p-3 text-center transition-all ${cart.length >= 3 && cart.length < 5 ? 'bg-blue-50 border-2 border-[#3182F6]' : 'bg-[#F9FAFB] border border-[#E5E8EB]'}`}>
               <div className="text-[10px] text-[#8B95A1] mb-0.5">3개+</div>
               <div className="text-sm font-black text-[#3182F6]">10% OFF</div>
