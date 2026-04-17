@@ -13,14 +13,14 @@ const HIDE_PREFIXES = [
 ]
 const HIDE_EXACT = ['/', '/pricing', '/about', '/terms', '/privacy']
 
-type TabKey = 'home' | 'review' | 'customers' | 'store' | 'settings'
+type TabKey = 'home' | 'review' | 'marketing' | 'customers' | 'settings'
 
 const TABS: { key: TabKey; href: string; label: string; icon: string; prefix: string[] }[] = [
-  { key: 'home',      href: '/dashboard',     label: '홈',   icon: '🏠', prefix: ['/dashboard'] },
-  { key: 'review',    href: '/review-admin',  label: '리뷰', icon: '💬', prefix: ['/review-admin', '/reviews', '/review'] },
-  { key: 'customers', href: '/customers',     label: '고객', icon: '👥', prefix: ['/customers', '/crm'] },
-  { key: 'store',     href: '/settings',      label: '매장', icon: '🏪', prefix: ['/reservations', '/settlement'] },
-  { key: 'settings',  href: '/settings',      label: '설정', icon: '⚙️', prefix: ['/settings', '/my', '/inquiry'] },
+  { key: 'home',      href: '/dashboard',     label: '홈',     icon: '🏠', prefix: ['/dashboard'] },
+  { key: 'review',    href: '/review-admin',  label: '리뷰',   icon: '💬', prefix: ['/review-admin', '/reviews', '/review'] },
+  { key: 'marketing', href: '/marketing',     label: '마케팅', icon: '📣', prefix: ['/marketing'] },
+  { key: 'customers', href: '/customers',     label: '고객',   icon: '👥', prefix: ['/customers', '/crm'] },
+  { key: 'settings',  href: '/settings',      label: '설정',   icon: '⚙️', prefix: ['/settings', '/my', '/inquiry', '/qr-admin'] },
 ]
 
 // 미답변 리뷰 개수 — 전역 localStorage 'localution.unanswered_count' 혹은 데모 기본값
@@ -115,3 +115,4 @@ export default function BottomTabBar() {
     </nav>
   )
 }
+
