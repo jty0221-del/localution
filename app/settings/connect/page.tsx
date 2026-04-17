@@ -175,7 +175,7 @@ export default function SettingsConnect() {
                   <div className="flex items-center gap-4 p-5">
                     <Logo size={52} />
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
+                      <div className="flex flex-col sm:flex-row items-center gap-2">
                         <h3 className="font-bold text-[#191F28]">{p.name}</h3>
                         <span className="text-[10px] text-[#8B95A1] bg-[#F2F4F6] px-2 py-0.5 rounded-full">{p.category}</span>
                         {!p.enabled && (
