@@ -2,7 +2,7 @@
 export const dynamic = 'force-dynamic'
 
 import { useState, useRef, useEffect } from 'react'
-import { useParams } from 'next/navigation'
+import { useParams, useSearchParams } from 'next/navigation'
 
 // ─────────────────────────────────────────────
 // 통합 팔레트 (화이트 / 블랙 / 블루)
@@ -72,12 +72,38 @@ type LengthKey = 'short' | 'mid' | 'long'
 
 export default function ReviewPage() {
   const params = useParams<{ storeId: string }>()
+  const searchParams = useSearchParams()
   const storeId = params?.storeId || 'default'
   const baseStore = getStore(storeId)
-  const [store, setStore] = useState<Store>(baseStore)
+
+  // QR URL 쿼리파라미터 — 어떤 기기에서 찍어도 정확한 매장 정보 전달
+  // n=상호명 / t=업종 / kw=키워드 / naver=네이버URL / pid=네이버PlaceID / reward=보상
+  const qpName    = searchParams?.get('n')     || ''
+  const qpCat     = searchParams?.get('t')     || ''
+  const qpKw      = searchParams?.get('kw')    || ''
+  const qpNaver   = searchParams?.get('naver') || ''
+  const qpPid     = searchParams?.get('pid')   || ''
+  const qpReward  = searchParams?.get('reward')|| ''
+
+  const [store, setStore] = useState<Store>(() => {
+    // URL 파라미터가 있으면 우선 적용 (QR 스캔 시)
+    const hasQp = qpName || qpCat || qpNaver || qpPid
+    if (hasQp) {
+      return {
+        ...baseStore,
+        name:     qpName  || baseStore.name,
+        category: qpCat   || baseStore.category,
+        naverUrl: qpNaver || (qpPid ? `https://m.place.naver.com/place/${qpPid}/review/visitor/write` : baseStore.naverUrl),
+        keywords: qpKw ? [qpKw, ...baseStore.keywords.slice(0, 3)] : baseStore.keywords,
+      }
+    }
+    return baseStore
+  })
 
   // localStorage에서 매장 정보 자동 로드 (QR 관리에서 저장한 데이터)
+  // URL 파라미터가 있으면 이미 store에 반영되어 있으므로 skip
   useEffect(() => {
+    if (qpName || qpNaver || qpPid) return // URL 우선
     try {
       const raw = window.localStorage.getItem('localution.store_info')
       if (!raw) return
