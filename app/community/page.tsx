@@ -3,6 +3,7 @@
 export const dynamic = 'force-dynamic'
 
 import { useState } from 'react'
+import Link from 'next/link'
 import Sidebar from '../components/Sidebar'
 
 // ─── 샘플 데이터 ──────────────────────────────────────────────────
@@ -334,10 +335,10 @@ export default function Community() {
                 <p className="text-xs text-[#8B95A1]">이 공간에 매장·서비스 홍보 배너를 게재할 수 있어요</p>
               </div>
             </div>
-            <a href="/inquiry?category=ad"
+            <Link href="/inquiry?category=ad"
               className="flex-shrink-0 px-4 py-2 rounded-xl text-sm font-semibold bg-gradient-to-r from-[#FF8C00] to-[#FFD700] text-white hover:opacity-90 transition-opacity">
               광고 문의
-            </a>
+            </Link>
           </div>
           <div className="border-t border-dashed border-[#E5E8EB] px-5 py-2.5 bg-[#FAFAFA]">
             <p className="text-[11px] text-[#8B95A1] text-center">월 단위 배너 광고 · 지역 타겟 홍보 가능 · 1:1 문의로 단가 안내</p>
@@ -468,10 +469,10 @@ export default function Community() {
                 <h3 className="font-bold text-[#EA580C] text-sm">여기에 광고하세요</h3>
               </div>
               <p className="text-xs text-[#4E5968] mb-3 leading-relaxed">커뮤니티 배너 광고로 지역 소상공인에게 내 매장·서비스를 알리세요</p>
-              <a href="/inquiry?category=ad"
+              <Link href="/inquiry?category=ad"
                 className="flex items-center justify-center gap-1 w-full py-2 rounded-xl bg-[#EA580C] text-white text-xs font-bold hover:bg-[#C2410C] transition-colors">
                 광고 문의하기 →
-              </a>
+              </Link>
             </div>
 
             {/* 카테고리 통계 */}
