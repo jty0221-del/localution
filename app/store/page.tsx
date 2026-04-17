@@ -17,7 +17,7 @@ export default function StorePage() {
   return (
     <div className="flex min-h-screen bg-[#F2F4F6]">
       <Sidebar />
-      <main className="flex-1 ml-0 md:ml-[220px] p-6 min-w-0">
+      <main className="flex-1 ml-0 md:ml-[220px] p-4 pt-20 md:p-6 md:pt-6 min-w-0">
 
         <div className="mb-6">
           <h1 className="text-2xl font-black text-[#191F28]">매장 관리</h1>
