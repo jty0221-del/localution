@@ -527,68 +527,41 @@ export default function QRAdmin() {
             <h1 className="text-2xl font-bold text-[#191F28]">QR 관리</h1>
             <p className="text-[#8B95A1] mt-1">QR 스캔 → AI 리뷰 자동 생성으로 리뷰를 늘려보세요</p>
           </div>
-          <button
-            onClick={() => setShowCreate(true)}
-            className="flex items-center gap-2 bg-[#3182F6] text-white font-semibold px-5 py-2.5 rounded-xl hover:bg-[#1B64DA] transition-colors text-sm">
-            + 새 QR 만들기
-          </button>
+
         </div>
 
-        {/* QR 현황 (간단 요약, 스캔 트래킹 X) */}
+        {/* 상태 요약 */}
         <div className="flex gap-3 mb-6 flex-wrap">
-          <div className="bg-white rounded-2xl px-5 py-3.5 shadow-sm flex items-center gap-3">
-            <span className="text-2xl">📱</span>
-            <div>
-              <p className="text-xs text-[#8B95A1]">전체 QR</p>
-              <p className="text-lg font-bold text-[#3182F6]">{qrList.length}개</p>
-            </div>
-          </div>
-          <div className="bg-white rounded-2xl px-5 py-3.5 shadow-sm flex items-center gap-3">
-            <span className="text-2xl">✅</span>
-            <div>
-              <p className="text-xs text-[#8B95A1]">활성 QR</p>
-              <p className="text-lg font-bold text-[#059669]">{activeCount}개</p>
-            </div>
-          </div>
-          {storeInfo.connected && (
+          {storeInfo.connected ? (
             <div className="bg-[#F0FDF4] rounded-2xl px-5 py-3.5 shadow-sm flex items-center gap-2 border border-[#BBF7D0]">
               <span className="text-lg">🟢</span>
-              <div>
+              <div className="min-w-0">
                 <p className="text-xs text-[#059669] font-semibold">업체 연동됨</p>
-                <p className="text-xs text-[#4E5968] truncate max-w-[140px]">{storeInfo.name}</p>
+                <p className="text-xs text-[#4E5968] truncate max-w-[200px]">{storeInfo.name}</p>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-[#FFFBEB] rounded-2xl px-5 py-3.5 shadow-sm flex items-center gap-2 border border-[#FDE68A]">
+              <span className="text-lg">⚠️</span>
+              <div>
+                <p className="text-xs text-[#D97706] font-semibold">업체 미연동</p>
+                <p className="text-xs text-[#4E5968]">아래에서 네이버 연동 먼저 하세요</p>
               </div>
             </div>
           )}
-          <div className="bg-[#FFFBEB] rounded-2xl px-5 py-3.5 shadow-sm flex items-center gap-2 border border-[#FDE68A]">
+          <div className="bg-[#EFF6FF] rounded-2xl px-5 py-3.5 shadow-sm flex items-center gap-2 border border-[#BFDBFE]">
             <span className="text-lg">🤖</span>
             <div>
-              <p className="text-xs text-[#D97706]">AI 톤 (전역 설정)</p>
+              <p className="text-xs text-[#3182F6] font-semibold">AI 리뷰 톤</p>
               <p className="text-xs font-semibold text-[#4E5968]">{toneLabel[globalTone] || '친근하게'}</p>
             </div>
           </div>
         </div>
 
-        {/* 탭 */}
-        <div className="flex gap-1 bg-white rounded-2xl p-1.5 shadow-sm mb-6 w-fit">
-          {[
-            { key: 'settings', label: 'AI 설정' },
-            { key: 'list',     label: 'QR 목록' },
-            { key: 'stats',    label: '성과 리포트' },
-          ].map(tab => (
-            <button key={tab.key}
-              onClick={() => setActiveTab(tab.key as any)}
-              className={`px-5 py-2 rounded-xl text-sm font-semibold transition-colors ${
-                activeTab === tab.key
-                  ? 'bg-[#3182F6] text-white shadow-sm'
-                  : 'text-[#4E5968] hover:bg-[#F2F4F6]'
-              }`}>
-              {tab.label}
-            </button>
-          ))}
-        </div>
 
-        {/* ── AI 설정 탭 ── */}
-        {activeTab === 'settings' && (
+
+        {/* ── AI 설정 (메인) ── */}
+        {(() => { const _show = true; return _show && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             {/* 좌측 */}
             <div className="space-y-5">
@@ -944,211 +917,101 @@ export default function QRAdmin() {
               </button>
             </div>
           </div>
-        )}
+        )})()}
 
-        {/* ── QR 목록 탭 ── */}
-        {activeTab === 'list' && (
-          <div className="space-y-4">
-            {qrList.length === 0 ? (
-              <div className="bg-white rounded-2xl p-12 text-center shadow-sm">
-                <div className="text-4xl mb-3">📱</div>
-                <p className="font-semibold text-[#191F28] mb-1">아직 QR 코드가 없어요</p>
-                <p className="text-sm text-[#8B95A1] mb-4">첫 QR을 만들어 리뷰를 수집해보세요</p>
-                <button onClick={() => setShowCreate(true)}
-                  className="px-6 py-2.5 bg-[#3182F6] text-white text-sm font-semibold rounded-xl hover:bg-[#1B64DA] transition-colors">
-                  + 새 QR 만들기
-                </button>
+        {/* ═══════════════════════════════════════════════════════
+             내 리뷰 QR 코드 (자동 생성 · 단일)
+           ═══════════════════════════════════════════════════════ */}
+        <div className="mt-6 bg-white rounded-2xl p-6 shadow-sm">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-xl">📱</span>
+            <h3 className="font-bold text-[#191F28]">내 리뷰 QR 코드</h3>
+            {storeInfo.connected && (
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#ECFDF5] text-[#059669] font-bold">자동 연동됨</span>
+            )}
+          </div>
+          <p className="text-xs text-[#8B95A1] mb-4">
+            {storeInfo.connected
+              ? '연동된 네이버 업체 정보가 자동으로 반영됩니다. 다운로드 후 매장에 부착하세요.'
+              : '업체를 먼저 연동하면 QR이 생성됩니다.'}
+          </p>
+
+          {storeInfo.connected ? (
+            <div className="flex flex-col md:flex-row gap-6 items-start">
+              {/* QR */}
+              <div className="p-4 bg-white rounded-2xl border-2 border-[#E5E8EB] shadow-sm shrink-0 mx-auto md:mx-0">
+                <QRCodeImage url={buildReviewUrl(storeInfo, settings)} size={200} />
               </div>
-            ) : qrList.map(qr => {
-              const purposeOpt = PURPOSE_OPTIONS.find(p => p.value === qr.purpose)
-              return (
-                <div key={qr.id}
-                  className={`bg-white rounded-2xl p-5 shadow-sm border-2 transition-colors ${qr.active ? 'border-transparent' : 'border-[#E5E8EB] opacity-70'}`}>
-                  <div className="flex items-center gap-4">
-                    <div
-                      onClick={() => setPreviewQR(qr)}
-                      className="w-16 h-16 bg-white rounded-xl shadow-sm flex items-center justify-center cursor-pointer flex-shrink-0 border border-[#E5E8EB] hover:border-[#3182F6] transition-colors p-1">
-                      {storeInfo.connected
-                        ? <QRCodeImage url={buildReviewUrl(storeInfo, { ...settings, mainKeyword: qr.keyword || settings.mainKeyword })} size={56} />
-                        : <QRPreview text={qr.name + qr.keyword} size={56} />
-                      }
+
+              {/* 정보 + 버튼 */}
+              <div className="flex-1 min-w-0 w-full space-y-3">
+                <div className="space-y-1.5">
+                  <div className="flex items-start gap-2">
+                    <span className="text-[11px] text-[#8B95A1] font-semibold w-16 shrink-0 mt-0.5">상호</span>
+                    <span className="text-sm font-bold text-[#191F28]">{storeInfo.name}</span>
+                  </div>
+                  {storeInfo.category && (
+                    <div className="flex items-start gap-2">
+                      <span className="text-[11px] text-[#8B95A1] font-semibold w-16 shrink-0 mt-0.5">업종</span>
+                      <span className="text-sm text-[#4E5968]">{storeInfo.category}</span>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1 flex-wrap">
-                        <span className="font-bold text-[#191F28]">{qr.name}</span>
-                        <span className={`text-[10px] px-2 py-0.5 rounded-full font-semibold ${
-                          qr.active ? 'bg-green-100 text-green-700' : 'bg-[#F2F4F6] text-[#8B95A1]'
-                        }`}>
-                          {qr.active ? '활성' : '비활성'}
-                        </span>
-                        {qr.keyword && (
-                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#EFF6FF] text-[#3182F6] font-medium">
-                            #{qr.keyword}
-                          </span>
-                        )}
-                        <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#F2F4F6] text-[#4E5968] font-medium">
-                          {purposeOpt?.icon} {purposeOpt?.label}
-                        </span>
-                      </div>
-                      <p className="text-xs text-[#8B95A1]">생성일: {qr.createdAt}</p>
+                  )}
+                  {storeInfo.location && (
+                    <div className="flex items-start gap-2">
+                      <span className="text-[11px] text-[#8B95A1] font-semibold w-16 shrink-0 mt-0.5">위치</span>
+                      <span className="text-sm text-[#4E5968]">{storeInfo.location}</span>
                     </div>
-                    <div className="flex gap-2 flex-shrink-0">
-                      <button
-                        onClick={() => setPreviewQR(qr)}
-                        className="px-3 py-2 text-sm font-semibold bg-[#EFF6FF] text-[#3182F6] rounded-xl hover:bg-[#DBEAFE] transition-colors">
-                        다운로드
-                      </button>
-                      <button
-                        onClick={() => toggleQRActive(qr.id)}
-                        className={`px-3 py-2 text-sm font-semibold rounded-xl transition-colors ${
-                          qr.active
-                            ? 'bg-[#F2F4F6] text-[#8B95A1] hover:bg-[#E5E8EB]'
-                            : 'bg-green-50 text-green-700 hover:bg-green-100'
-                        }`}>
-                        {qr.active ? '비활성화' : '활성화'}
-                      </button>
+                  )}
+                  {storeInfo.naverPlaceId && (
+                    <div className="flex items-start gap-2">
+                      <span className="text-[11px] text-[#8B95A1] font-semibold w-16 shrink-0 mt-0.5">Place mid</span>
+                      <span className="text-sm text-[#4E5968] font-mono">{storeInfo.naverPlaceId}</span>
                     </div>
+                  )}
+                  <div className="flex items-start gap-2">
+                    <span className="text-[11px] text-[#8B95A1] font-semibold w-16 shrink-0 mt-0.5">리뷰 URL</span>
+                    <span className="text-[11px] text-[#3182F6] break-all font-mono">
+                      {buildReviewUrl(storeInfo, settings).replace(/^https?:\/\//, '').slice(0, 60)}...
+                    </span>
                   </div>
                 </div>
-              )
-            })}
-          </div>
-        )}
 
-        {/* ── 성과 리포트 탭 ── */}
-        {activeTab === 'stats' && (
-          <div className="space-y-6">
-            {/* 실시간 트래킹 안내 */}
-            <div className="bg-gradient-to-br from-[#FFFBEB] to-[#FEF3C7] rounded-2xl p-6 border border-[#FDE68A]">
-              <div className="flex items-start gap-3">
-                <span className="text-2xl flex-shrink-0">📊</span>
-                <div>
-                  <h3 className="font-bold text-[#191F28] mb-1">실시간 스캔 트래킹 준비 중</h3>
-                  <p className="text-sm text-[#78350F] leading-relaxed">
-                    실제 QR 스캔 수 트래킹 기능은 곧 업데이트 예정입니다.
-                    현재는 QR 코드 생성 및 키워드 설정에 집중해주세요.
-                  </p>
+                <div className="grid grid-cols-2 gap-2 pt-2">
+                  <button
+                    onClick={() => downloadQR(buildReviewUrl(storeInfo, settings), storeInfo.name + '-review-qr')}
+                    className="py-3 rounded-xl text-sm font-bold bg-[#3182F6] text-white hover:bg-[#1B64DA] transition-colors">
+                    📥 PNG 저장
+                  </button>
+                  <button
+                    onClick={() => openPrintTemplate({
+                      url: buildReviewUrl(storeInfo, settings),
+                      storeName: storeInfo.name,
+                      keyword: settings.mainKeyword,
+                      rewardType: settings.rewardType,
+                      rewardValue: settings.rewardValue,
+                    })}
+                    className="py-3 rounded-xl text-sm font-bold bg-[#12B76A] text-white hover:bg-[#0E9655] transition-colors">
+                    🖨️ A4 인쇄용
+                  </button>
                 </div>
               </div>
             </div>
-
-            {/* QR 현황 */}
-            <div className="bg-white rounded-2xl p-6 shadow-sm">
-              <h3 className="font-bold text-[#191F28] mb-5">📱 QR 코드 현황</h3>
-              <div className="space-y-3">
-                {[...qrList].map((qr, i) => {
-                  const purposeOpt = PURPOSE_OPTIONS.find(p => p.value === qr.purpose)
-                  return (
-                    <div key={qr.id} className="flex items-center justify-between p-3.5 rounded-xl bg-[#F8F9FA]">
-                      <div className="flex items-center gap-3">
-                        <span className={`text-xs font-bold ${i === 0 ? 'text-[#D97706]' : 'text-[#8B95A1]'}`}>{i + 1}</span>
-                        <div>
-                          <p className="text-sm font-semibold text-[#191F28]">{qr.name}</p>
-                          <p className="text-xs text-[#8B95A1]">{purposeOpt?.icon} {purposeOpt?.label} · {qr.createdAt}</p>
-                        </div>
-                      </div>
-                      <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${
-                        qr.active ? 'bg-green-100 text-green-700' : 'bg-[#F2F4F6] text-[#8B95A1]'
-                      }`}>
-                        {qr.active ? '활성' : '비활성'}
-                      </span>
-                    </div>
-                  )
-                })}
-              </div>
+          ) : (
+            <div className="bg-[#F8F9FA] rounded-xl p-6 text-center">
+              <div className="text-3xl mb-2">🔌</div>
+              <p className="text-sm text-[#4E5968] font-semibold mb-1">업체가 아직 연동되지 않았어요</p>
+              <p className="text-xs text-[#8B95A1] mb-4">네이버 플레이스를 연결하면 QR이 자동으로 만들어집니다.</p>
+              <a href="/settings/connect?platform=naver"
+                className="inline-block px-4 py-2 rounded-xl bg-[#03C75A] text-white text-xs font-bold">
+                네이버 플레이스 연결하기
+              </a>
             </div>
-
-            {/* AI 인사이트 */}
-            <div className="bg-gradient-to-br from-[#EFF6FF] to-[#F8FBFF] rounded-2xl p-6 border border-[#BFDBFE]">
-              <div className="flex items-center gap-2 mb-4">
-                <span className="text-xl">✨</span>
-                <h3 className="font-bold text-[#191F28]">AI 인사이트</h3>
-                <span className="text-xs px-2 py-0.5 rounded-full bg-[#3182F6] text-white font-semibold">자동 분석</span>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                {[
-                  { icon: '🔑', title: '키워드 현황', desc: settings.mainKeyword ? `상위노출 키워드 '${settings.mainKeyword}'로 설정됐어요. 대표 키워드를 ${5 - settings.subKeywords.length}개 더 추가하면 좋아요.` : '키워드를 설정하면 AI 리뷰 품질이 올라가요!' },
-                  { icon: '🏪', title: '업체 연동', desc: storeInfo.connected ? `'${storeInfo.name}' 업체가 연동됐어요. AI가 업체 맞춤 리뷰를 생성합니다.` : '업체 정보를 연동하면 더 정확한 맞춤 리뷰가 생성돼요!' },
-                  { icon: '🎯', title: '다음 액션', desc: !settings.mainKeyword ? 'AI 설정 탭에서 상위노출 키워드를 먼저 입력해보세요.' : settings.subKeywords.length < 3 ? '대표 키워드를 3개 이상 추가하면 AI 리뷰 품질이 올라가요!' : '설정이 잘 되어 있어요! QR을 인쇄해서 매장에 비치해보세요.' },
-                ].map((item, i) => (
-                  <div key={i} className="bg-white rounded-xl p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-base">{item.icon}</span>
-                      <span className="text-sm font-bold text-[#191F28]">{item.title}</span>
-                    </div>
-                    <p className="text-xs text-[#4E5968] leading-relaxed">{item.desc}</p>
-                  </div>
-                ))}
-              </div>
-            </div>
-          </div>
-        )}
-
-      </main>
-
-      {/* ── 새 QR 만들기 모달 ── */}
-      {showCreate && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
-          <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl">
-            <div className="flex items-center justify-between p-6 border-b border-[#F2F4F6]">
-              <h2 className="text-lg font-bold text-[#191F28]">새 QR 코드 만들기</h2>
-              <button onClick={() => setShowCreate(false)} className="text-[#8B95A1] hover:text-[#191F28] text-2xl leading-none">×</button>
-            </div>
-            <div className="p-6 space-y-5">
-              <div>
-                <label className="block text-sm font-semibold text-[#191F28] mb-2">QR 이름</label>
-                <input
-                  value={newQR.name}
-                  onChange={e => setNewQR(p => ({ ...p, name: e.target.value }))}
-                  placeholder="예: 입구 리뷰 QR, 테이블 QR #1"
-                  className="w-full border border-[#E5E8EB] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#3182F6] transition-colors"
-                  autoFocus
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-[#191F28] mb-2">QR 용도</label>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                  {PURPOSE_OPTIONS.map(opt => (
-                    <button key={opt.value}
-                      onClick={() => setNewQR(p => ({ ...p, purpose: opt.value }))}
-                      className={`p-3.5 rounded-xl border-2 text-left transition-colors ${
-                        newQR.purpose === opt.value ? 'border-[#3182F6] bg-[#EFF6FF]' : 'border-[#E5E8EB] hover:border-[#3182F6]'
-                      }`}>
-                      <div className="text-xl mb-1">{opt.icon}</div>
-                      <div className="text-sm font-semibold text-[#191F28]">{opt.label}</div>
-                      <div className="text-xs text-[#8B95A1] mt-0.5">{opt.desc}</div>
-                    </button>
-                  ))}
-                </div>
-              </div>
-              <div>
-                <label className="block text-sm font-semibold text-[#191F28] mb-2">
-                  키워드 <span className="text-xs font-normal text-[#8B95A1]">(이 QR용 SEO 키워드)</span>
-                </label>
-                <input
-                  value={newQR.keyword}
-                  onChange={e => setNewQR(p => ({ ...p, keyword: e.target.value }))}
-                  placeholder={settings.mainKeyword ? `기본: ${settings.mainKeyword}` : '예: 부천맛집'}
-                  className="w-full border border-[#E5E8EB] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#3182F6] transition-colors placeholder-[#C9CDD2]"
-                />
-              </div>
-              <button
-                onClick={handleCreateQR}
-                disabled={!newQR.name || creating || created}
-                className={`w-full py-3.5 rounded-xl font-bold text-sm transition-colors ${
-                  created ? 'bg-green-500 text-white'
-                  : creating ? 'bg-[#93C5FD] text-white cursor-not-allowed'
-                  : !newQR.name ? 'bg-[#F2F4F6] text-[#8B95A1] cursor-not-allowed'
-                  : 'bg-[#3182F6] text-white hover:bg-[#1B64DA]'
-                }`}>
-                {created ? '✅ 생성 완료!' : creating ? '⏳ 생성 중...' : 'QR 코드 생성하기'}
-              </button>
-            </div>
-          </div>
+          )}
         </div>
-      )}
 
-      {/* ── QR 다운로드 미리보기 모달 ── */}
+</main>
+
+{/* ── QR 다운로드 미리보기 모달 ── */}
       {previewQR && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
           <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl">
