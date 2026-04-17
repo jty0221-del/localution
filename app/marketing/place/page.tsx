@@ -168,7 +168,7 @@ export default function PlaceDiagnosisPage() {
   return (
     <div className="flex min-h-screen bg-[#F2F4F6]">
       <Sidebar />
-      <main className="flex-1 ml-[220px] p-6">
+      <main className="flex-1 ml-0 md:ml-[220px] p-6">
 
         {/* 페이지 헤더 */}
         <div className="flex items-start justify-between mb-6">
@@ -187,7 +187,7 @@ export default function PlaceDiagnosisPage() {
           </div>
         </div>
 
-        <div className="grid grid-cols-[320px_1fr] gap-6">
+        <div className="grid grid-cols-1 md:grid-cols-[320px_1fr] gap-6">
 
           {/* 좌: 종합 점수 + 추천 */}
           <div className="space-y-5">
