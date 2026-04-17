@@ -259,7 +259,7 @@ function ScoreTab() {
         const compText = result.competition > 70 ? '매우 높음' : result.competition > 40 ? '보통' : '낮음'
         const compColor = result.competition > 70 ? '#F04452' : result.competition > 40 ? '#F5A623' : '#2DB400'
         return (
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div className="flex flex-col gap-4">
               <div className="bg-white rounded-2xl border border-[#E5E8EB] p-5 text-center">
                 <p className="text-xs text-[#8B95A1] mb-3">종합 노출 점수</p>
@@ -334,7 +334,7 @@ function DiagTab() {
 
   return (
     <div>
-      <div className="grid grid-cols-4 gap-3 mb-5">
+      <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-5">
         <div className="bg-white rounded-2xl border border-[#E5E8EB] p-5 text-center flex flex-col items-center justify-center">
           <p className="text-xs text-[#8B95A1] mb-2">종합 진단 점수</p>
           <div className="relative w-24 h-24 mb-2">
@@ -350,7 +350,7 @@ function DiagTab() {
           </div>
           <span className="text-sm font-bold" style={{ color: gradeColor }}>{gradeLabel}</span>
         </div>
-        <div className="col-span-3 grid grid-cols-3 gap-3">
+        <div className="col-span-3 grid grid-cols-1 md:grid-cols-3 gap-3">
           <div className="bg-[#F0FBF0] rounded-2xl p-5 flex flex-col items-center justify-center">
             <span className="text-3xl font-black text-[#2DB400]">{okCount}</span>
             <span className="text-xs font-medium text-[#4E5968] mt-1">양호 항목</span>
@@ -412,7 +412,7 @@ function InflowTab() {
 
   return (
     <div>
-      <div className="grid grid-cols-3 gap-4 mb-5">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-5">
         <div className="bg-white rounded-2xl border border-[#E5E8EB] p-5">
           <p className="text-xs text-[#8B95A1] mb-1">이번 달 총 유입</p>
           <p className="text-2xl font-black text-[#191F28]">{total.toLocaleString()}<span className="text-base ml-0.5 text-[#8B95A1]">회</span></p>
