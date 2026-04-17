@@ -238,6 +238,76 @@ function downloadQR(url: string, fileName: string) {
   document.body.removeChild(link)
 }
 
+// A4 매장 부착용 인쇄 템플릿 — 새 창 열고 인쇄 다이얼로그 자동 호출
+function openPrintTemplate(opts: {
+  url: string
+  storeName: string
+  keyword?: string
+  rewardType?: string
+  rewardValue?: string
+}) {
+  const { url, storeName, keyword = '', rewardType = 'none', rewardValue = '' } = opts
+  const qrSize = 600
+  const qrSrc = 'https://chart.googleapis.com/chart?cht=qr&chs=' + qrSize + 'x' + qrSize + '&chl=' + encodeURIComponent(url) + '&choe=UTF-8&chld=M|2'
+  const rewardLine = rewardType !== 'none' && rewardValue
+    ? '<div class="reward">🎁 리뷰 남기면 <b>' + rewardValue.replace(/[<>&]/g, '') + '</b></div>'
+    : '<div class="reward-sub">리뷰 남겨주시면 감사하겠습니다 🙏</div>'
+
+  const html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>' + storeName + ' - 리뷰 QR</title>' +
+    '<style>' +
+    '@page { size: A4; margin: 0; }' +
+    'body { margin: 0; padding: 0; font-family: -apple-system, "Pretendard", "Malgun Gothic", sans-serif; }' +
+    '.page { width: 210mm; height: 297mm; padding: 20mm; box-sizing: border-box; display: flex; flex-direction: column; align-items: center; justify-content: space-between; background: #fff; }' +
+    '.top { text-align: center; width: 100%; }' +
+    '.badge { display: inline-block; padding: 6px 18px; border-radius: 999px; background: #FEF3C7; color: #92400E; font-size: 14px; font-weight: 700; margin-bottom: 18px; }' +
+    'h1 { font-size: 44px; font-weight: 900; color: #191F28; margin: 0 0 10px; letter-spacing: -1px; }' +
+    '.sub { font-size: 20px; color: #4E5968; font-weight: 600; margin: 0 0 6px; }' +
+    '.store { font-size: 16px; color: #8B95A1; margin: 0; }' +
+    '.qr-box { padding: 24px; background: #fff; border: 3px solid #191F28; border-radius: 24px; margin: 10px 0; }' +
+    '.qr-box img { display: block; width: 140mm; height: 140mm; }' +
+    '.scan-hint { font-size: 22px; font-weight: 800; color: #3182F6; margin: 10px 0 0; }' +
+    '.reward { background: #FEF3C7; padding: 18px 28px; border-radius: 16px; font-size: 22px; color: #92400E; font-weight: 700; text-align: center; width: 100%; box-sizing: border-box; }' +
+    '.reward-sub { font-size: 18px; color: #4E5968; font-weight: 600; text-align: center; }' +
+    '.bottom { width: 100%; text-align: center; padding-top: 8px; border-top: 2px dashed #E5E8EB; }' +
+    '.steps { display: flex; justify-content: center; gap: 28px; margin: 12px 0 6px; font-size: 14px; color: #4E5968; }' +
+    '.step { font-weight: 600; }' +
+    '.step b { display: inline-block; width: 22px; height: 22px; line-height: 22px; border-radius: 50%; background: #3182F6; color: #fff; font-size: 12px; margin-right: 6px; }' +
+    '.footer { font-size: 12px; color: #8B95A1; margin-top: 6px; }' +
+    '@media print { .no-print { display: none !important; } body { -webkit-print-color-adjust: exact; print-color-adjust: exact; } }' +
+    '.print-btn { position: fixed; top: 12px; right: 12px; padding: 10px 18px; background: #3182F6; color: #fff; border: none; border-radius: 10px; font-size: 14px; font-weight: 700; cursor: pointer; }' +
+    '</style></head><body>' +
+    '<button class="print-btn no-print" onclick="window.print()">🖨️ 인쇄하기</button>' +
+    '<div class="page">' +
+    '<div class="top">' +
+    '<div class="badge">📸 QR 찍고 리뷰 남기기</div>' +
+    '<h1>' + storeName + '</h1>' +
+    '<p class="sub">이용해주셔서 감사합니다 💛</p>' +
+    (keyword ? '<p class="store">#' + keyword + '</p>' : '') +
+    '</div>' +
+    '<div class="qr-box"><img src="' + qrSrc + '" alt="QR"/></div>' +
+    '<p class="scan-hint">📱 카메라로 QR을 찍어주세요</p>' +
+    rewardLine +
+    '<div class="bottom">' +
+    '<div class="steps">' +
+    '<div class="step"><b>1</b>QR 스캔</div>' +
+    '<div class="step"><b>2</b>리뷰 작성</div>' +
+    '<div class="step"><b>3</b>혜택 받기</div>' +
+    '</div>' +
+    '<p class="footer">Powered by Localution · 로컬루션</p>' +
+    '</div>' +
+    '</div>' +
+    '<script>setTimeout(function(){ window.print(); }, 500);</script>' +
+    '</body></html>'
+
+  const w = window.open('', '_blank')
+  if (w) {
+    w.document.write(html)
+    w.document.close()
+  } else {
+    alert('팝업이 차단되었습니다. 브라우저 팝업 허용 후 다시 시도하세요.')
+  }
+}
+
 // storeId 생성 (상호명 기반 slug)
 function makeStoreId(name: string): string {
   let result = ''
@@ -1104,10 +1174,10 @@ export default function QRAdmin() {
               <p className="text-xs text-[#8B95A1] text-center">
                 스캔 시 AI가 자동으로 리뷰 초안을 생성해드려요
               </p>
-              <div className="flex gap-3 w-full">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2 w-full">
                 <button
                   onClick={() => setPreviewQR(null)}
-                  className="flex-1 py-3 rounded-xl text-sm font-semibold bg-[#F2F4F6] text-[#4E5968] hover:bg-[#E5E8EB] transition-colors">
+                  className="py-3 rounded-xl text-sm font-semibold bg-[#F2F4F6] text-[#4E5968] hover:bg-[#E5E8EB] transition-colors">
                   닫기
                 </button>
                 <button
@@ -1117,8 +1187,24 @@ export default function QRAdmin() {
                     }
                   }}
                   disabled={!storeInfo.connected}
-                  className={'flex-1 py-3 rounded-xl text-sm font-semibold transition-colors ' + (storeInfo.connected ? 'bg-[#3182F6] text-white hover:bg-[#1B64DA]' : 'bg-[#E5E8EB] text-[#8B95A1] cursor-not-allowed')}>
-                  {storeInfo.connected ? 'QR 이미지 저장' : '업체 연동 필요'}
+                  className={'py-3 rounded-xl text-sm font-semibold transition-colors ' + (storeInfo.connected ? 'bg-[#3182F6] text-white hover:bg-[#1B64DA]' : 'bg-[#E5E8EB] text-[#8B95A1] cursor-not-allowed')}>
+                  📥 PNG 저장
+                </button>
+                <button
+                  onClick={() => {
+                    if (storeInfo.connected) {
+                      openPrintTemplate({
+                        url: buildReviewUrl(storeInfo, { ...settings, mainKeyword: previewQR.keyword || settings.mainKeyword }),
+                        storeName: storeInfo.name,
+                        keyword: previewQR.keyword || settings.mainKeyword,
+                        rewardType: settings.rewardType,
+                        rewardValue: settings.rewardValue,
+                      })
+                    }
+                  }}
+                  disabled={!storeInfo.connected}
+                  className={'py-3 rounded-xl text-sm font-semibold transition-colors ' + (storeInfo.connected ? 'bg-[#12B76A] text-white hover:bg-[#0E9655]' : 'bg-[#E5E8EB] text-[#8B95A1] cursor-not-allowed')}>
+                  🖨️ A4 인쇄용
                 </button>
               </div>
             </div>
