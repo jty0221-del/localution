@@ -78,10 +78,34 @@ function WriteModal({ onClose, onSubmit }: { onClose: () => void, onSubmit: (pos
   const [title, setTitle] = useState('')
   const [content, setContent] = useState('')
   const [category, setCategory] = useState('free')
+  const [media, setMedia] = useState<{ type: 'image'|'video'; url: string; name: string }[]>([])
+
+  const handleFilesPicked = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const files = e.target.files
+    if (!files) return
+    const arr = Array.from(files).slice(0, 10)
+    arr.forEach(file => {
+      const isImage = file.type.startsWith('image/')
+      const isVideo = file.type.startsWith('video/')
+      if (!isImage && !isVideo) return
+      // 이미지 < 5MB: dataURL, 그 외: objectURL
+      if (isImage && file.size < 5 * 1024 * 1024) {
+        const reader = new FileReader()
+        reader.onload = () => setMedia(prev => [...prev, { type: 'image', url: reader.result as string, name: file.name }])
+        reader.readAsDataURL(file)
+      } else {
+        const url = URL.createObjectURL(file)
+        setMedia(prev => [...prev, { type: isVideo ? 'video' : 'image', url, name: file.name }])
+      }
+    })
+    e.target.value = ''
+  }
+
+  const removeMedia = (i: number) => setMedia(prev => prev.filter((_, idx) => idx !== i))
 
   const handleSubmit = () => {
     if (!title.trim() || !content.trim()) return
-    onSubmit({ title, content, category })
+    onSubmit({ title, content, category, media })
     onClose()
   }
 
@@ -130,6 +154,35 @@ function WriteModal({ onClose, onSubmit }: { onClose: () => void, onSubmit: (pos
               rows={6}
               className="w-full border border-[#E5E8EB] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#3182F6] transition-colors resize-none"
             />
+          </div>
+
+          {/* 사진/영상 업로드 */}
+          <div>
+            <label className="block text-sm font-medium text-[#191F28] mb-2">사진·영상 (선택 · 최대 10개)</label>
+            <div className="flex flex-wrap gap-2">
+              {media.map((m, i) => (
+                <div key={i} className="relative w-20 h-20 rounded-xl overflow-hidden bg-[#F2F4F6] group">
+                  {m.type === 'image' ? (
+                    <img src={m.url} alt={m.name} className="w-full h-full object-cover" />
+                  ) : (
+                    <video src={m.url} className="w-full h-full object-cover" muted />
+                  )}
+                  <button type="button" onClick={() => removeMedia(i)}
+                    className="absolute top-1 right-1 w-5 h-5 rounded-full bg-black/70 text-white text-xs leading-none flex items-center justify-center hover:bg-black">×</button>
+                  {m.type === 'video' && (
+                    <span className="absolute bottom-1 left-1 bg-black/70 text-white text-[10px] px-1 rounded">▶</span>
+                  )}
+                </div>
+              ))}
+              {media.length < 10 && (
+                <label className="w-20 h-20 rounded-xl border-2 border-dashed border-[#E5E8EB] flex flex-col items-center justify-center cursor-pointer hover:border-[#3182F6] hover:bg-[#F2F8FF] transition-colors text-[#8B95A1] hover:text-[#3182F6]">
+                  <span className="text-xl">+</span>
+                  <span className="text-[10px] mt-0.5">사진/영상</span>
+                  <input type="file" accept="image/*,video/*" multiple onChange={handleFilesPicked} className="hidden" />
+                </label>
+              )}
+            </div>
+            <p className="text-[11px] text-[#8B95A1] mt-1.5">이미지는 5MB 미만일 때 원본 해상도로 저장돼요. 영상은 용량과 상관없이 바로 미리보기 가능합니다.</p>
           </div>
         </div>
         <div className="flex gap-3 p-6 pt-0">
@@ -185,6 +238,20 @@ function PostModal({ post, onClose, onLike, onBookmark }: any) {
           </div>
           <h2 className="text-xl font-bold text-[#191F28] mb-4">{post.title}</h2>
           <p className="text-[#4E5968] leading-relaxed whitespace-pre-wrap mb-6">{post.content}</p>
+
+          {post.media && post.media.length > 0 && (
+            <div className="grid grid-cols-2 gap-2 mb-6">
+              {post.media.map((m: any, i: number) => (
+                <div key={i} className="rounded-xl overflow-hidden bg-[#F2F4F6]">
+                  {m.type === 'image' ? (
+                    <img src={m.url} alt={m.name} className="w-full h-48 object-cover" />
+                  ) : (
+                    <video src={m.url} controls className="w-full h-48 object-cover bg-black" />
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* 액션 */}
           <div className="flex items-center gap-4 pb-6 border-b border-[#F2F4F6]">
@@ -291,6 +358,7 @@ export default function Community() {
       author: '나', avatar: '나',
       time: '방금', likes: 0, comments: [],
       liked: false, bookmarked: false,
+      media: data.media || [],
     }
     setPosts(prev => [newPost, ...prev])
   }
@@ -408,6 +476,25 @@ export default function Community() {
                           <p className="text-sm text-[#8B95A1] line-clamp-2 leading-relaxed">
                             {post.content}
                           </p>
+                          {post.media && post.media.length > 0 && (
+                            <div className="flex gap-1.5 mt-2">
+                              {post.media.slice(0, 3).map((m: any, i: number) => (
+                                <div key={i} className="w-14 h-14 rounded-lg overflow-hidden bg-[#F2F4F6] relative">
+                                  {m.type === 'image' ? (
+                                    <img src={m.url} alt="" className="w-full h-full object-cover" />
+                                  ) : (
+                                    <>
+                                      <video src={m.url} className="w-full h-full object-cover" muted />
+                                      <span className="absolute inset-0 flex items-center justify-center text-white text-xs bg-black/30">▶</span>
+                                    </>
+                                  )}
+                                </div>
+                              ))}
+                              {post.media.length > 3 && (
+                                <div className="w-14 h-14 rounded-lg bg-[#F2F4F6] flex items-center justify-center text-xs text-[#4E5968] font-bold">+{post.media.length - 3}</div>
+                              )}
+                            </div>
+                          )}
                         </div>
                         <div className="flex-shrink-0 w-10 h-10 rounded-full bg-[#EFF6FF] text-[#3182F6] flex items-center justify-center font-bold text-sm">
                           {post.avatar}
