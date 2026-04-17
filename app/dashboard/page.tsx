@@ -894,6 +894,8 @@ export default function Dashboard() {
 
   // 오늘의 할 일
   const unansweredCount = RECENT_REVIEWS.filter(r => !r.replied).length
+  const negativeUnansweredReviews = RECENT_REVIEWS.filter(r => r.rating <= 2 && !r.replied)
+  const negativeUnansweredCount = negativeUnansweredReviews.length
   const todoList = [
     { title: '미답변 리뷰',    count: unansweredCount, unit: '건', color: '#F04452', bg: '#FFF0F0', link: '/reviews' },
     { title: '재방문 유도',    count: 5,  unit: '명', color: '#F59E0B', bg: '#FFF7E8', link: '/crm' },
@@ -929,6 +931,35 @@ export default function Dashboard() {
 
         {/* ── 상단 롤링 공지 배너 ── */}
         <NoticeBanner />
+
+        {/* ── 🚨 부정 리뷰 긴급 알림 (미답변 1★~2★ 있을 때만) ── */}
+        {isLoggedIn && negativeUnansweredCount > 0 && (
+          <div className="relative overflow-hidden rounded-2xl shadow-sm mb-5 p-5 border-2 border-[#F04452]"
+            style={{ background: 'linear-gradient(135deg, #FEF2F2 0%, #FEE4E4 100%)' }}>
+            <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+              <div className="flex items-start gap-3">
+                <div className="w-10 h-10 rounded-xl bg-[#F04452] flex items-center justify-center text-white text-lg shrink-0 animate-pulse">
+                  ⚠️
+                </div>
+                <div>
+                  <div className="flex items-center gap-2 mb-1 flex-wrap">
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#F04452] text-white">긴급</span>
+                    <h3 className="text-sm md:text-base font-black text-[#7F1D1D]">
+                      답변이 시급한 부정 리뷰 {negativeUnansweredCount}건
+                    </h3>
+                  </div>
+                  <p className="text-xs text-[#991B1B] leading-relaxed">
+                    낮은 별점 리뷰는 첫 24시간 안에 답글을 남기면 고객 신뢰가 회복될 확률이 3배 높아져요.
+                  </p>
+                </div>
+              </div>
+              <Link href="/reviews?filter=negative-unanswered"
+                className="px-4 py-2.5 rounded-xl bg-[#F04452] text-white text-sm font-bold hover:bg-[#DC2626] transition-all text-center whitespace-nowrap shrink-0">
+                지금 답변하기 →
+              </Link>
+            </div>
+          </div>
+        )}
 
         {/* ── 신규 사용자 온보딩 (연결 0개일 때만) ── */}
         {isLoggedIn && connectedCount === 0 && (
