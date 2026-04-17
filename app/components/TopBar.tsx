@@ -61,7 +61,7 @@ export default function TopBar() {
             {notifOpen && (
               <>
                 <div className="fixed inset-0 z-10" onClick={() => setNotifOpen(false)} />
-                <div className="absolute right-0 top-12 w-80 bg-white rounded-2xl shadow-2xl z-20 overflow-hidden">
+                <div className="absolute right-0 top-12 w-[calc(100vw-2rem)] sm:w-80 bg-white rounded-2xl shadow-2xl z-20 overflow-hidden">
                   <div className="flex items-center justify-between px-5 py-4 border-b border-[#F2F4F6]">
                     <span className="font-bold text-[#191F28]">알림</span>
                     {unread > 0 && (
