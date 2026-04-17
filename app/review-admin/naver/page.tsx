@@ -51,6 +51,7 @@ export default function NaverReviewPage() {
   const [filterRating, setFilterRating] = useState<number | null>(null)
   const [filterReplied, setFilterReplied] = useState<'all' | 'replied' | 'unreplied'>('all')
   const [copied, setCopied] = useState(false)
+  const [tone, setTone] = useState<'warm' | 'polite' | 'formal'>('warm')
 
   useEffect(() => {
     try {
@@ -83,7 +84,7 @@ export default function NaverReviewPage() {
           reviewer_name: review.author,
           rating: review.rating,
           store_name: storeName || '하랑마케팅 강남점',
-          tone: 'warm',
+          tone,
         }),
       })
       const data = await res.json()
@@ -219,6 +220,22 @@ export default function NaverReviewPage() {
                   ) : aiReply ? (
                     <>
                       <div className="mb-2">
+                        <div className="flex items-center gap-1.5 mb-2 flex-wrap">
+                          <span className="text-[10px] text-[#8B95A1] font-semibold">톤</span>
+                          {(['warm','polite','formal'] as const).map(t => {
+                            const label = t === 'warm' ? '😊 친근' : t === 'polite' ? '🙂 정중' : '🧑‍💼 공식'
+                            const active = tone === t
+                            return (
+                              <button key={t}
+                                onClick={() => { setTone(t); if (replyingId && aiReply) { const r = reviews.find(x => x.id === replyingId); if (r) { setTone(t); setTimeout(() => handleAiReply(r), 0) } } }}
+                                className={`px-2 py-1 rounded-lg text-[10px] font-bold transition ${active ? 'text-white' : 'bg-[#F2F4F6] text-[#4E5968]'}`}
+                                style={active ? { background: PLATFORM.color } : {}}>
+                                {label}
+                              </button>
+                            )
+                          })}
+                          <span className="text-[9px] text-[#8B95A1] ml-0.5">· 클릭하면 재생성</span>
+                        </div>
                         <p className="text-[10px] text-[#8B95A1] mb-1.5 flex items-center gap-1">
                           💡 복사 후 네이버 스마트플레이스에 붙여넣기
                         </p>
