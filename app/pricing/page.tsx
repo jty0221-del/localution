@@ -52,7 +52,7 @@ function getNextTier(count: number): { need: number; rate: number } | null {
 }
 
 
-// 역할별 추천 번들 — 옵션 부담 없이 한 번에 시작
+// 역할별 추천 번들 — 옵션 부담 없이 한 번에 ���작
 const PERSONAS = [
   {
     key: 'owner-solo',
@@ -95,7 +95,7 @@ const faqs = [
   },
   {
     q: '중간에 기능을 추가하거나 빼도 되나요?',
-    a: '네, 언제든 가능해요. 마이페이지에서 기능을 추가하거나 해지하면 다음 결제일부터 바로 반영됩니다. 위약금이나 해지 수수료는 없어요.',
+    a: '네, 언제든 가능해요. 마이페이지에서 기��을 추가하거나 해지하면 다음 결제일부터 바로 반영됩니다. 위약금이나 해지 수수료는 없어요.',
   },
   {
     q: '환불 정책은 어떻게 되나요?',
@@ -127,6 +127,22 @@ export default function PricingPage() {
   }
   const toggle = (id: string) =>
     setCart(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
+
+  // 장바구니를 1:1 문의로 연결 — 결제 PG 대신 견적 문의로 수주
+  const requestQuote = () => {
+    if (typeof window === 'undefined') return
+    const items = features.filter(f => cart.includes(f.id)).map(f => ({ id: f.id, name: f.name, price: f.price }))
+    const payload = {
+      items,
+      subtotal,
+      discountRate,
+      discountAmount,
+      total,
+      createdAt: new Date().toISOString(),
+    }
+    try { localStorage.setItem('localution.pricing_quote', JSON.stringify(payload)) } catch {}
+    window.location.href = '/inquiry?source=pricing'
+  }
 
   const cartItems = features.filter(f => cart.includes(f.id))
   const subtotal  = cartItems.reduce((sum, f) => sum + f.price, 0)
@@ -327,6 +343,10 @@ export default function PricingPage() {
                     className="block w-full py-3 bg-[#3182F6] text-white font-bold text-sm rounded-xl hover:bg-[#1B64DA] transition-all shadow-sm shadow-blue-200 text-center">
                     14일 무료로 시작하기 →
                   </Link>
+                  <button onClick={requestQuote}
+                    className="block w-full mt-2 py-3 bg-white border-2 border-[#3182F6] text-[#3182F6] font-bold text-sm rounded-xl hover:bg-[#EFF6FF] transition-all">
+                    💬 이 구성으로 견적 문의하기
+                  </button>
                   <p className="text-[11px] text-[#B0B8C1] text-center mt-2">신용카드 불필요 · 무료 체험 후 결제</p>
                 </>
               )}
@@ -418,16 +438,20 @@ export default function PricingPage() {
 
         {/* 모바일 장바구니 하단 고정 */}
         {cart.length > 0 && (
-          <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-[#E5E8EB] p-4 shadow-lg z-50">
-            <div className="flex items-center justify-between mb-1">
+          <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-[#E5E8EB] p-3 shadow-lg z-50">
+            <div className="flex items-end justify-between mb-2">
               <div>
                 <div className="text-xs text-[#8B95A1]">{cart.length}개 선택{discountRate > 0 ? ' · ' + Math.round(discountRate * 100) + '% 할인' : ''}</div>
                 <div className="text-lg font-black text-[#3182F6]">월 {total.toLocaleString()}원</div>
               </div>
-              <Link href="/login" className="bg-[#3182F6] text-white font-bold text-sm px-6 py-3 rounded-xl hover:bg-[#1B64DA] transition-colors shadow-sm">
-                무료로 시작하기 →
+              <Link href="/login" className="bg-[#3182F6] text-white font-bold text-xs px-4 py-2.5 rounded-xl hover:bg-[#1B64DA] transition-colors shadow-sm">
+                무료로 시작 →
               </Link>
             </div>
+            <button onClick={requestQuote}
+              className="w-full py-2.5 bg-white border-2 border-[#3182F6] text-[#3182F6] font-bold text-xs rounded-xl hover:bg-[#EFF6FF] transition-colors">
+              💬 이 구성 그대로 견적 문의
+            </button>
           </div>
         )}
       </div>
@@ -435,3 +459,4 @@ export default function PricingPage() {
     </div>
   )
 }
+
