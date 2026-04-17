@@ -194,7 +194,7 @@ export default function ReviewAdminHub() {
           unreplied: reviews.filter(r => !(r.replied || r.replyContent || r.replyText)).length,
         } : s))
       } catch (e: unknown) {
-        errors.push(`${meta.label}: 네트워크 오류`)
+        errors.push(`${meta.label}: 연결이 잠깐 불안정했어요. 다시 시도해주세요 🙏`)
       }
     }
 
