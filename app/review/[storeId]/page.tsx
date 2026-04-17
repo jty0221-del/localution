@@ -285,7 +285,7 @@ export default function ReviewPage() {
               <p className="text-xs" style={{ color: GRAY }}>영수증 1장 + 사진 몇 장이면 AI가 알아서 분석해요</p>
             </div>
 
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
               {([
                 { cat: 'receipt', label: '영수증', desc: 'OCR로 메뉴 자동 인식', icon: '🧾' },
                 { cat: 'photo', label: '사진', desc: '음식 · 서비스 · 전경 등', icon: '📸' },
@@ -308,7 +308,7 @@ export default function ReviewPage() {
             {photos.length > 0 && (
               <div className="bg-white rounded-2xl p-3 space-y-2 shadow-sm">
                 <p className="text-xs font-bold px-1" style={{ color: '#4E5968' }}>업로드된 파일 {photos.length}장</p>
-                <div className="grid grid-cols-3 gap-2">
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                   {photos.map(p => (
                     <div key={p.id} className="relative aspect-square rounded-lg overflow-hidden bg-gray-100">
                       <img src={p.url} alt={p.label} className="w-full h-full object-cover" />
@@ -338,7 +338,7 @@ export default function ReviewPage() {
 
             <div>
               <label className="text-sm font-bold mb-2 block">성별 (선택)</label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                 {[['F', '여성'], ['M', '남성'], ['-', '미표시']].map(([k, l]) => (
                   <button key={k} onClick={() => setGender(k as 'F' | 'M' | '-')} className="py-3 rounded-xl text-sm font-bold border-2 transition-colors" style={{
                     borderColor: gender === k ? BLUE : BORDER,
@@ -351,7 +351,7 @@ export default function ReviewPage() {
 
             <div>
               <label className="text-sm font-bold mb-2 block">나이대</label>
-              <div className="grid grid-cols-5 gap-2">
+              <div className="grid grid-cols-1 md:grid-cols-5 gap-2">
                 {['10s', '20s', '30s', '40s', '50s+'].map(a => (
                   <button key={a} onClick={() => setAge(a)} className="py-3 rounded-xl text-sm font-bold border-2 transition-colors" style={{
                     borderColor: age === a ? BLUE : BORDER,
@@ -364,7 +364,7 @@ export default function ReviewPage() {
 
             <div>
               <label className="text-sm font-bold mb-2 block">말투</label>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                 {[
                   { k: 'warm', l: '따뜻하게', d: '감성적이고 다정한' },
                   { k: 'short', l: '심플하게', d: '핵심만 깔끔하게' },
@@ -384,7 +384,7 @@ export default function ReviewPage() {
 
             <div>
               <label className="text-sm font-bold mb-2 block">리뷰 길이</label>
-              <div className="grid grid-cols-3 gap-2">
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
                 {([
                   { k: 'short', l: '짧음', d: '150자 이내' },
                   { k: 'mid', l: '중간', d: '250자 이내' },
