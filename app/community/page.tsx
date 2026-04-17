@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Sidebar from '../components/Sidebar'
 
@@ -321,6 +321,22 @@ function PostModal({ post, onClose, onLike, onBookmark }: any) {
 // ─── 메인 커뮤니티 페이지 ─────────────────────────────────────────
 export default function Community() {
   const [posts, setPosts] = useState(INITIAL_POSTS)
+
+  // 브라우저 localStorage에서 내가 쓴 글 복구
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem('localution.community_posts')
+      if (!raw) return
+      const myPosts = JSON.parse(raw)
+      if (Array.isArray(myPosts) && myPosts.length > 0) {
+        setPosts(prev => {
+          const existingIds = new Set(prev.map((p: any) => p.id))
+          const fresh = myPosts.filter((p: any) => !existingIds.has(p.id))
+          return [...fresh, ...prev]
+        })
+      }
+    } catch (_) {}
+  }, [])
   const [activeCategory, setActiveCategory] = useState('all')
   const [selectedPost, setSelectedPost] = useState<any>(null)
   const [showWrite, setShowWrite] = useState(false)
@@ -360,7 +376,14 @@ export default function Community() {
       liked: false, bookmarked: false,
       media: data.media || [],
     }
-    setPosts(prev => [newPost, ...prev])
+    setPosts(prev => {
+      const next = [newPost, ...prev]
+      try {
+        const mine = next.filter((p: any) => p.author === '나').slice(0, 50)
+        window.localStorage.setItem('localution.community_posts', JSON.stringify(mine))
+      } catch (_) {}
+      return next
+    })
   }
 
   return (
