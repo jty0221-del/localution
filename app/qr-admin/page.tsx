@@ -1,4 +1,37 @@
-'use client'
+'u
+
+// 서버(Supabase stores 테이블)에 업체 정보 영구 등록
+// /review/[slug] 페이지에서 누가 바로 열어도 업체 데이터로 꾸며지도록
+async function persistStoreToServer(
+  storeInfo: StoreInfo,
+  settings: QRSettings
+): Promise<{ ok: boolean; slug?: string }> {
+  if (!storeInfo || !storeInfo.name) return { ok: false }
+  try {
+    const slug = makeStoreId(storeInfo.name)
+    const res = await fetch('/api/stores/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        slug,
+        name: storeInfo.name,
+        category: storeInfo.category,
+        location: storeInfo.location,
+        naver_place_id: storeInfo.naverPlaceId,
+        naver_url: storeInfo.naverUrl,
+        main_keyword: settings?.mainKeyword,
+        sub_keywords: settings?.subKeywords,
+        reward_type: settings?.rewardType,
+        reward_value: settings?.rewardValue,
+      }),
+    })
+    const j = await res.json().catch(() => ({ ok: false }))
+    return { ok: !!j.ok, slug: j.slug }
+  } catch {
+    return { ok: false }
+  }
+}
+se client'
 
 export const dynamic = 'force-dynamic'
 
@@ -392,6 +425,8 @@ export default function QRAdmin() {
       linkedSource: 'platform_links',
     }
     setStoreInfo(next)
+    // 네이버 연동 정보를 서버에 즉시 등록 (리뷰 페이지가 slug로 조회 가능하도록)
+    persistStoreToServer(next, settings).catch(() => {})
     setStoreDraft(next)
     try { localStorage.setItem(LS_STORE_INFO, JSON.stringify(next)) } catch (_) {}
 
@@ -468,6 +503,7 @@ export default function QRAdmin() {
   }
 
   const handleSaveSettings = () => {
+    persistStoreToServer(storeInfo, settings).catch(() => {})
     setSaved(true)
     setTimeout(() => setSaved(false), 2000)
   }
