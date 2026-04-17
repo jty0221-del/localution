@@ -57,7 +57,7 @@ export default function ReviewsPage() {
       const data = await res.json()
       setAiReply(data.reply || data.message || 'AI 답글 생성에 실패했습니다.')
     } catch {
-      setAiReply('네트워크 오류가 발생했습니다.')
+      setAiReply('연결이 잠깐 불안정했어요. 다시 시도해주세요 🙏가 발생했습니다.')
     } finally {
       setGenerating(false)
     }
