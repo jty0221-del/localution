@@ -2,6 +2,7 @@
 export const dynamic = 'force-dynamic'
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import Link from 'next/link'
 import Sidebar from '../components/Sidebar'
 
 // ═══════════════════════════════════════════════════════════
@@ -937,38 +938,38 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-            <a href="/reviews" className="group flex flex-col p-4 rounded-xl border border-[#F2F4F6] hover:border-[#3182F6] hover:shadow-md transition-all cursor-pointer">
+            <Link href="/reviews" className="group flex flex-col p-4 rounded-xl border border-[#F2F4F6] hover:border-[#3182F6] hover:shadow-md transition-all cursor-pointer">
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-1 h-8 rounded-full bg-[#F04452]"/>
                 <span className="text-xs text-[#8B95A1] font-medium">미답변 리뷰</span>
               </div>
               <span className="text-2xl font-black text-[#F04452] mb-1">3<span className="text-sm font-bold text-[#8B95A1]">건</span></span>
               <span className="text-[11px] text-[#8B95A1] group-hover:text-[#3182F6] transition-colors flex items-center gap-1">바로 처리하기 <span>→</span></span>
-            </a>
-            <a href="/crm" className="group flex flex-col p-4 rounded-xl border border-[#F2F4F6] hover:border-[#3182F6] hover:shadow-md transition-all cursor-pointer">
+            </Link>
+            <Link href="/crm" className="group flex flex-col p-4 rounded-xl border border-[#F2F4F6] hover:border-[#3182F6] hover:shadow-md transition-all cursor-pointer">
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-1 h-8 rounded-full bg-[#F59E0B]"/>
                 <span className="text-xs text-[#8B95A1] font-medium">재방문 유도</span>
               </div>
               <span className="text-2xl font-black text-[#F59E0B] mb-1">5<span className="text-sm font-bold text-[#8B95A1]">명</span></span>
               <span className="text-[11px] text-[#8B95A1] group-hover:text-[#3182F6] transition-colors flex items-center gap-1">바로 처리하기 <span>→</span></span>
-            </a>
-            <a href="/reservations" className="group flex flex-col p-4 rounded-xl border border-[#F2F4F6] hover:border-[#3182F6] hover:shadow-md transition-all cursor-pointer">
+            </Link>
+            <Link href="/reservations" className="group flex flex-col p-4 rounded-xl border border-[#F2F4F6] hover:border-[#3182F6] hover:shadow-md transition-all cursor-pointer">
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-1 h-8 rounded-full bg-[#3182F6]"/>
                 <span className="text-xs text-[#8B95A1] font-medium">오늘 예약</span>
               </div>
               <span className="text-2xl font-black text-[#3182F6] mb-1">7<span className="text-sm font-bold text-[#8B95A1]">건</span></span>
               <span className="text-[11px] text-[#8B95A1] group-hover:text-[#3182F6] transition-colors flex items-center gap-1">바로 처리하기 <span>→</span></span>
-            </a>
-            <a href="/settlement" className="group flex flex-col p-4 rounded-xl border border-[#F2F4F6] hover:border-[#3182F6] hover:shadow-md transition-all cursor-pointer">
+            </Link>
+            <Link href="/settlement" className="group flex flex-col p-4 rounded-xl border border-[#F2F4F6] hover:border-[#3182F6] hover:shadow-md transition-all cursor-pointer">
               <div className="flex items-center gap-2 mb-2">
                 <div className="w-1 h-8 rounded-full bg-[#12B76A]"/>
                 <span className="text-xs text-[#8B95A1] font-medium">세금계산서 발행</span>
               </div>
               <span className="text-2xl font-black text-[#12B76A] mb-1">2<span className="text-sm font-bold text-[#8B95A1]">건</span></span>
               <span className="text-[11px] text-[#8B95A1] group-hover:text-[#3182F6] transition-colors flex items-center gap-1">바로 처리하기 <span>→</span></span>
-            </a>
+            </Link>
           </div>
         </div>
 
@@ -1145,7 +1146,7 @@ export default function Dashboard() {
               <span className="text-sm font-bold text-[#191F28]">최근 리뷰</span>
               <span className="text-[11px] text-[#8B95A1]">미답변 {RECENT_REVIEWS.filter(r => !r.replied).length}건</span>
             </div>
-            <a href="/reviews" className="text-[11px] text-[#3182F6] font-semibold hover:underline">전체보기 →</a>
+            <Link href="/reviews" className="text-[11px] text-[#3182F6] font-semibold hover:underline">전체보기 →</Link>
           </div>
           <div className="divide-y divide-[#F2F4F6]">
             {RECENT_REVIEWS.map((r, i) => (
