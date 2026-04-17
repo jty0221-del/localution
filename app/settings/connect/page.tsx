@@ -404,7 +404,7 @@ function NaverConnectModal(props: {
           {/* Step 2: URL 입력 */}
           <div>
             <label className="block text-xs font-bold text-[#4E5968] mb-2">2. 네이버 플레이스 URL 또는 ID</label>
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <input
                 type="text"
                 value={urlInput}
@@ -579,7 +579,7 @@ function GoogleConnectModal(props: {
             </div>
 
             {mode === 'url' ? (
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <input type="text" value={urlInput} onChange={e => setUrlInput(e.target.value)}
                   placeholder="https://www.google.com/maps/place/..."
                   className="flex-1 border border-[#E5E8EB] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#4285F4]" />
@@ -589,7 +589,7 @@ function GoogleConnectModal(props: {
                 </button>
               </div>
             ) : (
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <input type="text" value={searchQ} onChange={e => setSearchQ(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleSearch()}
                   placeholder="예: 하랑마케팅 강남, 서울 강남구 카페"
@@ -744,7 +744,7 @@ function KakaoConnectModal(props: {
             </div>
 
             {mode === 'search' ? (
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <input type="text" value={searchQ} onChange={e => setSearchQ(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleSearch()}
                   placeholder="예: 하랑마케팅 강남"
@@ -755,7 +755,7 @@ function KakaoConnectModal(props: {
                 </button>
               </div>
             ) : (
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <input type="text" value={urlInput} onChange={e => setUrlInput(e.target.value)}
                   placeholder="https://place.map.kakao.com/1234567890"
                   className="flex-1 border border-[#E5E8EB] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#F9C706]" />
@@ -884,7 +884,7 @@ function DeliveryConnectModal(props: {
 
           <div>
             <label className="block text-xs font-bold text-[#4E5968] mb-2">2. {meta.name} 매장 URL 또는 ID</label>
-            <div className="flex gap-2">
+            <div className="flex flex-col sm:flex-row gap-2">
               <input type="text" value={urlInput} onChange={e => setUrlInput(e.target.value)}
                 onKeyDown={e => e.key === 'Enter' && handleVerify()}
                 placeholder={meta.placeholder}
