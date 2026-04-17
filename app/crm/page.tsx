@@ -28,7 +28,7 @@ export default function CRM() {
         </div>
 
         {/* 통계 */}
-        <div className="grid grid-cols-3 gap-4 mb-8">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
           {[
             { label: '전체 고객', value: '284' },
             { label: 'VIP 고객', value: '23' },
