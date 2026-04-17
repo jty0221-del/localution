@@ -476,7 +476,7 @@ export default function QRAdmin() {
                         className="w-full border border-[#E5E8EB] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#3182F6] transition-colors"
                       />
                     </div>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                       <div>
                         <label className="block text-xs font-semibold text-[#4E5968] mb-1">업종</label>
                         <input
@@ -933,7 +933,7 @@ export default function QRAdmin() {
               </div>
               <div>
                 <label className="block text-sm font-semibold text-[#191F28] mb-2">QR 용도</label>
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
                   {PURPOSE_OPTIONS.map(opt => (
                     <button key={opt.value}
                       onClick={() => setNewQR(p => ({ ...p, purpose: opt.value }))}
