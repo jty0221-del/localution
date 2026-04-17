@@ -49,6 +49,7 @@ export default function GoogleReviewPage() {
   const [filterRating, setFilterRating] = useState<number | null>(null)
   const [filterReplied, setFilterReplied] = useState<'all' | 'replied' | 'unreplied'>('all')
   const [copied, setCopied] = useState(false)
+  const [tone, setTone] = useState<'warm' | 'polite' | 'formal'>('warm')
 
   useEffect(() => {
     try {
@@ -78,7 +79,7 @@ export default function GoogleReviewPage() {
           reviewer_name: review.author,
           rating: review.rating,
           store_name: storeName || '하랑마케팅 강남점',
-          tone: 'warm',
+          tone,
         }),
       })
       const data = await res.json()
