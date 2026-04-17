@@ -22,6 +22,7 @@ const MARKETING_SUB = [
   { href: '/marketing/place',        label: '플레이스 진단',   icon: '📍' },
   { href: '/marketing/keyword-rank', label: '키워드 순위',     icon: '🔍' },
   { href: '/marketing/keyword-score',label: '키워드 점수분석', icon: '📊' },
+  { href: '/marketing/reels',        label: '릴스·쇼츠 생성',  icon: '✨' },
 ]
 
 const REGIONS = [
