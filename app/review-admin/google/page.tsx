@@ -48,6 +48,7 @@ export default function GoogleReviewPage() {
   const [generating, setGenerating] = useState(false)
   const [filterRating, setFilterRating] = useState<number | null>(null)
   const [filterReplied, setFilterReplied] = useState<'all' | 'replied' | 'unreplied'>('all')
+  const [copied, setCopied] = useState(false)
 
   useEffect(() => {
     try {
@@ -86,6 +87,17 @@ export default function GoogleReviewPage() {
       setAiReply('네트워크 오류')
     } finally {
       setGenerating(false)
+    }
+  }
+
+  const handleSubmit = async () => {
+    try {
+      await navigator.clipboard.writeText(aiReply)
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+      window.open('https://business.google.com/reviews/', '_blank', 'noopener,noreferrer')
+    } catch {
+      alert('복사 실패 — 직접 답글을 선택해 복사하세요')
     }
   }
 
@@ -196,10 +208,18 @@ export default function GoogleReviewPage() {
                     <p className="text-sm font-semibold" style={{ color: PLATFORM.textColor }}>AI 답글 생성 중...</p>
                   ) : aiReply ? (
                     <>
-                      <p className="text-sm text-[#191F28] leading-relaxed mb-2">{aiReply}</p>
+                      <div className="mb-2">
+                        <p className="text-[10px] text-[#8B95A1] mb-1.5 flex items-center gap-1">
+                          💡 복사 후 구글 비즈니스 프로필에 붙여넣기
+                        </p>
+                        <p className="text-sm text-[#191F28] leading-relaxed">{aiReply}</p>
+                      </div>
                       <div className="flex gap-2 flex-wrap">
-                        <button className="px-3 py-1.5 rounded-lg text-xs font-bold text-white"
-                          style={{ background: PLATFORM.color }}>등록</button>
+                        <button onClick={handleSubmit}
+                          className="px-3 py-1.5 rounded-lg text-xs font-bold text-white hover:opacity-90"
+                          style={{ background: PLATFORM.color }}>
+                          {copied ? '✓ 복사됨! 붙여넣기' : '📋 복사 + 구글 열기'}
+                        </button>
                         <button onClick={() => handleAiReply(review)}
                           className="px-3 py-1.5 rounded-lg text-xs font-bold bg-[#F2F4F6] text-[#4E5968]">재생성</button>
                         <button onClick={() => { setReplyingId(null); setAiReply('') }}
