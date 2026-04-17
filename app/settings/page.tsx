@@ -217,7 +217,7 @@ function StoreTab() {
           )}
           <p className="text-xs text-[#3182F6] mt-2 opacity-70">URL 붙여넣기 또는 매장명으로 검색 → 매장명·주소·전화번호·카테고리 자동 입력</p>
         </div>
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div>
             <label className="block text-xs font-semibold text-[#4E5968] mb-1.5">매장명</label>
             <input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="우리 카페" className="w-full border border-[#E5E8EB] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#3182F6] transition-colors" />
@@ -481,7 +481,7 @@ function AITab() {
       <div className="bg-white rounded-2xl p-6 shadow-sm">
         <div className="mb-5">
           <h3 className="font-bold text-[#191F28] mb-3">답변 톤</h3>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             {[
               { v:'warm',      label:'따뜻하게',   desc:'다정하고 부드러운 어투' },
               { v:'polite',    label:'정중하게',   desc:'예의 바르고 격식 있는 어투' },
@@ -500,7 +500,7 @@ function AITab() {
         </div>
         <div>
           <h3 className="font-bold text-[#191F28] mb-3">답변 길이</h3>
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
             {[
               { v:'short',  label:'짧게',  desc:'150자\u00B1' },
               { v:'medium', label:'보통',  desc:'250자\u00B1' },
@@ -520,7 +520,7 @@ function AITab() {
         <div className="mb-5">
           <h3 className="font-bold text-[#191F28] mb-3">화자 성별</h3>
           <p className="text-xs text-[#8B95A1] mb-3">답변의 말투 느낌을 설정합니다</p>
-          <div className="grid grid-cols-4 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
             {[
               { v:'none',    label:'미설정', desc:'기본' },
               { v:'male',    label:'남성',   desc:'남성적 어투' },
@@ -538,7 +538,7 @@ function AITab() {
         <div>
           <h3 className="font-bold text-[#191F28] mb-3">화자 연령대</h3>
           <p className="text-xs text-[#8B95A1] mb-3">답변 어투의 연령대 느낌을 설정합니다</p>
-          <div className="grid grid-cols-5 gap-3">
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
             {[
               { v:'none', label:'미설정', desc:'기본' },
               { v:'20s',  label:'20대',  desc:'젊고 발랄' },
@@ -832,7 +832,7 @@ function ReviewTab() {
           </div>
         </button>
         {showCtx && (
-          <div className="mt-3 grid grid-cols-2 gap-2 pt-3 border-t border-[#F2F4F6]">
+          <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-2 pt-3 border-t border-[#F2F4F6]">
             {[
               { label:'업종', val: storeCtx.bizType },
               { label:'매장명', val: storeCtx.storeName },
@@ -894,7 +894,7 @@ function ReviewTab() {
 
         {connected[activePlat] ? (
           <>
-            <div className="grid grid-cols-4 gap-3 mb-4">
+            <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-4">
               {[
                 { label:'전체 리뷰', value:String(total), color:'#191F28' },
                 { label:'미답변', value:String(unanswered), color: unanswered > 0 ? '#EF4444' : '#059669' },
@@ -1288,7 +1288,7 @@ function PlanTab() {
                 <label className="block text-xs font-semibold text-[#4E5968] mb-1.5">카드 번호</label>
                 <input type="text" value={cardForm.number} onChange={e => setCardForm(p => ({ ...p, number: e.target.value }))} placeholder="0000 0000 0000 0000" className="w-full border border-[#E5E8EB] rounded-xl px-4 py-3 text-sm font-mono focus:outline-none focus:border-[#3182F6] transition-colors" />
               </div>
-              <div className="grid grid-cols-2 gap-3">
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold text-[#4E5968] mb-1.5">유효기간</label>
                   <input type="text" placeholder="MM/YY" value={cardForm.expiry} onChange={e => setCardForm(p => ({ ...p, expiry: e.target.value }))} className="w-full border border-[#E5E8EB] rounded-xl px-4 py-3 text-sm font-mono focus:outline-none focus:border-[#3182F6] transition-colors" />
