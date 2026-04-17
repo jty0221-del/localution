@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 
 import { useState } from 'react'
 import Sidebar from '../components/Sidebar'
+import Link from 'next/link'
 
 function IconSearch() {
   return (
@@ -479,10 +480,26 @@ export default function MarketingPage() {
       <Sidebar/>
       <main className="flex-1 ml-0 md:ml-[220px] p-4 pt-20 md:p-8 md:pt-8">
         <div className="max-w-5xl mx-auto">
-          <div className="mb-6">
+          <div className="mb-4">
             <h1 className="text-2xl font-black text-[#191F28]">마케팅 관리</h1>
             <p className="text-sm text-[#8B95A1] mt-1">네이버 플레이스 키워드 순위 · 진단 · 유입 분석을 한 곳에서 관리하세요</p>
           </div>
+
+          {/* 릴스·쇼츠 생성기 배너 */}
+          <Link href="/marketing/reels"
+            className="block mb-6 bg-gradient-to-r from-[#8B5CF6] via-[#A855F7] to-[#EC4899] rounded-2xl p-4 md:p-5 shadow-sm hover:shadow-lg transition-all group">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center text-2xl md:text-3xl">✨</div>
+              <div className="flex-1 text-white">
+                <div className="flex items-center gap-2 mb-0.5">
+                  <span className="text-[10px] font-black bg-white text-[#8B5CF6] px-2 py-0.5 rounded-full">NEW</span>
+                  <div className="text-sm md:text-base font-black">인스타 릴스·쇼츠 JSON 기반 자동 기획</div>
+                </div>
+                <div className="text-xs text-white/80">업체 정보 입력 → AI가 장면별 촬영 지시서까지 원클릭 생성</div>
+              </div>
+              <div className="text-white text-lg group-hover:translate-x-1 transition-transform">→</div>
+            </div>
+          </Link>
 
           <div className="flex gap-1 bg-white border border-[#E5E8EB] rounded-2xl p-1 mb-6 w-fit">
             {tabs.map(t => (
