@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 
 import { useState } from 'react'
 import Sidebar from '../components/Sidebar'
+import Footer from '../components/Footer'
 import Link from 'next/link'
 
 type Feature = {
@@ -52,7 +53,7 @@ function getNextTier(count: number): { need: number; rate: number } | null {
 }
 
 
-// 역할별 추천 번들 — 옵션 부담 없이 한 번에 ���작
+// 역할별 추천 번들 — 옵션 부담 없이 한 번에 �����작
 const PERSONAS = [
   {
     key: 'owner-solo',
@@ -95,7 +96,7 @@ const faqs = [
   },
   {
     q: '중간에 기능을 추가하거나 빼도 되나요?',
-    a: '네, 언제든 가능해요. 마이페이지에서 기��을 추가하거나 해지하면 다음 결제일부터 바로 반영됩니다. 위약금이나 해지 수수료는 없어요.',
+    a: '네, 언제든 가능해요. 마이페이지에서 기능을 추가하거나 해지하면 다음 결제일부터 바로 반영됩니다. 위약금이나 해지 수수료는 없어요.',
   },
   {
     q: '환불 정책은 어떻게 되나요?',
@@ -353,7 +354,7 @@ export default function PricingPage() {
             </div>
 
             <div className="bg-blue-50 rounded-2xl p-4 mt-3">
-              <div className="text-xs font-bold text-[#3182F6] mb-2">💡 이런 조합 인기예요</div>
+              <div className="text-xs font-bold text-[#3182F6] mb-2">���� 이런 조합 인기예요</div>
               <div className="space-y-1.5 text-xs text-[#4E5968]">
                 <div>🏪 사장님 기본 3종 <b className="text-[#3182F6]">2,673원/월</b> (10%↓)</div>
                 <div>📣 마케터 5종 <b className="text-[#3182F6]">6,341원/월</b> (15%↓)</div>
@@ -399,42 +400,6 @@ export default function PricingPage() {
           </div>
         </div>
 
-        {/* 푸터 */}
-        <div className="max-w-5xl mx-auto mt-20 pt-8 border-t border-[#E5E8EB]">
-          <div className="grid md:grid-cols-4 gap-6 text-xs text-[#8B95A1]">
-            <div>
-              <div className="font-black text-[#191F28] text-sm mb-2">로컬루션</div>
-              <p className="leading-relaxed">AI 기반 소상공인 올인원<br/>비즈니스 자동화 플랫폼</p>
-            </div>
-            <div>
-              <div className="font-bold text-[#4E5968] mb-2">서비스</div>
-              <div className="space-y-1.5">
-                <Link href="/service-intro" className="block hover:text-[#3182F6]">서비스 소개</Link>
-                <Link href="/pricing" className="block hover:text-[#3182F6]">요금 안내</Link>
-                <Link href="/community" className="block hover:text-[#3182F6]">커뮤니티</Link>
-              </div>
-            </div>
-            <div>
-              <div className="font-bold text-[#4E5968] mb-2">고객지원</div>
-              <div className="space-y-1.5">
-                <Link href="/inquiry" className="block hover:text-[#3182F6]">1:1 문의</Link>
-                <div>이메일: help@localution.co.kr</div>
-                <div>운영시간: 평일 10:00–18:00</div>
-              </div>
-            </div>
-            <div>
-              <div className="font-bold text-[#4E5968] mb-2">회사 정보</div>
-              <div className="space-y-1.5">
-                <div>상호: 하랑마케팅</div>
-                <div>대표: 전태영</div>
-                <div>사업자번호: 준비 중</div>
-              </div>
-            </div>
-          </div>
-          <div className="mt-8 pt-6 border-t border-[#F2F4F6] text-center text-xs text-[#B0B8C1]">
-            © 2026 Localution. All rights reserved.
-          </div>
-        </div>
 
         {/* 모바일 장바구니 하단 고정 */}
         {cart.length > 0 && (
@@ -455,8 +420,13 @@ export default function PricingPage() {
           </div>
         )}
       </div>
+      {/* 푸터 — 랜딩 페이지와 동일 */}
+      <div className="-mx-4 md:-mx-8 mt-20">
+        <Footer />
+      </div>
     </main>
     </div>
   )
 }
+
 
