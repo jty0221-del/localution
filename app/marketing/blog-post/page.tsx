@@ -183,6 +183,19 @@ export default function BlogPostGeneratorPage() {
 
   return (
     <div className="min-h-screen bg-[#F8F9FB]">
+      {/* LOCALUTION_HERO_BANNER */}
+      <section className="bg-gradient-to-r from-[#10B981] to-[#047857] text-white px-4 py-10 sm:py-14">
+        <div className="max-w-5xl mx-auto flex items-center gap-4">
+          <div className="text-4xl sm:text-5xl drop-shadow-sm">✍️</div>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-xl sm:text-2xl font-black tracking-tight">블로그 글 작성</h1>
+            <p className="text-white/85 text-xs sm:text-sm mt-1 leading-relaxed">네이버 SEO 최적화 3,000자 원고 — 키워드·사진만 주면 완성본</p>
+          </div>
+          <div className="hidden sm:flex items-center gap-2 text-[11px] font-bold text-white/90 bg-white/15 backdrop-blur px-3 py-1.5 rounded-full border border-white/20">
+            로컬루션
+          </div>
+        </div>
+      </section>
       <Sidebar />
       <main className="ml-0 lg:ml-60 pt-6 pb-20 px-4 md:px-8">
         <div className="max-w-5xl mx-auto">
