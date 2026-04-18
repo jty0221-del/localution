@@ -5,10 +5,10 @@ import { useState } from 'react'
 import Sidebar from '../components/Sidebar'
 import Link from 'next/link'
 import {
-import Footer from '../components/Footer'
   Search, TrendingUp, ClipboardCheck, Users, Sparkles, ArrowRight, FileText,
   ArrowUp, ArrowDown, Minus, CheckCircle2, AlertTriangle, XCircle,
 } from 'lucide-react'
+import Footer from '../components/Footer'
 
 const mockRanks = [
   { keyword: '강남 맛집', rank: 3, prev: 5, volume: 18200 },
