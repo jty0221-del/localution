@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 
 import { useState, useEffect } from 'react'
 import Sidebar from '../../components/Sidebar'
+import Footer from '../../components/Footer'
 
 // ── 대시보드 업체 목록 타입 ────────────────────────────────
 type Store = {
@@ -987,6 +988,7 @@ function DeliveryConnectModal(props: {
           </div>
         </div>
       </div>
+    <Footer />
     </div>
   )
 }
