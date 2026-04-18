@@ -17,7 +17,7 @@ export default function Privacy() {
           <div className="space-y-8 text-sm text-[#4E5968] leading-relaxed">
             <div>
               <h2 className="font-bold text-[#191F28] mb-3">제1조 (개인정보의 처리 목적)</h2>
-              <p>하랑(이하 "회사")은 다음의 목적을 위하여 개인정보를 처리합니다. 처리하고 있는 개인정보는 다음의 목적 이외의 용도로는 이용되지 않으며 이용 목적이 변경되는 경우에는 별도의 동의를 받는 등 필요한 조치를 이행할 예정입니다.</p>
+              <p>하랑마케팅(이하 "회사")은 다음의 목적을 위하여 개인정보를 처리합니다. 처리하고 있는 개인정보는 다음의 목적 이외의 용도로는 이용되지 않으며 이용 목적이 변경되는 경우에는 별도의 동의를 받는 등 필요한 조치를 이행할 예정입니다.</p>
               <ul className="mt-3 space-y-1.5 list-disc list-inside text-[#4E5968]">
                 <li>서비스 제공 및 계약 이행</li>
                 <li>회원 관리 및 본인 확인</li>
@@ -84,8 +84,8 @@ export default function Privacy() {
             <div>
               <h2 className="font-bold text-[#191F28] mb-3">제6조 (개인정보 보호책임자)</h2>
               <div className="bg-[#F2F4F6] rounded-xl p-4 space-y-1.5">
-                <p><strong>개인정보 보호책임자:</strong> 하랑</p>
-                <p><strong>소속/직위:</strong> 하랑 / 대표</p>
+                <p><strong>개인정보 보호책임자:</strong> 전태영</p>
+                <p><strong>소속/직위:</strong> 하랑마케팅 / 대표</p>
                 <p><strong>연락처:</strong> 010-7510-9054</p>
                 <p><strong>이메일:</strong> harangmarketing@naver.com</p>
               </div>
@@ -102,3 +102,4 @@ export default function Privacy() {
     </div>
   )
 }
+
