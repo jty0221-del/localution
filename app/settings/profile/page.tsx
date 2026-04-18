@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Sidebar from '../../components/Sidebar'
-import { User, Store, MapPin, Save, Check, ArrowLeft, Mail, Phone } from 'lucide-react'
+import { User, Store, MapPin, Save, Check, ArrowLeft, Mail, Phone, LogOut } from 'lucide-react'
 import Footer from '../../components/Footer'
 
 type UserCookie = {
@@ -92,27 +92,50 @@ export default function ProfileSettingsPage() {
 
           {/* 로그인 계정 정보 (읽기 전용) */}
           <div className="bg-white rounded-2xl shadow-sm p-6 mb-4">
-            <h2 className="text-sm font-bold text-[#191F28] mb-4">로그인 계정</h2>
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-sm font-bold text-[#191F28]">로그인 계정</h2>
+              {user && (
+                <a href="/api/auth/logout"
+                  onClick={(e) => {
+                    if (!window.confirm('로그아웃 하시겠어요?')) { e.preventDefault(); }
+                  }}
+                  className="hidden md:inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1.5 rounded-lg bg-[#FEF2F2] text-[#DC2626] hover:bg-[#FEE2E2] transition-all">
+                  <LogOut size={12} strokeWidth={2.5} />
+                  로그아웃
+                </a>
+              )}
+            </div>
             {user ? (
-              <div className="flex items-center gap-4 p-4 rounded-xl bg-[#F8F9FA]">
-                {user.profile_image ? (
-                  <img src={user.profile_image} alt="" width={48} height={48}
-                    className="w-12 h-12 rounded-full object-cover ring-2 ring-white flex-shrink-0" />
-                ) : (
-                  <div className="w-12 h-12 rounded-full bg-[#3182F6] flex items-center justify-center text-white text-lg font-bold flex-shrink-0">
-                    {(user.name || '?')[0]}
+              <>
+                <div className="flex items-center gap-4 p-4 rounded-xl bg-[#F8F9FA]">
+                  {user.profile_image ? (
+                    <img src={user.profile_image} alt="" width={48} height={48}
+                      className="w-12 h-12 rounded-full object-cover ring-2 ring-white flex-shrink-0" />
+                  ) : (
+                    <div className="w-12 h-12 rounded-full bg-[#3182F6] flex items-center justify-center text-white text-lg font-bold flex-shrink-0">
+                      {(user.name || '?')[0]}
+                    </div>
+                  )}
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-bold text-[#191F28]">{user.name || '이름 미설정'}</p>
+                    <p className="text-[11px] text-[#8B95A1] flex items-center gap-1 mt-0.5">
+                      <Mail size={10} /> {user.email || '이메일 미공개'}
+                    </p>
                   </div>
-                )}
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-bold text-[#191F28]">{user.name || '이름 미설정'}</p>
-                  <p className="text-[11px] text-[#8B95A1] flex items-center gap-1 mt-0.5">
-                    <Mail size={10} /> {user.email || '이메일 미공개'}
-                  </p>
+                  <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-[#E8F4FD] text-[#3182F6] flex-shrink-0">
+                    {PROVIDER_LABEL[user.provider || ''] || 'OAuth'} 로그인
+                  </span>
                 </div>
-                <span className="text-[10px] font-bold px-2 py-1 rounded-full bg-[#E8F4FD] text-[#3182F6]">
-                  {PROVIDER_LABEL[user.provider || ''] || 'OAuth'} 로그인
-                </span>
-              </div>
+                {/* 모바일 전용 로그아웃 버튼 */}
+                <a href="/api/auth/logout"
+                  onClick={(e) => {
+                    if (!window.confirm('로그아웃 하시겠어요?')) { e.preventDefault(); }
+                  }}
+                  className="md:hidden mt-3 flex items-center justify-center gap-2 w-full px-3 py-3 rounded-xl bg-[#FEF2F2] text-[#DC2626] hover:bg-[#FEE2E2] active:bg-[#FECACA] transition-all text-sm font-bold">
+                  <LogOut size={15} strokeWidth={2.5} />
+                  <span>로그아웃</span>
+                </a>
+              </>
             ) : (
               <div className="text-center py-6 text-sm text-[#8B95A1]">
                 로그인 상태가 아닙니다. <Link href="/login" className="text-[#3182F6] font-semibold underline">로그인</Link>
