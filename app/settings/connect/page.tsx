@@ -23,14 +23,26 @@ type PlatformLink = {
   linkedAt: string
 }
 
-const LS_STORES = 'localution.stores'
-const LS_LINKS  = 'localution.platform_links'
+const LS_STORES  = 'localution.stores'
+const LS_LINKS   = 'localution.platform_links'
+const LS_PROFILE = 'localution_store'   // /settings/profile 에서 저장하는 키
 
-// 데모 기본 업체
-const DEFAULT_STORES: Store[] = [
-  { id: 'store-1', name: '하랑마케팅 카페', branch: '강남점', address: '서울 강남구', category: '카페·베이커리' },
-  { id: 'store-2', name: '하랑마케팅 카페', branch: '일산점', address: '경기 고양시 일산동구', category: '카페·베이커리' },
-]
+// 로그인 사용자의 프로필 매장 정보 → stores[] 변환
+function storesFromProfile(): Store[] {
+  if (typeof window === 'undefined') return []
+  try {
+    const raw = localStorage.getItem(LS_PROFILE)
+    if (!raw) return []
+    const p = JSON.parse(raw)
+    if (!p?.storeName) return []
+    return [{
+      id: 'store-me',
+      name: p.storeName,
+      branch: p.branch || undefined,
+      address: p.address || undefined,
+    }]
+  } catch { return [] }
+}
 
 // ── SVG 로고 (간략) ────────────────────────────────────────
 function NaverLogo({ size = 48 }: { size?: number }) {
@@ -100,18 +112,46 @@ export default function SettingsConnect() {
   const [modal, setModal]     = useState<string | null>(null)   // platform id
   const [selectedStore, setSelectedStore] = useState<string>('')
 
-  // 초기 로드
+  // 초기 로드 + 프로필 변경 실시간 반영
   useEffect(() => {
-    try {
-      const s = localStorage.getItem(LS_STORES)
-      setStores(s ? JSON.parse(s) : DEFAULT_STORES)
-      const l = localStorage.getItem(LS_LINKS)
-      setLinks(l ? JSON.parse(l) : [])
-    } catch {
-      setStores(DEFAULT_STORES)
-      setLinks([])
+    function loadStores() {
+      try {
+        const s = localStorage.getItem(LS_STORES)
+        const parsed = s ? JSON.parse(s) : null
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          setStores(parsed)
+        } else {
+          setStores(storesFromProfile())
+        }
+      } catch { setStores(storesFromProfile()) }
+    }
+    function loadLinks() {
+      try {
+        const l = localStorage.getItem(LS_LINKS)
+        setLinks(l ? JSON.parse(l) : [])
+      } catch { setLinks([]) }
+    }
+    loadStores()
+    loadLinks()
+
+    const onUserChange = () => loadStores()
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === LS_PROFILE || e.key === LS_STORES) loadStores()
+      if (e.key === LS_LINKS) loadLinks()
+    }
+    window.addEventListener('localution:user-change', onUserChange)
+    window.addEventListener('storage', onStorage)
+    return () => {
+      window.removeEventListener('localution:user-change', onUserChange)
+      window.removeEventListener('storage', onStorage)
     }
   }, [])
+
+  // 업체 저장 헬퍼 (검증된 이름으로 업데이트)
+  function saveStores(next: Store[]) {
+    setStores(next)
+    try { localStorage.setItem(LS_STORES, JSON.stringify(next)) } catch {}
+  }
 
   // 링크 저장 헬퍼
   function saveLinks(next: PlatformLink[]) {
@@ -122,8 +162,27 @@ export default function SettingsConnect() {
   function openModal(platformId: string) {
     const plat = PLATFORMS.find(p => p.id === platformId)
     if (!plat?.enabled) return
+    if (stores.length === 0) {
+      if (confirm('먼저 프로필 설정에서 매장 정보를 등록해야 합니다.\n프로필 설정으로 이동할까요?')) {
+        window.location.href = '/settings/profile'
+      }
+      return
+    }
     setSelectedStore(stores[0]?.id || '')
     setModal(platformId)
+  }
+
+  // 플랫폼 연결 저장 시 stores도 갱신 (검증된 매장명 반영)
+  function handleLinkSave(link: PlatformLink) {
+    const next = [...links.filter(l => !(l.platform === link.platform && l.storeId === link.storeId)), link]
+    saveLinks(next)
+    // 해당 store의 name이 비어있거나 하드코딩 기본값이면 검증된 이름으로 업데이트
+    const store = stores.find(s => s.id === link.storeId)
+    if (store && link.externalName && !store.name) {
+      const updated = stores.map(s => s.id === link.storeId ? { ...s, name: link.externalName } : s)
+      saveStores(updated)
+    }
+    setModal(null)
   }
 
   function getLinksForPlatform(platformId: string) {
@@ -153,16 +212,26 @@ export default function SettingsConnect() {
           <div className="bg-white rounded-2xl p-5 shadow-sm mb-5">
             <div className="flex items-center justify-between mb-3">
               <h2 className="font-bold text-sm text-[#191F28]">등록된 업체 ({stores.length}개)</h2>
-              <button className="text-xs text-[#3182F6] font-semibold">+ 업체 추가</button>
+              <a href="/settings/profile" className="text-xs text-[#3182F6] font-semibold hover:underline">매장 정보 편집 →</a>
             </div>
-            <div className="flex flex-wrap gap-2">
-              {stores.map(s => (
-                <div key={s.id} className="px-3 py-2 bg-[#F8F9FA] rounded-xl text-xs">
-                  <span className="font-bold text-[#191F28]">{s.name}</span>
-                  {s.branch && <span className="text-[#8B95A1] ml-1">· {s.branch}</span>}
-                </div>
-              ))}
-            </div>
+            {stores.length === 0 ? (
+              <div className="text-center py-6 bg-[#FFFBEB] border border-[#FDE68A] rounded-xl">
+                <p className="text-sm font-bold text-[#92400E] mb-1">아직 등록된 업체가 없어요</p>
+                <p className="text-xs text-[#B45309] mb-3">먼저 프로필 설정에서 매장명·지점을 등록해주세요</p>
+                <a href="/settings/profile" className="inline-block px-4 py-2 bg-[#3182F6] text-white text-xs font-bold rounded-xl hover:bg-[#1B64DA]">
+                  프로필 설정으로 이동 →
+                </a>
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {stores.map(s => (
+                  <div key={s.id} className="px-3 py-2 bg-[#F8F9FA] rounded-xl text-xs">
+                    <span className="font-bold text-[#191F28]">{s.name}</span>
+                    {s.branch && <span className="text-[#8B95A1] ml-1">· {s.branch}</span>}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* 플랫폼 카드 */}
@@ -209,13 +278,19 @@ export default function SettingsConnect() {
                     <div className="border-t border-[#F2F4F6] bg-[#FAFBFC] divide-y divide-[#F2F4F6]">
                       {platLinks.map(l => {
                         const store = stores.find(s => s.id === l.storeId)
+                        // 검증된 매장명(externalName)을 우선 표시. 없으면 대시보드 업체명 fallback.
+                        const primaryName = l.externalName || store?.name || '(매장 정보 없음)'
                         return (
                           <div key={l.storeId} className="flex items-center gap-3 px-5 py-3">
                             <div className="w-2 h-2 rounded-full flex-shrink-0" style={{ background: p.brandColor }} />
                             <div className="flex-1 min-w-0">
-                              <p className="text-sm font-semibold text-[#191F28]">
-                                {store?.name}{store?.branch ? ` · ${store.branch}` : ''}
-                                <span className="text-[#8B95A1] font-normal ml-2">→ {l.externalName}</span>
+                              <p className="text-sm font-semibold text-[#191F28] truncate">
+                                {primaryName}
+                                {store && store.name !== l.externalName && (
+                                  <span className="text-[#8B95A1] font-normal ml-2 text-xs">
+                                    · {store.name}{store.branch ? ` ${store.branch}` : ''}
+                                  </span>
+                                )}
                               </p>
                               <p className="text-[10px] text-[#8B95A1]">ID: {l.externalId} · {l.linkedAt.slice(0, 10)}</p>
                             </div>
@@ -250,11 +325,7 @@ export default function SettingsConnect() {
               selectedStore={selectedStore}
               setSelectedStore={setSelectedStore}
               onClose={() => setModal(null)}
-              onSave={(link) => {
-                const next = [...links.filter(l => !(l.platform === link.platform && l.storeId === link.storeId)), link]
-                saveLinks(next)
-                setModal(null)
-              }}
+              onSave={handleLinkSave}
             />
           )}
 
@@ -265,11 +336,7 @@ export default function SettingsConnect() {
               selectedStore={selectedStore}
               setSelectedStore={setSelectedStore}
               onClose={() => setModal(null)}
-              onSave={(link) => {
-                const next = [...links.filter(l => !(l.platform === link.platform && l.storeId === link.storeId)), link]
-                saveLinks(next)
-                setModal(null)
-              }}
+              onSave={handleLinkSave}
             />
           )}
 
@@ -281,11 +348,7 @@ export default function SettingsConnect() {
               selectedStore={selectedStore}
               setSelectedStore={setSelectedStore}
               onClose={() => setModal(null)}
-              onSave={(link) => {
-                const next = [...links.filter(l => !(l.platform === link.platform && l.storeId === link.storeId)), link]
-                saveLinks(next)
-                setModal(null)
-              }}
+              onSave={handleLinkSave}
             />
           )}
 
@@ -296,11 +359,7 @@ export default function SettingsConnect() {
               selectedStore={selectedStore}
               setSelectedStore={setSelectedStore}
               onClose={() => setModal(null)}
-              onSave={(link) => {
-                const next = [...links.filter(l => !(l.platform === link.platform && l.storeId === link.storeId)), link]
-                saveLinks(next)
-                setModal(null)
-              }}
+              onSave={handleLinkSave}
             />
           )}
         </div>
@@ -438,6 +497,7 @@ function NaverConnectModal(props: {
               <div className="flex items-center gap-2 mb-2">
                 <span className="w-2 h-2 rounded-full bg-[#03C75A]" />
                 <span className="text-xs font-bold text-[#02B350]">검증 완료</span>
+                <span className="ml-auto text-[10px] text-[#02B350] bg-white px-2 py-0.5 rounded-full border border-[#C8F0D4]">이 매장명으로 저장됩니다</span>
               </div>
               <p className="text-sm font-bold text-[#191F28]">{preview.name}</p>
               {preview.desc && <p className="text-[11px] text-[#4E5968] mt-1 line-clamp-2">{preview.desc}</p>}
