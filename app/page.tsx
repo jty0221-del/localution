@@ -336,6 +336,42 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* ── 이런 분들이 씁니다 (업종 타겟) ── */}
+      <section className="py-14 px-4 bg-white border-y border-gray-100">
+        <div className="max-w-5xl mx-auto">
+          <div className="text-center mb-8">
+            <h2 className="text-2xl md:text-3xl font-black text-[#191F28] mb-2">
+              이런 사장님들이 쓰고 있어요
+            </h2>
+            <p className="text-[#8B95A1] text-sm">
+              1인 운영부터 체인점까지 · 업종 상관없이 네이버·구글·배민이 핵심이라면 전부
+            </p>
+          </div>
+          <div className="grid grid-cols-4 md:grid-cols-8 gap-4">
+            {[
+              { Icon: Coffee, label: '카페' },
+              { Icon: UtensilsCrossed, label: '음식점' },
+              { Icon: Dumbbell, label: '헬스장' },
+              { Icon: Heart, label: '병원' },
+              { Icon: Sparkles, label: '네일샵' },
+              { Icon: Camera, label: '뷰티샵' },
+              { Icon: PenLine, label: '학원' },
+              { Icon: Wine, label: '술집·바' },
+            ].map(({ Icon, label }) => (
+              <div key={label} className="flex flex-col items-center gap-2 p-3 rounded-xl hover:bg-[#F8FAFC] transition-colors">
+                <div className="w-12 h-12 rounded-2xl bg-[#EFF6FF] flex items-center justify-center">
+                  <Icon size={22} strokeWidth={2} className="text-[#3182F6]" />
+                </div>
+                <span className="text-xs font-semibold text-[#4E5968]">{label}</span>
+              </div>
+            ))}
+          </div>
+          <p className="text-center text-[11px] text-[#8B95A1] mt-6">
+            이외에도 네이버 플레이스·블로그·리뷰 관리가 필요한 모든 자영업자 · 소상공인 · 마케터 · 프리랜서에게 맞춰져 있어요
+          </p>
+        </div>
+      </section>
+
       {/* ── 사용자 후기 ── */}
       <section className="py-20 px-4 bg-[#F8FAFC]">
         <div className="max-w-5xl mx-auto">
@@ -382,8 +418,54 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── 요금 CTA ── */}
+      {/* ── 자주 묻는 질문 (자영업자 의구심 해소) ── */}
       <section className="py-20 px-4 bg-white">
+        <div className="max-w-3xl mx-auto">
+          <div className="text-center mb-10">
+            <h2 className="text-2xl md:text-3xl font-black text-[#191F28] mb-2">
+              사장님들이 많이 물어보시는 것
+            </h2>
+            <p className="text-[#8B95A1] text-sm">가입 전 궁금증부터 풀고 가세요</p>
+          </div>
+          <div className="space-y-3">
+            {[
+              {
+                q: '진짜 무료로 쓸 수 있나요?',
+                a: '네, 플레이스 진단·키워드 순위 확인 등 기본 기능은 전부 무료예요. 블로그 초안·릴스 대본 같은 AI 생성 기능은 월 무료 횟수가 있고, 그 이상 쓸 때만 요금이 붙어요. 신용카드 없이 가입 가능해요.',
+              },
+              {
+                q: '네이버 계정 연동이 걱정돼요. 비밀번호가 저장되나요?',
+                a: '네이버 공식 OAuth를 사용해서 비밀번호는 절대 저장되지 않아요. 리뷰·플레이스 정보 조회 권한만 받고, 언제든 네이버 설정에서 연동 해제 가능해요.',
+              },
+              {
+                q: '매장이 여러 개인데 한 계정에서 관리되나요?',
+                a: '네, 여러 매장을 하나의 로컬루션 계정에서 관리할 수 있어요. 1인 마케팅 대행사나 프랜차이즈 본부 사장님들이 특히 많이 쓰시고, Pro 플랜에서는 매장별 권한 분리도 됩니다.',
+              },
+              {
+                q: '해지가 어렵거나 자동결제 무서워요',
+                a: '언제든 설정에서 1클릭으로 해지 가능하고, 당월 남은 일수만큼 일할 계산해서 환불해드려요. 자동결제 알림도 결제 3일 전·당일에 카톡으로 보내드립니다.',
+              },
+              {
+                q: '리뷰 답글을 AI가 달면 고객이 티 나게 느끼지 않을까요?',
+                a: '로컬루션 AI는 매장 말투·시그니처 메뉴·사장님 이름까지 학습해서 답글을 생성해요. 게다가 최종 발행 전에 사장님이 검토·수정할 수 있어서 "기계 답글"처럼 느껴지지 않아요.',
+              },
+            ].map((item, i) => (
+              <details key={i} className="bg-[#F8FAFC] rounded-2xl border border-gray-100 group">
+                <summary className="cursor-pointer list-none px-5 py-4 flex items-center justify-between gap-3 hover:bg-[#F2F4F6] rounded-2xl transition-colors">
+                  <span className="text-sm font-bold text-[#191F28]">Q. {item.q}</span>
+                  <span className="text-[#3182F6] text-lg font-black group-open:rotate-45 transition-transform shrink-0">+</span>
+                </summary>
+                <div className="px-5 pb-4 pt-1 text-sm text-[#4E5968] leading-relaxed">
+                  {item.a}
+                </div>
+              </details>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── 요금 CTA ── */}
+      <section className="py-20 px-4 bg-[#F8FAFC]">
         <div className="max-w-3xl mx-auto text-center">
           <h2 className="text-3xl md:text-4xl font-black text-[#191F28] mb-4">
             필요한 기능만, 합리적인 요금으로
