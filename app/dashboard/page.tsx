@@ -1230,9 +1230,15 @@ export default function Dashboard() {
         </div>
 
         {/* ── 통계 카드 6개 ── */}
+        {connectedCount === 0 && (
+          <div className="mb-2 flex items-center gap-2">
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#FEF3C7] text-[#92400E] font-bold">샘플 데이터</span>
+            <span className="text-xs text-[#8B95A1]">플랫폼을 연동하면 실데이터로 자동 교체됩니다</span>
+          </div>
+        )}
         <div className="grid grid-cols-2 md:grid-cols-6 gap-3 mb-5">
           {stats.map((s, i) => (
-            <div key={i} className="bg-white rounded-2xl shadow-sm p-4">
+            <div key={i} className={`bg-white rounded-2xl shadow-sm p-4 ${connectedCount === 0 ? 'opacity-75' : ''}`}>
               <div className="flex items-center gap-2 mb-2">
                 <span className="w-1 h-6 rounded-full" style={{ background: s.color }}/>
                 <span className="text-[11px] text-[#8B95A1] font-medium">{s.label}</span>
