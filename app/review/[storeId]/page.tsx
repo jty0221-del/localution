@@ -41,13 +41,13 @@ const STORES: Record<string, Store> = {
   },
   'demo-restaurant-001': {
     slug: 'demo-restaurant-001',
-    name: '로컬루션 한식당',
-    category: '한식당',
-    address: '서울시 강남구',
-    keywords: ['강남 맛집', '점심 맛집', '회식 장소', '가성비 한식'],
+    name: '로컬루션 데모 매장',
+    category: '데모',
+    address: '',
+    keywords: ['리뷰 남기기 테스트', '데모 페이지'],
     naverUrl: 'https://m.place.naver.com/',
-    greeting: '든든한 한 끼 맛있게 드셨나요?',
-    signatures: ['김치찌개', '불고기 정식', '된장찌개'],
+    greeting: '방문해 주셔서 감사합니다',
+    signatures: ['대표 메뉴'],
   },
 }
 
@@ -386,7 +386,7 @@ export default function ReviewPage() {
           <div className="space-y-5">
             <div>
               <h2 className="text-lg font-black mb-1">리뷰 스타일을 골라주세요</h2>
-              <p className="text-xs" style={{ color: GRAY }}>AI가 맞춤 리뷰를 작성합니다</p>
+              <p className="text-xs" style={{ color: GRAY }}>AI가 맞춤 리뷰를 작성��니다</p>
             </div>
 
             <div>
@@ -562,7 +562,7 @@ export default function ReviewPage() {
   )
 }
 
-// ─────────────────────────────────────────────
+// ───────────────────────────��─────────────────
 // Helper: 안티 AI 리뷰 생성기
 // - 거창한 형용사 금지 (혁신적, 경이로운, 단연코…)
 // - 기승전결/안녕하세요 금지
@@ -586,7 +586,7 @@ function buildReview(store: Store, gender: string, age: string, tone: string, le
 
   // ─────────────────────────────────────────
   // 성별 분기 내러티브
-  //  - F: 호들갑 · 수다스러움 · ㅠㅠㅎㅎ · 느낌표 · 과장 감탄사
+  //  - F: 호들��� · 수다스러움 · ㅠㅠㅎㅎ · 느낌표 · 과장 감탄사
   //  - M: 부드럽게 써보려고 노력한 티 · 약간 담백/서툼 · 짧은 호흡 · 이모지 없음
   //  - -: 중립 내러티브 (기본)
   // ─────────────────────────────────────────
@@ -603,7 +603,7 @@ function buildReview(store: Store, gender: string, age: string, tone: string, le
     ? [
         '들어가자마자 분위기 미쳤어요ㅠㅠ 사진부터 막 찍었잖아요ㅎㅎ',
         '공간이 너무 예뻐서 앉기 전부터 핸드폰 먼저 꺼냈어요ㅋㅋㅋ',
-        '인테리어 진짜 취향 저격이에요~ 구석구석 예쁘더라구요!',
+        '인테리�� 진짜 취향 저격이에요~ 구석구석 예쁘더라구요!',
         '자리마다 분위기가 달라서 어디 앉을지 한참 고민했어요ㅎㅎ',
       ]
     : [
@@ -623,7 +623,7 @@ function buildReview(store: Store, gender: string, age: string, tone: string, le
       ]
   const F_scene4 = [
     '사장님 너무너무 친절하셔서 완전 기분 좋게 먹고 왔어요ㅠㅠ',
-    '직원분들도 응대가 다정해서 편했어요~ 이런 거 되게 중요하잖아요ㅎㅎ',
+    '직원분들도 응대가 다정해서 편했어요~ 이런 거 되게 중요하잖���요ㅎㅎ',
     '사장님이 메뉴 설명도 해주시고 진짜 세심하셔서 감동이었어요ㅠㅠ',
   ]
   const F_scene5: Record<string, string[]> = {
@@ -636,7 +636,7 @@ function buildReview(store: Store, gender: string, age: string, tone: string, le
   const F_outro: Record<string, string[]> = {
     warm: [
       (area ? area + ' ' : '') + (kw2 || '분위기 좋은 곳') + ' 찾는 분들 여기 진짜 완전 강추예요ㅠㅠ!! 저 다음 주에 또 올 거예요ㅎㅎ',
-      '진짜 오길 잘했다 싶었어요ㅠㅠ ' + (kw1 || store.category) + ' 찾으시면 무조건 여기 가세요!!',
+      '진짜 오길 잘했다 싶었어요ㅠㅠ ' + (kw1 || store.category) + ' 찾으시면 무조건 여기 가세��!!',
       '여기 리스트에 바로 추가했어요ㅋㅋ ' + (kw1 || '') + ' 생각나면 또 올 거예요ㅠㅠ',
     ],
     short: [
@@ -736,7 +736,7 @@ function buildReview(store: Store, gender: string, age: string, tone: string, le
   const N_scene4 = ['응대도 편하고 부담스럽지 않았어요.', '사장님이 친절하셔서 기분 좋게 다녀왔어요.']
   const N_scene5: Record<string, string[]> = {
     '10s': ['친구들이랑 가볍게 오기 좋아요.'],
-    '20s': ['데이트하기도, 혼자 오기도 좋은 곳이에요.'],
+    '20s': ['데이트하기도, 혼자 오기도 좋은 곳���에요.'],
     '30s': ['조용히 시간 보내기 좋은 곳이에요.'],
     '40s': ['가족과 와도 편한 곳이에요.'],
     '50s+': ['어른들 모시고 오기에도 무난해요.'],
@@ -799,3 +799,4 @@ function buildReview(store: Store, gender: string, age: string, tone: string, le
 
   return text.trim()
 }
+
