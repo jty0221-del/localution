@@ -5,6 +5,10 @@ export const dynamic = 'force-dynamic'
 import { useState } from 'react'
 import Link from 'next/link'
 import Footer from '../components/Footer'
+import {
+  ArrowLeft, ArrowRight, Star, RefreshCw, CheckCircle2,
+  Loader2, Send,
+} from 'lucide-react'
 
 const SAMPLE_STORE = {
   name: '타이백스트릿 해운대점',
@@ -75,7 +79,19 @@ const STEPS = [
 ]
 
 function Stars({ n }: { n: number }) {
-  return <span className="text-yellow-400 text-lg">{'★'.repeat(n)}{'☆'.repeat(5 - n)}</span>
+  return (
+    <span className="inline-flex items-center gap-0.5">
+      {Array.from({ length: 5 }).map((_, i) => (
+        <Star
+          key={i}
+          size={16}
+          strokeWidth={0}
+          fill={i < n ? '#F59E0B' : '#E5E8EB'}
+          className={i < n ? 'text-[#F59E0B]' : 'text-[#E5E8EB]'}
+        />
+      ))}
+    </span>
+  )
 }
 
 function PlatformMark({ keyName, size = 28 }: { keyName: string; size?: number }) {
@@ -145,13 +161,23 @@ export default function ServiceIntro() {
     setLoading(prev => ({ ...prev, [reviewId]: false }))
   }
 
+  async function autoPost(reviewId: string, _platform: string) {
+    setPostStatus(prev => ({ ...prev, [reviewId]: 'posting' }))
+    setActiveStep(5)
+    await new Promise(r => setTimeout(r, 1200))
+    setPostStatus(prev => ({ ...prev, [reviewId]: 'done' }))
+  }
+
   return (
     <div className="min-h-screen bg-[#F2F4F6]">
 
       <div style={{ background: 'linear-gradient(135deg, #1B3FD8 0%, #3182F6 100%)' }} className="text-white">
         <div className="max-w-5xl mx-auto px-6 py-14">
           <div className="flex items-center gap-3 mb-8">
-            <Link href="/" className="text-white/70 text-base hover:text-white transition-colors">← 대시보드</Link>
+            <Link href="/" className="inline-flex items-center gap-1.5 text-white/70 text-base hover:text-white transition-colors">
+              <ArrowLeft size={18} strokeWidth={2.25} />
+              대시보드
+            </Link>
           </div>
           <div className="inline-block bg-white/15 border border-white/30 text-white/90 text-sm font-bold px-5 py-2 rounded-full mb-5">
             서비스 소개 · 이용 흐름
@@ -327,7 +353,7 @@ export default function ServiceIntro() {
         {/* 리뷰 목록 + AI 답글 */}
         <div className="bg-white rounded-2xl p-8 shadow-sm border border-[#E5E8EB] mb-8">
           <h2 className="text-2xl font-black text-[#191F28] mb-2">Step 2-4 · 리뷰 목록 및 AI 답글 생성</h2>
-          <p className="text-base text-[#8B95A1] mb-6">[AI 답글 생성] 버튼을 눌러 실제로 답���을 만들어 보세요.</p>
+          <p className="text-base text-[#8B95A1] mb-6">[AI 답글 생성] 버튼을 눌러 실제로 답글을 만들어 보세요.</p>
 
           <div className="space-y-5">
             {SAMPLE_REVIEWS.map(r => (
@@ -348,8 +374,10 @@ export default function ServiceIntro() {
 
                   {!aiReplies[r.id] && (
                     <button onClick={() => generateReply(r.id, r.text)} disabled={loading[r.id]}
-                      className="flex items-center gap-2 px-5 py-3 bg-[#3182F6] text-white text-base font-bold rounded-xl hover:bg-[#1B64DA] disabled:opacity-50 transition-colors">
-                      {loading[r.id] ? <span className="animate-pulse">AI 답글 생성 중...</span> : 'AI 답글 생성'}
+                      className="inline-flex items-center gap-2 px-5 py-3 bg-[#3182F6] text-white text-base font-bold rounded-xl hover:bg-[#1B64DA] disabled:opacity-50 transition-colors">
+                      {loading[r.id]
+                        ? <><Loader2 size={16} strokeWidth={2.5} className="animate-spin" /> AI 답글 생성 중...</>
+                        : <>AI 답글 생성 <ArrowRight size={16} strokeWidth={2.5} /></>}
                     </button>
                   )}
                 </div>
@@ -361,23 +389,24 @@ export default function ServiceIntro() {
                       className="w-full border border-[#93C5FD] rounded-xl px-4 py-3 text-base outline-none focus:border-[#3182F6] resize-none bg-white leading-relaxed" />
                     <div className="flex gap-3 mt-4 flex-wrap">
                       <button onClick={() => generateReply(r.id, r.text)} disabled={loading[r.id] || postStatus[r.id] === 'posting'}
-                        className="flex-1 min-w-[120px] text-base px-5 py-3.5 border-2 border-[#3182F6] text-[#3182F6] rounded-xl hover:bg-[#EFF6FF] font-black transition-colors disabled:opacity-50">
-                        ↻ 재생성
+                        className="flex-1 min-w-[120px] inline-flex items-center justify-center gap-2 text-base px-5 py-3.5 border-2 border-[#3182F6] text-[#3182F6] rounded-xl hover:bg-[#EFF6FF] font-black transition-colors disabled:opacity-50">
+                        <RefreshCw size={16} strokeWidth={2.5} />
+                        재생성
                       </button>
                       <button onClick={() => autoPost(r.id, r.platform)} disabled={postStatus[r.id] === 'posting' || postStatus[r.id] === 'done'}
-                        className="flex-[2] min-w-[220px] text-base px-5 py-3.5 bg-[#3182F6] text-white rounded-xl hover:bg-[#1B64DA] font-black disabled:opacity-70 transition-colors shadow-[0_4px_16px_rgba(49,130,246,0.35)]">
+                        className="flex-[2] min-w-[220px] inline-flex items-center justify-center gap-2 text-base px-5 py-3.5 bg-[#3182F6] text-white rounded-xl hover:bg-[#1B64DA] font-black disabled:opacity-70 transition-colors shadow-[0_4px_16px_rgba(49,130,246,0.35)]">
                         {postStatus[r.id] === 'posting' ? (
-                          <span className="inline-flex items-center gap-2"><span className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin inline-block" />게시 중...</span>
+                          <><Loader2 size={16} strokeWidth={2.5} className="animate-spin" /> 게시 중...</>
                         ) : postStatus[r.id] === 'done' ? (
-                          <span>✓ 게시 완료</span>
+                          <><CheckCircle2 size={16} strokeWidth={2.5} /> 게시 완료</>
                         ) : (
-                          <span>원클릭 게시</span>
+                          <><Send size={16} strokeWidth={2.5} /> 원클릭 게시</>
                         )}
                       </button>
                     </div>
                     {postStatus[r.id] === 'done' && (
-                      <p className="text-sm text-[#12B76A] font-bold mt-3 flex items-center gap-1.5">
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#12B76A]" />
+                      <p className="text-sm text-[#12B76A] font-bold mt-3 inline-flex items-center gap-1.5">
+                        <CheckCircle2 size={14} strokeWidth={2.5} />
                         {PLATFORMS.find(p => p.key === r.platform)?.label || r.platform}에 답글이 성공적으로 등록되었습니다
                       </p>
                     )}
@@ -408,7 +437,8 @@ export default function ServiceIntro() {
 
         <div className="mt-8 text-center">
           <Link href="/" className="inline-flex items-center gap-2 px-8 py-4 bg-[#3182F6] text-white text-lg font-bold rounded-xl hover:bg-[#1B64DA] transition-colors">
-            대시보드로 이동 →
+            대시보드로 이동
+            <ArrowRight size={18} strokeWidth={2.5} />
           </Link>
         </div>
       </div>
@@ -418,4 +448,3 @@ export default function ServiceIntro() {
     </div>
   )
 }
-
