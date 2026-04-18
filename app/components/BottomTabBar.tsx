@@ -48,8 +48,11 @@ export default function BottomTabBar() {
 
   useEffect(() => {
     try {
-      const u = document.cookie.includes('localution_session=')
-      setLoggedIn(u)
+      // localution_session은 httpOnly라 JS에서 못 읽음.
+      // 동반 쿠키 localution_user (httpOnly:false)로 로그인 여부 판단.
+      const cookieOk = document.cookie.includes('localution_user=')
+      const lsOk = typeof localStorage !== 'undefined' && !!localStorage.getItem('localution_user')
+      setLoggedIn(cookieOk || lsOk)
     } catch { setLoggedIn(false) }
   }, [pathname])
 
