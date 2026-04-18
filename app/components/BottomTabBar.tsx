@@ -3,6 +3,7 @@
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
+import { Home, MessageSquare, Megaphone, Users, Settings, LucideIcon } from 'lucide-react'
 
 // 하단 탭바가 보이지 않아야 하는 경로 (로그인 전/랜딩)
 const HIDE_PREFIXES = [
@@ -15,12 +16,12 @@ const HIDE_EXACT = ['/', '/pricing', '/about', '/terms', '/privacy']
 
 type TabKey = 'home' | 'review' | 'marketing' | 'customers' | 'settings'
 
-const TABS: { key: TabKey; href: string; label: string; icon: string; prefix: string[] }[] = [
-  { key: 'home',      href: '/dashboard',     label: '홈',     icon: '🏠', prefix: ['/dashboard'] },
-  { key: 'review',    href: '/review-admin',  label: '리뷰',   icon: '💬', prefix: ['/review-admin', '/reviews', '/review'] },
-  { key: 'marketing', href: '/marketing',     label: '마케팅', icon: '📣', prefix: ['/marketing'] },
-  { key: 'customers', href: '/customers',     label: '고객',   icon: '👥', prefix: ['/customers', '/crm'] },
-  { key: 'settings',  href: '/settings',      label: '설정',   icon: '⚙️', prefix: ['/settings', '/my', '/inquiry', '/qr-admin'] },
+const TABS: { key: TabKey; href: string; label: string; Icon: LucideIcon; prefix: string[] }[] = [
+  { key: 'home',      href: '/dashboard',     label: '홈',     Icon: Home,          prefix: ['/dashboard'] },
+  { key: 'review',    href: '/review-admin',  label: '리뷰',   Icon: MessageSquare, prefix: ['/review-admin', '/reviews', '/review'] },
+  { key: 'marketing', href: '/marketing',     label: '마케팅', Icon: Megaphone,     prefix: ['/marketing'] },
+  { key: 'customers', href: '/customers',     label: '고객',   Icon: Users,         prefix: ['/customers', '/crm'] },
+  { key: 'settings',  href: '/settings',      label: '설정',   Icon: Settings,      prefix: ['/settings', '/my', '/inquiry', '/qr-admin'] },
 ]
 
 // 미답변 리뷰 개수 — 전역 localStorage 'localution.unanswered_count' 혹은 데모 기본값
@@ -97,8 +98,8 @@ export default function BottomTabBar() {
           return (
             <Link key={tab.href} href={tab.href}
               className={`relative flex flex-col items-center justify-center gap-0.5 py-2 ${active ? 'text-[#3182F6]' : 'text-[#8B95A1]'} hover:text-[#3182F6] transition-colors`}>
-              <span className="relative text-xl leading-none">
-                {tab.icon}
+              <span className="relative inline-flex items-center justify-center">
+                <tab.Icon size={22} strokeWidth={active ? 2.25 : 2} />
                 {showBadge && (
                   <span className="absolute -top-1 -right-2 min-w-[16px] h-[16px] px-1 rounded-full bg-[#F04452] text-white text-[9px] font-black flex items-center justify-center leading-none shadow-sm border border-white"
                     aria-label={`미답변 ${unanswered}건`}>
@@ -115,4 +116,3 @@ export default function BottomTabBar() {
     </nav>
   )
 }
-
