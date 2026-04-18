@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic'
 
 import { useState, useEffect, useRef } from 'react'
 import Sidebar from '../components/Sidebar'
+import Footer from '../components/Footer'
 
 const LS_QR_SETTINGS = 'localution.qr_settings'
 const LS_QR_LIST     = 'localution.qr_list'
@@ -1109,6 +1110,7 @@ export default function QRAdmin() {
           </div>
         </div>
       )}
+    <Footer />
     </div>
   )
 }
