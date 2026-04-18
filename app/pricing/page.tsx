@@ -6,10 +6,10 @@ import Sidebar from '../components/Sidebar'
 import Footer from '../components/Footer'
 import Link from 'next/link'
 import {
-  MessageSquareHeart, MessageCircle, FileText, MapPin, Ticket,
+  MessageCircle, FileText, MapPin, Ticket,
   Search, PenLine, Target, BarChart3, Users, Bot, Smartphone,
   ChefHat, Store, Megaphone, Briefcase,
-  ShoppingCart, Percent, Handshake, Check, ShoppingBasket, X,
+  ShoppingCart, Percent, UserPlus, Check, ShoppingBasket, X,
   Gift, Plus, ArrowRight, ChevronDown, LucideIcon,
 } from 'lucide-react'
 
@@ -25,7 +25,7 @@ type Feature = {
 }
 
 const features: Feature[] = [
-  { id: 'ai-review',    name: 'AI 리뷰 자동 답글',  desc: '네이버·배민·쿠팡이츠 리뷰를 AI가 분석하고 맞춤 답글 자동 생성. 하루 5분으로 100% 응답률 달성.',         price:  990, Icon: MessageSquareHeart, iconColor: '#3182F6', category: '사장님', popular: true },
+  { id: 'ai-review',    name: 'AI 리뷰 자동 답글',  desc: '네이버·배민·쿠팡이츠 리뷰를 AI가 분석하고 맞춤 답글 자동 생성. 하루 5분으로 100% 응답률 달성.',         price:  990, Icon: MessageCircle, iconColor: '#3182F6', category: '사장님', popular: true },
   { id: 'alimtalk',     name: '알림톡 마케팅',       desc: '카카오 알림톡으로 단골 고객에게 쿠폰·이벤트 소식 발송. 월 100건 포함.',                                  price:  990, Icon: MessageCircle,      iconColor: '#F59E0B', category: '사장님' },
   { id: 'accounting',   name: 'AI 정산·행정',        desc: '매출 자동 정리, 세금계산서 발행, 경비 관리를 AI가 도와줍니다.',                                           price:  990, Icon: FileText,           iconColor: '#FF8C00', category: '사장님' },
   { id: 'local-synergy',name: '로컬 시너지',         desc: '주변 가게와 QR 공동이벤트, 상권 분석으로 손님을 함께 끌어모읍니다.',                                       price:  990, Icon: MapPin,             iconColor: '#EF4444', category: '사장님' },
@@ -165,7 +165,7 @@ export default function PricingPage() {
     '전체':   { label: '전체',      Icon: Search },
     '사장님': { label: '사장님용',  Icon: Store },
     '마케터': { label: '마케터용',  Icon: Megaphone },
-    '공통':   { label: '공통',      Icon: Handshake },
+    '공통':   { label: '공통',      Icon: UserPlus },
   }
 
   return (
@@ -419,7 +419,7 @@ export default function PricingPage() {
                   <span>마케터 5종 <b className="text-[#3182F6]">6,341원/월</b> (15%↓)</span>
                 </div>
                 <div className="inline-flex items-center gap-1.5 w-full">
-                  <Handshake size={12} strokeWidth={2.25} className="text-[#059669] flex-shrink-0" />
+                  <UserPlus size={12} strokeWidth={2.25} className="text-[#059669] flex-shrink-0" />
                   <span>전체 12종 <b className="text-[#3182F6]">{Math.round(features.reduce((s, f) => s + f.price, 0) * 0.8).toLocaleString()}원/월</b> (20%↓)</span>
                 </div>
               </div>
