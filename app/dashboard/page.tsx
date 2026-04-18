@@ -133,7 +133,7 @@ const INITIAL_PLATFORMS: Platform[] = [
   { id: 'baemin',       name: '배달의민족',        shortName: '배민',     logo: (s) => <BaeminLogo size={s}/>,       category: '배달',      connected: false, rating: null, reviews: null, color: '#2AC1BC' },
   { id: 'yogiyo',       name: '요기요',            shortName: '요기요',   logo: (s) => <YogiyoLogo size={s}/>,       category: '배달',      connected: false, rating: null, reviews: null, color: '#FA1A32' },
   { id: 'coupangeats',  name: '쿠팡이츠',          shortName: '쿠팡이츠', logo: (s) => <CoupangEatsLogo size={s}/>,  category: '배달',      connected: false, rating: null, reviews: null, color: '#FF5A00' },
-  { id: 'yeoshin',      name: '여신금융',           shortName: '여신금융', logo: (s) => <YeoshinLogo size={s}/>,      category: '금융·세무', connected: false, rating: null, reviews: null, color: '#003087' },
+  { id: 'yeoshin',      name: '여신금융',           shortName: '여신금융', logo: (s) => <YeoshinLogo size={s}/>,      category: '금융·��무', connected: false, rating: null, reviews: null, color: '#003087' },
   { id: 'hometax',      name: '홈택스',            shortName: '홈택스',   logo: (s) => <HometaxLogo size={s}/>,      category: '금융·세무', connected: false, rating: null, reviews: null, color: '#006AB4' },
 ]
 
@@ -144,14 +144,6 @@ interface KeywordRank {
   area: string
   updatedAt: string
 }
-
-const MOCK_KEYWORDS: KeywordRank[] = [
-  { keyword: '강남 맛집',     rank: 3,  prevRank: 5,   area: '강남구', updatedAt: '방금 전' },
-  { keyword: '강남 한식당',   rank: 7,  prevRank: 7,   area: '강남구', updatedAt: '3분 전' },
-  { keyword: '테헤란로 점심', rank: 12, prevRank: 15,  area: '강남구', updatedAt: '10분 전' },
-  { keyword: '강남 회식장소', rank: 21, prevRank: 18,  area: '강남구', updatedAt: '18분 전' },
-  { keyword: '강남 단체석',   rank: 34, prevRank: null, area: '강남구', updatedAt: '방금 전' },
-]
 
 // ── 주소/매장명에서 지역(구/동) 추출 ────────────────────────
 // "서울시 강남구 테헤란로 123" → "강남구" | "부산 해운대구 우동" → "해운대구"
@@ -398,7 +390,7 @@ function ConnectModal({ platform, onClose, onSave }: ConnectModalProps) {
 
 // ═══════════════════════════════════════════════════════════
 //  AI 답글 생성 모달
-// ═══════════════════════════════════════════════════════════
+// ═══════════���═══════════════════════════════════════════════
 interface ReplyModalProps {
   review: typeof RECENT_REVIEWS[number]
   onClose: () => void
@@ -534,7 +526,7 @@ function AIReplyModal({ review, onClose }: ReplyModalProps) {
 
 // ═══════════════════════════════════════════════════════════
 //  롤링 공지 배너 (5초 자동 전환)
-// ═══════════════════════════════════════════════════════════
+// ══════════════════════════════════════════════════════���════
 interface BannerSlide {
   title: string
   sub: string
@@ -597,7 +589,7 @@ const SERVICE_RANKING_INIT = [
   { id: 4,  name: '매출 캘린더 · 정산',     category: '정산', badge: '',     color: '#3182F6' },
   { id: 5,  name: '고객 CRM 관리',              category: 'CRM',    badge: '',     color: '#F59E0B' },
   { id: 6,  name: '키워드 순위 추적',          category: 'SEO',    badge: '',     color: '#10B981' },
-  { id: 7,  name: '숏폼 퍼블리셔',           category: '마케팅', badge: '',     color: '#EC4899' },
+  { id: 7,  name: '숏폼 퍼��리셔',           category: '마케팅', badge: '',     color: '#EC4899' },
   { id: 8,  name: '배민 리뷰 연동',            category: '배달', badge: '',     color: '#2AC1BC' },
   { id: 9,  name: '구글 리뷰 연동',            category: '구글', badge: '',     color: '#4285F4' },
   { id: 10, name: '세금계산서 자동 발행',      category: '행정', badge: '',     color: '#6B7280' },
@@ -806,16 +798,16 @@ export default function Dashboard() {
   }, [])
 
   const [platforms, setPlatforms] = useState(INITIAL_PLATFORMS)
-  const [keywords, setKeywords] = useState<KeywordRank[]>(MOCK_KEYWORDS)
+  const [keywords, setKeywords] = useState<KeywordRank[]>([])
   const [storeRegion, setStoreRegion] = useState<string | null>(null)
   const [lastSync, setLastSync] = useState('방금 전')
   const [isSyncing, setIsSyncing] = useState(false)
-  const [mainKeyword, setMainKeyword] = useState('강남 맛집')
+  const [mainKeyword, setMainKeyword] = useState('')
 
   const [connectPlatform, setConnectPlatform] = useState<Platform | null>(null)
   const [replyReview, setReplyReview] = useState<typeof RECENT_REVIEWS[number] | null>(null)
 
-  // 플랫폼 링크는 connect 페이지에서 array 형태로 저장됨
+  // 플랫폼 링크��� connect 페이��에서 array 형태로 저장됨
   useEffect(() => {
     function syncPlatformLinks() {
       try {
@@ -860,8 +852,8 @@ export default function Dashboard() {
           setMainKeyword(`${region} 맛집`)
         } else {
           setStoreRegion(null)
-          setKeywords(MOCK_KEYWORDS)
-          setMainKeyword('강남 맛집')
+          setKeywords([])
+          setMainKeyword('')
         }
       } catch {}
     }
@@ -978,7 +970,7 @@ export default function Dashboard() {
   ]
   const totalWeekSale = weekSales.reduce((s, x) => s + x.v, 0)
 
-  // 오늘의 할 일
+  // 오늘의 할 ��
   const unansweredCount = RECENT_REVIEWS.filter(r => !r.replied).length
   const negativeUnansweredReviews = RECENT_REVIEWS.filter(r => r.rating <= 2 && !r.replied)
   const negativeUnansweredCount = negativeUnansweredReviews.length
@@ -1107,7 +1099,7 @@ export default function Dashboard() {
                 </div>
                 <h2 className="text-xl md:text-2xl font-black mb-1.5 leading-tight">처음이세요? 여기서부터 시작하세요</h2>
                 <p className="text-xs md:text-sm text-white/80 leading-relaxed">
-                  우리 가게 정보를 등록하고 네이버·구글·배민·요기요 같은 플랫폼을 연결하면
+                  우리 가게 정보를 등록하고 네이버·구글·배민·요기요 같은 플랫폼을 ��결하면
                   <br className="hidden md:block"/>
                   리뷰·예약·매출 데이터가 한 곳에 모입니다.
                 </p>
@@ -1202,7 +1194,7 @@ export default function Dashboard() {
         <div className="bg-white rounded-2xl shadow-sm px-5 py-4 mb-5">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-bold text-[#191F28]">플랫폼 연동 현황</span>
+              <span className="text-sm font-bold text-[#191F28]">플���폼 연동 현황</span>
               <span className="text-[11px] px-2 py-0.5 rounded-full bg-[#E8F4FD] text-[#3182F6] font-semibold">
                 {connectedCount}/{platforms.length} 연동됨
               </span>
@@ -1510,3 +1502,4 @@ export default function Dashboard() {
     </div>
   )
 }
+
