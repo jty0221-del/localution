@@ -60,7 +60,7 @@ const FEATURES = [
     color: 'from-green-500 to-emerald-600',
     bg: 'bg-green-50',
     tags: ['QR 스캔', 'AI 생성', '네이버 연동'],
-    href: '/review/demo',
+    href: '/review/demo-restaurant-001',
     badge: '체험가능',
   },
   {
@@ -309,7 +309,7 @@ export default function LandingPage() {
                     </span>
                   ))}
                 </div>
-                <Link href="/review/demo"
+                <Link href="/review/demo-restaurant-001"
                   className="inline-flex items-center gap-2 bg-white text-[#3182F6] font-bold text-sm px-6 py-3 rounded-xl hover:bg-blue-50 transition-colors">
                   QR 리뷰 지금 체험하기
                   <ArrowRight size={16} strokeWidth={2.5} />
