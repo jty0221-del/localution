@@ -1,37 +1,4 @@
-'u
-
-// 서버(Supabase stores 테이블)에 업체 정보 영구 등록
-// /review/[slug] 페이지에서 누가 바로 열어도 업체 데이터로 꾸며지도록
-async function persistStoreToServer(
-  storeInfo: StoreInfo,
-  settings: QRSettings
-): Promise<{ ok: boolean; slug?: string }> {
-  if (!storeInfo || !storeInfo.name) return { ok: false }
-  try {
-    const slug = makeStoreId(storeInfo.name)
-    const res = await fetch('/api/stores/register', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        slug,
-        name: storeInfo.name,
-        category: storeInfo.category,
-        location: storeInfo.location,
-        naver_place_id: storeInfo.naverPlaceId,
-        naver_url: storeInfo.naverUrl,
-        main_keyword: settings?.mainKeyword,
-        sub_keywords: settings?.subKeywords,
-        reward_type: settings?.rewardType,
-        reward_value: settings?.rewardValue,
-      }),
-    })
-    const j = await res.json().catch(() => ({ ok: false }))
-    return { ok: !!j.ok, slug: j.slug }
-  } catch {
-    return { ok: false }
-  }
-}
-se client'
+'use client'
 
 export const dynamic = 'force-dynamic'
 
@@ -341,6 +308,38 @@ function openPrintTemplate(opts: {
   }
 }
 
+// 서버(Supabase stores 테이블)에 업체 정보 영구 등록
+// /review/[slug] 페이지에서 누가 바로 열어도 업체 데이터로 꾸며지도록
+async function persistStoreToServer(
+  storeInfo: StoreInfo,
+  settings: QRSettings
+): Promise<{ ok: boolean; slug?: string }> {
+  if (!storeInfo || !storeInfo.name) return { ok: false }
+  try {
+    const slug = makeStoreId(storeInfo.name)
+    const res = await fetch('/api/stores/register', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        slug,
+        name: storeInfo.name,
+        category: storeInfo.category,
+        location: storeInfo.location,
+        naver_place_id: storeInfo.naverPlaceId,
+        naver_url: storeInfo.naverUrl,
+        main_keyword: settings?.mainKeyword,
+        sub_keywords: settings?.subKeywords,
+        reward_type: settings?.rewardType,
+        reward_value: settings?.rewardValue,
+      }),
+    })
+    const j = await res.json().catch(() => ({ ok: false }))
+    return { ok: !!j.ok, slug: j.slug }
+  } catch {
+    return { ok: false }
+  }
+}
+
 // storeId 생성 (상호명 기반 slug)
 function makeStoreId(name: string): string {
   let result = ''
@@ -374,7 +373,7 @@ function buildReviewUrl(storeInfo: StoreInfo, settings: QRSettings): string {
   return base + '/review/' + storeId + (qs ? '?' + qs : '')
 }
 
-// ─── 메인 ─────────────────────────────────────────────────────────
+// ─── 메인 ───────────────────────────────────────��─────────────────
 export default function QRAdmin() {
   const [activeTab, setActiveTab] = useState<'settings' | 'list' | 'stats'>('settings')
   const [settings, setSettings] = useState<QRSettings>(DEFAULT_SETTINGS)
@@ -955,7 +954,7 @@ export default function QRAdmin() {
           </div>
         )})()}
 
-        {/* ═══════════════════════════════════════════════════════
+        {/* ═════════════════════════════════════���═════════════════
              내 리뷰 QR 코드 (자동 생성 · 단일)
            ═══════════════════════════════════════════════════════ */}
         <div className="mt-6 bg-white rounded-2xl p-6 shadow-sm">
@@ -1113,3 +1112,4 @@ export default function QRAdmin() {
     </div>
   )
 }
+
