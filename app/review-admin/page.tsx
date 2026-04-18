@@ -41,7 +41,7 @@ interface PlatformStat {
   externalUrl?: string
 }
 
-const ALL_PLATFORMS = ['naver', 'google', 'baemin', 'yogiyo', 'coupang'] as const
+const ALL_PLATFORMS = ['naver', 'kakao', 'google', 'baemin', 'yogiyo', 'coupang'] as const
 type PlatformKey = typeof ALL_PLATFORMS[number]
 
 const PLATFORM_META: Record<PlatformKey, {
@@ -53,6 +53,11 @@ const PLATFORM_META: Record<PlatformKey, {
   naver: {
     label: '네이버', color: '#03C75A', bg: '#E8FBF0', textColor: '#015C2C', icon: 'N',
     detailPath: '/review-admin/naver',
+  },
+  kakao: {
+    label: '카카오', color: '#FEE500', bg: '#FFFBE0', textColor: '#1A1A1A', icon: 'K',
+    detailPath: '/review-admin/kakao',
+    legacyKeys: { connected: 'localution.kakao.connected', storeId: 'localution.kakao.storeId', token: 'localution.kakao.token' },
   },
   google: {
     label: '구글', color: '#4285F4', bg: '#EBF3FE', textColor: '#1A56B0', icon: 'G',
@@ -396,3 +401,4 @@ export default function ReviewAdminHub() {
     </div>
   )
 }
+
