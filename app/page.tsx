@@ -2,6 +2,7 @@
 
 export const dynamic = 'force-dynamic'
 
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import Footer from './components/Footer'
 import TopNav from './components/TopNav'
@@ -47,29 +48,54 @@ const FEATURES = [
   },
 ]
 
-const STATS = [
+// ─────────────────────────────────────────────────────────────
+// 데모 데이터 (실제 데이터 연결 전 예시용)
+// /api/landing-stats 가 실제 값을 반환하면 자동 교체됨
+// ─────────────────────────────────────────────────────────────
+const STATS_DEMO = [
   { num: '2,400+', label: '등록 매장' },
   { num: '98만+', label: 'AI 답글 생성' },
   { num: '4.8점', label: '평균 별점 향상' },
   { num: '92%', label: '재방문율 개선' },
 ]
 
-const TESTIMONIALS = [
+const HERO_DEMO = {
+  reviewsPerMonth: '+50개',
+  reviewsPerMonthLabel: '월 평균 리뷰 증가',
+  avgRating: '4.9점',
+  avgRatingLabel: '평균 별점',
+}
+
+type Testimonial = {
+  name: string
+  store: string
+  text: string
+  rating: number
+  iconKey: 'coffee' | 'food' | 'gym'
+  color: string
+}
+
+const ICON_MAP = {
+  coffee: Coffee,
+  food: UtensilsCrossed,
+  gym: Dumbbell,
+} as const
+
+const TESTIMONIALS_DEMO: Testimonial[] = [
   {
     name: '김○○ 사장님',
     store: '부천 카페 운영',
     text: '매일 리뷰 답글 다는 게 너무 힘들었는데, 로컬루션 쓰고 나서 5분도 안 걸려요. 별점도 4.2에서 4.8로 올라갔어요!',
     rating: 5,
-    Icon: Coffee,
+    iconKey: 'coffee',
     color: '#8B5CF6',
   },
   {
     name: '이○○ 대표님',
     store: '서울 맛집 운영',
-    label: '마케터',
     text: '클라이언트 10곳 동시 관리하는데 로컬루션 없으면 못 살아요. 키워드 분석이랑 리뷰 관리가 한 곳에 있어서 너무 편해요.',
     rating: 5,
-    Icon: UtensilsCrossed,
+    iconKey: 'food',
     color: '#F59E0B',
   },
   {
@@ -77,7 +103,7 @@ const TESTIMONIALS = [
     store: '일산 헬스장 운영',
     text: 'QR 리뷰 붙여놨더니 손님들이 알아서 리뷰 써줘요. 한 달에 리뷰 50개 이상 늘었어요.',
     rating: 5,
-    Icon: Dumbbell,
+    iconKey: 'gym',
     color: '#10B981',
   },
 ]
@@ -95,6 +121,40 @@ const QR_TONES = [
 export default function LandingPage() {
   // 루트 `/` 는 공개 랜딩 페이지 — 자동 리다이렉트 없음
   // 로그인 상태는 TopNav 가 쿠키 기반으로 '대시보드 바로가기' 로 표시
+
+  // 실제 데이터 들어오기 전까지는 데모 값으로 노출. API 에서 null 이 아닌 값이 오면 자동 교체.
+  const [stats, setStats] = useState(STATS_DEMO)
+  const [hero, setHero] = useState(HERO_DEMO)
+  const [testimonials, setTestimonials] = useState<Testimonial[]>(TESTIMONIALS_DEMO)
+  const [isDemo, setIsDemo] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    fetch('/api/landing-stats')
+      .then(r => (r.ok ? r.json() : null))
+      .then(data => {
+        if (cancelled || !data) return
+        let replaced = false
+        if (Array.isArray(data.stats) && data.stats.length === 4) {
+          setStats(data.stats)
+          replaced = true
+        }
+        if (data.hero && typeof data.hero === 'object') {
+          setHero({ ...HERO_DEMO, ...data.hero })
+          replaced = true
+        }
+        if (Array.isArray(data.testimonials) && data.testimonials.length > 0) {
+          setTestimonials(data.testimonials)
+          replaced = true
+        }
+        if (replaced) setIsDemo(false)
+      })
+      .catch(() => {})
+    return () => {
+      cancelled = true
+    }
+  }, [])
+
   return (
     <div className="min-h-screen bg-white">
 
@@ -132,13 +192,22 @@ export default function LandingPage() {
 
       {/* ── 통계 ── */}
       <section className="py-12 px-4 bg-white border-y border-gray-100">
-        <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 md:grid-cols-4 gap-8">
-          {STATS.map(s => (
-            <div key={s.num} className="text-center">
-              <div className="text-3xl font-black text-[#3182F6] mb-1">{s.num}</div>
-              <div className="text-sm text-[#8B95A1] font-medium">{s.label}</div>
+        <div className="max-w-4xl mx-auto">
+          {isDemo && (
+            <div className="text-center mb-6">
+              <span className="inline-block text-[11px] font-semibold text-[#8B95A1] bg-[#F2F4F6] px-2.5 py-1 rounded-full">
+                예시 · 실제 데이터 연동 예정
+              </span>
             </div>
-          ))}
+          )}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+            {stats.map((s, i) => (
+              <div key={`${s.label}-${i}`} className="text-center">
+                <div className="text-3xl font-black text-[#3182F6] mb-1">{s.num}</div>
+                <div className="text-sm text-[#8B95A1] font-medium">{s.label}</div>
+              </div>
+            ))}
+          </div>
         </div>
       </section>
 
@@ -209,12 +278,17 @@ export default function LandingPage() {
                 <div className="w-16 h-16 rounded-2xl bg-white/15 flex items-center justify-center mx-auto mb-3">
                   <QrCode size={36} strokeWidth={2} className="text-white" />
                 </div>
-                <div className="text-3xl font-black mb-1">+50개</div>
-                <div className="text-blue-200 text-xs">월 평균 리뷰 증가</div>
+                <div className="text-3xl font-black mb-1">{hero.reviewsPerMonth}</div>
+                <div className="text-blue-200 text-xs">{hero.reviewsPerMonthLabel}</div>
                 <div className="mt-4 pt-4 border-t border-white/20">
-                  <div className="text-2xl font-black mb-1">4.9점</div>
-                  <div className="text-blue-200 text-xs">평균 별점</div>
+                  <div className="text-2xl font-black mb-1">{hero.avgRating}</div>
+                  <div className="text-blue-200 text-xs">{hero.avgRatingLabel}</div>
                 </div>
+                {isDemo && (
+                  <div className="mt-3 text-[10px] text-blue-200/80 font-medium">
+                    예시 값
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -225,30 +299,44 @@ export default function LandingPage() {
       <section className="py-20 px-4 bg-[#F8FAFC]">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-12">
-            <h2 className="text-3xl font-black text-[#191F28] mb-3">사장님들의 실제 후기</h2>
-            <p className="text-[#8B95A1] text-sm">로컬루션을 사용 중인 매장 사장님들의 이야기</p>
+            <h2 className="text-3xl font-black text-[#191F28] mb-3">
+              {isDemo ? '사용 사례 예시' : '사장님들의 실제 후기'}
+            </h2>
+            <p className="text-[#8B95A1] text-sm">
+              {isDemo
+                ? '실제 사용 후기 수집 중 · 아래는 예시 콘텐츠입니다'
+                : '로컬루션을 사용 중인 매장 사장님들의 이야기'}
+            </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {TESTIMONIALS.map(t => (
-              <div key={t.name} className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
-                <div className="flex text-[#F59E0B] mb-3 gap-0.5">
-                  {Array.from({ length: t.rating }).map((_, i) => (
-                    <Star key={i} size={14} strokeWidth={0} fill="currentColor" />
-                  ))}
-                </div>
-                <p className="text-sm text-[#191F28] leading-relaxed mb-4">&quot;{t.text}&quot;</p>
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
-                    style={{ backgroundColor: t.color + '15' }}>
-                    <t.Icon size={18} strokeWidth={2} style={{ color: t.color }} />
+            {testimonials.map((t, i) => {
+              const TIcon = ICON_MAP[t.iconKey] ?? Coffee
+              return (
+                <div key={`${t.name}-${i}`} className="relative bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
+                  {isDemo && (
+                    <span className="absolute top-4 right-4 text-[10px] font-semibold text-[#8B95A1] bg-[#F2F4F6] px-2 py-0.5 rounded-full">
+                      예시
+                    </span>
+                  )}
+                  <div className="flex text-[#F59E0B] mb-3 gap-0.5">
+                    {Array.from({ length: t.rating }).map((_, idx) => (
+                      <Star key={idx} size={14} strokeWidth={0} fill="currentColor" />
+                    ))}
                   </div>
-                  <div>
-                    <div className="text-sm font-bold text-[#191F28]">{t.name}</div>
-                    <div className="text-xs text-[#8B95A1]">{t.store}</div>
+                  <p className="text-sm text-[#191F28] leading-relaxed mb-4">&quot;{t.text}&quot;</p>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
+                      style={{ backgroundColor: t.color + '15' }}>
+                      <TIcon size={18} strokeWidth={2} style={{ color: t.color }} />
+                    </div>
+                    <div>
+                      <div className="text-sm font-bold text-[#191F28]">{t.name}</div>
+                      <div className="text-xs text-[#8B95A1]">{t.store}</div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       </section>
@@ -282,3 +370,4 @@ export default function LandingPage() {
     </div>
   )
 }
+
