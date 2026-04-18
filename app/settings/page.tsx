@@ -752,7 +752,7 @@ function ShowcaseCarousel({ items }: { items: Array<{ metric: string; label: str
 function PlanTab() {
   const SHOWCASE = [
     { metric: '98%', label: '리뷰 답변률', feature: 'AI 리뷰 자동 답변', who: '강남구 네일샵', story: 'AI가 매일 쏟아지는 리뷰를 진심 답변으로 처리', grad: 'from-[#3182F6] to-[#1B64DA]' },
-    { metric: '+47명', label: '월 신규 고객', feature: 'CRM 고객 관리', who: '홍대 카페', story: '재방문 유도 메시지로 충성 고객 3배 확보', grad: 'from-[#7C3AED] to-[#5B21B6]' },
+    { metric: '+47명', label: '월 신규 고객', feature: 'CRM 고객 관리', who: '홍대 카페', story: '재방문 유도 메시지로 충성 ��객 3배 확보', grad: 'from-[#7C3AED] to-[#5B21B6]' },
     { metric: '+34%', label: '재방문율 상승', feature: '주간 리포트', who: '이태원 헤어샵', story: '데이��� 분석으로 마케팅 전략 최적화', grad: 'from-[#059669] to-[#047857]' },
     { metric: '1,200회', label: 'QR 월 스캔', feature: 'QR 코드 관리', who: '신촌 레스토랑', story: 'QR 쿠폰 하나로 재방문율 2배 달성', grad: 'from-[#DC2626] to-[#B91C1C]' },
     { metric: '28%', label: 'SMS 전환율', feature: 'SMS 마케팅', who: '합정 베이커리', story: '타겟 문자 한 통에 당일 매출 폭발', grad: 'from-[#D97706] to-[#B45309]' },
@@ -1005,7 +1005,7 @@ function SettingsInner() {
       <Sidebar />
       <main className="flex-1 md:ml-[220px] p-4 md:p-8 pt-16 md:pt-8 pr-16 md:pr-20">
         <div className="mb-8">
-          <h1 className="text-2xl font-bold text-[#191F28]">��정</h1>
+          <h1 className="text-2xl font-bold text-[#191F28]">설정</h1>
           <p className="text-[#8B95A1] mt-1">서비스 환경을 설정하세요</p>
         </div>
         <div className="flex gap-1 mb-8 bg-white rounded-2xl p-1.5 shadow-sm overflow-x-auto">
@@ -1037,4 +1037,5 @@ export default function Settings() {
     </Suspense>
   )
 }
+
 
