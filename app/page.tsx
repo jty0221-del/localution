@@ -2,8 +2,6 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useEffect, useState } from 'react'
-import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Footer from './components/Footer'
 import TopNav from './components/TopNav'
@@ -36,7 +34,7 @@ const FEATURES = [
   {
     icon: '📋',
     title: 'AI 정산·행정',
-    desc: '매출 자동 정리, 세금계산서 원클릭 발행, 근태·급여 계산까지. 행정 업무 90% 절감.',
+    desc: '매출 자동 정리, 세금계산서 원클릭 발행, 근태·급여 계산까지. 행정 업무 90% 절��.',
     color: 'from-orange-500 to-amber-600',
     bg: 'bg-orange-50',
     tags: ['매출 캘린더', '세금계산서', '급여 계산'],
@@ -83,36 +81,8 @@ const NAV_LINKS = [
 ]
 
 export default function LandingPage() {
-  const router = useRouter()
-  const [checked, setChecked] = useState(false)
-
-  useEffect(() => {
-    const check = async () => {
-      try {
-        const cached = sessionStorage.getItem('localution_user')
-        if (cached) { router.replace('/dashboard'); return }
-        // sessionStorage 없으면 서버 세션 쿠키 확인
-        const res = await fetch('/api/me', { credentials: 'include' })
-        const data = await res.json()
-        if (data?.user) {
-          sessionStorage.setItem('localution_user', JSON.stringify(data.user))
-          router.replace('/dashboard')
-          return
-        }
-      } catch {}
-      setChecked(true)
-    }
-    check()
-  }, [router])
-
-  if (!checked) {
-    return (
-      <div className="min-h-screen bg-white flex items-center justify-center">
-        <div className="w-8 h-8 border-4 border-[#3182F6] border-t-transparent rounded-full animate-spin" />
-      </div>
-    )
-  }
-
+  // 루트 `/` 는 공개 랜딩 페이지 — 자동 리다이렉트 없음
+  // 로그인 상태는 TopNav 가 쿠키 기반으로 '대시보드 바로가기' 로 표시
   return (
     <div className="min-h-screen bg-white">
 
@@ -290,3 +260,4 @@ export default function LandingPage() {
     </div>
   )
 }
+
