@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 
 import { useState, useEffect, useRef } from 'react'
 import Sidebar from '../../components/Sidebar'
+import Footer from '../../components/Footer'
 
 type Scene = {
   order: number
@@ -451,6 +452,7 @@ export default function ReelsGeneratorPage() {
           </div>
         </div>
       </main>
+    <Footer />
     </div>
   )
 }
