@@ -27,12 +27,12 @@ type Feature = {
 const features: Feature[] = [
   { id: 'ai-review',    name: 'AI 리뷰 자동 답글',  desc: '네이버·배민·쿠팡이츠 리뷰를 AI가 분석하고 맞춤 답글 자동 생성. 하루 5분으로 100% 응답률 달성.',         price:  990, Icon: MessageCircle, iconColor: '#3182F6', category: '사장님', popular: true },
   { id: 'alimtalk',     name: '알림톡 마케팅',       desc: '카카오 알림톡으로 단골 고객에게 쿠폰·이벤트 소식 발송. 월 100건 포함.',                                  price:  990, Icon: MessageCircle,      iconColor: '#F59E0B', category: '사장님' },
-  { id: 'accounting',   name: 'AI 정산·행정',        desc: '매출 자동 정리, 세금계산서 발행, 경비 관리를 AI가 도와줍니다.',                                           price:  990, Icon: FileText,           iconColor: '#FF8C00', category: '사장님' },
+  { id: 'accounting',   name: 'AI 정산·행정',        desc: '매출 자동 정리, 세금계산서 발��, 경비 관리를 AI가 도와줍니다.',                                           price:  990, Icon: FileText,           iconColor: '#FF8C00', category: '사장님' },
   { id: 'local-synergy',name: '로컬 시너지',         desc: '주변 가게와 QR 공동이벤트, 상권 분석으로 손님을 함께 끌어모읍니다.',                                       price:  990, Icon: MapPin,             iconColor: '#EF4444', category: '사장님' },
   { id: 'qr-stamp',     name: 'QR 스탬프 적립',      desc: '디지털 스탬프 카드로 재방문율을 높이세요. QR 코드 하나로 시작.',                                           price:  990, Icon: Ticket,             iconColor: '#00C471', category: '사장님' },
   { id: 'keyword',      name: '키워드 분석',         desc: '네이버 검색량, 경쟁도, 연관 키워드를 실시간 분석. 블로그·플레이스 상위 노출 전략 수립.',                    price: 1990, Icon: Search,             iconColor: '#8B5CF6', category: '마케터', popular: true },
   { id: 'blog-ai',      name: 'AI 블로그 포스팅',    desc: 'SEO 최적화된 블로그 글을 AI가 초안 작성. 키워드 자동 삽입, 이미지 배치 제안.',                             price: 1490, Icon: PenLine,            iconColor: '#EC4899', category: '마케터' },
-  { id: 'competitor',   name: '경쟁사 분석',         desc: '주변 경쟁 업체의 리뷰 동향, 키워드, 마케팅 전략을 자동 모니터링.',                                         price: 1990, Icon: Target,             iconColor: '#0EA5E9', category: '마케터' },
+  { id: 'competitor',   name: '���쟁사 분석',         desc: '주변 경쟁 업체의 리뷰 동향, 키워드, 마케팅 전략을 자동 모니터링.',                                         price: 1990, Icon: Target,             iconColor: '#0EA5E9', category: '마케터' },
   { id: 'report',       name: '마케팅 성과 리포트',  desc: '유입, 전환, 매출 연동 마케팅 효과를 주간·월간 리포트로 자동 발송.',                                         price:  990, Icon: BarChart3,          iconColor: '#10B981', category: '마케터' },
   { id: 'crm',          name: 'CRM 고객관리',        desc: '고객 방문 이력, 결제 금액, 등급을 자동 분류. 단골·VIP 맞춤 관리.',                                          price: 1290, Icon: Users,              iconColor: '#6366F1', category: '공통',   popular: true },
   { id: 'ai-chat',      name: 'AI 비서 채팅',        desc: '사장님 전용 AI 상담사. 매출 질문, 마케팅 조언, 운영 팁을 24시간 답변.',                                      price:  990, Icon: Bot,                iconColor: '#14B8A6', category: '공통' },
@@ -99,19 +99,23 @@ const PERSONAS = [
 
 const faqs = [
   {
-    q: '무료 체험은 어떻게 진행되나요?',
-    a: '회원가입 후 14일간 모든 기능을 무료로 써볼 수 있어요. 신용카드 등록도 필요 없고, 기간이 끝나면 자동 결제되지 않으니 안심하세요.',
+    q: '정말 무료인가요? 나중에 돈 뜯기진 않나요?',
+    a: '네, 베타 테스트 기간 동안은 모든 기능이 100% 무료예요. 회원가입 시 카드 등록을 받지 않기 때문에 자동결제가 발생할 수 없어요. 정식 출시 시점은 베타 사장님들께 최소 30일 전 카톡·이메일로 미리 안내드립니다.',
+  },
+  {
+    q: '정식 출시 후엔 얼마인가요?',
+    a: '기능별로 990원~1,990원 예정이고, 3개 이상 묶어 담으면 최대 20% 할인이 적용됩니다. 베타 기간에 써보신 사장님께는 별도 얼리버드 혜택도 드릴 예정이에요.',
   },
   {
     q: '중간에 기능을 추가하거나 빼도 되나요?',
-    a: '네, 언제든 가능해요. 마이페이지에서 기능을 추가하거나 해지하면 다음 결제일부터 바로 반영됩니다. 위약금이나 해지 수수료는 없어요.',
+    a: '네, 언제든 가능해요. 베타 기간에도 내 플랜에서 기능을 자유롭게 담고 빼보세요. 결제가 없으니 부담 없이 실험하시면 됩니다.',
   },
   {
-    q: '환불 정책은 어떻게 되나요?',
-    a: '결제 후 7일 이내, 기능을 전혀 사용하지 않은 경우 100% 환불해드려요. 부분 사용 시에는 잔여 기간 일할 계산으로 환불 가능합니다.',
+    q: '해지는 쉽게 되나요?',
+    a: '설정에서 1클릭 해지 가능합니다. 베타 기간은 결제 자체가 없어 해지 시 환불 이슈도 없어요. 정식 출시 후에도 당월 남은 일수만큼 일할 계산 환불됩니다.',
   },
   {
-    q: '여러 매장을 운영 중인데 한 계정으로 쓸 수 있나요?',
+    q: '여러 매장을 운영 중인데 한 계��으로 쓸 수 있나요?',
     a: '사장님 플랜은 1개 매장 기준이에요. 2개 이상 매장은 매장별로 따로 결제하거나, 마케터·대행사용 멀티 매장 플랜(준비 중)을 이용하시면 됩니다.',
   },
   {
@@ -177,25 +181,25 @@ export default function PricingPage() {
 
         {/* 신뢰 배너 */}
         <div className="flex justify-center mb-6">
-          <div className="inline-flex items-center gap-2 bg-white border border-[#E5E8EB] rounded-full px-4 py-2 shadow-sm">
+          <div className="inline-flex items-center gap-2 bg-white border border-[#10B981]/30 rounded-full px-4 py-2 shadow-sm">
             <span className="w-2 h-2 bg-green-500 rounded-full animate-pulse"></span>
-            <span className="text-xs font-bold text-[#4E5968]">베타 오픈</span>
-            <span className="text-xs text-[#8B95A1]">· 전국 400+ 사장님이 함께하고 있어요</span>
+            <span className="text-xs font-bold text-[#059669]">베타 테스트 진행 중</span>
+            <span className="text-xs text-[#8B95A1]">· 전국 400+ 사장님 · 전 기능 무료</span>
           </div>
         </div>
 
         {/* 헤더 */}
         <div className="text-center mb-10">
-          <div className="inline-flex items-center gap-1.5 bg-blue-100 text-[#3182F6] text-xs font-bold px-3 py-1.5 rounded-full mb-4">
-            <ShoppingCart size={12} strokeWidth={2.5} />
-            내가 쓸 기능만 골라 담기
+          <div className="inline-flex items-center gap-1.5 bg-[#ECFDF5] text-[#059669] text-xs font-bold px-3 py-1.5 rounded-full mb-4">
+            <Gift size={12} strokeWidth={2.5} />
+            베타 테스트 기간 · 전 기능 100% 무료
           </div>
           <h1 className="text-3xl md:text-4xl font-black text-[#191F28] mb-3">
-            필요한 기능만, 딱 그만큼만
+            지금은 모든 기능, 테스트 기간 무료
           </h1>
           <p className="text-[#4E5968] text-lg max-w-xl mx-auto">
-            정해진 요금제 없이 원하는 기능을 골라 담으세요.<br/>
-            <span className="font-bold text-[#3182F6]">3개 이상 선택 시 최대 20% 할인</span>까지 받을 수 있어요.
+            신용카드 등록 없음 · 자동결제 없음 · 언제든 1클릭 해지.<br/>
+            <span className="font-bold text-[#059669]">필요한 기능을 담고 지금 바로 써보세요.</span>
           </p>
         </div>
 
@@ -227,24 +231,19 @@ export default function PricingPage() {
           </div>
         </div>
 
-        {/* 할인 티어 안내 */}
-        <div className="max-w-3xl mx-auto mb-10 bg-white rounded-2xl p-4 border border-[#E5E8EB] shadow-sm">
-          <div className="inline-flex items-center gap-1.5 text-xs font-bold text-[#8B95A1] mb-3 justify-center w-full">
-            <Percent size={12} strokeWidth={2.5} className="text-[#10B981]" />
-            묶음 할인 · 많이 담을수록 저렴해요
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-            <div className={`rounded-xl p-3 text-center transition-all ${cart.length >= 3 && cart.length < 5 ? 'bg-blue-50 border-2 border-[#3182F6]' : 'bg-[#F9FAFB] border border-[#E5E8EB]'}`}>
-              <div className="text-[10px] text-[#8B95A1] mb-0.5">3개+</div>
-              <div className="text-sm font-black text-[#3182F6]">10% OFF</div>
+        {/* 베타 안내 박스 — 사기 우려 해소 */}
+        <div className="max-w-3xl mx-auto mb-10 bg-gradient-to-br from-[#ECFDF5] to-[#F0FDF4] rounded-2xl p-5 border border-[#A7F3D0]">
+          <div className="flex flex-col md:flex-row md:items-center gap-3">
+            <div className="shrink-0 w-12 h-12 rounded-2xl bg-[#10B981] flex items-center justify-center">
+              <Gift size={22} strokeWidth={2.25} className="text-white" />
             </div>
-            <div className={`rounded-xl p-3 text-center transition-all ${cart.length >= 5 && cart.length < 8 ? 'bg-blue-50 border-2 border-[#3182F6]' : 'bg-[#F9FAFB] border border-[#E5E8EB]'}`}>
-              <div className="text-[10px] text-[#8B95A1] mb-0.5">5개+</div>
-              <div className="text-sm font-black text-[#3182F6]">15% OFF</div>
-            </div>
-            <div className={`rounded-xl p-3 text-center transition-all ${cart.length >= 8 ? 'bg-blue-50 border-2 border-[#3182F6]' : 'bg-[#F9FAFB] border border-[#E5E8EB]'}`}>
-              <div className="text-[10px] text-[#8B95A1] mb-0.5">8개+</div>
-              <div className="text-sm font-black text-[#3182F6]">20% OFF</div>
+            <div className="flex-1">
+              <div className="text-sm font-black text-[#065F46] mb-1">
+                베타 테스트 기간 — 모든 기능 무료로 써보세요
+              </div>
+              <p className="text-xs text-[#065F46]/80 leading-relaxed">
+                신용카드 등록 안 받습니다. 자동결제 불가능합니다. 정식 출시는 <b>최소 30일 전</b> 카톡·이메일로 미리 안내드리고, 원치 않으면 해지만 하면 끝입니다.
+              </p>
             </div>
           </div>
         </div>
@@ -304,7 +303,10 @@ export default function PricingPage() {
                     </div>
                     <p className="text-xs text-[#8B95A1] leading-relaxed mb-3">{feature.desc}</p>
                     <div className="flex items-center justify-between">
-                      <span className="text-lg font-black text-[#191F28]">{feature.price.toLocaleString()}원<span className="text-xs font-normal text-[#8B95A1]">/월</span></span>
+                      <span className="inline-flex items-baseline gap-1.5">
+                        <span className="text-base font-black text-[#10B981]">테스트 기간 무료</span>
+                        <span className="text-[11px] text-[#B0B8C1] line-through">{feature.price.toLocaleString()}원/월</span>
+                      </span>
                       <span className={`inline-flex items-center gap-1 text-xs font-bold px-3 py-1 rounded-lg transition-all ${
                         inCart ? 'bg-[#3182F6] text-white' : 'bg-[#F2F4F6] text-[#4E5968]'
                       }`}>
@@ -350,7 +352,7 @@ export default function PricingPage() {
                           <span className="text-xs text-[#4E5968] font-medium truncate">{item.name}</span>
                         </div>
                         <div className="flex items-center gap-2 flex-shrink-0">
-                          <span className="text-xs font-bold text-[#191F28]">{item.price.toLocaleString()}원</span>
+                          <span className="text-[11px] font-bold text-[#10B981]">무료</span>
                           <button onClick={(e) => { e.stopPropagation(); toggle(item.id) }} className="text-[#B0B8C1] hover:text-[#F04452] transition-colors">
                             <X size={14} strokeWidth={2.25} />
                           </button>
@@ -359,68 +361,49 @@ export default function PricingPage() {
                     ))}
                   </div>
 
-                  {/* 다음 티어 유도 */}
-                  {nextTier && (
-                    <div className="mb-3 bg-yellow-50 border border-yellow-200 rounded-xl p-3">
-                      <div className="flex items-center gap-1.5 text-[11px] text-[#8B6914] font-semibold">
-                        <Gift size={12} strokeWidth={2.25} className="text-[#F59E0B]" />
-                        <span><b>{nextTier.need}개</b> 더 담으면 <b>{nextTier.rate}%</b> 할인!</span>
-                      </div>
-                    </div>
-                  )}
-
                   <div className="border-t border-[#F2F4F6] pt-4 mb-4 space-y-1.5">
-                    {discountRate > 0 && (
-                      <>
-                        <div className="flex justify-between items-center text-xs">
-                          <span className="text-[#8B95A1]">원가</span>
-                          <span className="text-[#8B95A1] line-through">{subtotal.toLocaleString()}원</span>
-                        </div>
-                        <div className="flex justify-between items-center text-xs">
-                          <span className="text-green-600 font-bold">묶음 할인 {Math.round(discountRate * 100)}%</span>
-                          <span className="text-green-600 font-bold">-{discountAmount.toLocaleString()}원</span>
-                        </div>
-                      </>
-                    )}
                     <div className="flex justify-between items-center pt-1">
                       <span className="text-sm text-[#191F28] font-bold">월 합계</span>
-                      <span className="text-xl font-black text-[#3182F6]">{total.toLocaleString()}원</span>
+                      <span className="inline-flex items-baseline gap-1.5">
+                        <span className="text-xl font-black text-[#10B981]">0원</span>
+                        <span className="text-[10px] text-[#B0B8C1] line-through">{total.toLocaleString()}원</span>
+                      </span>
                     </div>
-                    <div className="text-xs text-[#B0B8C1] text-right">VAT 포함 · 언제든 변경 가능</div>
+                    <div className="text-[11px] text-[#059669] text-right font-semibold">베타 테스트 기간 · 전 기능 무료</div>
                   </div>
 
                   <Link href="/login"
-                    className="flex items-center justify-center gap-1.5 w-full py-3 bg-[#3182F6] text-white font-bold text-sm rounded-xl hover:bg-[#1B64DA] transition-all shadow-sm shadow-blue-200 text-center">
-                    14일 무료로 시작하기
+                    className="flex items-center justify-center gap-1.5 w-full py-3 bg-[#10B981] text-white font-bold text-sm rounded-xl hover:bg-[#059669] transition-all shadow-sm shadow-green-200 text-center">
+                    무료로 시작하기
                     <ArrowRight size={14} strokeWidth={2.5} />
                   </Link>
                   <button onClick={requestQuote}
                     className="flex items-center justify-center gap-1.5 w-full mt-2 py-3 bg-white border-2 border-[#3182F6] text-[#3182F6] font-bold text-sm rounded-xl hover:bg-[#EFF6FF] transition-all">
                     <MessageCircle size={14} strokeWidth={2.5} />
-                    이 구성으로 견적 문의하기
+                    이 구성 그대로 문의하기
                   </button>
-                  <p className="text-[11px] text-[#B0B8C1] text-center mt-2">신용카드 불필요 · 무료 체험 후 결제</p>
+                  <p className="text-[11px] text-[#B0B8C1] text-center mt-2">신용카드 등록 없음 · 자동결제 없음</p>
                 </>
               )}
             </div>
 
-            <div className="bg-blue-50 rounded-2xl p-4 mt-3">
-              <div className="inline-flex items-center gap-1.5 text-xs font-bold text-[#3182F6] mb-2">
+            <div className="bg-[#ECFDF5] rounded-2xl p-4 mt-3 border border-[#A7F3D0]">
+              <div className="inline-flex items-center gap-1.5 text-xs font-bold text-[#059669] mb-2">
                 <Gift size={12} strokeWidth={2.5} />
-                이런 조합 인기예요
+                이런 조합 인기예요 · 전부 무료
               </div>
-              <div className="space-y-1.5 text-xs text-[#4E5968]">
+              <div className="space-y-1.5 text-xs text-[#065F46]">
                 <div className="inline-flex items-center gap-1.5 w-full">
                   <Store size={12} strokeWidth={2.25} className="text-[#3182F6] flex-shrink-0" />
-                  <span>사장님 기본 3종 <b className="text-[#3182F6]">2,673원/월</b> (10%↓)</span>
+                  <span>사장님 기본 3종 <b className="text-[#10B981]">베타 무료</b></span>
                 </div>
                 <div className="inline-flex items-center gap-1.5 w-full">
                   <Megaphone size={12} strokeWidth={2.25} className="text-[#8B5CF6] flex-shrink-0" />
-                  <span>마케터 5종 <b className="text-[#3182F6]">6,341원/월</b> (15%↓)</span>
+                  <span>마케터 5종 <b className="text-[#10B981]">베타 무료</b></span>
                 </div>
                 <div className="inline-flex items-center gap-1.5 w-full">
                   <UserPlus size={12} strokeWidth={2.25} className="text-[#059669] flex-shrink-0" />
-                  <span>전체 12종 <b className="text-[#3182F6]">{Math.round(features.reduce((s, f) => s + f.price, 0) * 0.8).toLocaleString()}원/월</b> (20%↓)</span>
+                  <span>전체 12종 <b className="text-[#10B981]">베타 무료</b></span>
                 </div>
               </div>
             </div>
@@ -455,10 +438,10 @@ export default function PricingPage() {
 
         {/* 하단 CTA */}
         <div className="max-w-3xl mx-auto mt-16 text-center">
-          <div className="bg-gradient-to-br from-[#3182F6] to-[#1B64DA] rounded-3xl p-8 md:p-12 text-white shadow-xl shadow-blue-200">
+          <div className="bg-gradient-to-br from-[#10B981] to-[#059669] rounded-3xl p-8 md:p-12 text-white shadow-xl shadow-green-200">
             <h3 className="text-2xl md:text-3xl font-black mb-3">아직 고민되신다면?</h3>
-            <p className="text-blue-100 mb-6 text-sm md:text-base">무료 체험 14일 동안 전체 기능을 모두 써볼 수 있어요.<br/>신용카드 없이도 가입 가능합니다.</p>
-            <Link href="/login" className="inline-flex items-center gap-2 bg-white text-[#3182F6] font-black px-8 py-4 rounded-2xl hover:bg-gray-50 transition-all shadow-lg">
+            <p className="text-green-50 mb-6 text-sm md:text-base">지금은 <b className="underline">베타 테스트 기간 · 전 기능 무료</b>예요.<br/>신용카드 등록도, 자동결제도 없으니 부담 없이 써보세요.</p>
+            <Link href="/login" className="inline-flex items-center gap-2 bg-white text-[#059669] font-black px-8 py-4 rounded-2xl hover:bg-gray-50 transition-all shadow-lg">
               지금 바로 무료 시작하기
               <ArrowRight size={18} strokeWidth={2.5} />
             </Link>
@@ -471,10 +454,13 @@ export default function PricingPage() {
           <div className="md:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-[#E5E8EB] p-3 shadow-lg z-50">
             <div className="flex items-end justify-between mb-2">
               <div>
-                <div className="text-xs text-[#8B95A1]">{cart.length}개 선택{discountRate > 0 ? ' · ' + Math.round(discountRate * 100) + '% 할인' : ''}</div>
-                <div className="text-lg font-black text-[#3182F6]">월 {total.toLocaleString()}원</div>
+                <div className="text-xs text-[#8B95A1]">{cart.length}개 선택 · 베타 테스트 기간</div>
+                <div className="inline-flex items-baseline gap-1.5">
+                  <span className="text-lg font-black text-[#10B981]">무료</span>
+                  <span className="text-[10px] text-[#B0B8C1] line-through">월 {total.toLocaleString()}원</span>
+                </div>
               </div>
-              <Link href="/login" className="inline-flex items-center gap-1 bg-[#3182F6] text-white font-bold text-xs px-4 py-2.5 rounded-xl hover:bg-[#1B64DA] transition-colors shadow-sm">
+              <Link href="/login" className="inline-flex items-center gap-1 bg-[#10B981] text-white font-bold text-xs px-4 py-2.5 rounded-xl hover:bg-[#059669] transition-colors shadow-sm">
                 무료로 시작
                 <ArrowRight size={12} strokeWidth={2.5} />
               </Link>
@@ -482,7 +468,7 @@ export default function PricingPage() {
             <button onClick={requestQuote}
               className="flex items-center justify-center gap-1.5 w-full py-2.5 bg-white border-2 border-[#3182F6] text-[#3182F6] font-bold text-xs rounded-xl hover:bg-[#EFF6FF] transition-colors">
               <MessageCircle size={12} strokeWidth={2.5} />
-              이 구성 그대로 견적 문의
+              이 구성 그대로 문의하기
             </button>
           </div>
         )}
