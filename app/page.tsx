@@ -6,15 +6,15 @@ import Link from 'next/link'
 import Footer from './components/Footer'
 import TopNav from './components/TopNav'
 import {
-  MessageSquareHeart, QrCode, Users, FileText, Sparkles,
+  MessageCircle, QrCode, Users, FileText, Sparkles,
   Coffee, UtensilsCrossed, Dumbbell,
-  Flame, Heart, PenLine, Wine, Handshake, Camera, Star,
+  Flame, Heart, PenLine, Wine, UserPlus, Camera, Star,
   ArrowRight,
 } from 'lucide-react'
 
 const FEATURES = [
   {
-    Icon: MessageSquareHeart,
+    Icon: MessageCircle,
     title: 'AI 리뷰 자동 답글',
     desc: '네이버·구글·배민 리뷰를 AI가 분석하고 맞춤 답글을 자동 생성해요. 하루 5분으로 100% 응답률 달성.',
     color: 'from-blue-500 to-blue-600',
@@ -88,7 +88,7 @@ const QR_TONES = [
   { Icon: Heart,     label: '맘카페' },
   { Icon: PenLine,   label: '솔직담백' },
   { Icon: Wine,      label: '미식가' },
-  { Icon: Handshake, label: '친구추천' },
+  { Icon: UserPlus,  label: '친구추천' },
   { Icon: Camera,    label: '인스타감성' },
 ]
 
