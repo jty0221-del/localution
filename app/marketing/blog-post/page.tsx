@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic'
 import { useState, useEffect, useRef } from 'react'
 import Sidebar from '../../components/Sidebar'
 import {
+import Footer from '../../components/Footer'
   Sparkles, Copy, Check, Image as ImageIcon, X, Plus,
   User, Phone, Tag, FileText, MessageCircle, Link as LinkIcon,
   Loader2, AlertCircle, ArrowRight, RefreshCw, Download,
@@ -520,6 +521,7 @@ export default function BlogPostGeneratorPage() {
           )}
         </div>
       </main>
+    <Footer />
     </div>
   )
 }
