@@ -153,6 +153,34 @@ const MOCK_KEYWORDS: KeywordRank[] = [
   { keyword: '강남 단체석',   rank: 34, prevRank: null, area: '강남구', updatedAt: '방금 전' },
 ]
 
+// ── 주소/매장명에서 지역(구/동) 추출 ────────────────────────
+// "서울시 강남구 테헤란로 123" → "강남구" | "부산 해운대구 우동" → "해운대구"
+// 매장명에 "강남점"·"해운대점" 등 지점명만 있는 경우도 대응
+function extractRegion(address?: string, storeName?: string, branch?: string): string | null {
+  const src = [address, branch, storeName].filter(Boolean).join(' ')
+  if (!src) return null
+  // 1) "OO구" / "OO군" 패턴
+  const gu = src.match(/([가-힣]{1,4})(구|군)/)
+  if (gu) return gu[1] + gu[2]
+  // 2) 주요 지역 약칭 (해운대, 강남, 홍대, 일산, 송도 등)
+  const known = ['해운대','광안리','서면','강남','서초','홍대','합정','이태원','성수','건대','일산','분당','판교','송도','동탄','광교','수원','안양','평촌','인천','부평','부천','대구','동성로','수성','광주','상무','대전','둔산','울산','남구','동구','북구','중구','청주','전주','제주','서귀포','창원','마산','포항','경주','천안','아산','세종','강릉','춘천','원주']
+  for (const k of known) {
+    if (src.includes(k)) return k
+  }
+  return null
+}
+
+// 지역 기반 키워드 생성 (연동 전 노출용 데모, 단 실제 매장 지역 반영)
+function generateRegionKeywords(region: string): KeywordRank[] {
+  return [
+    { keyword: `${region} 맛집`,     rank: 3,  prevRank: 5,   area: region, updatedAt: '방금 전' },
+    { keyword: `${region} 카페`,     rank: 7,  prevRank: 7,   area: region, updatedAt: '3분 전' },
+    { keyword: `${region} 점심`,     rank: 12, prevRank: 15,  area: region, updatedAt: '10분 전' },
+    { keyword: `${region} 회식`,     rank: 21, prevRank: 18,  area: region, updatedAt: '18분 전' },
+    { keyword: `${region} 데이트코스`, rank: 34, prevRank: null, area: region, updatedAt: '방금 전' },
+  ]
+}
+
 const RECENT_REVIEWS = [
   { platform: '네이버',  name: '이**', rating: 1, text: '대기 시간이 너무 길었고 음식도 식어서 나왔습니다. 재방문은 어려울 것 같아요.', time: '1시간 전', replied: false, color: '#03C75A' },
   { platform: '네이버',  name: '김**', rating: 5, text: '음식도 맛있고 직원분들도 친절해요. 주차도 편하고 재방문 의사 있습니다!', time: '2시간 전', replied: false, color: '#03C75A' },
@@ -779,32 +807,75 @@ export default function Dashboard() {
 
   const [platforms, setPlatforms] = useState(INITIAL_PLATFORMS)
   const [keywords, setKeywords] = useState<KeywordRank[]>(MOCK_KEYWORDS)
+  const [storeRegion, setStoreRegion] = useState<string | null>(null)
   const [lastSync, setLastSync] = useState('방금 전')
   const [isSyncing, setIsSyncing] = useState(false)
-  const [mainKeyword] = useState('강남 맛집')
+  const [mainKeyword, setMainKeyword] = useState('강남 맛집')
 
   const [connectPlatform, setConnectPlatform] = useState<Platform | null>(null)
   const [replyReview, setReplyReview] = useState<typeof RECENT_REVIEWS[number] | null>(null)
 
+  // 플랫폼 링크는 connect 페이지에서 array 형태로 저장됨
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(LS_LINKS)
-      if (raw) {
-        const links = JSON.parse(raw) as Record<string, any>
-        setPlatforms(prev => prev.map(p => {
-          const linked = links[p.id]
-          if (linked) {
-            return {
-              ...p,
-              connected: true,
-              rating: linked.rating ?? p.rating ?? null,
-              reviews: linked.reviews ?? p.reviews ?? 0,
-            }
-          }
-          return p
-        }))
-      }
-    } catch {}
+    function syncPlatformLinks() {
+      try {
+        const raw = localStorage.getItem(LS_LINKS)
+        if (!raw) return
+        const parsed = JSON.parse(raw)
+        // 배열(신규) + 객체(구 구조) 모두 대응
+        const linkedIds = new Set<string>()
+        if (Array.isArray(parsed)) {
+          parsed.forEach((l: any) => {
+            if (!l?.platform) return
+            // connect.tsx는 'naver'로 저장 → dashboard는 'naver_place'
+            if (l.platform === 'naver') linkedIds.add('naver_place')
+            else linkedIds.add(l.platform)
+          })
+        } else if (parsed && typeof parsed === 'object') {
+          Object.keys(parsed).forEach(k => linkedIds.add(k))
+        }
+        setPlatforms(prev => prev.map(p =>
+          linkedIds.has(p.id) ? { ...p, connected: true } : p
+        ))
+      } catch {}
+    }
+    syncPlatformLinks()
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === LS_LINKS) syncPlatformLinks()
+    }
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
+  }, [])
+
+  // 프로필(매장 주소/이름) → 지역 기반 키워드 자동 생성
+  useEffect(() => {
+    function syncKeywordsFromProfile() {
+      try {
+        const raw = localStorage.getItem(LS_STORE)
+        const profile = raw ? JSON.parse(raw) : null
+        const region = extractRegion(profile?.address, profile?.storeName, profile?.branch)
+        if (region) {
+          setStoreRegion(region)
+          setKeywords(generateRegionKeywords(region))
+          setMainKeyword(`${region} 맛집`)
+        } else {
+          setStoreRegion(null)
+          setKeywords(MOCK_KEYWORDS)
+          setMainKeyword('강남 맛집')
+        }
+      } catch {}
+    }
+    syncKeywordsFromProfile()
+    const onChange = () => syncKeywordsFromProfile()
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === LS_STORE) syncKeywordsFromProfile()
+    }
+    window.addEventListener('localution:user-change', onChange)
+    window.addEventListener('storage', onStorage)
+    return () => {
+      window.removeEventListener('localution:user-change', onChange)
+      window.removeEventListener('storage', onStorage)
+    }
   }, [])
 
   const connectedCount = platforms.filter(p => p.connected).length
@@ -1281,15 +1352,30 @@ export default function Dashboard() {
               <div className="px-5 py-4 bg-[#FFFBEB] border-b border-[#FEF3C7]">
                 <p className="text-[11px] font-semibold text-[#92400E] mb-1 flex items-center gap-1">
                   <Lock size={11} strokeWidth={2.5}/> 아래는 샘플 데이터
+                  {storeRegion && (
+                    <span className="ml-1 bg-white text-[#92400E] border border-[#FDE68A] px-1.5 py-0.5 rounded-full text-[9px]">
+                      내 매장 지역: {storeRegion}
+                    </span>
+                  )}
                 </p>
                 <p className="text-[10px] text-[#92400E] leading-relaxed">
-                  네이버 플레이스를 연동하면 내 매장의 키워드별 실제 순위가 여기 표시돼요.{' '}
+                  {storeRegion
+                    ? `'${storeRegion}' 기준 예시 키워드입니다. 네이버 플레이스를 연동하면 실제 순위가 실시간으로 표시돼요. `
+                    : '프로필에 매장 주소를 등록하면 내 지역 키워드가 자동으로 뜹니다. '}
                   <button
                     onClick={() => handlePlatformClick(platforms.find(p => p.id === 'naver_place')!)}
                     className="text-[#92400E] font-bold underline inline-flex items-center gap-0.5"
                   >
                     지금 연동하기 <ArrowRight size={9} strokeWidth={3} />
                   </button>
+                  {!storeRegion && (
+                    <>
+                      {' · '}
+                      <Link href="/settings/profile" className="text-[#92400E] font-bold underline">
+                        프로필 설정 →
+                      </Link>
+                    </>
+                  )}
                 </p>
               </div>
             )}
