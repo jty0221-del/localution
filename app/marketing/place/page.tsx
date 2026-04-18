@@ -184,6 +184,22 @@ export default function PlaceDiagnosisPage() {
           </div>
         </section>
 
+        {/* ── 데모 안내 배너 (비로그인·게스트 대상) ── */}
+        <div className="mb-5 rounded-2xl border border-[#FDE68A] bg-[#FFFBEB] px-4 py-3 sm:px-5 sm:py-4 flex flex-col sm:flex-row sm:items-center gap-3">
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#F59E0B] text-white tracking-wider">샘플</span>
+            <span className="text-sm font-bold text-[#92400E]">아래 점수는 예시 매장 진단 결과입니다</span>
+          </div>
+          <p className="text-xs text-[#92400E] sm:ml-auto leading-relaxed">
+            내 가게 실제 점수를 보려면{' '}
+            <a href="/login?redirect=/marketing/place"
+              className="font-bold underline decoration-[#92400E] decoration-2 underline-offset-2">
+              무료 가입 → 네이버 플레이스 연동
+            </a>
+            {' '}하세요. 1분이면 충분해요.
+          </p>
+        </div>
+
         {/* 페이지 헤더 */}
         <div className="flex items-start justify-between mb-6">
           <div>
@@ -258,3 +274,4 @@ export default function PlaceDiagnosisPage() {
     </div>
   )
 }
+
