@@ -1,13 +1,15 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import Link from 'next/link'
 import Sidebar from '../components/Sidebar'
+import Footer from '../components/Footer'
 import {
   Star, ArrowRight, ArrowUp, ArrowDown, Minus, X, Check, CheckCircle2,
   AlertTriangle, Rocket, Bot, Smartphone, BarChart3, Wallet, TrendingUp,
   Smile, Meh, Frown, ChevronLeft, ChevronRight, LucideIcon,
+  Search, Users, Calendar, FileSpreadsheet, Link2, Lock,
 } from 'lucide-react'
 
 // ═══════════════════════════════════════════════════════════
@@ -926,10 +928,68 @@ export default function Dashboard() {
     { label: '단골 고객',      value: '38명',                       sub: '이번 달 +6명',     up: true, color: '#12B76A', ring: '#E8FFF0' },
   ]
 
+  // ─────────────────────────────────────────────────────────
+  //  오늘 처리할 작업 — 플랫폼 연동 현황에 따라 동적 렌더
+  // ─────────────────────────────────────────────────────────
+  const reviewPlatformIds = ['naver_place', 'google', 'baemin', 'yogiyo', 'coupangeats']
+  const financePlatformIds = ['hometax', 'yeoshin']
+  const reviewPlatformConnected = platforms.some(p => reviewPlatformIds.includes(p.id) && p.connected)
+  const financePlatformConnected = platforms.some(p => financePlatformIds.includes(p.id) && p.connected)
+  // 고객 관리/예약은 현재 별도 연동 테이블 없음 → 향후 지점 DB로 대체.
+  // 일단 "any 플랫폼 연동됨"을 조건으로 잡는다
+  const anyPlatformConnected = connectedCount > 0
+
+  const todayTasks = [
+    {
+      key: 'unanswered-reviews',
+      href: '/reviews',
+      connectHref: '/settings/connect',
+      requiredLabel: '리뷰 플랫폼',
+      label: '미답변 리뷰',
+      count: unansweredCount,
+      unit: '건',
+      color: '#F04452',
+      ready: reviewPlatformConnected,
+    },
+    {
+      key: 'crm-revisit',
+      href: '/crm',
+      connectHref: '/customers',
+      requiredLabel: '고객 DB',
+      label: '재방문 유도',
+      count: anyPlatformConnected ? 5 : 0,
+      unit: '명',
+      color: '#F59E0B',
+      ready: anyPlatformConnected,
+    },
+    {
+      key: 'reservations-today',
+      href: '/reservations',
+      connectHref: '/settings/connect',
+      requiredLabel: '예약 시스템',
+      label: '오늘 예약',
+      count: 0,
+      unit: '건',
+      color: '#3182F6',
+      ready: false, // 현재 예약 연동 없음
+    },
+    {
+      key: 'tax-invoice',
+      href: '/settlement',
+      connectHref: '/settings/connect',
+      requiredLabel: '홈택스/여신',
+      label: '세금계산서 발행',
+      count: financePlatformConnected ? 2 : 0,
+      unit: '건',
+      color: '#12B76A',
+      ready: financePlatformConnected,
+    },
+  ]
+
   return (
     <div className="flex min-h-screen bg-[#F2F4F6]">
       <Sidebar />
-      <main className="flex-1 ml-0 md:ml-[220px] p-4 pt-20 md:p-6 md:pt-6 min-w-0">
+      <main className="flex-1 ml-0 md:ml-[220px] p-4 pt-20 md:p-6 md:pt-6 min-w-0 pb-24 md:pb-6">
 
         {/* ── 상단 롤링 공지 배너 ── */}
         <NoticeBanner />
@@ -1024,25 +1084,46 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-            {[
-              { href: '/reviews',      label: '미답변 리뷰',       count: 3, unit: '건', color: '#F04452' },
-              { href: '/crm',          label: '재방문 유도',       count: 5, unit: '명', color: '#F59E0B' },
-              { href: '/reservations', label: '오늘 예약',         count: 7, unit: '건', color: '#3182F6' },
-              { href: '/settlement',   label: '세금계산서 발행',   count: 2, unit: '건', color: '#12B76A' },
-            ].map(t => (
-              <Link key={t.href} href={t.href} className="group flex flex-col p-4 rounded-xl border border-[#F2F4F6] hover:border-[#3182F6] hover:shadow-md transition-all cursor-pointer">
-                <div className="flex items-center gap-2 mb-2">
-                  <div className="w-1 h-8 rounded-full" style={{ background: t.color }}/>
-                  <span className="text-xs text-[#8B95A1] font-medium">{t.label}</span>
-                </div>
-                <span className="text-2xl font-black mb-1" style={{ color: t.color }}>
-                  {t.count}<span className="text-sm font-bold text-[#8B95A1]">{t.unit}</span>
-                </span>
-                <span className="text-[11px] text-[#8B95A1] group-hover:text-[#3182F6] transition-colors inline-flex items-center gap-1">
-                  바로 처리하기 <ArrowRight size={11} strokeWidth={2.5} />
-                </span>
-              </Link>
-            ))}
+            {todayTasks.map(t => {
+              const ready = t.ready
+              const href = ready ? t.href : (t.connectHref || '/settings')
+              return (
+                <Link
+                  key={t.key}
+                  href={href}
+                  className={[
+                    'group flex flex-col p-4 rounded-xl border transition-all cursor-pointer',
+                    ready
+                      ? 'border-[#F2F4F6] hover:border-[#3182F6] hover:shadow-md bg-white'
+                      : 'border-dashed border-[#E0E0E0] hover:border-[#3182F6] bg-[#FAFBFF]',
+                  ].join(' ')}
+                  title={ready ? '' : `${t.requiredLabel} 연동 후 이용 가능`}
+                >
+                  <div className="flex items-center justify-between gap-2 mb-2">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <div className="w-1 h-8 rounded-full" style={{ background: ready ? t.color : '#D1D5DB' }}/>
+                      <span className="text-xs text-[#8B95A1] font-medium truncate">{t.label}</span>
+                    </div>
+                    {!ready && (
+                      <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full bg-[#FEF3C7] text-[#92400E] flex items-center gap-0.5 flex-shrink-0">
+                        <Lock size={9} strokeWidth={2.75}/> 연동필요
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-2xl font-black mb-1" style={{ color: ready ? t.color : '#9CA3AF' }}>
+                    {ready ? t.count : 0}<span className="text-sm font-bold text-[#8B95A1]">{t.unit}</span>
+                  </span>
+                  <span className={[
+                    'text-[11px] inline-flex items-center gap-1 transition-colors',
+                    ready ? 'text-[#8B95A1] group-hover:text-[#3182F6]' : 'text-[#F59E0B] font-semibold',
+                  ].join(' ')}>
+                    {ready
+                      ? <>바로 처리하기 <ArrowRight size={11} strokeWidth={2.5} /></>
+                      : <><Link2 size={11} strokeWidth={2.5} /> {t.requiredLabel} 연동하기</>}
+                  </span>
+                </Link>
+              )
+            })}
           </div>
         </div>
 
@@ -1175,20 +1256,43 @@ export default function Dashboard() {
                 <span className="inline-flex items-center gap-1.5 text-sm font-bold text-[#191F28]">
                   <TrendingUp size={14} strokeWidth={2.25} className="text-[#3182F6]" />
                   주요 키워드 순위
+                  {!platforms.find(p => p.id === 'naver_place')?.connected && (
+                    <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-[#FEF3C7] text-[#92400E] font-bold">데모</span>
+                  )}
                 </span>
                 <div className="flex items-center gap-1.5 mt-0.5">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#12B76A] animate-pulse inline-block"/>
-                  <span className="text-[10px] text-[#8B95A1]">실시간 · {lastSync}</span>
+                  <span className={`w-1.5 h-1.5 rounded-full inline-block ${platforms.find(p => p.id === 'naver_place')?.connected ? 'bg-[#12B76A] animate-pulse' : 'bg-[#F59E0B]'}`}/>
+                  <span className="text-[10px] text-[#8B95A1]">
+                    {platforms.find(p => p.id === 'naver_place')?.connected ? `실시간 · ${lastSync}` : '플레이스 연동 시 실시간 조회'}
+                  </span>
                 </div>
               </div>
               <button
                 onClick={refreshKeywords}
-                disabled={isSyncing}
-                className="text-[11px] text-[#3182F6] font-semibold border border-[#3182F6] px-2.5 py-1 rounded-lg hover:bg-[#E8F4FD] transition-colors disabled:opacity-50"
+                disabled={isSyncing || !platforms.find(p => p.id === 'naver_place')?.connected}
+                className="text-[11px] text-[#3182F6] font-semibold border border-[#3182F6] px-2.5 py-1 rounded-lg hover:bg-[#E8F4FD] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                title={!platforms.find(p => p.id === 'naver_place')?.connected ? '네이버 플레이스 연동 후 가능' : ''}
               >
                 {isSyncing ? '갱신 중...' : '새로고침'}
               </button>
             </div>
+
+            {!platforms.find(p => p.id === 'naver_place')?.connected && (
+              <div className="px-5 py-4 bg-[#FFFBEB] border-b border-[#FEF3C7]">
+                <p className="text-[11px] font-semibold text-[#92400E] mb-1 flex items-center gap-1">
+                  <Lock size={11} strokeWidth={2.5}/> 아래는 샘플 데이터
+                </p>
+                <p className="text-[10px] text-[#92400E] leading-relaxed">
+                  네이버 플레이스를 연동하면 내 매장의 키워드별 실제 순위가 여기 표시돼요.{' '}
+                  <button
+                    onClick={() => handlePlatformClick(platforms.find(p => p.id === 'naver_place')!)}
+                    className="text-[#92400E] font-bold underline inline-flex items-center gap-0.5"
+                  >
+                    지금 연동하기 <ArrowRight size={9} strokeWidth={3} />
+                  </button>
+                </p>
+              </div>
+            )}
 
             <div className="flex-1 divide-y divide-[#F2F4F6]">
               {keywords.map((kw) => (
@@ -1220,6 +1324,9 @@ export default function Dashboard() {
           <div className="px-5 py-4 border-b border-[#F2F4F6] flex items-center justify-between">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-sm font-bold text-[#191F28]">최근 리뷰</span>
+              {!reviewPlatformConnected && (
+                <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-[#FEF3C7] text-[#92400E] font-bold">데모</span>
+              )}
               <span className="text-[11px] text-[#8B95A1]">미답변 {RECENT_REVIEWS.filter(r => !r.replied).length}건</span>
               <span className="flex items-center gap-1 ml-2">
                 <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-[#ECFDF5] text-[10px] font-bold text-[#059669]" title={`긍정 ${sentimentCount.positive}건`}>
@@ -1244,6 +1351,19 @@ export default function Dashboard() {
               전체보기 <ArrowRight size={11} strokeWidth={2.5} />
             </Link>
           </div>
+          {!reviewPlatformConnected && (
+            <div className="px-5 py-4 bg-[#FFFBEB] border-b border-[#FEF3C7]">
+              <p className="text-[11px] font-semibold text-[#92400E] mb-1 flex items-center gap-1">
+                <Lock size={11} strokeWidth={2.5}/> 아래는 샘플 리뷰입니다
+              </p>
+              <p className="text-[10px] text-[#92400E] leading-relaxed">
+                네이버·구글·배민 등 리뷰 플랫폼을 연동하면 실제 리뷰가 이 자리에 자동으로 들어옵니다.{' '}
+                <Link href="/settings/connect" className="font-bold underline inline-flex items-center gap-0.5">
+                  연동하러 가기 <ArrowRight size={9} strokeWidth={3} />
+                </Link>
+              </p>
+            </div>
+          )}
           <div className="divide-y divide-[#F2F4F6]">
             {RECENT_REVIEWS.map((r, i) => (
               <div key={i} className="px-5 py-4 hover:bg-[#FAFBFF] transition-colors flex items-start gap-4">
@@ -1278,6 +1398,11 @@ export default function Dashboard() {
               </div>
             ))}
           </div>
+        </div>
+
+        {/* ── Footer ── */}
+        <div className="-mx-4 md:-mx-6 mt-8">
+          <Footer />
         </div>
 
       </main>
