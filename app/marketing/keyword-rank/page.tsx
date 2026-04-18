@@ -1,8 +1,38 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import Sidebar from '../../components/Sidebar'
+
+// 프로필 주소에서 지역 추출
+function extractRegionFromProfile(): string | null {
+  if (typeof window === 'undefined') return null
+  try {
+    const raw = localStorage.getItem('localution_store')
+    if (!raw) return null
+    const p = JSON.parse(raw)
+    const src = [p?.address, p?.branch, p?.storeName].filter(Boolean).join(' ')
+    if (!src) return null
+    const gu = src.match(/([가-힣]{1,4})(구|군)/)
+    if (gu) return gu[1] + gu[2]
+    const known = ['해운대','광안리','서면','강남','서초','홍대','합정','이태원','성수','건대','일산','분당','판교','송도','동탄','광교','수원','안양','평촌','인천','부평','부천','대구','동성로','수성','광주','상무','대전','둔산','울산','청주','전주','제주','서귀포','창원','마산','포항','경주','천안','아산','세종','강릉','춘천','원주']
+    for (const k of known) if (src.includes(k)) return k
+    return null
+  } catch { return null }
+}
+
+// 지역 드롭다운 옵션 (전국 주요 지역)
+const AREA_OPTIONS = [
+  '강남구','서초구','송파구','마포구','종로구','용산구','성동구','영등포구','동작구','관악구',
+  '해운대구','수영구','부산진구','남구(부산)','중구(부산)','연제구',
+  '수성구','달서구','중구(대구)',
+  '연수구(인천)','남동구','부평구',
+  '서구(광주)','동구(광주)','광산구',
+  '유성구','서구(대전)','중구(대전)',
+  '남구(울산)','중구(울산)',
+  '분당구','수원 영통','수원 장안','고양 일산동구','고양 일산서구','성남 분당','용인 수지','용인 기흥','안양 동안','부천 원미',
+  '제주시','서귀포시','청주 상당','천안 서북','전주 완산',
+]
 
 // ── 타입 ──────────────────────────────────────────────
 interface RankRow {
@@ -199,6 +229,21 @@ export default function KeywordRankPage() {
   const [scanning, setScanning] = useState(false)
   const [lastUpdated, setLastUpdated] = useState('26.04.13 오전 1:46')
 
+  // 프로필의 매장 주소 기반으로 기본 지역 설정
+  useEffect(() => {
+    const region = extractRegionFromProfile()
+    if (region) {
+      // 드롭다운 옵션에 없어도 현재 값으로 설정 (표시됨)
+      setArea(region)
+    }
+    const onChange = () => {
+      const r = extractRegionFromProfile()
+      if (r) setArea(r)
+    }
+    window.addEventListener('localution:user-change', onChange)
+    return () => window.removeEventListener('localution:user-change', onChange)
+  }, [])
+
   const connectedCount = MOCK_DATA.filter(g => g.rows[0].rank !== null && g.rows[0].rank <= 10).length
 
   const filtered = MOCK_DATA.filter(g =>
@@ -225,11 +270,9 @@ export default function KeywordRankPage() {
               <span className="text-xs text-[#8B95A1] font-medium">지역</span>
               <select value={area} onChange={e => setArea(e.target.value)}
                 className="text-sm border border-[#E5E8EB] rounded-lg px-2.5 py-1.5 bg-white text-[#191F28] font-medium focus:outline-none focus:border-[#3182F6]">
-                <option>강남구</option>
-                <option>서초구</option>
-                <option>송파구</option>
-                <option>마포구</option>
-                <option>종로구</option>
+                {/* 현재 area가 옵션에 없으면 자동 추가 (프로필 주소 기반) */}
+                {!AREA_OPTIONS.includes(area) && <option value={area}>{area} (내 매장)</option>}
+                {AREA_OPTIONS.map(a => <option key={a} value={a}>{a}</option>)}
               </select>
             </div>
 
@@ -281,6 +324,13 @@ export default function KeywordRankPage() {
             {/* 업데이트 시간 */}
             <span className="text-[11px] text-[#8B95A1] ml-auto">마지막 업데이트: {lastUpdated}</span>
           </div>
+        </div>
+
+        {/* 데모 안내 배너 */}
+        <div className="bg-[#FFFBEB] border-b border-[#FDE68A] px-6 py-3">
+          <p className="text-[11px] text-[#92400E] leading-relaxed">
+            ⚠ <strong>아래는 예시 데이터입니다</strong> · 네이버 Search API 또는 selfrank·키워드마스터 같은 외부 순위 측정 서비스를 연동하면 내 매장의 실제 키워드 순위로 교체됩니다.
+          </p>
         </div>
 
         {/* 통계 요약 바 */}
