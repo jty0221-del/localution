@@ -202,17 +202,17 @@ export default function LandingPage() {
             한 플랫폼에서, 1인 사장님도 마케팅 대행사처럼
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <Link href="/login"
+            <Link href="/marketing/place"
               className="inline-flex items-center justify-center gap-2 bg-[#3182F6] text-white font-bold text-base px-8 py-4 rounded-2xl hover:bg-[#1B64DA] transition-all shadow-lg shadow-blue-200 hover:shadow-blue-300 hover:-translate-y-0.5">
-              무료로 시작하기
+              내 가게 1분 무료 진단
               <ArrowRight size={18} strokeWidth={2.5} />
             </Link>
-            <Link href="/service-intro"
+            <Link href="/login"
               className="inline-flex items-center justify-center gap-2 bg-white text-[#191F28] font-semibold text-base px-8 py-4 rounded-2xl border border-gray-200 hover:border-gray-300 transition-all hover:-translate-y-0.5">
-              서비스 소개 보기
+              무료로 시작하기
             </Link>
           </div>
-          <p className="text-xs text-[#8B95A1] mt-4">신용카드 불필요 · 무료 체험 가능</p>
+          <p className="text-xs text-[#8B95A1] mt-4">회원가입 없이 진단 가능 · 신용카드 불필요</p>
         </div>
       </section>
 
