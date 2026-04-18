@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 
 import { useEffect, useState } from 'react'
 import Sidebar from '../components/Sidebar'
+import Footer from '../components/Footer'
 
 type Tag = 'VIP' | '단골' | '신규' | '휴면' | '블랙리스트'
 
@@ -382,6 +383,7 @@ export default function CustomersPage() {
           </div>
         )}
       </main>
+    <Footer />
     </div>
   )
 }
