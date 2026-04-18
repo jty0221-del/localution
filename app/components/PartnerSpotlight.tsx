@@ -2,8 +2,22 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import {
+  Coffee, Scissors, UtensilsCrossed, Trophy, Star, ArrowRight, X, LucideIcon,
+} from 'lucide-react'
 
-const PARTNERS = [
+type PartnerCategory = '카페' | '미용실' | '식당'
+
+const CATEGORY_ICONS: Record<PartnerCategory, LucideIcon> = {
+  '카페':   Coffee,
+  '미용실': Scissors,
+  '식당':   UtensilsCrossed,
+}
+
+const PARTNERS: {
+  id: number; name: string; category: PartnerCategory; location: string;
+  rating: number; reviews: number; badge: string; desc: string; tags: string[]; color: string;
+}[] = [
   {
     id: 1, name: '오가닉브런치', category: '카페', location: '서울 마포',
     rating: 4.9, reviews: 312, badge: '이달의 우수매장',
@@ -32,10 +46,11 @@ export default function PartnerSpotlight({ variant = 'card' }: PartnerSpotlightP
   const [current, setCurrent] = useState(0)
   const [closed, setClosed] = useState(false)
   const partner = PARTNERS[current]
+  const CategoryIcon = CATEGORY_ICONS[partner.category]
 
   if (closed) return null
 
-  // ── 팝업 형태 ──────────────────────────────────────────────────
+  // ── 팝업 형태 ─────────────────────────────────────────────────
   if (variant === 'popup') {
     return (
       <div className="bg-white rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
@@ -52,11 +67,14 @@ export default function PartnerSpotlight({ variant = 'card' }: PartnerSpotlightP
             </div>
           </div>
           <div className="bg-[#F2F4F6] rounded-xl p-4 mb-4">
-            <p className="text-sm text-[#4E5968] leading-relaxed">"{partner.desc}"</p>
+            <p className="text-sm text-[#4E5968] leading-relaxed">&quot;{partner.desc}&quot;</p>
           </div>
           <div className="flex items-center gap-4 mb-5">
             <div className="text-center">
-              <div className="text-2xl font-bold text-[#191F28]">⭐ {partner.rating}</div>
+              <div className="inline-flex items-center gap-1 text-xl font-bold text-[#191F28]">
+                <Star size={16} strokeWidth={0} fill="#F59E0B" className="text-[#F59E0B]" />
+                {partner.rating}
+              </div>
               <div className="text-xs text-[#8B95A1]">평균 별점</div>
             </div>
             <div className="w-px h-10 bg-[#E5E8EB]" />
@@ -103,18 +121,20 @@ export default function PartnerSpotlight({ variant = 'card' }: PartnerSpotlightP
           <div className="flex items-center justify-between mb-2">
             <span className="text-xs font-semibold px-2 py-0.5 rounded-full text-white"
               style={{ backgroundColor: partner.color }}>{partner.badge}</span>
-            <button onClick={() => setClosed(true)} className="text-[#8B95A1] text-lg leading-none">×</button>
+            <button onClick={() => setClosed(true)} className="text-[#8B95A1] hover:text-[#191F28] transition-colors">
+              <X size={16} strokeWidth={2} />
+            </button>
           </div>
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-xl flex items-center justify-center text-2xl flex-shrink-0"
+            <div className="w-12 h-12 rounded-xl flex items-center justify-center flex-shrink-0"
               style={{ backgroundColor: partner.color + '20' }}>
-              {partner.category === '카페' ? '☕' : partner.category === '미용실' ? '✂️' : '🍖'}
+              <CategoryIcon size={22} strokeWidth={2} style={{ color: partner.color }} />
             </div>
             <div className="flex-1 min-w-0">
               <div className="font-bold text-[#191F28] text-sm">{partner.name}
                 <span className="text-[#8B95A1] font-normal"> · {partner.location}</span>
               </div>
-              <p className="text-xs text-[#4E5968] mt-0.5 truncate">"{partner.desc}"</p>
+              <p className="text-xs text-[#4E5968] mt-0.5 truncate">&quot;{partner.desc}&quot;</p>
             </div>
             <Link href="/inquiry"
               className="flex-shrink-0 px-3 py-1.5 rounded-xl text-xs font-bold text-white transition-opacity hover:opacity-90"
@@ -129,8 +149,8 @@ export default function PartnerSpotlight({ variant = 'card' }: PartnerSpotlightP
                 style={i === current ? { backgroundColor: partner.color } : {}} />
             ))}
             <button onClick={() => setCurrent((current + 1) % PARTNERS.length)}
-              className="ml-auto text-xs font-medium" style={{ color: partner.color }}>
-              다음 →
+              className="ml-auto inline-flex items-center gap-1 text-xs font-medium" style={{ color: partner.color }}>
+              다음 <ArrowRight size={12} strokeWidth={2.5} />
             </button>
           </div>
         </div>
@@ -144,13 +164,18 @@ export default function PartnerSpotlight({ variant = 'card' }: PartnerSpotlightP
       <div className="h-1.5" style={{ backgroundColor: partner.color }} />
       <div className="p-4">
         <div className="flex items-center justify-between mb-3">
-          <span className="text-xs font-bold text-[#8B95A1] uppercase tracking-wide">🏆 이달의 우수매장</span>
-          <button onClick={() => setClosed(true)} className="text-[#8B95A1] text-base leading-none">×</button>
+          <span className="inline-flex items-center gap-1.5 text-xs font-bold text-[#8B95A1] uppercase tracking-wide">
+            <Trophy size={12} strokeWidth={2.5} className="text-[#F59E0B]" />
+            이달의 우수매장
+          </span>
+          <button onClick={() => setClosed(true)} className="text-[#8B95A1] hover:text-[#191F28] transition-colors">
+            <X size={14} strokeWidth={2} />
+          </button>
         </div>
         <div className="flex items-center gap-2 mb-2">
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center text-lg"
+          <div className="w-10 h-10 rounded-xl flex items-center justify-center"
             style={{ backgroundColor: partner.color + '15' }}>
-            {partner.category === '카페' ? '☕' : partner.category === '미용실' ? '✂️' : '🍖'}
+            <CategoryIcon size={18} strokeWidth={2} style={{ color: partner.color }} />
           </div>
           <div>
             <div className="font-bold text-[#191F28] text-sm">{partner.name}</div>
@@ -158,10 +183,16 @@ export default function PartnerSpotlight({ variant = 'card' }: PartnerSpotlightP
           </div>
         </div>
         <div className="bg-[#F2F4F6] rounded-xl p-3 mb-3">
-          <p className="text-xs text-[#4E5968] leading-relaxed">"{partner.desc}"</p>
+          <p className="text-xs text-[#4E5968] leading-relaxed">&quot;{partner.desc}&quot;</p>
         </div>
         <div className="flex justify-between text-center mb-3">
-          <div><div className="font-bold text-sm text-[#191F28]">⭐ {partner.rating}</div><div className="text-xs text-[#8B95A1]">별점</div></div>
+          <div>
+            <div className="inline-flex items-center gap-1 font-bold text-sm text-[#191F28]">
+              <Star size={12} strokeWidth={0} fill="#F59E0B" className="text-[#F59E0B]" />
+              {partner.rating}
+            </div>
+            <div className="text-xs text-[#8B95A1]">별점</div>
+          </div>
           <div><div className="font-bold text-sm text-[#191F28]">{partner.reviews}</div><div className="text-xs text-[#8B95A1]">리뷰</div></div>
           <div><div className="font-bold text-sm" style={{ color: partner.color }}>사례</div><div className="text-xs text-[#8B95A1]">파트너</div></div>
         </div>
