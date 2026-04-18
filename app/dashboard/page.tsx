@@ -4,6 +4,11 @@ export const dynamic = 'force-dynamic'
 import { useState, useEffect, useCallback, useRef } from 'react'
 import Link from 'next/link'
 import Sidebar from '../components/Sidebar'
+import {
+  Star, ArrowRight, ArrowUp, ArrowDown, Minus, X, Check, CheckCircle2,
+  AlertTriangle, Rocket, Bot, Smartphone, BarChart3, Wallet, TrendingUp,
+  Smile, Meh, Frown, ChevronLeft, ChevronRight, LucideIcon,
+} from 'lucide-react'
 
 // ═══════════════════════════════════════════════════════════
 //  플랫폼 로고 SVG
@@ -161,11 +166,19 @@ const LS_STORE = 'localution_store'
 // ═══════════════════════════════════════════════════════════
 function Stars({ rating, size = 'sm' }: { rating: number; size?: 'sm' | 'md' }) {
   const full = Math.round(rating)
-  const cls = size === 'md' ? 'text-base' : 'text-xs'
+  const starSize = size === 'md' ? 14 : 11
   return (
-    <span className={`${cls} text-[#F5A623] tracking-tight`}>
-      {'★'.repeat(full)}{'☆'.repeat(5 - full)}
-      <span className={`${size === 'md' ? 'text-sm' : 'text-[11px]'} ml-1 text-[#4E5968] font-bold`}>{rating}</span>
+    <span className="inline-flex items-center gap-0.5 align-middle">
+      {Array.from({ length: 5 }).map((_, i) => (
+        <Star
+          key={i}
+          size={starSize}
+          strokeWidth={0}
+          fill={i < full ? '#F5A623' : '#E5E8EB'}
+          className={i < full ? 'text-[#F5A623]' : 'text-[#E5E8EB]'}
+        />
+      ))}
+      <span className={(size === 'md' ? 'text-sm' : 'text-[11px]') + ' ml-1 text-[#4E5968] font-bold'}>{rating}</span>
     </span>
   )
 }
@@ -173,9 +186,17 @@ function Stars({ rating, size = 'sm' }: { rating: number; size?: 'sm' | 'md' }) 
 function RankBadge({ current, prev }: { current: number; prev: number | null }) {
   if (prev === null) return <span className="text-[10px] text-[#8B95A1] font-medium">신규</span>
   const diff = prev - current
-  if (diff > 0) return <span className="text-[10px] text-[#12B76A] font-bold">▲{diff}</span>
-  if (diff < 0) return <span className="text-[10px] text-[#F04452] font-bold">▼{Math.abs(diff)}</span>
-  return <span className="text-[10px] text-[#8B95A1] font-bold">–</span>
+  if (diff > 0) return (
+    <span className="inline-flex items-center gap-0.5 text-[10px] text-[#12B76A] font-bold">
+      <ArrowUp size={10} strokeWidth={3} />{diff}
+    </span>
+  )
+  if (diff < 0) return (
+    <span className="inline-flex items-center gap-0.5 text-[10px] text-[#F04452] font-bold">
+      <ArrowDown size={10} strokeWidth={3} />{Math.abs(diff)}
+    </span>
+  )
+  return <span className="inline-flex items-center gap-0.5 text-[10px] text-[#8B95A1] font-bold"><Minus size={10} strokeWidth={3} /></span>
 }
 
 // ═══════════════════════════════════════════════════════════
@@ -239,7 +260,6 @@ function ConnectModal({ platform, onClose, onSave }: ConnectModalProps) {
       if (!res.ok) {
         setResult({ ok: false, msg: data.error || '검증 실패' })
       } else {
-        // 플랫폼별 필드 정규화
         const placeId =
           data.placeId ||
           data.googlePlaceId ||
@@ -256,7 +276,7 @@ function ConnectModal({ platform, onClose, onSave }: ConnectModalProps) {
               : 0
 
         const label = data.name
-          ? `${data.name}${ratingNum ? ` · ★${ratingNum}` : ''}${reviewCountNum ? ` · 리뷰 ${reviewCountNum}` : ''}`
+          ? `${data.name}${ratingNum ? ` · ${ratingNum}점` : ''}${reviewCountNum ? ` · 리뷰 ${reviewCountNum}` : ''}`
           : placeId || '연동 가능'
 
         setResult({
@@ -316,10 +336,11 @@ function ConnectModal({ platform, onClose, onSave }: ConnectModalProps) {
 
         {result && (
           <div className={[
-            'text-xs p-3 rounded-xl mb-3',
+            'inline-flex items-center gap-1.5 text-xs p-3 rounded-xl mb-3 w-full',
             result.ok ? 'bg-[#E8FFF0] text-[#12B76A]' : 'bg-[#FFF0F0] text-[#F04452]',
           ].join(' ')}>
-            {result.ok ? '✓ ' : '✗ '}{result.msg}
+            {result.ok ? <Check size={14} strokeWidth={2.75} /> : <X size={14} strokeWidth={2.75} />}
+            <span>{result.msg}</span>
           </div>
         )}
 
@@ -404,7 +425,6 @@ function AIReplyModal({ review, onClose }: ReplyModalProps) {
   useEffect(() => { generate() }, [generate])
 
   const post = () => {
-    // 실제 플랫폼 API 연동 전 — 목업 성공
     setPosted(true)
     setTimeout(onClose, 1200)
   }
@@ -414,7 +434,9 @@ function AIReplyModal({ review, onClose }: ReplyModalProps) {
       <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-6" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-black text-[#191F28]">AI 답글 생성</h3>
-          <button onClick={onClose} className="text-[#8B95A1] hover:text-[#191F28] text-xl">×</button>
+          <button onClick={onClose} className="text-[#8B95A1] hover:text-[#191F28] w-7 h-7 rounded-lg flex items-center justify-center hover:bg-[#F2F4F6] transition-colors">
+            <X size={18} strokeWidth={2.25} />
+          </button>
         </div>
 
         {/* 원본 리뷰 */}
@@ -451,8 +473,9 @@ function AIReplyModal({ review, onClose }: ReplyModalProps) {
         )}
 
         {posted && (
-          <div className="bg-[#E8FFF0] text-[#12B76A] rounded-xl p-3 text-sm font-bold text-center mt-3">
-            ✓ 답글이 게시되었습니다
+          <div className="bg-[#E8FFF0] text-[#12B76A] rounded-xl p-3 text-sm font-bold text-center mt-3 inline-flex items-center justify-center gap-1.5 w-full">
+            <CheckCircle2 size={16} strokeWidth={2.5} />
+            답글이 게시되었습니다
           </div>
         )}
 
@@ -478,19 +501,24 @@ function AIReplyModal({ review, onClose }: ReplyModalProps) {
 }
 
 // ═══════════════════════════════════════════════════════════
-//  메인 대시보드
-// ═══════════════════════════════════════════════════════════
-
-// ═══════════════════════════════════════════════════════════
 //  롤링 공지 배너 (5초 자동 전환)
 // ═══════════════════════════════════════════════════════════
-const BANNER_SLIDES = [
+interface BannerSlide {
+  title: string
+  sub: string
+  desc: string
+  bg: string
+  Icon: LucideIcon
+  link: string
+}
+
+const BANNER_SLIDES: BannerSlide[] = [
   {
     title: 'AI가 대신 답변하는 시대',
     sub: '리뷰 답글, 이제 AI에게 맡기세요',
     desc: '네이버 · 구글 · 배민 · 요기요 통합 AI 리뷰 자동 답글',
     bg: 'linear-gradient(135deg, #1e3a5f 0%, #3182F6 100%)',
-    emoji: '🤖',
+    Icon: Bot,
     link: '/review-admin',
   },
   {
@@ -498,7 +526,7 @@ const BANNER_SLIDES = [
     sub: '고객이 직접 리뷰를 쓰는 시대',
     desc: 'QR 코드 스캔 → AI 리뷰 생성 → 플랫폼 자동 등록',
     bg: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)',
-    emoji: '📱',
+    Icon: Smartphone,
     link: '/qr-admin',
   },
   {
@@ -506,7 +534,7 @@ const BANNER_SLIDES = [
     sub: '대시보드 하나로 끝',
     desc: '매출 캘린더 · 고객 CRM · 정산 자동화 모두 통합',
     bg: 'linear-gradient(135deg, #065f46 0%, #10b981 100%)',
-    emoji: '📊',
+    Icon: BarChart3,
     link: '/dashboard',
   },
   {
@@ -514,7 +542,7 @@ const BANNER_SLIDES = [
     sub: '최대 2천만원 · 연 1.5%',
     desc: '지금 사장님 매출이면 신청 가능합니다',
     bg: 'linear-gradient(135deg, #92400e 0%, #f59e0b 100%)',
-    emoji: '💰',
+    Icon: Wallet,
     link: 'https://ols.semas.or.kr',
   },
   {
@@ -522,11 +550,10 @@ const BANNER_SLIDES = [
     sub: '키워드 + 리뷰 + 답글률 = 상위 노출',
     desc: '로컬루션 AI가 키워드 분석부터 리뷰 답글까지 자동화',
     bg: 'linear-gradient(135deg, #0f766e 0%, #14b8a6 100%)',
-    emoji: '🚀',
+    Icon: Rocket,
     link: '/marketing',
   },
 ]
-
 
 // ═══════════════════════════════════════════════════════════
 //  인기 서비스 TOP 10 (순위 애니메이션)
@@ -538,7 +565,7 @@ const SERVICE_RANKING_INIT = [
   { id: 4,  name: '매출 캘린더 · 정산',     category: '정산', badge: '',     color: '#3182F6' },
   { id: 5,  name: '고객 CRM 관리',              category: 'CRM',    badge: '',     color: '#F59E0B' },
   { id: 6,  name: '키워드 순위 추적',          category: 'SEO',    badge: '',     color: '#10B981' },
-  { id: 7,  name: '숫폼 퍼블리셔',           category: '마케팅', badge: '',     color: '#EC4899' },
+  { id: 7,  name: '숏폼 퍼블리셔',           category: '마케팅', badge: '',     color: '#EC4899' },
   { id: 8,  name: '배민 리뷰 연동',            category: '배달', badge: '',     color: '#2AC1BC' },
   { id: 9,  name: '구글 리뷰 연동',            category: '구글', badge: '',     color: '#4285F4' },
   { id: 10, name: '세금계산서 자동 발행',      category: '행정', badge: '',     color: '#6B7280' },
@@ -554,17 +581,14 @@ function ServiceRanking() {
       setTimeout(() => {
         setItems(prev => {
           const arr = [...prev]
-          // 2~3개 항목의 순위를 랜덤 교환
           const swapCount = 2 + Math.floor(Math.random() * 2)
           for (let s = 0; s < swapCount; s++) {
             const a = Math.floor(Math.random() * arr.length)
             let b = Math.floor(Math.random() * arr.length)
             while (b === a) b = Math.floor(Math.random() * arr.length)
-            // 점수 살짝 변동
             arr[a].score += Math.floor(Math.random() * 10) - 4
             arr[b].score += Math.floor(Math.random() * 10) - 4
           }
-          // 점수순 재정렬
           arr.sort((a, b) => b.score - a.score)
           arr.forEach((item, i) => {
             item.prevRank = item.rank
@@ -616,8 +640,16 @@ function ServiceRanking() {
                 <span className="text-[10px] text-[#8B95A1]">{item.category}</span>
               </div>
               <div className="flex-shrink-0 w-12 text-right">
-                {diff > 0 && <span className="text-[11px] font-bold text-[#12B76A]">▲{diff}</span>}
-                {diff < 0 && <span className="text-[11px] font-bold text-[#F04452]">▼{Math.abs(diff)}</span>}
+                {diff > 0 && (
+                  <span className="inline-flex items-center gap-0.5 text-[11px] font-bold text-[#12B76A]">
+                    <ArrowUp size={10} strokeWidth={3} />{diff}
+                  </span>
+                )}
+                {diff < 0 && (
+                  <span className="inline-flex items-center gap-0.5 text-[11px] font-bold text-[#F04452]">
+                    <ArrowDown size={10} strokeWidth={3} />{Math.abs(diff)}
+                  </span>
+                )}
                 {diff === 0 && <span className="text-[11px] text-[#8B95A1]">—</span>}
               </div>
             </div>
@@ -628,14 +660,10 @@ function ServiceRanking() {
   )
 }
 
-
-
-
-
 function NoticeBanner() {
   const [idx, setIdx] = useState(0)
   const [isAnimating, setIsAnimating] = useState(false)
-  const [slideDir, setSlideDir] = useState(1) // 1=right, -1=left
+  const [slideDir, setSlideDir] = useState(1)
   const touchStart = useRef(0)
 
   useEffect(() => {
@@ -658,6 +686,7 @@ function NoticeBanner() {
   }
 
   const s = BANNER_SLIDES[idx]
+  const SlideIcon = s.Icon
   const isExternal = s.link.startsWith('http')
 
   return (
@@ -687,7 +716,9 @@ function NoticeBanner() {
             <h2 className="text-2xl font-black text-white mb-2 leading-tight">{s.title}</h2>
             <p className="text-sm text-white/80">{s.desc}</p>
           </div>
-          <span className="text-6xl ml-6 flex-shrink-0 drop-shadow-lg" style={{ filter: 'drop-shadow(0 4px 12px rgba(0,0,0,0.2))' }}>{s.emoji}</span>
+          <div className="ml-6 flex-shrink-0 w-20 h-20 rounded-2xl bg-white/15 backdrop-blur-sm flex items-center justify-center shadow-lg">
+            <SlideIcon size={42} strokeWidth={1.75} className="text-white" />
+          </div>
         </div>
 
         {/* 도트 인디케이터 */}
@@ -710,15 +741,15 @@ function NoticeBanner() {
         {/* 좌우 화살표 */}
         <button
           onClick={(e) => { e.stopPropagation(); goTo((idx - 1 + BANNER_SLIDES.length) % BANNER_SLIDES.length) }}
-          className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/20 hover:bg-black/40 flex items-center justify-center text-white text-sm transition-colors"
+          className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/20 hover:bg-black/40 flex items-center justify-center text-white transition-colors"
         >
-          &#8249;
+          <ChevronLeft size={16} strokeWidth={2.5} />
         </button>
         <button
           onClick={(e) => { e.stopPropagation(); goTo((idx + 1) % BANNER_SLIDES.length) }}
-          className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/20 hover:bg-black/40 flex items-center justify-center text-white text-sm transition-colors"
+          className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/20 hover:bg-black/40 flex items-center justify-center text-white transition-colors"
         >
-          &#8250;
+          <ChevronRight size={16} strokeWidth={2.5} />
         </button>
 
         {/* 슬라이드 카운터 */}
@@ -730,9 +761,10 @@ function NoticeBanner() {
   )
 }
 
+// ═══════════════════════════════════════════════════════════
+//  메인 대시보드
+// ═══════════════════════════════════════════════════════════
 export default function Dashboard() {
-  
-  // 로그인 상태 체크
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   useEffect(() => {
     const cookies = document.cookie
@@ -747,11 +779,9 @@ export default function Dashboard() {
   const [isSyncing, setIsSyncing] = useState(false)
   const [mainKeyword] = useState('강남 맛집')
 
-  // 모달 상태
   const [connectPlatform, setConnectPlatform] = useState<Platform | null>(null)
   const [replyReview, setReplyReview] = useState<typeof RECENT_REVIEWS[number] | null>(null)
 
-  // localStorage에서 연동 상태 로드
   useEffect(() => {
     try {
       const raw = localStorage.getItem(LS_LINKS)
@@ -853,16 +883,7 @@ export default function Dashboard() {
     return () => clearInterval(id)
   }, [refreshKeywords])
 
-  // 24시간 방문자
-  const hourlyVisitors = [
-    { h: '9시', v: 12 }, { h: '10시', v: 24 }, { h: '11시', v: 48 },
-    { h: '12시', v: 92 }, { h: '13시', v: 76 }, { h: '14시', v: 41 },
-    { h: '15시', v: 35 }, { h: '16시', v: 44 }, { h: '17시', v: 63 },
-    { h: '18시', v: 88 }, { h: '19시', v: 104 }, { h: '20시', v: 72 },
-  ]
-  const maxVisitor = Math.max(...hourlyVisitors.map(x => x.v))
-
-  // 리뷰 감정 분석 (RECENT_REVIEWS 기반 실시간 계산, 별점 기준)
+  // 리뷰 감정 분석
   const sentimentCount = {
     positive: RECENT_REVIEWS.filter(r => r.rating >= 4).length,
     neutral:  RECENT_REVIEWS.filter(r => r.rating === 3).length,
@@ -875,21 +896,11 @@ export default function Dashboard() {
     negative: Math.round(sentimentCount.negative / sentimentTotal * 100),
   }
 
-  // VIP 고객
-  const vipCustomers = [
-    { name: '김정수', visits: 14, spent: '82만원', last: '3일 전', tag: 'VIP' },
-    { name: '이수연', visits: 11, spent: '67만원', last: '1주 전', tag: 'VIP' },
-    { name: '박민준', visits: 9,  spent: '55만원', last: '2일 전', tag: '단골' },
-    { name: '최유진', visits: 8,  spent: '48만원', last: '5일 전', tag: '단골' },
-    { name: '정하늘', visits: 7,  spent: '42만원', last: '1주 전', tag: '단골' },
-  ]
-
   // 이번 주 매출
   const weekSales = [
     { d: '월', v: 142 }, { d: '화', v: 168 }, { d: '수', v: 195 },
     { d: '목', v: 178 }, { d: '금', v: 247 }, { d: '토', v: 312 }, { d: '일', v: 228 },
   ]
-  const maxSale = Math.max(...weekSales.map(x => x.v))
   const totalWeekSale = weekSales.reduce((s, x) => s + x.v, 0)
 
   // 오늘의 할 일
@@ -897,26 +908,12 @@ export default function Dashboard() {
   const negativeUnansweredReviews = RECENT_REVIEWS.filter(r => r.rating <= 2 && !r.replied)
   const negativeUnansweredCount = negativeUnansweredReviews.length
 
-  // 탭바/사이드바와 미답변 개수 공유
   useEffect(() => {
     try {
       localStorage.setItem('localution.unanswered_count', String(unansweredCount))
       window.dispatchEvent(new CustomEvent('localution:unanswered-change'))
     } catch {}
   }, [unansweredCount])
-  const todoList = [
-    { title: '미답변 리뷰',    count: unansweredCount, unit: '건', color: '#F04452', bg: '#FFF0F0', link: '/reviews' },
-    { title: '재방문 유도',    count: 5,  unit: '명', color: '#F59E0B', bg: '#FFF7E8', link: '/crm' },
-    { title: '오늘 예약',      count: 7,  unit: '건', color: '#3182F6', bg: '#E8F4FD', link: '/reservations' },
-    { title: '세금계산서 발행', count: 2,  unit: '건', color: '#12B76A', bg: '#E8FFF0', link: '/settlement' },
-  ]
-
-  // 경쟁사 비교
-  const compareData = [
-    { label: '평균 별점',  me: avgRating || 4.6,        area: 4.2, unit: '점' },
-    { label: '월 리뷰 수', me: totalReviews || 142,     area: 87,  unit: '건' },
-    { label: '답글률',    me: 94,                       area: 61,  unit: '%' },
-  ]
 
   const stats = [
     { label: '이번 달 방문자', value: '2,847',                      sub: '전달 대비 +12.4%', up: true, color: '#3182F6', ring: '#E8F4FD' },
@@ -927,12 +924,7 @@ export default function Dashboard() {
     { label: '단골 고객',      value: '38명',                       sub: '이번 달 +6명',     up: true, color: '#12B76A', ring: '#E8FFF0' },
   ]
 
-  const totalTodo = todoList.reduce((s, t) => s + t.count, 0)
-  const today = new Date()
-  const dayNames = ['일','월','화','수','목','금','토']
-  const dateStr = today.getFullYear() + '년 ' + (today.getMonth() + 1) + '월 ' + today.getDate() + '일 ' + dayNames[today.getDay()] + '요일'
-
-                return (
+  return (
     <div className="flex min-h-screen bg-[#F2F4F6]">
       <Sidebar />
       <main className="flex-1 ml-0 md:ml-[220px] p-4 pt-20 md:p-6 md:pt-6 min-w-0">
@@ -940,14 +932,14 @@ export default function Dashboard() {
         {/* ── 상단 롤링 공지 배너 ── */}
         <NoticeBanner />
 
-        {/* ── 🚨 부정 리뷰 긴급 알림 (미답변 1★~2★ 있을 때만) ── */}
+        {/* ── 부정 리뷰 긴급 알림 (미답변 1~2점 있을 때만) ── */}
         {isLoggedIn && negativeUnansweredCount > 0 && (
           <div className="relative overflow-hidden rounded-2xl shadow-sm mb-5 p-5 border-2 border-[#F04452]"
             style={{ background: 'linear-gradient(135deg, #FEF2F2 0%, #FEE4E4 100%)' }}>
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
               <div className="flex items-start gap-3">
-                <div className="w-10 h-10 rounded-xl bg-[#F04452] flex items-center justify-center text-white text-lg shrink-0 animate-pulse">
-                  ⚠️
+                <div className="w-10 h-10 rounded-xl bg-[#F04452] flex items-center justify-center text-white shrink-0 animate-pulse">
+                  <AlertTriangle size={20} strokeWidth={2.5} />
                 </div>
                 <div>
                   <div className="flex items-center gap-2 mb-1 flex-wrap">
@@ -962,8 +954,9 @@ export default function Dashboard() {
                 </div>
               </div>
               <Link href="/reviews?filter=negative-unanswered"
-                className="px-4 py-2.5 rounded-xl bg-[#F04452] text-white text-sm font-bold hover:bg-[#DC2626] transition-all text-center whitespace-nowrap shrink-0">
-                지금 답변하기 →
+                className="inline-flex items-center justify-center gap-1 px-4 py-2.5 rounded-xl bg-[#F04452] text-white text-sm font-bold hover:bg-[#DC2626] transition-all whitespace-nowrap shrink-0">
+                지금 답변하기
+                <ArrowRight size={14} strokeWidth={2.5} />
               </Link>
             </div>
           </div>
@@ -976,7 +969,7 @@ export default function Dashboard() {
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
               <div className="text-white">
                 <div className="flex items-center gap-2 mb-1.5">
-                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/20 backdrop-blur">👋 시작하기</span>
+                  <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/20 backdrop-blur">시작하기</span>
                   <span className="text-[10px] text-white/70">3분이면 충분해요</span>
                 </div>
                 <h2 className="text-xl md:text-2xl font-black mb-1.5 leading-tight">처음이세요? 여기서부터 시작하세요</h2>
@@ -988,8 +981,9 @@ export default function Dashboard() {
               </div>
               <div className="flex flex-col sm:flex-row gap-2 shrink-0">
                 <Link href="/settings/connect"
-                  className="px-4 py-2.5 rounded-xl bg-white text-[#1B64DA] text-sm font-bold hover:bg-[#F2F4F6] transition-all text-center whitespace-nowrap">
-                  🚀 1단계: 플랫폼 연결
+                  className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-white text-[#1B64DA] text-sm font-bold hover:bg-[#F2F4F6] transition-all whitespace-nowrap">
+                  <Rocket size={14} strokeWidth={2.5} />
+                  1단계: 플랫폼 연결
                 </Link>
                 <Link href="/settings"
                   className="px-4 py-2.5 rounded-xl bg-white/10 backdrop-blur text-white text-sm font-bold hover:bg-white/20 transition-all text-center whitespace-nowrap border border-white/20">
@@ -997,13 +991,12 @@ export default function Dashboard() {
                 </Link>
               </div>
             </div>
-            {/* 장식 */}
             <div className="absolute -top-8 -right-8 w-32 h-32 rounded-full bg-white/5 pointer-events-none"/>
             <div className="absolute -bottom-4 -right-12 w-24 h-24 rounded-full bg-white/5 pointer-events-none"/>
           </div>
         )}
 
-        {/* ── 오늘 처리할 작업 (오늘의 할 일 통합) ── */}
+        {/* ── 오늘 처리할 작업 ── */}
         <div className="bg-white rounded-2xl shadow-sm px-6 py-5 mb-5">
           <div className="mb-4">
             <p className="text-[11px] text-[#3182F6] font-bold mb-1">로컬루션 대시보드</p>
@@ -1029,38 +1022,25 @@ export default function Dashboard() {
             </div>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
-            <Link href="/reviews" className="group flex flex-col p-4 rounded-xl border border-[#F2F4F6] hover:border-[#3182F6] hover:shadow-md transition-all cursor-pointer">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-1 h-8 rounded-full bg-[#F04452]"/>
-                <span className="text-xs text-[#8B95A1] font-medium">미답변 리뷰</span>
-              </div>
-              <span className="text-2xl font-black text-[#F04452] mb-1">3<span className="text-sm font-bold text-[#8B95A1]">건</span></span>
-              <span className="text-[11px] text-[#8B95A1] group-hover:text-[#3182F6] transition-colors flex items-center gap-1">바로 처리하기 <span>→</span></span>
-            </Link>
-            <Link href="/crm" className="group flex flex-col p-4 rounded-xl border border-[#F2F4F6] hover:border-[#3182F6] hover:shadow-md transition-all cursor-pointer">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-1 h-8 rounded-full bg-[#F59E0B]"/>
-                <span className="text-xs text-[#8B95A1] font-medium">재방문 유도</span>
-              </div>
-              <span className="text-2xl font-black text-[#F59E0B] mb-1">5<span className="text-sm font-bold text-[#8B95A1]">명</span></span>
-              <span className="text-[11px] text-[#8B95A1] group-hover:text-[#3182F6] transition-colors flex items-center gap-1">바로 처리하기 <span>→</span></span>
-            </Link>
-            <Link href="/reservations" className="group flex flex-col p-4 rounded-xl border border-[#F2F4F6] hover:border-[#3182F6] hover:shadow-md transition-all cursor-pointer">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-1 h-8 rounded-full bg-[#3182F6]"/>
-                <span className="text-xs text-[#8B95A1] font-medium">오늘 예약</span>
-              </div>
-              <span className="text-2xl font-black text-[#3182F6] mb-1">7<span className="text-sm font-bold text-[#8B95A1]">건</span></span>
-              <span className="text-[11px] text-[#8B95A1] group-hover:text-[#3182F6] transition-colors flex items-center gap-1">바로 처리하기 <span>→</span></span>
-            </Link>
-            <Link href="/settlement" className="group flex flex-col p-4 rounded-xl border border-[#F2F4F6] hover:border-[#3182F6] hover:shadow-md transition-all cursor-pointer">
-              <div className="flex items-center gap-2 mb-2">
-                <div className="w-1 h-8 rounded-full bg-[#12B76A]"/>
-                <span className="text-xs text-[#8B95A1] font-medium">세금계산서 발행</span>
-              </div>
-              <span className="text-2xl font-black text-[#12B76A] mb-1">2<span className="text-sm font-bold text-[#8B95A1]">건</span></span>
-              <span className="text-[11px] text-[#8B95A1] group-hover:text-[#3182F6] transition-colors flex items-center gap-1">바로 처리하기 <span>→</span></span>
-            </Link>
+            {[
+              { href: '/reviews',      label: '미답변 리뷰',       count: 3, unit: '건', color: '#F04452' },
+              { href: '/crm',          label: '재방문 유도',       count: 5, unit: '명', color: '#F59E0B' },
+              { href: '/reservations', label: '오늘 예약',         count: 7, unit: '건', color: '#3182F6' },
+              { href: '/settlement',   label: '세금계산서 발행',   count: 2, unit: '건', color: '#12B76A' },
+            ].map(t => (
+              <Link key={t.href} href={t.href} className="group flex flex-col p-4 rounded-xl border border-[#F2F4F6] hover:border-[#3182F6] hover:shadow-md transition-all cursor-pointer">
+                <div className="flex items-center gap-2 mb-2">
+                  <div className="w-1 h-8 rounded-full" style={{ background: t.color }}/>
+                  <span className="text-xs text-[#8B95A1] font-medium">{t.label}</span>
+                </div>
+                <span className="text-2xl font-black mb-1" style={{ color: t.color }}>
+                  {t.count}<span className="text-sm font-bold text-[#8B95A1]">{t.unit}</span>
+                </span>
+                <span className="text-[11px] text-[#8B95A1] group-hover:text-[#3182F6] transition-colors inline-flex items-center gap-1">
+                  바로 처리하기 <ArrowRight size={11} strokeWidth={2.5} />
+                </span>
+              </Link>
+            ))}
           </div>
         </div>
 
@@ -1073,8 +1053,8 @@ export default function Dashboard() {
                 {connectedCount}/{platforms.length} 연동됨
               </span>
             </div>
-            <a href={isLoggedIn ? "/settings" : "/login"} className="text-[11px] text-[#3182F6] font-semibold hover:underline flex items-center gap-1">
-              {isLoggedIn ? '연동 관리 →' : '로그인 후 연동 가능'}
+            <a href={isLoggedIn ? "/settings" : "/login"} className="inline-flex items-center gap-1 text-[11px] text-[#3182F6] font-semibold hover:underline">
+              {isLoggedIn ? <>연동 관리 <ArrowRight size={11} strokeWidth={2.5} /></> : '로그인 후 연동 가능'}
             </a>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-8 gap-2">
@@ -1103,18 +1083,21 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* ── 통계 카드 4개 ── */}
-        <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-5">
+        {/* ── 통계 카드 6개 ── */}
+        <div className="grid grid-cols-2 md:grid-cols-6 gap-3 mb-5">
           {stats.map((s, i) => (
-            <div key={i} className="bg-white rounded-2xl shadow-sm p-5 flex items-center gap-4">
-              <span className="text-3xl">{s.icon}</span>
-              <div>
-                <p className="text-xs text-[#8B95A1] font-medium mb-0.5">{s.label}</p>
-                <p className="text-xl font-black text-[#191F28]">{s.value}</p>
-                <p className={`text-[11px] font-bold mt-0.5 ${s.up ? 'text-[#12B76A]' : 'text-[#F04452]'}`}>
-                  {s.up ? '↑' : '↓'} {s.change} <span className="text-[#8B95A1] font-normal">전달 대비</span>
-                </p>
+            <div key={i} className="bg-white rounded-2xl shadow-sm p-4">
+              <div className="flex items-center gap-2 mb-2">
+                <span className="w-1 h-6 rounded-full" style={{ background: s.color }}/>
+                <span className="text-[11px] text-[#8B95A1] font-medium">{s.label}</span>
               </div>
+              <p className="text-lg font-black text-[#191F28]">{s.value}</p>
+              <p className={`inline-flex items-center gap-0.5 text-[11px] font-bold mt-0.5 ${s.up ? 'text-[#12B76A]' : 'text-[#F04452]'}`}>
+                {s.up
+                  ? <ArrowUp size={11} strokeWidth={2.75} />
+                  : <ArrowDown size={11} strokeWidth={2.75} />}
+                <span>{s.sub}</span>
+              </p>
             </div>
           ))}
         </div>
@@ -1187,7 +1170,10 @@ export default function Dashboard() {
           <div className="bg-white rounded-2xl shadow-sm overflow-hidden flex flex-col">
             <div className="px-5 py-4 border-b border-[#F2F4F6] flex items-center justify-between">
               <div>
-                <span className="text-sm font-bold text-[#191F28]">주요 키워드 순위</span>
+                <span className="inline-flex items-center gap-1.5 text-sm font-bold text-[#191F28]">
+                  <TrendingUp size={14} strokeWidth={2.25} className="text-[#3182F6]" />
+                  주요 키워드 순위
+                </span>
                 <div className="flex items-center gap-1.5 mt-0.5">
                   <span className="w-1.5 h-1.5 rounded-full bg-[#12B76A] animate-pulse inline-block"/>
                   <span className="text-[10px] text-[#8B95A1]">실시간 · {lastSync}</span>
@@ -1221,38 +1207,40 @@ export default function Dashboard() {
                 </div>
               ))}
             </div>
+          </div>
 
           {/* 인기 서비스 랭킹 */}
           <ServiceRanking />
-
-
-
-          </div>
         </div>
 
         {/* ── 최근 리뷰 ── */}
         <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
           <div className="px-5 py-4 border-b border-[#F2F4F6] flex items-center justify-between">
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2 flex-wrap">
               <span className="text-sm font-bold text-[#191F28]">최근 리뷰</span>
               <span className="text-[11px] text-[#8B95A1]">미답변 {RECENT_REVIEWS.filter(r => !r.replied).length}건</span>
               <span className="flex items-center gap-1 ml-2">
-                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-[#ECFDF5] text-[10px] font-bold text-[#059669]" title={`긍정 ${sentimentCount.positive}건`}>
-                  😊 {sentiment.positive}%
+                <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-[#ECFDF5] text-[10px] font-bold text-[#059669]" title={`긍정 ${sentimentCount.positive}건`}>
+                  <Smile size={11} strokeWidth={2.5} />
+                  {sentiment.positive}%
                 </span>
                 {sentimentCount.neutral > 0 && (
-                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-[#F2F4F6] text-[10px] font-bold text-[#4E5968]" title={`중립 ${sentimentCount.neutral}건`}>
-                    😐 {sentiment.neutral}%
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-[#F2F4F6] text-[10px] font-bold text-[#4E5968]" title={`중립 ${sentimentCount.neutral}건`}>
+                    <Meh size={11} strokeWidth={2.5} />
+                    {sentiment.neutral}%
                   </span>
                 )}
                 {sentimentCount.negative > 0 && (
-                  <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-[#FEF2F2] text-[10px] font-bold text-[#DC2626]" title={`부정 ${sentimentCount.negative}건`}>
-                    😟 {sentiment.negative}%
+                  <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-[#FEF2F2] text-[10px] font-bold text-[#DC2626]" title={`부정 ${sentimentCount.negative}건`}>
+                    <Frown size={11} strokeWidth={2.5} />
+                    {sentiment.negative}%
                   </span>
                 )}
               </span>
             </div>
-            <Link href="/reviews" className="text-[11px] text-[#3182F6] font-semibold hover:underline">전체보기 →</Link>
+            <Link href="/reviews" className="inline-flex items-center gap-1 text-[11px] text-[#3182F6] font-semibold hover:underline">
+              전체보기 <ArrowRight size={11} strokeWidth={2.5} />
+            </Link>
           </div>
           <div className="divide-y divide-[#F2F4F6]">
             {RECENT_REVIEWS.map((r, i) => (
@@ -1269,7 +1257,10 @@ export default function Dashboard() {
                     <Stars rating={r.rating} />
                     <span className="text-[10px] text-[#8B95A1]">{r.time}</span>
                     {r.replied && (
-                      <span className="text-[10px] bg-[#E8FFF0] text-[#12B76A] px-1.5 py-0.5 rounded-full font-semibold">답변완료</span>
+                      <span className="inline-flex items-center gap-1 text-[10px] bg-[#E8FFF0] text-[#12B76A] px-1.5 py-0.5 rounded-full font-semibold">
+                        <Check size={10} strokeWidth={3} />
+                        답변완료
+                      </span>
                     )}
                   </div>
                   <p className="text-sm text-[#4E5968] line-clamp-1">{r.text}</p>
