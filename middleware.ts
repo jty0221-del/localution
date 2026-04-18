@@ -5,13 +5,15 @@ import { NextResponse, type NextRequest } from 'next/server'
 //   - /review/[storeId]  ← QR 스캔한 고객이 보는 페이지. 고객은 로그인 없음.
 //   - /inquiry           ← 비로그인 사용자가 견적·문의 보내는 공개 페이지.
 //   - /login, /service-intro, /pricing, /community, /  ← 마케팅·공개 페이지
+//   - /marketing/*       ← 자영업자가 서비스 미리 체험할 수 있는 공개 도구 페이지
+//                          (네이버 플레이스 진단·블로그 초안·릴스 대본 생성)
+//                          실제 데이터 저장은 각 페이지 내부에서 로그인 유도
 const PROTECTED_PREFIXES = [
   '/dashboard',
   '/admin',
   '/admin-biz',
   '/customers',
   '/crm',
-  '/marketing',
   '/review-admin',
   '/reviews',
   '/qr-admin',
@@ -50,6 +52,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'],
+  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)'],
 }
-
