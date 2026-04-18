@@ -165,6 +165,19 @@ export default function ReelsGeneratorPage() {
 
   return (
     <div className="min-h-screen bg-[#F2F4F6] flex">
+      {/* LOCALUTION_HERO_BANNER */}
+      <section className="bg-gradient-to-r from-[#EC4899] to-[#BE185D] text-white px-4 py-10 sm:py-14">
+        <div className="max-w-5xl mx-auto flex items-center gap-4">
+          <div className="text-4xl sm:text-5xl drop-shadow-sm">🎬</div>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-xl sm:text-2xl font-black tracking-tight">숏폼 / 릴스</h1>
+            <p className="text-white/85 text-xs sm:text-sm mt-1 leading-relaxed">한 편의 롱폼에서 3개의 숏폼을 — 후킹·자막·썸네일까지 한 번에</p>
+          </div>
+          <div className="hidden sm:flex items-center gap-2 text-[11px] font-bold text-white/90 bg-white/15 backdrop-blur px-3 py-1.5 rounded-full border border-white/20">
+            로컬루션
+          </div>
+        </div>
+      </section>
       <Sidebar />
       <main className="flex-1 md:ml-[220px] p-4 md:p-8 pt-20 md:pt-8">
         <div className="max-w-6xl mx-auto">
