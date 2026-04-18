@@ -9,7 +9,7 @@ import {
   Star, ArrowRight, ArrowUp, ArrowDown, Minus, X, Check, CheckCircle2,
   AlertTriangle, Rocket, Bot, Smartphone, BarChart3, Wallet, TrendingUp,
   Smile, Meh, Frown, ChevronLeft, ChevronRight, LucideIcon,
-  Search, Users, Calendar, FileSpreadsheet, Link2, Lock,
+  Search, Users, Calendar, FileSpreadsheet, Link2, Lock, MapPin,
 } from 'lucide-react'
 
 // ═══════════════════════════════════════════════════════════
@@ -1129,20 +1129,20 @@ export default function Dashboard() {
               <div>
                 <div className="flex items-center gap-2 mb-1">
                   <h1 className="text-xl font-black text-[#191F28]">오늘 처리할 작업</h1>
-                  {connectedCount === 0 && (
+                  {!reviewPlatformConnected && (
                     <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#FEF3C7] text-[#92400E] font-bold">데모</span>
                   )}
                 </div>
                 <p className="text-xs text-[#8B95A1]">
-                  {connectedCount === 0
-                    ? '샘플 데이터입니다. 플랫폼을 연결하면 실시간으로 표시됩니다'
+                  {!reviewPlatformConnected
+                    ? '샘플 데이터입니다. 리뷰 플랫폼(네이버·구글·배민·요기요·쿠팡)을 연결하면 실시간으로 표시됩니다'
                     : new Date().toLocaleDateString('ko-KR', { year:'numeric', month:'long', day:'numeric', weekday:'long' }) + ' · 우선순위가 높은 작업 순으로 표시됩니다'
                   }
                 </p>
               </div>
               <div className="flex items-center gap-1.5">
-                <span className={`w-1.5 h-1.5 rounded-full inline-block ${connectedCount === 0 ? 'bg-[#F59E0B]' : 'bg-[#12B76A] animate-pulse'}`}/>
-                <span className="text-[10px] text-[#8B95A1] font-medium">{connectedCount === 0 ? '데모 데이터' : '실시간 업데이트'}</span>
+                <span className={`w-1.5 h-1.5 rounded-full inline-block ${!reviewPlatformConnected ? 'bg-[#F59E0B]' : 'bg-[#12B76A] animate-pulse'}`}/>
+                <span className="text-[10px] text-[#8B95A1] font-medium">{!reviewPlatformConnected ? '데모 데이터' : '실시간 업데이트'}</span>
               </div>
             </div>
           </div>
@@ -1230,15 +1230,15 @@ export default function Dashboard() {
         </div>
 
         {/* ── 통계 카드 6개 ── */}
-        {connectedCount === 0 && (
+        {!reviewPlatformConnected && (
           <div className="mb-2 flex items-center gap-2">
             <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#FEF3C7] text-[#92400E] font-bold">샘플 데이터</span>
-            <span className="text-xs text-[#8B95A1]">플랫폼을 연동하면 실데이터로 자동 교체됩니다</span>
+            <span className="text-xs text-[#8B95A1]">리뷰 플랫폼(네이버·구글·배민·요기요·쿠팡)을 연동하면 실데이터로 자동 교체됩니다</span>
           </div>
         )}
         <div className="grid grid-cols-2 md:grid-cols-6 gap-3 mb-5">
           {stats.map((s, i) => (
-            <div key={i} className={`bg-white rounded-2xl shadow-sm p-4 ${connectedCount === 0 ? 'opacity-75' : ''}`}>
+            <div key={i} className={`bg-white rounded-2xl shadow-sm p-4 ${!reviewPlatformConnected ? 'opacity-75' : ''}`}>
               <div className="flex items-center gap-2 mb-2">
                 <span className="w-1 h-6 rounded-full" style={{ background: s.color }}/>
                 <span className="text-[11px] text-[#8B95A1] font-medium">{s.label}</span>
@@ -1379,7 +1379,22 @@ export default function Dashboard() {
             )}
 
             <div className="flex-1 divide-y divide-[#F2F4F6]">
-              {keywords.map((kw) => (
+              {keywords.length === 0 ? (
+                <div className="px-5 py-10 flex flex-col items-center text-center">
+                  <div className="w-10 h-10 rounded-full bg-[#F2F4F6] flex items-center justify-center mb-2">
+                    <MapPin size={18} strokeWidth={2.25} className="text-[#8B95A1]"/>
+                  </div>
+                  <p className="text-sm font-bold text-[#191F28] mb-1">아직 추적할 키워드가 없습니다</p>
+                  <p className="text-[11px] text-[#8B95A1] leading-relaxed mb-3">
+                    매장 프로필에 주소를 등록하면<br/>
+                    내 지역 기반 키워드가 자동으로 표시됩니다
+                  </p>
+                  <Link href="/settings/profile"
+                    className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#3182F6] text-white text-[11px] font-bold hover:bg-[#1B64DA] transition-colors">
+                    프로필 설정하기 <ArrowRight size={11} strokeWidth={2.5} />
+                  </Link>
+                </div>
+              ) : keywords.map((kw) => (
                 <div key={kw.keyword} className="px-5 py-3.5 flex items-center gap-3 hover:bg-[#FAFBFF] transition-colors">
                   <div className={[
                     'w-8 h-8 rounded-lg flex items-center justify-center text-sm font-black flex-shrink-0',
