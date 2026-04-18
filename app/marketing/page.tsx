@@ -4,45 +4,10 @@ export const dynamic = 'force-dynamic'
 import { useState } from 'react'
 import Sidebar from '../components/Sidebar'
 import Link from 'next/link'
-
-function IconSearch() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
-    </svg>
-  )
-}
-function IconTrend() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/>
-    </svg>
-  )
-}
-function IconDiag() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 01-2 2H5a2 2 0 01-2-2V5a2 2 0 012-2h11"/>
-    </svg>
-  )
-}
-function IconInflow() {
-  return (
-    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-      <path d="M17 21v-2a4 4 0 00-4-4H5a4 4 0 00-4 4v2"/><circle cx="9" cy="7" r="4"/>
-      <path d="M23 21v-2a4 4 0 00-3-3.87"/><path d="M16 3.13a4 4 0 010 7.75"/>
-    </svg>
-  )
-}
-function Up() {
-  return <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><polyline points="18 15 12 9 6 15"/></svg>
-}
-function Down() {
-  return <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><polyline points="6 9 12 15 18 9"/></svg>
-}
-function Flat() {
-  return <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round"><line x1="5" y1="12" x2="19" y2="12"/></svg>
-}
+import {
+  Search, TrendingUp, ClipboardCheck, Users, Sparkles, ArrowRight,
+  ArrowUp, ArrowDown, Minus, CheckCircle2, AlertTriangle, XCircle,
+} from 'lucide-react'
 
 const mockRanks = [
   { keyword: '강남 맛집', rank: 3, prev: 5, volume: 18200 },
@@ -108,9 +73,9 @@ function RankTab() {
 
   function diffEl(curr: number, prev: number) {
     const d = curr - prev
-    if (d < 0) return <span className="flex items-center gap-0.5 text-[#2DB400] font-semibold text-xs"><Up/>{Math.abs(d)}</span>
-    if (d > 0) return <span className="flex items-center gap-0.5 text-[#F04452] font-semibold text-xs"><Down/>{Math.abs(d)}</span>
-    return <span className="flex items-center gap-0.5 text-[#8B95A1] text-xs"><Flat/>-</span>
+    if (d < 0) return <span className="inline-flex items-center gap-0.5 text-[#2DB400] font-semibold text-xs"><ArrowUp size={11} strokeWidth={2.75} />{Math.abs(d)}</span>
+    if (d > 0) return <span className="inline-flex items-center gap-0.5 text-[#F04452] font-semibold text-xs"><ArrowDown size={11} strokeWidth={2.75} />{Math.abs(d)}</span>
+    return <span className="inline-flex items-center gap-0.5 text-[#8B95A1] text-xs"><Minus size={11} strokeWidth={2.75} />-</span>
   }
 
   function gradeLabel(r: number) {
@@ -249,8 +214,8 @@ function ScoreTab() {
             placeholder="예: 강남 삼겹살, 홍대 카페"
             className="flex-1 border border-[#E5E8EB] rounded-xl px-4 py-2.5 text-sm outline-none focus:border-[#3182F6] transition-colors"/>
           <button onClick={() => analyze()} disabled={loading}
-            className="bg-[#3182F6] text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#1B64DA] transition-colors disabled:opacity-60 flex items-center gap-2">
-            {loading ? '분석 중...' : <><IconSearch/> 분석하기</>}
+            className="bg-[#3182F6] text-white px-5 py-2.5 rounded-xl text-sm font-semibold hover:bg-[#1B64DA] transition-colors disabled:opacity-60 inline-flex items-center gap-2">
+            {loading ? '분석 중...' : <><Search size={16} strokeWidth={2.25} /> 분석하기</>}
           </button>
         </div>
       </div>
@@ -333,6 +298,12 @@ function DiagTab() {
   const circumference = 251.2
   const dashArray = ((pct / 100) * circumference).toFixed(1) + ' ' + circumference
 
+  const statusMap = {
+    ok:   { bg: 'bg-[#F0FBF0]', text: 'text-[#2DB400]', label: '양호',    Icon: CheckCircle2,  barColor: '#2DB400' },
+    warn: { bg: 'bg-[#FEF9E8]', text: 'text-[#F5A623]', label: '주의',    Icon: AlertTriangle, barColor: '#F5A623' },
+    bad:  { bg: 'bg-[#FEF0F1]', text: 'text-[#F04452]', label: '개선필요', Icon: XCircle,       barColor: '#F04452' },
+  }
+
   return (
     <div>
       <div className="grid grid-cols-1 md:grid-cols-4 gap-3 mb-5">
@@ -375,16 +346,15 @@ function DiagTab() {
             </div>
             <div className="divide-y divide-[#F2F4F6]">
               {cat.items.map((item, ii) => {
-                const statusMap = {
-                  ok: { bg: 'bg-[#F0FBF0]', text: 'text-[#2DB400]', label: '✓ 양호', barColor: '#2DB400' },
-                  warn: { bg: 'bg-[#FEF9E8]', text: 'text-[#F5A623]', label: '⚠ 주의', barColor: '#F5A623' },
-                  bad: { bg: 'bg-[#FEF0F1]', text: 'text-[#F04452]', label: '✕ 개선필요', barColor: '#F04452' },
-                }
                 const st = statusMap[item.status]
+                const StIcon = st.Icon
                 return (
                   <div key={ii} className="px-5 py-3.5 flex items-center justify-between hover:bg-[#FAFBFF]">
                     <div className="flex items-center gap-3">
-                      <span className={[st.bg, st.text, 'text-xs font-semibold px-2 py-0.5 rounded-lg w-20 text-center'].join(' ')}>{st.label}</span>
+                      <span className={[st.bg, st.text, 'inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-lg w-24 justify-center'].join(' ')}>
+                        <StIcon size={12} strokeWidth={2.5} />
+                        {st.label}
+                      </span>
                       <div>
                         <p className="text-sm font-medium text-[#191F28]">{item.label}</p>
                         <p className="text-xs text-[#8B95A1]">{item.desc}</p>
@@ -442,8 +412,12 @@ function InflowTab() {
                   <span className="text-sm font-semibold text-[#191F28]">{row.keyword}</span>
                 </div>
                 <div className="flex items-center gap-4">
-                  <span className={['text-xs font-semibold flex items-center gap-0.5', row.change > 0 ? 'text-[#2DB400]' : row.change < 0 ? 'text-[#F04452]' : 'text-[#8B95A1]'].join(' ')}>
-                    {row.change > 0 ? <Up/> : row.change < 0 ? <Down/> : <Flat/>}
+                  <span className={['inline-flex items-center gap-0.5 text-xs font-semibold', row.change > 0 ? 'text-[#2DB400]' : row.change < 0 ? 'text-[#F04452]' : 'text-[#8B95A1]'].join(' ')}>
+                    {row.change > 0
+                      ? <ArrowUp size={11} strokeWidth={2.75} />
+                      : row.change < 0
+                        ? <ArrowDown size={11} strokeWidth={2.75} />
+                        : <Minus size={11} strokeWidth={2.75} />}
                     {Math.abs(row.change)}%
                   </span>
                   <span className="text-sm font-bold text-[#191F28]">{row.visits.toLocaleString()}회</span>
@@ -469,10 +443,10 @@ export default function MarketingPage() {
   const [tab, setTab] = useState<'rank'|'score'|'diag'|'inflow'>('rank')
 
   const tabs = [
-    { id: 'rank' as const, label: '키워드 순위', icon: <IconTrend/> },
-    { id: 'score' as const, label: '키워드 점수 분석', icon: <IconSearch/> },
-    { id: 'diag' as const, label: '플레이스 진단', icon: <IconDiag/> },
-    { id: 'inflow' as const, label: '유입 분석', icon: <IconInflow/> },
+    { id: 'rank' as const,   label: '키워드 순위',       Icon: TrendingUp },
+    { id: 'score' as const,  label: '키워드 점수 분석', Icon: Search },
+    { id: 'diag' as const,   label: '플레이스 진단',     Icon: ClipboardCheck },
+    { id: 'inflow' as const, label: '유입 분석',          Icon: Users },
   ]
 
   return (
@@ -489,7 +463,9 @@ export default function MarketingPage() {
           <Link href="/marketing/reels"
             className="block mb-6 bg-gradient-to-r from-[#8B5CF6] via-[#A855F7] to-[#EC4899] rounded-2xl p-4 md:p-5 shadow-sm hover:shadow-lg transition-all group">
             <div className="flex items-center gap-4">
-              <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center text-2xl md:text-3xl">✨</div>
+              <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center">
+                <Sparkles size={26} strokeWidth={2.25} className="text-white" />
+              </div>
               <div className="flex-1 text-white">
                 <div className="flex items-center gap-2 mb-0.5">
                   <span className="text-[10px] font-black bg-white text-[#8B5CF6] px-2 py-0.5 rounded-full">NEW</span>
@@ -497,17 +473,22 @@ export default function MarketingPage() {
                 </div>
                 <div className="text-xs text-white/80">업체 정보 입력 → AI가 장면별 촬영 지시서까지 원클릭 생성</div>
               </div>
-              <div className="text-white text-lg group-hover:translate-x-1 transition-transform">→</div>
+              <ArrowRight size={18} strokeWidth={2.5}
+                className="text-white group-hover:translate-x-1 transition-transform" />
             </div>
           </Link>
 
           <div className="flex gap-1 bg-white border border-[#E5E8EB] rounded-2xl p-1 mb-6 w-fit">
-            {tabs.map(t => (
-              <button key={t.id} onClick={() => setTab(t.id)}
-                className={['flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all', tab === t.id ? 'bg-[#3182F6] text-white shadow-sm' : 'text-[#8B95A1] hover:text-[#191F28]'].join(' ')}>
-                {t.icon}{t.label}
-              </button>
-            ))}
+            {tabs.map(t => {
+              const Icon = t.Icon
+              return (
+                <button key={t.id} onClick={() => setTab(t.id)}
+                  className={['inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all', tab === t.id ? 'bg-[#3182F6] text-white shadow-sm' : 'text-[#8B95A1] hover:text-[#191F28]'].join(' ')}>
+                  <Icon size={16} strokeWidth={2.25} />
+                  {t.label}
+                </button>
+              )
+            })}
           </div>
 
           {tab === 'rank' && <RankTab/>}
