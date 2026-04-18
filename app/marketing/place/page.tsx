@@ -168,6 +168,19 @@ export default function PlaceDiagnosisPage() {
 
   return (
     <div className="flex min-h-screen bg-[#F2F4F6]">
+      {/* LOCALUTION_HERO_BANNER */}
+      <section className="bg-gradient-to-r from-[#22C55E] to-[#15803D] text-white px-4 py-10 sm:py-14">
+        <div className="max-w-5xl mx-auto flex items-center gap-4">
+          <div className="text-4xl sm:text-5xl drop-shadow-sm">📍</div>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-xl sm:text-2xl font-black tracking-tight">네이버 플레이스 SEO</h1>
+            <p className="text-white/85 text-xs sm:text-sm mt-1 leading-relaxed">내 업체 노출 순위를 실시간으로 — 경쟁사 대비 위치·리뷰·반응까지</p>
+          </div>
+          <div className="hidden sm:flex items-center gap-2 text-[11px] font-bold text-white/90 bg-white/15 backdrop-blur px-3 py-1.5 rounded-full border border-white/20">
+            로컬루션
+          </div>
+        </div>
+      </section>
       <Sidebar />
       <main className="flex-1 ml-0 md:ml-[220px] p-4 pt-20 md:p-6 md:pt-6">
 
