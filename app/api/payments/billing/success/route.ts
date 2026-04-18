@@ -34,22 +34,22 @@ export async function GET(req: NextRequest) {
       cache: 'no-store',
     })
 
-    const data = await res.json()
+    const data: any = await res.json()
 
     if (!res.ok) {
       console.error('[billing/success] 빌링키 발급 실패:', data)
       const fail = new URL(returnTo.replace('billing=ok', 'billing=fail'), url.origin)
-      fail.searchParams.set('reason', encodeURIComponent(data?.code || 'issue_failed'))
+      fail.searchParams.set('reason', encodeURIComponent((data && data.code) || 'issue_failed'))
       return NextResponse.redirect(fail)
     }
 
     // 빌링키 확보. 실제 운영에서는 DB에 저장해야 하나,
     // 현재는 쿠키로 7일 보관 (MVP)
-    const billingKey: string = data.billingKey
+    const billingKey: string = String(data.billingKey || '')
     const cardInfo = {
-      cardCompany: data.card?.issuerCode || '',
-      cardNumber: data.card?.number || '',
-      cardType:   data.card?.cardType   || '',
+      cardCompany: (data.card && data.card.issuerCode) || '',
+      cardNumber:  (data.card && data.card.number)     || '',
+      cardType:    (data.card && data.card.cardType)   || '',
     }
 
     const redirect = NextResponse.redirect(new URL(returnTo, url.origin))
