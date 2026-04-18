@@ -61,21 +61,21 @@ export default function ProfileSettingsPage() {
 
   return (
     <div className="flex min-h-screen bg-[#F2F4F6]">
-      {/* LOCALUTION_HERO_BANNER */}
-      <section className="bg-gradient-to-r from-[#6366F1] to-[#4338CA] text-white px-4 py-10 sm:py-14">
-        <div className="max-w-5xl mx-auto flex items-center gap-4">
-          <div className="text-4xl sm:text-5xl drop-shadow-sm">👤</div>
-          <div className="flex-1 min-w-0">
-            <h1 className="text-xl sm:text-2xl font-black tracking-tight">프로필 설정</h1>
-            <p className="text-white/85 text-xs sm:text-sm mt-1 leading-relaxed">계정 정보와 알림을 내 업체에 맞게 — 설정은 한 번, 결과는 오래</p>
-          </div>
-          <div className="hidden sm:flex items-center gap-2 text-[11px] font-bold text-white/90 bg-white/15 backdrop-blur px-3 py-1.5 rounded-full border border-white/20">
-            로컬루션
-          </div>
-        </div>
-      </section>
       <Sidebar />
       <main className="flex-1 ml-0 md:ml-[220px] p-4 pt-20 md:p-6 md:pt-6 min-w-0 pb-24 md:pb-6">
+        {/* LOCALUTION_HERO_BANNER */}
+        <section className="bg-gradient-to-r from-[#6366F1] to-[#4338CA] text-white px-4 py-10 sm:py-14">
+          <div className="max-w-5xl mx-auto flex items-center gap-4">
+            <div className="text-4xl sm:text-5xl drop-shadow-sm">👤</div>
+            <div className="flex-1 min-w-0">
+              <h1 className="text-xl sm:text-2xl font-black tracking-tight">프로필 설정</h1>
+              <p className="text-white/85 text-xs sm:text-sm mt-1 leading-relaxed">계정 정보와 알림을 내 업체에 맞게 — 설정은 한 번, 결과는 오래</p>
+            </div>
+            <div className="hidden sm:flex items-center gap-2 text-[11px] font-bold text-white/90 bg-white/15 backdrop-blur px-3 py-1.5 rounded-full border border-white/20">
+              로컬루션
+            </div>
+          </div>
+        </section>
         <div className="max-w-3xl mx-auto">
 
           <Link href="/settings" className="inline-flex items-center gap-1 text-xs text-[#8B95A1] hover:text-[#3182F6] mb-3">
@@ -202,8 +202,8 @@ export default function ProfileSettingsPage() {
             </p>
           </form>
         </div>
+        <Footer />
       </main>
-    <Footer />
     </div>
   )
 }
