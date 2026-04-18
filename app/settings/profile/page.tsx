@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Sidebar from '../../components/Sidebar'
 import { User, Store, MapPin, Save, Check, ArrowLeft, Mail, Phone } from 'lucide-react'
+import Footer from '../../components/Footer'
 
 type UserCookie = {
   id?: string; name?: string; email?: string; provider?: string; profile_image?: string;
@@ -189,6 +190,7 @@ export default function ProfileSettingsPage() {
           </form>
         </div>
       </main>
+    <Footer />
     </div>
   )
 }
