@@ -453,10 +453,22 @@ export default function MarketingPage() {
   return (
     <div className="flex min-h-screen bg-[#F2F4F6]">
       <Sidebar/>
-      <main className="flex-1 ml-0 md:ml-[220px] p-4 pt-20 md:p-8 md:pt-8">
-        <div className="max-w-5xl mx-auto">
+      <main className="flex-1 ml-0 md:ml-[220px] pt-14 md:pt-0">
+        {/* LOCALUTION_HERO_BANNER */}
+        <section className="bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] text-white px-4 sm:px-8 py-10 sm:py-14 mb-0">
+          <div className="max-w-5xl mx-auto flex items-center gap-4">
+            <div className="text-4xl sm:text-5xl drop-shadow-sm">🚀</div>
+            <div className="flex-1 min-w-0">
+              <h1 className="text-xl sm:text-2xl font-black tracking-tight">마케팅</h1>
+              <p className="text-white/85 text-xs sm:text-sm mt-1 leading-relaxed">네이버 플레이스·블로그·인스타를 한 곳에서 — 자영업자 올인원</p>
+            </div>
+            <div className="hidden sm:flex items-center gap-2 text-[11px] font-bold text-white/90 bg-white/15 backdrop-blur px-3 py-1.5 rounded-full border border-white/20">
+              로컬루션
+            </div>
+          </div>
+        </section>
+        <div className="max-w-5xl mx-auto p-4 md:p-8">
           <div className="mb-4">
-            <h1 className="text-2xl font-black text-[#191F28]">마케팅 관리</h1>
             <p className="text-sm text-[#8B95A1] mt-1">네이버 플레이스 키워드 순위 · 진단 · 유입 분석을 한 곳에서 관리하세요</p>
           </div>
 
