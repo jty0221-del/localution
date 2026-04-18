@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic'
 
 import { useState } from 'react'
 import Link from 'next/link'
+import Footer from '../components/Footer'
 
 const SAMPLE_STORE = {
   name: '타이백스트릿 해운대점',
@@ -326,7 +327,7 @@ export default function ServiceIntro() {
         {/* 리뷰 목록 + AI 답글 */}
         <div className="bg-white rounded-2xl p-8 shadow-sm border border-[#E5E8EB] mb-8">
           <h2 className="text-2xl font-black text-[#191F28] mb-2">Step 2-4 · 리뷰 목록 및 AI 답글 생성</h2>
-          <p className="text-base text-[#8B95A1] mb-6">[AI 답글 생성] 버튼을 눌러 실제로 답글을 만들어 보세요.</p>
+          <p className="text-base text-[#8B95A1] mb-6">[AI 답글 생성] 버튼을 눌러 실제로 답���을 만들어 보세요.</p>
 
           <div className="space-y-5">
             {SAMPLE_REVIEWS.map(r => (
@@ -411,6 +412,10 @@ export default function ServiceIntro() {
           </Link>
         </div>
       </div>
+
+      {/* 푸터 — 랜딩 페이지와 동일 */}
+      <Footer />
     </div>
   )
 }
+
