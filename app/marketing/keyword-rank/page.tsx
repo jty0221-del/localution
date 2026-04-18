@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 
 import { useState, useCallback, useEffect } from 'react'
 import Sidebar from '../../components/Sidebar'
+import Footer from '../../components/Footer'
 
 // 프로필 주소에서 지역 추출
 function extractRegionFromProfile(): string | null {
@@ -372,6 +373,7 @@ export default function KeywordRankPage() {
           <a href="/settings" className="text-[#3182F6] underline">API 키 설정 →</a>
         </div>
       </main>
+    <Footer />
     </div>
   )
 }
