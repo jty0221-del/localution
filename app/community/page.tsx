@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Sidebar from '../components/Sidebar'
+import Footer from '../components/Footer'
 
 // ─── 샘플 데이터 ──────────────────────────────────────────────────
 const CATEGORIES = [
@@ -39,7 +40,7 @@ const INITIAL_POSTS = [
   },
   {
     id: 3, category: 'qna', author: '초보사장', avatar: '초',
-    title: '네이버 스마트플레이스 등록이 안 되는데 혹시 아시는 분?',
+    title: '네이버 스마트플레이스 등록이 안 되는데 혹시 ��시는 분?',
     content: '사업자등록증은 있는데 계속 반려가 되네요. 업종이 좀 특이해서 그런지... 혹시 비슷한 경험 있으신 분 도움 부탁드립니다ㅠ',
     time: '어제', likes: 12, comments: [
       { author: '플레이스전문가', text: '업종명이 뭔가요? 업종에 따라 추가 서류가 필요할 수 있어요', time: '어제' },
@@ -602,6 +603,11 @@ export default function Community() {
             </div>
           </div>
         </div>
+
+        {/* 푸터 — 랜딩 페이지와 동일 */}
+        <div className="-mx-4 md:-mx-8 mt-20">
+          <Footer />
+        </div>
       </main>
 
       {/* 모달들 */}
@@ -619,3 +625,4 @@ export default function Community() {
     </div>
   )
 }
+
