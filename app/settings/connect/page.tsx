@@ -652,7 +652,7 @@ function GoogleConnectModal(props: {
               <div className="flex flex-col sm:flex-row gap-2">
                 <input type="text" value={searchQ} onChange={e => setSearchQ(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleSearch()}
-                  placeholder="예: 하랑마케팅 강남, 서울 강남구 카페"
+                  placeholder="예: 매장 이름, 지역 + 업종 (예: 서울 강남구 카페)"
                   className="flex-1 border border-[#E5E8EB] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#4285F4]" />
                 <button onClick={handleSearch} disabled={loading}
                   className="px-4 py-3 bg-[#4285F4] text-white text-sm font-bold rounded-xl hover:bg-[#3367D6] disabled:bg-[#B0B8C1] whitespace-nowrap">
@@ -807,7 +807,7 @@ function KakaoConnectModal(props: {
               <div className="flex flex-col sm:flex-row gap-2">
                 <input type="text" value={searchQ} onChange={e => setSearchQ(e.target.value)}
                   onKeyDown={e => e.key === 'Enter' && handleSearch()}
-                  placeholder="예: 하랑마케팅 강남"
+                  placeholder="예: 내 매장 이름"
                   className="flex-1 border border-[#E5E8EB] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#F9C706]" />
                 <button onClick={handleSearch} disabled={loading}
                   className="px-4 py-3 bg-[#F9C706] text-[#3B1E1E] text-sm font-bold rounded-xl hover:bg-[#F0BC00] disabled:bg-[#B0B8C1] disabled:text-white whitespace-nowrap">
