@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 
 import { useState } from 'react'
 import Sidebar from '../../components/Sidebar'
+import Footer from '../../components/Footer'
 
 // ── 키워드별 점수 분석 데이터 ─────────────────────────
 interface KeywordScore {
@@ -273,6 +274,7 @@ export default function KeywordScorePage() {
           </p>
         </div>
       </main>
+    <Footer />
     </div>
   )
 }
