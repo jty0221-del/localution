@@ -260,6 +260,19 @@ export default function KeywordRankPage() {
 
   return (
     <div className="flex min-h-screen bg-[#F2F4F6]">
+      {/* LOCALUTION_HERO_BANNER */}
+      <section className="bg-gradient-to-r from-[#0EA5E9] to-[#0369A1] text-white px-4 py-10 sm:py-14">
+        <div className="max-w-5xl mx-auto flex items-center gap-4">
+          <div className="text-4xl sm:text-5xl drop-shadow-sm">📈</div>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-xl sm:text-2xl font-black tracking-tight">키워드 순위</h1>
+            <p className="text-white/85 text-xs sm:text-sm mt-1 leading-relaxed">네이버 검색에서 내 업체가 몇 위인지 — 위치별·디바이스별 실시간</p>
+          </div>
+          <div className="hidden sm:flex items-center gap-2 text-[11px] font-bold text-white/90 bg-white/15 backdrop-blur px-3 py-1.5 rounded-full border border-white/20">
+            로컬루션
+          </div>
+        </div>
+      </section>
       <Sidebar />
       <main className="flex-1 ml-0 md:ml-[220px] flex flex-col min-h-screen pt-16 md:pt-0">
 
