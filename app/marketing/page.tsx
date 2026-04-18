@@ -5,7 +5,7 @@ import { useState } from 'react'
 import Sidebar from '../components/Sidebar'
 import Link from 'next/link'
 import {
-  Search, TrendingUp, ClipboardCheck, Users, Sparkles, ArrowRight,
+  Search, TrendingUp, ClipboardCheck, Users, Sparkles, ArrowRight, FileText,
   ArrowUp, ArrowDown, Minus, CheckCircle2, AlertTriangle, XCircle,
 } from 'lucide-react'
 
@@ -459,24 +459,44 @@ export default function MarketingPage() {
             <p className="text-sm text-[#8B95A1] mt-1">네이버 플레이스 키워드 순위 · 진단 · 유입 분석을 한 곳에서 관리하세요</p>
           </div>
 
-          {/* 릴스·쇼츠 생성기 배너 */}
-          <Link href="/marketing/reels"
-            className="block mb-6 bg-gradient-to-r from-[#8B5CF6] via-[#A855F7] to-[#EC4899] rounded-2xl p-4 md:p-5 shadow-sm hover:shadow-lg transition-all group">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center">
-                <Sparkles size={26} strokeWidth={2.25} className="text-white" />
-              </div>
-              <div className="flex-1 text-white">
-                <div className="flex items-center gap-2 mb-0.5">
-                  <span className="text-[10px] font-black bg-white text-[#8B5CF6] px-2 py-0.5 rounded-full">NEW</span>
-                  <div className="text-sm md:text-base font-black">인스타 릴스·쇼츠 JSON 기반 자동 기획</div>
+          {/* AI 콘텐츠 생성 배너 2종 */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">
+            <Link href="/marketing/reels"
+              className="block bg-gradient-to-r from-[#8B5CF6] via-[#A855F7] to-[#EC4899] rounded-2xl p-4 md:p-5 shadow-sm hover:shadow-lg transition-all group">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center flex-shrink-0">
+                  <Sparkles size={26} strokeWidth={2.25} className="text-white" />
                 </div>
-                <div className="text-xs text-white/80">업체 정보 입력 → AI가 장면별 촬영 지시서까지 원클릭 생성</div>
+                <div className="flex-1 text-white min-w-0">
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <span className="text-[10px] font-black bg-white text-[#8B5CF6] px-2 py-0.5 rounded-full">NEW</span>
+                    <div className="text-sm md:text-base font-black truncate">릴스·쇼츠 자동 기획</div>
+                  </div>
+                  <div className="text-xs text-white/80">AI 장면별 촬영 지시서까지 원클릭</div>
+                </div>
+                <ArrowRight size={18} strokeWidth={2.5}
+                  className="text-white group-hover:translate-x-1 transition-transform flex-shrink-0" />
               </div>
-              <ArrowRight size={18} strokeWidth={2.5}
-                className="text-white group-hover:translate-x-1 transition-transform" />
-            </div>
-          </Link>
+            </Link>
+
+            <Link href="/marketing/blog-post"
+              className="block bg-gradient-to-r from-[#03C75A] via-[#00A645] to-[#059669] rounded-2xl p-4 md:p-5 shadow-sm hover:shadow-lg transition-all group">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center flex-shrink-0">
+                  <FileText size={26} strokeWidth={2.25} className="text-white" />
+                </div>
+                <div className="flex-1 text-white min-w-0">
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <span className="text-[10px] font-black bg-white text-[#03C75A] px-2 py-0.5 rounded-full">NEW</span>
+                    <div className="text-sm md:text-base font-black truncate">네이버 블로그 포스팅</div>
+                  </div>
+                  <div className="text-xs text-white/80">SEO 최적화 + 체류시간 후킹 자동 생성</div>
+                </div>
+                <ArrowRight size={18} strokeWidth={2.5}
+                  className="text-white group-hover:translate-x-1 transition-transform flex-shrink-0" />
+              </div>
+            </Link>
+          </div>
 
           <div className="flex gap-1 bg-white border border-[#E5E8EB] rounded-2xl p-1 mb-6 w-fit">
             {tabs.map(t => {
