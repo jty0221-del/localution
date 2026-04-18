@@ -51,7 +51,7 @@ const FEATURES = [
     color: 'from-blue-500 to-blue-600',
     bg: 'bg-blue-50',
     tags: ['네이버', '구글', '배민', '카카오'],
-    href: '/dashboard',
+    href: '/service-intro',
   },
   {
     Icon: QrCode,
@@ -60,7 +60,8 @@ const FEATURES = [
     color: 'from-green-500 to-emerald-600',
     bg: 'bg-green-50',
     tags: ['QR 스캔', 'AI 생성', '네이버 연동'],
-    href: '/qr-admin',
+    href: '/review/demo',
+    badge: '체험가능',
   },
   {
     Icon: Users,
@@ -69,7 +70,7 @@ const FEATURES = [
     color: 'from-purple-500 to-violet-600',
     bg: 'bg-purple-50',
     tags: ['자동 분류', '알림톡', '재방문 유도'],
-    href: '/customers',
+    href: '/service-intro',
   },
 ]
 
@@ -251,7 +252,11 @@ export default function LandingPage() {
             {FEATURES.map(f => (
               <Link key={f.title} href={f.href} className="relative bg-white rounded-2xl p-6 border border-gray-100 hover:border-blue-200 hover:shadow-lg transition-all group block">
                 {f.badge && (
-                  <span className={`absolute top-4 right-4 text-[10px] font-black tracking-wider px-2 py-0.5 rounded-full ${f.badge === 'HOT' ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'}`}>
+                  <span className={`absolute top-4 right-4 text-[10px] font-black tracking-wider px-2 py-0.5 rounded-full ${
+                    f.badge === 'HOT' ? 'bg-red-100 text-red-600'
+                    : f.badge === '체험가능' ? 'bg-emerald-100 text-emerald-700'
+                    : 'bg-blue-100 text-blue-600'
+                  }`}>
                     {f.badge}
                   </span>
                 )}
@@ -304,9 +309,9 @@ export default function LandingPage() {
                     </span>
                   ))}
                 </div>
-                <Link href="/login"
+                <Link href="/review/demo"
                   className="inline-flex items-center gap-2 bg-white text-[#3182F6] font-bold text-sm px-6 py-3 rounded-xl hover:bg-blue-50 transition-colors">
-                  QR 리뷰 체험하기
+                  QR 리뷰 지금 체험하기
                   <ArrowRight size={16} strokeWidth={2.5} />
                 </Link>
               </div>
