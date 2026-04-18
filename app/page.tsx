@@ -10,17 +10,48 @@ import {
   MessageCircle, QrCode, Users, FileText, Sparkles,
   Coffee, UtensilsCrossed, Dumbbell,
   Flame, Heart, PenLine, Wine, UserPlus, Camera, Star,
-  ArrowRight,
+  ArrowRight, MapPin, Video,
 } from 'lucide-react'
 
 const FEATURES = [
   {
+    Icon: MapPin,
+    title: '네이버 플레이스 SEO',
+    desc: '내 업체 노출 순위·키워드·진단을 실시간으로. 경쟁사 대비 위치까지 한눈에.',
+    color: 'from-emerald-500 to-teal-600',
+    bg: 'bg-emerald-50',
+    tags: ['순위 추적', '진단 점수', '개선 제안'],
+    href: '/marketing/place',
+    badge: 'HOT',
+  },
+  {
+    Icon: PenLine,
+    title: '네이버 블로그 포스팅',
+    desc: '업종·키워드·페르소나만 넣으면 SEO 최적화 3,000자 포스팅이 자동 완성.',
+    color: 'from-indigo-500 to-blue-600',
+    bg: 'bg-indigo-50',
+    tags: ['SEO 최적화', '체류시간', '사진 배치'],
+    href: '/marketing/blog-post',
+    badge: 'NEW',
+  },
+  {
+    Icon: Video,
+    title: '릴스·쇼츠 자동 기획',
+    desc: 'AI가 트렌드·훅·장면별 촬영 지시서까지 원클릭으로 만들어줘요.',
+    color: 'from-pink-500 to-rose-600',
+    bg: 'bg-pink-50',
+    tags: ['인스타 릴스', '유튜브 쇼츠', '촬영 대본'],
+    href: '/marketing/reels',
+    badge: 'NEW',
+  },
+  {
     Icon: MessageCircle,
     title: 'AI 리뷰 자동 답글',
-    desc: '네이버·구글·배민 리뷰를 AI가 분석하고 맞춤 답글을 자동 생성해요. 하루 5분으로 100% 응답률 달성.',
+    desc: '네이버·구글·배민 리뷰를 AI가 분석하고 맞춤 답글을 자동 생성해요. 하루 5분으로 100% 응답률.',
     color: 'from-blue-500 to-blue-600',
     bg: 'bg-blue-50',
     tags: ['네이버', '구글', '배민', '카카오'],
+    href: '/dashboard',
   },
   {
     Icon: QrCode,
@@ -29,6 +60,7 @@ const FEATURES = [
     color: 'from-green-500 to-emerald-600',
     bg: 'bg-green-50',
     tags: ['QR 스캔', 'AI 생성', '네이버 연동'],
+    href: '/qr-admin',
   },
   {
     Icon: Users,
@@ -37,14 +69,7 @@ const FEATURES = [
     color: 'from-purple-500 to-violet-600',
     bg: 'bg-purple-50',
     tags: ['자동 분류', '알림톡', '재방문 유도'],
-  },
-  {
-    Icon: FileText,
-    title: 'AI 정산·행정',
-    desc: '매출 자동 정리, 세금계산서 원클릭 발행, 근태·급여 계산까지. 행정 업무 90% 절감.',
-    color: 'from-orange-500 to-amber-600',
-    bg: 'bg-orange-50',
-    tags: ['매출 캘린더', '세금계산서', '급여 계산'],
+    href: '/customers',
   },
 ]
 
@@ -222,13 +247,21 @@ export default function LandingPage() {
               네이버 플레이스 상위 노출부터 고객 재방문 유도까지, 한 플랫폼에서
             </p>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {FEATURES.map(f => (
-              <div key={f.title} className="bg-white rounded-2xl p-6 border border-gray-100 hover:border-blue-200 hover:shadow-lg transition-all group">
+              <Link key={f.title} href={f.href} className="relative bg-white rounded-2xl p-6 border border-gray-100 hover:border-blue-200 hover:shadow-lg transition-all group block">
+                {f.badge && (
+                  <span className={`absolute top-4 right-4 text-[10px] font-black tracking-wider px-2 py-0.5 rounded-full ${f.badge === 'HOT' ? 'bg-red-100 text-red-600' : 'bg-blue-100 text-blue-600'}`}>
+                    {f.badge}
+                  </span>
+                )}
                 <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${f.color} flex items-center justify-center mb-4 shadow-sm group-hover:scale-110 transition-transform`}>
                   <f.Icon size={24} strokeWidth={2} className="text-white" />
                 </div>
-                <h3 className="text-lg font-bold text-[#191F28] mb-2">{f.title}</h3>
+                <h3 className="text-lg font-bold text-[#191F28] mb-2 flex items-center gap-1.5">
+                  {f.title}
+                  <ArrowRight size={14} strokeWidth={2.5} className="text-[#8B95A1] group-hover:text-[#3182F6] group-hover:translate-x-0.5 transition-all" />
+                </h3>
                 <p className="text-sm text-[#4E5968] leading-relaxed mb-4">{f.desc}</p>
                 <div className="flex flex-wrap gap-2">
                   {f.tags.map(tag => (
@@ -237,9 +270,12 @@ export default function LandingPage() {
                     </span>
                   ))}
                 </div>
-              </div>
+              </Link>
             ))}
           </div>
+          <p className="text-center text-xs text-[#8B95A1] mt-6">
+            AI 정산·세금계산서·급여 관리는 곧 추가됩니다
+          </p>
         </div>
       </section>
 
