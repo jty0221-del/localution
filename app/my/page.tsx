@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic'
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import Footer from '../components/Footer'
 
 interface AuthUser {
   id: string
@@ -344,6 +345,7 @@ function InfoRow({ icon, label, value, sourceLabel, sourceBg, sourceText }: {
           {sourceLabel}
         </span>
       </div>
+    <Footer />
     </div>
   )
 }
