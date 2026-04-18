@@ -2,9 +2,14 @@
 import { useSearchParams } from 'next/navigation'
 export const dynamic = 'force-dynamic'
 import { useState, Suspense, useEffect, useRef } from 'react'
+import Script from 'next/script'
 import Link from 'next/link'
 import Sidebar from '../components/Sidebar'
-// Footer import removed — component may not exist in repo
+import Footer from '../components/Footer'
+
+// 토스페이먼츠 — 공식 SDK 테스트 클라이언트 키 (공개됨)
+// 실서비스 전환 시 env에서 주입: NEXT_PUBLIC_TOSS_CLIENT_KEY
+const TOSS_CLIENT_KEY = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY || 'test_ck_docs_Ovk5rk1EwkEbP0W43n07xlzm'
 
 const TABS = ['매장 정보', '알림 설정', 'AI 설정', '연동 관리', '플랜 관리 (결제내역)'] as const
 type Tab = typeof TABS[number]
@@ -778,15 +783,93 @@ function PlanTab() {
   const [filter, setFilter] = useState<CategoryFilter>('전체')
   const [showCancelModal, setShowCancelModal] = useState(false)
   const [cancelled, setCancelled] = useState(false)
-  const [showPaymentModal, setShowPaymentModal] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState<{ cardName: string; last4: string } | null>(null)
-  const [tossKey, setTossKey] = useState({ client: '', secret: '' })
+  const [tossKey, setTossKey] = useState({ client: TOSS_CLIENT_KEY, secret: '' })
   const [tossSaved, setTossSaved] = useState(false)
   const [tossMode, setTossMode] = useState<'test' | 'live'>('test')
-  const [cardForm, setCardForm] = useState({ number: '', expiry: '', birth: '' })
+  const [tossReady, setTossReady] = useState(false)
+  const [tossError, setTossError] = useState<string>('')
   // 베타 기간 — 정식 요금제 준비 중 (임시)
   const addToCart = (id: string) => { if (!cart.includes(id)) setCart(p => [...p, id]) }
   const removeFromCart = (id: string) => setCart(p => p.filter(i => i !== id))
+
+  // 저장된 결제 수단 / 토스 키 복원 + 토스 SDK 로드 감지
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    try {
+      const pm = localStorage.getItem('localution.payment_method')
+      if (pm) setPaymentMethod(JSON.parse(pm))
+      const saved = localStorage.getItem('localution.toss_key')
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        setTossKey(prev => ({ client: parsed.client || prev.client, secret: parsed.secret || '' }))
+      }
+    } catch {}
+    // 토스 SDK 로드 폴링 — 최대 10초
+    let tries = 0
+    const iv = setInterval(() => {
+      tries += 1
+      const w = window as unknown as { TossPayments?: unknown }
+      if (w.TossPayments) { setTossReady(true); clearInterval(iv) }
+      else if (tries > 50) { clearInterval(iv) }
+    }, 200)
+    return () => clearInterval(iv)
+  }, [])
+
+  // 토스페이먼츠 결제 수단 등록 (정기결제 빌링 인증)
+  const openTossBillingAuth = async () => {
+    setTossError('')
+    if (typeof window === 'undefined') return
+    const w = window as unknown as { TossPayments?: (key: string) => any }
+    if (!w.TossPayments) {
+      setTossError('토스페이먼츠 SDK 로딩 중입니다. 잠시 후 다시 눌러주세요.')
+      return
+    }
+    try {
+      const tp = w.TossPayments(tossKey.client || TOSS_CLIENT_KEY)
+      // customerKey는 사용자별 고유 — 실서비스에서는 로그인 유저 ID 사용
+      const customerKey = (() => {
+        try {
+          const existing = localStorage.getItem('localution.customer_key')
+          if (existing) return existing
+          const created = 'cust_' + Math.random().toString(36).slice(2, 12) + Date.now().toString(36)
+          localStorage.setItem('localution.customer_key', created)
+          return created
+        } catch {
+          return 'cust_anonymous_' + Date.now()
+        }
+      })()
+      await tp.requestBillingAuth('카드', {
+        customerKey,
+        successUrl: window.location.origin + '/api/payments/billing/success?returnTo=' + encodeURIComponent('/settings?tab=plan&billing=ok'),
+        failUrl:    window.location.origin + '/api/payments/billing/fail?returnTo='    + encodeURIComponent('/settings?tab=plan&billing=fail'),
+      })
+    } catch (e: any) {
+      setTossError('결제창 호출 실패: ' + (e?.message || String(e)))
+    }
+  }
+
+  const saveTossKey = () => {
+    try { localStorage.setItem('localution.toss_key', JSON.stringify(tossKey)) } catch {}
+    setTossSaved(true)
+    setTimeout(() => setTossSaved(false), 2500)
+  }
+
+  const removePaymentMethod = () => {
+    setPaymentMethod(null)
+    try { localStorage.removeItem('localution.payment_method') } catch {}
+  }
+
+  // URL 쿼리 ?billing=ok 이면 성공 표시 (billing 등록 후 리다이렉트)
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('billing') === 'ok') {
+      const demo = { cardName: '토스 빌링 등록 완료', last4: '****' }
+      setPaymentMethod(demo)
+      try { localStorage.setItem('localution.payment_method', JSON.stringify(demo)) } catch {}
+    }
+  }, [])
   const cartFeatures = FEATURES.filter(f => cart.includes(f.id))
   const filteredFeatures = filter === '전체' ? FEATURES : FEATURES.filter(f => f.category === filter)
   // /pricing 페이지와 동일한 묶음 할인 티어 — 정식 요금제 시 적용 예정 (임시 안내)
@@ -835,63 +918,7 @@ function PlanTab() {
             {!cancelled && <button onClick={() => setShowCancelModal(true)} className="text-xs text-red-400 hover:text-red-600 underline">해지하기</button>}
           </div>
         </div>
-        <div className="bg-white rounded-2xl p-6 shadow-sm">
-          <div className="flex items-center justify-between mb-4">
-            <h3 className="font-bold text-[#191F28]">결제 수단</h3>
-            <span className="text-xs text-[#8B95A1]">토스페이먼츠 보안 결제</span>
-          </div>
-          {paymentMethod ? (
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <div className="w-12 h-8 rounded-lg bg-gradient-to-r from-blue-500 to-blue-700 flex items-center justify-center">
-                  <span className="text-white text-xs font-bold">CARD</span>
-                </div>
-                <div>
-                  <p className="font-semibold text-[#191F28] text-sm">{paymentMethod.cardName}</p>
-                  <p className="text-xs text-[#8B95A1]">**** **** **** {paymentMethod.last4}</p>
-                </div>
-              </div>
-              <button onClick={() => setShowPaymentModal(true)} className="px-3 py-1.5 rounded-xl text-xs font-medium bg-[#F2F4F6] text-[#4E5968]">변경</button>
-            </div>
-          ) : (
-            <button onClick={() => setShowPaymentModal(true)} className="w-full py-4 rounded-xl border-2 border-dashed border-[#E5E8EB] text-sm font-medium text-[#3182F6] hover:border-[#3182F6] hover:bg-[#EFF6FF] transition-colors">
-              + 카드 등록하기
-            </button>
-          )}
-        </div>
-        <div className="bg-white rounded-2xl p-6 shadow-sm border-2 border-[#E5E8EB]">
-          <div className="flex items-center gap-3 mb-5">
-            <div className="w-10 h-10 rounded-xl bg-[#EFF6FF] flex items-center justify-center text-xs font-black text-[#3182F6]">Pay</div>
-            <div>
-              <p className="font-bold text-[#191F28]">토스페이먼츠 연동</p>
-              <p className="text-xs text-[#8B95A1]">정기결제 API 키 설정</p>
-            </div>
-            <span className="ml-auto text-xs px-2 py-0.5 rounded-full bg-orange-100 text-orange-600 font-medium">준비 중</span>
-          </div>
-          <div className="flex gap-2 mb-4">
-            {(['test', 'live'] as const).map(m => (
-              <button key={m} onClick={() => setTossMode(m)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${tossMode === m ? (m === 'live' ? 'bg-red-500 text-white' : 'bg-[#3182F6] text-white') : 'bg-[#F2F4F6] text-[#4E5968]'}`}>
-                {m === 'test' ? '테스트 모드' : '라이브 모드'}
-              </button>
-            ))}
-          </div>
-          <div className="space-y-3 mb-4">
-            <input type="text" value={tossKey.client} onChange={e => setTossKey(p => ({ ...p, client: e.target.value }))} placeholder={`클라이언트 키 (${tossMode}_ck_...)`} className="w-full border border-[#E5E8EB] rounded-xl px-4 py-2.5 text-sm font-mono focus:outline-none focus:border-[#3182F6] transition-colors" />
-            <input type="password" value={tossKey.secret} onChange={e => setTossKey(p => ({ ...p, secret: e.target.value }))} placeholder={`시크릿 키 (${tossMode}_sk_...)`} className="w-full border border-[#E5E8EB] rounded-xl px-4 py-2.5 text-sm font-mono focus:outline-none focus:border-[#3182F6] transition-colors" />
-          </div>
-          <div className="mb-4 p-3 bg-blue-50 rounded-xl text-xs text-[#3182F6] space-y-1">
-            <p className="font-semibold">연동 준비사항</p>
-            <p>1. 토스페이먼츠 개발자센터 가입 및 정기결제 서비스 신청</p>
-            <p>2. 웹훅: <span className="font-mono">https://localution.co.kr/api/payments/webhook</span></p>
-          </div>
-          <button
-            onClick={() => { setTossSaved(true); setTimeout(() => setTossSaved(false), 2500) }}
-            disabled={!tossKey.client || !tossKey.secret}
-            className={`w-full py-2.5 rounded-xl text-sm font-semibold transition-colors ${tossSaved ? 'bg-green-500 text-white' : !tossKey.client || !tossKey.secret ? 'bg-[#F2F4F6] text-[#8B95A1] cursor-not-allowed' : 'bg-[#3182F6] text-white hover:bg-[#1B64DA]'}`}
-          >
-            {tossSaved ? '저장됨' : '키 저장하기'}
-          </button>
-        </div>
+        {/* 1) 기능 선택 — 결제 수단보다 위에 배치 */}
         <div>
           <div className="flex items-center justify-between mb-3">
             <h3 className="font-bold text-[#191F28]">기능 선택 · 12개</h3>
@@ -936,6 +963,92 @@ function PlanTab() {
               )
             })}
           </div>
+        </div>
+
+        {/* 2) 결제 수단 — 토스페이먼츠 빌링 인증 실제 호출 */}
+        <div className="bg-white rounded-2xl p-6 shadow-sm">
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="font-bold text-[#191F28]">결제 수단</h3>
+            <span className="inline-flex items-center gap-1.5 text-xs text-[#3182F6] font-semibold">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#3182F6] animate-pulse"></span>
+              토스페이먼츠 보안 결제
+            </span>
+          </div>
+          {paymentMethod ? (
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <div className="w-12 h-8 rounded-lg bg-gradient-to-r from-[#3182F6] to-[#1B64DA] flex items-center justify-center">
+                  <span className="text-white text-xs font-bold">CARD</span>
+                </div>
+                <div>
+                  <p className="font-semibold text-[#191F28] text-sm">{paymentMethod.cardName}</p>
+                  <p className="text-xs text-[#8B95A1]">**** **** **** {paymentMethod.last4}</p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={openTossBillingAuth} className="px-3 py-1.5 rounded-xl text-xs font-medium bg-[#F2F4F6] text-[#4E5968] hover:bg-[#E5E8EB]">변경</button>
+                <button onClick={removePaymentMethod} className="px-3 py-1.5 rounded-xl text-xs font-medium text-red-500 hover:bg-red-50">제거</button>
+              </div>
+            </div>
+          ) : (
+            <>
+              <button onClick={openTossBillingAuth} className="w-full py-4 rounded-xl border-2 border-dashed border-[#E5E8EB] text-sm font-medium text-[#3182F6] hover:border-[#3182F6] hover:bg-[#EFF6FF] transition-colors">
+                + 카드 등록하기 (토스페이먼츠 보안 결제창)
+              </button>
+              <p className="text-[11px] text-[#B0B8C1] mt-2 text-center">실제 결제 없음 · 베타 기간은 결제 수단 등록만 진행</p>
+            </>
+          )}
+          {tossError && (
+            <div className="mt-3 bg-red-50 border border-red-200 rounded-xl p-3 text-xs text-red-700">{tossError}</div>
+          )}
+        </div>
+
+        {/* 3) 토스페이먼츠 연동 설정 — 운영자(대표님) 전용 */}
+        <div className="bg-white rounded-2xl p-6 shadow-sm border-2 border-[#E5E8EB]">
+          <div className="flex items-center gap-3 mb-5">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#3182F6] to-[#1B64DA] flex items-center justify-center text-xs font-black text-white">Toss</div>
+            <div>
+              <p className="font-bold text-[#191F28]">토스페이먼츠 연동 설정</p>
+              <p className="text-xs text-[#8B95A1]">정기결제 API 키 · 운영자 전용</p>
+            </div>
+            <span className={`ml-auto text-xs px-2 py-0.5 rounded-full font-medium ${tossReady ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-[#3182F6]'}`}>
+              {tossReady ? 'SDK 로드 완료' : 'SDK 로딩 중'}
+            </span>
+          </div>
+          <div className="flex gap-2 mb-4">
+            {(['test', 'live'] as const).map(m => (
+              <button key={m} onClick={() => setTossMode(m)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${tossMode === m ? (m === 'live' ? 'bg-red-500 text-white' : 'bg-[#3182F6] text-white') : 'bg-[#F2F4F6] text-[#4E5968]'}`}>
+                {m === 'test' ? '테스트 모드' : '라이브 모드'}
+              </button>
+            ))}
+          </div>
+          <div className="space-y-3 mb-4">
+            <div>
+              <label className="block text-xs font-semibold text-[#4E5968] mb-1.5">클라이언트 키</label>
+              <input type="text" value={tossKey.client} onChange={e => setTossKey(p => ({ ...p, client: e.target.value }))} placeholder={`${tossMode}_ck_...`} className="w-full border border-[#E5E8EB] rounded-xl px-4 py-2.5 text-sm font-mono focus:outline-none focus:border-[#3182F6] transition-colors" />
+              <p className="text-[10px] text-[#B0B8C1] mt-1">기본값은 토스 공식 테스트 키 — 실제 결제 발생 X</p>
+            </div>
+            <div>
+              <label className="block text-xs font-semibold text-[#4E5968] mb-1.5">시크릿 키 (서버 전용)</label>
+              <input type="password" value={tossKey.secret} onChange={e => setTossKey(p => ({ ...p, secret: e.target.value }))} placeholder={`${tossMode}_sk_... (Vercel 환경변수에 저장 권장)`} className="w-full border border-[#E5E8EB] rounded-xl px-4 py-2.5 text-sm font-mono focus:outline-none focus:border-[#3182F6] transition-colors" />
+              <p className="text-[10px] text-[#B0B8C1] mt-1">⚠️ 시크릿 키는 브라우저에 저장하지 말고 Vercel 환경변수 <span className="font-mono">TOSS_SECRET_KEY</span>에 등록</p>
+            </div>
+          </div>
+          <div className="mb-4 p-3 bg-blue-50 rounded-xl text-xs text-[#3182F6] space-y-1">
+            <p className="font-semibold">연동 체크리스트</p>
+            <p>1. 토스페이먼츠 개발자센터 가입 · 정기결제(빌링) 서비스 신청</p>
+            <p>2. Vercel 환경변수 추가: <span className="font-mono">NEXT_PUBLIC_TOSS_CLIENT_KEY</span> / <span className="font-mono">TOSS_SECRET_KEY</span></p>
+            <p>3. 성공 콜백: <span className="font-mono">/api/payments/billing/success</span></p>
+            <p>4. 실패 콜백: <span className="font-mono">/api/payments/billing/fail</span></p>
+            <p>5. 웹훅: <span className="font-mono">/api/payments/webhook</span></p>
+          </div>
+          <button
+            onClick={saveTossKey}
+            disabled={!tossKey.client}
+            className={`w-full py-2.5 rounded-xl text-sm font-semibold transition-colors ${tossSaved ? 'bg-green-500 text-white' : !tossKey.client ? 'bg-[#F2F4F6] text-[#8B95A1] cursor-not-allowed' : 'bg-[#3182F6] text-white hover:bg-[#1B64DA]'}`}
+          >
+            {tossSaved ? '✓ 저장됨' : '키 저장하기'}
+          </button>
         </div>
       </div>
       <div className="w-[360px] flex-shrink-0 hidden lg:block space-y-4">
@@ -1009,42 +1122,6 @@ function PlanTab() {
           </div>
         </div>
       )}
-      {showPaymentModal && (
-        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl p-6 max-w-sm w-full">
-            <div className="flex items-center justify-between mb-5">
-              <h3 className="font-bold text-[#191F28] text-lg">카드 등록</h3>
-              <button onClick={() => setShowPaymentModal(false)} className="text-[#8B95A1] text-xl">✕</button>
-            </div>
-            <div className="space-y-4 mb-5">
-              <div>
-                <label className="block text-xs font-semibold text-[#4E5968] mb-1.5">카드 번호</label>
-                <input type="text" value={cardForm.number} onChange={e => setCardForm(p => ({ ...p, number: e.target.value }))} placeholder="0000 0000 0000 0000" className="w-full border border-[#E5E8EB] rounded-xl px-4 py-3 text-sm font-mono focus:outline-none focus:border-[#3182F6] transition-colors" />
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold text-[#4E5968] mb-1.5">유효기간</label>
-                  <input type="text" placeholder="MM/YY" value={cardForm.expiry} onChange={e => setCardForm(p => ({ ...p, expiry: e.target.value }))} className="w-full border border-[#E5E8EB] rounded-xl px-4 py-3 text-sm font-mono focus:outline-none focus:border-[#3182F6] transition-colors" />
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-[#4E5968] mb-1.5">생년월일</label>
-                  <input type="password" placeholder="6자리" value={cardForm.birth} onChange={e => setCardForm(p => ({ ...p, birth: e.target.value }))} className="w-full border border-[#E5E8EB] rounded-xl px-4 py-3 text-sm font-mono focus:outline-none focus:border-[#3182F6] transition-colors" />
-                </div>
-              </div>
-            </div>
-            <button
-              onClick={() => {
-                setPaymentMethod({ cardName: '신한카드', last4: cardForm.number.replace(/\s/g, '').slice(-4) || '1234' })
-                setShowPaymentModal(false)
-              }}
-              disabled={!cardForm.number || !cardForm.expiry}
-              className={`w-full py-3 rounded-xl text-sm font-bold transition-colors ${!cardForm.number || !cardForm.expiry ? 'bg-[#F2F4F6] text-[#8B95A1] cursor-not-allowed' : 'bg-[#3182F6] text-white hover:bg-[#1B64DA]'}`}
-            >
-              카드 등록하기
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
@@ -1055,32 +1132,59 @@ function SettingsInner() {
   const tabMap: Record<string, Tab> = { ai: 'AI 설정', store: '매장 정보', notify: '알림 설정', connect: '연동 관리', plan: '플랜 관리 (결제내역)' }
   const [activeTab, setActiveTab] = useState<Tab>(tabMap[tabParam] || '매장 정보')
 
+  // 탭별 브랜딩 배지 (색상/아이콘/서브헤드)
+  const HERO: Record<Tab, { emoji: string; grad: string; sub: string }> = {
+    '매장 정보':            { emoji: '🏪', grad: 'from-[#3182F6] to-[#1B64DA]', sub: '업체 프로필·주소·네이버 플레이스 연동' },
+    '알림 설정':            { emoji: '🔔', grad: 'from-[#F59E0B] to-[#D97706]', sub: '리뷰·결제·마케팅 알림 채널 관리' },
+    'AI 설정':              { emoji: '🤖', grad: 'from-[#8B5CF6] to-[#6D28D9]', sub: 'AI 답변 톤·금칙어·자동화 규칙' },
+    '연동 관리':            { emoji: '🔗', grad: 'from-[#059669] to-[#047857]', sub: '네이버·배민·쿠팡이츠·카카오톡 연결' },
+    '플랜 관리 (결제내역)': { emoji: '💳', grad: 'from-[#EC4899] to-[#BE185D]', sub: '베타 무료 플랜·기능 선택·토스 결제' },
+  }
+  const hero = HERO[activeTab]
+
   return (
-    <div className="min-h-screen bg-[#F2F4F6] flex">
-      <Sidebar />
-      <main className="flex-1 md:ml-[220px] p-4 md:p-8 pt-16 md:pt-8 pr-16 md:pr-20">
-        <div className="mb-8">
-          <h1 className="text-2xl font-bold text-[#191F28]">설정</h1>
-          <p className="text-[#8B95A1] mt-1">서비스 환경을 설정하세요</p>
+    <>
+      {/* 토스페이먼츠 SDK — 플랜 관리 탭에서 결제 수단 등록 시 사용 */}
+      <Script src="https://js.tosspayments.com/v1/payment" strategy="afterInteractive" />
+      <div className="min-h-screen bg-[#F2F4F6] flex flex-col">
+        <div className="flex flex-1">
+          <Sidebar />
+          <main className="flex-1 md:ml-[220px] p-4 md:p-8 pt-16 md:pt-8 pr-16 md:pr-20">
+            {/* 히어로 브랜딩 — 탭별 그라디언트 + 이모지 배지 */}
+            <div className={`mb-8 rounded-3xl p-6 md:p-8 text-white bg-gradient-to-br ${hero.grad} shadow-lg`}>
+              <div className="flex items-center gap-4">
+                <div className="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center text-3xl md:text-4xl">
+                  {hero.emoji}
+                </div>
+                <div className="min-w-0">
+                  <h1 className="text-2xl md:text-3xl font-black">설정 · {activeTab}</h1>
+                  <p className="text-white/90 mt-1 text-sm md:text-base">{hero.sub}</p>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex gap-1 mb-8 bg-white rounded-2xl p-1.5 shadow-sm overflow-x-auto">
+              {TABS.map(tab => (
+                <button
+                  key={tab}
+                  onClick={() => setActiveTab(tab)}
+                  className={`flex-1 min-w-[80px] py-2 px-3 rounded-xl text-sm font-semibold transition-colors whitespace-nowrap ${activeTab === tab ? 'bg-[#3182F6] text-white' : 'text-[#4E5968] hover:bg-[#F2F4F6]'}`}
+                >
+                  {tab}
+                </button>
+              ))}
+            </div>
+            {activeTab === '매장 정보' && <StoreTab />}
+            {activeTab === '알림 설정' && <NotifyTab />}
+            {activeTab === 'AI 설정' && <AITab />}
+            {activeTab === '연동 관리' && <ConnectTab />}
+            {activeTab === '플랜 관리 (결제내역)' && <PlanTab />}
+          </main>
         </div>
-        <div className="flex gap-1 mb-8 bg-white rounded-2xl p-1.5 shadow-sm overflow-x-auto">
-          {TABS.map(tab => (
-            <button
-              key={tab}
-              onClick={() => setActiveTab(tab)}
-              className={`flex-1 min-w-[80px] py-2 px-3 rounded-xl text-sm font-semibold transition-colors whitespace-nowrap ${activeTab === tab ? 'bg-[#3182F6] text-white' : 'text-[#4E5968] hover:bg-[#F2F4F6]'}`}
-            >
-              {tab}
-            </button>
-          ))}
-        </div>
-        {activeTab === '매장 정보' && <StoreTab />}
-        {activeTab === '알림 설정' && <NotifyTab />}
-        {activeTab === 'AI 설정' && <AITab />}
-        {activeTab === '연동 관리' && <ConnectTab />}
-        {activeTab === '플랜 관리 (결제내역)' && <PlanTab />}
-      </main>
-    </div>
+        {/* 공통 Footer */}
+        <Footer />
+      </div>
+    </>
   )
 }
 
