@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 
 import { useState } from 'react'
 import Sidebar from '../../components/Sidebar'
+import Footer from '../../components/Footer'
 
 // ── 진단 항목 데이터 ──────────────────────────────────
 const DIAGNOSIS_ITEMS = [
@@ -240,6 +241,7 @@ export default function PlaceDiagnosisPage() {
           </div>
         </div>
       </main>
+    <Footer />
     </div>
   )
 }
