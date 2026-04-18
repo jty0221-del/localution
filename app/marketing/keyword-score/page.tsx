@@ -216,6 +216,14 @@ export default function KeywordScorePage() {
           </div>
         </div>
 
+        {/* 데모 안내 배너 */}
+        <div className="mb-6 bg-[#FFFBEB] border border-[#FDE68A] rounded-2xl px-5 py-4">
+          <p className="text-xs font-bold text-[#92400E] mb-1">⚠ 아래는 예시 데이터입니다</p>
+          <p className="text-[11px] text-[#92400E] leading-relaxed">
+            현재 보이는 키워드와 점수는 데모용 샘플입니다. 네이버 Search API 또는 외부 순위 측정 서비스(selfrank·키워드마스터 등)를 연동하면 내 매장의 실제 키워드 점수로 교체됩니다.
+          </p>
+        </div>
+
         {/* 요약 카드 */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
           <div className="bg-white rounded-2xl shadow-sm p-5 text-center">
