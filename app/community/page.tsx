@@ -351,7 +351,7 @@ function PostModal({ post, onClose, onLike, onBookmark }: any) {
 
 // ─── 메인 커뮤니티 페이지 ─────────────────────────────────────────
 export default function Community() {
-  const [posts, setPosts] = useState(INITIAL_POSTS)
+  const [posts, setPosts] = useState<any[]>(INITIAL_POSTS)
 
   useEffect(() => {
     try {
