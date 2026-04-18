@@ -20,7 +20,7 @@ const DEMO_REVIEWS: Review[] = [
   { id: 1, author: '김**', rating: 5, content: '음식도 맛있고 직원분들도 친절해요. 주차도 편하고 재방문 의사 있습니다!', date: '2시간 전', replied: false, hasPhoto: true },
   { id: 2, author: '박**', rating: 5, content: '회식으로 왔는데 음식 양도 많고 맛도 좋았어요. 사장님도 친절하시고 너무 좋았습니다', date: '1일 전', replied: false, hasPhoto: false },
   { id: 3, author: '이**', rating: 4, content: '분위기 좋고 맛있어요. 다만 주말에는 웨이팅이 좀 있네요.', date: '2일 전', replied: true, hasPhoto: true },
-  { id: 4, author: '최**', rating: 5, content: '강남에서 이 가격에 이 퀄리티 진짜 대박이에요! 단골 될 것 같아요', date: '3일 전', replied: true, hasPhoto: false },
+  { id: 4, author: '최**', rating: 5, content: '이 가격에 이 퀄리티 진짜 대박이에요! 단골 될 것 같아요', date: '3일 전', replied: true, hasPhoto: false },
   { id: 5, author: '정**', rating: 3, content: '맛은 괜찮은데 양이 좀 적어요. 가격 대비 아쉽습니다.', date: '4일 전', replied: false, hasPhoto: false },
 ]
 
@@ -63,7 +63,13 @@ export default function NaverReviewPage() {
       const legacyConnected = localStorage.getItem('localution.naver.connected') === 'true'
       const isConn = !!naverLink || legacyConnected
       setConnected(isConn)
-      setStoreName(naverLink?.externalName || '하랑마케팅 강남점')
+      // 연동된 매장명 우선, 없으면 프로필의 매장명, 둘 다 없으면 빈 문자열
+      let fallbackName = ''
+      try {
+        const p = JSON.parse(localStorage.getItem('localution_store') || '{}')
+        fallbackName = p?.storeName || ''
+      } catch {}
+      setStoreName(naverLink?.externalName || fallbackName)
       // 현재는 데모 데이터 사용 (실제 네이버 리뷰 API는 별도 제휴 필요)
       setReviews(DEMO_REVIEWS)
     } catch {
@@ -83,7 +89,7 @@ export default function NaverReviewPage() {
           review_text: review.content,
           reviewer_name: review.author,
           rating: review.rating,
-          store_name: storeName || '하랑마케팅 강남점',
+          store_name: storeName || '저희 매장',
           tone,
         }),
       })
@@ -271,3 +277,4 @@ export default function NaverReviewPage() {
     </div>
   )
 }
+
