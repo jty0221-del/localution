@@ -43,8 +43,12 @@ const PROVIDER_LABEL: Record<string, string> = {
   kakao: '카카오 로그인', naver: '네이버 로그인', google: '구글 로그인',
 }
 
-const FLAT_NAV = [
-  { href: '/dashboard', label: '대시보드',  icon: 'DB',  colors: { bg: '#EFF6FF', text: '#3182F6' } },
+// 최상단(대시보드) — 고정
+const TOP_FLAT = [
+  { href: '/dashboard', label: '대시보드', icon: 'DB', colors: { bg: '#EFF6FF', text: '#3182F6' } },
+]
+// 리뷰/마케팅 섹션 이후에 오는 플랫 항목
+const MID_FLAT = [
   { href: '/qr-admin',  label: 'QR 관리',   icon: 'QR',  colors: { bg: '#F5F3FF', text: '#8B5CF6' } },
   { href: '/customers', label: '고객 관리', icon: '고객', colors: { bg: '#ECFDF5', text: '#059669' } },
 ]
@@ -142,25 +146,28 @@ export default function Sidebar() {
 
   const toggleRegion = (key: string) => setOpenRegion(prev => prev === key ? '' : key)
 
+  const renderFlatItem = (item: typeof TOP_FLAT[number]) => {
+    const active = pathname === item.href
+    return (
+      <Link key={item.href} href={item.href} onClick={() => setMobileOpen(false)}
+        className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${active ? 'bg-[#EFF6FF] text-[#3182F6] font-semibold' : 'text-[#4E5968] hover:bg-[#F2F4F6] font-medium'}`}>
+        <div className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold flex-shrink-0"
+          style={active ? { background: '#3182F6', color: '#fff' } : { background: item.colors.bg, color: item.colors.text }}>
+          {item.icon}
+        </div>
+        <span className="text-sm">{item.label}</span>
+        {active && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-[#3182F6]" />}
+      </Link>
+    )
+  }
+
   const NavItems = () => (
     <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
 
-      {FLAT_NAV.map(item => {
-        const active = pathname === item.href
-        return (
-          <Link key={item.href} href={item.href} onClick={() => setMobileOpen(false)}
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${active ? 'bg-[#EFF6FF] text-[#3182F6] font-semibold' : 'text-[#4E5968] hover:bg-[#F2F4F6] font-medium'}`}>
-            <div className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold flex-shrink-0"
-              style={active ? { background: '#3182F6', color: '#fff' } : { background: item.colors.bg, color: item.colors.text }}>
-              {item.icon}
-            </div>
-            <span className="text-sm">{item.label}</span>
-            {active && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-[#3182F6]" />}
-          </Link>
-        )
-      })}
+      {/* 1. 대시보드 */}
+      {TOP_FLAT.map(renderFlatItem)}
 
-      {/* 리뷰 관리 */}
+      {/* 2. 리뷰 관리 */}
       <div>
         <button onClick={() => setReviewOpen(v => !v)}
           className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left ${isReviewSection ? 'bg-[#FFFBEB] text-[#F59E0B] font-semibold' : 'text-[#4E5968] hover:bg-[#F2F4F6] font-medium'}`}>
@@ -190,7 +197,7 @@ export default function Sidebar() {
         )}
       </div>
 
-      {/* 마케팅 관리 */}
+      {/* 3. 마케팅 관리 */}
       <div>
         <button onClick={() => setMarketingOpen(v => !v)}
           className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left ${isMarketingSection ? 'bg-[#FFF7ED] text-[#EA580C] font-semibold' : 'text-[#4E5968] hover:bg-[#F2F4F6] font-medium'}`}>
@@ -221,7 +228,10 @@ export default function Sidebar() {
         )}
       </div>
 
-      {/* 커뮤니티 (지역 3단계) */}
+      {/* 4. QR 관리 / 5. 고객 관리 */}
+      {MID_FLAT.map(renderFlatItem)}
+
+      {/* 6. 커뮤니티 (지역 3단계) */}
       <div>
         <button onClick={() => setCommunityOpen(v => !v)}
           className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left ${isCommunitySection ? 'bg-[#FDF2F8] text-[#EC4899] font-semibold' : 'text-[#4E5968] hover:bg-[#F2F4F6] font-medium'}`}>
@@ -360,3 +370,4 @@ export default function Sidebar() {
     </>
   )
 }
+
