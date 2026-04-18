@@ -152,8 +152,10 @@ const MOCK_KEYWORDS: KeywordRank[] = [
 ]
 
 const RECENT_REVIEWS = [
+  { platform: '네이버',  name: '이**', rating: 1, text: '대기 시간이 너무 길었고 음식도 식어서 나왔습니다. 재방문은 어려울 것 같아요.', time: '1시간 전', replied: false, color: '#03C75A' },
   { platform: '네이버',  name: '김**', rating: 5, text: '음식도 맛있고 직원분들도 친절해요. 주차도 편하고 재방문 의사 있습니다!', time: '2시간 전', replied: false, color: '#03C75A' },
   { platform: '구글',    name: 'J**',  rating: 4, text: 'Great food and cozy atmosphere. Service was excellent. Will definitely come back!', time: '5시간 전', replied: true,  color: '#4285F4' },
+  { platform: '구글',    name: '최**', rating: 2, text: '주차 안내가 불친절했고 계산 시 실수가 있어 당황스러웠습니다.', time: '7시간 전', replied: false, color: '#4285F4' },
   { platform: '네이버',  name: '박**', rating: 5, text: '회식으로 왔는데 음식 양도 많고 맛도 좋았어요. 사장님도 친절하시고 너무 좋았습니다', time: '어제',     replied: false, color: '#03C75A' },
   { platform: '구글',    name: 'L**',  rating: 3, text: 'Food was okay but waiting time was a bit long. Interior is nice though.', time: '어제',     replied: false, color: '#4285F4' },
 ]
