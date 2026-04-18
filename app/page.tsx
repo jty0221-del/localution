@@ -197,8 +197,8 @@ export default function LandingPage() {
             <span className="text-[#3182F6]">AI가 다 해드려요</span>
           </h1>
           <p className="text-lg md:text-xl text-[#4E5968] mb-10 max-w-2xl mx-auto leading-relaxed">
-            리뷰 답글·QR 자동화·고객관리·정산까지<br className="hidden md:block" />
-            복잡한 건 AI가, 사장님은 장사에만 집중하세요
+            네이버 플레이스 SEO·블로그·릴스·리뷰·QR·CRM<br className="hidden md:block" />
+            한 플랫폼에서, 1인 사장님도 마케팅 대행사처럼
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Link href="/login"
