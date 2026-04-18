@@ -1,12 +1,47 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
 import {
   ChevronDown, ChevronRight, List, Map, MapPin, Search, BarChart3,
   Sparkles, MessageCircle, Settings, LogOut, FileText, LucideIcon,
 } from 'lucide-react'
+
+// ─────────────────────────────────────────────────────────────
+// 로그인 사용자 프로필 읽기 (cookie: localution_user, httpOnly:false)
+// ─────────────────────────────────────────────────────────────
+type UserProfile = {
+  id?: string
+  name?: string
+  email?: string
+  provider?: string
+  profile_image?: string
+}
+type StoreInfo = { storeName?: string; branch?: string }
+
+function readCookieUser(): UserProfile | null {
+  if (typeof document === 'undefined') return null
+  try {
+    const m = document.cookie.match(/(?:^|;\s*)localution_user=([^;]+)/)
+    if (!m) return null
+    const raw = decodeURIComponent(m[1])
+    const parsed = JSON.parse(raw)
+    return parsed && typeof parsed === 'object' ? parsed : null
+  } catch { return null }
+}
+function readStoreInfo(): StoreInfo {
+  if (typeof window === 'undefined') return {}
+  try {
+    const raw = localStorage.getItem('localution_store')
+    if (!raw) return {}
+    const parsed = JSON.parse(raw)
+    return parsed && typeof parsed === 'object' ? parsed : {}
+  } catch { return {} }
+}
+const PROVIDER_LABEL: Record<string, string> = {
+  kakao: '카카오 로그인', naver: '네이버 로그인', google: '구글 로그인',
+}
 
 const FLAT_NAV = [
   { href: '/dashboard', label: '대시보드',  icon: 'DB',  colors: { bg: '#EFF6FF', text: '#3182F6' } },
@@ -80,6 +115,30 @@ export default function Sidebar() {
   const [marketingOpen, setMarketingOpen] = useState(isMarketingSection)
   const [communityOpen, setCommunityOpen] = useState(isCommunitySection)
   const [openRegion, setOpenRegion] = useState<string>(currentRegion)
+
+  // 로그인 사용자 프로필 + 매장 정보
+  const [user, setUser] = useState<UserProfile | null>(null)
+  const [store, setStore] = useState<StoreInfo>({})
+  useEffect(() => {
+    setUser(readCookieUser())
+    setStore(readStoreInfo())
+    // 로컬 스토리지 변경 감지 (설정 페이지에서 매장명 수정 시 즉시 반영)
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === 'localution_store') setStore(readStoreInfo())
+    }
+    const onCustom = () => { setUser(readCookieUser()); setStore(readStoreInfo()) }
+    window.addEventListener('storage', onStorage)
+    window.addEventListener('localution:user-change', onCustom)
+    return () => {
+      window.removeEventListener('storage', onStorage)
+      window.removeEventListener('localution:user-change', onCustom)
+    }
+  }, [])
+
+  const displayName   = store.storeName || user?.name || '로그인 필요'
+  const displaySubtext = store.branch
+    || (user ? (PROVIDER_LABEL[user.provider || ''] || user.email || '로그인 완료') : '로그인하여 시작하세요')
+  const avatarInitial = (store.storeName || user?.name || '?').trim()[0]?.toUpperCase() || '?'
 
   const toggleRegion = (key: string) => setOpenRegion(prev => prev === key ? '' : key)
 
@@ -266,19 +325,36 @@ export default function Sidebar() {
         </div>
         <NavItems />
         <div className="px-4 py-4 border-t border-[#F2F4F6] space-y-2">
-          <div className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-[#F8F9FA]">
-            <div className="w-8 h-8 rounded-full bg-[#3182F6] flex items-center justify-center text-white text-xs font-bold flex-shrink-0">하</div>
-            <div className="min-w-0">
-              <p className="text-xs font-bold text-[#191F28] truncate">하랑마케팅</p>
-              <p className="text-[10px] text-[#8B95A1] truncate">강남점</p>
+          <Link href="/settings/profile" onClick={() => setMobileOpen(false)}
+            className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-[#F8F9FA] hover:bg-[#F2F4F6] transition-all group">
+            {user?.profile_image ? (
+              <img src={user.profile_image} alt="" width={32} height={32}
+                className="w-8 h-8 rounded-full object-cover flex-shrink-0 ring-2 ring-white" />
+            ) : (
+              <div className="w-8 h-8 rounded-full bg-[#3182F6] flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
+                {avatarInitial}
+              </div>
+            )}
+            <div className="min-w-0 flex-1">
+              <p className="text-xs font-bold text-[#191F28] truncate">{displayName}</p>
+              <p className="text-[10px] text-[#8B95A1] truncate">{displaySubtext}</p>
             </div>
-          </div>
-          <a href="/api/auth/logout"
-            onClick={() => setMobileOpen(false)}
-            className="flex items-center justify-center gap-2 w-full px-3 py-2.5 rounded-xl bg-[#FEF2F2] text-[#DC2626] hover:bg-[#FEE2E2] transition-all text-sm font-semibold">
-            <LogOut size={15} strokeWidth={2.25} />
-            <span>로그아웃</span>
-          </a>
+            <Settings size={14} strokeWidth={2} className="text-[#8B95A1] opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0" />
+          </Link>
+          {user ? (
+            <a href="/api/auth/logout"
+              onClick={() => setMobileOpen(false)}
+              className="flex items-center justify-center gap-2 w-full px-3 py-2.5 rounded-xl bg-[#FEF2F2] text-[#DC2626] hover:bg-[#FEE2E2] transition-all text-sm font-semibold">
+              <LogOut size={15} strokeWidth={2.25} />
+              <span>로그아웃</span>
+            </a>
+          ) : (
+            <Link href="/login"
+              onClick={() => setMobileOpen(false)}
+              className="flex items-center justify-center gap-2 w-full px-3 py-2.5 rounded-xl bg-[#3182F6] text-white hover:bg-[#1B64DA] transition-all text-sm font-semibold">
+              <span>로그인</span>
+            </Link>
+          )}
         </div>
       </aside>
     </>
