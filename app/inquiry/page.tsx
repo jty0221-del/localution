@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic'
 
 import { useState, useEffect } from 'react'
 import Sidebar from '../components/Sidebar'
+import Footer from '../components/Footer'
 
 const CATEGORIES = [
   { value: '서비스문의',   label: '서비스 문의',    icon: '💬' },
@@ -272,6 +273,11 @@ ${lines.join('\n')}
           </div>
           <FAQSection />
         </div>
+
+        {/* 푸터 — 랜딩 페이지와 동일 */}
+        <div className="-mx-4 md:-mx-8 mt-20">
+          <Footer />
+        </div>
       </main>
 
       {/* 이메일 복사 토스트 */}
@@ -287,4 +293,5 @@ ${lines.join('\n')}
     </div>
   )
 }
+
 
