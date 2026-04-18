@@ -79,16 +79,16 @@ const FEATURES = [
 // /api/landing-stats 가 실제 값을 반환하면 자동 교체됨
 // ─────────────────────────────────────────────────────────────
 const STATS_DEMO = [
-  { num: '2,400+', label: '등록 매장' },
-  { num: '98만+', label: 'AI 답글 생성' },
-  { num: '4.8점', label: '평균 별점 향상' },
-  { num: '92%', label: '재방문율 개선' },
+  { num: '400+', label: '베타 사장님' },
+  { num: '5만+', label: 'AI 답글 누적' },
+  { num: '+0.6점', label: '평균 별점 상승' },
+  { num: '3배', label: '리뷰 수집 속도' },
 ]
 
 const HERO_DEMO = {
-  reviewsPerMonth: '+50개',
+  reviewsPerMonth: '+20개',
   reviewsPerMonthLabel: '월 평균 리뷰 증가',
-  avgRating: '4.9점',
+  avgRating: '4.7점',
   avgRatingLabel: '평균 별점',
 }
 
