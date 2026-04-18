@@ -59,7 +59,12 @@ export default function GoogleReviewPage() {
       const legacyConnected = localStorage.getItem('localution.google.connected') === 'true'
       const isConn = !!googleLink || legacyConnected
       setConnected(isConn)
-      setStoreName(googleLink?.externalName || '하랑마케팅 강남점')
+      let fallbackName = ''
+      try {
+        const p = JSON.parse(localStorage.getItem('localution_store') || '{}')
+        fallbackName = p?.storeName || ''
+      } catch {}
+      setStoreName(googleLink?.externalName || fallbackName)
       setReviews(DEMO_REVIEWS)
     } catch {
       setReviews(DEMO_REVIEWS)
@@ -78,7 +83,7 @@ export default function GoogleReviewPage() {
           review_text: review.content,
           reviewer_name: review.author,
           rating: review.rating,
-          store_name: storeName || '하랑마케팅 강남점',
+          store_name: storeName || '저희 매장',
           tone,
         }),
       })
@@ -261,3 +266,4 @@ export default function GoogleReviewPage() {
     </div>
   )
 }
+
