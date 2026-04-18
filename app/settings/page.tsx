@@ -9,14 +9,30 @@ import Sidebar from '../components/Sidebar'
 const TABS = ['매장 정보', '알림 설정', 'AI 설정', '연동 관리', '플랜 관리 (결제내역)'] as const
 type Tab = typeof TABS[number]
 
-const FEATURES = [
-  { id: 'ai-review', name: 'AI 리뷰 자동 답변', price: 9900, short: 'AI', bg: '#EFF6FF', color: '#3182F6', desc: '리뷰에 AI가 자동으로 답변' },
-  { id: 'report', name: '주간 리포트', price: 4900, short: '리포', bg: '#F5F3FF', color: '#8B5CF6', desc: '매주 성과 분석 리포트 발송' },
-  { id: 'crm', name: 'CRM 고객 관리', price: 14900, short: 'CRM', bg: '#ECFDF5', color: '#059669', desc: '고객 DB 관리 및 재방문 유도' },
-  { id: 'qr', name: 'QR 코드 관리', price: 4900, short: 'QR', bg: '#FFF7ED', color: '#EA580C', desc: 'QR 코드 생성 및 스캔 분석' },
-  { id: 'sms', name: 'SMS 마케팅', price: 19900, short: 'SMS', bg: '#FFF1F2', color: '#E11D48', desc: '타겟 고객 문자 발송' },
-  { id: 'spotlight', name: '커뮤니티 우선 노출', price: 9900, short: '노출', bg: '#FEFCE8', color: '#CA8A04', desc: '로컬루션 커뮤니티 상단 노���' },
+// /pricing 페이지와 동기화된 12개 기능 — 베타 기간 전체 무료 (price=0, 정식 요금 임시)
+const FEATURES: Array<{
+  id: string; name: string; price: number; short: string; bg: string; color: string;
+  desc: string; category: '사장님' | '마케터' | '공통'; popular?: boolean;
+}> = [
+  { id: 'ai-review',     name: 'AI 리뷰 자동 답글',   price: 0, short: 'AI',     bg: '#EFF6FF', color: '#3182F6', desc: '네이버·배민·쿠팡이츠 리뷰를 AI가 분석·자동 답글',  category: '사장님', popular: true },
+  { id: 'alimtalk',      name: '알림톡 마케팅',       price: 0, short: '알림',   bg: '#FFFBEB', color: '#F59E0B', desc: '카카오 알림톡으로 단골에게 쿠폰·이벤트 발송',       category: '사장님' },
+  { id: 'accounting',    name: 'AI 정산·행정',        price: 0, short: '정산',   bg: '#FFF7ED', color: '#FF8C00', desc: '매출 정리·세금계산서·경비 관리 AI 지원',            category: '사장님' },
+  { id: 'local-synergy', name: '로컬 시너지',         price: 0, short: '로컬',   bg: '#FEF2F2', color: '#EF4444', desc: '주변 가게와 QR 공동이벤트·상권 분석',               category: '사장님' },
+  { id: 'qr-stamp',      name: 'QR 스탬프 적립',      price: 0, short: 'QR',     bg: '#ECFDF5', color: '#00C471', desc: '디지털 스탬프로 재방문율 향상',                     category: '사장님' },
+  { id: 'keyword',       name: '키워드 분석',         price: 0, short: '키워드', bg: '#F5F3FF', color: '#8B5CF6', desc: '네이버 검색량·경쟁도·연관 키워드 실시간 분석',      category: '마케터', popular: true },
+  { id: 'blog-ai',       name: 'AI 블로그 포스팅',    price: 0, short: '블로그', bg: '#FDF2F8', color: '#EC4899', desc: 'SEO 최적화 블로그 초안 AI 작성',                    category: '마케터' },
+  { id: 'competitor',    name: '경쟁사 분석',         price: 0, short: '경쟁',   bg: '#F0F9FF', color: '#0EA5E9', desc: '경쟁 업체 리뷰·키워드·마케팅 자동 모니터링',        category: '마케터' },
+  { id: 'report',        name: '마케팅 성과 리포트',  price: 0, short: '리포트', bg: '#ECFDF5', color: '#10B981', desc: '유입·전환·매출 주간·월간 자동 리포트',              category: '마케터' },
+  { id: 'crm',           name: 'CRM 고객관리',        price: 0, short: 'CRM',    bg: '#EEF2FF', color: '#6366F1', desc: '고객 방문·결제·등급 자동 분류, 단골 관리',           category: '공통',   popular: true },
+  { id: 'ai-chat',       name: 'AI 비서 채팅',        price: 0, short: '비서',   bg: '#F0FDFA', color: '#14B8A6', desc: '사장님 전용 24시간 AI 상담사',                       category: '공통' },
+  { id: 'sns-manage',    name: 'SNS 자동 포스팅',     price: 0, short: 'SNS',    bg: '#FFF7ED', color: '#F97316', desc: '인스타·블로그 AI 콘텐츠 예약 자동 발행',             category: '공통' },
 ]
+
+const CATEGORY_COLOR: Record<string, string> = {
+  '사장님': 'bg-blue-100 text-blue-700',
+  '마케터': 'bg-purple-100 text-purple-700',
+  '공통':   'bg-green-100 text-green-700',
+}
 
 function Toggle({ checked, onChange }: { checked: boolean; onChange: (v: boolean) => void }) {
   return (
@@ -751,13 +767,15 @@ function ShowcaseCarousel({ items }: { items: Array<{ metric: string; label: str
 
 function PlanTab() {
   const SHOWCASE = [
-    { metric: '98%', label: '리뷰 답변률', feature: 'AI 리뷰 자동 답변', who: '강남구 네일샵', story: 'AI가 매일 쏟아지는 리뷰를 진심 답변으로 처리', grad: 'from-[#3182F6] to-[#1B64DA]' },
-    { metric: '+47명', label: '월 신규 고객', feature: 'CRM 고객 관리', who: '홍대 카페', story: '재방문 유도 메시지로 충성 ��객 3배 확보', grad: 'from-[#7C3AED] to-[#5B21B6]' },
-    { metric: '+34%', label: '재방문율 상승', feature: '주간 리포트', who: '이태원 헤어샵', story: '데이��� 분석으로 마케팅 전략 최적화', grad: 'from-[#059669] to-[#047857]' },
-    { metric: '1,200회', label: 'QR 월 스캔', feature: 'QR 코드 관리', who: '신촌 레스토랑', story: 'QR 쿠폰 하나로 재방문율 2배 달성', grad: 'from-[#DC2626] to-[#B91C1C]' },
-    { metric: '28%', label: 'SMS 전환율', feature: 'SMS 마케팅', who: '합정 베이커리', story: '타겟 문자 한 통에 당일 매출 폭발', grad: 'from-[#D97706] to-[#B45309]' },
+    { metric: '98%',     label: '리뷰 답변률',    feature: 'AI 리뷰 자동 답글',   who: '강남구 네일샵',   story: 'AI가 매일 쏟아지는 리뷰를 진심 답변으로 처리',       grad: 'from-[#3182F6] to-[#1B64DA]' },
+    { metric: '+47명',   label: '월 신규 고객',   feature: 'CRM 고객관리',        who: '홍대 카페',       story: '재방문 유도 메시지로 충성 고객 3배 확보',             grad: 'from-[#7C3AED] to-[#5B21B6]' },
+    { metric: '+34%',    label: '재방문율 상승',  feature: '마케팅 성과 리포트',  who: '이태원 헤어샵',   story: '데이터 분석으로 마케팅 전략 최적화',                   grad: 'from-[#059669] to-[#047857]' },
+    { metric: '1,200회', label: 'QR 월 스캔',     feature: 'QR 스탬프 적립',      who: '신촌 레스토랑',   story: 'QR 쿠폰 하나로 재방문율 2배 달성',                     grad: 'from-[#DC2626] to-[#B91C1C]' },
+    { metric: '28%',     label: '알림톡 전환율',  feature: '알림톡 마케팅',       who: '합정 베이커리',   story: '타겟 알림톡 한 통에 당일 매출 폭발',                   grad: 'from-[#D97706] to-[#B45309]' },
   ]
+  type CategoryFilter = '전체' | '사장님' | '마케터' | '공통'
   const [cart, setCart] = useState<string[]>([])
+  const [filter, setFilter] = useState<CategoryFilter>('전체')
   const [showCancelModal, setShowCancelModal] = useState(false)
   const [cancelled, setCancelled] = useState(false)
   const [showPaymentModal, setShowPaymentModal] = useState(false)
@@ -766,12 +784,16 @@ function PlanTab() {
   const [tossSaved, setTossSaved] = useState(false)
   const [tossMode, setTossMode] = useState<'test' | 'live'>('test')
   const [cardForm, setCardForm] = useState({ number: '', expiry: '', birth: '' })
-  const nextBillingDate = '2025년 2월 14일'
+  // 베타 기간 — 정식 요금제 준비 중 (임시)
   const addToCart = (id: string) => { if (!cart.includes(id)) setCart(p => [...p, id]) }
   const removeFromCart = (id: string) => setCart(p => p.filter(i => i !== id))
   const cartFeatures = FEATURES.filter(f => cart.includes(f.id))
-  const cartTotal = cartFeatures.reduce((sum, f) => sum + f.price, 0)
-  const discount = cart.length >= 3 ? Math.floor(cartTotal * 0.1) : 0
+  const filteredFeatures = filter === '전체' ? FEATURES : FEATURES.filter(f => f.category === filter)
+  // /pricing 페이지와 동일한 묶음 할인 티어 — 정식 요금제 시 적용 예정 (임시 안내)
+  const nextTier = cart.length < 3 ? { need: 3 - cart.length, rate: 10 }
+                 : cart.length < 5 ? { need: 5 - cart.length, rate: 15 }
+                 : cart.length < 8 ? { need: 8 - cart.length, rate: 20 }
+                 : null
 
   return (
     <div className="flex gap-6 items-start">
@@ -779,28 +801,37 @@ function PlanTab() {
         <div className="bg-white rounded-2xl p-6 shadow-sm">
           <div className="flex items-start justify-between mb-4">
             <div>
-              <div className="flex items-center gap-2">
-                <span className="text-lg font-bold text-[#191F28]">스타터 플랜</span>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-lg font-bold text-[#191F28]">베타 무료 플랜</span>
+                <span className="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-[#3182F6] font-semibold">임시 요금제</span>
                 {cancelled
                   ? <span className="text-xs px-2 py-0.5 rounded-full bg-red-100 text-red-600 font-semibold">해지 예약됨</span>
                   : <span className="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-semibold">이용 중</span>
                 }
               </div>
-              <p className="text-[#8B95A1] text-sm mt-1">월 1,980원</p>
+              <p className="text-[#8B95A1] text-sm mt-1">
+                <span className="text-[#191F28] font-bold">월 0원 · 전 기능 무료</span>
+                <span className="ml-1">(정식 요금제 준비 중)</span>
+              </p>
             </div>
             <div className="text-right">
               <p className="text-xs text-[#8B95A1]">다음 결제일</p>
-              <p className="text-sm font-semibold text-[#191F28] mt-0.5">{nextBillingDate}</p>
+              <p className="text-sm font-semibold text-[#191F28] mt-0.5">—</p>
+              <p className="text-[10px] text-[#B0B8C1] mt-0.5">베타 기간 무료</p>
             </div>
           </div>
           {cancelled && (
             <div className="bg-red-50 rounded-xl p-4 mb-4 text-sm">
-              <p className="font-semibold text-red-700 mb-1">해지가 ���약되었습니다</p>
-              <p className="text-red-600 text-xs">{nextBillingDate}까지 이용 · 해지 후 7일 재가입 제한</p>
+              <p className="font-semibold text-red-700 mb-1">해지가 예약되었습니다</p>
+              <p className="text-red-600 text-xs">베타 기간 종료 후 자동 종료 · 해지 후 7일 재가입 제한</p>
             </div>
           )}
+          <div className="bg-blue-50 rounded-xl p-3 mb-4 text-xs text-[#3182F6] leading-relaxed">
+            <p className="font-semibold mb-0.5">🎁 베타 오픈 기념 — 전 기능 무료 이용 중</p>
+            <p className="text-[#4E5968]">정식 요금제는 <Link href="/pricing" className="underline font-semibold text-[#3182F6]">요금제 페이지</Link>에서 미리 확인하실 수 있어요. 금액은 임시이며, 베타 종료 전 사전 공지드립니다.</p>
+          </div>
           <div className="flex items-center justify-between border-t border-[#F2F4F6] pt-4">
-            <p className="text-xs text-[#8B95A1]">기본: 리뷰 모니터링, 대시보드, 고객 관리</p>
+            <p className="text-xs text-[#8B95A1]">포함: 리뷰·CRM·QR·키워드·블로그·SNS 등 12개 전체</p>
             {!cancelled && <button onClick={() => setShowCancelModal(true)} className="text-xs text-red-400 hover:text-red-600 underline">해지하기</button>}
           </div>
         </div>
@@ -862,23 +893,43 @@ function PlanTab() {
           </button>
         </div>
         <div>
-          <h3 className="font-bold text-[#191F28] mb-3">추가 기능</h3>
+          <div className="flex items-center justify-between mb-3">
+            <h3 className="font-bold text-[#191F28]">기능 선택 · 12개</h3>
+            <span className="text-xs text-[#8B95A1]">베타 기간 전체 무료</span>
+          </div>
+          <div className="flex gap-2 mb-3 flex-wrap">
+            {(['전체', '사장님', '마케터', '공통'] as const).map(f => {
+              const active = filter === f
+              return (
+                <button key={f} onClick={() => setFilter(f)}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-semibold transition-colors ${
+                    active ? 'bg-[#3182F6] text-white' : 'bg-white text-[#4E5968] border border-[#E5E8EB] hover:bg-gray-50'
+                  }`}>
+                  {f === '전체' ? '전체' : `${f}용`}
+                </button>
+              )
+            })}
+          </div>
           <div className="space-y-3">
-            {FEATURES.map(f => {
+            {filteredFeatures.map(f => {
               const inCart = cart.includes(f.id)
               return (
                 <div key={f.id} className="bg-white rounded-2xl p-5 shadow-sm flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center text-[11px] font-black" style={{ background: f.bg, color: f.color }}>{f.short}</div>
-                    <div>
-                      <p className="font-semibold text-[#191F28] text-sm">{f.name}</p>
-                      <p className="text-xs text-[#8B95A1]">{f.desc}</p>
+                  <div className="flex items-center gap-3 min-w-0 flex-1">
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center text-[11px] font-black flex-shrink-0" style={{ background: f.bg, color: f.color }}>{f.short}</div>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <p className="font-semibold text-[#191F28] text-sm">{f.name}</p>
+                        <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-bold ${CATEGORY_COLOR[f.category]}`}>{f.category}용</span>
+                        {f.popular && <span className="text-[10px] px-1.5 py-0.5 rounded-full font-bold bg-orange-100 text-orange-600">인기</span>}
+                      </div>
+                      <p className="text-xs text-[#8B95A1] mt-0.5">{f.desc}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-3">
-                    <span className="text-sm font-semibold text-[#3182F6]">+{f.price.toLocaleString()}원/월</span>
+                  <div className="flex items-center gap-3 flex-shrink-0">
+                    <span className="text-sm font-semibold text-[#00C471]">무료</span>
                     <button onClick={() => inCart ? removeFromCart(f.id) : addToCart(f.id)} className={`px-4 py-2 rounded-xl text-sm font-semibold transition-colors ${inCart ? 'bg-[#F2F4F6] text-[#4E5968]' : 'bg-[#3182F6] text-white hover:bg-[#1B64DA]'}`}>
-                      {inCart ? '취소' : '추가'}
+                      {inCart ? '담김' : '담기'}
                     </button>
                   </div>
                 </div>
@@ -896,39 +947,43 @@ function PlanTab() {
             )}
           </h3>
           {cart.length === 0 ? (
-            <p className="text-sm text-[#8B95A1] text-center py-4">기능을 선택하면 여기 표��됩니다</p>
+            <p className="text-sm text-[#8B95A1] text-center py-4">기능을 선택하면 여기 표시됩니다</p>
           ) : (
             <>
-              <div className="space-y-2.5 mb-4">
+              <div className="space-y-2.5 mb-4 max-h-60 overflow-y-auto">
                 {cartFeatures.map(f => (
                   <div key={f.id} className="flex items-center justify-between text-sm">
-                    <div className="flex items-center gap-1.5">
-                      <span className="w-5 h-5 rounded flex items-center justify-center text-[9px] font-black" style={{ background: f.bg, color: f.color }}>{f.short}</span>
-                      <span className="text-xs font-medium text-[#191F28]">{f.name}</span>
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="w-5 h-5 rounded flex items-center justify-center text-[9px] font-black flex-shrink-0" style={{ background: f.bg, color: f.color }}>{f.short}</span>
+                      <span className="text-xs font-medium text-[#191F28] truncate">{f.name}</span>
                     </div>
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-xs text-[#4E5968]">{f.price.toLocaleString()}원</span>
+                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                      <span className="text-xs text-[#00C471] font-semibold">무료</span>
                       <button onClick={() => removeFromCart(f.id)} className="text-[#B0B8C1] hover:text-red-400 text-xs">✕</button>
                     </div>
                   </div>
                 ))}
               </div>
               <div className="border-t border-[#F2F4F6] pt-3 mb-3 space-y-1.5">
-                <div className="flex justify-between text-xs text-[#8B95A1]"><span>기본 플랜</span><span>1,980원</span></div>
-                {discount > 0 && (
-                  <div className="flex justify-between text-xs text-green-600 font-medium">
-                    <span>10% 할인</span><span>-{discount.toLocaleString()}원</span>
-                  </div>
-                )}
+                <div className="flex justify-between text-xs text-[#8B95A1]">
+                  <span>정식 요금 예상(임시)</span>
+                  <span className="line-through">—</span>
+                </div>
                 <div className="flex justify-between font-bold text-[#191F28] pt-1 border-t border-[#F2F4F6]">
                   <span>월 합계</span>
-                  <span className="text-[#3182F6]">{(1980 + cartTotal - discount).toLocaleString()}원</span>
+                  <span className="text-[#00C471]">0원 (무료)</span>
                 </div>
+                <p className="text-[10px] text-[#B0B8C1] text-right">베타 기간 · 정식 요금제 준비 중</p>
               </div>
-              {cart.length >= 3 && (
-                <p className="text-xs text-green-600 bg-green-50 rounded-lg px-3 py-2 mb-3 text-center font-semibold">3개 이상 추가 시 10% 할인!</p>
+              {nextTier ? (
+                <p className="text-xs text-[#3182F6] bg-blue-50 rounded-lg px-3 py-2 mb-3 text-center font-semibold">
+                  정식 요금 시 <b>{nextTier.need}개</b> 더 담으면 <b>{nextTier.rate}%</b> 할인 예정
+                </p>
+              ) : (
+                <p className="text-xs text-green-600 bg-green-50 rounded-lg px-3 py-2 mb-3 text-center font-semibold">최대 할인 티어(20%) 달성!</p>
               )}
-              <button className="w-full bg-[#3182F6] text-white font-bold py-3 rounded-xl text-sm hover:bg-[#1B64DA] transition-colors">추가 신청하기</button>
+              <button className="w-full bg-[#3182F6] text-white font-bold py-3 rounded-xl text-sm hover:bg-[#1B64DA] transition-colors">선택 기능 저장</button>
+              <p className="text-[11px] text-[#B0B8C1] text-center mt-2">베타 기간 내 언제든 추가/해제 가능</p>
             </>
           )}
         </div>
@@ -942,9 +997,9 @@ function PlanTab() {
           <div className="bg-white rounded-2xl p-6 max-w-sm w-full">
             <h3 className="font-bold text-[#191F28] text-lg mb-4">정말 해지하시겠어요?</h3>
             <div className="bg-red-50 rounded-xl p-4 mb-5 space-y-2 text-sm text-[#4E5968]">
-              <p><strong>{nextBillingDate}</strong>까지 서비스 이용 가능</p>
+              <p><strong>베타 기간 종료일</strong>까지 서비스 이용 가능</p>
               <p>해지 후 <strong>7일간</strong> 재가입 불가</p>
-              <p>다음 달부터 자동 결제 중단</p>
+              <p>정식 요금제 전환 시 결제 없이 종료</p>
               <p>데이터 30일간 보관 후 삭제</p>
             </div>
             <div className="flex gap-3">
@@ -1037,5 +1092,6 @@ export default function Settings() {
     </Suspense>
   )
 }
+
 
 
