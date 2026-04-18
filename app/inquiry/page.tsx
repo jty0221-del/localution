@@ -5,13 +5,17 @@ export const dynamic = 'force-dynamic'
 import { useState, useEffect } from 'react'
 import Sidebar from '../components/Sidebar'
 import Footer from '../components/Footer'
+import {
+  MessageCircle, Wrench, CreditCard, Sparkles, FileText,
+  CheckCircle2, ShoppingCart, Mail, Inbox, Plus, LucideIcon,
+} from 'lucide-react'
 
-const CATEGORIES = [
-  { value: '서비스문의',   label: '서비스 문의',    icon: '💬' },
-  { value: '기술문의',     label: '기술 문의',      icon: '🔧' },
-  { value: '요금결제',     label: '요금 · 결제',   icon: '💳' },
-  { value: '기능요청',     label: '기능 요청',      icon: '✨' },
-  { value: '기타',         label: '기타',           icon: '📝' },
+const CATEGORIES: { value: string; label: string; Icon: LucideIcon }[] = [
+  { value: '서비스문의',   label: '서비스 문의',  Icon: MessageCircle },
+  { value: '기술문의',     label: '기술 문의',    Icon: Wrench },
+  { value: '요금결제',     label: '요금 · 결제',  Icon: CreditCard },
+  { value: '기능요청',     label: '기능 요청',    Icon: Sparkles },
+  { value: '기타',         label: '기타',         Icon: FileText },
 ]
 
 function FAQSection() {
@@ -34,7 +38,8 @@ function FAQSection() {
             <button onClick={() => setOpen(open === i ? null : i)}
               className="w-full flex items-center justify-between gap-3 px-4 py-3.5 text-left hover:bg-[#F9FAFB] transition-colors">
               <span className="font-bold text-[#191F28] text-sm">{f.q}</span>
-              <span className={'text-[#8B95A1] text-xl flex-shrink-0 transition-transform ' + (open === i ? 'rotate-45' : '')}>+</span>
+              <Plus size={18} strokeWidth={2.25}
+                className={'text-[#8B95A1] flex-shrink-0 transition-transform ' + (open === i ? 'rotate-45' : '')} />
             </button>
             {open === i && (
               <div className="px-4 pb-4 pt-0 text-sm text-[#4E5968] leading-relaxed border-t border-[#F2F4F6]">
@@ -129,7 +134,7 @@ ${lines.join('\n')}
       {copied && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] animate-bounce">
           <div className="flex items-center gap-2.5 px-5 py-3 bg-[#191F28] text-white rounded-2xl shadow-2xl text-sm font-semibold">
-            <span className="text-base">✅</span>
+            <CheckCircle2 size={16} strokeWidth={2.25} className="text-[#10B981]" />
             <span>이메일 주소가 복사되었습니다</span>
             <span className="text-[#8B95A1] text-xs ml-1">harangmarketing@naver.com</span>
           </div>
@@ -145,7 +150,9 @@ ${lines.join('\n')}
 
         {quoteBanner && (
           <div className="mb-6 flex items-start gap-3 p-4 bg-gradient-to-r from-[#EFF6FF] to-[#F5F3FF] border border-[#3182F6]/30 rounded-2xl">
-            <span className="text-xl flex-shrink-0">🛒</span>
+            <span className="w-9 h-9 rounded-xl bg-white flex items-center justify-center flex-shrink-0">
+              <ShoppingCart size={18} strokeWidth={2} className="text-[#3182F6]" />
+            </span>
             <div className="flex-1">
               <div className="text-sm font-bold text-[#191F28]">견적 내용이 문의 본문에 자동 입력되었어요</div>
               <div className="text-xs text-[#4E5968] mt-0.5">{quoteBanner}</div>
@@ -169,7 +176,7 @@ ${lines.join('\n')}
           <button onClick={copyEmail}
             className="flex items-center gap-3 p-4 bg-white rounded-2xl shadow-sm hover:shadow-md transition-all text-left w-full group">
             <div className="w-10 h-10 rounded-xl bg-[#EFF6FF] flex items-center justify-center flex-shrink-0">
-              <span className="text-[#3182F6] text-xl">✉️</span>
+              <Mail size={18} strokeWidth={2} className="text-[#3182F6]" />
             </div>
             <div>
               <p className="font-bold text-[#191F28] text-sm">이메일 문의</p>
@@ -192,7 +199,9 @@ ${lines.join('\n')}
           <div className="bg-white rounded-2xl p-7 md:p-8 shadow-sm">
             {submitted ? (
               <div className="text-center py-8">
-                <div className="text-5xl mb-4">✅</div>
+                <div className="w-16 h-16 rounded-2xl bg-[#D1FAE5] mx-auto mb-4 flex items-center justify-center">
+                  <CheckCircle2 size={32} strokeWidth={2.25} className="text-[#10B981]" />
+                </div>
                 <h2 className="text-xl font-black text-[#191F28] mb-2">문의가 접수되었습니다!</h2>
                 <p className="text-[#4E5968] text-sm mb-6">영업일 기준 1-2일 내로 답변드립니다.</p>
                 <div className="flex gap-3 justify-center">
@@ -208,7 +217,7 @@ ${lines.join('\n')}
                     {CATEGORIES.map(cat => (
                       <button key={cat.value} onClick={() => setForm(p => ({ ...p, category: cat.value }))}
                         className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full text-sm font-semibold transition-colors border-2 ${form.category === cat.value ? 'border-[#3182F6] bg-[#EFF6FF] text-[#3182F6]' : 'border-[#E5E8EB] text-[#4E5968] hover:border-[#3182F6]'}`}>
-                        <span>{cat.icon}</span>{cat.label}
+                        <cat.Icon size={14} strokeWidth={2.25} />{cat.label}
                       </button>
                     ))}
                   </div>
@@ -237,7 +246,10 @@ ${lines.join('\n')}
                   {submitting ? '접수 중...' : '문의 접수하기'}
                 </button>
                 <div className="pt-2 border-t border-[#F2F4F6] flex items-center justify-center gap-4 text-xs text-[#8B95A1]">
-                  <span>✉️ 이메일 문의</span>
+                  <span className="inline-flex items-center gap-1.5">
+                    <Mail size={12} strokeWidth={2.25} />
+                    이메일 문의
+                  </span>
                   <button onClick={copyEmail} className="font-semibold text-[#3182F6] hover:underline">harangmarketing@naver.com 복사</button>
                 </div>
               </div>
@@ -249,7 +261,9 @@ ${lines.join('\n')}
           <div className="bg-white rounded-2xl p-7 md:p-8 shadow-sm">
             {myInquiries.length === 0 ? (
               <div className="text-center py-8">
-                <div className="text-4xl mb-3">📭</div>
+                <div className="w-14 h-14 rounded-2xl bg-[#F2F4F6] mx-auto mb-3 flex items-center justify-center">
+                  <Inbox size={26} strokeWidth={1.75} className="text-[#8B95A1]" />
+                </div>
                 <p className="font-bold text-[#191F28] mb-1">문의 내역이 없습니다</p>
                 <p className="text-sm text-[#8B95A1] mb-4">궁금한 점이 있으시면 문의해 주세요.</p>
                 <button onClick={() => setTab('new')} className="px-5 py-2.5 bg-[#3182F6] text-white font-semibold rounded-xl text-sm">문의하기</button>
@@ -284,7 +298,7 @@ ${lines.join('\n')}
       {copied && (
         <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-[9999] pointer-events-none">
           <div className="flex items-center gap-2.5 px-5 py-3 bg-[#191F28] text-white rounded-2xl shadow-2xl text-sm font-semibold">
-            <span>✅</span>
+            <CheckCircle2 size={16} strokeWidth={2.25} className="text-[#10B981]" />
             <span>이메일 주소가 복사되었습니다</span>
             <span className="text-[#8B95A1] text-xs">harangmarketing@naver.com</span>
           </div>
@@ -293,5 +307,3 @@ ${lines.join('\n')}
     </div>
   )
 }
-
-
