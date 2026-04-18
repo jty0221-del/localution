@@ -5,10 +5,16 @@ export const dynamic = 'force-dynamic'
 import Link from 'next/link'
 import Footer from './components/Footer'
 import TopNav from './components/TopNav'
+import {
+  MessageSquareHeart, QrCode, Users, FileText, Sparkles,
+  Coffee, UtensilsCrossed, Dumbbell,
+  Flame, Heart, PenLine, Wine, Handshake, Camera, Star,
+  ArrowRight,
+} from 'lucide-react'
 
 const FEATURES = [
   {
-    icon: '⭐',
+    Icon: MessageSquareHeart,
     title: 'AI 리뷰 자동 답글',
     desc: '네이버·구글·배민 리뷰를 AI가 분석하고 맞춤 답글을 자동 생성해요. 하루 5분으로 100% 응답률 달성.',
     color: 'from-blue-500 to-blue-600',
@@ -16,7 +22,7 @@ const FEATURES = [
     tags: ['네이버', '구글', '배민', '카카오'],
   },
   {
-    icon: '📱',
+    Icon: QrCode,
     title: 'QR 리뷰 자동화',
     desc: 'QR 코드 하나로 고객이 직접 AI 리뷰를 작성해요. 별점 5점 기본, 말투 6종, 사진 10장까지.',
     color: 'from-green-500 to-emerald-600',
@@ -24,7 +30,7 @@ const FEATURES = [
     tags: ['QR 스캔', 'AI 생성', '네이버 연동'],
   },
   {
-    icon: '👥',
+    Icon: Users,
     title: 'CRM 고객관리',
     desc: '방문 고객을 VIP·단골·신규로 자동 분류하고, 맞춤 메시지로 재방문을 유도해요.',
     color: 'from-purple-500 to-violet-600',
@@ -32,9 +38,9 @@ const FEATURES = [
     tags: ['자동 분류', '알림톡', '재방문 유도'],
   },
   {
-    icon: '📋',
+    Icon: FileText,
     title: 'AI 정산·행정',
-    desc: '매출 자동 정리, 세금계산서 원클릭 발행, 근태·급여 계산까지. 행정 업무 90% 절��.',
+    desc: '매출 자동 정리, 세금계산서 원클릭 발행, 근태·급여 계산까지. 행정 업무 90% 절감.',
     color: 'from-orange-500 to-amber-600',
     bg: 'bg-orange-50',
     tags: ['매출 캘린더', '세금계산서', '급여 계산'],
@@ -54,7 +60,8 @@ const TESTIMONIALS = [
     store: '부천 카페 운영',
     text: '매일 리뷰 답글 다는 게 너무 힘들었는데, 로컬루션 쓰고 나서 5분도 안 걸려요. 별점도 4.2에서 4.8로 올라갔어요!',
     rating: 5,
-    avatar: '☕',
+    Icon: Coffee,
+    color: '#8B5CF6',
   },
   {
     name: '이○○ 대표님',
@@ -62,22 +69,27 @@ const TESTIMONIALS = [
     label: '마케터',
     text: '클라이언트 10곳 동시 관리하는데 로컬루션 없으면 못 살아요. 키워드 분석이랑 리뷰 관리가 한 곳에 있어서 너무 편해요.',
     rating: 5,
-    avatar: '🍽️',
+    Icon: UtensilsCrossed,
+    color: '#F59E0B',
   },
   {
     name: '박○○ 원장님',
     store: '일산 헬스장 운영',
     text: 'QR 리뷰 붙여놨더니 손님들이 알아서 리뷰 써줘요. 한 달에 리뷰 50개 이상 늘었어요.',
     rating: 5,
-    avatar: '💪',
+    Icon: Dumbbell,
+    color: '#10B981',
   },
 ]
 
-const NAV_LINKS = [
-  { href: '/service-intro', label: '서비스 소개' },
-  { href: '/pricing', label: '요금' },
-  { href: '/community', label: '커뮤니티' },
-  { href: '/inquiry', label: '문의' },
+// QR 톤 뱃지 (브랜드 아이콘으로 교체)
+const QR_TONES = [
+  { Icon: Flame,     label: 'Z세대' },
+  { Icon: Heart,     label: '맘카페' },
+  { Icon: PenLine,   label: '솔직담백' },
+  { Icon: Wine,      label: '미식가' },
+  { Icon: Handshake, label: '친구추천' },
+  { Icon: Camera,    label: '인스타감성' },
 ]
 
 export default function LandingPage() {
@@ -107,7 +119,7 @@ export default function LandingPage() {
             <Link href="/login"
               className="inline-flex items-center justify-center gap-2 bg-[#3182F6] text-white font-bold text-base px-8 py-4 rounded-2xl hover:bg-[#1B64DA] transition-all shadow-lg shadow-blue-200 hover:shadow-blue-300 hover:-translate-y-0.5">
               무료로 시작하기
-              <span className="text-lg">→</span>
+              <ArrowRight size={18} strokeWidth={2.5} />
             </Link>
             <Link href="/service-intro"
               className="inline-flex items-center justify-center gap-2 bg-white text-[#191F28] font-semibold text-base px-8 py-4 rounded-2xl border border-gray-200 hover:border-gray-300 transition-all hover:-translate-y-0.5">
@@ -144,8 +156,8 @@ export default function LandingPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             {FEATURES.map(f => (
               <div key={f.title} className="bg-white rounded-2xl p-6 border border-gray-100 hover:border-blue-200 hover:shadow-lg transition-all group">
-                <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${f.color} flex items-center justify-center text-2xl mb-4 shadow-sm group-hover:scale-110 transition-transform`}>
-                  {f.icon}
+                <div className={`w-12 h-12 rounded-2xl bg-gradient-to-br ${f.color} flex items-center justify-center mb-4 shadow-sm group-hover:scale-110 transition-transform`}>
+                  <f.Icon size={24} strokeWidth={2} className="text-white" />
                 </div>
                 <h3 className="text-lg font-bold text-[#191F28] mb-2">{f.title}</h3>
                 <p className="text-sm text-[#4E5968] leading-relaxed mb-4">{f.desc}</p>
@@ -168,8 +180,9 @@ export default function LandingPage() {
           <div className="bg-gradient-to-br from-[#3182F6] to-[#1B64DA] rounded-3xl p-8 md:p-12 text-white">
             <div className="flex flex-col md:flex-row items-center gap-8">
               <div className="flex-1">
-                <div className="inline-flex items-center gap-2 bg-white/20 text-white text-xs font-semibold px-3 py-1.5 rounded-full mb-4">
-                  🆕 신기능
+                <div className="inline-flex items-center gap-1.5 bg-white/20 text-white text-xs font-semibold px-3 py-1.5 rounded-full mb-4">
+                  <Sparkles size={12} strokeWidth={2.5} />
+                  신기능
                 </div>
                 <h2 className="text-2xl md:text-3xl font-black mb-4">
                   QR 코드 하나로<br />네이버 리뷰가 쌓인다
@@ -178,18 +191,24 @@ export default function LandingPage() {
                   손님이 QR을 스캔하면 AI가 맞춤 리뷰를 바로 생성해줘요.<br />
                   별점 5점 기본, 말투 6종 선택, 영수증 사진도 분석 가능해요.
                 </p>
-                <div className="flex flex-wrap gap-3 mb-8">
-                  {['🔥 Z세대', '💛 맘카페', '📝 솔직담백', '🍷 미식가', '🤝 친구추천', '📸 인스타감성'].map(t => (
-                    <span key={t} className="text-xs bg-white/20 text-white px-3 py-1.5 rounded-full font-medium">{t}</span>
+                <div className="flex flex-wrap gap-2 mb-8">
+                  {QR_TONES.map(t => (
+                    <span key={t.label} className="inline-flex items-center gap-1.5 text-xs bg-white/20 text-white px-3 py-1.5 rounded-full font-medium">
+                      <t.Icon size={12} strokeWidth={2.5} />
+                      {t.label}
+                    </span>
                   ))}
                 </div>
                 <Link href="/login"
                   className="inline-flex items-center gap-2 bg-white text-[#3182F6] font-bold text-sm px-6 py-3 rounded-xl hover:bg-blue-50 transition-colors">
-                  QR 리뷰 체험하기 →
+                  QR 리뷰 체험하기
+                  <ArrowRight size={16} strokeWidth={2.5} />
                 </Link>
               </div>
               <div className="flex-shrink-0 bg-white/10 rounded-2xl p-6 text-center w-52">
-                <div className="text-5xl mb-3">📱</div>
+                <div className="w-16 h-16 rounded-2xl bg-white/15 flex items-center justify-center mx-auto mb-3">
+                  <QrCode size={36} strokeWidth={2} className="text-white" />
+                </div>
                 <div className="text-3xl font-black mb-1">+50개</div>
                 <div className="text-blue-200 text-xs">월 평균 리뷰 증가</div>
                 <div className="mt-4 pt-4 border-t border-white/20">
@@ -212,13 +231,16 @@ export default function LandingPage() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {TESTIMONIALS.map(t => (
               <div key={t.name} className="bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
-                <div className="flex text-yellow-400 text-sm mb-3">
-                  {'★'.repeat(t.rating)}
+                <div className="flex text-[#F59E0B] mb-3 gap-0.5">
+                  {Array.from({ length: t.rating }).map((_, i) => (
+                    <Star key={i} size={14} strokeWidth={0} fill="currentColor" />
+                  ))}
                 </div>
-                <p className="text-sm text-[#191F28] leading-relaxed mb-4">"{t.text}"</p>
+                <p className="text-sm text-[#191F28] leading-relaxed mb-4">&quot;{t.text}&quot;</p>
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-xl">
-                    {t.avatar}
+                  <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
+                    style={{ backgroundColor: t.color + '15' }}>
+                    <t.Icon size={18} strokeWidth={2} style={{ color: t.color }} />
                   </div>
                   <div>
                     <div className="text-sm font-bold text-[#191F28]">{t.name}</div>
@@ -260,4 +282,3 @@ export default function LandingPage() {
     </div>
   )
 }
-
