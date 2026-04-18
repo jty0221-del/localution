@@ -3,6 +3,10 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import {
+  Star, AlertCircle, UserPlus, BarChart3, Bell, CheckCircle2,
+  Settings, CreditCard, Sparkles, LogOut, LucideIcon,
+} from 'lucide-react'
 
 const PAGE_TITLES: Record<string, string> = {
   '/':            '대시보드',
@@ -15,12 +19,24 @@ const PAGE_TITLES: Record<string, string> = {
   '/settings':    '설정',
 }
 
-const NOTIFICATIONS = [
-  { id: 1, type: 'review',   icon: '⭐', title: '새 리뷰가 도착했어요', desc: '김**님이 네이버에 별점 5점을 남겼어요', time: '5분 전',   read: false, href: '/review-admin' },
-  { id: 2, type: 'alert',    icon: '🚨', title: '부정 리뷰 알림',       desc: '이**님의 별점 2점 리뷰를 확인해주세요', time: '1시간 전', read: false, href: '/review-admin' },
-  { id: 3, type: 'customer', icon: '👤', title: '신규 고객 등록',       desc: '박**님이 처음 방문했어요',              time: '2시간 전', read: true,  href: '/crm' },
-  { id: 4, type: 'report',   icon: '📊', title: '주간 리포트 준비됐어요', desc: '이번 주 리뷰 +12개, 별점 유지 4.6',   time: '어제',    read: true,  href: '/' },
-  { id: 5, type: 'review',   icon: '⭐', title: '미답변 리뷰 리마인더', desc: '3개의 리뷰가 아직 답변을 기다려요',     time: '어제',    read: true,  href: '/review-admin' },
+type Notif = {
+  id: number
+  type: string
+  Icon: LucideIcon
+  tone: string
+  title: string
+  desc: string
+  time: string
+  read: boolean
+  href: string
+}
+
+const NOTIFICATIONS: Notif[] = [
+  { id: 1, type: 'review',   Icon: Star,         tone: '#F59E0B', title: '새 리뷰가 도착했어요', desc: '김**님이 네이버에 별점 5점을 남겼어요', time: '5분 전',   read: false, href: '/review-admin' },
+  { id: 2, type: 'alert',    Icon: AlertCircle,  tone: '#EF4444', title: '부정 리뷰 알림',       desc: '이**님의 별점 2점 리뷰를 확인해주세요', time: '1시간 전', read: false, href: '/review-admin' },
+  { id: 3, type: 'customer', Icon: UserPlus,     tone: '#3182F6', title: '신규 고객 등록',       desc: '박**님이 처음 방문했어요',              time: '2시간 전', read: true,  href: '/crm' },
+  { id: 4, type: 'report',   Icon: BarChart3,    tone: '#10B981', title: '주간 리포트 준비됐어요', desc: '이번 주 리뷰 +12개, 별점 유지 4.6',   time: '어제',    read: true,  href: '/' },
+  { id: 5, type: 'review',   Icon: Star,         tone: '#F59E0B', title: '미답변 리뷰 리마인더', desc: '3개의 리뷰가 아직 답변을 기다려요',     time: '어제',    read: true,  href: '/review-admin' },
 ]
 
 export default function TopBar() {
@@ -48,9 +64,9 @@ export default function TopBar() {
           <div className="relative">
             <button
               onClick={() => { setNotifOpen(v => !v); setUserOpen(false); }}
-              className="relative w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm hover:shadow-md transition-all"
+              className="relative w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm hover:shadow-md transition-all text-[#4E5968]"
             >
-              <span className="text-lg">🔔</span>
+              <Bell size={18} strokeWidth={2} />
               {unread > 0 && (
                 <span className="absolute -top-1 -right-1 w-5 h-5 bg-[#FF3B30] text-white text-xs font-bold rounded-full flex items-center justify-center">
                   {unread}
@@ -73,7 +89,10 @@ export default function TopBar() {
                       <Link key={n.id} href={n.href}
                         onClick={() => { markOne(n.id); setNotifOpen(false); }}
                         className={`flex items-start gap-3 px-5 py-4 hover:bg-[#F8F9FA] transition-colors ${!n.read ? 'bg-[#EFF6FF]' : ''}`}>
-                        <span className="text-xl flex-shrink-0 mt-0.5">{n.icon}</span>
+                        <span className="flex-shrink-0 mt-0.5 w-9 h-9 rounded-xl flex items-center justify-center"
+                          style={{ backgroundColor: n.tone + '15' }}>
+                          <n.Icon size={18} strokeWidth={2} style={{ color: n.tone }} />
+                        </span>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between gap-2">
                             <span className="text-sm font-semibold text-[#191F28] leading-tight">{n.title}</span>
@@ -86,7 +105,10 @@ export default function TopBar() {
                     ))}
                   </div>
                   {unread === 0 && (
-                    <div className="text-center text-[#8B95A1] text-sm py-8">모든 알림을 읽었어요 ✅</div>
+                    <div className="flex flex-col items-center gap-2 text-[#8B95A1] text-sm py-8">
+                      <CheckCircle2 size={28} strokeWidth={1.75} className="text-[#3182F6]" />
+                      <span>모든 알림을 읽었어요</span>
+                    </div>
                   )}
                 </div>
               </>
@@ -111,20 +133,22 @@ export default function TopBar() {
                     <div className="text-xs text-[#8B95A1] mt-0.5">jty0221@gmail.com</div>
                   </div>
                   <div className="py-2">
-                    {[
-                      { label: '⚙️ 설정', href: '/settings' },
-                      { label: '💳 플랜 관리', href: '/settings' },
-                      { label: '✨ 기능 추가', href: '/pricing' },
-                    ].map(item => (
+                    {([
+                      { Icon: Settings,    label: '설정',       href: '/settings' },
+                      { Icon: CreditCard,  label: '플랜 관리',  href: '/settings' },
+                      { Icon: Sparkles,    label: '기능 추가',  href: '/pricing' },
+                    ] as const).map(item => (
                       <Link key={item.label} href={item.href} onClick={() => setUserOpen(false)}
-                        className="flex items-center px-5 py-3 text-sm text-[#4E5968] hover:bg-[#F2F4F6] transition-colors">
+                        className="flex items-center gap-2.5 px-5 py-3 text-sm text-[#4E5968] hover:bg-[#F2F4F6] transition-colors">
+                        <item.Icon size={16} strokeWidth={2} className="text-[#8B95A1]" />
                         {item.label}
                       </Link>
                     ))}
                   </div>
                   <div className="border-t border-[#F2F4F6] py-2">
-                    <Link href="/login" className="flex items-center px-5 py-3 text-sm text-[#FF3B30] hover:bg-[#FFF0F0] transition-colors">
-                      🚪 로그아웃
+                    <Link href="/login" className="flex items-center gap-2.5 px-5 py-3 text-sm text-[#FF3B30] hover:bg-[#FFF0F0] transition-colors">
+                      <LogOut size={16} strokeWidth={2} />
+                      로그아웃
                     </Link>
                   </div>
                 </div>
