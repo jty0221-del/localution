@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { usePathname, useSearchParams } from 'next/navigation'
 import {
   ChevronDown, ChevronRight, List, Map, MapPin, Search, BarChart3,
-  Sparkles, MessageCircle, Settings, LogOut, LucideIcon,
+  Sparkles, MessageCircle, Settings, LogOut, FileText, LucideIcon,
 } from 'lucide-react'
 
 const FLAT_NAV = [
@@ -27,6 +27,7 @@ const MARKETING_SUB: { href: string; label: string; Icon: LucideIcon; badge: str
   { href: '/marketing/keyword-rank',  label: '키워드 순위',     Icon: Search,    badge: '' },
   { href: '/marketing/keyword-score', label: '키워드 점수분석', Icon: BarChart3, badge: '' },
   { href: '/marketing/reels',         label: '릴스·쇼츠 생성',  Icon: Sparkles,  badge: 'NEW' },
+  { href: '/marketing/blog-post',     label: '블로그 포스팅',   Icon: FileText,  badge: 'NEW' },
 ]
 
 const REGIONS: { key: string; label: string; color: string; sub: string[] }[] = [
