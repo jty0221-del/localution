@@ -5,6 +5,7 @@ import { useState } from 'react'
 import Sidebar from '../components/Sidebar'
 import Link from 'next/link'
 import {
+import Footer from '../components/Footer'
   Search, TrendingUp, ClipboardCheck, Users, Sparkles, ArrowRight, FileText,
   ArrowUp, ArrowDown, Minus, CheckCircle2, AlertTriangle, XCircle,
 } from 'lucide-react'
@@ -517,6 +518,7 @@ export default function MarketingPage() {
           {tab === 'inflow' && <InflowTab/>}
         </div>
       </main>
+    <Footer />
     </div>
   )
 }
