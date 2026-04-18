@@ -873,7 +873,7 @@ function KakaoConnectModal(props: {
 // 배달 플랫폼 공용 연결 모달 (배달의민족 / 요기요 / 쿠팡이츠)
 // ═══════════════════════════════════════════════════════════
 const DELIVERY_META = {
-  baemin:      { name: '배달의민족', color: '#2AC1BC', logo: BaeminLogo,      placeholder: 'https://baemin.me/매장ID 또는 매장ID 직접 입력', helpUrl: 'https://self.baemin.com' },
+  baemin:      { name: '배달의민족', color: '#2AC1BC', logo: BaeminLogo,      placeholder: 'https://baemin.me/매장ID 또는 ���장ID 직접 입력', helpUrl: 'https://self.baemin.com' },
   yogiyo:      { name: '요기요',     color: '#FA0050', logo: YogiyoLogo,      placeholder: 'https://www.yogiyo.co.kr/restaurant/12345 또는 숫자 ID', helpUrl: 'https://ceo.yogiyo.co.kr' },
   coupangeats: { name: '쿠팡이츠',   color: '#FF4B30', logo: CoupangEatsLogo, placeholder: '쿠팡이츠 스토어 URL 또는 스토어 ID', helpUrl: 'https://store.coupangeats.com' },
 } as const
@@ -990,3 +990,4 @@ function DeliveryConnectModal(props: {
     </div>
   )
 }
+
