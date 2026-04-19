@@ -50,6 +50,17 @@ export const BRAND_GRAD = {
   // 카카오는 노란색(#FEE500)이 브랜드지만 PageHeader 백색 텍스트 대비를 위해
   // 어두운 카카오-브라운 톤으로 내린다.
   kakao:     'bg-gradient-to-r from-[#D4A800] via-[#A67B00] to-[#6B4E00]',
+  // 마케팅 하위 페이지별 (15차-4)
+  // 블로그 포스팅 — 에메랄드 (네이버 톤과 차별화)
+  emerald:   'bg-gradient-to-r from-[#10B981] via-[#059669] to-[#047857]',
+  // 키워드 순위 — 스카이 블루
+  sky:       'bg-gradient-to-r from-[#0EA5E9] via-[#0284C7] to-[#0369A1]',
+  // 키워드 점수 — 오렌지
+  orange:    'bg-gradient-to-r from-[#F97316] via-[#EA580C] to-[#C2410C]',
+  // 플레이스 진단 — 브라이트 그린
+  placeGreen:'bg-gradient-to-r from-[#22C55E] via-[#16A34A] to-[#15803D]',
+  // 숏폼·릴스 — 핑크/로즈
+  pink:      'bg-gradient-to-r from-[#EC4899] via-[#DB2777] to-[#BE185D]',
 } as const
 
 export type BrandGradientKey = keyof typeof BRAND_GRAD
