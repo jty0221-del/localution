@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname, useSearchParams } from 'next/navigation'
 import {
   ChevronDown, ChevronRight, List, Map, MapPin, Search, BarChart3,
@@ -301,13 +302,13 @@ export default function Sidebar() {
           <span className={`block w-5 h-0.5 bg-[#191F28] rounded transition-all ${mobileOpen ? '-rotate-45 -translate-y-2' : ''}`} />
         </button>
       </div>
-      {mobileOpen && <div className="md:hidden fixed inset-0 bg-black/30 z-30" onClick={() => setMobileOpen(false)} />}
+      {mobileOpen && <div className="md:hidden fixed inset-0 bg-black/30 z-30" onClick={() => setMobileOpen(false)} aria-hidden="true" />}
       <aside className={`fixed top-0 left-0 h-screen w-[220px] bg-white border-r border-[#E5E8EB] z-40 flex flex-col transition-transform duration-300 ${mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0'}`}>
         <div className="px-5 py-5 border-b border-[#F2F4F6]">
           <Link href="/" className="block">
             <div className="flex items-center gap-2.5">
               <div className="w-9 h-9 rounded-xl overflow-hidden flex-shrink-0 shadow-[0_2px_8px_rgba(49,130,246,0.25)] ring-1 ring-[#E8F4FD] bg-white flex items-center justify-center">
-                <img src="/favicon.ico" alt="로컬루션" width={28} height={28} style={{ objectFit: 'contain' }} />
+                <Image src="/favicon.ico" alt="로컬루션" width={28} height={28} style={{ objectFit: 'contain' }} priority />
               </div>
               <div>
                 <p className="font-black text-[#191F28] text-[15px] tracking-tight leading-none">Localution</p>
@@ -321,7 +322,8 @@ export default function Sidebar() {
           <Link href="/settings/profile" onClick={() => setMobileOpen(false)}
             className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-[#F8F9FA] hover:bg-[#F2F4F6] transition-all group">
             {user?.profile_image ? (
-              <img src={user.profile_image} alt="" width={32} height={32}
+              <Image src={user.profile_image} alt="" width={32} height={32}
+                unoptimized
                 className="w-8 h-8 rounded-full object-cover flex-shrink-0 ring-2 ring-white" />
             ) : (
               <div className="w-8 h-8 rounded-full bg-[#3182F6] flex items-center justify-center text-white text-xs font-bold flex-shrink-0">
