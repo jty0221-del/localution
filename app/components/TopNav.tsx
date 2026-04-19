@@ -83,7 +83,12 @@ export default function TopNav() {
         </div>
 
         {/* 모바일 메뉴 버튼 */}
-        <button className="md:hidden p-2" onClick={() => setMenuOpen(!menuOpen)}>
+        <button
+          className="md:hidden p-2 min-w-[44px] min-h-[44px] flex flex-col items-center justify-center"
+          onClick={() => setMenuOpen(!menuOpen)}
+          aria-label={menuOpen ? '메뉴 닫기' : '메뉴 열기'}
+          aria-expanded={menuOpen}
+        >
           <div className="w-5 h-0.5 bg-gray-600 mb-1" />
           <div className="w-5 h-0.5 bg-gray-600 mb-1" />
           <div className="w-5 h-0.5 bg-gray-600" />
