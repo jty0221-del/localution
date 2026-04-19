@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import Link from 'next/link'
 import Sidebar from '../components/Sidebar'
 import Footer from '../components/Footer'
+import { useConnections, setConnection as libSetConnection, PlatformId as CanonicalPlatformId } from '../lib/connections'
 import {
   Star, ArrowRight, ArrowUp, ArrowDown, Minus, X, Check, CheckCircle2,
   AlertTriangle, Rocket, Bot, Smartphone, BarChart3, Wallet, TrendingUp,
@@ -125,6 +126,27 @@ interface Platform {
   rating: number | null
   reviews: number | null
   color: string
+}
+
+// 대시보드 로컬 id ↔ 공통 훅 canonical id 매핑
+const TO_CANONICAL: Partial<Record<PlatformId, CanonicalPlatformId>> = {
+  naver_place: 'naver',
+  google: 'google',
+  baemin: 'baemin',
+  yogiyo: 'yogiyo',
+  coupangeats: 'coupang',
+  yeoshin: 'yeoshin',
+  hometax: 'hometax',
+  // naver_search 는 공통 훅에 없음 (검색광고 별도)
+}
+const FROM_CANONICAL: Record<string, PlatformId> = {
+  naver: 'naver_place',
+  google: 'google',
+  baemin: 'baemin',
+  yogiyo: 'yogiyo',
+  coupang: 'coupangeats',
+  yeoshin: 'yeoshin',
+  hometax: 'hometax',
 }
 
 const INITIAL_PLATFORMS: Platform[] = [
@@ -807,37 +829,26 @@ export default function Dashboard() {
   const [connectPlatform, setConnectPlatform] = useState<Platform | null>(null)
   const [replyReview, setReplyReview] = useState<typeof RECENT_REVIEWS[number] | null>(null)
 
-  // 플랫폼 링크는 connect 페이지에서 array 형태로 저장됨
+  // 공통 연동 훅 — /settings, /review-admin 과 동일 소스
+  const { connections: canonicalConnections } = useConnections()
+
+  // 훅 상태 → 대시보드 platforms 반영
   useEffect(() => {
-    function syncPlatformLinks() {
-      try {
-        const raw = localStorage.getItem(LS_LINKS)
-        if (!raw) return
-        const parsed = JSON.parse(raw)
-        // 배열(신규) + 객체(구 구조) 모두 대응
-        const linkedIds = new Set<string>()
-        if (Array.isArray(parsed)) {
-          parsed.forEach((l: any) => {
-            if (!l?.platform) return
-            // connect.tsx는 'naver'로 저장 → dashboard는 'naver_place'
-            if (l.platform === 'naver') linkedIds.add('naver_place')
-            else linkedIds.add(l.platform)
-          })
-        } else if (parsed && typeof parsed === 'object') {
-          Object.keys(parsed).forEach(k => linkedIds.add(k))
+    setPlatforms(prev => prev.map(p => {
+      const canon = TO_CANONICAL[p.id]
+      if (!canon) return p
+      const c = canonicalConnections[canon]
+      if (c?.connected) {
+        return {
+          ...p,
+          connected: true,
+          rating: p.rating ?? c.rating ?? null,
+          reviews: p.reviews ?? c.reviewCount ?? null,
         }
-        setPlatforms(prev => prev.map(p =>
-          linkedIds.has(p.id) ? { ...p, connected: true } : p
-        ))
-      } catch {}
-    }
-    syncPlatformLinks()
-    const onStorage = (e: StorageEvent) => {
-      if (e.key === LS_LINKS) syncPlatformLinks()
-    }
-    window.addEventListener('storage', onStorage)
-    return () => window.removeEventListener('storage', onStorage)
-  }, [])
+      }
+      return { ...p, connected: false, rating: null, reviews: null }
+    }))
+  }, [canonicalConnections])
 
   // 프로필(매장 주소/이름) → 지역 기반 키워드 자동 생성
   useEffect(() => {
@@ -896,24 +907,38 @@ export default function Dashboard() {
     id: PlatformId,
     data: VerifyResult & { input: string },
   ) => {
-    try {
-      const raw = localStorage.getItem(LS_LINKS)
-      const links = raw ? JSON.parse(raw) : {}
-      links[id] = {
-        input: data.input,
-        placeId: data.placeId,
-        name: data.name,
-        address: data.address,
-        category: data.category,
-        phone: data.phone,
+    // 공통 훅 경유로 저장 → /settings, /review-admin 자동 동기화
+    const canon = TO_CANONICAL[id]
+    if (canon) {
+      libSetConnection(canon, {
+        connected: true,
+        externalName: data.name,
+        externalId: data.placeId || data.input,
+        externalUrl: data.url,
         rating: data.rating ?? null,
-        reviews: data.reviewCount ?? 0,
-        url: data.url,
-        source: data.source,
-        linkedAt: new Date().toISOString(),
-      }
-      localStorage.setItem(LS_LINKS, JSON.stringify(links))
-    } catch {}
+        reviewCount: data.reviewCount ?? 0,
+      })
+    } else {
+      // naver_search 등 공통 훅에 없는 플랫폼은 레거시 저장소에 저장
+      try {
+        const raw = localStorage.getItem(LS_LINKS)
+        const links = raw ? JSON.parse(raw) : {}
+        links[id] = {
+          input: data.input,
+          placeId: data.placeId,
+          name: data.name,
+          address: data.address,
+          category: data.category,
+          phone: data.phone,
+          rating: data.rating ?? null,
+          reviews: data.reviewCount ?? 0,
+          url: data.url,
+          source: data.source,
+          linkedAt: new Date().toISOString(),
+        }
+        localStorage.setItem(LS_LINKS, JSON.stringify(links))
+      } catch {}
+    }
 
     setPlatforms(prev =>
       prev.map(p =>
