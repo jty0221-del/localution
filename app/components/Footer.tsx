@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import Image from 'next/image'
 
 export default function Footer() {
   return (
@@ -9,7 +10,7 @@ export default function Footer() {
           <div className="flex-shrink-0">
             <div className="flex items-center gap-3 mb-3">
               {/* 로고는 public/logo.svg 로 분리 — 번들 크기 및 캐싱 최적화 */}
-              <img src="/logo.svg" alt="로컬루션 로고" width={36} height={36} className="select-none" />
+              <Image src="/logo.svg" alt="로컬루션 로고" width={36} height={36} className="select-none" />
               <div>
                 <span className="text-lg font-black text-white">로컬루션</span>
                 <span className="text-[10px] text-[#3182F6] font-bold block tracking-widest">LOCALUTION</span>
