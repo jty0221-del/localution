@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic'
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import Sidebar from '../components/Sidebar'
+import Footer from '../components/Footer'
 
 // ═══════════════════════════════════════════════════════════════
 //  타입 & 상수
@@ -221,9 +222,10 @@ export default function ReviewAdminHub() {
   const filteredFeed = filter === 'all' ? feed : feed.filter(r => r.platform === filter)
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA]">
-      <Sidebar />
-      <main className="flex-1 md:ml-[220px] p-4 pt-20 md:p-8 md:pt-8 max-w-[1280px] mx-auto">
+    <div className="min-h-screen bg-[#F8F9FA] flex flex-col overflow-x-hidden">
+      <div className="flex flex-1">
+        <Sidebar />
+        <main className="flex-1 md:ml-[220px] p-4 pt-20 md:p-8 md:pt-8 max-w-[1280px] mx-auto min-w-0">
         {/* ─── 헤더 ─── */}
         <div className="mb-6">
           <h1 className="text-xl md:text-2xl font-black text-[#191F28] mb-1">리뷰 관리 허브</h1>
@@ -397,7 +399,9 @@ export default function ReviewAdminHub() {
             )}
           </div>
         )}
-      </main>
+        </main>
+      </div>
+      <Footer />
     </div>
   )
 }
