@@ -120,7 +120,7 @@ interface Platform {
   name: string
   shortName: string
   logo: (size?: number) => JSX.Element
-  category: '리뷰·검색' | '배달' | '금융·세무'
+  category: '리뷰·검색' | '배달' | '��융·세무'
   connected: boolean
   rating: number | null
   reviews: number | null
@@ -133,7 +133,7 @@ const INITIAL_PLATFORMS: Platform[] = [
   { id: 'baemin',       name: '배달의민족',        shortName: '배민',     logo: (s) => <BaeminLogo size={s}/>,       category: '배달',      connected: false, rating: null, reviews: null, color: '#2AC1BC' },
   { id: 'yogiyo',       name: '요기요',            shortName: '요기요',   logo: (s) => <YogiyoLogo size={s}/>,       category: '배달',      connected: false, rating: null, reviews: null, color: '#FA1A32' },
   { id: 'coupangeats',  name: '쿠팡이츠',          shortName: '쿠팡이츠', logo: (s) => <CoupangEatsLogo size={s}/>,  category: '배달',      connected: false, rating: null, reviews: null, color: '#FF5A00' },
-  { id: 'yeoshin',      name: '여신금융',           shortName: '여신금융', logo: (s) => <YeoshinLogo size={s}/>,      category: '금융·��무', connected: false, rating: null, reviews: null, color: '#003087' },
+  { id: 'yeoshin',      name: '여신금융',           shortName: '여신금융', logo: (s) => <YeoshinLogo size={s}/>,      category: '금융·세무', connected: false, rating: null, reviews: null, color: '#003087' },
   { id: 'hometax',      name: '홈택스',            shortName: '홈택스',   logo: (s) => <HometaxLogo size={s}/>,      category: '금융·세무', connected: false, rating: null, reviews: null, color: '#006AB4' },
 ]
 
@@ -155,7 +155,7 @@ function extractRegion(address?: string, storeName?: string, branch?: string): s
   const gu = src.match(/([가-힣]{1,4})(구|군)/)
   if (gu) return gu[1] + gu[2]
   // 2) 주요 지역 약칭 (해운대, 강남, 홍대, 일산, 송도 등)
-  const known = ['해운대','광안리','서면','강남','서초','홍대','합정','이태원','성수','건대','일산','분당','판교','송도','동탄','광교','수원','안양','평촌','인천','부평','부천','대구','동성로','수성','광주','상무','대전','둔산','울산','남구','동구','북구','중구','청주','전주','제주','서귀포','창원','마산','포항','경주','천안','아산','세종','강릉','춘천','원주']
+  const known = ['해운대','광안리','서면','강남','서초','홍대','합정','이태원','성수','건대','일산','분당','판교','송도','동탄','광교','수원','안양','평촌','인천','부평','부천','대구','동성��','수성','광주','상무','대전','둔산','울산','남구','동구','북구','중구','청주','전주','제주','서귀포','창원','마산','포항','경주','천안','아산','세종','강릉','춘천','원주']
   for (const k of known) {
     if (src.includes(k)) return k
   }
@@ -390,7 +390,7 @@ function ConnectModal({ platform, onClose, onSave }: ConnectModalProps) {
 
 // ═══════════════════════════════════════════════════════════
 //  AI 답글 생성 모달
-// ═══════════���═══════════════════════════════════════════════
+// ═════════════════════════════════════════════════════════════
 interface ReplyModalProps {
   review: typeof RECENT_REVIEWS[number]
   onClose: () => void
@@ -526,7 +526,7 @@ function AIReplyModal({ review, onClose }: ReplyModalProps) {
 
 // ═══════════════════════════════════════════════════════════
 //  롤링 공지 배너 (5초 자동 전환)
-// ══════════════════════════════════════════════════════���════
+// ═════════════════════════════════════════════════════════════
 interface BannerSlide {
   title: string
   sub: string
@@ -807,7 +807,7 @@ export default function Dashboard() {
   const [connectPlatform, setConnectPlatform] = useState<Platform | null>(null)
   const [replyReview, setReplyReview] = useState<typeof RECENT_REVIEWS[number] | null>(null)
 
-  // 플랫폼 링크��� connect 페이��에서 array 형태로 저장됨
+  // 플랫폼 링크는 connect 페이지에서 array 형태로 저장됨
   useEffect(() => {
     function syncPlatformLinks() {
       try {
@@ -1050,9 +1050,9 @@ export default function Dashboard() {
   ]
 
   return (
-    <div className="flex min-h-screen bg-[#F2F4F6]">
+    <div className="flex min-h-screen bg-[#F2F4F6] overflow-x-hidden">
       <Sidebar />
-      <main className="flex-1 ml-0 md:ml-[220px] p-4 pt-20 md:p-6 md:pt-6 min-w-0 pb-24 md:pb-6">
+      <main className="flex-1 ml-0 md:ml-[220px] p-4 pt-20 md:p-6 md:pt-6 min-w-0 max-w-full pb-24 md:pb-6">
 
         {/* ── 상단 롤링 공지 배너 ── */}
         <NoticeBanner />
@@ -1194,7 +1194,7 @@ export default function Dashboard() {
         <div className="bg-white rounded-2xl shadow-sm px-5 py-4 mb-5">
           <div className="flex items-center justify-between mb-3">
             <div className="flex items-center gap-2">
-              <span className="text-sm font-bold text-[#191F28]">플���폼 연동 현황</span>
+              <span className="text-sm font-bold text-[#191F28]">플랫폼 연동 현황</span>
               <span className="text-[11px] px-2 py-0.5 rounded-full bg-[#E8F4FD] text-[#3182F6] font-semibold">
                 {connectedCount}/{platforms.length} 연동됨
               </span>
@@ -1203,7 +1203,7 @@ export default function Dashboard() {
               {isLoggedIn ? <>연동 관리 <ArrowRight size={11} strokeWidth={2.5} /></> : '로그인 후 연동 가능'}
             </a>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-8 gap-2">
+          <div className="grid grid-cols-4 sm:grid-cols-4 md:grid-cols-8 gap-2">
             {platforms.map(p => (
               <button
                 key={p.id}
@@ -1391,7 +1391,7 @@ export default function Dashboard() {
                   </p>
                   <Link href="/settings/profile"
                     className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#3182F6] text-white text-[11px] font-bold hover:bg-[#1B64DA] transition-colors">
-                    프로필 설정하기 <ArrowRight size={11} strokeWidth={2.5} />
+                    프로필 설��하기 <ArrowRight size={11} strokeWidth={2.5} />
                   </Link>
                 </div>
               ) : keywords.map((kw) => (
