@@ -1,41 +1,11 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 520 200" fill="none">
-  <!-- 아이콘 마크 -->
-  <!-- < 브라켓 (다크네이비) -->
-  <polyline points="72,60 44,100 72,140" stroke="#1e2d3d" stroke-width="18" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-
-  <!-- L자 메인 몸체 (다크네이비 + 블루 테두리 효과) -->
-  <!-- 블루 그림자/테두리 레이어 -->
-  <rect x="93" y="52" width="20" height="96" rx="3" fill="#3182F6"/>
-  <rect x="93" y="128" width="52" height="20" rx="3" fill="#3182F6"/>
-  <!-- 다크 메인 레이어 -->
-  <rect x="88" y="48" width="20" height="96" rx="3" fill="#1e2d3d"/>
-  <rect x="88" y="124" width="52" height="20" rx="3" fill="#1e2d3d"/>
-
-  <!-- h 형태 오른쪽 세로 막대 -->
-  <rect x="113" y="68" width="18" height="76" rx="3" fill="#1e2d3d"/>
-  <!-- 블루 테두리 -->
-  <rect x="117" y="72" width="18" height="76" rx="3" fill="#3182F6" opacity="0.5"/>
-  <rect x="113" y="68" width="15" height="76" rx="3" fill="#1e2d3d"/>
-
-  <!-- 커브 경로 (U 형태, 다크네이비) -->
-  <path d="M131 120 Q131 148 158 148 Q185 148 185 120" stroke="#1e2d3d" stroke-width="18" stroke-linecap="round" fill="none"/>
-  <!-- 블루 하이라이트 -->
-  <path d="M134 120 Q134 145 158 145 Q182 145 182 120" stroke="#3182F6" stroke-width="6" stroke-linecap="round" fill="none"/>
-
-  <!-- 로케이션 핀 (픽셀 스타일, 블루) -->
-  <rect x="153" y="142" width="5" height="5" fill="#3182F6"/>
-  <rect x="158" y="137" width="5" height="5" fill="#3182F6"/>
-  <rect x="163" y="142" width="5" height="5" fill="#3182F6"/>
-  <rect x="158" y="147" width="5" height="5" fill="#3182F6"/>
-  <rect x="158" y="142" width="5" height="5" fill="#3182F6"/>
-
-  <!-- 상승 화살표 (블루) -->
-  <line x1="185" y1="120" x2="225" y2="68" stroke="#3182F6" stroke-width="14" stroke-linecap="round"/>
-  <!-- 화살표 머리 -->
-  <polyline points="200,62 228,62 228,90" stroke="#3182F6" stroke-width="14" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
-
-  <!-- 텍스트 "LOCAL" 다크네이비 -->
-  <text x="20" y="188" font-family="'Arial Black', 'Helvetica Neue', Arial, sans-serif" font-weight="900" font-size="52" letter-spacing="-1" fill="#1e2d3d">LOCAL</text>
-  <!-- 텍스트 "UTION" 블루 -->
-  <text x="215" y="188" font-family="'Arial Black', 'Helvetica Neue', Arial, sans-serif" font-weight="900" font-size="52" letter-spacing="-1" fill="#3182F6">UTION</text>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none">
+  <path d="M20 25C20 25 12 40 12 60C12 80 20 95 20 95" stroke="white" stroke-width="5" stroke-linecap="round" fill="none"/>
+  <path d="M28 30C28 30 22 43 22 60C22 77 28 90 28 90" stroke="white" stroke-width="5" stroke-linecap="round" fill="none"/>
+  <path d="M35 28L35 88L55 88" stroke="white" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <path d="M52 28L78 28M65 28L65 70" stroke="white" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <path d="M75 28L75 68C75 80 82 88 92 88C102 88 108 80 108 68L108 28" stroke="white" stroke-width="8" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <path d="M90 18L102 6L108 18" stroke="#3182F6" stroke-width="5" stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <line x1="102" y1="6" x2="102" y2="25" stroke="#3182F6" stroke-width="5" stroke-linecap="round"/>
+  <circle cx="102" cy="32" r="3" fill="#3182F6"/>
+  <text x="60" y="110" text-anchor="middle" fill="white" font-size="14" font-weight="900" font-family="Arial, sans-serif" letter-spacing="3">LOCALUTION</text>
 </svg>
