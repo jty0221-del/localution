@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 
 const NAV_LINKS = [
@@ -39,7 +40,7 @@ export default function TopNav() {
         {/* 로고 */}
         <Link href="/" className="flex items-center gap-2 select-none">
           <div className="w-10 h-10 rounded-xl overflow-hidden flex-shrink-0 shadow-[0_2px_10px_rgba(49,130,246,0.22)] ring-1 ring-[#E8F4FD] bg-white flex items-center justify-center">
-            <img src="/favicon.ico" alt="로컬루션" width={32} height={32} style={{ objectFit: 'contain' }} />
+            <Image src="/favicon.ico" alt="로컬루션" width={32} height={32} style={{ objectFit: 'contain' }} priority />
           </div>
           <span className="text-xl font-black text-[#191F28] tracking-tight">로컬루션</span>
         </Link>
