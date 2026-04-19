@@ -134,35 +134,37 @@ export default function CustomersPage() {
   }
 
   return (
-    <div className="flex min-h-screen bg-[#F2F4F6]">
-      <Sidebar />
-      <main className="flex-1 ml-0 md:ml-[220px] p-4 pt-20 md:p-6 md:pt-6 min-w-0">
-        {/* LOCALUTION_HERO_BANNER */}
-        <section className="bg-gradient-to-r from-[#F59E0B] to-[#D97706] text-white px-4 py-10 sm:py-14">
-          <div className="max-w-5xl mx-auto flex items-center gap-4">
-            <div className="text-4xl sm:text-5xl drop-shadow-sm">🫶</div>
-            <div className="flex-1 min-w-0">
-              <h1 className="text-xl sm:text-2xl font-black tracking-tight">고객 관리</h1>
-              <p className="text-white/85 text-xs sm:text-sm mt-1 leading-relaxed">단골을 데이터로 키운다 — 재방문·리뷰·쿠폰이 연결되는 CRM</p>
+    <div className="min-h-screen bg-[#F2F4F6] flex flex-col overflow-x-hidden">
+      <div className="flex flex-1">
+        <Sidebar />
+        <main className="flex-1 ml-0 md:ml-[220px] pt-14 md:pt-0 min-w-0">
+          {/* LOCALUTION_HERO_BANNER */}
+          <section className="bg-gradient-to-br from-[#F59E0B] to-[#D97706] text-white">
+            <div className="max-w-5xl mx-auto px-4 md:px-8 py-6 md:py-10 flex items-center gap-3 md:gap-4">
+              <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center text-3xl md:text-4xl flex-shrink-0">🫶</div>
+              <div className="flex-1 min-w-0">
+                <h1 className="text-xl md:text-2xl font-black tracking-tight">고객 관리</h1>
+                <p className="text-white/85 text-xs md:text-sm mt-1 leading-relaxed">단골을 데이터로 키운다 — 재방문·리뷰·쿠폰이 연결되는 CRM</p>
+              </div>
+              <div className="hidden md:flex items-center gap-1.5 text-[11px] font-bold text-white/90 bg-white/15 backdrop-blur px-3 py-1.5 rounded-full border border-white/20 flex-shrink-0">
+                로컬루션
+              </div>
             </div>
-            <div className="hidden sm:flex items-center gap-2 text-[11px] font-bold text-white/90 bg-white/15 backdrop-blur px-3 py-1.5 rounded-full border border-white/20">
-              로컬루션
-            </div>
-          </div>
-        </section>
+          </section>
+
+          <div className="max-w-5xl mx-auto p-4 md:p-6 w-full">
 
         {/* 헤더 */}
         <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
           <div>
             <div className="flex items-center gap-2 flex-wrap">
-              <h1 className="text-2xl font-black text-[#191F28]">고객 관리</h1>
               {isDemo && (
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#FEF3C7] text-[#92400E] font-semibold">
                   데모 모드
                 </span>
               )}
             </div>
-            <p className="text-sm text-[#8B95A1] mt-0.5">
+            <p className="text-sm text-[#8B95A1]">
               {isDemo
                 ? '아직 고객을 등록하지 않아 샘플을 보여드려요. "+ 고객 추가"로 첫 단골을 등록해보세요 ✨'
                 : '단골·VIP·신규 고객을 한눈에 관리하세요'}
@@ -395,8 +397,10 @@ export default function CustomersPage() {
             </div>
           </div>
         )}
-        <Footer />
-      </main>
+          </div>
+        </main>
+      </div>
+      <Footer />
     </div>
   )
 }
