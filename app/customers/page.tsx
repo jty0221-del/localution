@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic'
 import { useState } from 'react'
 import Sidebar from '../components/Sidebar'
 import Footer from '../components/Footer'
+import PageHeader from '../components/PageHeader'
 import { BRAND_GRAD } from '../lib/brand-colors'
 import { useCustomers, type Customer } from '../hooks/useCustomers'
 import type { CustomerTag } from '../lib/supabase'
@@ -97,19 +98,12 @@ export default function CustomersPage() {
       <div className="flex flex-1">
         <Sidebar />
         <main className="flex-1 ml-0 md:ml-[220px] pt-14 md:pt-0 min-w-0">
-          {/* LOCALUTION_HERO_BANNER */}
-          <section className={`${BRAND_GRAD.warn} text-white`}>
-            <div className="max-w-5xl mx-auto px-4 md:px-8 py-6 md:py-10 flex items-center gap-3 md:gap-4">
-              <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center text-3xl md:text-4xl flex-shrink-0">🫶</div>
-              <div className="flex-1 min-w-0">
-                <h1 className="text-xl md:text-2xl font-black tracking-tight">고객 관리</h1>
-                <p className="text-white/85 text-xs md:text-sm mt-1 leading-relaxed">단골을 데이터로 키운다 — 재방문·리뷰·쿠폰이 연결되는 CRM</p>
-              </div>
-              <div className="hidden md:flex items-center gap-1.5 text-[11px] font-bold text-white/90 bg-white/15 backdrop-blur px-3 py-1.5 rounded-full border border-white/20 flex-shrink-0">
-                로컬루션
-              </div>
-            </div>
-          </section>
+          <PageHeader
+            icon="🫶"
+            title="고객 관리"
+            subtitle="단골을 데이터로 키운다 — 재방문·리뷰·쿠폰이 연결되는 CRM"
+            variant="warn"
+          />
 
           <div className="max-w-5xl mx-auto p-4 md:p-6 w-full">
 
