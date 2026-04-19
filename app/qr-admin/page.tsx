@@ -227,6 +227,16 @@ function QRCodeImage({ url, size = 180 }: { url: string; size?: number }) {
   )
 }
 
+// 파일명 sanitize — OS·브라우저 호환용
+function safeFileName(raw: string): string {
+  const trimmed = (raw || '업체').trim()
+  // 파일명 금지문자 + 한글·영문·숫자·하이픈만 유지 (공백은 _로)
+  return trimmed
+    .replace(/[\/\\:*?"<>|]/g, '')
+    .replace(/\s+/g, '_')
+    .slice(0, 40) || '업체'
+}
+
 // QR 다운로드 함수
 function downloadQR(url: string, fileName: string) {
   const size = 400
@@ -1024,7 +1034,7 @@ export default function QRAdmin() {
 
                 <div className="grid grid-cols-2 gap-2 pt-2">
                   <button
-                    onClick={() => downloadQR(buildReviewUrl(storeInfo, settings), storeInfo.name + '-review-qr')}
+                    onClick={() => downloadQR(buildReviewUrl(storeInfo, settings), safeFileName(storeInfo.name) + '-review-qr')}
                     className="py-3 rounded-xl text-sm font-bold bg-[#3182F6] text-white hover:bg-[#1B64DA] transition-colors">
                     📥 PNG 저장
                   </button>
@@ -1094,7 +1104,7 @@ export default function QRAdmin() {
                 <button
                   onClick={() => {
                     if (storeInfo.connected) {
-                      downloadQR(buildReviewUrl(storeInfo, { ...settings, mainKeyword: previewQR.keyword || settings.mainKeyword }), previewQR.name)
+                      downloadQR(buildReviewUrl(storeInfo, { ...settings, mainKeyword: previewQR.keyword || settings.mainKeyword }), safeFileName(previewQR.name))
                     }
                   }}
                   disabled={!storeInfo.connected}
