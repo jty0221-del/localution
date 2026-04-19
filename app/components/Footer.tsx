@@ -26,6 +26,7 @@ export default function Footer() {
             <div>
               <div className="font-semibold text-gray-300 mb-3">서비스</div>
               <div className="space-y-2">
+                <Link href="/about" className="block text-[#8B95A1] hover:text-white transition-colors">회사 소개</Link>
                 <Link href="/service-intro" className="block text-[#8B95A1] hover:text-white transition-colors">서비스 소개</Link>
                 <Link href="/pricing" className="block text-[#8B95A1] hover:text-white transition-colors">요금</Link>
                 <Link href="/community" className="block text-[#8B95A1] hover:text-white transition-colors">커뮤니티</Link>
