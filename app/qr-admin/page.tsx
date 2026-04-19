@@ -368,6 +368,8 @@ function buildReviewUrl(storeInfo: StoreInfo, settings: QRSettings): string {
   const params = new URLSearchParams()
   if (storeInfo.name) params.set('n', storeInfo.name)
   if (storeInfo.category) params.set('t', storeInfo.category)
+  // a = 주소·지역 — 리뷰 페이지 헤더에 "카페 · 부천시 원미구" 식으로 노출
+  if (storeInfo.location) params.set('a', storeInfo.location)
   if (settings.mainKeyword) params.set('kw', settings.mainKeyword)
   if (storeInfo.naverUrl) params.set('naver', storeInfo.naverUrl)
   // 네이버 Place ID — 리뷰 페이지에서 실제 네이버 리뷰 작성으로 리다이렉트 가능
@@ -489,6 +491,7 @@ export default function QRAdmin() {
     try { localStorage.setItem(LS_STORE_INFO, JSON.stringify(next)) } catch (_) {}
     setStoreEdit(false)
     // SEO 키워드 자동 추천
+    let effectiveSettings = settings
     if (storeDraft.name && storeDraft.location) {
       const suggestions = generateSeoKeywords(storeDraft.location, storeDraft.category, storeDraft.name)
       if (suggestions.length > 0) {
@@ -500,8 +503,13 @@ export default function QRAdmin() {
           subKeywords: settings.subKeywords.length === 0 ? subKws : settings.subKeywords,
         }
         saveSettings(next2)
+        effectiveSettings = next2
         setSuggestedKws(suggestions)
       }
+    }
+    // Supabase stores 테이블에 영구 저장 — 다른 기기/경로에서 /review/[slug] 접근 시도 데이터 유지
+    if (next.connected) {
+      persistStoreToServer(next, effectiveSettings).catch(() => {})
     }
   }
 
