@@ -5,7 +5,13 @@ import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/app/lib/supabase'
 
-const ADMIN_EMAILS = ['jty0221@gmail.com']
+// 관리자 이메일 화이트리스트 (adminAuth.ts STATIC_ADMIN_EMAILS 와 동기화)
+const ADMIN_EMAILS = [
+  'jty0221@gmail.com',
+  'jty0221@naver.com',
+  'halang@localution.co.kr',
+  'admin@localution.co.kr',
+]
 
 const NAV = [
   { href: '/admin/dashboard',    label: '대시보드',  icon: '📊' },
