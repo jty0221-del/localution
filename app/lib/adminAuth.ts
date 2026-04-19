@@ -1,11 +1,19 @@
-import { createClient } from '@supabase/supabase-js'
+// app/lib/adminAuth.ts
+// ============================================================
+// 관리자 인증 — 듀얼모드
+//   1순위: localution_user 쿠키 (NextAuth OAuth — 네이버/카카오/구글)
+//   2순위: Authorization: Bearer <token> (Supabase)
+//   3순위: sb-*-auth-token 쿠키 (Supabase 브라우저 세션)
+// ============================================================
+import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { cookies, headers } from 'next/headers'
 
-// 관리자 허용 이메일
 export const ADMIN_EMAILS = ['jty0221@gmail.com']
 
-// 서비스 롤 클라이언트 (RLS 우회 — 절대 클라이언트 번들에 노출 금지)
-export function createServiceClient() {
+// ------------------------------------------------------------
+// Service role client (RLS 우회 — Node runtime 전용)
+// ------------------------------------------------------------
+export function createServiceClient(): SupabaseClient {
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
   if (!url || !serviceKey) {
@@ -16,11 +24,36 @@ export function createServiceClient() {
   })
 }
 
-// ----------------------------------------------------------------
-// access_token 추출 — Authorization 헤더 또는 Supabase 쿠키
-// ----------------------------------------------------------------
-async function extractAccessToken(): Promise<string | null> {
-  // 1) Authorization: Bearer <token>  (권장 — 클라이언트에서 명시적으로 전달)
+// ------------------------------------------------------------
+// localution_user 쿠키 파싱 (NextAuth OAuth payload)
+// ------------------------------------------------------------
+type LocalutionUser = {
+  id?: string
+  name?: string
+  email?: string
+  provider?: string
+  profile_image?: string
+  access_token?: string
+}
+
+async function readLocalutionUser(): Promise<LocalutionUser | null> {
+  try {
+    const store = await cookies()
+    const raw = store.get('localution_user')?.value
+    if (!raw) return null
+    let decoded = raw
+    try { decoded = decodeURIComponent(raw) } catch {}
+    const parsed = JSON.parse(decoded) as LocalutionUser
+    return parsed ?? null
+  } catch {
+    return null
+  }
+}
+
+// ------------------------------------------------------------
+// Supabase access_token 추출 — Authorization 헤더 또는 쿠키
+// ------------------------------------------------------------
+async function extractSupabaseAccessToken(): Promise<string | null> {
   try {
     const hdrs = await headers()
     const auth = hdrs.get('authorization') ?? hdrs.get('Authorization')
@@ -29,7 +62,6 @@ async function extractAccessToken(): Promise<string | null> {
     }
   } catch {}
 
-  // 2) Supabase 쿠키 (supabase-js 가 자동 저장) — 포맷 여러 개 대응
   try {
     const cookieStore = await cookies()
     const all = cookieStore.getAll()
@@ -37,20 +69,16 @@ async function extractAccessToken(): Promise<string | null> {
     if (!authCookie) return null
 
     let raw = authCookie.value
-    // 'base64-' prefix 제거
     if (raw.startsWith('base64-')) {
-      try { raw = Buffer.from(raw.slice(7), 'base64').toString('utf-8') } catch { /* ignore */ }
+      try { raw = Buffer.from(raw.slice(7), 'base64').toString('utf-8') } catch {}
     } else {
       try { raw = decodeURIComponent(raw) } catch {}
     }
 
-    // 배열 ["access_token", "refresh_token", ...] 포맷 또는 객체 포맷
     let parsed: unknown
     try { parsed = JSON.parse(raw) } catch { return null }
 
-    if (Array.isArray(parsed) && typeof parsed[0] === 'string') {
-      return parsed[0]
-    }
+    if (Array.isArray(parsed) && typeof parsed[0] === 'string') return parsed[0]
     if (parsed && typeof parsed === 'object') {
       const obj = parsed as Record<string, unknown>
       if (typeof obj.access_token === 'string') return obj.access_token
@@ -65,25 +93,40 @@ async function extractAccessToken(): Promise<string | null> {
   }
 }
 
-// 관리자 권한 확인 — API 루트 상단에서 먼저 호출
-export async function requireAdmin(): Promise<
-  | { ok: true; email: string; userId: string }
+// ------------------------------------------------------------
+// requireAdmin
+// ------------------------------------------------------------
+export type AdminResult =
+  | { ok: true;  email: string; userId: string | null; source: 'localution' | 'supabase' }
   | { ok: false; status: number; message: string }
-> {
-  const token = await extractAccessToken()
-  if (!token) return { ok: false, status: 401, message: 'not authenticated' }
+
+export async function requireAdmin(): Promise<AdminResult> {
+  // 1) localution_user (OAuth) 우선
+  const lu = await readLocalutionUser()
+  const luEmail = (lu?.email || '').toLowerCase().trim()
+  if (luEmail) {
+    if (ADMIN_EMAILS.includes(luEmail)) {
+      return { ok: true, email: luEmail, userId: lu?.id ?? null, source: 'localution' }
+    }
+    // OAuth 로 로그인했으나 관리자 화이트리스트 아님 → 거부 (Supabase 로 폴백하지 않음)
+    return { ok: false, status: 403, message: '관리자 권한이 없습니다.' }
+  }
+
+  // 2) Supabase
+  const token = await extractSupabaseAccessToken()
+  if (!token) return { ok: false, status: 401, message: '로그인이 필요합니다.' }
 
   try {
     const svc = createServiceClient()
     const { data, error } = await svc.auth.getUser(token)
     if (error || !data?.user?.email) {
-      return { ok: false, status: 401, message: 'token verification failed' }
+      return { ok: false, status: 401, message: '토큰 검증 실패' }
     }
     const email = data.user.email.toLowerCase()
     if (!ADMIN_EMAILS.includes(email)) {
-      return { ok: false, status: 403, message: 'not an admin' }
+      return { ok: false, status: 403, message: '관리자 권한이 없습니다.' }
     }
-    return { ok: true, email, userId: data.user.id }
+    return { ok: true, email, userId: data.user.id, source: 'supabase' }
   } catch (e) {
     return { ok: false, status: 500, message: e instanceof Error ? e.message : 'admin check failed' }
   }
