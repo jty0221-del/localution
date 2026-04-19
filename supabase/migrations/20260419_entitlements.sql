@@ -149,8 +149,10 @@ CREATE TABLE IF NOT EXISTS public.module_usage (
   created_at      timestamptz  NOT NULL DEFAULT now()
 );
 
+-- date_trunc 는 timestamptz 입력일 때 STABLE 이라 인덱스 표현식 불가 → created_at 그대로
+-- 월별 집계 쿼리는 WHERE created_at >= date_trunc('month', now()) 형태로 하면 이 인덱스 활용됨
 CREATE INDEX IF NOT EXISTS idx_module_usage_user_month
-  ON public.module_usage(user_id, module_id, date_trunc('month', created_at));
+  ON public.module_usage(user_id, module_id, created_at);
 
 -- ============================================================
 -- ROW LEVEL SECURITY (RLS)
