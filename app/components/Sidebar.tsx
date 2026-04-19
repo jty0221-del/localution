@@ -7,6 +7,7 @@ import { usePathname, useSearchParams } from 'next/navigation'
 import {
   ChevronDown, ChevronRight, List, Map, MapPin, Search, BarChart3,
   Sparkles, MessageCircle, Settings, LogOut, FileText, Lock, LucideIcon,
+  Plus, ArrowRight, Package,
 } from 'lucide-react'
 import { REGIONS } from '../lib/regions'
 import { useEntitlements } from '../lib/entitlements'
@@ -342,6 +343,22 @@ export default function Sidebar() {
           </Link>
         </div>
         <NavItems />
+
+        {/* 구독 추가 CTA — 수익 유도 동선 (12차 추가) */}
+        <div className="px-4 pt-3 pb-0 border-t border-[#F2F4F6] space-y-1.5">
+          <Link href="/pricing" onClick={() => setMobileOpen(false)}
+            className="group flex items-center gap-2 px-3 py-2.5 rounded-xl bg-gradient-to-r from-[#3182F6] to-[#1B64DA] text-white hover:shadow-md hover:brightness-110 transition-all text-sm font-bold">
+            <Plus size={14} strokeWidth={2.75} className="flex-shrink-0" />
+            <span>모듈 추가</span>
+            <ArrowRight size={13} strokeWidth={2.5} className="ml-auto opacity-80 group-hover:translate-x-0.5 transition-transform" />
+          </Link>
+          <Link href="/my/subscription" onClick={() => setMobileOpen(false)}
+            className="flex items-center gap-2 px-3 py-2 rounded-xl text-[#4E5968] hover:bg-[#F2F4F6] transition-all text-xs font-semibold">
+            <Package size={12} strokeWidth={2.5} className="text-[#8B95A1] flex-shrink-0" />
+            <span>내 구독 관리</span>
+          </Link>
+        </div>
+
         <div className="px-4 py-4 border-t border-[#F2F4F6] space-y-2">
           <Link href="/settings/profile" onClick={() => setMobileOpen(false)}
             className="flex items-center gap-3 px-3 py-2.5 rounded-xl bg-[#F8F9FA] hover:bg-[#F2F4F6] transition-all group">
