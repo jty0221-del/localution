@@ -8,7 +8,7 @@ import Sidebar from '../components/Sidebar'
 import Footer from '../components/Footer'
 import { useConnections, PlatformId } from '../lib/connections'
 import { TABS, TAB_HERO, resolveTab, type Tab } from '../lib/settings-tabs'
-import { toast, confirmDialog } from '../lib/toast'
+import { toast, confirmDialog, promptDialog } from '../lib/toast'
 
 // 토스페이먼츠 — 공식 SDK 테스트 클라이언트 키 (공개됨)
 // 실서비스 전환 시 env에서 주입: NEXT_PUBLIC_TOSS_CLIENT_KEY
@@ -731,9 +731,13 @@ function ConnectTab() {
       toast.success(`${label} 연동을 해제했어요`)
       return
     }
-    const name = prompt(`${label} 상호명을 입력하세요 (예: 하랑마케팅 본점)`) || ''
-    if (!name.trim()) return
-    setConnection(key, { externalName: name.trim() })
+    const name = await promptDialog(`${label} 연동 매장명을 입력해주세요`, {
+      title: `${label} 연동`,
+      placeholder: '예: 하랑마케팅 본점',
+      okText: '연동',
+    })
+    if (!name) return
+    setConnection(key, { externalName: name })
     toast.success(`${label} 연동이 완료됐어요`)
   }
 
