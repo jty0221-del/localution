@@ -2,23 +2,15 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import Sidebar from '../components/Sidebar'
 import Footer from '../components/Footer'
+import { useConnections, PlatformId } from '../lib/connections'
 
 // ═══════════════════════════════════════════════════════════════
 //  타입 & 상수
 // ═══════════════════════════════════════════════════════════════
-
-interface PlatformLink {
-  platform: string
-  storeId: string
-  externalId: string
-  externalName: string
-  externalUrl: string
-  linkedAt: string
-}
 
 interface Review {
   id: string
@@ -84,8 +76,6 @@ const PLATFORM_META: Record<PlatformKey, {
   },
 }
 
-const LS_LINKS = 'localution.platform_links'
-
 function Stars({ n, color = '#F59E0B' }: { n: number; color?: string }) {
   return (
     <span className="text-sm tracking-tight" style={{ color }}>
@@ -112,51 +102,30 @@ function timeAgo(dateStr: string): string {
 // ═══════════════════════════════════════════════════════════════
 
 export default function ReviewAdminHub() {
-  const [stats, setStats] = useState<PlatformStat[]>(
-    ALL_PLATFORMS.map(p => ({ platform: p, connected: false }))
-  )
+  // ─── 공통 연동 훅 (dashboard/settings 와 동일 소스) ─────────
+  const { connections, removeConnection } = useConnections()
+
+  const [reviewStats, setReviewStats] = useState<Record<string, { reviewCount?: number; avgRating?: number; unreplied?: number }>>({})
   const [feed, setFeed] = useState<Review[]>([])
   const [loadingFeed, setLoadingFeed] = useState(false)
   const [feedError, setFeedError] = useState('')
   const [filter, setFilter] = useState<'all' | PlatformKey>('all')
 
-  // ─── 연결 상태 로드 ───────────────────────────────────────
-  const loadConnections = useCallback(() => {
-    try {
-      const linksRaw = localStorage.getItem(LS_LINKS)
-      const links: PlatformLink[] = linksRaw ? JSON.parse(linksRaw) : []
-
-      const next: PlatformStat[] = ALL_PLATFORMS.map(p => {
-        const meta = PLATFORM_META[p]
-        // 1) 통합 LS_LINKS 우선
-        const linkedFromHub = links.find(l => l.platform === p)
-        // 2) 레거시 per-platform 키
-        let legacyConnected = false
-        let legacyStoreId = ''
-        let legacyToken = ''
-        if (meta.legacyKeys) {
-          legacyConnected = localStorage.getItem(meta.legacyKeys.connected) === 'true'
-          legacyStoreId = localStorage.getItem(meta.legacyKeys.storeId) || ''
-          legacyToken = localStorage.getItem(meta.legacyKeys.token) || ''
-        }
-
-        const connected = !!linkedFromHub || legacyConnected
-        return {
-          platform: p,
-          connected,
-          externalName: linkedFromHub?.externalName || (legacyConnected ? `${meta.label} 매장` : undefined),
-          externalUrl: linkedFromHub?.externalUrl,
-          storeId: linkedFromHub?.externalId || legacyStoreId,
-          token: legacyToken,
-        }
-      })
-      setStats(next)
-    } catch (e) {
-      console.error('연결 정보 로드 실패', e)
+  // 훅 기반 stats 파생
+  const stats: PlatformStat[] = useMemo(() => ALL_PLATFORMS.map(p => {
+    const c = connections[p as PlatformId]
+    const r = reviewStats[p] || {}
+    return {
+      platform: p,
+      connected: !!c?.connected,
+      externalName: c?.externalName,
+      externalUrl: c?.externalUrl,
+      storeId: c?.externalId,
+      reviewCount: r.reviewCount,
+      avgRating: r.avgRating,
+      unreplied: r.unreplied,
     }
-  }, [])
-
-  useEffect(() => { loadConnections() }, [loadConnections])
+  }), [connections, reviewStats])
 
   // ─── 리뷰 피드 로드 ──────────────────────────────────────
   const loadFeed = useCallback(async () => {
@@ -193,12 +162,14 @@ export default function ReviewAdminHub() {
           })
         }
         // 통계 업데이트 (리뷰 수, 평균 평점, 미답변)
-        setStats(prev => prev.map(s => s.platform === stat.platform ? {
-          ...s,
-          reviewCount: reviews.length,
-          avgRating: reviews.length ? +(reviews.reduce((a, b) => a + Number(b.rating || b.score || 5), 0) / reviews.length).toFixed(1) : 0,
-          unreplied: reviews.filter(r => !(r.replied || r.replyContent || r.replyText)).length,
-        } : s))
+        setReviewStats(prev => ({
+          ...prev,
+          [stat.platform]: {
+            reviewCount: reviews.length,
+            avgRating: reviews.length ? +(reviews.reduce((a, b) => a + Number(b.rating || b.score || 5), 0) / reviews.length).toFixed(1) : 0,
+            unreplied: reviews.filter(r => !(r.replied || r.replyContent || r.replyText)).length,
+          },
+        }))
       } catch (e: unknown) {
         errors.push(`${meta.label}: 연결이 잠깐 불안정했어요. 다시 시도해주세요 🙏`)
       }
@@ -236,7 +207,7 @@ export default function ReviewAdminHub() {
         <div className="grid grid-cols-3 gap-3 md:gap-4 mb-6">
           <div className="bg-white rounded-2xl p-4 md:p-5 border border-[#E5E8EB]">
             <p className="text-[11px] md:text-xs text-[#8B95A1] font-medium mb-1">연결된 플랫폼</p>
-            <p className="text-xl md:text-2xl font-black text-[#191F28]">{connectedCount}<span className="text-sm text-[#8B95A1] font-medium">/5</span></p>
+            <p className="text-xl md:text-2xl font-black text-[#191F28]">{connectedCount}<span className="text-sm text-[#8B95A1] font-medium">/{ALL_PLATFORMS.length}</span></p>
           </div>
           <div className="bg-white rounded-2xl p-4 md:p-5 border border-[#E5E8EB]">
             <p className="text-[11px] md:text-xs text-[#8B95A1] font-medium mb-1">전체 리뷰</p>
@@ -285,16 +256,29 @@ export default function ReviewAdminHub() {
                         <span className="text-[#8B95A1]">리뷰 {stat.reviewCount}</span>
                       )}
                     </div>
-                    <Link href={meta.detailPath}
-                      className="mt-auto w-full text-center px-3 py-2 rounded-xl text-xs font-bold transition-all"
-                      style={{ background: meta.bg, color: meta.textColor }}>
-                      관리하기 →
-                    </Link>
+                    <div className="mt-auto flex gap-1.5">
+                      <Link href={meta.detailPath}
+                        className="flex-1 text-center px-3 py-2 rounded-xl text-xs font-bold transition-all"
+                        style={{ background: meta.bg, color: meta.textColor }}>
+                        관리하기 →
+                      </Link>
+                      <button
+                        onClick={() => {
+                          if (confirm(`${meta.label} 연동을 해제할까요?`)) {
+                            removeConnection(stat.platform as PlatformId)
+                            setReviewStats(prev => { const n = { ...prev }; delete n[stat.platform]; return n })
+                          }
+                        }}
+                        className="px-2.5 py-2 rounded-xl text-xs font-bold bg-[#F2F4F6] text-[#8B95A1] hover:bg-[#E5E8EB] transition-all"
+                        title="연동 해제">
+                        ✕
+                      </button>
+                    </div>
                   </>
                 ) : (
                   <>
                     <p className="text-xs text-[#8B95A1] mb-3 leading-relaxed">아직 연결되지 않았습니다.<br/>연동하면 실시간 리뷰가 표시됩니다.</p>
-                    <Link href={`/settings/connect?platform=${stat.platform}`}
+                    <Link href={`/settings?tab=connect&platform=${stat.platform}`}
                       className="mt-auto w-full text-center px-3 py-2 rounded-xl text-xs font-bold text-white transition-all"
                       style={{ background: meta.color }}>
                       + 연결하기
@@ -348,9 +332,9 @@ export default function ReviewAdminHub() {
             <div className="text-4xl mb-3">📭</div>
             <p className="text-sm font-bold text-[#191F28] mb-1">아직 연결된 플랫폼이 없습니다</p>
             <p className="text-xs text-[#8B95A1] mb-4">위에서 플랫폼을 연결하면 실시간 리뷰가 자동으로 표시됩니다.</p>
-            <Link href="/settings/connect"
+            <Link href="/settings?tab=connect"
               className="inline-block px-4 py-2 rounded-xl text-xs font-bold bg-[#3182F6] text-white hover:bg-[#1C6FE0]">
-              연결 페이지로 이동
+              연동 관리로 이동
             </Link>
           </div>
         ) : loadingFeed ? (
