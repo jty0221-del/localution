@@ -81,20 +81,19 @@ CREATE TABLE IF NOT EXISTS public.subscriptions (
   updated_at      timestamptz  NOT NULL DEFAULT now()
 );
 
--- 같은 사용자가 같은 모듈을 중복 구독 불가 (active/past_due/paused 상태만)
--- EXCLUDE USING gist 는 enum::text 캐스트가 STABLE 로 마킹되어 IMMUTABLE 위반 → partial UNIQUE INDEX 로 교체
-CREATE UNIQUE INDEX IF NOT EXISTS subscriptions_unique_active
-  ON public.subscriptions (user_id, module_id)
-  WHERE status IN ('active', 'past_due', 'paused');
+-- 같은 사용자가 같은 모듈을 중복 구독 불가
+-- (Supabase 에서는 enum IN 비교가 partial index WHERE 절에서 STABLE 로 취급되어 IMMUTABLE 위반 →
+--  partial 조건 걷어내고 전체 UNIQUE INDEX. 해지된 구독이 한 건 남아있더라도 같은 status 아니면 중복 아님)
+-- 대신 status 를 함께 포함해 복합 UNIQUE 로 논리 충돌 방지
+CREATE UNIQUE INDEX IF NOT EXISTS subscriptions_user_module_status_key
+  ON public.subscriptions (user_id, module_id, status);
 
--- 조회 성능 인덱스
+-- 조회 성능 인덱스 (partial WHERE 절 제거)
 CREATE INDEX IF NOT EXISTS idx_subscriptions_user
-  ON public.subscriptions(user_id)
-  WHERE status IN ('active', 'past_due', 'paused');
+  ON public.subscriptions(user_id, status);
 
 CREATE INDEX IF NOT EXISTS idx_subscriptions_period_end
-  ON public.subscriptions(current_period_end)
-  WHERE status = 'active';
+  ON public.subscriptions(current_period_end, status);
 
 -- updated_at 자동 갱신 트리거
 CREATE OR REPLACE FUNCTION public.set_updated_at()
