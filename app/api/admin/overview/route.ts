@@ -34,9 +34,9 @@ export async function GET() {
       .from('customers')
       .select('id', { count: 'exact', head: true })
 
-    // 사용자 수
-    const { data: usersData } = await svc.auth.admin.listUsers({ page: 1, perPage: 1 })
-    const users_total = usersData?.total ?? 0
+    // 사용자 수 (listUsers 는 total 필드가 없을 수 있어 users 배열 length 사용)
+    const { data: usersData } = await svc.auth.admin.listUsers({ page: 1, perPage: 1000 })
+    const users_total = (usersData?.users ?? []).length
 
     return NextResponse.json({
       subscriptions,
