@@ -6,6 +6,14 @@
   -webkit-tap-highlight-color: transparent;
 }
 
+/* 🔧 모바일 터치 응답성 (2026-04-19)
+   • touch-action: manipulation — 더블탭 확대 300ms 딜레이 제거
+   • 링크·버튼 터치 시 iOS 기본 반짝 효과 제거 (아래 * tap-highlight 로도 처리됨)
+*/
+a, button, [role="button"], input[type="button"], input[type="submit"] {
+  touch-action: manipulation;
+}
+
 body {
   background-color: #F2F4F6;
   color: #191F28;
