@@ -262,11 +262,11 @@ function StoreTab() {
           <label className="block text-xs font-semibold text-[#4E5968] mb-1.5">키워드</label>
           <div className="flex gap-2">
             <div className="w-[38%]">
-              <input value={form.mainKeyword} onChange={e => setForm(p => ({ ...p, mainKeyword: e.target.value }))} placeholder="메인 키워드" className="w-full border-2 border-[#3182F6] rounded-xl px-4 py-2.5 text-sm focus:outline-none bg-[#F8FAFF] font-semibold" />
+              <input value={form.mainKeyword} onChange={e => setForm(p => ({ ...p, mainKeyword: e.target.value }))} placeholder="메인 키워드" aria-label="메인 키워드" className="w-full border-2 border-[#3182F6] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B64DA]/30 bg-[#F8FAFF] font-semibold" />
               <p className="text-[10px] text-[#3182F6] mt-1 font-semibold pl-0.5">메인 키워드 1개</p>
             </div>
             <div className="flex-1">
-              <input value={form.subKeywords} onChange={e => setForm(p => ({ ...p, subKeywords: e.target.value }))} placeholder="서브 키워드 (쉼표로 구분)" className="w-full border border-[#E5E8EB] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#3182F6] transition-colors" />
+              <input value={form.subKeywords} onChange={e => setForm(p => ({ ...p, subKeywords: e.target.value }))} placeholder="서브 키워드 (쉼표로 구분)" aria-label="서브 키워드" className="w-full border border-[#E5E8EB] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#3182F6] focus:ring-2 focus:ring-[#1B64DA]/20 transition-colors" />
               <p className="text-[10px] text-[#8B95A1] mt-1 pl-0.5">여러 개 입력 가능</p>
             </div>
           </div>
