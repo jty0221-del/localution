@@ -7,6 +7,7 @@ import Link from 'next/link'
 import Sidebar from '../../components/Sidebar'
 import Footer from '../../components/Footer'
 import { toast } from '../../lib/toast'
+import { buildSettingsHref } from '../../lib/settings-tabs'
 
 interface Review {
   id: number
@@ -168,7 +169,7 @@ export default function KakaoReviewPage() {
             <p className="text-xs md:text-sm text-[#92400E]">
               카카오맵을 연결하면 리뷰가 실시간으로 들어와요. 지금 연결해볼까요?
             </p>
-            <Link href="/settings/connect?platform=kakao"
+            <Link href={buildSettingsHref('connect', { platform: 'kakao' })}
               className="px-4 py-2 rounded-xl text-xs font-bold hover:opacity-90 whitespace-nowrap"
               style={{ background: PLATFORM.color, color: PLATFORM.textColorOnBg }}>+ 연결하기</Link>
           </div>
