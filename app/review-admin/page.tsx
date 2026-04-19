@@ -6,6 +6,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import Sidebar from '../components/Sidebar'
 import Footer from '../components/Footer'
+import PageHeader from '../components/PageHeader'
 import { useConnections, PlatformId } from '../lib/connections'
 import { toast, confirmDialog } from '../lib/toast'
 import { buildSettingsHref } from '../lib/settings-tabs'
@@ -71,7 +72,7 @@ const PLATFORM_META: Record<PlatformKey, {
     legacyKeys: { connected: 'localution.yogiyo.connected', storeId: 'localution.yogiyo.storeId', token: 'localution.yogiyo.token' },
   },
   coupang: {
-    label: '쿠팡이츠', color: '#FF4B30', bg: '#FFF3F0', textColor: '#900000', icon: 'C',
+    label: '쿠��이츠', color: '#FF4B30', bg: '#FFF3F0', textColor: '#900000', icon: 'C',
     apiPath: '/api/reviews/coupang',
     detailPath: '/review-admin/coupang',
     legacyKeys: { connected: 'localution.coupang.connected', storeId: 'localution.coupang.storeId', token: 'localution.coupang.token' },
@@ -198,12 +199,15 @@ export default function ReviewAdminHub() {
     <div className="min-h-screen bg-[#F8F9FA] flex flex-col overflow-x-hidden">
       <div className="flex flex-1">
         <Sidebar />
-        <main className="flex-1 md:ml-[220px] p-4 pt-20 md:p-8 md:pt-8 max-w-[1280px] mx-auto min-w-0">
-        {/* ─── 헤더 ─── */}
-        <div className="mb-6">
-          <h1 className="text-xl md:text-2xl font-black text-[#191F28] mb-1">리뷰 관리 허브</h1>
-          <p className="text-sm text-[#8B95A1]">플랫폼을 연결하면 실시간 리뷰가 자동으로 표시됩니다.</p>
-        </div>
+        <main className="flex-1 md:ml-[220px] pt-14 md:pt-0 min-w-0">
+        <PageHeader
+          icon="💬"
+          title="리뷰 관리 허브"
+          subtitle="플랫폼을 연결하면 실시간 리뷰가 자동으로 표시됩니다"
+          variant="primary"
+        />
+
+        <div className="max-w-5xl mx-auto p-4 md:p-6 w-full">
 
         {/* ─── 요약 통계 ─── */}
         <div className="grid grid-cols-3 gap-3 md:gap-4 mb-6">
@@ -338,7 +342,7 @@ export default function ReviewAdminHub() {
           <div className="bg-white rounded-2xl border border-[#E5E8EB] p-8 md:p-12 text-center">
             <div className="text-4xl mb-3">📭</div>
             <p className="text-sm font-bold text-[#191F28] mb-1">아직 연결된 플랫폼이 없습니다</p>
-            <p className="text-xs text-[#8B95A1] mb-4">위에서 플랫폼을 연결하면 실시간 리뷰가 자동으로 표시됩니다.</p>
+            <p className="text-xs text-[#8B95A1] mb-4">위에서 플랫폼을 연결하면 실시간 리뷰가 자동��로 표시됩니다.</p>
             <Link href={buildSettingsHref('connect')}
               className="inline-block px-4 py-2 rounded-xl text-xs font-bold bg-[#3182F6] text-white hover:bg-[#1C6FE0]">
               연동 관리로 이동
@@ -390,6 +394,7 @@ export default function ReviewAdminHub() {
             )}
           </div>
         )}
+        </div>
         </main>
       </div>
       <Footer />
