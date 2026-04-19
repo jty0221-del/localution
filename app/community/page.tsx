@@ -11,12 +11,17 @@ import {
   LayoutGrid, Lightbulb, HelpCircle, PartyPopper, MessageCircle,
   Heart, Bookmark, Pencil, Megaphone, Search, Flame, BarChart3,
   X, Plus, ArrowRight, Play, LucideIcon, MapPin, Coins, Trophy,
+  Navigation, Loader2,
 } from 'lucide-react'
-import { COMMUNITY_REGIONS, regionLabel, groupedRegions, type CommunityRegion } from '../lib/regions-community'
+import {
+  COMMUNITY_REGIONS, regionLabel, groupedRegions, nearestRegions,
+  type CommunityRegion,
+} from '../lib/regions-community'
 import {
   awardPoints, getBalance, readMyEmailFromCookie,
   maybeAwardFeatured, POINT_RULES, FEATURED_THRESHOLD,
 } from '../lib/points'
+import SlideAdBanner from '../components/SlideAdBanner'
 
 // ─── 카테고리 ─────────────────────────────────────────────────────
 type Category = { id: string; label: string; Icon: LucideIcon; color: string }
@@ -395,6 +400,52 @@ export default function Community() {
   const [balance, setBalance] = useState<number>(0)
   const [toast, setToast] = useState<{ amount: number; label: string } | null>(null)
 
+  // 위치기반 (당근식)
+  const [geoStatus, setGeoStatus] = useState<'idle' | 'loading' | 'ok' | 'denied' | 'unsupported'>('idle')
+  const [nearRegions, setNearRegions] = useState<Array<CommunityRegion & { distance_km: number }>>([])
+
+  const requestGeoLocation = () => {
+    if (typeof navigator === 'undefined' || !navigator.geolocation) {
+      setGeoStatus('unsupported')
+      return
+    }
+    setGeoStatus('loading')
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        try {
+          const list = nearestRegions(pos.coords.latitude, pos.coords.longitude, 6)
+          setNearRegions(list)
+          setGeoStatus('ok')
+          // 가장 가까운 지역으로 자동 선택(전국 제외 첫 번째)
+          const top = list[0]
+          if (top) setActiveRegion(top.id)
+          try {
+            window.localStorage.setItem('localution.community_geo', JSON.stringify({
+              lat: pos.coords.latitude, lng: pos.coords.longitude, ts: Date.now(),
+            }))
+          } catch (_) {}
+        } catch (_) {
+          setGeoStatus('denied')
+        }
+      },
+      () => setGeoStatus('denied'),
+      { enableHighAccuracy: false, timeout: 8000, maximumAge: 30 * 60 * 1000 },
+    )
+  }
+
+  // 캐시된 좌표 있으면 자동 로드
+  useEffect(() => {
+    try {
+      const raw = window.localStorage.getItem('localution.community_geo')
+      if (!raw) return
+      const g = JSON.parse(raw)
+      if (typeof g?.lat !== 'number' || typeof g?.lng !== 'number') return
+      const list = nearestRegions(g.lat, g.lng, 6)
+      setNearRegions(list)
+      setGeoStatus('ok')
+    } catch (_) {}
+  }, [])
+
   // 로그인 이메일 + 포인트 잔액 읽기
   useEffect(() => {
     const email = readMyEmailFromCookie() || 'guest@localution.co.kr'
@@ -573,7 +624,56 @@ export default function Community() {
               <MapPin size={14} strokeWidth={2.25} className="text-[#3182F6]" />
               <span className="text-sm font-bold text-[#191F28]">지역 게시판</span>
               <span className="text-xs text-[#8B95A1]">· 우리 동네 사장님들만 모여요</span>
+              <button
+                onClick={requestGeoLocation}
+                disabled={geoStatus === 'loading'}
+                className="ml-auto inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[#EFF6FF] text-[#3182F6] hover:bg-[#DBEAFE] transition-colors disabled:opacity-60"
+              >
+                {geoStatus === 'loading'
+                  ? <Loader2 size={11} strokeWidth={2.5} className="animate-spin" />
+                  : <Navigation size={11} strokeWidth={2.5} />}
+                내 위치 찾기
+              </button>
             </div>
+
+            {/* 내 근처 지역 추천 (당근식) */}
+            {geoStatus === 'ok' && nearRegions.length > 0 && (
+              <div className="mb-3 bg-[#F0FDF4] border border-[#BBF7D0] rounded-xl px-3 py-2.5">
+                <div className="flex items-center gap-1.5 mb-1.5">
+                  <Navigation size={11} strokeWidth={2.5} className="text-[#059669]" />
+                  <span className="text-[11px] font-bold text-[#065F46]">내 근처 지역</span>
+                  <span className="text-[10px] text-[#065F46]/70">· 가까운 순 {nearRegions.length}개</span>
+                </div>
+                <div className="flex gap-1.5 flex-wrap">
+                  {nearRegions.map(r => {
+                    const active = activeRegion === r.id
+                    return (
+                      <button
+                        key={r.id}
+                        onClick={() => setActiveRegion(r.id)}
+                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold transition-colors ${
+                          active
+                            ? 'bg-[#059669] text-white shadow-sm'
+                            : 'bg-white text-[#065F46] border border-[#BBF7D0] hover:bg-[#DCFCE7]'
+                        }`}
+                      >
+                        {r.parent_label ? `${r.parent_label} ${r.label}` : r.label}
+                        <span className="opacity-75 text-[10px]">
+                          {r.distance_km < 1 ? `${(r.distance_km * 1000).toFixed(0)}m` : `${r.distance_km.toFixed(1)}km`}
+                        </span>
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            )}
+            {geoStatus === 'denied' && (
+              <div className="mb-3 text-[11px] text-[#8B95A1]">위치 권한이 거부됐어요. 브라우저 설정에서 허용해주세요.</div>
+            )}
+            {geoStatus === 'unsupported' && (
+              <div className="mb-3 text-[11px] text-[#8B95A1]">이 브라우저는 위치 서비스를 지원하지 않아요.</div>
+            )}
+
             <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
               {regionGroups.map(g => (
                 <div key={g.parent ?? 'nationwide'} className="flex gap-1.5 flex-shrink-0">
@@ -599,21 +699,18 @@ export default function Community() {
             </div>
           </div>
 
-          {/* 광고 배너 */}
-          <div className="mb-5 rounded-2xl border-2 border-dashed border-[#E5E8EB] bg-white overflow-hidden">
-            <div className="flex items-center justify-between px-5 py-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#FFD700] to-[#FF8C00] flex items-center justify-center text-white text-lg font-black flex-shrink-0">AD</div>
-                <div>
-                  <p className="text-sm font-bold text-[#191F28]">광고 배너 영역</p>
-                  <p className="text-xs text-[#8B95A1]">이 공간에 매장·서비스 홍보 배너를 게재할 수 있어요</p>
-                </div>
-              </div>
-              <Link href="/inquiry?category=ad"
-                className="flex-shrink-0 px-4 py-2 rounded-xl text-sm font-semibold bg-gradient-to-r from-[#FF8C00] to-[#FFD700] text-white hover:opacity-90 transition-opacity">
-                광고 문의
-              </Link>
-            </div>
+          {/* 슬라이드 광고 배너 (대시보드와 공통) */}
+          <SlideAdBanner className="mb-5" />
+
+          {/* 광고 문의 라인 */}
+          <div className="mb-5 flex items-center justify-between bg-white rounded-2xl px-4 py-2.5 shadow-sm border border-[#F2F4F6]">
+            <p className="text-xs text-[#8B95A1]">
+              이 공간은 매장·서비스 홍보 배너로도 활용됩니다
+            </p>
+            <Link href="/inquiry?category=ad"
+              className="flex-shrink-0 inline-flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold bg-[#FFF4E5] text-[#EA580C] hover:bg-[#FFE8CC] transition-colors">
+              광고 문의 <ArrowRight size={12} strokeWidth={2.5} />
+            </Link>
           </div>
 
           {/* 검색 */}
@@ -734,24 +831,65 @@ export default function Community() {
               )}
             </div>
 
-            {/* 데스크탑 사이드 */}
-            <div className="hidden lg:block w-64 flex-shrink-0 space-y-4">
-              <div className="bg-white rounded-2xl p-5 shadow-sm">
-                <h3 className="font-bold text-[#191F28] mb-4 flex items-center gap-2">
-                  <Flame size={16} strokeWidth={2.25} className="text-[#FF3B30]" />
+            {/* 데스크탑 사이드 — 슬림 버전 (w-64 → w-52, p-5 → p-4) */}
+            <div className="hidden lg:block w-52 flex-shrink-0 space-y-3">
+              {/* 내 포인트 (최상단) */}
+              <div className="bg-gradient-to-br from-[#FFF7ED] to-[#FFFBF0] rounded-2xl p-3.5 border border-[#FED7AA]">
+                <div className="flex items-center gap-1.5 mb-1">
+                  <Coins size={13} strokeWidth={2.25} className="text-[#EA580C]" />
+                  <h3 className="font-bold text-[#EA580C] text-[11px]">내 포인트</h3>
+                </div>
+                <p className="text-xl font-black text-[#9A3412] leading-tight">{balance.toLocaleString()}<span className="text-xs ml-1">P</span></p>
+                <p className="text-[10px] text-[#78350F] mt-1 leading-snug opacity-90">활동하면 쌓여요 · 결제·광고에 사용</p>
+              </div>
+
+              {/* 내 근처 지역 (geo OK 일 때만) */}
+              {geoStatus === 'ok' && nearRegions.length > 0 && (
+                <div className="bg-white rounded-2xl p-3.5 shadow-sm">
+                  <h3 className="font-bold text-[#191F28] mb-2 flex items-center gap-1.5 text-xs">
+                    <Navigation size={12} strokeWidth={2.25} className="text-[#059669]" />
+                    내 근처
+                  </h3>
+                  <div className="space-y-1">
+                    {nearRegions.slice(0, 4).map(r => (
+                      <button
+                        key={r.id}
+                        onClick={() => setActiveRegion(r.id)}
+                        className={`w-full flex items-center justify-between px-2 py-1.5 rounded-lg text-[11px] transition-colors ${
+                          activeRegion === r.id
+                            ? 'bg-[#F0FDF4] text-[#059669] font-bold'
+                            : 'text-[#4E5968] hover:bg-[#F8F9FA]'
+                        }`}
+                      >
+                        <span className="truncate">
+                          {r.parent_label ? `${r.parent_label} ${r.label}` : r.label}
+                        </span>
+                        <span className="opacity-70 text-[10px] flex-shrink-0 ml-1">
+                          {r.distance_km < 1 ? `${(r.distance_km * 1000).toFixed(0)}m` : `${r.distance_km.toFixed(1)}km`}
+                        </span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* 인기 게시글 */}
+              <div className="bg-white rounded-2xl p-3.5 shadow-sm">
+                <h3 className="font-bold text-[#191F28] mb-2.5 flex items-center gap-1.5 text-xs">
+                  <Flame size={12} strokeWidth={2.25} className="text-[#FF3B30]" />
                   인기 게시글
                 </h3>
-                <div className="space-y-3">
+                <div className="space-y-2">
                   {hotPosts.map((post, i) => (
                     <div key={post.id} onClick={() => setSelectedPost(post)} className="cursor-pointer group">
-                      <div className="flex items-start gap-2">
-                        <span className={`text-sm font-bold flex-shrink-0 ${i === 0 ? 'text-[#FF3B30]' : i === 1 ? 'text-[#FF8C00]' : 'text-[#8B95A1]'}`}>{i + 1}</span>
-                        <div>
-                          <p className="text-xs font-medium text-[#191F28] group-hover:text-[#3182F6] transition-colors line-clamp-2">{post.title}</p>
-                          <p className="inline-flex items-center gap-1 text-xs text-[#8B95A1] mt-0.5">
-                            <Heart size={10} strokeWidth={0} fill="currentColor" className="text-[#FF3B30]" />
+                      <div className="flex items-start gap-1.5">
+                        <span className={`text-xs font-bold flex-shrink-0 ${i === 0 ? 'text-[#FF3B30]' : i === 1 ? 'text-[#FF8C00]' : 'text-[#8B95A1]'}`}>{i + 1}</span>
+                        <div className="min-w-0">
+                          <p className="text-[11px] font-medium text-[#191F28] group-hover:text-[#3182F6] transition-colors line-clamp-2 leading-snug">{post.title}</p>
+                          <p className="inline-flex items-center gap-1 text-[10px] text-[#8B95A1] mt-0.5">
+                            <Heart size={9} strokeWidth={0} fill="currentColor" className="text-[#FF3B30]" />
                             {post.likes}
-                            <span className="text-[10px] opacity-75">· {regionLabel(post.region_id)}</span>
+                            <span className="text-[9px] opacity-75 truncate">· {regionLabel(post.region_id)}</span>
                           </p>
                         </div>
                       </div>
@@ -760,26 +898,18 @@ export default function Community() {
                 </div>
               </div>
 
-              <div className="bg-gradient-to-br from-[#FFF7ED] to-[#FFFBF0] rounded-2xl p-5 border border-[#FED7AA]">
-                <div className="flex items-center gap-2 mb-2">
-                  <Coins size={16} strokeWidth={2.25} className="text-[#EA580C]" />
-                  <h3 className="font-bold text-[#EA580C] text-sm">내 포인트</h3>
-                </div>
-                <p className="text-2xl font-black text-[#9A3412]">{balance.toLocaleString()}<span className="text-sm ml-1">P</span></p>
-                <p className="text-xs text-[#78350F] mt-1 leading-relaxed">활동할수록 쌓여요. 결제·광고·리포트 차감에 사용 가능</p>
-              </div>
-
-              <div className="bg-white rounded-2xl p-5 shadow-sm">
-                <h3 className="font-bold text-[#191F28] mb-4 flex items-center gap-2">
-                  <BarChart3 size={16} strokeWidth={2.25} className="text-[#3182F6]" />
-                  카테고리별 게시글
+              {/* 카테고리별 게시글 */}
+              <div className="bg-white rounded-2xl p-3.5 shadow-sm">
+                <h3 className="font-bold text-[#191F28] mb-2 flex items-center gap-1.5 text-xs">
+                  <BarChart3 size={12} strokeWidth={2.25} className="text-[#3182F6]" />
+                  카테고리별
                 </h3>
-                <div className="space-y-2">
+                <div className="space-y-1">
                   {CATEGORIES.filter(c => c.id !== 'all').map(cat => {
                     const count = posts.filter(p => p.category === cat.id && (activeRegion === 'nationwide' || p.region_id === activeRegion)).length
                     return (
-                      <div key={cat.id} className="flex items-center justify-between text-sm">
-                        <span className="inline-flex items-center gap-1.5 text-[#4E5968]">
+                      <div key={cat.id} className="flex items-center justify-between text-[11px]">
+                        <span className="inline-flex items-center gap-1 text-[#4E5968]">
                           <cat.Icon size={12} strokeWidth={2.25} style={{ color: cat.color }} />
                           {cat.label}
                         </span>
