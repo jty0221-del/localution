@@ -27,12 +27,12 @@ type Feature = {
 const features: Feature[] = [
   { id: 'ai-review',    name: 'AI 리뷰 자동 답글',  desc: '네이버·배민·쿠팡이츠 리뷰를 AI가 분석하고 맞춤 답글 자동 생성. 하루 5분으로 100% 응답률 달성.',         price:  990, Icon: MessageCircle, iconColor: '#3182F6', category: '사장님', popular: true },
   { id: 'alimtalk',     name: '알림톡 마케팅',       desc: '카카오 알림톡으로 단골 고객에게 쿠폰·이벤트 소식 발송. 월 100건 포함.',                                  price:  990, Icon: MessageCircle,      iconColor: '#F59E0B', category: '사장님' },
-  { id: 'accounting',   name: 'AI 정산·행정',        desc: '매출 자동 정리, 세금계산서 발��, 경비 관리를 AI가 도와줍니다.',                                           price:  990, Icon: FileText,           iconColor: '#FF8C00', category: '사장님' },
+  { id: 'accounting',   name: 'AI 정산·행정',        desc: '매출 자동 정리, 세금계산서 발행, 경비 관리를 AI가 도와줍니다.',                                           price:  990, Icon: FileText,           iconColor: '#FF8C00', category: '사장님' },
   { id: 'local-synergy',name: '로컬 시너지',         desc: '주변 가게와 QR 공동이벤트, 상권 분석으로 손님을 함께 끌어모읍니다.',                                       price:  990, Icon: MapPin,             iconColor: '#EF4444', category: '사장님' },
   { id: 'qr-stamp',     name: 'QR 스탬프 적립',      desc: '디지털 스탬프 카드로 재방문율을 높이세요. QR 코드 하나로 시작.',                                           price:  990, Icon: Ticket,             iconColor: '#00C471', category: '사장님' },
   { id: 'keyword',      name: '키워드 분석',         desc: '네이버 검색량, 경쟁도, 연관 키워드를 실시간 분석. 블로그·플레이스 상위 노출 전략 수립.',                    price: 1990, Icon: Search,             iconColor: '#8B5CF6', category: '마케터', popular: true },
   { id: 'blog-ai',      name: 'AI 블로그 포스팅',    desc: 'SEO 최적화된 블로그 글을 AI가 초안 작성. 키워드 자동 삽입, 이미지 배치 제안.',                             price: 1490, Icon: PenLine,            iconColor: '#EC4899', category: '마케터' },
-  { id: 'competitor',   name: '���쟁사 분석',         desc: '주변 경쟁 업체의 리뷰 동향, 키워드, 마케팅 전략을 자동 모니터링.',                                         price: 1990, Icon: Target,             iconColor: '#0EA5E9', category: '마케터' },
+  { id: 'competitor',   name: '경쟁사 분석',         desc: '주변 경쟁 업체의 리뷰 동향, 키워드, 마케팅 전략을 자동 모니터링.',                                         price: 1990, Icon: Target,             iconColor: '#0EA5E9', category: '마케터' },
   { id: 'report',       name: '마케팅 성과 리포트',  desc: '유입, 전환, 매출 연동 마케팅 효과를 주간·월간 리포트로 자동 발송.',                                         price:  990, Icon: BarChart3,          iconColor: '#10B981', category: '마케터' },
   { id: 'crm',          name: 'CRM 고객관리',        desc: '고객 방문 이력, 결제 금액, 등급을 자동 분류. 단골·VIP 맞춤 관리.',                                          price: 1290, Icon: Users,              iconColor: '#6366F1', category: '공통',   popular: true },
   { id: 'ai-chat',      name: 'AI 비서 채팅',        desc: '사장님 전용 AI 상담사. 매출 질문, 마케팅 조언, 운영 팁을 24시간 답변.',                                      price:  990, Icon: Bot,                iconColor: '#14B8A6', category: '공통' },
@@ -115,7 +115,7 @@ const faqs = [
     a: '설정에서 1클릭 해지 가능합니다. 베타 기간은 결제 자체가 없어 해지 시 환불 이슈도 없어요. 정식 출시 후에도 당월 남은 일수만큼 일할 계산 환불됩니다.',
   },
   {
-    q: '여러 매장을 운영 중인데 한 계��으로 쓸 수 있나요?',
+    q: '여러 매장을 운영 중인데 한 계정으로 쓸 수 있나요?',
     a: '사장님 플랜은 1개 매장 기준이에요. 2개 이상 매장은 매장별로 따로 결제하거나, 마케터·대행사용 멀티 매장 플랜(준비 중)을 이용하시면 됩니다.',
   },
   {
