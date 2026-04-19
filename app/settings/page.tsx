@@ -242,27 +242,27 @@ function StoreTab() {
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div>
-            <label className="block text-xs font-semibold text-[#4E5968] mb-1.5">매장명</label>
-            <input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="우리 카페" className="w-full border border-[#E5E8EB] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#3182F6] transition-colors" />
+            <label htmlFor="form-name" className="block text-xs font-semibold text-[#4E5968] mb-1.5">매장명</label>
+            <input id="form-name" value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="우리 카페" className="w-full border border-[#E5E8EB] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#3182F6] transition-colors" />
           </div>
           <div>
-            <label className="block text-xs font-semibold text-[#4E5968] mb-1.5">업종</label>
-            <input value={form.category} onChange={e => setForm(p => ({ ...p, category: e.target.value }))} placeholder="카페·베이커리" className="w-full border border-[#E5E8EB] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#3182F6] transition-colors" />
+            <label htmlFor="form-category" className="block text-xs font-semibold text-[#4E5968] mb-1.5">업종</label>
+            <input id="form-category" value={form.category} onChange={e => setForm(p => ({ ...p, category: e.target.value }))} placeholder="카페·베이커리" className="w-full border border-[#E5E8EB] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#3182F6] transition-colors" />
           </div>
         </div>
         <div>
-          <label className="block text-xs font-semibold text-[#4E5968] mb-1.5">전화번호</label>
-          <input value={form.phone} onChange={e => setForm(p => ({ ...p, phone: e.target.value }))} placeholder="02-1234-5678" className="w-full border border-[#E5E8EB] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#3182F6] transition-colors" />
+          <label htmlFor="form-phone" className="block text-xs font-semibold text-[#4E5968] mb-1.5">전화번호</label>
+          <input id="form-phone" value={form.phone} onChange={e => setForm(p => ({ ...p, phone: e.target.value }))} placeholder="02-1234-5678" className="w-full border border-[#E5E8EB] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#3182F6] transition-colors" />
         </div>
         <div>
-          <label className="block text-xs font-semibold text-[#4E5968] mb-1.5">주소</label>
-          <input value={form.address} onChange={e => setForm(p => ({ ...p, address: e.target.value }))} placeholder="서울시 마포구 합정동 123-4" className="w-full border border-[#E5E8EB] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#3182F6] transition-colors" />
+          <label htmlFor="form-address" className="block text-xs font-semibold text-[#4E5968] mb-1.5">주소</label>
+          <input id="form-address" value={form.address} onChange={e => setForm(p => ({ ...p, address: e.target.value }))} placeholder="서울시 마포구 합정동 123-4" className="w-full border border-[#E5E8EB] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#3182F6] transition-colors" />
         </div>
         <div>
-          <label className="block text-xs font-semibold text-[#4E5968] mb-1.5">키워드</label>
+          <label htmlFor="form-main-keyword" className="block text-xs font-semibold text-[#4E5968] mb-1.5">키워드</label>
           <div className="flex gap-2">
             <div className="w-[38%]">
-              <input value={form.mainKeyword} onChange={e => setForm(p => ({ ...p, mainKeyword: e.target.value }))} placeholder="메인 키워드" aria-label="메인 키워드" className="w-full border-2 border-[#3182F6] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B64DA]/30 bg-[#F8FAFF] font-semibold" />
+              <input id="form-main-keyword" value={form.mainKeyword} onChange={e => setForm(p => ({ ...p, mainKeyword: e.target.value }))} placeholder="메인 키워드" aria-label="메인 키워드" className="w-full border-2 border-[#3182F6] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#1B64DA]/30 bg-[#F8FAFF] font-semibold" />
               <p className="text-[10px] text-[#3182F6] mt-1 font-semibold pl-0.5">메인 키워드 1개</p>
             </div>
             <div className="flex-1">
@@ -282,8 +282,8 @@ function StoreTab() {
           )}
         </div>
         <div>
-          <label className="block text-xs font-semibold text-[#4E5968] mb-1.5">매장 소개</label>
-          <textarea value={form.desc} onChange={e => setForm(p => ({ ...p, desc: e.target.value }))} rows={3} placeholder="AI 리뷰 답변 작성 시 참고하는 문구입니다. 매장 특징을 입력하세요." className="w-full border border-[#E5E8EB] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#3182F6] transition-colors resize-none" />
+          <label htmlFor="form-desc" className="block text-xs font-semibold text-[#4E5968] mb-1.5">매장 소개</label>
+          <textarea id="form-desc" value={form.desc} onChange={e => setForm(p => ({ ...p, desc: e.target.value }))} rows={3} placeholder="AI 리뷰 답변 작성 시 참고하는 문구입니다. 매장 특징을 입력하세요." className="w-full border border-[#E5E8EB] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#3182F6] transition-colors resize-none" />
         </div>
         <button onClick={handleSave} className={`w-full py-3 rounded-xl font-bold text-sm transition-colors ${saved ? 'bg-green-500 text-white' : 'bg-[#191F28] text-white hover:bg-[#333D4B]'}`}>
           {saved ? '저장됨' : '저장하기'}
@@ -492,8 +492,8 @@ function AITab() {
           </div>
         </div>
         <div>
-          <label className="block text-xs font-semibold text-[#4E5968] mb-1.5">매장 소개 (AI 참고용)</label>
-          <textarea value={storeDesc} onChange={e => setStoreDesc(e.target.value)} rows={2}
+          <label htmlFor="store-desc" className="block text-xs font-semibold text-[#4E5968] mb-1.5">매장 소개 (AI 참고용)</label>
+          <textarea id="store-desc" value={storeDesc} onChange={e => setStoreDesc(e.target.value)} rows={2}
             placeholder="예: 강남역 10번 출구 도보 2분, 제주 원두 사용 스페셜티 카페. 감성 인테리어와 직접 구운 크로아상이 인기."
             className="w-full border border-[#E5E8EB] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#3182F6] transition-colors resize-none" />
           <p className="text-[10px] text-[#8B95A1] mt-1">입력할수록 AI가 매장에 맞는 답변을 생성합니다</p>
@@ -605,15 +605,15 @@ function AITab() {
       {/* 고정 문구 + 제외 표현 */}
       <div className="bg-white rounded-2xl p-6 shadow-sm space-y-4">
         <div>
-          <label className="block text-xs font-semibold text-[#4E5968] mb-1.5">고정 마무리 문구</label>
-          <input value={closing} onChange={e => setClosing(e.target.value)}
+          <label htmlFor="closing" className="block text-xs font-semibold text-[#4E5968] mb-1.5">고정 마무리 문구</label>
+          <input id="closing" value={closing} onChange={e => setClosing(e.target.value)}
             placeholder="예: 오늘도 행복한 하루 되세요 🌿"
             className="w-full border border-[#E5E8EB] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#3182F6] transition-colors" />
           <p className="text-[10px] text-[#8B95A1] mt-1">모든 답변 마지막에 고정으로 들어갈 문구</p>
         </div>
         <div>
-          <label className="block text-xs font-semibold text-[#4E5968] mb-1.5">사용 금지 표현</label>
-          <input value={excludes} onChange={e => setExcludes(e.target.value)}
+          <label htmlFor="excludes" className="block text-xs font-semibold text-[#4E5968] mb-1.5">사용 금지 표현</label>
+          <input id="excludes" value={excludes} onChange={e => setExcludes(e.target.value)}
             placeholder="예: 죄송, 유감, 어떠셨나요"
             className="w-full border border-[#E5E8EB] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#3182F6] transition-colors" />
           <p className="text-[10px] text-[#8B95A1] mt-1">쉼표로 구분 — AI가 절대 사용하지 않을 표현</p>
@@ -1092,13 +1092,13 @@ function PlanTab() {
           </div>
           <div className="space-y-3 mb-4">
             <div>
-              <label className="block text-xs font-semibold text-[#4E5968] mb-1.5">클라이언트 키</label>
-              <input type="text" value={tossKey.client} onChange={e => setTossKey(p => ({ ...p, client: e.target.value }))} placeholder={`${tossMode}_ck_...`} className="w-full border border-[#E5E8EB] rounded-xl px-4 py-2.5 text-sm font-mono focus:outline-none focus:border-[#3182F6] transition-colors" />
+              <label htmlFor="toss-key-client" className="block text-xs font-semibold text-[#4E5968] mb-1.5">클라이언트 키</label>
+              <input id="toss-key-client" type="text" value={tossKey.client} onChange={e => setTossKey(p => ({ ...p, client: e.target.value }))} placeholder={`${tossMode}_ck_...`} className="w-full border border-[#E5E8EB] rounded-xl px-4 py-2.5 text-sm font-mono focus:outline-none focus:border-[#3182F6] transition-colors" />
               <p className="text-[10px] text-[#B0B8C1] mt-1">기본값은 토스 공식 테스트 키 — 실제 결제 발생 X</p>
             </div>
             <div>
-              <label className="block text-xs font-semibold text-[#4E5968] mb-1.5">시크릿 키 (서버 전용)</label>
-              <input type="password" value={tossKey.secret} onChange={e => setTossKey(p => ({ ...p, secret: e.target.value }))} placeholder={`${tossMode}_sk_... (Vercel 환경변수에 저장 권장)`} className="w-full border border-[#E5E8EB] rounded-xl px-4 py-2.5 text-sm font-mono focus:outline-none focus:border-[#3182F6] transition-colors" />
+              <label htmlFor="toss-key-secret" className="block text-xs font-semibold text-[#4E5968] mb-1.5">시크릿 키 (서버 전용)</label>
+              <input id="toss-key-secret" type="password" value={tossKey.secret} onChange={e => setTossKey(p => ({ ...p, secret: e.target.value }))} placeholder={`${tossMode}_sk_... (Vercel 환경변수에 저장 권장)`} className="w-full border border-[#E5E8EB] rounded-xl px-4 py-2.5 text-sm font-mono focus:outline-none focus:border-[#3182F6] transition-colors" />
               <p className="text-[10px] text-[#B0B8C1] mt-1">⚠️ 시크릿 키는 브라우저에 저장하지 말고 Vercel 환경변수 <span className="font-mono">TOSS_SECRET_KEY</span>에 등록</p>
             </div>
           </div>
