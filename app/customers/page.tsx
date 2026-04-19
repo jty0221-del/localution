@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic'
 import { useEffect, useState } from 'react'
 import Sidebar from '../components/Sidebar'
 import Footer from '../components/Footer'
+import { BRAND_GRAD } from '../lib/brand-colors'
 
 type Tag = 'VIP' | '단골' | '신규' | '휴면' | '블랙리스트'
 
@@ -139,7 +140,7 @@ export default function CustomersPage() {
         <Sidebar />
         <main className="flex-1 ml-0 md:ml-[220px] pt-14 md:pt-0 min-w-0">
           {/* LOCALUTION_HERO_BANNER */}
-          <section className="bg-gradient-to-br from-[#F59E0B] to-[#D97706] text-white">
+          <section className={`${BRAND_GRAD.warn} text-white`}>
             <div className="max-w-5xl mx-auto px-4 md:px-8 py-6 md:py-10 flex items-center gap-3 md:gap-4">
               <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center text-3xl md:text-4xl flex-shrink-0">🫶</div>
               <div className="flex-1 min-w-0">
@@ -279,7 +280,7 @@ export default function CustomersPage() {
                   className="w-4 h-4 rounded text-[#3182F6] cursor-pointer flex-shrink-0" />
 
                 {/* 아바타 */}
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-[#3182F6] to-[#8B5CF6] flex items-center justify-center text-white font-bold text-sm flex-shrink-0">
+                <div className={`w-10 h-10 rounded-full ${BRAND_GRAD.avatar} flex items-center justify-center text-white font-bold text-sm flex-shrink-0`}>
                   {c.name[0]}
                 </div>
 
