@@ -7,6 +7,7 @@ import Link from 'next/link'
 import Sidebar from '../components/Sidebar'
 import Footer from '../components/Footer'
 import { useConnections, PlatformId } from '../lib/connections'
+import { toast, confirmDialog } from '../lib/toast'
 
 // ═══════════════════════════════════════════════════════════════
 //  타입 & 상수
@@ -263,11 +264,16 @@ export default function ReviewAdminHub() {
                         관리하기 →
                       </Link>
                       <button
-                        onClick={() => {
-                          if (confirm(`${meta.label} 연동을 해제할까요?`)) {
-                            removeConnection(stat.platform as PlatformId)
-                            setReviewStats(prev => { const n = { ...prev }; delete n[stat.platform]; return n })
-                          }
+                        onClick={async () => {
+                          const ok = await confirmDialog(`${meta.label} 연동을 해제할까요?`, {
+                            title: '연동 해제',
+                            okText: '해제',
+                            danger: true,
+                          })
+                          if (!ok) return
+                          removeConnection(stat.platform as PlatformId)
+                          setReviewStats(prev => { const n = { ...prev }; delete n[stat.platform]; return n })
+                          toast.success(`${meta.label} 연동을 해제했어요`)
                         }}
                         className="px-2.5 py-2 rounded-xl text-xs font-bold bg-[#F2F4F6] text-[#8B95A1] hover:bg-[#E5E8EB] transition-all"
                         title="연동 해제">
