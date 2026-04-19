@@ -28,19 +28,12 @@ type Store = {
   signatures: string[]
 }
 
+// 하드코딩된 시범 매장 데이터는 제거 — 실제 업체 정보는 Supabase(stores 테이블)와
+// QR URL 쿼리파라미터(n/t/a/kw/naver/pid/reward)에서만 공급받는다.
+// 오직 '/review/demo' 한 경로만 로컬루션 소개용 안전한 샘플로 유지한다.
 const STORES: Record<string, Store> = {
-  'harang-cafe-001': {
-    slug: 'harang-cafe-001',
-    name: '하랑카페',
-    category: '카페',
-    address: '부천시 원미구 상동',
-    keywords: ['부천 상동 카페', '분위기 좋은 카페', '디저트 맛집', '조용한 작업 카페'],
-    naverUrl: 'https://m.place.naver.com/restaurant/list?query=%ED%95%98%EB%9E%91%EC%B9%B4%ED%8E%98',
-    greeting: '하랑카페를 방문해주셔서 감사해요',
-    signatures: ['시그니처 라떼', '수제 디저트', '아메리카노'],
-  },
-  'demo-restaurant-001': {
-    slug: 'demo-restaurant-001',
+  demo: {
+    slug: 'demo',
     name: '로컬루션 데모 매장',
     category: '데모',
     address: '',
@@ -53,15 +46,17 @@ const STORES: Record<string, Store> = {
 
 function getStore(storeId: string): Store {
   if (STORES[storeId]) return STORES[storeId]
-  const name = storeId.split('-')[0] || '우리 매장'
+  // slug → 사람이 읽을 수 있는 이름으로 복원 시도 (한글 포함)
+  // 그래도 실제 상호가 안 맞을 수 있어, URL 쿼리 n= / Supabase 조회 결과가 덮어쓰도록 함
+  const readable = (storeId || '').replace(/-+/g, ' ').trim() || '우리 매장'
   return {
     slug: storeId,
-    name,
-    category: '매장',
+    name: readable,
+    category: '',
     address: '',
     keywords: ['맛있는 곳', '분위기 좋은 곳', '재방문 의사 있음'],
     naverUrl: 'https://m.place.naver.com/',
-    greeting: '방문해주셔서 감사합니다',
+    greeting: readable + '을(를) 방문해주셔서 감사합니다',
     signatures: ['대표 메뉴'],
   }
 }
@@ -77,9 +72,10 @@ export default function ReviewPage() {
   const baseStore = getStore(storeId)
 
   // QR URL 쿼리파라미터 — 어떤 기기에서 찍어도 정확한 매장 정보 전달
-  // n=상호명 / t=업종 / kw=키워드 / naver=네이버URL / pid=네이버PlaceID / reward=보상
+  // n=상호명 / t=업종 / a=주소·지역 / kw=키워드 / naver=네이버URL / pid=네이버PlaceID / reward=보상
   const qpName    = searchParams?.get('n')     || ''
   const qpCat     = searchParams?.get('t')     || ''
+  const qpAddr    = searchParams?.get('a')     || ''
   const qpKw      = searchParams?.get('kw')    || ''
   const qpNaver   = searchParams?.get('naver') || ''
   const qpPid     = searchParams?.get('pid')   || ''
@@ -87,14 +83,17 @@ export default function ReviewPage() {
 
   const [store, setStore] = useState<Store>(() => {
     // URL 파라미터가 있으면 우선 적용 (QR 스캔 시)
-    const hasQp = qpName || qpCat || qpNaver || qpPid
+    const hasQp = qpName || qpCat || qpAddr || qpNaver || qpPid
     if (hasQp) {
+      const finalName = qpName || baseStore.name
       return {
         ...baseStore,
-        name:     qpName  || baseStore.name,
+        name:     finalName,
         category: qpCat   || baseStore.category,
+        address:  qpAddr  || baseStore.address,
         naverUrl: qpNaver || (qpPid ? `https://m.place.naver.com/place/${qpPid}/review/visitor/write` : baseStore.naverUrl),
         keywords: qpKw ? [qpKw, ...baseStore.keywords.slice(0, 3)] : baseStore.keywords,
+        greeting: qpName ? (finalName + '을(를) 방문해주셔서 감사합니다') : baseStore.greeting,
       }
     }
     return baseStore
@@ -103,7 +102,7 @@ export default function ReviewPage() {
   // localStorage에서 매장 정보 자동 로드 (QR 관리에서 저장한 데이터)
   // URL 파라미터가 있으면 이미 store에 반영되어 있으므로 skip
   useEffect(() => {
-    if (qpName || qpNaver || qpPid) return // URL 우선
+    if (qpName || qpAddr || qpNaver || qpPid) return // URL 우선
     try {
       const raw = window.localStorage.getItem('localution.store_info')
       if (!raw) return
@@ -128,6 +127,7 @@ export default function ReviewPage() {
           category: info.category || prev.category,
           address: info.location || prev.address,
           naverUrl: info.naverUrl || prev.naverUrl,
+          greeting: info.name ? (info.name + '을(를) 방문해주셔서 감사합니다') : prev.greeting,
         }))
       }
       // QR 설정에서 키워드도 로드
@@ -142,11 +142,11 @@ export default function ReviewPage() {
         }
       }
     } catch (_) {}
-  }, [storeId])
+  }, [storeId, qpName, qpAddr, qpNaver, qpPid])
 
   // Supabase stores 테이블에서 slug로 조회 — 어떤 기기/경로로 접근해도 업체 정보 자동 적용
   useEffect(() => {
-    if (qpName || qpNaver || qpPid) return // URL 파라미터 우선
+    if (qpName || qpAddr || qpNaver || qpPid) return // URL 파라미터 우선
     if (!storeId || storeId === 'default') return
     let alive = true
     ;(async () => {
@@ -165,11 +165,12 @@ export default function ReviewPage() {
           keywords: (s.main_keyword || (s.sub_keywords && s.sub_keywords.length))
             ? [s.main_keyword, ...(s.sub_keywords || []), ...prev.keywords.slice(0, 2)].filter(Boolean)
             : prev.keywords,
+          greeting: s.name ? (s.name + '을(를) 방문해주셔서 감사합니다') : prev.greeting,
         }))
       } catch (_) {}
     })()
     return () => { alive = false }
-  }, [storeId])
+  }, [storeId, qpName, qpAddr, qpNaver, qpPid])
 
   const [step, setStep] = useState<0 | 1 | 2 | 3 | 4>(0)
   const [photos, setPhotos] = useState<Photo[]>([])
