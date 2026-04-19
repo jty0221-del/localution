@@ -1149,36 +1149,41 @@ function SettingsInner() {
       <div className="min-h-screen bg-[#F2F4F6] flex flex-col overflow-x-hidden">
         <div className="flex flex-1">
           <Sidebar />
-          <main className="flex-1 min-w-0 max-w-full md:ml-[220px] p-4 md:p-8 pt-16 md:pt-8">
-            {/* 히어로 브랜딩 — 탭별 그라디언트 + 이모지 배지 */}
-            <div className={`mb-8 rounded-3xl p-6 md:p-8 text-white bg-gradient-to-br ${hero.grad} shadow-lg`}>
-              <div className="flex items-center gap-4">
-                <div className="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center text-3xl md:text-4xl">
+          <main className="flex-1 min-w-0 max-w-full md:ml-[220px] pt-14 md:pt-0">
+            {/* LOCALUTION_HERO_BANNER */}
+            <section className={`bg-gradient-to-br ${hero.grad} text-white`}>
+              <div className="max-w-5xl mx-auto px-4 md:px-8 py-6 md:py-10 flex items-center gap-3 md:gap-4">
+                <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center text-3xl md:text-4xl flex-shrink-0">
                   {hero.emoji}
                 </div>
-                <div className="min-w-0">
-                  <h1 className="text-2xl md:text-3xl font-black">설정 · {activeTab}</h1>
-                  <p className="text-white/90 mt-1 text-sm md:text-base">{hero.sub}</p>
+                <div className="flex-1 min-w-0">
+                  <h1 className="text-xl md:text-2xl font-black tracking-tight truncate">설정 · {activeTab === '플랜 관리 (결제내역)' ? '플랜·결제' : activeTab}</h1>
+                  <p className="text-white/85 text-xs md:text-sm mt-1 leading-relaxed">{hero.sub}</p>
+                </div>
+                <div className="hidden md:flex items-center gap-1.5 text-[11px] font-bold text-white/90 bg-white/15 backdrop-blur px-3 py-1.5 rounded-full border border-white/20 flex-shrink-0">
+                  로컬루션
                 </div>
               </div>
-            </div>
+            </section>
 
-            <div className="flex gap-1 mb-8 bg-white rounded-2xl p-1.5 shadow-sm overflow-x-auto scrollbar-hide -mx-1 px-1">
-              {TABS.map(tab => (
-                <button
-                  key={tab}
-                  onClick={() => setActiveTab(tab)}
-                  className={`flex-shrink-0 md:flex-1 min-w-fit py-2 px-3 rounded-xl text-sm font-semibold transition-colors whitespace-nowrap ${activeTab === tab ? 'bg-[#3182F6] text-white' : 'text-[#4E5968] hover:bg-[#F2F4F6]'}`}
-                >
-                  {tab === '플랜 관리 (결제내역)' ? '플랜·결제' : tab}
-                </button>
-              ))}
+            <div className="max-w-5xl mx-auto p-4 md:p-8">
+              <div className="flex gap-1 mb-6 bg-white rounded-2xl p-1.5 shadow-sm overflow-x-auto scrollbar-hide -mx-1 px-1">
+                {TABS.map(tab => (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={`flex-shrink-0 md:flex-1 min-w-fit py-2 px-3 rounded-xl text-sm font-semibold transition-colors whitespace-nowrap ${activeTab === tab ? 'bg-[#3182F6] text-white' : 'text-[#4E5968] hover:bg-[#F2F4F6]'}`}
+                  >
+                    {tab === '플랜 관리 (결제내역)' ? '플랜·결제' : tab}
+                  </button>
+                ))}
+              </div>
+              {activeTab === '매장 정보' && <StoreTab />}
+              {activeTab === '알림 설정' && <NotifyTab />}
+              {activeTab === 'AI 설정' && <AITab />}
+              {activeTab === '연동 관리' && <ConnectTab />}
+              {activeTab === '플랜 관리 (결제내역)' && <PlanTab />}
             </div>
-            {activeTab === '매장 정보' && <StoreTab />}
-            {activeTab === '알림 설정' && <NotifyTab />}
-            {activeTab === 'AI 설정' && <AITab />}
-            {activeTab === '연동 관리' && <ConnectTab />}
-            {activeTab === '플랜 관리 (결제내역)' && <PlanTab />}
           </main>
         </div>
         {/* 공통 Footer */}
