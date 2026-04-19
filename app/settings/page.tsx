@@ -26,7 +26,7 @@ const FEATURES: Array<{
   { id: 'qr-stamp',      name: 'QR 스탬프 적립',      price: 0, short: 'QR',     bg: '#ECFDF5', color: '#00C471', desc: '디지털 스탬프로 재방문율 향상',                     category: '사장님' },
   { id: 'keyword',       name: '키워드 분석',         price: 0, short: '키워드', bg: '#F5F3FF', color: '#8B5CF6', desc: '네이버 검색량·경쟁도·연관 키워드 실시간 분석',      category: '마케터', popular: true },
   { id: 'blog-ai',       name: 'AI 블로그 포스팅',    price: 0, short: '블로그', bg: '#FDF2F8', color: '#EC4899', desc: 'SEO 최적화 블로그 초안 AI 작성',                    category: '마케터' },
-  { id: 'competitor',    name: '경쟁사 분석',         price: 0, short: '경쟁',   bg: '#F0F9FF', color: '#0EA5E9', desc: '경쟁 업체 리뷰·키워드·마케팅 자동 모니터링',        category: '마케터' },
+  { id: 'competitor',    name: '경쟁사 분석',         price: 0, short: '경쟁',   bg: '#F0F9FF', color: '#0EA5E9', desc: '경쟁 업체 리뷰·��워드·마케팅 자동 모니터링',        category: '마케터' },
   { id: 'report',        name: '마케팅 성과 리포트',  price: 0, short: '리포트', bg: '#ECFDF5', color: '#10B981', desc: '유입·전환·매출 주간·월간 자동 리포트',              category: '마케터' },
   { id: 'crm',           name: 'CRM 고객관리',        price: 0, short: 'CRM',    bg: '#EEF2FF', color: '#6366F1', desc: '고객 방문·결제·등급 자동 분류, 단골 관리',           category: '공통',   popular: true },
   { id: 'ai-chat',       name: 'AI 비서 채팅',        price: 0, short: '비서',   bg: '#F0FDFA', color: '#14B8A6', desc: '사장님 전용 24시간 AI 상담사',                       category: '공통' },
@@ -425,7 +425,7 @@ function buildPrompt(cfg: {
   if (cfg.includes['thanks'])    parts.push('- 방문 감사 인사를 자연스럽게 포함')
   if (cfg.includes['revisit'])   parts.push('- 재방문 유도 문구 포함 (예: "다음에도 꼭 찾아주세요")')
   if (cfg.includes['mention'])   parts.push('- 리뷰에서 언급된 메뉴 또는 서비스를 직접 언급')
-  if (cfg.includes['personalize']) parts.push('- ���뷰어의 닉네임으로 개인화 인사 (예: "OO님,")')
+  if (cfg.includes['personalize']) parts.push('- 리뷰어의 닉네임으로 개인화 인사 (예: "OO님,")')
   if (cfg.includes['improve'])   parts.push('- 부정적 내용은 개선 의지와 사과를 진정성 있게 표현')
   if (cfg.includes['keyword'])   parts.push('- 매장 핵심 키워드를 자연스럽게 1~2회 포함')
   if (cfg.closing) parts.push('\n[고정 마무리 문구]\n답변 마지막에 반드시 포함: "' + cfg.closing + '"')
@@ -708,7 +708,7 @@ function ConnectTab() {
     { key: 'naver', label: '네이버 플레이스', logo: <NaverLogoS />, desc: '네이버 리뷰·검색 연동', cat: '리뷰·검색' },
     { key: 'google', label: '구글 비즈니스', logo: <GoogleLogoS />, desc: '구글 마이비즈니스 연동', cat: '리뷰·검색' },
     { key: 'baemin', label: '배달의민족', logo: <BaeminLogoS />, desc: '배민 주문·리뷰 관리', cat: '배달' },
-    { key: 'yogiyo', label: '요기요', logo: <YogiyoLogoS />, desc: '요기요 주문·평점 연동', cat: '배달' },
+    { key: 'yogiyo', label: '요기요', logo: <YogiyoLogoS />, desc: '요기요 주문·리뷰 연동', cat: '배달' },
     { key: 'coupang', label: '쿠팡이츠', logo: <CoupangLogoS />, desc: '쿠팡이츠 주문·리뷰 연동', cat: '배달' },
     { key: 'yeoshin', label: '여신금융', logo: <YeoshinLogoS />, desc: '카드 매출·결제 데이터 연동', cat: '금융·세무' },
     { key: 'hometax', label: '홈택스', logo: <HometaxLogoS />, desc: '부가세·세금 데이터 연동', cat: '금융·세무' },
@@ -1146,10 +1146,10 @@ function SettingsInner() {
     <>
       {/* 토스페이먼츠 SDK — 플랜 관리 탭에서 결제 수단 등록 시 사용 */}
       <Script src="https://js.tosspayments.com/v1/payment" strategy="afterInteractive" />
-      <div className="min-h-screen bg-[#F2F4F6] flex flex-col">
+      <div className="min-h-screen bg-[#F2F4F6] flex flex-col overflow-x-hidden">
         <div className="flex flex-1">
           <Sidebar />
-          <main className="flex-1 md:ml-[220px] p-4 md:p-8 pt-16 md:pt-8 pr-16 md:pr-20">
+          <main className="flex-1 min-w-0 max-w-full md:ml-[220px] p-4 md:p-8 pt-16 md:pt-8">
             {/* 히어로 브랜딩 — 탭별 그라디언트 + 이모지 배지 */}
             <div className={`mb-8 rounded-3xl p-6 md:p-8 text-white bg-gradient-to-br ${hero.grad} shadow-lg`}>
               <div className="flex items-center gap-4">
@@ -1163,14 +1163,14 @@ function SettingsInner() {
               </div>
             </div>
 
-            <div className="flex gap-1 mb-8 bg-white rounded-2xl p-1.5 shadow-sm overflow-x-auto">
+            <div className="flex gap-1 mb-8 bg-white rounded-2xl p-1.5 shadow-sm overflow-x-auto scrollbar-hide -mx-1 px-1">
               {TABS.map(tab => (
                 <button
                   key={tab}
                   onClick={() => setActiveTab(tab)}
-                  className={`flex-1 min-w-[80px] py-2 px-3 rounded-xl text-sm font-semibold transition-colors whitespace-nowrap ${activeTab === tab ? 'bg-[#3182F6] text-white' : 'text-[#4E5968] hover:bg-[#F2F4F6]'}`}
+                  className={`flex-shrink-0 md:flex-1 min-w-fit py-2 px-3 rounded-xl text-sm font-semibold transition-colors whitespace-nowrap ${activeTab === tab ? 'bg-[#3182F6] text-white' : 'text-[#4E5968] hover:bg-[#F2F4F6]'}`}
                 >
-                  {tab}
+                  {tab === '플랜 관리 (결제내역)' ? '플랜·결제' : tab}
                 </button>
               ))}
             </div>
