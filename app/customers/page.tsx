@@ -69,7 +69,7 @@ export default function CustomersPage() {
   // 2) KakaoTalk PC deep link 시도 (설치돼 있으면 자동 실행)
   // 3) 사용자에게 "카카오톡 대화창에 Ctrl+V 붙여넣기" 안내
   //   ※ 실서비스 자동 발송은 Solapi/Aligo/NHN BizM 알림톡 API 연동으로 확장
-  const [sendMode, setSendMode] = useState<'kakao' | 'sms'>('kakao')
+  const [sendMode, setSendMode] = useState<'kakao' | 'sms' | 'alimtalk'>('kakao')
   const [sendError, setSendError] = useState<string | null>(null)
 
   const buildPersonalizedBlocks = (): string => {
@@ -391,16 +391,26 @@ export default function CustomersPage() {
               <p className="text-xs text-[#8B95A1] mb-3">선택한 {selected.length}명에게 발송됩니다</p>
 
               {/* 채널 선택 */}
-              <div className="flex gap-2 mb-3">
+              <div className="grid grid-cols-3 gap-2 mb-3">
                 <button
                   onClick={() => setSendMode('kakao')}
-                  className={`flex-1 py-2 rounded-lg text-xs font-bold transition-colors ${sendMode === 'kakao' ? 'bg-[#FEE500] text-[#191F28]' : 'bg-[#F2F4F6] text-[#8B95A1]'}`}>
-                  카카오톡 (PC · 복사)
+                  className={`py-2 rounded-lg text-[11px] md:text-xs font-bold transition-colors ${sendMode === 'kakao' ? 'bg-[#FEE500] text-[#191F28]' : 'bg-[#F2F4F6] text-[#8B95A1]'}`}>
+                  카톡 복사
+                  <div className="text-[9px] opacity-70 font-normal">PC 카카오톡</div>
                 </button>
                 <button
                   onClick={() => setSendMode('sms')}
-                  className={`flex-1 py-2 rounded-lg text-xs font-bold transition-colors ${sendMode === 'sms' ? 'bg-[#3182F6] text-white' : 'bg-[#F2F4F6] text-[#8B95A1]'}`}>
-                  SMS (모바일 직발송)
+                  className={`py-2 rounded-lg text-[11px] md:text-xs font-bold transition-colors ${sendMode === 'sms' ? 'bg-[#3182F6] text-white' : 'bg-[#F2F4F6] text-[#8B95A1]'}`}>
+                  SMS 직발송
+                  <div className="text-[9px] opacity-70 font-normal">모바일 권장</div>
+                </button>
+                <button
+                  onClick={() => setSendMode('alimtalk')}
+                  disabled
+                  className="relative py-2 rounded-lg text-[11px] md:text-xs font-bold bg-[#F2F4F6] text-[#8B95A1] cursor-not-allowed opacity-70">
+                  알림톡 API
+                  <div className="text-[9px] opacity-70 font-normal">준비중</div>
+                  <span className="absolute -top-1 -right-1 bg-[#FF6B6B] text-white text-[8px] font-black px-1.5 py-0.5 rounded-full">Soon</span>
                 </button>
               </div>
 
@@ -415,18 +425,27 @@ export default function CustomersPage() {
 
               {/* 모드별 안내 */}
               <div className="mb-4 text-[11px] leading-relaxed bg-[#F8F9FB] border border-[#E5E8EB] rounded-lg px-3 py-2.5">
-                {sendMode === 'kakao' ? (
+                {sendMode === 'kakao' && (
                   <p className="text-[#4E5968]">
                     <strong className="text-[#191F28]">Windows/Mac 호환</strong> — 고객별로 이름이 치환된 메시지가 <strong>클립보드에 복사</strong>되고
                     카카오톡 PC가 자동 실행됩니다. 상대방 대화창에 <kbd className="px-1 bg-white border border-[#E5E8EB] rounded">Ctrl+V</kbd> 로 붙여넣으세요.
                     <br />
-                    <span className="text-[#8B95A1]">※ 자동 발송(알림톡 API)은 Solapi/Aligo 연동으로 확장 가능</span>
+                    <span className="text-[#8B95A1]">※ 카카오톡 PC가 설치되어 있어야 자동 실행됩니다</span>
                   </p>
-                ) : (
+                )}
+                {sendMode === 'sms' && (
                   <p className="text-[#4E5968]">
                     <strong className="text-[#191F28]">모바일</strong>에서는 기본 메시지 앱이 열리며 수신자·본문이 자동 채워집니다.
                     <br />
                     <span className="text-[#8B95A1]">Windows 데스크톱: Phone Link(휴대폰 연결) 설치 시 SMS 발송 가능, 미설치 시 클립보드 복사로 대체</span>
+                  </p>
+                )}
+                {sendMode === 'alimtalk' && (
+                  <p className="text-[#4E5968]">
+                    <strong className="text-[#191F28]">알림톡 API 연동 예정</strong> — 네이버 Sens · 알리고 · NHN BizM 중 검토 중.
+                    연동 완료 시 버튼 한 번으로 수백 명에게 실시간 발송되며, 발송 로그·수신확인까지 자동 기록됩니다.
+                    <br />
+                    <span className="text-[#8B95A1]">※ 공급사 선정 후 7~10일 내 런칭 예정. 현재는 카톡 복사 / SMS 직발송 방식 사용해 주세요.</span>
                   </p>
                 )}
               </div>
