@@ -1,5 +1,5 @@
 'use client'
-export const dynamic = 'force-dynamic'
+// 🔧 force-dynamic 제거 (2026-04-19) — 공개 요금제 페이지라 정적 shell 허용
 
 import { useState } from 'react'
 import Sidebar from '../components/Sidebar'
@@ -278,7 +278,12 @@ export default function PricingPage() {
                 return (
                   <div key={feature.id}
                     onClick={() => toggle(feature.id)}
-                    className={`relative bg-white rounded-2xl p-5 shadow-sm cursor-pointer transition-all border-2 ${
+                    onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(feature.id) } }}
+                    role="button"
+                    tabIndex={0}
+                    aria-pressed={inCart}
+                    aria-label={`${feature.name} ${inCart ? '선택 해제' : '장바구니에 추가'}`}
+                    className={`relative bg-white rounded-2xl p-5 shadow-sm cursor-pointer transition-all border-2 focus:outline-none focus:ring-2 focus:ring-[#3182F6]/40 ${
                       inCart ? 'border-[#3182F6] shadow-blue-100' : 'border-transparent hover:border-[#E5E8EB]'
                     }`}>
                     {feature.popular && (
