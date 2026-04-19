@@ -5,6 +5,7 @@ import Link from 'next/link'
 import Sidebar from '../../components/Sidebar'
 import { User, Store, MapPin, Save, Check, ArrowLeft, Mail, Phone, LogOut } from 'lucide-react'
 import Footer from '../../components/Footer'
+import { confirmDialog } from '../../lib/toast'
 
 type UserCookie = {
   id?: string; name?: string; email?: string; provider?: string; profile_image?: string;
@@ -96,8 +97,10 @@ export default function ProfileSettingsPage() {
               <h2 className="text-sm font-bold text-[#191F28]">로그인 계정</h2>
               {user && (
                 <a href="/api/auth/logout"
-                  onClick={(e) => {
-                    if (!window.confirm('로그아웃 하시겠어요?')) { e.preventDefault(); }
+                  onClick={async (e) => {
+                    e.preventDefault()
+                    const ok = await confirmDialog('로그아웃 하시겠어요?', { title: '로그아웃', okText: '로그아웃', danger: true })
+                    if (ok) window.location.href = '/api/auth/logout'
                   }}
                   className="hidden md:inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1.5 rounded-lg bg-[#FEF2F2] text-[#DC2626] hover:bg-[#FEE2E2] transition-all">
                   <LogOut size={12} strokeWidth={2.5} />
@@ -128,8 +131,10 @@ export default function ProfileSettingsPage() {
                 </div>
                 {/* 모바일 전용 로그아웃 버튼 */}
                 <a href="/api/auth/logout"
-                  onClick={(e) => {
-                    if (!window.confirm('로그아웃 하시겠어요?')) { e.preventDefault(); }
+                  onClick={async (e) => {
+                    e.preventDefault()
+                    const ok = await confirmDialog('로그아웃 하시겠어요?', { title: '로그아웃', okText: '로그아웃', danger: true })
+                    if (ok) window.location.href = '/api/auth/logout'
                   }}
                   className="md:hidden mt-3 flex items-center justify-center gap-2 w-full px-3 py-3 rounded-xl bg-[#FEF2F2] text-[#DC2626] hover:bg-[#FEE2E2] active:bg-[#FECACA] transition-all text-sm font-bold">
                   <LogOut size={15} strokeWidth={2.5} />
