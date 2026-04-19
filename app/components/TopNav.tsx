@@ -75,7 +75,7 @@ export default function TopNav() {
               <Link href="/login" className="text-sm text-[#4E5968] font-medium px-4 py-2 hover:text-[#3182F6] transition-colors">
                 로그인
               </Link>
-              <Link href="/login" className="text-sm font-semibold bg-[#3182F6] text-white px-4 py-2 rounded-xl hover:bg-[#1B64DA] transition-colors shadow-sm">
+              <Link href="/signup" className="text-sm font-semibold bg-[#3182F6] text-white px-4 py-2 rounded-xl hover:bg-[#1B64DA] transition-colors shadow-sm">
                 무료 시작하기
               </Link>
             </>
@@ -115,7 +115,7 @@ export default function TopNav() {
                 <Link href="/login" className="text-center text-sm text-[#4E5968] font-medium py-2 border border-gray-200 rounded-xl">
                   로그인
                 </Link>
-                <Link href="/login" className="text-center text-sm font-semibold bg-[#3182F6] text-white py-2 rounded-xl">
+                <Link href="/signup" className="text-center text-sm font-semibold bg-[#3182F6] text-white py-2 rounded-xl">
                   무료 시작하기
                 </Link>
               </>
