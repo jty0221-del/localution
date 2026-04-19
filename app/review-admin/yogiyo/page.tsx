@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import Sidebar from '../../components/Sidebar'
 import Footer from '../../components/Footer'
+import PageHeader from '../../components/PageHeader'
 import { toast } from '../../lib/toast'
 import { useConnections, setConnection as libSetConnection } from '../../lib/connections'
 
@@ -171,22 +172,26 @@ export default function ReviewPage() {
   const pendingCount = reviews.filter(r => !r.replied).length
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA]">
-      <Sidebar />
-      <main className="flex-1 md:ml-[220px] p-4 pt-20 md:p-8 md:pt-8 max-w-4xl mx-auto">
+    <div className="min-h-screen bg-[#F2F4F6] flex flex-col overflow-x-hidden">
+      <div className="flex flex-1">
+        <Sidebar />
+        <main className="flex-1 ml-0 md:ml-[220px] pt-14 md:pt-0 min-w-0">
+          <PageHeader
+            icon="🍕"
+            title="요기요 리뷰 관리"
+            subtitle={connected ? '실시간 요기요 리뷰 · AI 답글 자동 초안' : '요기요 사장님사이트 개발자 API 연동'}
+            variant="yogiyo"
+          />
+          <div className="max-w-4xl mx-auto p-4 md:p-6 w-full">
 
-        {/* 헤더 */}
-        <div className="flex items-center gap-3 mb-6">
-          <Link href="/review-admin" className="text-sm text-[#8B95A1] hover:text-[#4E5968]">← 리뷰 관리</Link>
-          <span className="text-[#E5E8EB]">/</span>
-          <div className="flex items-center gap-2">
-            <span className="text-xl">🍕</span>
-            <h1 className="text-lg font-bold text-[#191F28]">요기요 리뷰 관리</h1>
-          </div>
-          {connected && (
-            <span className="ml-auto text-xs px-2.5 py-1 rounded-full font-semibold" style={{ background: '#FFF0F4', color: '#C40040' }}>
-              ● 연동됨
-            </span>
+        {/* 브레드크럼 + 상태 */}
+        <div className="flex items-center gap-2 mb-4 flex-wrap">
+          <Link href="/review-admin" className="text-xs text-[#8B95A1] hover:text-[#4E5968] font-semibold">← 리뷰 관리</Link>
+          <span className="text-[#E5E8EB]">·</span>
+          {connected ? (
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#ECFDF5] text-[#059669] font-semibold">● 연결됨</span>
+          ) : (
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#FEF3C7] text-[#92400E] font-semibold">연동 대기</span>
           )}
         </div>
 
@@ -405,12 +410,13 @@ export default function ReviewPage() {
         )}
 
         {/* ── Footer ── */}
-        <div className="-mx-4 md:-mx-8 mt-10">
+        <div className="-mx-4 md:-mx-6 mt-10">
           <Footer />
         </div>
 
-      </main>
-
+          </div>
+        </main>
+      </div>
     </div>
   )
 }
