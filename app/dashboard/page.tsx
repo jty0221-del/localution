@@ -472,7 +472,7 @@ function AIReplyModal({ review, onClose }: ReplyModalProps) {
       <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-6" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
           <h3 className="text-lg font-black text-[#191F28]">AI 답글 생성</h3>
-          <button onClick={onClose} className="text-[#8B95A1] hover:text-[#191F28] w-7 h-7 rounded-lg flex items-center justify-center hover:bg-[#F2F4F6] transition-colors">
+          <button onClick={onClose} aria-label="모달 닫기" className="text-[#8B95A1] hover:text-[#191F28] w-7 h-7 rounded-lg flex items-center justify-center hover:bg-[#F2F4F6] transition-colors">
             <X size={18} strokeWidth={2.25} />
           </button>
         </div>
