@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Sidebar from '../../components/Sidebar'
+import Footer from '../../components/Footer'
 
 interface Review {
   id: number
@@ -141,6 +142,22 @@ export default function GoogleReviewPage() {
           {connected ? `${storeName} · 실시간 리뷰` : '아직 연결 전이라 샘플로 보여드려요. 설정 → 플랫폼 연결에서 1분이면 연동 완료! 🔌'}
         </p>
 
+        {/* 🚧 데모 모드 배너 — 실시간 리뷰 API 연동 전까지 샘플 데이터 */}
+        <div className="bg-gradient-to-r from-[#FEF3C7] to-[#FDE68A] border border-[#F59E0B] rounded-2xl p-4 mb-5">
+          <div className="flex items-start gap-3 flex-wrap">
+            <span className="text-2xl leading-none mt-0.5">🚧</span>
+            <div className="flex-1 min-w-[200px]">
+              <p className="text-sm font-bold text-[#92400E] mb-1">데모 모드 · API 연동 준비중</p>
+              <p className="text-xs text-[#B45309] leading-relaxed">
+                현재 화면에 표시되는 리뷰는 기능 체험용 샘플 데이터예요. 구글 비즈니스 프로필 리뷰 API 제휴 심사가 완료되는 대로 실시간으로 연동됩니다.
+              </p>
+            </div>
+            <Link href="/review-admin" className="px-3 py-2 rounded-xl text-[11px] md:text-xs font-bold bg-white text-[#92400E] border border-[#FDE68A] hover:bg-[#FFFBEB] whitespace-nowrap">
+              허브로 돌아가기 →
+            </Link>
+          </div>
+        </div>
+
         {!connected && (
           <div className="bg-[#FFFBEB] border border-[#FDE68A] rounded-2xl p-4 mb-5 flex items-center justify-between gap-3 flex-wrap">
             <p className="text-xs md:text-sm text-[#92400E]">
@@ -262,7 +279,14 @@ export default function GoogleReviewPage() {
             </div>
           ))}
         </div>
+
+        {/* ── Footer ── */}
+        <div className="-mx-4 md:-mx-8 mt-10">
+          <Footer />
+        </div>
+
       </main>
+
     </div>
   )
 }
