@@ -41,11 +41,9 @@ export const metadata: Metadata = {
     title: SITE_TITLE,
     description: SITE_DESC,
   },
-  icons: {
-    icon: '/favicon.ico',
-    shortcut: '/favicon.ico',
-    apple: '/favicon.ico',
-  },
+  // icons: Next.js app router가 app/icon.png, app/apple-icon.png, app/favicon.ico를
+  // 자동 감지하여 <link rel="icon|apple-touch-icon"> 태그를 생성함. 명시적 설정 불필요.
+  // (네이버/구글 크롤러용 고해상도 아이콘: icon.png 512x512, apple-icon.png 180x180)
   robots: {
     index: true,
     follow: true,
