@@ -190,28 +190,28 @@ export default function LandingPage() {
         <div className="max-w-4xl mx-auto text-center">
           <div className="inline-flex items-center gap-2 bg-blue-100 text-blue-700 text-xs font-semibold px-3 py-1.5 rounded-full mb-6">
             <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" />
-            소상공인 AI 자동화 플랫폼
+            필요한 것만 · 월 990원부터 · 언제든 해지
           </div>
           <h1 className="text-4xl md:text-6xl font-black text-[#191F28] leading-tight mb-6">
-            사장님 마케팅,<br />
-            <span className="text-[#3182F6]">AI가 다 해드려요</span>
+            필요한 것만 골라쓰는<br />
+            <span className="text-[#3182F6]">사장님 마케팅 플랫폼</span>
           </h1>
           <p className="text-lg md:text-xl text-[#4E5968] mb-10 max-w-2xl mx-auto leading-relaxed">
-            네이버 플레이스 SEO·블로그·릴스·리뷰·QR·CRM<br className="hidden md:block" />
-            한 플랫폼에서, 1인 사장님도 마케팅 대행사처럼
+            리뷰·QR·블로그·플레이스·CRM — 12개 모듈 중<br className="hidden md:block" />
+            내 매장에 필요한 것만 선택. 3개 묶으면 10% 할인.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <Link href="/marketing/place"
+            <Link href="/pricing"
               className="inline-flex items-center justify-center gap-2 bg-[#3182F6] text-white font-bold text-base px-8 py-4 rounded-2xl hover:bg-[#1B64DA] transition-all shadow-lg shadow-blue-200 hover:shadow-blue-300 hover:-translate-y-0.5">
-              내 가게 1분 무료 진단
+              내게 맞는 모듈 둘러보기
               <ArrowRight size={18} strokeWidth={2.5} />
             </Link>
-            <Link href="/login"
+            <Link href="/marketing/place"
               className="inline-flex items-center justify-center gap-2 bg-white text-[#191F28] font-semibold text-base px-8 py-4 rounded-2xl border border-gray-200 hover:border-gray-300 transition-all hover:-translate-y-0.5">
-              무료로 시작하기
+              1분 무료 진단 체험
             </Link>
           </div>
-          <p className="text-xs text-[#8B95A1] mt-4">회원가입 없이 진단 가능 · 신용카드 불필요</p>
+          <p className="text-xs text-[#8B95A1] mt-4">회원가입 없이 진단 가능 · 신용카드 불필요 · 월 단위 결제</p>
         </div>
       </section>
 
@@ -241,10 +241,10 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-14">
             <h2 className="text-3xl md:text-4xl font-black text-[#191F28] mb-4">
-              소상공인에게 꼭 필요한 기능만
+              필요한 기능만 골라쓰는 모듈 방식
             </h2>
             <p className="text-[#4E5968] text-base md:text-lg">
-              네이버 플레이스 상위 노출부터 고객 재방문 유도까지, 한 플랫폼에서
+              월 990원부터 시작 · 3개 묶으면 10% · 5개 15% · 8개 20% 할인
             </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
