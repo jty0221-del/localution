@@ -52,7 +52,7 @@ export default function AdminSubscriptionsPage() {
       <header className="mb-6">
         <h1 className="text-2xl font-black text-[#191F28] tracking-tight">구독 현황</h1>
         <p className="text-sm text-[#8B95A1] mt-1">
-          총 {rows.length}건 · 활성 MRR ₩{totalMrr.toLocaleString()}
+          {loading ? '집계 중…' : `총 ${rows.length}건 · 활성 MRR ₩${totalMrr.toLocaleString()}`}
         </p>
       </header>
 
@@ -88,7 +88,20 @@ export default function AdminSubscriptionsPage() {
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={6} className="text-center text-[#8B95A1] py-10">불러오는 중…</td></tr>
+                // 15차-9 스켈레톤 로더 (6행 애니메이션)
+                Array.from({ length: 6 }).map((_, i) => (
+                  <tr key={i} className="border-t border-[#F2F4F6] animate-pulse">
+                    <td className="px-4 py-3">
+                      <div className="h-3 bg-[#F2F4F6] rounded w-36 mb-1" />
+                      <div className="h-2 bg-[#F2F4F6] rounded w-14" />
+                    </td>
+                    <td className="px-4 py-3"><div className="h-3 bg-[#F2F4F6] rounded w-24" /></td>
+                    <td className="px-4 py-3"><div className="h-4 bg-[#F2F4F6] rounded-full w-12" /></td>
+                    <td className="px-4 py-3"><div className="h-3 bg-[#F2F4F6] rounded w-16 ml-auto" /></td>
+                    <td className="px-4 py-3"><div className="h-3 bg-[#F2F4F6] rounded w-20" /></td>
+                    <td className="px-4 py-3"><div className="h-3 bg-[#F2F4F6] rounded w-20" /></td>
+                  </tr>
+                ))
               ) : filtered.length === 0 ? (
                 <tr><td colSpan={6} className="text-center text-[#8B95A1] py-10">표시할 구독이 없습니다</td></tr>
               ) : filtered.map(r => {
