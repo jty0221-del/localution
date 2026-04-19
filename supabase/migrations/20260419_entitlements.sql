@@ -78,13 +78,14 @@ CREATE TABLE IF NOT EXISTS public.subscriptions (
   -- 가격 스냅샷 (모듈 가격 변경 후에도 기존 구독자 영향 최소화)
   price_krw       integer      NOT NULL,
   created_at      timestamptz  NOT NULL DEFAULT now(),
-  updated_at      timestamptz  NOT NULL DEFAULT now(),
-
-  -- 같은 사용자가 같은 모듈을 중복 구독 불가 (active/past_due/paused 상태만)
-  CONSTRAINT subscriptions_unique_active
-    EXCLUDE USING gist (user_id WITH =, (module_id::text) WITH =)
-    WHERE (status IN ('active', 'past_due', 'paused'))
+  updated_at      timestamptz  NOT NULL DEFAULT now()
 );
+
+-- 같은 사용자가 같은 모듈을 중복 구독 불가 (active/past_due/paused 상태만)
+-- EXCLUDE USING gist 는 enum::text 캐스트가 STABLE 로 마킹되어 IMMUTABLE 위반 → partial UNIQUE INDEX 로 교체
+CREATE UNIQUE INDEX IF NOT EXISTS subscriptions_unique_active
+  ON public.subscriptions (user_id, module_id)
+  WHERE status IN ('active', 'past_due', 'paused');
 
 -- 조회 성능 인덱스
 CREATE INDEX IF NOT EXISTS idx_subscriptions_user
