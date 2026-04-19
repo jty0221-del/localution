@@ -57,7 +57,7 @@ export default function Footer() {
             <div>전화: 010-7510-9054 | 이메일: harangmarketing@naver.com</div>
             <div>개인정보보호책임자: 전태영 (harangmarketing@naver.com)</div>
           </div>
-          <div className="self-start md:self-end">© 2026 하랑. All rights reserved.</div>
+          <div className="self-start md:self-end">© 2026 Localution. All rights reserved.</div>
         </div>
       </div>
     </footer>
