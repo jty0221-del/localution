@@ -1,7 +1,6 @@
 'use client'
 
-export const dynamic = 'force-dynamic'
-
+// 🔧 force-dynamic 제거 (2026-04-19) — 공개 랜딩이라 정적 shell 생성 허용 (LCP 개선)
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import Footer from './components/Footer'
