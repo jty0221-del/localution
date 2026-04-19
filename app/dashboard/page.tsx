@@ -5,13 +5,14 @@ import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import Link from 'next/link'
 import Sidebar from '../components/Sidebar'
 import Footer from '../components/Footer'
+import SlideAdBanner from '../components/SlideAdBanner'
 import { useConnections, setConnection as libSetConnection, PlatformId as CanonicalPlatformId } from '../lib/connections'
 import { toast, confirmDialog } from '../lib/toast'
 import { buildSettingsHref } from '../lib/settings-tabs'
 import {
   Star, ArrowRight, ArrowUp, ArrowDown, Minus, X, Check, CheckCircle2,
-  AlertTriangle, Rocket, Bot, Smartphone, BarChart3, Wallet, TrendingUp,
-  Smile, Meh, Frown, ChevronLeft, ChevronRight, LucideIcon,
+  AlertTriangle, Rocket, BarChart3, TrendingUp,
+  Smile, Meh, Frown,
   Search, Users, Calendar, FileSpreadsheet, Link2, Lock, MapPin,
 } from 'lucide-react'
 
@@ -539,269 +540,11 @@ function AIReplyModal({ review, onClose }: ReplyModalProps) {
 }
 
 // ═══════════════════════════════════════════════════════════
-//  롤링 공지 배너 (5초 자동 전환)
-// ═════════════════════════════════════════════════════════════
-interface BannerSlide {
-  title: string
-  sub: string
-  desc: string
-  bg: string
-  Icon: LucideIcon
-  link: string
-}
-
-const BANNER_SLIDES: BannerSlide[] = [
-  {
-    title: 'AI가 대신 답변하는 시대',
-    sub: '리뷰 답글, 이제 AI에게 맡기세요',
-    desc: '네이버 · 구글 · 배민 · 요기요 통합 AI 리뷰 자동 답글',
-    bg: 'linear-gradient(135deg, #1e3a5f 0%, #3182F6 100%)',
-    Icon: Bot,
-    link: '/review-admin',
-  },
-  {
-    title: 'QR 스캔 한 번으로',
-    sub: '고객이 직접 리뷰를 쓰는 시대',
-    desc: 'QR 코드 스캔 → AI 리뷰 생성 → 플랫폼 자동 등록',
-    bg: 'linear-gradient(135deg, #7c3aed 0%, #a855f7 100%)',
-    Icon: Smartphone,
-    link: '/qr-admin',
-  },
-  {
-    title: '매출과 고객을 한 눈에',
-    sub: '대시보드 하나로 끝',
-    desc: '매출 캘린더 · 고객 CRM · 정산 자동화 모두 통합',
-    bg: 'linear-gradient(135deg, #065f46 0%, #10b981 100%)',
-    Icon: BarChart3,
-    link: '/dashboard',
-  },
-  {
-    title: '소상공인 경영안정자금',
-    sub: '최대 2천만원 · 연 1.5%',
-    desc: '지금 사장님 매출이면 신청 가능합니다',
-    bg: 'linear-gradient(135deg, #92400e 0%, #f59e0b 100%)',
-    Icon: Wallet,
-    link: 'https://ols.semas.or.kr',
-  },
-  {
-    title: '플레이스 상위 노출 비법',
-    sub: '키워드 + 리뷰 + 답글률 = 상위 노출',
-    desc: '로컬루션 AI가 키워드 분석부터 리뷰 답글까지 자동화',
-    bg: 'linear-gradient(135deg, #0f766e 0%, #14b8a6 100%)',
-    Icon: Rocket,
-    link: '/marketing',
-  },
-]
-
+//  롤링 공지 배너 → 공통 컴포넌트 분리됨
+//  (app/components/SlideAdBanner.tsx)
 // ═══════════════════════════════════════════════════════════
-//  인기 서비스 TOP 10 (순위 애니메이션)
-// ═══════════════════════════════════════════════════════════
-const SERVICE_RANKING_INIT = [
-  { id: 1,  name: 'AI 리뷰 자동 답글',  category: '리뷰', badge: 'HOT',  color: '#F04452' },
-  { id: 2,  name: '네이버 플레이스 관리', category: '플레이스', badge: '',     color: '#03C75A' },
-  { id: 3,  name: 'QR 리뷰 자동화',         category: 'QR',     badge: 'NEW',  color: '#7C3AED' },
-  { id: 4,  name: '매출 캘린더 · 정산',     category: '정산', badge: '',     color: '#3182F6' },
-  { id: 5,  name: '고객 CRM 관리',              category: 'CRM',    badge: '',     color: '#F59E0B' },
-  { id: 6,  name: '키워드 순위 추적',          category: 'SEO',    badge: '',     color: '#10B981' },
-  { id: 7,  name: '숏폼 퍼블리셔',           category: '마케팅', badge: '',     color: '#EC4899' },
-  { id: 8,  name: '배민 리뷰 연동',            category: '배달', badge: '',     color: '#2AC1BC' },
-  { id: 9,  name: '구글 리뷰 연동',            category: '구글', badge: '',     color: '#4285F4' },
-  { id: 10, name: '세금계산서 자동 발행',      category: '행정', badge: '',     color: '#6B7280' },
-]
+// NoticeBanner / BANNER_SLIDES / BannerSlide 는 SlideAdBanner 로 이전
 
-function ServiceRanking() {
-  const [items, setItems] = useState(SERVICE_RANKING_INIT.map((s, i) => ({ ...s, rank: i + 1, prevRank: i + 1, score: 100 - i * 8 })))
-  const [isShuffling, setIsShuffling] = useState(false)
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setIsShuffling(true)
-      setTimeout(() => {
-        setItems(prev => {
-          const arr = [...prev]
-          const swapCount = 2 + Math.floor(Math.random() * 2)
-          for (let s = 0; s < swapCount; s++) {
-            const a = Math.floor(Math.random() * arr.length)
-            let b = Math.floor(Math.random() * arr.length)
-            while (b === a) b = Math.floor(Math.random() * arr.length)
-            arr[a].score += Math.floor(Math.random() * 10) - 4
-            arr[b].score += Math.floor(Math.random() * 10) - 4
-          }
-          arr.sort((a, b) => b.score - a.score)
-          arr.forEach((item, i) => {
-            item.prevRank = item.rank
-            item.rank = i + 1
-          })
-          return arr
-        })
-        setIsShuffling(false)
-      }, 300)
-    }, 5000)
-    return () => clearInterval(timer)
-  }, [])
-
-  return (
-    <div className="bg-white rounded-2xl shadow-sm overflow-hidden flex flex-col">
-      <div className="px-5 py-4 border-b border-[#F2F4F6] flex items-center justify-between">
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="text-sm font-bold text-[#191F28]">인기 서비스 TOP 10</span>
-            <span className="w-1.5 h-1.5 rounded-full bg-[#F04452] animate-pulse inline-block"/>
-          </div>
-          <p className="text-[10px] text-[#8B95A1] mt-0.5">실시간 사용량 기준</p>
-        </div>
-        <span className="text-[10px] text-[#8B95A1] bg-[#F2F4F6] px-2 py-1 rounded-full">5초마다 갱신</span>
-      </div>
-      <div className="flex-1">
-        {items.map((item) => {
-          const diff = item.prevRank - item.rank
-          return (
-            <div
-              key={item.id}
-              className="px-5 py-3 flex items-center gap-3 border-b border-[#F8F9FA] hover:bg-[#FAFBFF] transition-all duration-500"
-              style={{
-                transform: isShuffling ? 'translateX(4px)' : 'translateX(0)',
-                opacity: isShuffling ? 0.7 : 1,
-                transition: 'all 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
-              }}
-            >
-              <div className={'w-7 h-7 rounded-lg flex items-center justify-center text-xs font-black flex-shrink-0 ' + (item.rank <= 3 ? 'bg-[#3182F6] text-white' : 'bg-[#F2F4F6] text-[#8B95A1]')}>
-                {item.rank}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1.5">
-                  <span className="text-sm font-semibold text-[#191F28] truncate">{item.name}</span>
-                  {item.badge && (
-                    <span className={'text-[9px] px-1.5 py-0.5 rounded-full font-bold ' + (item.badge === 'HOT' ? 'bg-[#FFF0F0] text-[#F04452]' : 'bg-[#EFF6FF] text-[#3182F6]')}>{item.badge}</span>
-                  )}
-                </div>
-                <span className="text-[10px] text-[#8B95A1]">{item.category}</span>
-              </div>
-              <div className="flex-shrink-0 w-12 text-right">
-                {diff > 0 && (
-                  <span className="inline-flex items-center gap-0.5 text-[11px] font-bold text-[#12B76A]">
-                    <ArrowUp size={10} strokeWidth={3} />{diff}
-                  </span>
-                )}
-                {diff < 0 && (
-                  <span className="inline-flex items-center gap-0.5 text-[11px] font-bold text-[#F04452]">
-                    <ArrowDown size={10} strokeWidth={3} />{Math.abs(diff)}
-                  </span>
-                )}
-                {diff === 0 && <span className="text-[11px] text-[#8B95A1]">—</span>}
-              </div>
-            </div>
-          )
-        })}
-      </div>
-    </div>
-  )
-}
-
-function NoticeBanner() {
-  const [idx, setIdx] = useState(0)
-  const [isAnimating, setIsAnimating] = useState(false)
-  const [slideDir, setSlideDir] = useState(1)
-  const touchStart = useRef(0)
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      setSlideDir(1)
-      setIsAnimating(true)
-      setTimeout(() => {
-        setIdx(prev => (prev + 1) % BANNER_SLIDES.length)
-        setIsAnimating(false)
-      }, 400)
-    }, 4000)
-    return () => clearInterval(timer)
-  }, [])
-
-  const goTo = (i: number) => {
-    if (i === idx) return
-    setSlideDir(i > idx ? 1 : -1)
-    setIsAnimating(true)
-    setTimeout(() => { setIdx(i); setIsAnimating(false) }, 400)
-  }
-
-  const s = BANNER_SLIDES[idx]
-  const SlideIcon = s.Icon
-  const isExternal = s.link.startsWith('http')
-
-  return (
-    <div className="mb-5 relative">
-      <div
-        className="rounded-2xl overflow-hidden cursor-pointer transition-all hover:shadow-lg relative focus:outline-none focus:ring-2 focus:ring-[#3182F6]/40"
-        style={{ background: s.bg, minHeight: 160 }}
-        role="link"
-        tabIndex={0}
-        aria-label={`${s.title} 배너 — 클릭 시 ${isExternal ? '새 창' : '이동'}`}
-        onClick={() => isExternal ? window.open(s.link, '_blank') : (window.location.href = s.link)}
-        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); isExternal ? window.open(s.link, '_blank') : (window.location.href = s.link) } }}
-        onTouchStart={(e) => { touchStart.current = e.touches[0].clientX }}
-        onTouchEnd={(e) => {
-          const diff = e.changedTouches[0].clientX - touchStart.current
-          if (Math.abs(diff) > 50) {
-            goTo(diff > 0 ? (idx - 1 + BANNER_SLIDES.length) % BANNER_SLIDES.length : (idx + 1) % BANNER_SLIDES.length)
-          }
-        }}
-      >
-        <div
-          className="px-8 py-7 flex items-center justify-between"
-          style={{
-            opacity: isAnimating ? 0 : 1,
-            transform: isAnimating ? 'translateX(' + (slideDir * 30) + 'px)' : 'translateX(0)',
-            transition: 'all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
-          }}
-        >
-          <div className="flex-1 min-w-0">
-            <p className="text-white/60 text-xs font-semibold mb-1 tracking-wide uppercase">{s.sub}</p>
-            <h2 className="text-2xl font-black text-white mb-2 leading-tight">{s.title}</h2>
-            <p className="text-sm text-white/80">{s.desc}</p>
-          </div>
-          <div className="ml-6 flex-shrink-0 w-20 h-20 rounded-2xl bg-white/15 backdrop-blur-sm flex items-center justify-center shadow-lg">
-            <SlideIcon size={42} strokeWidth={1.75} className="text-white" />
-          </div>
-        </div>
-
-        {/* 도트 인디케이터 */}
-        <div className="absolute bottom-3 left-1/2 -translate-x-1/2 flex gap-2">
-          {BANNER_SLIDES.map((_, i) => (
-            <button
-              key={i}
-              onClick={(e) => { e.stopPropagation(); goTo(i) }}
-              className="transition-all duration-300"
-              style={{
-                width: i === idx ? 24 : 8,
-                height: 8,
-                borderRadius: 4,
-                background: i === idx ? 'white' : 'rgba(255,255,255,0.4)',
-              }}
-            />
-          ))}
-        </div>
-
-        {/* 좌우 화살표 */}
-        <button
-          onClick={(e) => { e.stopPropagation(); goTo((idx - 1 + BANNER_SLIDES.length) % BANNER_SLIDES.length) }}
-          className="absolute left-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/20 hover:bg-black/40 flex items-center justify-center text-white transition-colors"
-        >
-          <ChevronLeft size={16} strokeWidth={2.5} />
-        </button>
-        <button
-          onClick={(e) => { e.stopPropagation(); goTo((idx + 1) % BANNER_SLIDES.length) }}
-          className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 rounded-full bg-black/20 hover:bg-black/40 flex items-center justify-center text-white transition-colors"
-        >
-          <ChevronRight size={16} strokeWidth={2.5} />
-        </button>
-
-        {/* 슬라이드 카운터 */}
-        <div className="absolute top-4 right-4 bg-black/30 text-white text-[10px] px-2.5 py-1 rounded-full font-semibold">
-          {idx + 1} / {BANNER_SLIDES.length}
-        </div>
-      </div>
-    </div>
-  )
-}
 
 // ═══════════════════════════════════════════════════════════
 //  메인 대시보드
@@ -1077,7 +820,7 @@ export default function Dashboard() {
       <main className="flex-1 ml-0 md:ml-[220px] p-4 pt-20 md:p-6 md:pt-6 min-w-0 max-w-full pb-24 md:pb-6">
 
         {/* ── 상단 롤링 공지 배너 ── */}
-        <NoticeBanner />
+        <SlideAdBanner />
 
         {/* ── 부정 리뷰 긴급 알림 (미답변 1~2점 있을 때만) ── */}
         {isLoggedIn && negativeUnansweredCount > 0 && (
