@@ -6,6 +6,7 @@ import Script from 'next/script'
 import Link from 'next/link'
 import Sidebar from '../components/Sidebar'
 import Footer from '../components/Footer'
+import { useConnections, PlatformId } from '../lib/connections'
 
 // 토스페이먼츠 — 공식 SDK 테스트 클라이언트 키 (공개됨)
 // 실서비스 전환 시 env에서 주입: NEXT_PUBLIC_TOSS_CLIENT_KEY
@@ -704,42 +705,97 @@ function HometaxLogoS() {
 
 
 function ConnectTab() {
-  const PLATFORMS_8 = [
-    { key: 'naver', label: '네이버 플레이스', logo: <NaverLogoS />, desc: '네이버 리뷰·검색 연동', cat: '리뷰·검색' },
-    { key: 'google', label: '구글 비즈니스', logo: <GoogleLogoS />, desc: '구글 마이비즈니스 연동', cat: '리뷰·검색' },
-    { key: 'baemin', label: '배달의민족', logo: <BaeminLogoS />, desc: '배민 주문·리뷰 관리', cat: '배달' },
-    { key: 'yogiyo', label: '요기요', logo: <YogiyoLogoS />, desc: '요기요 주문·리뷰 연동', cat: '배달' },
-    { key: 'coupang', label: '쿠팡이츠', logo: <CoupangLogoS />, desc: '쿠팡이츠 주문·리뷰 연동', cat: '배달' },
-    { key: 'yeoshin', label: '여신금융', logo: <YeoshinLogoS />, desc: '카드 매출·결제 데이터 연동', cat: '금융·세무' },
-    { key: 'hometax', label: '홈택스', logo: <HometaxLogoS />, desc: '부가세·세금 데이터 연동', cat: '금융·세무' },
+  const PLATFORMS_8: Array<{ key: PlatformId; label: string; logo: any; color: string; desc: string; cat: string }> = [
+    { key: 'naver',   label: '네이버 플레이스', logo: <NaverLogoS />,   color: '#03C75A', desc: '네이버 리뷰·검색 연동',      cat: '리뷰·검색' },
+    { key: 'google',  label: '구글 비즈니스',   logo: <GoogleLogoS />,  color: '#4285F4', desc: '구글 마이비즈니스 연동',     cat: '리뷰·검색' },
+    { key: 'kakao',   label: '카카오톡 채널',   logo: <KakaoLogoS />,   color: '#FEE500', desc: '카톡 알림톡·채널 연동',       cat: '메시지' },
+    { key: 'baemin',  label: '배달의민족',      logo: <BaeminLogoS />,  color: '#2AC1BC', desc: '배민 주문·리뷰 관리',         cat: '배달' },
+    { key: 'yogiyo',  label: '요기요',          logo: <YogiyoLogoS />,  color: '#FA3C00', desc: '요기요 주문·리뷰 연동',       cat: '배달' },
+    { key: 'coupang', label: '쿠팡이츠',        logo: <CoupangLogoS />, color: '#FF4B30', desc: '쿠팡이츠 주문·리뷰 연동',     cat: '배달' },
+    { key: 'yeoshin', label: '여신금융',        logo: <YeoshinLogoS />, color: '#003087', desc: '카드 매출·결제 데이터 연동',  cat: '금융·세무' },
+    { key: 'hometax', label: '홈택스',          logo: <HometaxLogoS />, color: '#006AB4', desc: '부가세·세금 데이터 연동',     cat: '금융·세무' },
   ]
-  const [connected8, setConnected8] = useState<Record<string, boolean>>({
-    naver: true, google: true, kakao: false, baemin: false,
-    yogiyo: false, coupang: false, yeoshin: false, hometax: false,
-  })
+
+  const { connections, isConnected, connectedCount, setConnection, removeConnection } = useConnections()
+
+  const handleConnect = (key: PlatformId, label: string) => {
+    if (isConnected(key)) {
+      if (!confirm(`${label} 연동을 해제할까요?`)) return
+      removeConnection(key)
+      return
+    }
+    const name = prompt(`${label} 상호명을 입력하세요 (예: 하랑마케팅 본점)`) || ''
+    if (!name.trim()) return
+    setConnection(key, { externalName: name.trim() })
+  }
+
   return (
     <div className="space-y-5">
-      <div>
-        <h2 className="font-bold text-[#191F28] mb-1">플랫폼 연동 관리</h2>
-        <p className="text-xs text-[#8B95A1] mb-4">리뷰, 주문, 매출 데이터를 한 곳에서 관리해요</p>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {PLATFORMS_8.map(p => (
-            <div key={p.key} className="bg-white rounded-2xl p-4 shadow-sm flex items-center gap-3">
-              <div className="flex-shrink-0">{p.logo}</div>
-              <div className="flex-1 min-w-0">
-                <p className="font-semibold text-[#191F28] text-sm">{p.label}</p>
-                <p className="text-xs text-[#8B95A1] truncate">{p.desc}</p>
-                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#F2F4F6] text-[#8B95A1] font-medium">{p.cat}</span>
-              </div>
-              <button
-                onClick={() => setConnected8(prev => ({ ...prev, [p.key]: !prev[p.key] }))}
-                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors flex-shrink-0 ${connected8[p.key] ? 'bg-[#ECFDF5] text-[#059669]' : 'bg-[#3182F6] text-white hover:bg-[#1B64DA]'}`}
-              >
-                {connected8[p.key] ? '✓ 연동됨' : '연동하기'}
-              </button>
-            </div>
-          ))}
+      {/* 헤더 + 카운터 */}
+      <div className="bg-white rounded-2xl p-4 md:p-5 border border-[#E5E8EB]">
+        <div className="flex items-center justify-between gap-3 mb-1">
+          <h2 className="font-bold text-[#191F28]">플랫폼 연동 관리</h2>
+          <span className="text-xs font-bold text-[#3182F6] bg-[#EFF6FF] px-2.5 py-1 rounded-full whitespace-nowrap">
+            {connectedCount} / {PLATFORMS_8.length} 연결됨
+          </span>
         </div>
+        <p className="text-xs text-[#8B95A1]">리뷰·주문·매출 데이터를 한 곳에서 관리해요. 연동 상태는 대시보드·리뷰관리와 자동으로 동기화됩니다.</p>
+      </div>
+
+      {/* 카드 그리드 — review-admin 과 동일한 스타일 */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
+        {PLATFORMS_8.map(p => {
+          const c = connections[p.key]
+          const connected = !!c?.connected
+          return (
+            <div key={p.key} className="bg-white rounded-2xl border border-[#E5E8EB] p-4 md:p-5 flex flex-col">
+              <div className="flex items-center gap-2.5 mb-3">
+                <div className="flex-shrink-0">{p.logo}</div>
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm font-bold text-[#191F28] truncate">{p.label}</p>
+                  {connected ? (
+                    <p className="text-[10px] text-[#10B981] font-semibold">● 연결됨</p>
+                  ) : (
+                    <p className="text-[10px] text-[#8B95A1] font-medium">미연결</p>
+                  )}
+                </div>
+              </div>
+
+              {connected ? (
+                <>
+                  <div className="bg-[#F9FAFB] rounded-lg px-2.5 py-2 mb-2.5 min-h-[44px]">
+                    <p className="text-[11px] text-[#8B95A1] mb-0.5">연결된 계정</p>
+                    <p className="text-xs font-semibold text-[#191F28] truncate">{c?.externalName || '—'}</p>
+                  </div>
+                  <button
+                    onClick={() => handleConnect(p.key, p.label)}
+                    className="w-full bg-[#F2F4F6] hover:bg-[#E5E8EB] text-[#4E5968] text-xs font-bold py-2 rounded-lg transition"
+                  >
+                    연동 해제
+                  </button>
+                </>
+              ) : (
+                <>
+                  <p className="text-[11px] text-[#8B95A1] mb-2.5 min-h-[44px]">
+                    <span className="inline-block text-[10px] px-1.5 py-0.5 rounded-full bg-[#F2F4F6] text-[#8B95A1] font-medium mr-1">{p.cat}</span>
+                    {p.desc}
+                  </p>
+                  <button
+                    onClick={() => handleConnect(p.key, p.label)}
+                    className="w-full text-xs font-bold py-2 rounded-lg text-white transition"
+                    style={{ background: p.color }}
+                  >
+                    + 연결하기
+                  </button>
+                </>
+              )}
+            </div>
+          )
+        })}
+      </div>
+
+      <div className="text-[11px] text-[#8B95A1] px-1">
+        * 연동 정보는 이 기기의 브라우저에 저장되며, /dashboard · /review-admin 에서도 즉시 반영됩니다.
       </div>
     </div>
   )
