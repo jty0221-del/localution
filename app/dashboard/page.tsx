@@ -803,9 +803,30 @@ function NoticeBanner() {
 export default function Dashboard() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   useEffect(() => {
-    const cookies = document.cookie
-    if (cookies.indexOf('localution_session=') !== -1) {
-      setIsLoggedIn(true)
+    const check = () => {
+      if (typeof document === 'undefined') return
+      const has = document.cookie.indexOf('localution_session=') !== -1
+      setIsLoggedIn(prev => (prev === has ? prev : has))
+    }
+    check()
+    // user-change 이벤트(로그인/로그아웃 시 각 페이지에서 dispatch) 구독
+    const onUserChange = () => check()
+    // 다른 탭에서 세션 변경 → storage event
+    const onStorage = (e: StorageEvent) => {
+      if (e.key === 'localution_user' || e.key === null) check()
+    }
+    // 포커스 복귀 시 재검증(탭 복귀 직후 세션 만료 감지)
+    const onFocus = () => check()
+    // 60초 주기 재검증(장시간 체류 중 만료 감지)
+    const interval = window.setInterval(check, 60_000)
+    window.addEventListener('localution:user-change', onUserChange)
+    window.addEventListener('storage', onStorage)
+    window.addEventListener('focus', onFocus)
+    return () => {
+      window.clearInterval(interval)
+      window.removeEventListener('localution:user-change', onUserChange)
+      window.removeEventListener('storage', onStorage)
+      window.removeEventListener('focus', onFocus)
     }
   }, [])
 
