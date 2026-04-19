@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Sidebar from '../../components/Sidebar'
+import Footer from '../../components/Footer'
 import { useConnections } from '../../lib/connections'
 
 const PLATFORM = {
@@ -305,7 +306,14 @@ export default function ReviewPage() {
             ))}
           </>
         )}
+
+        {/* ── Footer ── */}
+        <div className="-mx-4 md:-mx-8 mt-10">
+          <Footer />
+        </div>
+
       </main>
+
     </div>
   )
 }
