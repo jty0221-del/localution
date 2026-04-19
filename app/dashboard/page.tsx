@@ -120,7 +120,7 @@ interface Platform {
   name: string
   shortName: string
   logo: (size?: number) => JSX.Element
-  category: '리뷰·검색' | '배달' | '��융·세무'
+  category: '리뷰·검색' | '배달' | '금융·세무'
   connected: boolean
   rating: number | null
   reviews: number | null
@@ -155,7 +155,7 @@ function extractRegion(address?: string, storeName?: string, branch?: string): s
   const gu = src.match(/([가-힣]{1,4})(구|군)/)
   if (gu) return gu[1] + gu[2]
   // 2) 주요 지역 약칭 (해운대, 강남, 홍대, 일산, 송도 등)
-  const known = ['해운대','광안리','서면','강남','서초','홍대','합정','이태원','성수','건대','일산','분당','판교','송도','동탄','광교','수원','안양','평촌','인천','부평','부천','대구','동성��','수성','광주','상무','대전','둔산','울산','남구','동구','북구','중구','청주','전주','제주','서귀포','창원','마산','포항','경주','천안','아산','세종','강릉','춘천','원주']
+  const known = ['해운대','광안리','서면','강남','서초','홍대','합정','이태원','성수','건대','일산','분당','판교','송도','동탄','광교','수원','안양','평촌','인천','부평','부천','대구','동성로','수성','광주','상무','대전','둔산','울산','남구','동구','북구','중구','청주','전주','제주','서귀포','창원','마산','포항','경주','천안','아산','세종','강릉','춘천','원주']
   for (const k of known) {
     if (src.includes(k)) return k
   }
@@ -589,7 +589,7 @@ const SERVICE_RANKING_INIT = [
   { id: 4,  name: '매출 캘린더 · 정산',     category: '정산', badge: '',     color: '#3182F6' },
   { id: 5,  name: '고객 CRM 관리',              category: 'CRM',    badge: '',     color: '#F59E0B' },
   { id: 6,  name: '키워드 순위 추적',          category: 'SEO',    badge: '',     color: '#10B981' },
-  { id: 7,  name: '숏폼 퍼��리셔',           category: '마케팅', badge: '',     color: '#EC4899' },
+  { id: 7,  name: '숏폼 퍼블리셔',           category: '마케팅', badge: '',     color: '#EC4899' },
   { id: 8,  name: '배민 리뷰 연동',            category: '배달', badge: '',     color: '#2AC1BC' },
   { id: 9,  name: '구글 리뷰 연동',            category: '구글', badge: '',     color: '#4285F4' },
   { id: 10, name: '세금계산서 자동 발행',      category: '행정', badge: '',     color: '#6B7280' },
@@ -970,7 +970,7 @@ export default function Dashboard() {
   ]
   const totalWeekSale = weekSales.reduce((s, x) => s + x.v, 0)
 
-  // 오늘의 할 ��
+  // 오늘의 할 일
   const unansweredCount = RECENT_REVIEWS.filter(r => !r.replied).length
   const negativeUnansweredReviews = RECENT_REVIEWS.filter(r => r.rating <= 2 && !r.replied)
   const negativeUnansweredCount = negativeUnansweredReviews.length
@@ -1099,7 +1099,7 @@ export default function Dashboard() {
                 </div>
                 <h2 className="text-xl md:text-2xl font-black mb-1.5 leading-tight">처음이세요? 여기서부터 시작하세요</h2>
                 <p className="text-xs md:text-sm text-white/80 leading-relaxed">
-                  우리 가게 정보를 등록하고 네이버·구글·배민·요기요 같은 플랫폼을 ��결하면
+                  우리 가게 정보를 등록하고 네이버·구글·배민·요기요 같은 플랫폼을 연결하면
                   <br className="hidden md:block"/>
                   리뷰·예약·매출 데이터가 한 곳에 모입니다.
                 </p>
@@ -1391,7 +1391,7 @@ export default function Dashboard() {
                   </p>
                   <Link href="/settings/profile"
                     className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#3182F6] text-white text-[11px] font-bold hover:bg-[#1B64DA] transition-colors">
-                    프로필 설��하기 <ArrowRight size={11} strokeWidth={2.5} />
+                    프로필 설정하기 <ArrowRight size={11} strokeWidth={2.5} />
                   </Link>
                 </div>
               ) : keywords.map((kw) => (
