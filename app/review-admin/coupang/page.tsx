@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Sidebar from '../../components/Sidebar'
 import Footer from '../../components/Footer'
+import PageHeader from '../../components/PageHeader'
 import { toast } from '../../lib/toast'
 import { useConnections } from '../../lib/connections'
 import { buildSettingsHref } from '../../lib/settings-tabs'
@@ -128,24 +129,32 @@ export default function ReviewPage() {
     : '0.0'
 
   return (
-    <div className="min-h-screen bg-[#F2F4F6] flex">
-      <Sidebar />
-      <main className="flex-1 md:ml-[220px] p-4 md:p-8 pt-16 md:pt-8">
+    <div className="min-h-screen bg-[#F2F4F6] flex flex-col overflow-x-hidden">
+      <div className="flex flex-1">
+        <Sidebar />
+        <main className="flex-1 ml-0 md:ml-[220px] pt-14 md:pt-0 min-w-0">
+          <PageHeader
+            icon="🟠"
+            title="쿠팡이츠 리뷰 관리"
+            subtitle={connected ? '실시간 리뷰 · AI 답글 자동 초안' : '쿠팡이츠 공식 EatApp Partner API 연동'}
+            variant="coupang"
+          />
+          <div className="max-w-4xl mx-auto p-4 md:p-6 w-full">
 
-        {/* 헤더 */}
-        <div className="flex items-center justify-between mb-6 flex-wrap gap-4">
-          <div className="flex items-center gap-3">
-            <Link href="/review-admin" className="text-[#8B95A1] hover:text-[#191F28] text-sm">← 전체</Link>
-            <div className="w-8 h-8 rounded-xl flex items-center justify-center text-lg"
-              style={{ background: PLATFORM.bg }}>{PLATFORM.icon}</div>
-            <div>
-              <h1 className="text-xl font-bold text-[#191F28]">{PLATFORM.label} 리뷰</h1>
-              <p className="text-xs text-[#8B95A1]">리뷰 조회 및 AI 답글 관리</p>
-            </div>
+        {/* 브레드크럼 + 상태 + 새로고침 */}
+        <div className="flex items-center gap-2 mb-4 flex-wrap justify-between">
+          <div className="flex items-center gap-2 flex-wrap">
+            <Link href="/review-admin" className="text-xs text-[#8B95A1] hover:text-[#4E5968] font-semibold">← 리뷰 관리</Link>
+            <span className="text-[#E5E8EB]">·</span>
+            {connected ? (
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#ECFDF5] text-[#059669] font-semibold">● 연결됨</span>
+            ) : (
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#FEF3C7] text-[#92400E] font-semibold">연동 대기</span>
+            )}
           </div>
           {connected && (
             <button onClick={fetchReviews} disabled={loading}
-              className="flex items-center gap-2 px-4 py-2 bg-white text-sm font-semibold text-[#4E5968] rounded-xl shadow-sm hover:bg-[#F2F4F6] transition-colors">
+              className="flex items-center gap-2 px-3 py-1.5 bg-white text-xs font-semibold text-[#4E5968] rounded-xl shadow-sm hover:bg-[#F2F4F6] transition-colors">
               {loading ? '⏳' : '🔄'} 새로고침
             </button>
           )}
@@ -310,12 +319,13 @@ export default function ReviewPage() {
         )}
 
         {/* ── Footer ── */}
-        <div className="-mx-4 md:-mx-8 mt-10">
+        <div className="-mx-4 md:-mx-6 mt-10">
           <Footer />
         </div>
 
-      </main>
-
+          </div>
+        </main>
+      </div>
     </div>
   )
 }
