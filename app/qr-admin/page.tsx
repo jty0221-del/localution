@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic'
 import { useState, useEffect, useRef } from 'react'
 import Sidebar from '../components/Sidebar'
 import Footer from '../components/Footer'
+import { toast } from '../lib/toast'
 
 const LS_QR_SETTINGS = 'localution.qr_settings'
 const LS_QR_LIST     = 'localution.qr_list'
@@ -305,7 +306,7 @@ function openPrintTemplate(opts: {
     w.document.write(html)
     w.document.close()
   } else {
-    alert('팝업이 차단되었습니다. 브라우저 팝업 허용 후 다시 시도하세요.')
+    toast.error('팝업이 차단되었습니다. 브라우저 팝업 허용 후 다시 시도하세요.')
   }
 }
 
@@ -374,7 +375,7 @@ function buildReviewUrl(storeInfo: StoreInfo, settings: QRSettings): string {
   return base + '/review/' + storeId + (qs ? '?' + qs : '')
 }
 
-// ─── 메인 ───────────────────────────────────────��─────────────────
+// ─── 메인 ─────────────────────────────────────────────────────────
 export default function QRAdmin() {
   const [activeTab, setActiveTab] = useState<'settings' | 'list' | 'stats'>('settings')
   const [settings, setSettings] = useState<QRSettings>(DEFAULT_SETTINGS)
@@ -412,7 +413,7 @@ export default function QRAdmin() {
   const importFromNaverLink = () => {
     const naver = readNaverLink()
     if (!naver) {
-      alert('네이버 플레이스 연결 정보가 없습니다.\n설정 > 플랫폼 연결에서 먼저 네이버를 연결해주세요.')
+      toast.warn('네이버 플레이스 연결 정보가 없습니다.\n설정 > 플랫폼 연결에서 먼저 네이버를 연결해주세요.')
       return
     }
     const next: StoreInfo = {
@@ -968,7 +969,7 @@ export default function QRAdmin() {
           </div>
         )})()}
 
-        {/* ═════════════════════════════════════���═════════════════
+        {/* ═══════════════════════════════════════════════════════
              내 리뷰 QR 코드 (자동 생성 · 단일)
            ═══════════════════════════════════════════════════════ */}
         <div className="mt-6 bg-white rounded-2xl p-6 shadow-sm">
