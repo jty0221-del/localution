@@ -26,7 +26,7 @@ const FEATURES: Array<{
   { id: 'qr-stamp',      name: 'QR 스탬프 적립',      price: 0, short: 'QR',     bg: '#ECFDF5', color: '#00C471', desc: '디지털 스탬프로 재방문율 향상',                     category: '사장님' },
   { id: 'keyword',       name: '키워드 분석',         price: 0, short: '키워드', bg: '#F5F3FF', color: '#8B5CF6', desc: '네이버 검색량·경쟁도·연관 키워드 실시간 분석',      category: '마케터', popular: true },
   { id: 'blog-ai',       name: 'AI 블로그 포스팅',    price: 0, short: '블로그', bg: '#FDF2F8', color: '#EC4899', desc: 'SEO 최적화 블로그 초안 AI 작성',                    category: '마케터' },
-  { id: 'competitor',    name: '경쟁사 분석',         price: 0, short: '경쟁',   bg: '#F0F9FF', color: '#0EA5E9', desc: '경쟁 업체 리뷰·��워드·마케팅 자동 모니터링',        category: '마케터' },
+  { id: 'competitor',    name: '경쟁사 분석',         price: 0, short: '경쟁',   bg: '#F0F9FF', color: '#0EA5E9', desc: '경쟁 업체 리뷰·키워드·마케팅 자동 모니터링',        category: '마케터' },
   { id: 'report',        name: '마케팅 성과 리포트',  price: 0, short: '리포트', bg: '#ECFDF5', color: '#10B981', desc: '유입·전환·매출 주간·월간 자동 리포트',              category: '마케터' },
   { id: 'crm',           name: 'CRM 고객관리',        price: 0, short: 'CRM',    bg: '#EEF2FF', color: '#6366F1', desc: '고객 방문·결제·등급 자동 분류, 단골 관리',           category: '공통',   popular: true },
   { id: 'ai-chat',       name: 'AI 비서 채팅',        price: 0, short: '비서',   bg: '#F0FDFA', color: '#14B8A6', desc: '사장님 전용 24시간 AI 상담사',                       category: '공통' },
@@ -481,7 +481,7 @@ function AITab() {
         <div className="mb-4">
           <label className="block text-xs font-semibold text-[#4E5968] mb-2">업종 선택</label>
           <div className="flex flex-wrap gap-2">
-            {['카페·베이커리','음식점','헤어샵','네일샵','��부관리','마사지·스파','의원·한의원','기타'].map(b => (
+            {['카페·베이커리','음식점','헤어샵','네일샵','피부관리','마사지·스파','의원·한의원','기타'].map(b => (
               <button key={b} onClick={() => setBizType(b)}
                 className={`px-3 py-1.5 rounded-xl text-xs font-semibold border-2 transition-colors ${bizType === b ? 'border-[#3182F6] bg-[#EFF6FF] text-[#3182F6]' : 'border-[#E5E8EB] text-[#4E5968] hover:border-[#3182F6]'}`}>
                 {b}
