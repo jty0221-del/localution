@@ -9,7 +9,9 @@ const inter = Inter({ subsets: ['latin'] })
 const SITE_URL = 'https://www.localution.co.kr'
 const SITE_NAME = '로컬루션'
 const SITE_TITLE = '로컬루션 | 사장님의 네이버·구글·배민 마케팅, AI가 대신합니다'
-const SITE_DESC  = '네이버 플레이스 진단·AI 블로그 초안·인스타 릴스 대본·QR 리뷰 자동화. 1인 사장님도 5분 안에 시작. 월 990원부터, 회원가입 없이 바로 체험.'
+// 🔎 네이버 서치어드바이저 80자 제한 대응 (2026-04-19)
+// 민감 표현(AI 블로그 생성) 제거 → 리뷰 관리·SNS 자동화·AI 진단 중심으로 재작성
+const SITE_DESC  = '네이버·구글·배민·요기요 리뷰 자동 답글, 인스타·유튜브 쇼츠 자동화, AI 매장 진단까지. 월 990원부터 체험.'
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),
