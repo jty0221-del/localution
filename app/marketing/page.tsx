@@ -451,9 +451,10 @@ export default function MarketingPage() {
   ]
 
   return (
-    <div className="flex min-h-screen bg-[#F2F4F6]">
-      <Sidebar/>
-      <main className="flex-1 ml-0 md:ml-[220px] pt-14 md:pt-0">
+    <div className="min-h-screen bg-[#F2F4F6] flex flex-col overflow-x-hidden">
+      <div className="flex flex-1">
+        <Sidebar/>
+        <main className="flex-1 ml-0 md:ml-[220px] pt-14 md:pt-0 min-w-0">
         {/* LOCALUTION_HERO_BANNER */}
         <section className="bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] text-white px-4 sm:px-8 py-10 sm:py-14 mb-0">
           <div className="max-w-5xl mx-auto flex items-center gap-4">
@@ -511,12 +512,12 @@ export default function MarketingPage() {
             </Link>
           </div>
 
-          <div className="flex gap-1 bg-white border border-[#E5E8EB] rounded-2xl p-1 mb-6 w-fit">
+          <div className="flex gap-1 bg-white border border-[#E5E8EB] rounded-2xl p-1 mb-6 overflow-x-auto whitespace-nowrap max-w-full md:w-fit -mx-1 px-1 scrollbar-hide">
             {tabs.map(t => {
               const Icon = t.Icon
               return (
                 <button key={t.id} onClick={() => setTab(t.id)}
-                  className={['inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-sm font-medium transition-all', tab === t.id ? 'bg-[#3182F6] text-white shadow-sm' : 'text-[#8B95A1] hover:text-[#191F28]'].join(' ')}>
+                  className={['inline-flex items-center gap-1.5 px-3 md:px-4 py-2 rounded-xl text-sm font-medium transition-all flex-shrink-0 whitespace-nowrap', tab === t.id ? 'bg-[#3182F6] text-white shadow-sm' : 'text-[#8B95A1] hover:text-[#191F28]'].join(' ')}>
                   <Icon size={16} strokeWidth={2.25} />
                   {t.label}
                 </button>
@@ -530,7 +531,8 @@ export default function MarketingPage() {
           {tab === 'inflow' && <InflowTab/>}
         </div>
       </main>
-    <Footer />
+      </div>
+      <Footer />
     </div>
   )
 }
