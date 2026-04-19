@@ -22,6 +22,8 @@ export default function SignupPage() {
       color: '#4E5968',
       fontSize: 14,
     }}>
+      {/* 🔧 WCAG AA — 스크린리더용 h1 (시각적으로 숨김) */}
+      <h1 className="sr-only">로컬루션 회원가입</h1>
       가입 페이지로 이동 중…
     </div>
   )
