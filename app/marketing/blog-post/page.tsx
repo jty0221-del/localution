@@ -183,9 +183,9 @@ export default function BlogPostGeneratorPage() {
   const charCount = post ? post.replace(/\s/g, '').length : 0
 
   return (
-    <div className="min-h-screen bg-[#F8F9FB]">
+    <div className="min-h-screen bg-[#F8F9FB] flex">
       <Sidebar />
-      <main className="ml-0 lg:ml-60 min-w-0">
+      <main className="flex-1 ml-0 md:ml-[220px] pt-16 md:pt-0 min-w-0">
         <PageHeader
           icon="✍️"
           title="블로그 글 작성"
