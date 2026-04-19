@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Sidebar from '../../components/Sidebar'
 import Footer from '../../components/Footer'
+import { toast } from '../../lib/toast'
 import { useConnections } from '../../lib/connections'
 
 const PLATFORM = {
@@ -89,10 +90,10 @@ export default function ReviewPage() {
         ))
         setReplyMap(prev => ({ ...prev, [reviewId]: '' }))
       } else {
-        alert('답글 등록에 실패했습니다.')
+        toast.error('답글 등록에 실패했습니다.')
       }
     } catch {
-      alert('연결이 잠깐 불안정했어요. 다시 시도해주세요 🙏가 발생했습니다.')
+      toast.error('연결이 잠깐 불안정했어요. 다시 시도해주세요 🙏')
     }
     setSendingId(null)
   }
