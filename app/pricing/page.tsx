@@ -1,20 +1,45 @@
 'use client'
 // 🔧 force-dynamic 제거 (2026-04-19) — 공개 요금제 페이지라 정적 shell 허용
+// 🔧 11차→12차 (2026-04-20) — features 배열 제거, app/lib/modules.ts SSOT 로 통합
 
 import { useState } from 'react'
 import Sidebar from '../components/Sidebar'
 import Footer from '../components/Footer'
 import Link from 'next/link'
 import {
-  MessageCircle, FileText, MapPin, Ticket,
-  Search, PenLine, Target, BarChart3, Users, Bot, Smartphone,
-  ChefHat, Store, Megaphone, Briefcase,
+  MessageCircle, FileText, MapPin, Ticket, QrCode,
+  Search, PenLine, Target, BarChart3, Users, Bot, Smartphone, Share2,
+  ChefHat, Store, Megaphone, Briefcase, Calculator, Bell, UserCheck,
   ShoppingCart, Percent, UserPlus, Check, ShoppingBasket, X,
-  Gift, Plus, ArrowRight, ChevronDown, LucideIcon,
+  Gift, Plus, ArrowRight, ChevronDown, LucideIcon, TrendingUp,
 } from 'lucide-react'
+import { MODULES, calculateBundleDiscount, type ModuleId } from '../lib/modules'
+
+// 모듈 ID → lucide 아이콘 매핑 (modules.ts 의 icon 문자열에 대응)
+const ICON_MAP: Record<string, LucideIcon> = {
+  MessageSquare: MessageCircle,
+  Bell,
+  Calculator,
+  Users,
+  QrCode,
+  Search,
+  PenLine,
+  TrendingUp,
+  BarChart3,
+  UserCheck: Users,
+  Bot,
+  Share2: Smartphone,
+}
+
+// 카테고리별 아이콘 색상 (UI 유지용)
+const CATEGORY_ICON_COLOR: Record<string, string> = {
+  '사장님': '#3182F6',
+  '마케터': '#8B5CF6',
+  '공통':   '#059669',
+}
 
 type Feature = {
-  id: string
+  id: ModuleId
   name: string
   desc: string
   price: number
@@ -24,20 +49,17 @@ type Feature = {
   popular?: boolean
 }
 
-const features: Feature[] = [
-  { id: 'ai-review',    name: 'AI 리뷰 자동 답글',  desc: '네이버·배민·쿠팡이츠 리뷰를 AI가 분석하고 맞춤 답글 자동 생성. 하루 5분으로 100% 응답률 달성.',         price:  990, Icon: MessageCircle, iconColor: '#3182F6', category: '사장님', popular: true },
-  { id: 'alimtalk',     name: '알림톡 마케팅',       desc: '카카오 알림톡으로 단골 고객에게 쿠폰·이벤트 소식 발송. 월 100건 포함.',                                  price:  990, Icon: MessageCircle,      iconColor: '#F59E0B', category: '사장님' },
-  { id: 'accounting',   name: 'AI 정산·행정',        desc: '매출 자동 정리, 세금계산서 발행, 경비 관리를 AI가 도와줍니다.',                                           price:  990, Icon: FileText,           iconColor: '#FF8C00', category: '사장님' },
-  { id: 'local-synergy',name: '로컬 시너지',         desc: '주변 가게와 QR 공동이벤트, 상권 분석으로 손님을 함께 끌어모읍니다.',                                       price:  990, Icon: MapPin,             iconColor: '#EF4444', category: '사장님' },
-  { id: 'qr-stamp',     name: 'QR 스탬프 적립',      desc: '디지털 스탬프 카드로 재방문율을 높이세요. QR 코드 하나로 시작.',                                           price:  990, Icon: Ticket,             iconColor: '#00C471', category: '사장님' },
-  { id: 'keyword',      name: '키워드 분석',         desc: '네이버 검색량, 경쟁도, 연관 키워드를 실시간 분석. 블로그·플레이스 상위 노출 전략 수립.',                    price: 1990, Icon: Search,             iconColor: '#8B5CF6', category: '마케터', popular: true },
-  { id: 'blog-ai',      name: 'AI 블로그 포스팅',    desc: 'SEO 최적화된 블로그 글을 AI가 초안 작성. 키워드 자동 삽입, 이미지 배치 제안.',                             price: 1490, Icon: PenLine,            iconColor: '#EC4899', category: '마케터' },
-  { id: 'competitor',   name: '경쟁사 분석',         desc: '주변 경쟁 업체의 리뷰 동향, 키워드, 마케팅 전략을 자동 모니터링.',                                         price: 1990, Icon: Target,             iconColor: '#0EA5E9', category: '마케터' },
-  { id: 'report',       name: '마케팅 성과 리포트',  desc: '유입, 전환, 매출 연동 마케팅 효과를 주간·월간 리포트로 자동 발송.',                                         price:  990, Icon: BarChart3,          iconColor: '#10B981', category: '마케터' },
-  { id: 'crm',          name: 'CRM 고객관리',        desc: '고객 방문 이력, 결제 금액, 등급을 자동 분류. 단골·VIP 맞춤 관리.',                                          price: 1290, Icon: Users,              iconColor: '#6366F1', category: '공통',   popular: true },
-  { id: 'ai-chat',      name: 'AI 비서 채팅',        desc: '사장님 전용 AI 상담사. 매출 질문, 마케팅 조언, 운영 팁을 24시간 답변.',                                      price:  990, Icon: Bot,                iconColor: '#14B8A6', category: '공통' },
-  { id: 'sns-manage',   name: 'SNS 자동 포스팅',     desc: '인스타그램·네이버 블로그에 AI가 만든 콘텐츠를 예약 자동 발행.',                                             price: 1490, Icon: Smartphone,         iconColor: '#F97316', category: '공통' },
-]
+// 중앙 SSOT 에서 자동 생성
+const features: Feature[] = MODULES.map(m => ({
+  id: m.id,
+  name: m.name,
+  desc: m.desc,
+  price: m.price,
+  Icon: ICON_MAP[m.icon] || Search,
+  iconColor: CATEGORY_ICON_COLOR[m.category],
+  category: m.category,
+  popular: m.popular,
+}))
 
 const categoryColor: Record<string, string> = {
   '사장님': 'bg-blue-100 text-blue-600',
@@ -45,12 +67,9 @@ const categoryColor: Record<string, string> = {
   '공통':   'bg-green-100 text-green-600',
 }
 
-// 번들 할인율 계산: 3개+ 10%, 5개+ 15%, 8개+ 20%
+// 번들 할인율 — modules.ts 의 calculateBundleDiscount 재사용
 function getDiscountRate(count: number): number {
-  if (count >= 8) return 0.20
-  if (count >= 5) return 0.15
-  if (count >= 3) return 0.10
-  return 0
+  return calculateBundleDiscount(count)
 }
 
 function getNextTier(count: number): { need: number; rate: number } | null {
