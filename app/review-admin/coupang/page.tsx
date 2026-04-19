@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Sidebar from '../../components/Sidebar'
+import { useConnections } from '../../lib/connections'
 
 const PLATFORM = {
   key:   'coupang',
@@ -29,21 +30,19 @@ interface Review {
 export default function ReviewPage() {
   const [reviews, setReviews]       = useState<Review[]>([])
   const [loading, setLoading]       = useState(false)
-  const [connected, setConnected]   = useState(false)
   const [error, setError]           = useState('')
   const [replyMap, setReplyMap]     = useState<Record<string, string>>({})
   const [sendingId, setSendingId]   = useState<string | null>(null)
   const [filterRating, setFilterRating] = useState<number | null>(null)
   const [filterReplied, setFilterReplied] = useState<'all' | 'replied' | 'unreplied'>('all')
 
+  // 허브(review-admin)·대시보드·설정과 동기화된 연동 상태
+  const { isConnected } = useConnections()
+  const connected = isConnected('coupang')
+
   useEffect(() => {
-    // 연동 상태 확인
-    const savedConn = localStorage.getItem(`localution.${PLATFORM.key}.connected`)
-    if (savedConn === 'true') {
-      setConnected(true)
-      fetchReviews()
-    }
-  }, [])
+    if (connected) fetchReviews()
+  }, [connected])
 
   const fetchReviews = async () => {
     setLoading(true)
@@ -55,7 +54,6 @@ export default function ReviewPage() {
         setReviews(data.reviews || [])
       } else if (res.status === 401) {
         setError('인증이 만료되었습니다. 재연동해 주세요.')
-        setConnected(false)
         localStorage.removeItem(`localution.${PLATFORM.key}.connected`)
       } else if (res.status === 503) {
         setError('플랫폼 서버 연결에 실패했습니다. 잠시 후 다시 시도해 주세요.')
@@ -64,15 +62,14 @@ export default function ReviewPage() {
         setError(err.message || '리뷰를 가져오는 중 오류가 발생했습니다.')
       }
     } catch (e) {
-      setError('연결이 잠깐 불안정했어요. 다시 시도해주세요 🙏가 발생했습니다.')
+      setError('연결이 잠깐 불안정했어요. 다시 시도해주세요 🙏')
     }
     setLoading(false)
   }
 
   const handleConnect = () => {
-    localStorage.setItem(`localution.${PLATFORM.key}.connected`, 'true')
-    setConnected(true)
-    fetchReviews()
+    // 상세 페이지에서는 더 이상 단독 연동하지 않고 설정 탭으로 보냄
+    window.location.href = '/settings?tab=connect&platform=coupang'
   }
 
   const handleSendReply = async (reviewId: string) => {
