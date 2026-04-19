@@ -7,6 +7,7 @@ import Link from 'next/link'
 import Sidebar from '../../components/Sidebar'
 import Footer from '../../components/Footer'
 import { toast } from '../../lib/toast'
+import { buildSettingsHref } from '../../lib/settings-tabs'
 
 interface Review {
   id: number
@@ -164,7 +165,7 @@ export default function GoogleReviewPage() {
             <p className="text-xs md:text-sm text-[#92400E]">
               구글 비즈니스 프로필을 연동하면 실시간 리뷰를 불러올 수 있습니다.
             </p>
-            <Link href="/settings/connect?platform=google"
+            <Link href={buildSettingsHref('connect', { platform: 'google' })}
               className="px-4 py-2 rounded-xl text-xs font-bold text-white hover:opacity-90 whitespace-nowrap"
               style={{ background: PLATFORM.color }}>+ 연결하기</Link>
           </div>
