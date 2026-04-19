@@ -3,6 +3,7 @@
 export const dynamic = 'force-dynamic'
 
 import { useState, useEffect } from 'react'
+import { toast } from '../../lib/toast'
 
 const ADMIN_KEY_LOCAL = 'localution.admin_key'
 
@@ -69,7 +70,7 @@ export default function AdminInquiries() {
       ))
       setSelected(null)
       setReplyText('')
-    } catch { alert('오류 발생') }
+    } catch { toast.error('오류 발생') }
     finally { setReplying(false) }
   }
 
