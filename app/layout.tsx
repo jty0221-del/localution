@@ -56,9 +56,14 @@ export const metadata: Metadata = {
       'max-snippet': -1,
     },
   },
-  other: {
-    'naver-site-verification': '',
-  },
+  // 네이버 서치어드바이저 토큰은 별도 환경변수로 관리 (값 없으면 meta 태그 자체 미출력)
+  ...(process.env.NEXT_PUBLIC_NAVER_SITE_VERIFICATION
+    ? {
+        other: {
+          'naver-site-verification': process.env.NEXT_PUBLIC_NAVER_SITE_VERIFICATION,
+        },
+      }
+    : {}),
 }
 
 export const viewport: Viewport = {
