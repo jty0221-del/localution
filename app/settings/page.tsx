@@ -1186,7 +1186,18 @@ function SettingsInner() {
   const searchParams = useSearchParams()
   const tabParam = searchParams.get('tab') || ''
   const tabMap: Record<string, Tab> = { ai: 'AI 설정', store: '매장 정보', notify: '알림 설정', connect: '연동 관리', plan: '플랜 관리 (결제내역)' }
-  const [activeTab, setActiveTab] = useState<Tab>(tabMap[tabParam] || '매장 정보')
+  // 영문 키(ai/store/notify/connect/plan) + 한글 탭명 + 부분 한글 키 모두 수용
+  const resolveTab = (p: string): Tab => {
+    if (!p) return '매장 정보'
+    if (tabMap[p]) return tabMap[p]
+    if ((TABS as readonly string[]).includes(p)) return p as Tab
+    if (p.startsWith('연동')) return '연동 관리'
+    if (p.startsWith('알림')) return '알림 설정'
+    if (p.startsWith('AI') || p.startsWith('ai')) return 'AI 설정'
+    if (p.startsWith('플랜')) return '플랜 관리 (결제내역)'
+    return '매장 정보'
+  }
+  const [activeTab, setActiveTab] = useState<Tab>(resolveTab(tabParam))
 
   // 탭별 브랜딩 배지 (색상/아이콘/서브헤드)
   const HERO: Record<Tab, { emoji: string; grad: string; sub: string }> = {
