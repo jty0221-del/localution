@@ -1,5 +1,5 @@
 import { createClient } from '@supabase/supabase-js'
-import { cookies } from 'next/headers'
+import { cookies, headers } from 'next/headers'
 
 // 관리자 허용 이메일
 export const ADMIN_EMAILS = ['jty0221@gmail.com']
@@ -16,36 +16,74 @@ export function createServiceClient() {
   })
 }
 
-// 현재 요청자가 관리자인지 확인 — Supabase 의 auth 쿠키에서 토큰 추출 후 서비스 롤로 검증
-export async function requireAdmin(): Promise<{ ok: true; email: string } | { ok: false; status: number; message: string }> {
+// ----------------------------------------------------------------
+// access_token 추출 — Authorization 헤더 또는 Supabase 쿠키
+// ----------------------------------------------------------------
+async function extractAccessToken(): Promise<string | null> {
+  // 1) Authorization: Bearer <token>  (권장 — 클라이언트에서 명시적으로 전달)
+  try {
+    const hdrs = await headers()
+    const auth = hdrs.get('authorization') ?? hdrs.get('Authorization')
+    if (auth && /^Bearer\s+/i.test(auth)) {
+      return auth.replace(/^Bearer\s+/i, '').trim()
+    }
+  } catch {}
+
+  // 2) Supabase 쿠키 (supabase-js 가 자동 저장) — 포맷 여러 개 대응
   try {
     const cookieStore = await cookies()
-    // Supabase 는 sb-<project-ref>-auth-token 이름으로 쿠키를 저장
-    const cookieList = cookieStore.getAll()
-    const authCookie = cookieList.find(c => c.name.startsWith('sb-') && c.name.endsWith('-auth-token'))
-    if (!authCookie) return { ok: false, status: 401, message: 'not authenticated' }
+    const all = cookieStore.getAll()
+    const authCookie = all.find(c => c.name.startsWith('sb-') && c.name.endsWith('-auth-token'))
+    if (!authCookie) return null
 
-    // base64 로 감싸진 JSON — 파싱해서 access_token 추출
-    let accessToken: string | null = null
-    try {
-      const raw = authCookie.value.startsWith('base64-')
-        ? Buffer.from(authCookie.value.slice(7), 'base64').toString('utf-8')
-        : decodeURIComponent(authCookie.value)
-      const parsed = JSON.parse(raw)
-      accessToken = parsed?.access_token ?? parsed?.[0] ?? null
-    } catch {
-      accessToken = null
+    let raw = authCookie.value
+    // 'base64-' prefix 제거
+    if (raw.startsWith('base64-')) {
+      try { raw = Buffer.from(raw.slice(7), 'base64').toString('utf-8') } catch { /* ignore */ }
+    } else {
+      try { raw = decodeURIComponent(raw) } catch {}
     }
-    if (!accessToken) return { ok: false, status: 401, message: 'invalid auth cookie' }
 
+    // 배열 ["access_token", "refresh_token", ...] 포맷 또는 객체 포맷
+    let parsed: unknown
+    try { parsed = JSON.parse(raw) } catch { return null }
+
+    if (Array.isArray(parsed) && typeof parsed[0] === 'string') {
+      return parsed[0]
+    }
+    if (parsed && typeof parsed === 'object') {
+      const obj = parsed as Record<string, unknown>
+      if (typeof obj.access_token === 'string') return obj.access_token
+      if (typeof obj.currentSession === 'object' && obj.currentSession) {
+        const cs = obj.currentSession as Record<string, unknown>
+        if (typeof cs.access_token === 'string') return cs.access_token
+      }
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
+// 관리자 권한 확인 — API 루트 상단에서 먼저 호출
+export async function requireAdmin(): Promise<
+  | { ok: true; email: string; userId: string }
+  | { ok: false; status: number; message: string }
+> {
+  const token = await extractAccessToken()
+  if (!token) return { ok: false, status: 401, message: 'not authenticated' }
+
+  try {
     const svc = createServiceClient()
-    const { data, error } = await svc.auth.getUser(accessToken)
-    if (error || !data?.user?.email) return { ok: false, status: 401, message: 'token verification failed' }
-
+    const { data, error } = await svc.auth.getUser(token)
+    if (error || !data?.user?.email) {
+      return { ok: false, status: 401, message: 'token verification failed' }
+    }
     const email = data.user.email.toLowerCase()
-    if (!ADMIN_EMAILS.includes(email)) return { ok: false, status: 403, message: 'not an admin' }
-
-    return { ok: true, email }
+    if (!ADMIN_EMAILS.includes(email)) {
+      return { ok: false, status: 403, message: 'not an admin' }
+    }
+    return { ok: true, email, userId: data.user.id }
   } catch (e) {
     return { ok: false, status: 500, message: e instanceof Error ? e.message : 'admin check failed' }
   }
