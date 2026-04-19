@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useConnections, setConnection as libSetConnection } from '../../lib/connections'
 import Link from 'next/link'
 import Sidebar from '../../components/Sidebar'
+import Footer from '../../components/Footer'
 
 interface Review {
   id: string
@@ -401,7 +402,14 @@ export default function ReviewPage() {
             ))}
           </div>
         )}
+
+        {/* ── Footer ── */}
+        <div className="-mx-4 md:-mx-8 mt-10">
+          <Footer />
+        </div>
+
       </main>
+
     </div>
   )
 }
