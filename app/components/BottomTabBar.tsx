@@ -100,7 +100,7 @@ export default function BottomTabBar() {
           const showBadge = tab.key === 'review' && unanswered > 0
           return (
             <Link key={tab.href} href={tab.href}
-              className={`relative flex flex-col items-center justify-center gap-0.5 py-2 ${active ? 'text-[#3182F6]' : 'text-[#8B95A1]'} hover:text-[#3182F6] transition-colors`}>
+              className={`relative flex flex-col items-center justify-center gap-0.5 py-2.5 min-h-[52px] ${active ? 'text-[#3182F6]' : 'text-[#8B95A1]'} hover:text-[#3182F6] transition-colors`}>
               <span className="relative inline-flex items-center justify-center">
                 <tab.Icon size={22} strokeWidth={active ? 2.25 : 2} />
                 {showBadge && (
