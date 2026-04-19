@@ -67,23 +67,30 @@ function RankTab() {
   const sorted = [...rows].sort((a, b) => sort === 'rank' ? a.rank - b.rank : b.volume - a.volume)
 
   function rankBadge(r: number) {
-    if (r <= 3) return <span className="bg-[#3182F6] text-white text-xs font-bold px-2 py-0.5 rounded-full">{r}위</span>
-    if (r <= 10) return <span className="bg-[#E8F1FE] text-[#3182F6] text-xs font-bold px-2 py-0.5 rounded-full">{r}위</span>
-    return <span className="bg-[#F2F4F6] text-[#8B95A1] text-xs font-bold px-2 py-0.5 rounded-full">{r}위</span>
+    if (r <= 3) return <span className="inline-block bg-[#3182F6] text-white text-xs font-bold px-2 py-0.5 rounded-full whitespace-nowrap">{r}위</span>
+    if (r <= 10) return <span className="inline-block bg-[#E8F1FE] text-[#3182F6] text-xs font-bold px-2 py-0.5 rounded-full whitespace-nowrap">{r}위</span>
+    return <span className="inline-block bg-[#F2F4F6] text-[#8B95A1] text-xs font-bold px-2 py-0.5 rounded-full whitespace-nowrap">{r}위</span>
   }
 
   function diffEl(curr: number, prev: number) {
     const d = curr - prev
-    if (d < 0) return <span className="inline-flex items-center gap-0.5 text-[#2DB400] font-semibold text-xs"><ArrowUp size={11} strokeWidth={2.75} />{Math.abs(d)}</span>
-    if (d > 0) return <span className="inline-flex items-center gap-0.5 text-[#F04452] font-semibold text-xs"><ArrowDown size={11} strokeWidth={2.75} />{Math.abs(d)}</span>
-    return <span className="inline-flex items-center gap-0.5 text-[#8B95A1] text-xs"><Minus size={11} strokeWidth={2.75} />-</span>
+    if (d < 0) return <span className="inline-flex items-center gap-0.5 text-[#2DB400] font-semibold text-xs whitespace-nowrap"><ArrowUp size={11} strokeWidth={2.75} />{Math.abs(d)}</span>
+    if (d > 0) return <span className="inline-flex items-center gap-0.5 text-[#F04452] font-semibold text-xs whitespace-nowrap"><ArrowDown size={11} strokeWidth={2.75} />{Math.abs(d)}</span>
+    return <span className="inline-flex items-center gap-0.5 text-[#8B95A1] text-xs whitespace-nowrap"><Minus size={11} strokeWidth={2.75} />-</span>
   }
 
   function gradeLabel(r: number) {
-    if (r <= 3) return <span className="text-xs font-semibold text-[#2DB400]">최상위</span>
-    if (r <= 10) return <span className="text-xs font-semibold text-[#3182F6]">상위</span>
-    if (r <= 20) return <span className="text-xs font-semibold text-[#F5A623]">중위</span>
-    return <span className="text-xs font-semibold text-[#F04452]">하위</span>
+    if (r <= 3) return <span className="text-xs font-semibold text-[#2DB400] whitespace-nowrap">최상위</span>
+    if (r <= 10) return <span className="text-xs font-semibold text-[#3182F6] whitespace-nowrap">상위</span>
+    if (r <= 20) return <span className="text-xs font-semibold text-[#F5A623] whitespace-nowrap">중위</span>
+    return <span className="text-xs font-semibold text-[#F04452] whitespace-nowrap">하위</span>
+  }
+
+  function gradePill(r: number) {
+    if (r <= 3) return <span className="inline-block text-[10px] font-bold text-[#2DB400] bg-[#F0FBF0] px-2 py-0.5 rounded-md whitespace-nowrap">최상위</span>
+    if (r <= 10) return <span className="inline-block text-[10px] font-bold text-[#3182F6] bg-[#E8F1FE] px-2 py-0.5 rounded-md whitespace-nowrap">상위</span>
+    if (r <= 20) return <span className="inline-block text-[10px] font-bold text-[#F5A623] bg-[#FEF9E8] px-2 py-0.5 rounded-md whitespace-nowrap">중위</span>
+    return <span className="inline-block text-[10px] font-bold text-[#F04452] bg-[#FEF0F1] px-2 py-0.5 rounded-md whitespace-nowrap">하위</span>
   }
 
   function handleAdd() {
@@ -115,23 +122,47 @@ function RankTab() {
       )}
 
       <div className="bg-white rounded-2xl border border-[#E5E8EB] overflow-hidden">
-        <table className="w-full">
+        {/* 모바일: 카드형 리스트 */}
+        <div className="block md:hidden divide-y divide-[#F2F4F6]">
+          {sorted.map((row, i) => (
+            <div key={i} className="px-4 py-3.5 hover:bg-[#FAFBFF] transition-colors">
+              <div className="flex items-center justify-between gap-2 mb-2">
+                <span className="text-sm font-bold text-[#191F28] truncate min-w-0">{row.keyword}</span>
+                <div className="flex items-center gap-1.5 flex-shrink-0">
+                  {rankBadge(row.rank)}
+                  {gradePill(row.rank)}
+                </div>
+              </div>
+              <div className="flex items-center justify-between text-xs">
+                <span className="inline-flex items-center gap-1 text-[#8B95A1] whitespace-nowrap">
+                  월 <span className="font-semibold text-[#4E5968]">{row.volume.toLocaleString()}</span>
+                </span>
+                <span className="inline-flex items-center gap-1 whitespace-nowrap">
+                  <span className="text-[#8B95A1]">변화</span>
+                  {diffEl(row.rank, row.prev)}
+                </span>
+              </div>
+            </div>
+          ))}
+        </div>
+        {/* 데스크탑: 테이블 */}
+        <table className="hidden md:table w-full">
           <thead>
             <tr className="bg-[#F8F9FA] border-b border-[#E5E8EB]">
-              <th className="text-left text-xs text-[#8B95A1] font-medium px-5 py-3">키워드</th>
-              <th className="text-center text-xs text-[#8B95A1] font-medium px-4 py-3">현재 순위</th>
-              <th className="text-center text-xs text-[#8B95A1] font-medium px-4 py-3">변화</th>
-              <th className="text-center text-xs text-[#8B95A1] font-medium px-4 py-3">월 검색량</th>
-              <th className="text-center text-xs text-[#8B95A1] font-medium px-4 py-3">노출 등급</th>
+              <th className="text-left text-xs text-[#8B95A1] font-medium px-5 py-3 whitespace-nowrap">키워드</th>
+              <th className="text-center text-xs text-[#8B95A1] font-medium px-4 py-3 whitespace-nowrap">현재 순위</th>
+              <th className="text-center text-xs text-[#8B95A1] font-medium px-4 py-3 whitespace-nowrap">변화</th>
+              <th className="text-center text-xs text-[#8B95A1] font-medium px-4 py-3 whitespace-nowrap">월 검색량</th>
+              <th className="text-center text-xs text-[#8B95A1] font-medium px-4 py-3 whitespace-nowrap">노출 등급</th>
             </tr>
           </thead>
           <tbody>
             {sorted.map((row, i) => (
               <tr key={i} className="border-b border-[#F2F4F6] hover:bg-[#FAFBFF] transition-colors">
-                <td className="px-5 py-3.5 text-sm font-medium text-[#191F28]">{row.keyword}</td>
+                <td className="px-5 py-3.5 text-sm font-medium text-[#191F28] whitespace-nowrap">{row.keyword}</td>
                 <td className="px-4 py-3.5 text-center">{rankBadge(row.rank)}</td>
                 <td className="px-4 py-3.5 text-center">{diffEl(row.rank, row.prev)}</td>
-                <td className="px-4 py-3.5 text-center text-sm text-[#4E5968]">{row.volume.toLocaleString()}</td>
+                <td className="px-4 py-3.5 text-center text-sm text-[#4E5968] whitespace-nowrap">{row.volume.toLocaleString()}</td>
                 <td className="px-4 py-3.5 text-center">{gradeLabel(row.rank)}</td>
               </tr>
             ))}
@@ -456,14 +487,14 @@ export default function MarketingPage() {
         <Sidebar/>
         <main className="flex-1 ml-0 md:ml-[220px] pt-14 md:pt-0 min-w-0">
         {/* LOCALUTION_HERO_BANNER */}
-        <section className="bg-gradient-to-r from-[#8B5CF6] to-[#6D28D9] text-white px-4 sm:px-8 py-10 sm:py-14 mb-0">
-          <div className="max-w-5xl mx-auto flex items-center gap-4">
-            <div className="text-4xl sm:text-5xl drop-shadow-sm">🚀</div>
+        <section className="bg-gradient-to-br from-[#8B5CF6] to-[#6D28D9] text-white">
+          <div className="max-w-5xl mx-auto px-4 md:px-8 py-6 md:py-10 flex items-center gap-3 md:gap-4">
+            <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center text-3xl md:text-4xl flex-shrink-0">🚀</div>
             <div className="flex-1 min-w-0">
-              <h1 className="text-xl sm:text-2xl font-black tracking-tight">마케팅</h1>
-              <p className="text-white/85 text-xs sm:text-sm mt-1 leading-relaxed">네이버 플레이스·블로그·인스타를 한 곳에서 — 자영업자 올인원</p>
+              <h1 className="text-xl md:text-2xl font-black tracking-tight">마케팅</h1>
+              <p className="text-white/85 text-xs md:text-sm mt-1 leading-relaxed">네이버 플레이스·블로그·인스타를 한 곳에서 — 자영업자 올인원</p>
             </div>
-            <div className="hidden sm:flex items-center gap-2 text-[11px] font-bold text-white/90 bg-white/15 backdrop-blur px-3 py-1.5 rounded-full border border-white/20">
+            <div className="hidden md:flex items-center gap-1.5 text-[11px] font-bold text-white/90 bg-white/15 backdrop-blur px-3 py-1.5 rounded-full border border-white/20 flex-shrink-0">
               로컬루션
             </div>
           </div>
