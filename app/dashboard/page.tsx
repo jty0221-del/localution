@@ -6,6 +6,7 @@ import Link from 'next/link'
 import Sidebar from '../components/Sidebar'
 import Footer from '../components/Footer'
 import { useConnections, setConnection as libSetConnection, PlatformId as CanonicalPlatformId } from '../lib/connections'
+import { toast, confirmDialog } from '../lib/toast'
 import {
   Star, ArrowRight, ArrowUp, ArrowDown, Minus, X, Check, CheckCircle2,
   AlertTriangle, Rocket, Bot, Smartphone, BarChart3, Wallet, TrendingUp,
@@ -900,15 +901,17 @@ export default function Dashboard() {
     return +(rated.reduce((s, p) => s + p.rating!, 0) / rated.length).toFixed(1)
   })()
 
-  const handlePlatformClick = (p: Platform) => {
+  const handlePlatformClick = async (p: Platform) => {
     if (!isLoggedIn) {
-      if (confirm('로그인 후 플랫폼을 연동할 수 있습니다.\n로그인 페이지로 이동하시겠습니까?')) {
-        window.location.href = '/login'
-      }
+      const ok = await confirmDialog(
+        '로그인 후 플랫폼을 연동할 수 있습니다.\n로그인 페이지로 이동하시겠습니까?',
+        { title: '로그인이 필요해요', okText: '로그인 하러 가기' },
+      )
+      if (ok) window.location.href = '/login'
       return
     }
     if (p.id === 'yeoshin' || p.id === 'hometax') {
-      alert(`${p.name} 연동은 /settings 페이지에서 설정하세요.`)
+      toast.info(`${p.name} 연동은 /settings 페이지에서 설정하세요.`)
       return
     }
     setConnectPlatform(p)
