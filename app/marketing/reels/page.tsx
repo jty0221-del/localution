@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic'
 import { useState, useEffect, useRef } from 'react'
 import Sidebar from '../../components/Sidebar'
 import Footer from '../../components/Footer'
+import { toast } from '../../lib/toast'
 
 type Scene = {
   order: number
@@ -156,7 +157,7 @@ export default function ReelsGeneratorPage() {
   const copyJson = async () => {
     if (!script) return
     await navigator.clipboard.writeText(JSON.stringify(script, null, 2))
-    alert('JSON이 클립보드에 복사되었어요 ✓')
+    toast.success('JSON이 클립보드에 복사되었어요')
   }
 
   const activeScene: Scene | null = script && playing && currentScene < script.scenes.length
