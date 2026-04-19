@@ -114,6 +114,7 @@ export function useCustomers(): UseCustomersResult {
   }, []);
 
   // ---------- 이관 (localStorage → DB, 1회) ----------
+  // onConflict 대신 "기존 legacy_id 조회 후 신규만 insert" 패턴으로 안전하게 처리
   const ensureMigrated = useCallback(async (userId: string) => {
     try {
       const migrated = localStorage.getItem(LS_MIGRATED_KEY);
@@ -123,21 +124,35 @@ export function useCustomers(): UseCustomersResult {
         localStorage.setItem(LS_MIGRATED_KEY, todayISODate());
         return;
       }
-      const payload = local.map((c) => ({
-        user_id: userId,
-        legacy_id: c.id,
-        name: c.name,
-        phone: c.phone || null,
-        memo: c.memo ?? '',
-        tags: c.tags ?? [],
-        visits_count: c.visits ?? 0,
-        total_spend_krw: c.totalSpend ?? 0,
-        last_visit_at: c.lastVisit ? new Date(c.lastVisit).toISOString() : null,
-      }));
-      // upsert with conflict on (user_id, legacy_id)
-      const { error } = await supabase
+
+      // 이미 이관된 legacy_id 목록 조회 (중복 insert 방지)
+      const { data: existing } = await supabase
         .from('customers')
-        .upsert(payload, { onConflict: 'user_id,legacy_id', ignoreDuplicates: true });
+        .select('legacy_id')
+        .eq('user_id', userId)
+        .not('legacy_id', 'is', null);
+      const existingIds = new Set((existing ?? []).map(r => r.legacy_id));
+
+      const toInsert = local
+        .filter(c => !existingIds.has(c.id))
+        .map(c => ({
+          user_id: userId,
+          legacy_id: c.id,
+          name: c.name,
+          phone: c.phone || null,
+          memo: c.memo ?? '',
+          tags: c.tags ?? [],
+          visits_count: c.visits ?? 0,
+          total_spend_krw: c.totalSpend ?? 0,
+          last_visit_at: c.lastVisit ? new Date(c.lastVisit).toISOString() : null,
+        }));
+
+      if (toInsert.length === 0) {
+        localStorage.setItem(LS_MIGRATED_KEY, todayISODate());
+        return;
+      }
+
+      const { error } = await supabase.from('customers').insert(toInsert);
       if (error) {
         console.warn('[useCustomers] 이관 실패, 로컬 보존:', error.message);
         return;
