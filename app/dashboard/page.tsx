@@ -345,7 +345,7 @@ function ConnectModal({ platform, onClose, onSave }: ConnectModalProps) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose} role="dialog" aria-modal="true" aria-label="플랫폼 연결 모달">
       <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6" onClick={e => e.stopPropagation()}>
         <div className="flex items-center gap-3 mb-4">
           {platform.logo(40)}
@@ -468,10 +468,10 @@ function AIReplyModal({ review, onClose }: ReplyModalProps) {
   }
 
   return (
-    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose}>
+    <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4" onClick={onClose} role="dialog" aria-modal="true" aria-labelledby="ai-reply-modal-title">
       <div className="bg-white rounded-2xl shadow-2xl max-w-2xl w-full p-6" onClick={e => e.stopPropagation()}>
         <div className="flex items-center justify-between mb-4">
-          <h3 className="text-lg font-black text-[#191F28]">AI 답글 생성</h3>
+          <h3 id="ai-reply-modal-title" className="text-lg font-black text-[#191F28]">AI 답글 생성</h3>
           <button onClick={onClose} aria-label="모달 닫기" className="text-[#8B95A1] hover:text-[#191F28] w-7 h-7 rounded-lg flex items-center justify-center hover:bg-[#F2F4F6] transition-colors">
             <X size={18} strokeWidth={2.25} />
           </button>
@@ -730,9 +730,13 @@ function NoticeBanner() {
   return (
     <div className="mb-5 relative">
       <div
-        className="rounded-2xl overflow-hidden cursor-pointer transition-all hover:shadow-lg relative"
+        className="rounded-2xl overflow-hidden cursor-pointer transition-all hover:shadow-lg relative focus:outline-none focus:ring-2 focus:ring-[#3182F6]/40"
         style={{ background: s.bg, minHeight: 160 }}
+        role="link"
+        tabIndex={0}
+        aria-label={`${s.title} 배너 — 클릭 시 ${isExternal ? '새 창' : '이동'}`}
         onClick={() => isExternal ? window.open(s.link, '_blank') : (window.location.href = s.link)}
+        onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); isExternal ? window.open(s.link, '_blank') : (window.location.href = s.link) } }}
         onTouchStart={(e) => { touchStart.current = e.touches[0].clientX }}
         onTouchEnd={(e) => {
           const diff = e.changedTouches[0].clientX - touchStart.current
