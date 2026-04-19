@@ -6,6 +6,7 @@ import { useState, useEffect, useRef } from 'react'
 import Sidebar from '../components/Sidebar'
 import Footer from '../components/Footer'
 import { toast } from '../lib/toast'
+import { buildSettingsHref } from '../lib/settings-tabs'
 
 const LS_QR_SETTINGS = 'localution.qr_settings'
 const LS_QR_LIST     = 'localution.qr_list'
@@ -61,7 +62,7 @@ const DEFAULT_STORE: StoreInfo = {
   linkedSource: 'manual',
 }
 
-// /settings/connect 에서 저장한 네이버 링크 읽어오기
+// /settings?tab=connect 에서 저장한 네이버 링크 읽어오기
 const LS_PLATFORM_LINKS = 'localution.platform_links'
 function readNaverLink(): {
   externalId: string
@@ -74,7 +75,7 @@ function readNaverLink(): {
     const raw = typeof window !== 'undefined' ? window.localStorage.getItem(LS_PLATFORM_LINKS) : null
     if (!raw) return null
     const parsed = JSON.parse(raw)
-    // array 포맷 (/settings/connect)
+    // array 포맷 (/settings?tab=connect 에서 저장)
     if (Array.isArray(parsed)) {
       const n = parsed.find((l: any) => l?.platform === 'naver')
       return n ? {
@@ -403,7 +404,7 @@ export default function QRAdmin() {
       const rawStore = localStorage.getItem(LS_STORE_INFO)
       if (rawStore) setStoreInfo(JSON.parse(rawStore))
 
-      // /settings/connect 에서 저장한 네이버 링크 감지
+      // /settings?tab=connect 에서 저장한 네이버 링크 감지
       const naver = readNaverLink()
       setNaverLinked(!!naver)
     } catch (_) {}
@@ -637,7 +638,7 @@ export default function QRAdmin() {
                       </button>
                     )}
                     {!naverLinked && (
-                      <a href="/settings/connect?platform=naver"
+                      <a href={buildSettingsHref('connect', { platform: 'naver' })}
                         className="flex items-center gap-1 text-[11px] font-bold px-2.5 py-1.5 rounded-lg bg-[#EFF6FF] text-[#3182F6] hover:bg-[#DBEAFE] whitespace-nowrap">
                         + 네이버 연결하기
                       </a>
@@ -1051,7 +1052,7 @@ export default function QRAdmin() {
               <div className="text-3xl mb-2">🔌</div>
               <p className="text-sm text-[#4E5968] font-semibold mb-1">업체가 아직 연동되지 않았어요</p>
               <p className="text-xs text-[#8B95A1] mb-4">네이버 플레이스를 연결하면 QR이 자동으로 만들어집니다.</p>
-              <a href="/settings/connect?platform=naver"
+              <a href={buildSettingsHref('connect', { platform: 'naver' })}
                 className="inline-block px-4 py-2 rounded-xl bg-[#03C75A] text-white text-xs font-bold">
                 네이버 플레이스 연결하기
               </a>
