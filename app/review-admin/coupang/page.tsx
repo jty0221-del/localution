@@ -8,6 +8,7 @@ import Sidebar from '../../components/Sidebar'
 import Footer from '../../components/Footer'
 import { toast } from '../../lib/toast'
 import { useConnections } from '../../lib/connections'
+import { buildSettingsHref } from '../../lib/settings-tabs'
 
 const PLATFORM = {
   key:   'coupang',
@@ -71,7 +72,7 @@ export default function ReviewPage() {
 
   const handleConnect = () => {
     // 상세 페이지에서는 더 이상 단독 연동하지 않고 설정 탭으로 보냄
-    window.location.href = '/settings?tab=connect&platform=coupang'
+    window.location.href = buildSettingsHref('connect', { platform: 'coupang' })
   }
 
   const handleSendReply = async (reviewId: string) => {
