@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic'
 import { useState, useEffect } from 'react'
 import Sidebar from '../../components/Sidebar'
 import Footer from '../../components/Footer'
+import { toast, confirmDialog } from '../../lib/toast'
 
 // ── 대시보드 업체 목록 타입 ────────────────────────────────
 type Store = {
@@ -160,13 +161,15 @@ export default function SettingsConnect() {
     try { localStorage.setItem(LS_LINKS, JSON.stringify(next)) } catch {}
   }
 
-  function openModal(platformId: string) {
+  async function openModal(platformId: string) {
     const plat = PLATFORMS.find(p => p.id === platformId)
     if (!plat?.enabled) return
     if (stores.length === 0) {
-      if (confirm('먼저 프로필 설정에서 매장 정보를 등록해야 합니다.\n프로필 설정으로 이동할까요?')) {
-        window.location.href = '/settings/profile'
-      }
+      const ok = await confirmDialog(
+        '먼저 프로필 설정에서 매장 정보를 등록해야 합니다.\n프로필 설정으로 이동할까요?',
+        { title: '매장 정보 필요', okText: '프로필로 이동' },
+      )
+      if (ok) window.location.href = '/settings/profile'
       return
     }
     setSelectedStore(stores[0]?.id || '')
@@ -190,9 +193,15 @@ export default function SettingsConnect() {
     return links.filter(l => l.platform === platformId)
   }
 
-  function unlink(platform: string, storeId: string) {
-    if (!confirm('이 업체의 연동을 해제하시겠습니까?')) return
+  async function unlink(platform: string, storeId: string) {
+    const ok = await confirmDialog('이 업체의 연동을 해제하시겠습니까?', {
+      title: '연동 해제',
+      okText: '해제',
+      danger: true,
+    })
+    if (!ok) return
     saveLinks(links.filter(l => !(l.platform === platform && l.storeId === storeId)))
+    toast.success('연동을 해제했어요')
   }
 
   return (
@@ -887,7 +896,7 @@ function KakaoConnectModal(props: {
 // 배달 플랫폼 공용 연결 모달 (배달의민족 / 요기요 / 쿠팡이츠)
 // ═══════════════════════════════════════════════════════════
 const DELIVERY_META = {
-  baemin:      { name: '배달의민족', color: '#2AC1BC', logo: BaeminLogo,      placeholder: 'https://baemin.me/매장ID 또는 ���장ID 직접 입력', helpUrl: 'https://self.baemin.com' },
+  baemin:      { name: '배달의민족', color: '#2AC1BC', logo: BaeminLogo,      placeholder: 'https://baemin.me/매장ID 또는 매장ID 직접 입력', helpUrl: 'https://self.baemin.com' },
   yogiyo:      { name: '요기요',     color: '#FA0050', logo: YogiyoLogo,      placeholder: 'https://www.yogiyo.co.kr/restaurant/12345 또는 숫자 ID', helpUrl: 'https://ceo.yogiyo.co.kr' },
   coupangeats: { name: '쿠팡이츠',   color: '#FF4B30', logo: CoupangEatsLogo, placeholder: '쿠팡이츠 스토어 URL 또는 스토어 ID', helpUrl: 'https://store.coupangeats.com' },
 } as const
