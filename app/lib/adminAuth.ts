@@ -8,7 +8,21 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { cookies, headers } from 'next/headers'
 
-export const ADMIN_EMAILS = ['jty0221@gmail.com']
+// 관리자 이메일 화이트리스트
+//   · OAuth provider(네이버/카카오/구글) 마다 다른 email 을 내려주므로 여러 개 등록
+//   · 배포 후 /whoami 에서 실제로 내려오는 email 을 확인하고 갱신
+//   · 프로덕션은 env ADMIN_EMAILS (쉼표 구분) 로도 추가 가능
+const STATIC_ADMIN_EMAILS = [
+  'jty0221@gmail.com',
+  'jty0221@naver.com',
+  'halang@localution.co.kr',
+  'admin@localution.co.kr',
+]
+const envList = (process.env.ADMIN_EMAILS || '')
+  .split(',')
+  .map(s => s.trim().toLowerCase())
+  .filter(Boolean)
+export const ADMIN_EMAILS = Array.from(new Set([...STATIC_ADMIN_EMAILS, ...envList]))
 
 // ------------------------------------------------------------
 // Service role client (RLS 우회 — Node runtime 전용)
