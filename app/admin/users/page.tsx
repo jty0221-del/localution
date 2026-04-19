@@ -2,6 +2,7 @@
 export const dynamic = 'force-dynamic'
 
 import { useEffect, useState } from 'react'
+import { adminFetch } from '../../lib/adminFetch'
 
 type UserRow = {
   id: string
@@ -21,7 +22,7 @@ export default function AdminUsersPage() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch('/api/admin/users', { cache: 'no-store' })
+        const res = await adminFetch('/api/admin/users')
         if (!res.ok) { setErr(`로드 실패 (${res.status})`); return }
         const json = await res.json()
         setRows(json.rows ?? [])
