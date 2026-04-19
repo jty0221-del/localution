@@ -1,5 +1,14 @@
 import Link from 'next/link'
 import Image from 'next/image'
+import {
+  COMPANY,
+  COMPANY_FOOTER_LINE_1,
+  COMPANY_FOOTER_LINE_2,
+  COMPANY_FOOTER_LINE_3,
+  COMPANY_FOOTER_LINE_4,
+  COMPANY_FOOTER_LINE_5,
+  COMPANY_COPYRIGHT,
+} from '../lib/company'
 
 export default function Footer() {
   return (
@@ -10,10 +19,10 @@ export default function Footer() {
           <div className="flex-shrink-0">
             <div className="flex items-center gap-3 mb-3">
               {/* 로고는 public/logo.svg 로 분리 — 번들 크기 및 캐싱 최적화 */}
-              <Image src="/logo.svg" alt="로컬루션 로고" width={36} height={36} className="select-none" />
+              <Image src="/logo.svg" alt={`${COMPANY.BRAND} 로고`} width={36} height={36} className="select-none" />
               <div>
-                <span className="text-lg font-black text-white">로컬루션</span>
-                <span className="text-[10px] text-[#3182F6] font-bold block tracking-widest">LOCALUTION</span>
+                <span className="text-lg font-black text-white">{COMPANY.BRAND}</span>
+                <span className="text-[10px] text-[#3182F6] font-bold block tracking-widest">{COMPANY.BRAND_EN.toUpperCase()}</span>
               </div>
             </div>
             <p className="text-[#8B95A1] text-xs leading-relaxed max-w-xs">
@@ -36,7 +45,7 @@ export default function Footer() {
               <div className="font-semibold text-gray-300 mb-3">고객지원</div>
               <div className="space-y-2">
                 <Link href="/inquiry" className="block text-[#8B95A1] hover:text-white transition-colors">문의하기</Link>
-                <a href="https://open.kakao.com/o/gXyJ6xrg" target="_blank" rel="noopener" className="block text-[#8B95A1] hover:text-white transition-colors">카카오 상담</a>
+                <a href={COMPANY.KAKAO_OPENCHAT} target="_blank" rel="noopener" className="block text-[#8B95A1] hover:text-white transition-colors">카카오 상담</a>
               </div>
             </div>
             <div>
@@ -49,15 +58,16 @@ export default function Footer() {
           </div>
         </div>
 
+        {/* ─── 법정 사업자 정보 (lib/company.ts 단일 소스) ─── */}
         <div className="border-t border-gray-700 pt-6 flex flex-col md:flex-row justify-between gap-3 text-xs text-[#8B95A1]">
           <div className="space-y-1">
-            <div>하랑 | 대표: 전태영 | 사업자등록번호: 706-68-00281</div>
-            <div>통신판매업신고번호: 2020-서울강서-1482</div>
-            <div>주소: 경기 고양시 일산동구 장백로19 더루벤투스카운티 501호</div>
-            <div>전화: 010-7510-9054 | 이메일: harangmarketing@naver.com</div>
-            <div>개인정보보호책임자: 전태영 (harangmarketing@naver.com)</div>
+            <div>{COMPANY_FOOTER_LINE_1}</div>
+            <div>{COMPANY_FOOTER_LINE_2}</div>
+            <div>{COMPANY_FOOTER_LINE_3}</div>
+            <div>{COMPANY_FOOTER_LINE_4}</div>
+            <div>{COMPANY_FOOTER_LINE_5}</div>
           </div>
-          <div className="self-start md:self-end">© 2026 Localution. All rights reserved.</div>
+          <div className="self-start md:self-end">{COMPANY_COPYRIGHT}</div>
         </div>
       </div>
     </footer>
