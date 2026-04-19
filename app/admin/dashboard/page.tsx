@@ -2,6 +2,7 @@
 export const dynamic = 'force-dynamic'
 
 import { useEffect, useState } from 'react'
+import { adminFetch } from '../../lib/adminFetch'
 
 type Overview = {
   subscriptions: { active: number; past_due: number; cancelled: number; total: number }
@@ -26,7 +27,7 @@ export default function AdminDashboardPage() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch('/api/admin/overview', { cache: 'no-store' })
+        const res = await adminFetch('/api/admin/overview')
         if (!res.ok) {
           setErr(`오버뷰 로드 실패 (${res.status})`)
           return
