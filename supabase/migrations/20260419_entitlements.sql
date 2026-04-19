@@ -10,7 +10,23 @@
 --   2) 이 파일 전체를 복사 붙여넣기
 --   3) Run (Ctrl+Enter)
 --   4) Verify: SELECT * FROM subscriptions; (빈 결과 정상)
+--
+-- ⚠️ 재실행 안전 (idempotent)
+--   - 이전에 실패한 적 있거나 부분 생성된 상태라도 안전하게 재실행 가능
+--   - 데이터가 있다면 DROP TABLE 블록을 주석 처리할 것
 -- ============================================================
+
+-- ----- 0. 필수 확장 -----
+-- EXCLUDE USING gist 제약조건에 필요 (Supabase 기본 활성화되어 있지만 안전 차원)
+CREATE EXTENSION IF NOT EXISTS btree_gist;
+
+-- ----- 0.5 이전 버전 정리 (데이터 없을 때만, Phase 1 개발 초기) -----
+-- 테이블에 실제 결제 데이터가 쌓이면 이 블록을 반드시 주석 처리!
+DROP VIEW     IF EXISTS public.my_entitlements CASCADE;
+DROP FUNCTION IF EXISTS public.has_entitlement(module_id) CASCADE;
+DROP TABLE    IF EXISTS public.module_usage   CASCADE;
+DROP TABLE    IF EXISTS public.payments       CASCADE;
+DROP TABLE    IF EXISTS public.subscriptions  CASCADE;
 
 -- ----- 1. 모듈 ID 타입 정의 -----
 -- 코드와 동기화: app/lib/modules.ts 의 ModuleId 타입과 일치해야 함
