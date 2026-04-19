@@ -8,6 +8,7 @@ import Sidebar from '../components/Sidebar'
 import Footer from '../components/Footer'
 import { useConnections, PlatformId } from '../lib/connections'
 import { toast, confirmDialog } from '../lib/toast'
+import { buildSettingsHref } from '../lib/settings-tabs'
 
 // ═══════════════════════════════════════════════════════════════
 //  타입 & 상수
@@ -284,7 +285,7 @@ export default function ReviewAdminHub() {
                 ) : (
                   <>
                     <p className="text-xs text-[#8B95A1] mb-3 leading-relaxed">아직 연결되지 않았습니다.<br/>연동하면 실시간 리뷰가 표시됩니다.</p>
-                    <Link href={`/settings?tab=connect&platform=${stat.platform}`}
+                    <Link href={buildSettingsHref('connect', { platform: stat.platform })}
                       className="mt-auto w-full text-center px-3 py-2 rounded-xl text-xs font-bold text-white transition-all"
                       style={{ background: meta.color }}>
                       + 연결하기
@@ -338,7 +339,7 @@ export default function ReviewAdminHub() {
             <div className="text-4xl mb-3">📭</div>
             <p className="text-sm font-bold text-[#191F28] mb-1">아직 연결된 플랫폼이 없습니다</p>
             <p className="text-xs text-[#8B95A1] mb-4">위에서 플랫폼을 연결하면 실시간 리뷰가 자동으로 표시됩니다.</p>
-            <Link href="/settings?tab=connect"
+            <Link href={buildSettingsHref('connect')}
               className="inline-block px-4 py-2 rounded-xl text-xs font-bold bg-[#3182F6] text-white hover:bg-[#1C6FE0]">
               연동 관리로 이동
             </Link>
