@@ -7,6 +7,7 @@ import Sidebar from '../components/Sidebar'
 import Footer from '../components/Footer'
 import { useConnections, setConnection as libSetConnection, PlatformId as CanonicalPlatformId } from '../lib/connections'
 import { toast, confirmDialog } from '../lib/toast'
+import { buildSettingsHref } from '../lib/settings-tabs'
 import {
   Star, ArrowRight, ArrowUp, ArrowDown, Minus, X, Check, CheckCircle2,
   AlertTriangle, Rocket, Bot, Smartphone, BarChart3, Wallet, TrendingUp,
@@ -1023,7 +1024,7 @@ export default function Dashboard() {
     {
       key: 'unanswered-reviews',
       href: '/reviews',
-      connectHref: '/settings/connect',
+      connectHref: buildSettingsHref('connect'),
       requiredLabel: '리뷰 플랫폼',
       label: '미답변 리뷰',
       count: unansweredCount,
@@ -1045,7 +1046,7 @@ export default function Dashboard() {
     {
       key: 'reservations-today',
       href: '/reservations',
-      connectHref: '/settings/connect',
+      connectHref: buildSettingsHref('connect'),
       requiredLabel: '예약 시스템',
       label: '오늘 예약',
       count: 0,
@@ -1056,7 +1057,7 @@ export default function Dashboard() {
     {
       key: 'tax-invoice',
       href: '/settlement',
-      connectHref: '/settings/connect',
+      connectHref: buildSettingsHref('connect'),
       requiredLabel: '홈택스/여신',
       label: '세금계산서 발행',
       count: financePlatformConnected ? 2 : 0,
@@ -1122,7 +1123,7 @@ export default function Dashboard() {
                 </p>
               </div>
               <div className="flex flex-col sm:flex-row gap-2 shrink-0">
-                <Link href="/settings/connect"
+                <Link href={buildSettingsHref('connect')}
                   className="inline-flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl bg-white text-[#1B64DA] text-sm font-bold hover:bg-[#F2F4F6] transition-all whitespace-nowrap">
                   <Rocket size={14} strokeWidth={2.5} />
                   1단계: 플랫폼 연결
@@ -1474,7 +1475,7 @@ export default function Dashboard() {
               </p>
               <p className="text-[10px] text-[#92400E] leading-relaxed">
                 네이버·구글·배민 등 리뷰 플랫폼을 연동하면 실제 리뷰가 이 자리에 자동으로 들어옵니다.{' '}
-                <Link href="/settings/connect" className="font-bold underline inline-flex items-center gap-0.5">
+                <Link href={buildSettingsHref('connect')} className="font-bold underline inline-flex items-center gap-0.5">
                   연동하러 가기 <ArrowRight size={9} strokeWidth={3} />
                 </Link>
               </p>
