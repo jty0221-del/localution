@@ -8,17 +8,8 @@ export default function Footer() {
           {/* 브랜드 */}
           <div className="flex-shrink-0">
             <div className="flex items-center gap-3 mb-3">
-              <svg width="36" height="36" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M20 25C20 25 12 40 12 60C12 80 20 95 20 95" stroke="white" strokeWidth="5" strokeLinecap="round" fill="none"/>
-                <path d="M28 30C28 30 22 43 22 60C22 77 28 90 28 90" stroke="white" strokeWidth="5" strokeLinecap="round" fill="none"/>
-                <path d="M35 28L35 88L55 88" stroke="white" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-                <path d="M52 28L78 28M65 28L65 70" stroke="white" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-                <path d="M75 28L75 68C75 80 82 88 92 88C102 88 108 80 108 68L108 28" stroke="white" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-                <path d="M90 18L102 6L108 18" stroke="#3182F6" strokeWidth="5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
-                <line x1="102" y1="6" x2="102" y2="25" stroke="#3182F6" strokeWidth="5" strokeLinecap="round"/>
-                <circle cx="102" cy="32" r="3" fill="#3182F6"/>
-                <text x="60" y="110" textAnchor="middle" fill="white" fontSize="14" fontWeight="900" fontFamily="Arial, sans-serif" letterSpacing="3">LOCALUTION</text>
-              </svg>
+              {/* 로고는 public/logo.svg 로 분리 — 번들 크기 및 캐싱 최적화 */}
+              <img src="/logo.svg" alt="로컬루션 로고" width={36} height={36} className="select-none" />
               <div>
                 <span className="text-lg font-black text-white">로컬루션</span>
                 <span className="text-[10px] text-[#3182F6] font-bold block tracking-widest">LOCALUTION</span>
