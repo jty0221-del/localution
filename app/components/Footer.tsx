@@ -55,7 +55,7 @@ export default function Footer() {
             <div>통신판매업신고번호: 2020-서울강서-1482</div>
             <div>주소: 경기 고양시 일산동구 장백로19 더루벤투스카운티 501호</div>
             <div>전화: 010-7510-9054 | 이메일: harangmarketing@naver.com</div>
-            <div>개인정보보호책임자: 하랑 (harangmarketing@naver.com)</div>
+            <div>개인정보보호책임자: 전태영 (harangmarketing@naver.com)</div>
           </div>
           <div className="self-start md:self-end">© 2026 하랑. All rights reserved.</div>
         </div>
