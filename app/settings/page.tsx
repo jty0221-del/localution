@@ -7,13 +7,13 @@ import Link from 'next/link'
 import Sidebar from '../components/Sidebar'
 import Footer from '../components/Footer'
 import { useConnections, PlatformId } from '../lib/connections'
+import { TABS, TAB_HERO, resolveTab, type Tab } from '../lib/settings-tabs'
 
 // 토스페이먼츠 — 공식 SDK 테스트 클라이언트 키 (공개됨)
 // 실서비스 전환 시 env에서 주입: NEXT_PUBLIC_TOSS_CLIENT_KEY
 const TOSS_CLIENT_KEY = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY || 'test_ck_docs_Ovk5rk1EwkEbP0W43n07xlzm'
 
-const TABS = ['매장 정보', '알림 설정', 'AI 설정', '연동 관리', '플랜 관리 (결제내역)'] as const
-type Tab = typeof TABS[number]
+// TABS / Tab 타입은 app/lib/settings-tabs.ts 에서 중앙 관리
 
 // /pricing 페이지와 동기화된 12개 기능 — 베타 기간 전체 무료 (price=0, 정식 요금 임시)
 const FEATURES: Array<{
@@ -1185,28 +1185,10 @@ function PlanTab() {
 function SettingsInner() {
   const searchParams = useSearchParams()
   const tabParam = searchParams.get('tab') || ''
-  const tabMap: Record<string, Tab> = { ai: 'AI 설정', store: '매장 정보', notify: '알림 설정', connect: '연동 관리', plan: '플랜 관리 (결제내역)' }
-  // 영문 키(ai/store/notify/connect/plan) + 한글 탭명 + 부분 한글 키 모두 수용
-  const resolveTab = (p: string): Tab => {
-    if (!p) return '매장 정보'
-    if (tabMap[p]) return tabMap[p]
-    if ((TABS as readonly string[]).includes(p)) return p as Tab
-    if (p.startsWith('연동')) return '연동 관리'
-    if (p.startsWith('알림')) return '알림 설정'
-    if (p.startsWith('AI') || p.startsWith('ai')) return 'AI 설정'
-    if (p.startsWith('플랜')) return '플랜 관리 (결제내역)'
-    return '매장 정보'
-  }
   const [activeTab, setActiveTab] = useState<Tab>(resolveTab(tabParam))
 
-  // 탭별 브랜딩 배지 (색상/아이콘/서브헤드)
-  const HERO: Record<Tab, { emoji: string; grad: string; sub: string }> = {
-    '매장 정보':            { emoji: '🏪', grad: 'from-[#3182F6] to-[#1B64DA]', sub: '업체 프로필·주소·네이버 플레이스 연동' },
-    '알림 설정':            { emoji: '🔔', grad: 'from-[#F59E0B] to-[#D97706]', sub: '리뷰·결제·마케팅 알림 채널 관리' },
-    'AI 설정':              { emoji: '🤖', grad: 'from-[#8B5CF6] to-[#6D28D9]', sub: 'AI 답변 톤·금칙어·자동화 규칙' },
-    '연동 관리':            { emoji: '🔗', grad: 'from-[#059669] to-[#047857]', sub: '네이버·배민·쿠팡이츠·카카오톡 연결' },
-    '플랜 관리 (결제내역)': { emoji: '💳', grad: 'from-[#EC4899] to-[#BE185D]', sub: '베타 무료 플랜·기능 선택·토스 결제' },
-  }
+  // 탭별 브랜딩 배지 (app/lib/settings-tabs.ts 에서 중앙 관리)
+  const HERO = TAB_HERO
   const hero = HERO[activeTab]
 
   return (
