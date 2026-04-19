@@ -154,3 +154,89 @@ export function confirmDialog(message: string, opts: ConfirmOpts = {}): Promise<
     setTimeout(() => ok.focus(), 0)
   })
 }
+
+export interface PromptOpts extends ConfirmOpts {
+  placeholder?: string
+  defaultValue?: string
+  inputType?: 'text' | 'tel' | 'email' | 'url' | 'number'
+}
+
+/**
+ * prompt() 대체 — Promise<string|null> 반환. 빈 문자열은 취소와 동일하게 null.
+ * 사용:
+ *   const name = await promptDialog('상호명을 입력하세요', { title: '연동', placeholder: '예: 하랑마케팅 본점' })
+ *   if (!name) return
+ */
+export function promptDialog(message: string, opts: PromptOpts = {}): Promise<string | null> {
+  if (typeof document === 'undefined') return Promise.resolve(null)
+  injectStyles()
+
+  return new Promise<string | null>(resolve => {
+    const back = document.createElement('div')
+    back.id = 'loc-confirm-backdrop'
+
+    const box = document.createElement('div')
+    box.className = 'box'
+
+    if (opts.title) {
+      const t = document.createElement('div')
+      t.className = 'title'
+      t.textContent = opts.title
+      box.appendChild(t)
+    }
+
+    const msg = document.createElement('div')
+    msg.className = 'msg'
+    msg.textContent = message
+    box.appendChild(msg)
+
+    const input = document.createElement('input')
+    input.type = opts.inputType ?? 'text'
+    input.placeholder = opts.placeholder ?? ''
+    input.value = opts.defaultValue ?? ''
+    input.style.cssText =
+      'width:100%;padding:12px 14px;border-radius:12px;border:1.5px solid #E5E8EB;' +
+      'font-size:14px;color:#191F28;margin-bottom:16px;outline:none;' +
+      'transition:border-color .15s;box-sizing:border-box;'
+    input.addEventListener('focus', () => { input.style.borderColor = '#3182F6' })
+    input.addEventListener('blur',  () => { input.style.borderColor = '#E5E8EB' })
+    box.appendChild(input)
+
+    const btns = document.createElement('div')
+    btns.className = 'btns'
+
+    const cancel = document.createElement('button')
+    cancel.className = 'cancel'
+    cancel.textContent = opts.cancelText ?? '취소'
+
+    const ok = document.createElement('button')
+    ok.className = 'ok' + (opts.danger ? ' danger' : '')
+    ok.textContent = opts.okText ?? '확인'
+
+    const close = (v: string | null) => {
+      back.remove()
+      document.removeEventListener('keydown', onKey)
+      resolve(v)
+    }
+    const submit = () => {
+      const v = input.value.trim()
+      close(v ? v : null)
+    }
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') close(null)
+      if (e.key === 'Enter')  submit()
+    }
+    cancel.addEventListener('click', () => close(null))
+    ok.addEventListener('click', submit)
+    back.addEventListener('click', e => { if (e.target === back) close(null) })
+    document.addEventListener('keydown', onKey)
+
+    btns.appendChild(cancel)
+    btns.appendChild(ok)
+    box.appendChild(btns)
+    back.appendChild(box)
+    document.body.appendChild(back)
+
+    setTimeout(() => input.focus(), 0)
+  })
+}
