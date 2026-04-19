@@ -1,7 +1,7 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import Sidebar from '../components/Sidebar'
 import Footer from '../components/Footer'
@@ -11,9 +11,9 @@ import { toast, confirmDialog } from '../lib/toast'
 import { buildSettingsHref } from '../lib/settings-tabs'
 import {
   Star, ArrowRight, ArrowUp, ArrowDown, Minus, X, Check, CheckCircle2,
-  AlertTriangle, Rocket, BarChart3, TrendingUp,
+  AlertTriangle, Rocket, TrendingUp,
   Smile, Meh, Frown,
-  Search, Users, Calendar, FileSpreadsheet, Link2, Lock, MapPin,
+  Link2, Lock, MapPin,
 } from 'lucide-react'
 
 // ═══════════════════════════════════════════════════════════
