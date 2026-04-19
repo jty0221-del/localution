@@ -27,13 +27,31 @@ export async function GET(req: NextRequest) {
 
   // ── 연동 테스트 모드 ──
   if (isTest) {
+    // 🔒 프로덕션 가드 (2026-04-19)
+    // 실제 파트너 API 계약이 체결되기 전까지 production 환경에서는 user-supplied token만으로
+    // "연동됨" 상태를 반환하지 않는다. BAEMIN_CLIENT_ID/SECRET 환경변수가 모두 세팅되어야만
+    // 정식 연동으로 간주한다. (false-positive 차단)
+    const isProd = process.env.NODE_ENV === 'production'
+    const hasPartnerCreds = Boolean(clientId && clientSec)
+
+    if (isProd && !hasPartnerCreds) {
+      return NextResponse.json({
+        error: '배민 파트너 API 연동이 아직 준비 중입니다.\n제휴 심사 완료 후 사용하실 수 있습니다.\n(현재 단계: 파트너 계약 진행 중)',
+        helpUrl: 'https://developers.baemin.com',
+        pending: true,
+      }, { status: 503 })
+    }
+
     if (!token && !clientId) {
       return NextResponse.json({
         error: '배민 API Token 또는 환경변수(BAEMIN_CLIENT_ID)가 없습니다.\n배민사장님광장에서 API를 신청해주세요.',
         helpUrl: 'https://developers.baemin.com'
       }, { status: 401 })
     }
-    return NextResponse.json({ ok: true, message: '연동 준비 완료' })
+    return NextResponse.json({
+      ok: true,
+      message: hasPartnerCreds ? '연동 준비 완료' : '연동 준비 완료 (개발 환경)',
+    })
   }
 
   // ── OAuth 토큰 취득 (환경변수 방식) ──
