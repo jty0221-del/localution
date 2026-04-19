@@ -6,9 +6,12 @@ export default function LoginPage() {
   const cardRef = useRef<HTMLDivElement>(null)
   const [error, setError] = useState('')
   const [counters, setCounters] = useState({ visitors: 0, reviews: 0, rank: 0 })
+  // 회원가입 모드 여부 (/signup → /login?mode=signup 로 rewrite 되거나, 직접 쿼리로 접근)
+  const [isSignup, setIsSignup] = useState(false)
 
   useEffect(function() {
     const params = new URLSearchParams(window.location.search)
+    setIsSignup(params.get('mode') === 'signup')
     const err = params.get('error')
     if (err === 'naver_denied') setError('네이버 로그인이 취소되었습니다.')
     else if (err === 'kakao_denied') setError('카카오 로그인이 취소되었습니다.')
@@ -278,7 +281,12 @@ export default function LoginPage() {
               <div className='tagline'>AI가 사장님의 비즈니스를 성장시킵니다</div>
             </div>
 
-            <h1 className='loginTitle'>로그인</h1>
+            <h1 className='loginTitle'>{isSignup ? '무료 시작하기' : '로그인'}</h1>
+            {isSignup && (
+              <p style={{ textAlign: 'center', color: '#8B95A1', fontSize: 13, marginTop: -8, marginBottom: 16 }}>
+                카카오·네이버·구글 계정으로 1분만에 가입 → 바로 시작
+              </p>
+            )}
 
             {error && <div className='errMsg'>{error}</div>}
 
