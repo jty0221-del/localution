@@ -64,10 +64,69 @@ export default function CustomersPage() {
   const toggleAll = () =>
     setSelected(prev => prev.length === filtered.length ? [] : filtered.map(c => c.id))
 
-  const sendMessage = () => {
-    setMsgSent(true)
-    setTimeout(() => { setMsgOpen(false); setMsgSent(false); setMsgText(''); setSelected([]) }, 2000)
+  // Windows·macOS·모바일 모두 호환되는 메시지 발송 방식
+  // 1) 템플릿 치환({고객명}) + 전화번호 리스트 포함하여 클립보드 복사
+  // 2) KakaoTalk PC deep link 시도 (설치돼 있으면 자동 실행)
+  // 3) 사용자에게 "카카오톡 대화창에 Ctrl+V 붙여넣기" 안내
+  //   ※ 실서비스 자동 발송은 Solapi/Aligo/NHN BizM 알림톡 API 연동으로 확장
+  const [sendMode, setSendMode] = useState<'kakao' | 'sms'>('kakao')
+  const [sendError, setSendError] = useState<string | null>(null)
+
+  const buildPersonalizedBlocks = (): string => {
+    const pick = customers.filter(c => selected.includes(c.id))
+    return pick.map(c => {
+      const body = msgText.replace(/\{고객명\}/g, c.name || '고객')
+      return `[${c.name} · ${c.phone}]\n${body}`
+    }).join('\n\n————————\n\n')
   }
+
+  const sendKakao = async () => {
+    setSendError(null)
+    try {
+      const bulk = buildPersonalizedBlocks()
+      // 1) 클립보드 복사 (Windows/Mac/모바일 모두 동작)
+      if (navigator.clipboard && window.isSecureContext) {
+        await navigator.clipboard.writeText(bulk)
+      } else {
+        // 비보안 컨텍스트 fallback
+        const ta = document.createElement('textarea')
+        ta.value = bulk; ta.style.position = 'fixed'; ta.style.opacity = '0'
+        document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta)
+      }
+      // 2) KakaoTalk PC 실행 시도 (Windows 카톡PC 설치 시 자동 실행)
+      //    실패해도 복사는 완료돼 있으므로 사용자가 수동으로 열어 붙여넣을 수 있음
+      try { window.open('kakaotalk://', '_self') } catch (_) {}
+      setMsgSent(true)
+      setTimeout(() => { setMsgOpen(false); setMsgSent(false); setMsgText(''); setSelected([]) }, 2500)
+    } catch (e: any) {
+      setSendError('클립보드 복사 실패: ' + (e?.message || '브라우저 권한 확인'))
+    }
+  }
+
+  const sendSMS = () => {
+    setSendError(null)
+    const pick = customers.filter(c => selected.includes(c.id))
+    const phones = pick.map(c => c.phone.replace(/[^0-9]/g, '')).filter(Boolean).join(',')
+    if (!phones) { setSendError('전화번호가 없는 고객입니다.'); return }
+    // 모바일: sms: URI → 기본 메시지 앱이 열림
+    // Windows 데스크톱: sms: URI는 Windows 10+ Your Phone/Phone Link 연동 시에만 동작
+    //   → 실패 시 클립보드 fallback
+    const firstName = pick[0]?.name || '고객'
+    const previewBody = msgText.replace(/\{고객명\}/g, firstName)
+    const ua = navigator.userAgent.toLowerCase()
+    const isMobile = /android|iphone|ipad|ipod/.test(ua)
+    if (isMobile) {
+      const sep = /iphone|ipad|ipod/.test(ua) ? '&' : '?' // iOS: ?body, Android: ?body 공용
+      window.location.href = 'sms:' + phones + sep + 'body=' + encodeURIComponent(previewBody)
+      setMsgSent(true)
+      setTimeout(() => { setMsgOpen(false); setMsgSent(false); setMsgText(''); setSelected([]) }, 2500)
+    } else {
+      // Windows/Mac 데스크톱 → 클립보드 + Phone Link 안내
+      sendKakao() // 결과적으로 동일(복사 + 안내)
+    }
+  }
+
+  const sendMessage = () => { sendMode === 'kakao' ? sendKakao() : sendSMS() }
 
   const addCustomer = async () => {
     if (!newName.trim() || submitting) return
@@ -329,7 +388,21 @@ export default function CustomersPage() {
           <div className="fixed inset-0 bg-black/50 z-50 flex items-end md:items-center justify-center p-4">
             <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
               <h3 className="text-lg font-black text-[#191F28] mb-1">단체 메시지 발송</h3>
-              <p className="text-xs text-[#8B95A1] mb-4">선택한 {selected.length}명에게 발송됩니다</p>
+              <p className="text-xs text-[#8B95A1] mb-3">선택한 {selected.length}명에게 발송됩니다</p>
+
+              {/* 채널 선택 */}
+              <div className="flex gap-2 mb-3">
+                <button
+                  onClick={() => setSendMode('kakao')}
+                  className={`flex-1 py-2 rounded-lg text-xs font-bold transition-colors ${sendMode === 'kakao' ? 'bg-[#FEE500] text-[#191F28]' : 'bg-[#F2F4F6] text-[#8B95A1]'}`}>
+                  카카오톡 (PC · 복사)
+                </button>
+                <button
+                  onClick={() => setSendMode('sms')}
+                  className={`flex-1 py-2 rounded-lg text-xs font-bold transition-colors ${sendMode === 'sms' ? 'bg-[#3182F6] text-white' : 'bg-[#F2F4F6] text-[#8B95A1]'}`}>
+                  SMS (모바일 직발송)
+                </button>
+              </div>
 
               <textarea
                 value={msgText}
@@ -338,19 +411,43 @@ export default function CustomersPage() {
                 rows={5}
                 className="w-full px-4 py-3 border border-[#E5E8EB] rounded-xl text-sm resize-none focus:border-[#3182F6] focus:outline-none mb-2"
               />
-              <p className="text-xs text-[#8B95A1] mb-4">{'{고객명}'} 자리에 실제 이름이 들어갑니다</p>
+              <p className="text-[11px] text-[#8B95A1] mb-3">{'{고객명}'} 자리에 실제 이름이 자동 치환됩니다</p>
+
+              {/* 모드별 안내 */}
+              <div className="mb-4 text-[11px] leading-relaxed bg-[#F8F9FB] border border-[#E5E8EB] rounded-lg px-3 py-2.5">
+                {sendMode === 'kakao' ? (
+                  <p className="text-[#4E5968]">
+                    <strong className="text-[#191F28]">Windows/Mac 호환</strong> — 고객별로 이름이 치환된 메시지가 <strong>클립보드에 복사</strong>되고
+                    카카오톡 PC가 자동 실행됩니다. 상대방 대화창에 <kbd className="px-1 bg-white border border-[#E5E8EB] rounded">Ctrl+V</kbd> 로 붙여넣으세요.
+                    <br />
+                    <span className="text-[#8B95A1]">※ 자동 발송(알림톡 API)은 Solapi/Aligo 연동으로 확장 가능</span>
+                  </p>
+                ) : (
+                  <p className="text-[#4E5968]">
+                    <strong className="text-[#191F28]">모바일</strong>에서는 기본 메시지 앱이 열리며 수신자·본문이 자동 채워집니다.
+                    <br />
+                    <span className="text-[#8B95A1]">Windows 데스크톱: Phone Link(휴대폰 연결) 설치 시 SMS 발송 가능, 미설치 시 클립보드 복사로 대체</span>
+                  </p>
+                )}
+              </div>
+
+              {sendError && (
+                <div className="mb-3 text-xs text-[#E11D48] bg-[#FFF1F2] border border-[#FECDD3] rounded-lg px-3 py-2">{sendError}</div>
+              )}
 
               {msgSent ? (
-                <div className="text-center py-3 text-[#16A34A] font-bold text-sm">✓ 발송 완료!</div>
+                <div className="text-center py-3 text-[#16A34A] font-bold text-sm">
+                  {sendMode === 'kakao' ? '✓ 복사 완료 · 카카오톡에 붙여넣기(Ctrl+V)' : '✓ SMS 앱 실행 완료'}
+                </div>
               ) : (
                 <div className="flex gap-2">
                   <button onClick={() => setMsgOpen(false)}
                     className="flex-1 border border-[#E5E8EB] text-[#4E5968] py-3 rounded-xl text-sm font-bold hover:bg-[#F2F4F6]">
                     취소
                   </button>
-                  <button onClick={sendMessage} disabled={!msgText.trim()}
+                  <button onClick={sendMessage} disabled={!msgText.trim() || selected.length === 0}
                     className="flex-1 bg-[#3182F6] text-white py-3 rounded-xl text-sm font-bold hover:bg-[#1B64DA] disabled:opacity-40 transition-colors">
-                    발송하기
+                    {sendMode === 'kakao' ? '복사 + 카톡 열기' : 'SMS 발송'}
                   </button>
                 </div>
               )}
