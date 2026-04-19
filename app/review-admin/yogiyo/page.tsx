@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import Sidebar from '../../components/Sidebar'
+import { useConnections, setConnection as libSetConnection } from '../../lib/connections'
 
 interface Review {
   id: string
@@ -37,7 +38,9 @@ function Stars({ n }: { n: number }) {
 }
 
 export default function ReviewPage() {
-  const [connected, setConnected] = useState(false)
+  const { isConnected } = useConnections()
+  const connected = isConnected('yogiyo')
+
   const [storeId, setStoreId]     = useState('')
   const [token, setToken]         = useState('')
   const [reviews, setReviews]     = useState<ReviewState[]>([])
@@ -50,12 +53,11 @@ export default function ReviewPage() {
 
   useEffect(() => {
     try {
-      const isConn = localStorage.getItem(LS_CONNECTED) === 'true'
-      const sid    = localStorage.getItem(LS_STORE_ID) || ''
-      const tok    = localStorage.getItem(LS_TOKEN) || ''
-      setConnected(isConn); setStoreId(sid); setToken(tok)
+      const sid = localStorage.getItem(LS_STORE_ID) || ''
+      const tok = localStorage.getItem(LS_TOKEN) || ''
+      setStoreId(sid); setToken(tok)
     } catch {}
-  }, [])
+  }, [connected])
 
   const handleConnect = async () => {
     if (!connectInput.storeId || !connectInput.token) {
@@ -71,7 +73,9 @@ export default function ReviewPage() {
       localStorage.setItem(LS_CONNECTED, 'true')
       localStorage.setItem(LS_STORE_ID, connectInput.storeId)
       localStorage.setItem(LS_TOKEN, connectInput.token)
-      setConnected(true); setStoreId(connectInput.storeId); setToken(connectInput.token)
+      // 공통 훅 동기화 → 허브·대시보드·설정 즉시 반영
+      libSetConnection('yogiyo', { connected: true, externalId: connectInput.storeId })
+      setStoreId(connectInput.storeId); setToken(connectInput.token)
     } catch (e: any) {
       setError(e.message || '연동 중 오류가 발생했습니다')
     } finally { setConnectLoading(false) }
