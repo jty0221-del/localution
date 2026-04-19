@@ -1,15 +1,16 @@
 import Link from 'next/link'
 import Footer from '../components/Footer'
+import { COMPANY } from '../lib/company'
 
 export default function Terms() {
   const sections = [
     {
       title: '제1조 (목적)',
-      content: '이 약관은 하랑(이하 "회사")이 제공하는 로컬루션 서비스(이하 "서비스")의 이용 조건 및 절차, 회사와 회원 간의 권리·의무 및 책임사항, 기타 필요한 사항을 규정함을 목적으로 합니다.'
+      content: `이 약관은 ${COMPANY.LEGAL_NAME}(이하 "회사")이 제공하는 ${COMPANY.BRAND} 서비스(이하 "서비스")의 이용 조건 및 절차, 회사와 회원 간의 권리·의무 및 책임사항, 기타 필요한 사항을 규정함을 목적으로 합니다.`
     },
     {
       title: '제2조 (정의)',
-      content: '"서비스"란 회사가 제공하는 소상공인 마케팅 관리 플랫폼 로컬루션 및 관련 제반 서비스를 의미합니다. "회원"이란 본 약관에 동의하고 서비스를 이용하는 자를 말합니다. "콘텐츠"란 서비스 내에서 제작·게시되는 모든 정보를 말합니다.'
+      content: `"서비스"란 회사가 제공하는 소상공인 마케팅 관리 플랫폼 ${COMPANY.BRAND} 및 관련 제반 서비스를 의미합니다. "회원"이란 본 약관에 동의하고 서비스를 이용하는 자를 말합니다. "콘텐츠"란 서비스 내에서 제작·게시되는 모든 정보를 말합니다.`
     },
     {
       title: '제3조 (약관의 효력 및 변경)',
@@ -66,4 +67,3 @@ export default function Terms() {
     </div>
   )
 }
-
