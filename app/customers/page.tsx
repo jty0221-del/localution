@@ -319,14 +319,14 @@ export default function CustomersPage() {
 
               <div className="space-y-3">
                 <div>
-                  <label className="text-xs text-[#8B95A1] font-semibold block mb-1">이름 *</label>
-                  <input value={newName} onChange={e => setNewName(e.target.value)}
+                  <label htmlFor="new-name" className="text-xs text-[#8B95A1] font-semibold block mb-1">이름 *</label>
+                  <input id="new-name" value={newName} onChange={e => setNewName(e.target.value)}
                     placeholder="예: 홍길동"
                     className="w-full px-4 py-2.5 border border-[#E5E8EB] rounded-xl text-sm focus:border-[#3182F6] focus:outline-none" />
                 </div>
                 <div>
-                  <label className="text-xs text-[#8B95A1] font-semibold block mb-1">전화번호</label>
-                  <input value={newPhone} onChange={e => setNewPhone(e.target.value)}
+                  <label htmlFor="new-phone" className="text-xs text-[#8B95A1] font-semibold block mb-1">전화번호</label>
+                  <input id="new-phone" value={newPhone} onChange={e => setNewPhone(e.target.value)}
                     placeholder="010-0000-0000"
                     className="w-full px-4 py-2.5 border border-[#E5E8EB] rounded-xl text-sm focus:border-[#3182F6] focus:outline-none" />
                 </div>
@@ -343,8 +343,8 @@ export default function CustomersPage() {
                   </div>
                 </div>
                 <div>
-                  <label className="text-xs text-[#8B95A1] font-semibold block mb-1">메모</label>
-                  <textarea value={newMemo} onChange={e => setNewMemo(e.target.value)}
+                  <label htmlFor="new-memo" className="text-xs text-[#8B95A1] font-semibold block mb-1">메모</label>
+                  <textarea id="new-memo" value={newMemo} onChange={e => setNewMemo(e.target.value)}
                     rows={2}
                     placeholder="선호하는 메뉴, 특이사항 등..."
                     className="w-full px-4 py-2 border border-[#E5E8EB] rounded-xl text-sm resize-none focus:border-[#3182F6] focus:outline-none" />
