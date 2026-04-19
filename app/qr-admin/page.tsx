@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic'
 import { useState, useEffect, useRef } from 'react'
 import Sidebar from '../components/Sidebar'
 import Footer from '../components/Footer'
+import PageHeader from '../components/PageHeader'
 import { toast } from '../lib/toast'
 import { buildSettingsHref } from '../lib/settings-tabs'
 
@@ -557,29 +558,15 @@ export default function QRAdmin() {
   return (
     <div className="min-h-screen bg-[#F2F4F6] flex">
       <Sidebar />
-      <main className="flex-1 md:ml-[220px] p-4 md:p-8 pt-16 md:pt-8">
-        {/* LOCALUTION_HERO_BANNER */}
-        <section className="bg-gradient-to-r from-[#14B8A6] to-[#0F766E] text-white px-4 py-10 sm:py-14">
-          <div className="max-w-5xl mx-auto flex items-center gap-4">
-            <div className="text-4xl sm:text-5xl drop-shadow-sm">🧾</div>
-            <div className="flex-1 min-w-0">
-              <h1 className="text-xl sm:text-2xl font-black tracking-tight">QR 리뷰 관리</h1>
-              <p className="text-white/85 text-xs sm:text-sm mt-1 leading-relaxed">QR 한 번 스캔 → 고객이 바로 5점 리뷰 — 매장·테이블별 생성기</p>
-            </div>
-            <div className="hidden sm:flex items-center gap-2 text-[11px] font-bold text-white/90 bg-white/15 backdrop-blur px-3 py-1.5 rounded-full border border-white/20">
-              로컬루션
-            </div>
-          </div>
-        </section>
+      <main className="flex-1 md:ml-[220px] pt-14 md:pt-0 min-w-0">
+        <PageHeader
+          icon="🧾"
+          title="QR 리뷰 관리"
+          subtitle="QR 한 번 스캔 → 고객이 바로 5점 리뷰 — 매장·테이블별 생성기"
+          variant="success"
+        />
 
-        {/* 헤더 */}
-        <div className="flex items-start justify-between mb-6 flex-wrap gap-4">
-          <div>
-            <h1 className="text-2xl font-bold text-[#191F28]">QR 관리</h1>
-            <p className="text-[#8B95A1] mt-1">QR 스캔 → AI 리뷰 자동 생성으로 리뷰를 늘려보세요</p>
-          </div>
-
-        </div>
+        <div className="max-w-5xl mx-auto p-4 md:p-6 w-full">
 
         {/* 상태 요약 */}
         <div className="flex gap-3 mb-6 flex-wrap">
@@ -1060,6 +1047,7 @@ export default function QRAdmin() {
           )}
         </div>
 
+        </div>
         <Footer />
 </main>
 
