@@ -67,7 +67,7 @@ export default function InquiryPage() {
   const [copied, setCopied] = useState(false)
   const [quoteBanner, setQuoteBanner] = useState<string>('')
 
-  // /pricing 에서 넘어온 장바구니 견적을 읽어 문의 본문 ��동 채움
+  // /pricing 에서 넘어온 장바구니 견적을 읽어 문의 본문 자동 채움
   useEffect(() => {
     if (typeof window === 'undefined') return
     try {
