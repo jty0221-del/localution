@@ -139,16 +139,6 @@ const TO_CANONICAL: Partial<Record<PlatformId, CanonicalPlatformId>> = {
   hometax: 'hometax',
   // naver_search 는 공통 훅에 없음 (검색광고 별도)
 }
-const FROM_CANONICAL: Record<string, PlatformId> = {
-  naver: 'naver_place',
-  google: 'google',
-  baemin: 'baemin',
-  yogiyo: 'yogiyo',
-  coupang: 'coupangeats',
-  yeoshin: 'yeoshin',
-  hometax: 'hometax',
-}
-
 const INITIAL_PLATFORMS: Platform[] = [
   { id: 'naver_place',  name: '네이버 플레이스', shortName: '네이버',   logo: (s) => <NaverPlaceLogo size={s}/>,   category: '리뷰·검색', connected: false, rating: null, reviews: null, color: '#03C75A' },
   { id: 'google',       name: '구글 비즈니스',   shortName: '구글',     logo: (s) => <GoogleLogo size={s}/>,       category: '리뷰·검색', connected: false, rating: null, reviews: null, color: '#4285F4' },
