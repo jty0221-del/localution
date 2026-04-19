@@ -168,7 +168,7 @@ export default function ReelsGeneratorPage() {
   return (
     <div className="min-h-screen bg-[#F2F4F6] flex">
       <Sidebar />
-      <main className="flex-1 md:ml-[220px] pt-16 md:pt-0 min-w-0">
+      <main className="flex-1 ml-0 md:ml-[220px] pt-16 md:pt-0 min-w-0">
         <PageHeader
           icon="🎬"
           title="숏폼 / 릴스"
