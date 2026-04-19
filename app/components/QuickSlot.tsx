@@ -25,17 +25,30 @@ export default function QuickSlot() {
   const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) {
+    const handler = (e: MouseEvent | TouchEvent) => {
+      const target = e.target as Node | null
+      if (ref.current && target && !ref.current.contains(target)) {
         setOpen(false)
       }
     }
+    // 🔧 mousedown + touchstart 둘 다 구독 (모바일 외부 탭 닫힘 보장)
     document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
+    document.addEventListener('touchstart', handler, { passive: true })
+    return () => {
+      document.removeEventListener('mousedown', handler)
+      document.removeEventListener('touchstart', handler as any)
+    }
   }, [])
 
   return (
-    <div ref={ref} className="fixed right-4 top-1/2 -translate-y-1/2 z-50 flex flex-col items-end gap-2.5">
+    // 🔧 2026-04-19 모바일 우측 터치 불가 수정
+    // 부모 컨테이너는 pointer-events:none → 패널/버튼만 auto 로 이벤트 수신
+    // (닫혀있을 때 152px × ~230px 투명 영역이 터치를 흡수하던 버그 차단)
+    <div
+      ref={ref}
+      className="fixed right-4 top-1/2 -translate-y-1/2 z-50 flex flex-col items-end gap-2.5"
+      style={{ pointerEvents: 'none' }}
+    >
 
       {/* 링크 패널 — 토글 버튼 위에 배치 */}
       <div
@@ -80,13 +93,16 @@ export default function QuickSlot() {
         <div className="absolute -bottom-1.5 right-4 w-3 h-3 bg-white border-b border-r border-[#E5E8EB] rotate-45" />
       </div>
 
-      {/* 토글 버튼 */}
+      {/* 토글 버튼 — pointer-events:auto 로 명시 (부모 none 이므로) */}
       <button
         onClick={() => setOpen(v => !v)}
         title="빠른 이동"
+        aria-label={open ? '빠른 이동 닫기' : '빠른 이동 열기'}
         style={{
           transform: open ? 'rotate(45deg)' : 'rotate(0deg)',
           transition: 'transform 0.2s ease, box-shadow 0.2s ease',
+          pointerEvents: 'auto',
+          touchAction: 'manipulation',
         }}
         className="w-12 h-12 bg-[#3182F6] text-white rounded-full shadow-xl hover:bg-[#1B64DA] hover:shadow-2xl active:scale-95 flex items-center justify-center"
       >
