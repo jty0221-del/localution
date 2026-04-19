@@ -112,9 +112,11 @@ function HometaxLogo({ size = 28 }: { size?: number }) {
 //  타입 & 상수
 // ═══════════════════════════════════════════════════════════
 
+// 대시보드에서 쓰는 로컬 플랫폼 id (INITIAL_PLATFORMS 기준)
+// naver_search 는 검색광고 연동 미구현 → 당분간 타입에서 제외
 type PlatformId =
   | 'naver_place' | 'google' | 'baemin'
-  | 'yogiyo' | 'coupangeats' | 'naver_search' | 'yeoshin' | 'hometax'
+  | 'yogiyo' | 'coupangeats' | 'yeoshin' | 'hometax'
 
 interface Platform {
   id: PlatformId
@@ -129,7 +131,7 @@ interface Platform {
 }
 
 // 대시보드 로컬 id ↔ 공통 훅 canonical id 매핑
-const TO_CANONICAL: Partial<Record<PlatformId, CanonicalPlatformId>> = {
+const TO_CANONICAL: Record<PlatformId, CanonicalPlatformId> = {
   naver_place: 'naver',
   google: 'google',
   baemin: 'baemin',
@@ -137,7 +139,6 @@ const TO_CANONICAL: Partial<Record<PlatformId, CanonicalPlatformId>> = {
   coupangeats: 'coupang',
   yeoshin: 'yeoshin',
   hometax: 'hometax',
-  // naver_search 는 공통 훅에 없음 (검색광고 별도)
 }
 const INITIAL_PLATFORMS: Platform[] = [
   { id: 'naver_place',  name: '네이버 플레이스', shortName: '네이버',   logo: (s) => <NaverPlaceLogo size={s}/>,   category: '리뷰·검색', connected: false, rating: null, reviews: null, color: '#03C75A' },
@@ -194,7 +195,6 @@ const RECENT_REVIEWS = [
   { platform: '구글',    name: 'L**',  rating: 3, text: 'Food was okay but waiting time was a bit long. Interior is nice though.', time: '어제',     replied: false, color: '#4285F4' },
 ]
 
-const LS_LINKS = 'localution.platform_links'
 const LS_STORE = 'localution_store'
 
 // ═══════════════════════════════════════════════════════════
@@ -907,7 +907,7 @@ export default function Dashboard() {
       }
       return
     }
-    if (p.id === 'naver_search' || p.id === 'yeoshin' || p.id === 'hometax') {
+    if (p.id === 'yeoshin' || p.id === 'hometax') {
       alert(`${p.name} 연동은 /settings 페이지에서 설정하세요.`)
       return
     }
@@ -919,37 +919,16 @@ export default function Dashboard() {
     data: VerifyResult & { input: string },
   ) => {
     // 공통 훅 경유로 저장 → /settings, /review-admin 자동 동기화
+    // TO_CANONICAL 은 모든 PlatformId 를 커버하므로 fallback 불필요
     const canon = TO_CANONICAL[id]
-    if (canon) {
-      libSetConnection(canon, {
-        connected: true,
-        externalName: data.name,
-        externalId: data.placeId || data.input,
-        externalUrl: data.url,
-        rating: data.rating ?? null,
-        reviewCount: data.reviewCount ?? 0,
-      })
-    } else {
-      // naver_search 등 공통 훅에 없는 플랫폼은 레거시 저장소에 저장
-      try {
-        const raw = localStorage.getItem(LS_LINKS)
-        const links = raw ? JSON.parse(raw) : {}
-        links[id] = {
-          input: data.input,
-          placeId: data.placeId,
-          name: data.name,
-          address: data.address,
-          category: data.category,
-          phone: data.phone,
-          rating: data.rating ?? null,
-          reviews: data.reviewCount ?? 0,
-          url: data.url,
-          source: data.source,
-          linkedAt: new Date().toISOString(),
-        }
-        localStorage.setItem(LS_LINKS, JSON.stringify(links))
-      } catch {}
-    }
+    libSetConnection(canon, {
+      connected: true,
+      externalName: data.name,
+      externalId: data.placeId || data.input,
+      externalUrl: data.url,
+      rating: data.rating ?? null,
+      reviewCount: data.reviewCount ?? 0,
+    })
 
     setPlatforms(prev =>
       prev.map(p =>
@@ -1029,11 +1008,10 @@ export default function Dashboard() {
 
   // ─────────────────────────────────────────────────────────
   //  오늘 처리할 작업 — 플랫폼 연동 현황에 따라 동적 렌더
+  //  카테고리 기반 판정 (INITIAL_PLATFORMS의 category 필드가 단일 소스)
   // ─────────────────────────────────────────────────────────
-  const reviewPlatformIds = ['naver_place', 'google', 'baemin', 'yogiyo', 'coupangeats']
-  const financePlatformIds = ['hometax', 'yeoshin']
-  const reviewPlatformConnected = platforms.some(p => reviewPlatformIds.includes(p.id) && p.connected)
-  const financePlatformConnected = platforms.some(p => financePlatformIds.includes(p.id) && p.connected)
+  const reviewPlatformConnected = platforms.some(p => (p.category === '리뷰·검색' || p.category === '배달') && p.connected)
+  const financePlatformConnected = platforms.some(p => p.category === '금융·세무' && p.connected)
   // 고객 관리/예약은 현재 별도 연동 테이블 없음 → 향후 지점 DB로 대체.
   // 일단 "any 플랫폼 연동됨"을 조건으로 잡는다
   const anyPlatformConnected = connectedCount > 0
