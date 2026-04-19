@@ -1,25 +1,90 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useMemo } from 'react'
 import Sidebar from '../../components/Sidebar'
+import PageHeader from '../../components/PageHeader'
 import Footer from '../../components/Footer'
 
-// 프로필 주소에서 지역 추출
-function extractRegionFromProfile(): string | null {
-  if (typeof window === 'undefined') return null
+// ── 업체 컨텍스트 (업종·지역·상호) ─────────────────────
+interface BizContext {
+  region: string       // '강남', '부평', '해운대' 등
+  regionGu: string     // '강남구', '부평구' 등 (드롭다운 표시용)
+  category: string     // '맛집', '네일샵', '치과' 등
+  placeType: string    // 테이블 뱃지 — '음식점', '뷰티', '의료' 등
+  businessName: string // 업체명
+}
+
+const DEFAULT_CTX: BizContext = {
+  region: '강남', regionGu: '강남구', category: '맛집', placeType: '음식점', businessName: '내 가게',
+}
+
+// 키워드 패턴 (업종별 접미어 5개)
+const KEYWORD_PATTERNS: Record<string, string[]> = {
+  '맛집':     ['맛집', '회식', '점심', '데이트', '저녁'],
+  '카페':     ['카페', '브런치', '디저트', '스터디카페', '감성카페'],
+  '네일샵':   ['네일', '젤네일', '패디큐어', '네일아트', '속눈썹'],
+  '치과':     ['치과', '임플란트', '교정', '라미네이트', '스케일링'],
+  '미용실':   ['미용실', '염색', '펌', '남자컷', '헤어컷'],
+  '동물병원': ['동물병원', '건강검진', '예방접종', '중성화', '강아지'],
+  '학원':     ['학원', '과외', '입시학원', '영어학원', '수학학원'],
+  '피트니스': ['헬스장', 'PT', '필라테스', '요가', '크로스핏'],
+  '병원':     ['병원', '의원', '진료', '예약', '상담'],
+  '의원':     ['의원', '진료', '예약', '상담', '치료'],
+}
+
+function getSuffixes(category: string): string[] {
+  return KEYWORD_PATTERNS[category] || KEYWORD_PATTERNS['맛집']
+}
+
+function inferCategoryFromName(name: string): string | null {
+  if (!name) return null
+  if (/카페|커피|베이커리|브런치/.test(name)) return '카페'
+  if (/치과/.test(name)) return '치과'
+  if (/네일/.test(name)) return '네일샵'
+  if (/미용실|헤어샵|헤어|살롱/.test(name)) return '미용실'
+  if (/동물병원/.test(name)) return '동물병원'
+  if (/학원/.test(name)) return '학원'
+  if (/헬스|피트니스|요가|필라테스/.test(name)) return '피트니스'
+  if (/의원|한의원|정형외과|치과|병원/.test(name)) return '병원'
+  return null
+}
+
+function inferPlaceType(cat: string): string {
+  if (/카페|커피/.test(cat)) return '카페'
+  if (/치과|병원|의원|한의원/.test(cat)) return '의료'
+  if (/네일|미용|헤어|뷰티|살롱/.test(cat)) return '뷰티'
+  if (/학원|교습/.test(cat)) return '교육'
+  if (/헬스|피트니스|요가|필라테스/.test(cat)) return '운동'
+  return '음식점'
+}
+
+// 프로필에서 업체 컨텍스트 추출
+function readBizContext(): BizContext {
+  if (typeof window === 'undefined') return DEFAULT_CTX
   try {
-    const raw = localStorage.getItem('localution_store')
-    if (!raw) return null
-    const p = JSON.parse(raw)
-    const src = [p?.address, p?.branch, p?.storeName].filter(Boolean).join(' ')
-    if (!src) return null
-    const gu = src.match(/([가-힣]{1,4})(구|군)/)
-    if (gu) return gu[1] + gu[2]
-    const known = ['해운대','광안리','서면','강남','서초','홍대','합정','이태원','성수','건대','일산','분당','판교','송도','동탄','광교','수원','안양','평촌','인천','부평','부천','대구','동성로','수성','광주','상무','대전','둔산','울산','청주','전주','제주','서귀포','창원','마산','포항','경주','천안','아산','세종','강릉','춘천','원주']
-    for (const k of known) if (src.includes(k)) return k
-    return null
-  } catch { return null }
+    const raw1 = localStorage.getItem('localution.store_info')
+    const raw2 = localStorage.getItem('localution_store')
+    const p: any = raw1 ? JSON.parse(raw1) : raw2 ? JSON.parse(raw2) : {}
+
+    const addrSrc = [p?.location, p?.address, p?.branch, p?.storeName, p?.name].filter(Boolean).join(' ')
+    let region = DEFAULT_CTX.region
+    let regionGu = DEFAULT_CTX.regionGu
+    const gu = addrSrc.match(/([가-힣]{1,4})(구|군)/)
+    if (gu) { region = gu[1]; regionGu = gu[1] + gu[2] }
+    else {
+      const known = ['해운대','광안리','서면','강남','서초','홍대','합정','이태원','성수','건대','일산','분당','판교','송도','동탄','광교','수원','안양','평촌','인천','부평','부천','대구','동성로','수성','광주','상무','대전','둔산','울산','청주','전주','제주','서귀포','창원','마산','포항','경주','천안','아산','세종','강릉','춘천','원주']
+      for (const k of known) {
+        if (addrSrc.includes(k)) { region = k; regionGu = k + '구'; break }
+      }
+    }
+
+    const businessName = p?.name || p?.storeName || DEFAULT_CTX.businessName
+    const category = p?.category || p?.industry || inferCategoryFromName(businessName) || DEFAULT_CTX.category
+    return { region, regionGu, category, placeType: inferPlaceType(category), businessName }
+  } catch {
+    return DEFAULT_CTX
+  }
 }
 
 // 지역 드롭다운 옵션 (전국 주요 지역)
@@ -55,80 +120,92 @@ interface KeywordGroup {
 }
 
 // ── 목업 데이터 (실제: 네이버 Search API 연동) ─────────
-const MOCK_DATA: KeywordGroup[] = [
-  {
-    id: 1, keyword: '강남 맛집', relatedKw: '강남 맛집 상위노출', placeType: '음식점', volume: 2340,
-    rows: [
-      { date: '26.04.13', rank: 3,  prev: 5,  blogCount: 380, searchVol: 2340, score: 91.2 },
-      { date: '26.04.12', rank: 5,  prev: 4,  blogCount: 375, searchVol: 2280, score: 85.4 },
-      { date: '26.04.11', rank: 4,  prev: 7,  blogCount: 371, searchVol: 2310, score: 88.1 },
-      { date: '26.04.10', rank: 7,  prev: 6,  blogCount: 365, searchVol: 2290, score: 79.3 },
-      { date: '26.04.09', rank: 6,  prev: 9,  blogCount: 360, searchVol: 2200, score: 82.0 },
-      { date: '26.04.08', rank: 9,  prev: 11, blogCount: 358, searchVol: 2180, score: 74.5 },
-      { date: '26.04.07', rank: 11, prev: 10, blogCount: 352, searchVol: 2150, score: 69.8 },
-    ],
-  },
-  {
-    id: 2, keyword: '고강남빌딩 맛집', relatedKw: '강남역 근처 맛집', placeType: '음식점', volume: 310,
-    rows: [
-      { date: '26.04.13', rank: 1,  prev: 1,  blogCount: 42,  searchVol: 310,  score: 98.4 },
-      { date: '26.04.12', rank: 1,  prev: 2,  blogCount: 41,  searchVol: 308,  score: 97.1 },
-      { date: '26.04.11', rank: 2,  prev: 1,  blogCount: 40,  searchVol: 305,  score: 94.2 },
-      { date: '26.04.10', rank: 1,  prev: 3,  blogCount: 39,  searchVol: 300,  score: 98.0 },
-      { date: '26.04.09', rank: 3,  prev: 2,  blogCount: 38,  searchVol: 295,  score: 91.3 },
-      { date: '26.04.08', rank: 2,  prev: 4,  blogCount: 37,  searchVol: 290,  score: 94.5 },
-      { date: '26.04.07', rank: 4,  prev: 3,  blogCount: 36,  searchVol: 285,  score: 88.6 },
-    ],
-  },
-  {
-    id: 3, keyword: '학동역 맛집', relatedKw: '학동역 점심 맛집', placeType: '음식점', volume: 2860,
-    rows: [
-      { date: '26.04.13', rank: 12, prev: 15, blogCount: 786, searchVol: 2860, score: 67.4 },
-      { date: '26.04.12', rank: 15, prev: 13, blogCount: 780, searchVol: 2800, score: 59.2 },
-      { date: '26.04.11', rank: 13, prev: 18, blogCount: 775, searchVol: 2820, score: 63.8 },
-      { date: '26.04.10', rank: 18, prev: 16, blogCount: 768, searchVol: 2750, score: 54.1 },
-      { date: '26.04.09', rank: 16, prev: 21, blogCount: 760, searchVol: 2700, score: 58.3 },
-      { date: '26.04.08', rank: 21, prev: 19, blogCount: 755, searchVol: 2680, score: 47.9 },
-      { date: '26.04.07', rank: 19, prev: 22, blogCount: 750, searchVol: 2650, score: 52.1 },
-    ],
-  },
-  {
-    id: 4, keyword: '여의도 맛집', relatedKw: '여의도 직장인 맛집', placeType: '음식점', volume: 2570,
-    rows: [
-      { date: '26.04.13', rank: 8,  prev: 10, blogCount: 521, searchVol: 2570, score: 76.2 },
-      { date: '26.04.12', rank: 10, prev: 9,  blogCount: 517, searchVol: 2520, score: 71.4 },
-      { date: '26.04.11', rank: 9,  prev: 12, blogCount: 512, searchVol: 2540, score: 74.1 },
-      { date: '26.04.10', rank: 12, prev: 11, blogCount: 505, searchVol: 2480, score: 66.8 },
-      { date: '26.04.09', rank: 11, prev: 14, blogCount: 500, searchVol: 2450, score: 69.3 },
-      { date: '26.04.08', rank: 14, prev: 16, blogCount: 495, searchVol: 2420, score: 61.5 },
-      { date: '26.04.07', rank: 16, prev: 15, blogCount: 488, searchVol: 2390, score: 57.8 },
-    ],
-  },
-  {
-    id: 5, keyword: '강남구 회식', relatedKw: '강남 단체 회식 장소', placeType: '음식점', volume: 196,
-    rows: [
-      { date: '26.04.13', rank: 2,  prev: 3,  blogCount: 35,  searchVol: 196,  score: 95.1 },
-      { date: '26.04.12', rank: 3,  prev: 2,  blogCount: 34,  searchVol: 192,  score: 91.8 },
-      { date: '26.04.11', rank: 2,  prev: 4,  blogCount: 33,  searchVol: 194,  score: 94.6 },
-      { date: '26.04.10', rank: 4,  prev: 3,  blogCount: 32,  searchVol: 188,  score: 88.2 },
-      { date: '26.04.09', rank: 3,  prev: 5,  blogCount: 31,  searchVol: 185,  score: 91.0 },
-      { date: '26.04.08', rank: 5,  prev: 4,  blogCount: 30,  searchVol: 180,  score: 84.7 },
-      { date: '26.04.07', rank: 4,  prev: 6,  blogCount: 29,  searchVol: 178,  score: 88.3 },
-    ],
-  },
-  {
-    id: 6, keyword: '나대서식당 강남', relatedKw: '강남 한식당 추천', placeType: '음식점', volume: 2200,
-    rows: [
-      { date: '26.04.13', rank: 25, prev: 30, blogCount: 468, searchVol: 2200, score: 41.3 },
-      { date: '26.04.12', rank: 30, prev: 27, blogCount: 462, searchVol: 2150, score: 34.8 },
-      { date: '26.04.11', rank: 27, prev: 32, blogCount: 455, searchVol: 2170, score: 38.9 },
-      { date: '26.04.10', rank: 32, prev: 29, blogCount: 448, searchVol: 2100, score: 31.2 },
-      { date: '26.04.09', rank: 29, prev: 35, blogCount: 440, searchVol: 2080, score: 35.6 },
-      { date: '26.04.08', rank: 35, prev: 33, blogCount: 435, searchVol: 2050, score: 27.4 },
-      { date: '26.04.07', rank: 33, prev: 38, blogCount: 428, searchVol: 2020, score: 30.1 },
-    ],
-  },
-]
+// 6가지 순위 프로필 (상위권~중하위권까지 다양한 경쟁 시나리오)
+const ROW_TEMPLATES = [
+  // 1. 주력 대형 키워드 — 상승 중 (3→5→4→7…)
+  { volume: 2340, rows: [
+    { date: '26.04.13', rank: 3,  prev: 5,  blogCount: 380, searchVol: 2340, score: 91.2 },
+    { date: '26.04.12', rank: 5,  prev: 4,  blogCount: 375, searchVol: 2280, score: 85.4 },
+    { date: '26.04.11', rank: 4,  prev: 7,  blogCount: 371, searchVol: 2310, score: 88.1 },
+    { date: '26.04.10', rank: 7,  prev: 6,  blogCount: 365, searchVol: 2290, score: 79.3 },
+    { date: '26.04.09', rank: 6,  prev: 9,  blogCount: 360, searchVol: 2200, score: 82.0 },
+    { date: '26.04.08', rank: 9,  prev: 11, blogCount: 358, searchVol: 2180, score: 74.5 },
+    { date: '26.04.07', rank: 11, prev: 10, blogCount: 352, searchVol: 2150, score: 69.8 },
+  ]},
+  // 2. 브랜드 키워드 — 1위 고정
+  { volume: 310, rows: [
+    { date: '26.04.13', rank: 1,  prev: 1,  blogCount: 42,  searchVol: 310,  score: 98.4 },
+    { date: '26.04.12', rank: 1,  prev: 2,  blogCount: 41,  searchVol: 308,  score: 97.1 },
+    { date: '26.04.11', rank: 2,  prev: 1,  blogCount: 40,  searchVol: 305,  score: 94.2 },
+    { date: '26.04.10', rank: 1,  prev: 3,  blogCount: 39,  searchVol: 300,  score: 98.0 },
+    { date: '26.04.09', rank: 3,  prev: 2,  blogCount: 38,  searchVol: 295,  score: 91.3 },
+    { date: '26.04.08', rank: 2,  prev: 4,  blogCount: 37,  searchVol: 290,  score: 94.5 },
+    { date: '26.04.07', rank: 4,  prev: 3,  blogCount: 36,  searchVol: 285,  score: 88.6 },
+  ]},
+  // 3. 대형 경쟁 키워드 — 중위권 (12~21위)
+  { volume: 2860, rows: [
+    { date: '26.04.13', rank: 12, prev: 15, blogCount: 786, searchVol: 2860, score: 67.4 },
+    { date: '26.04.12', rank: 15, prev: 13, blogCount: 780, searchVol: 2800, score: 59.2 },
+    { date: '26.04.11', rank: 13, prev: 18, blogCount: 775, searchVol: 2820, score: 63.8 },
+    { date: '26.04.10', rank: 18, prev: 16, blogCount: 768, searchVol: 2750, score: 54.1 },
+    { date: '26.04.09', rank: 16, prev: 21, blogCount: 760, searchVol: 2700, score: 58.3 },
+    { date: '26.04.08', rank: 21, prev: 19, blogCount: 755, searchVol: 2680, score: 47.9 },
+    { date: '26.04.07', rank: 19, prev: 22, blogCount: 750, searchVol: 2650, score: 52.1 },
+  ]},
+  // 4. 중형 키워드 — 중상위권 (8~16위)
+  { volume: 2570, rows: [
+    { date: '26.04.13', rank: 8,  prev: 10, blogCount: 521, searchVol: 2570, score: 76.2 },
+    { date: '26.04.12', rank: 10, prev: 9,  blogCount: 517, searchVol: 2520, score: 71.4 },
+    { date: '26.04.11', rank: 9,  prev: 12, blogCount: 512, searchVol: 2540, score: 74.1 },
+    { date: '26.04.10', rank: 12, prev: 11, blogCount: 505, searchVol: 2480, score: 66.8 },
+    { date: '26.04.09', rank: 11, prev: 14, blogCount: 500, searchVol: 2450, score: 69.3 },
+    { date: '26.04.08', rank: 14, prev: 16, blogCount: 495, searchVol: 2420, score: 61.5 },
+    { date: '26.04.07', rank: 16, prev: 15, blogCount: 488, searchVol: 2390, score: 57.8 },
+  ]},
+  // 5. 롱테일 키워드 — 상위권 (2~5위)
+  { volume: 196, rows: [
+    { date: '26.04.13', rank: 2,  prev: 3,  blogCount: 35,  searchVol: 196,  score: 95.1 },
+    { date: '26.04.12', rank: 3,  prev: 2,  blogCount: 34,  searchVol: 192,  score: 91.8 },
+    { date: '26.04.11', rank: 2,  prev: 4,  blogCount: 33,  searchVol: 194,  score: 94.6 },
+    { date: '26.04.10', rank: 4,  prev: 3,  blogCount: 32,  searchVol: 188,  score: 88.2 },
+    { date: '26.04.09', rank: 3,  prev: 5,  blogCount: 31,  searchVol: 185,  score: 91.0 },
+    { date: '26.04.08', rank: 5,  prev: 4,  blogCount: 30,  searchVol: 180,  score: 84.7 },
+    { date: '26.04.07', rank: 4,  prev: 6,  blogCount: 29,  searchVol: 178,  score: 88.3 },
+  ]},
+  // 6. 대형 경쟁 키워드 — 하위권 (25~38위, 개선 필요)
+  { volume: 2200, rows: [
+    { date: '26.04.13', rank: 25, prev: 30, blogCount: 468, searchVol: 2200, score: 41.3 },
+    { date: '26.04.12', rank: 30, prev: 27, blogCount: 462, searchVol: 2150, score: 34.8 },
+    { date: '26.04.11', rank: 27, prev: 32, blogCount: 455, searchVol: 2170, score: 38.9 },
+    { date: '26.04.10', rank: 32, prev: 29, blogCount: 448, searchVol: 2100, score: 31.2 },
+    { date: '26.04.09', rank: 29, prev: 35, blogCount: 440, searchVol: 2080, score: 35.6 },
+    { date: '26.04.08', rank: 35, prev: 33, blogCount: 435, searchVol: 2050, score: 27.4 },
+    { date: '26.04.07', rank: 33, prev: 38, blogCount: 428, searchVol: 2020, score: 30.1 },
+  ]},
+] as const
+
+// 업체 컨텍스트 기반으로 6개 키워드 그룹을 동적 생성
+function buildMockData(ctx: BizContext): KeywordGroup[] {
+  const suffixes = getSuffixes(ctx.category) // 5개 접미어
+  const { region, businessName, placeType } = ctx
+  // 키워드 슬롯 6개 × 의미
+  const specs = [
+    { id: 1, keyword: `${region} ${suffixes[0]}`,           relatedKw: `${region} ${suffixes[0]} 상위노출`,     tpl: 0 }, // 주력
+    { id: 2, keyword: `${businessName} ${region}`,          relatedKw: `${region} ${suffixes[0]} 추천`,         tpl: 1 }, // 브랜드
+    { id: 3, keyword: `${region}역 ${suffixes[0]}`,         relatedKw: `${region}역 ${suffixes[2]}`,            tpl: 2 }, // 역세권
+    { id: 4, keyword: `${region} ${suffixes[3]}`,           relatedKw: `${region} ${suffixes[3]} 추천`,         tpl: 3 }, // 중형
+    { id: 5, keyword: `${region} ${suffixes[1]}`,           relatedKw: `${region} ${suffixes[1]} 장소`,         tpl: 4 }, // 롱테일
+    { id: 6, keyword: `${region} ${suffixes[4]}`,           relatedKw: `${region} ${suffixes[4]} 추천`,         tpl: 5 }, // 대형 하위
+  ]
+  return specs.map(s => ({
+    id: s.id,
+    keyword: s.keyword,
+    relatedKw: s.relatedKw,
+    placeType,
+    volume: ROW_TEMPLATES[s.tpl].volume,
+    rows: ROW_TEMPLATES[s.tpl].rows as unknown as RankRow[],
+  }))
+}
 
 // ── 순위 색상 ─────────────────────────────────────────
 function getRankColor(rank: number | null): string {
@@ -224,30 +301,39 @@ function KeywordCard({ group }: { group: KeywordGroup }) {
 
 // ── 메인 페이지 ───────────────────────────────────────
 export default function KeywordRankPage() {
-  const [area, setArea]         = useState('강남구')
-  const [placeType, setPlaceType] = useState('음식점')
+  const [ctx, setCtx]           = useState<BizContext>(DEFAULT_CTX)
+  const [area, setArea]         = useState(DEFAULT_CTX.regionGu)
+  const [placeType, setPlaceType] = useState(DEFAULT_CTX.placeType)
   const [search, setSearch]     = useState('')
   const [scanning, setScanning] = useState(false)
   const [lastUpdated, setLastUpdated] = useState('26.04.13 오전 1:46')
 
-  // 프로필의 매장 주소 기반으로 기본 지역 설정
+  // 프로필 기반으로 업체 컨텍스트 + 지역·업종 동적 설정
   useEffect(() => {
-    const region = extractRegionFromProfile()
-    if (region) {
-      // 드롭다운 옵션에 없어도 현재 값으로 설정 (표시됨)
-      setArea(region)
-    }
+    const c = readBizContext()
+    setCtx(c)
+    setArea(c.regionGu)
+    setPlaceType(c.placeType)
     const onChange = () => {
-      const r = extractRegionFromProfile()
-      if (r) setArea(r)
+      const nc = readBizContext()
+      setCtx(nc)
+      setArea(nc.regionGu)
+      setPlaceType(nc.placeType)
     }
     window.addEventListener('localution:user-change', onChange)
-    return () => window.removeEventListener('localution:user-change', onChange)
+    window.addEventListener('storage', onChange)
+    return () => {
+      window.removeEventListener('localution:user-change', onChange)
+      window.removeEventListener('storage', onChange)
+    }
   }, [])
 
-  const connectedCount = MOCK_DATA.filter(g => g.rows[0].rank !== null && g.rows[0].rank <= 10).length
+  // 업체 컨텍스트가 바뀌면 mock 데이터도 재생성
+  const mockData = useMemo(() => buildMockData(ctx), [ctx])
 
-  const filtered = MOCK_DATA.filter(g =>
+  const connectedCount = mockData.filter(g => g.rows[0].rank !== null && g.rows[0].rank <= 10).length
+
+  const filtered = mockData.filter(g =>
     g.keyword.includes(search) || g.relatedKw.includes(search) || search === ''
   )
 
@@ -261,20 +347,13 @@ export default function KeywordRankPage() {
   return (
     <div className="flex min-h-screen bg-[#F2F4F6]">
       <Sidebar />
-      <main className="flex-1 ml-0 md:ml-[220px] flex flex-col min-h-screen pt-16 md:pt-0">
-        {/* LOCALUTION_HERO_BANNER */}
-        <section className="bg-gradient-to-r from-[#0EA5E9] to-[#0369A1] text-white px-4 py-10 sm:py-14">
-          <div className="max-w-5xl mx-auto flex items-center gap-4">
-            <div className="text-4xl sm:text-5xl drop-shadow-sm">📈</div>
-            <div className="flex-1 min-w-0">
-              <h1 className="text-xl sm:text-2xl font-black tracking-tight">키워드 순위</h1>
-              <p className="text-white/85 text-xs sm:text-sm mt-1 leading-relaxed">네이버 검색에서 내 업체가 몇 위인지 — 위치별·디바이스별 실시간</p>
-            </div>
-            <div className="hidden sm:flex items-center gap-2 text-[11px] font-bold text-white/90 bg-white/15 backdrop-blur px-3 py-1.5 rounded-full border border-white/20">
-              로컬루션
-            </div>
-          </div>
-        </section>
+      <main className="flex-1 ml-0 md:ml-[220px] flex flex-col min-h-screen pt-16 md:pt-0 min-w-0">
+        <PageHeader
+          icon="📈"
+          title="키워드 순위"
+          subtitle="네이버 검색에서 내 업체가 몇 위인지 — 위치별·디바이스별 실시간"
+          variant="sky"
+        />
 
         {/* 상단 필터 바 */}
         <div className="bg-white border-b border-[#E5E8EB] px-6 py-3 sticky top-0 z-20">
@@ -351,8 +430,8 @@ export default function KeywordRankPage() {
         <div className="bg-white border-b border-[#F2F4F6] px-6 py-2.5">
           <div className="flex items-center gap-6 text-xs">
             <span className="text-[#8B95A1]">
-              전체 키워드 <strong className="text-[#191F28]">{MOCK_DATA.length}개</strong> ·
-              상위 10위 <strong className="text-[#3182F6]">{connectedCount}개</strong> ({Math.round(connectedCount/MOCK_DATA.length*100)}%)
+              전체 키워드 <strong className="text-[#191F28]">{mockData.length}개</strong> ·
+              상위 10위 <strong className="text-[#3182F6]">{connectedCount}개</strong> ({Math.round(connectedCount/mockData.length*100)}%)
             </span>
             <div className="flex items-center gap-4">
               <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-[#EFF6FF]"/>  <span className="text-[#3182F6]">1~3위</span></span>
