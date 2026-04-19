@@ -42,7 +42,9 @@ export default function AdminUsersPage() {
     <div className="p-4 md:p-8 max-w-6xl mx-auto">
       <header className="mb-6">
         <h1 className="text-2xl font-black text-[#191F28] tracking-tight">사용자</h1>
-        <p className="text-sm text-[#8B95A1] mt-1">총 {rows.length}명 가입</p>
+        <p className="text-sm text-[#8B95A1] mt-1">
+          {loading ? '집계 중…' : `총 ${rows.length}명 가입`}
+        </p>
       </header>
 
       {err && (
@@ -74,7 +76,19 @@ export default function AdminUsersPage() {
             </thead>
             <tbody>
               {loading ? (
-                <tr><td colSpan={5} className="text-center text-[#8B95A1] py-10">불러오는 중…</td></tr>
+                // 15차-9 스켈레톤 로더 (5행 애니메이션)
+                Array.from({ length: 5 }).map((_, i) => (
+                  <tr key={i} className="border-t border-[#F2F4F6] animate-pulse">
+                    <td className="px-4 py-3">
+                      <div className="h-3 bg-[#F2F4F6] rounded w-40 mb-1" />
+                      <div className="h-2 bg-[#F2F4F6] rounded w-16" />
+                    </td>
+                    <td className="px-4 py-3"><div className="h-3 bg-[#F2F4F6] rounded w-6 ml-auto" /></td>
+                    <td className="px-4 py-3"><div className="h-3 bg-[#F2F4F6] rounded w-6 ml-auto" /></td>
+                    <td className="px-4 py-3"><div className="h-3 bg-[#F2F4F6] rounded w-20" /></td>
+                    <td className="px-4 py-3"><div className="h-3 bg-[#F2F4F6] rounded w-20" /></td>
+                  </tr>
+                ))
               ) : filtered.length === 0 ? (
                 <tr><td colSpan={5} className="text-center text-[#8B95A1] py-10">사용자가 없습니다</td></tr>
               ) : filtered.map(u => (
