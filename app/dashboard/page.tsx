@@ -545,6 +545,111 @@ function AIReplyModal({ review, onClose }: ReplyModalProps) {
 // ═══════════════════════════════════════════════════════════
 // NoticeBanner / BANNER_SLIDES / BannerSlide 는 SlideAdBanner 로 이전
 
+// ═══════════════════════════════════════════════════════════
+//  인기 서비스 TOP 10 (순위 애니메이션)
+// ═══════════════════════════════════════════════════════════
+const SERVICE_RANKING_INIT = [
+  { id: 1,  name: 'AI 리뷰 자동 답글',  category: '리뷰', badge: 'HOT',  color: '#F04452' },
+  { id: 2,  name: '네이버 플레이스 관리', category: '플레이스', badge: '',     color: '#03C75A' },
+  { id: 3,  name: 'QR 리뷰 자동화',         category: 'QR',     badge: 'NEW',  color: '#7C3AED' },
+  { id: 4,  name: '매출 캘린더 · 정산',     category: '정산', badge: '',     color: '#3182F6' },
+  { id: 5,  name: '고객 CRM 관리',              category: 'CRM',    badge: '',     color: '#F59E0B' },
+  { id: 6,  name: '키워드 순위 추적',          category: 'SEO',    badge: '',     color: '#10B981' },
+  { id: 7,  name: '숏폼 퍼블리셔',           category: '마케팅', badge: '',     color: '#EC4899' },
+  { id: 8,  name: '배민 리뷰 연동',            category: '배달', badge: '',     color: '#2AC1BC' },
+  { id: 9,  name: '구글 리뷰 연동',            category: '구글', badge: '',     color: '#4285F4' },
+  { id: 10, name: '세금계산서 자동 발행',      category: '행정', badge: '',     color: '#6B7280' },
+]
+
+function ServiceRanking() {
+  const [items, setItems] = useState(SERVICE_RANKING_INIT.map((s, i) => ({ ...s, rank: i + 1, prevRank: i + 1, score: 100 - i * 8 })))
+  const [isShuffling, setIsShuffling] = useState(false)
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setIsShuffling(true)
+      setTimeout(() => {
+        setItems(prev => {
+          const arr = [...prev]
+          const swapCount = 2 + Math.floor(Math.random() * 2)
+          for (let s = 0; s < swapCount; s++) {
+            const a = Math.floor(Math.random() * arr.length)
+            let b = Math.floor(Math.random() * arr.length)
+            while (b === a) b = Math.floor(Math.random() * arr.length)
+            arr[a].score += Math.floor(Math.random() * 10) - 4
+            arr[b].score += Math.floor(Math.random() * 10) - 4
+          }
+          arr.sort((a, b) => b.score - a.score)
+          arr.forEach((item, i) => {
+            item.prevRank = item.rank
+            item.rank = i + 1
+          })
+          return arr
+        })
+        setIsShuffling(false)
+      }, 300)
+    }, 5000)
+    return () => clearInterval(timer)
+  }, [])
+
+  return (
+    <div className="bg-white rounded-2xl shadow-sm overflow-hidden flex flex-col">
+      <div className="px-5 py-4 border-b border-[#F2F4F6] flex items-center justify-between">
+        <div>
+          <div className="flex items-center gap-2">
+            <span className="text-sm font-bold text-[#191F28]">인기 서비스 TOP 10</span>
+            <span className="w-1.5 h-1.5 rounded-full bg-[#F04452] animate-pulse inline-block"/>
+          </div>
+          <p className="text-[10px] text-[#8B95A1] mt-0.5">실시간 사용량 기준</p>
+        </div>
+        <span className="text-[10px] text-[#8B95A1] bg-[#F2F4F6] px-2 py-1 rounded-full">5초마다 갱신</span>
+      </div>
+      <div className="flex-1">
+        {items.map((item) => {
+          const diff = item.prevRank - item.rank
+          return (
+            <div
+              key={item.id}
+              className="px-5 py-3 flex items-center gap-3 border-b border-[#F8F9FA] hover:bg-[#FAFBFF] transition-all duration-500"
+              style={{
+                transform: isShuffling ? 'translateX(4px)' : 'translateX(0)',
+                opacity: isShuffling ? 0.7 : 1,
+                transition: 'all 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
+              }}
+            >
+              <div className={'w-7 h-7 rounded-lg flex items-center justify-center text-xs font-black flex-shrink-0 ' + (item.rank <= 3 ? 'bg-[#3182F6] text-white' : 'bg-[#F2F4F6] text-[#8B95A1]')}>
+                {item.rank}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm font-semibold text-[#191F28] truncate">{item.name}</span>
+                  {item.badge && (
+                    <span className={'text-[9px] px-1.5 py-0.5 rounded-full font-bold ' + (item.badge === 'HOT' ? 'bg-[#FFF0F0] text-[#F04452]' : 'bg-[#EFF6FF] text-[#3182F6]')}>{item.badge}</span>
+                  )}
+                </div>
+                <span className="text-[10px] text-[#8B95A1]">{item.category}</span>
+              </div>
+              <div className="flex-shrink-0 w-12 text-right">
+                {diff > 0 && (
+                  <span className="inline-flex items-center gap-0.5 text-[11px] font-bold text-[#12B76A]">
+                    <ArrowUp size={10} strokeWidth={3} />{diff}
+                  </span>
+                )}
+                {diff < 0 && (
+                  <span className="inline-flex items-center gap-0.5 text-[11px] font-bold text-[#F04452]">
+                    <ArrowDown size={10} strokeWidth={3} />{Math.abs(diff)}
+                  </span>
+                )}
+                {diff === 0 && <span className="text-[11px] text-[#8B95A1]">—</span>}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 
 // ═══════════════════════════════════════════════════════════
 //  메인 대시보드
