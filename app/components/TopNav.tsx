@@ -6,6 +6,7 @@ import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 
 const NAV_LINKS = [
+  { href: '/about',         label: '회사 소개' },   // 🆕 2026-04-19 — 대표의 편지 & 브랜드 스토리
   { href: '/service-intro', label: '서비스 소개' },
   { href: '/pricing',       label: '요금' },
   { href: '/community',     label: '커뮤니티' },
@@ -46,7 +47,7 @@ export default function TopNav() {
         </Link>
 
         {/* 데스크탑 메뉴 */}
-        <div className="hidden md:flex items-center gap-6">
+        <div className="hidden md:flex items-center gap-5 lg:gap-6">
           {NAV_LINKS.map(l => (
             <Link
               key={l.href}
