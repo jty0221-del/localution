@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Sidebar from '../../components/Sidebar'
 import Footer from '../../components/Footer'
+import { toast } from '../../lib/toast'
 
 interface Review {
   id: number
@@ -110,7 +111,7 @@ export default function NaverReviewPage() {
       setTimeout(() => setCopied(false), 2000)
       window.open('https://new.smartplace.naver.com/', '_blank', 'noopener,noreferrer')
     } catch {
-      alert('자동 복사가 안 돼요. 답글을 직접 드래그해서 복사해주세요 ✍️')
+      toast.warn('자동 복사가 안 돼요. 답글을 직접 드래그해서 복사해주세요 ✍️')
     }
   }
 
