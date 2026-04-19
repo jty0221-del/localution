@@ -224,19 +224,19 @@ ${lines.join('\n')}
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div>
-                    <label className="text-base font-black text-[#191F28] block mb-2">이름 <span className="text-red-500">*</span></label>
-                    <input value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
+                    <label htmlFor="form-name" className="text-base font-black text-[#191F28] block mb-2">이름 <span className="text-red-500">*</span></label>
+                    <input id="form-name" value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))}
                       placeholder="홍길동" className="w-full border border-[#E5E8EB] rounded-xl px-5 py-3.5 text-base focus:outline-none focus:border-[#3182F6]" />
                   </div>
                   <div>
-                    <label className="text-base font-black text-[#191F28] block mb-2">연락처</label>
-                    <input value={form.contact} onChange={e => setForm(p => ({ ...p, contact: e.target.value }))}
+                    <label htmlFor="form-contact" className="text-base font-black text-[#191F28] block mb-2">연락처</label>
+                    <input id="form-contact" value={form.contact} onChange={e => setForm(p => ({ ...p, contact: e.target.value }))}
                       placeholder="010-0000-0000 또는 이메일" className="w-full border border-[#E5E8EB] rounded-xl px-5 py-3.5 text-base focus:outline-none focus:border-[#3182F6]" />
                   </div>
                 </div>
                 <div>
-                  <label className="text-base font-black text-[#191F28] block mb-2">문의 내용 <span className="text-red-500">*</span></label>
-                  <textarea value={form.message} onChange={e => setForm(p => ({ ...p, message: e.target.value }))}
+                  <label htmlFor="form-message" className="text-base font-black text-[#191F28] block mb-2">문의 내용 <span className="text-red-500">*</span></label>
+                  <textarea id="form-message" value={form.message} onChange={e => setForm(p => ({ ...p, message: e.target.value }))}
                     rows={7} placeholder="문의하실 내용을 자세히 작성해 주세요. 자세할수록 정확한 답변을 드릴 수 있어요."
                     className="w-full border border-[#E5E8EB] rounded-xl px-5 py-4 text-base leading-relaxed focus:outline-none focus:border-[#3182F6] resize-none" />
                 </div>
