@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import Sidebar from '../../components/Sidebar'
 import Footer from '../../components/Footer'
+import { toast } from '../../lib/toast'
 import { useConnections, setConnection as libSetConnection } from '../../lib/connections'
 
 interface Review {
@@ -153,11 +154,11 @@ export default function ReviewPage() {
         setReviews(prev => prev.map((x, i) =>
           i === idx ? { ...x, replied: true, replyText: reply, showEdit: false } : x
         ))
-        alert('✅ 답글이 등록되었습니다!')
+        toast.success('답글이 등록되었습니다!')
       } else {
-        alert('❌ 등록 실패: ' + (d.error || '알 수 없는 오류'))
+        toast.error('등록 실패: ' + (d.error || '알 수 없는 오류'))
       }
-    } catch { alert('❌ 연결이 잠깐 불안정했어요. 다시 시도해주세요 🙏') }
+    } catch { toast.error('연결이 잠깐 불안정했어요. 다시 시도해주세요 🙏') }
   }
 
   const filtered = reviews.filter(r => {
