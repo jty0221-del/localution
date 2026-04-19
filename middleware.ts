@@ -6,8 +6,6 @@ import { NextResponse, type NextRequest } from 'next/server'
 //   - /inquiry           ← 비로그인 사용자가 견적·문의 보내는 공개 페이지.
 //   - /login, /service-intro, /pricing, /community, /  ← 마케팅·공개 페이지
 //   - /marketing/*       ← 자영업자가 서비스 미리 체험할 수 있는 공개 도구 페이지
-//                          (네이버 플레이스 진단·블로그 초안·릴스 대본 생성)
-//                          실제 데이터 저장은 각 페이지 내부에서 로그인 유도
 const PROTECTED_PREFIXES = [
   '/dashboard',
   '/admin',
@@ -29,24 +27,35 @@ function isProtected(pathname: string): boolean {
   )
 }
 
+// 세션 쿠키 존재 판단 — 듀얼 모드
+//   1) localution_session  : 네이버/카카오/구글 OAuth
+//   2) sb-*-auth-token     : Supabase Auth (브라우저 SDK)
+function hasAnySession(request: NextRequest): boolean {
+  if (request.cookies.get('localution_session')?.value) return true
+
+  // Supabase 클라이언트가 심는 쿠키는 sb-<projectref>-auth-token 형식
+  // Next.js RequestCookies 는 getAll() 지원
+  const all = request.cookies.getAll()
+  if (all.some(c => c.name.startsWith('sb-') && c.name.endsWith('-auth-token') && c.value)) {
+    return true
+  }
+  return false
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
 
-  // 보호 경로가 아니면 통과
   if (!isProtected(pathname)) {
     return NextResponse.next({ request })
   }
 
-  // 세션 쿠키 존재 여부만 체크 (가벼운 가드)
-  const session = request.cookies.get('localution_session')?.value
-  if (session) {
+  if (hasAnySession(request)) {
     return NextResponse.next({ request })
   }
 
-  // 미인증 → 로그인 페이지로 리디렉트 (원래 가려던 경로 보존)
   const loginUrl = request.nextUrl.clone()
   loginUrl.pathname = '/login'
-  loginUrl.search = '' // 기존 쿼리 제거
+  loginUrl.search = ''
   loginUrl.searchParams.set('redirect', pathname)
   return NextResponse.redirect(loginUrl)
 }
