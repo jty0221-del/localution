@@ -8,27 +8,75 @@ import { supabase } from '@/app/lib/supabase'
 const ADMIN_EMAILS = ['jty0221@gmail.com']
 
 const NAV = [
-  { href: '/admin/dashboard',    label: '대시보드',     icon: '📊' },
-  { href: '/admin/subscriptions',label: '구독 현황',    icon: '💳' },
-  { href: '/admin/users',        label: '사용자',       icon: '👥' },
+  { href: '/admin/dashboard',    label: '대시보드',  icon: '📊' },
+  { href: '/admin/subscriptions',label: '구독 현황', icon: '💳' },
+  { href: '/admin/users',        label: '사용자',    icon: '👥' },
 ]
+
+// ------------------------------------------------------------
+// 클라이언트 사이드 이메일 추출 — 듀얼 모드
+// ------------------------------------------------------------
+function readLocalutionUserEmail(): string | null {
+  try {
+    if (typeof document === 'undefined') return null
+    const raw = document.cookie.split('; ').find(r => r.startsWith('localution_user='))
+    if (!raw) return null
+    const value = raw.slice('localution_user='.length)
+    const decoded = decodeURIComponent(value)
+    const parsed = JSON.parse(decoded)
+    const email = (parsed?.email || '').toString().toLowerCase().trim()
+    return email || null
+  } catch {
+    return null
+  }
+}
+
+async function readSupabaseEmail(): Promise<string | null> {
+  try {
+    const { data } = await supabase.auth.getUser()
+    const email = data?.user?.email?.toLowerCase()?.trim() || null
+    return email
+  } catch {
+    return null
+  }
+}
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter()
   const pathname = usePathname()
   const [status, setStatus] = useState<'checking' | 'ok' | 'denied'>('checking')
+  const [reason, setReason] = useState<string>('')
 
   useEffect(() => {
     let mounted = true
     ;(async () => {
-      const { data } = await supabase.auth.getUser()
-      const email = data?.user?.email?.toLowerCase() ?? null
+      // 1) localution_user 쿠키 (네이버/카카오/구글 OAuth)
+      const luEmail = readLocalutionUserEmail()
+      if (luEmail) {
+        if (!mounted) return
+        if (ADMIN_EMAILS.includes(luEmail)) {
+          setStatus('ok')
+        } else {
+          setReason(`${luEmail} 계정은 관리자 권한이 없습니다.`)
+          setStatus('denied')
+          setTimeout(() => router.replace('/'), 1200)
+        }
+        return
+      }
+
+      // 2) Supabase 세션
+      const sbEmail = await readSupabaseEmail()
       if (!mounted) return
-      if (email && ADMIN_EMAILS.includes(email)) {
+      if (sbEmail && ADMIN_EMAILS.includes(sbEmail)) {
         setStatus('ok')
-      } else {
+      } else if (sbEmail) {
+        setReason(`${sbEmail} 계정은 관리자 권한이 없습니다.`)
         setStatus('denied')
-        router.replace('/')
+        setTimeout(() => router.replace('/'), 1200)
+      } else {
+        setReason('로그인이 필요합니다.')
+        setStatus('denied')
+        setTimeout(() => router.replace('/login?redirect=/admin/dashboard'), 800)
       }
     })()
     return () => { mounted = false }
@@ -43,8 +91,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   }
   if (status === 'denied') {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#F2F4F6]">
-        <div className="text-sm text-[#E11D48] font-bold">접근 권한이 없습니다.</div>
+      <div className="min-h-screen flex items-center justify-center bg-[#F2F4F6] px-6">
+        <div className="text-center">
+          <div className="text-base text-[#E11D48] font-bold mb-1">접근 권한이 없습니다.</div>
+          <div className="text-xs text-[#8B95A1]">{reason}</div>
+        </div>
       </div>
     )
   }
