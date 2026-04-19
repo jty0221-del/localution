@@ -6,9 +6,11 @@ import Image from 'next/image'
 import { usePathname, useSearchParams } from 'next/navigation'
 import {
   ChevronDown, ChevronRight, List, Map, MapPin, Search, BarChart3,
-  Sparkles, MessageCircle, Settings, LogOut, FileText, LucideIcon,
+  Sparkles, MessageCircle, Settings, LogOut, FileText, Lock, LucideIcon,
 } from 'lucide-react'
 import { REGIONS } from '../lib/regions'
+import { useEntitlements } from '../lib/entitlements'
+import { getRequiredModuleForPath, getModule } from '../lib/modules'
 
 // ─────────────────────────────────────────────────────────────
 // 로그인 사용자 프로필 읽기 (cookie: localution_user, httpOnly:false)
@@ -88,6 +90,25 @@ function StatusDot({ color }: { color: string }) {
   )
 }
 
+/** 잠금 아이콘 + 월 구독료 툴팁 (사이드바 전용) */
+function LockBadge({ href, active }: { href: string; active: boolean }) {
+  const { has, loading } = useEntitlements()
+  if (loading) return null
+  const moduleId = getRequiredModuleForPath(href)
+  if (!moduleId) return null
+  if (has(moduleId)) return null
+  const mod = getModule(moduleId)
+  if (!mod) return null
+  return (
+    <span
+      className="ml-auto flex items-center gap-1 flex-shrink-0"
+      title={`${mod.name} · 월 ${mod.price.toLocaleString('ko-KR')}원 구독 필요`}
+    >
+      <Lock size={11} strokeWidth={2.5} className={active ? 'text-current' : 'text-[#9CA3AF]'} />
+    </span>
+  )
+}
+
 export default function Sidebar() {
   const pathname      = usePathname()
   const searchParams  = useSearchParams()
@@ -140,7 +161,8 @@ export default function Sidebar() {
           {item.icon}
         </div>
         <span className="text-sm">{item.label}</span>
-        {active && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-[#3182F6]" />}
+        <LockBadge href={item.href} active={active} />
+        {active && <span className="ml-2 w-1.5 h-1.5 rounded-full bg-[#3182F6]" />}
       </Link>
     )
   }
@@ -174,6 +196,7 @@ export default function Sidebar() {
                   className={`flex items-center gap-2.5 px-3 py-1.5 rounded-xl ${active ? 'bg-[#FFFBEB] text-[#F59E0B] font-semibold' : 'text-[#4E5968] hover:bg-[#F8F9FA] font-medium'}`}>
                   <StatusDot color={sub.color} />
                   <span className="text-xs">{sub.label}</span>
+                  <LockBadge href={sub.href} active={active} />
                 </Link>
               )
             })}
@@ -205,6 +228,7 @@ export default function Sidebar() {
                   {sub.badge && (
                     <span className="ml-auto text-[9px] font-black px-1.5 py-0.5 rounded-md bg-gradient-to-r from-[#8B5CF6] to-[#EC4899] text-white tracking-wide">{sub.badge}</span>
                   )}
+                  <LockBadge href={sub.href} active={active} />
                 </Link>
               )
             })}
