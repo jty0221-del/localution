@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic'
 import { useState, useEffect } from 'react'
 import Sidebar from '../components/Sidebar'
 import Footer from '../components/Footer'
+import { COMPANY } from '../lib/company'
 import {
   MessageCircle, Wrench, CreditCard, Sparkles, FileText,
   CheckCircle2, ShoppingCart, Mail, Inbox, Plus, LucideIcon,
@@ -94,12 +95,12 @@ ${lines.join('\n')}
 
   const copyEmail = async () => {
     try {
-      await navigator.clipboard.writeText('harangmarketing@naver.com')
+      await navigator.clipboard.writeText(COMPANY.EMAIL)
       setCopied(true)
       setTimeout(() => setCopied(false), 2500)
     } catch {
       const el = document.createElement('textarea')
-      el.value = 'harangmarketing@naver.com'
+      el.value = COMPANY.EMAIL
       document.body.appendChild(el)
       el.select()
       document.execCommand('copy')
@@ -136,7 +137,7 @@ ${lines.join('\n')}
           <div className="flex items-center gap-2.5 px-5 py-3 bg-[#191F28] text-white rounded-2xl shadow-2xl text-sm font-semibold">
             <CheckCircle2 size={16} strokeWidth={2.25} className="text-[#10B981]" />
             <span>이메일 주소가 복사되었습니다</span>
-            <span className="text-[#8B95A1] text-xs ml-1">harangmarketing@naver.com</span>
+            <span className="text-[#8B95A1] text-xs ml-1">{COMPANY.EMAIL}</span>
           </div>
         </div>
       )}
@@ -250,7 +251,7 @@ ${lines.join('\n')}
                     <Mail size={12} strokeWidth={2.25} />
                     이메일 문의
                   </span>
-                  <button onClick={copyEmail} className="font-semibold text-[#3182F6] hover:underline">harangmarketing@naver.com 복사</button>
+                  <button onClick={copyEmail} className="font-semibold text-[#3182F6] hover:underline">{COMPANY.EMAIL} 복사</button>
                 </div>
               </div>
             )}
@@ -300,11 +301,10 @@ ${lines.join('\n')}
           <div className="flex items-center gap-2.5 px-5 py-3 bg-[#191F28] text-white rounded-2xl shadow-2xl text-sm font-semibold">
             <CheckCircle2 size={16} strokeWidth={2.25} className="text-[#10B981]" />
             <span>이메일 주소가 복사되었습니다</span>
-            <span className="text-[#8B95A1] text-xs">harangmarketing@naver.com</span>
+            <span className="text-[#8B95A1] text-xs">{COMPANY.EMAIL}</span>
           </div>
         </div>
       )}
     </div>
   )
 }
-
