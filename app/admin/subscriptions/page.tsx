@@ -2,6 +2,7 @@
 export const dynamic = 'force-dynamic'
 
 import { useEffect, useState } from 'react'
+import { adminFetch } from '../../lib/adminFetch'
 
 type SubRow = {
   id: string
@@ -31,7 +32,7 @@ export default function AdminSubscriptionsPage() {
   useEffect(() => {
     (async () => {
       try {
-        const res = await fetch('/api/admin/subscriptions', { cache: 'no-store' })
+        const res = await adminFetch('/api/admin/subscriptions')
         if (!res.ok) { setErr(`로드 실패 (${res.status})`); return }
         const json = await res.json()
         setRows(json.rows ?? [])
