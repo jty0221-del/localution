@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Sidebar from '../../components/Sidebar'
 import Footer from '../../components/Footer'
+import PageHeader from '../../components/PageHeader'
 import { toast } from '../../lib/toast'
 import { buildSettingsHref } from '../../lib/settings-tabs'
 
@@ -124,25 +125,28 @@ export default function GoogleReviewPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F8F9FA]">
-      <Sidebar />
-      <main className="flex-1 md:ml-[220px] p-4 pt-20 md:p-8 md:pt-8 max-w-4xl mx-auto">
-        <div className="flex items-center gap-3 mb-2 flex-wrap">
-          <Link href="/review-admin" className="text-xs text-[#8B95A1] hover:text-[#4E5968]">← 리뷰 관리</Link>
-        </div>
-        <div className="flex items-center gap-3 mb-2">
-          <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white font-black text-sm"
-            style={{ background: PLATFORM.color }}>{PLATFORM.icon}</div>
-          <h1 className="text-xl md:text-2xl font-black text-[#191F28]">구글 리뷰 관리</h1>
+    <div className="min-h-screen bg-[#F2F4F6] flex flex-col overflow-x-hidden">
+      <div className="flex flex-1">
+        <Sidebar />
+        <main className="flex-1 ml-0 md:ml-[220px] pt-14 md:pt-0 min-w-0">
+          <PageHeader
+            icon="🔷"
+            title="구글 리뷰 관리"
+            subtitle={connected ? `${storeName} · 실시간 리뷰 자동 수집` : 'Google Business Profile 리뷰 · AI 답글 초안 자동 생성'}
+            variant="google"
+          />
+          <div className="max-w-4xl mx-auto p-4 md:p-6 w-full">
+
+        {/* 브레드크럼 + 상태 배지 */}
+        <div className="flex items-center gap-2 mb-4 flex-wrap">
+          <Link href="/review-admin" className="text-xs text-[#8B95A1] hover:text-[#4E5968] font-semibold">← 리뷰 관리</Link>
+          <span className="text-[#E5E8EB]">·</span>
           {connected ? (
-            <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#ECFDF5] text-[#059669] font-semibold">연결됨</span>
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#ECFDF5] text-[#059669] font-semibold">● 연결됨</span>
           ) : (
             <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#FEF3C7] text-[#92400E] font-semibold">데모 모드</span>
           )}
         </div>
-        <p className="text-xs md:text-sm text-[#8B95A1] mb-4">
-          {connected ? `${storeName} · 실시간 리뷰` : '아직 연결 전이라 샘플로 보여드려요. 설정 → 플랫폼 연결에서 1분이면 연동 완료! 🔌'}
-        </p>
 
         {/* 🚧 데모 모드 배너 — 실시간 리뷰 API 연동 전까지 샘플 데이터 */}
         <div className="bg-gradient-to-r from-[#FEF3C7] to-[#FDE68A] border border-[#F59E0B] rounded-2xl p-4 mb-5">
@@ -283,12 +287,13 @@ export default function GoogleReviewPage() {
         </div>
 
         {/* ── Footer ── */}
-        <div className="-mx-4 md:-mx-8 mt-10">
+        <div className="-mx-4 md:-mx-6 mt-10">
           <Footer />
         </div>
 
-      </main>
-
+          </div>
+        </main>
+      </div>
     </div>
   )
 }
