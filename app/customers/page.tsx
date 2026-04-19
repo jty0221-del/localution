@@ -1,23 +1,14 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useEffect, useState } from 'react'
+import { useState } from 'react'
 import Sidebar from '../components/Sidebar'
 import Footer from '../components/Footer'
 import { BRAND_GRAD } from '../lib/brand-colors'
+import { useCustomers, type Customer } from '../hooks/useCustomers'
+import type { CustomerTag } from '../lib/supabase'
 
-type Tag = 'VIP' | '단골' | '신규' | '휴면' | '블랙리스트'
-
-interface Customer {
-  id: string
-  name: string
-  phone: string
-  visits: number
-  totalSpend: number
-  lastVisit: string
-  tags: Tag[]
-  memo: string
-}
+type Tag = CustomerTag
 
 const TAG_COLORS: Record<Tag, { bg: string; text: string }> = {
   'VIP':     { bg: '#EFF6FF', text: '#3182F6' },
@@ -29,7 +20,7 @@ const TAG_COLORS: Record<Tag, { bg: string; text: string }> = {
 
 const ALL_TAGS: Tag[] = ['VIP', '단골', '신규', '휴면', '블랙리스트']
 
-// 업종 무관 중립 샘플 — 실제 고객 등록 전 미리보기용
+// 업종 무관 중립 샘플 — 고객 0명일 때 UI 미리보기용 (저장되지 않음)
 const DEMO_CUSTOMERS: Customer[] = [
   { id: 'demo-1', name: '김민준', phone: '010-1234-5678', visits: 18, totalSpend: 243000, lastVisit: '2026-04-14', tags: ['VIP', '단골'],  memo: '재방문 주기 짧음' },
   { id: 'demo-2', name: '이서연', phone: '010-2345-6789', visits: 9,  totalSpend: 87000,  lastVisit: '2026-04-10', tags: ['단골'],         memo: '' },
@@ -39,11 +30,11 @@ const DEMO_CUSTOMERS: Customer[] = [
   { id: 'demo-6', name: '강태양', phone: '010-6789-0123', visits: 0,  totalSpend: 0,      lastVisit: '2026-01-05', tags: ['블랙리스트'],   memo: '노쇼 3회 기록' },
 ]
 
-const LS_KEY = 'localution.customers'
-
 export default function CustomersPage() {
-  const [customers, setCustomers] = useState<Customer[]>([])
-  const [isDemo, setIsDemo] = useState(true)
+  const { customers: real, mode, loading, add } = useCustomers()
+  const isDemo = real.length === 0
+  const customers: Customer[] = isDemo ? DEMO_CUSTOMERS : real
+
   const [filterTag, setFilterTag] = useState<Tag | '전체'>('전체')
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<string[]>([])
@@ -55,30 +46,7 @@ export default function CustomersPage() {
   const [newPhone, setNewPhone] = useState('')
   const [newTag, setNewTag] = useState<Tag>('신규')
   const [newMemo, setNewMemo] = useState('')
-
-  // 초기 로딩: localStorage 우선, 없으면 데모
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(LS_KEY)
-      if (raw) {
-        const parsed = JSON.parse(raw) as Customer[]
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          setCustomers(parsed)
-          setIsDemo(false)
-          return
-        }
-      }
-    } catch {}
-    setCustomers(DEMO_CUSTOMERS)
-    setIsDemo(true)
-  }, [])
-
-  // 저장 헬퍼
-  const persist = (next: Customer[]) => {
-    setCustomers(next)
-    setIsDemo(false)
-    try { localStorage.setItem(LS_KEY, JSON.stringify(next)) } catch {}
-  }
+  const [submitting, setSubmitting] = useState(false)
 
   const filtered = customers.filter(c => {
     const matchTag  = filterTag === '전체' || c.tags.includes(filterTag)
@@ -100,31 +68,21 @@ export default function CustomersPage() {
     setTimeout(() => { setMsgOpen(false); setMsgSent(false); setMsgText(''); setSelected([]) }, 2000)
   }
 
-  const addCustomer = () => {
-    if (!newName.trim()) return
-    const today = new Date().toISOString().slice(0, 10)
-    const next: Customer = {
-      id: `cust-${Date.now()}`,
-      name: newName.trim(),
-      phone: newPhone.trim(),
-      visits: 0,
-      totalSpend: 0,
-      lastVisit: today,
-      tags: [newTag],
-      memo: newMemo.trim(),
+  const addCustomer = async () => {
+    if (!newName.trim() || submitting) return
+    setSubmitting(true)
+    try {
+      await add({
+        name: newName.trim(),
+        phone: newPhone.trim(),
+        memo: newMemo.trim(),
+        tags: [newTag],
+      })
+      setAddOpen(false)
+      setNewName(''); setNewPhone(''); setNewMemo(''); setNewTag('신규')
+    } finally {
+      setSubmitting(false)
     }
-    // 데모 상태에서 첫 실고객 추가 시 데모 목록 제거하고 신규만 남김
-    const base = isDemo ? [] : customers
-    persist([next, ...base])
-    setAddOpen(false)
-    setNewName(''); setNewPhone(''); setNewMemo(''); setNewTag('신규')
-  }
-
-  const resetToDemo = () => {
-    try { localStorage.removeItem(LS_KEY) } catch {}
-    setCustomers(DEMO_CUSTOMERS)
-    setIsDemo(true)
-    setSelected([])
   }
 
   const stats = {
@@ -162,6 +120,16 @@ export default function CustomersPage() {
               {isDemo && (
                 <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#FEF3C7] text-[#92400E] font-semibold">
                   데모 모드
+                </span>
+              )}
+              {mode === 'remote' && (
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#EFF6FF] text-[#3182F6] font-semibold">
+                  클라우드 저장 활성
+                </span>
+              )}
+              {mode === 'local' && !isDemo && (
+                <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#F2F4F6] text-[#4E5968] font-semibold">
+                  로컬 저장
                 </span>
               )}
             </div>
@@ -245,12 +213,9 @@ export default function CustomersPage() {
               checked={selected.length === filtered.length && filtered.length > 0}
               onChange={toggleAll}
               className="w-4 h-4 rounded text-[#3182F6] mr-4 cursor-pointer" />
-            <span className="text-xs font-bold text-[#8B95A1]">고객 {filtered.length}명</span>
-            {!isDemo && customers.length > 0 && (
-              <button onClick={resetToDemo} className="ml-auto text-[11px] text-[#8B95A1] hover:text-[#4E5968] underline">
-                샘플로 되돌리기
-              </button>
-            )}
+            <span className="text-xs font-bold text-[#8B95A1]">
+              {loading ? '불러오는 중…' : `고객 ${filtered.length}명`}
+            </span>
           </div>
 
           {filtered.length === 0 ? (
@@ -303,7 +268,7 @@ export default function CustomersPage() {
                 <div className="text-right flex-shrink-0 hidden md:block">
                   <div className="text-sm font-bold text-[#191F28]">{c.visits}회 방문</div>
                   <div className="text-xs text-[#8B95A1]">{c.totalSpend.toLocaleString()}원</div>
-                  <div className="text-xs text-[#B0B8C1]">최근 {c.lastVisit}</div>
+                  <div className="text-xs text-[#B0B8C1]">최근 {c.lastVisit || '-'}</div>
                 </div>
               </div>
             ))
@@ -352,13 +317,13 @@ export default function CustomersPage() {
               </div>
 
               <div className="flex gap-2 mt-5">
-                <button onClick={() => setAddOpen(false)}
-                  className="flex-1 border border-[#E5E8EB] text-[#4E5968] py-3 rounded-xl text-sm font-bold hover:bg-[#F2F4F6]">
+                <button onClick={() => setAddOpen(false)} disabled={submitting}
+                  className="flex-1 border border-[#E5E8EB] text-[#4E5968] py-3 rounded-xl text-sm font-bold hover:bg-[#F2F4F6] disabled:opacity-50">
                   취소
                 </button>
-                <button onClick={addCustomer} disabled={!newName.trim()}
+                <button onClick={addCustomer} disabled={!newName.trim() || submitting}
                   className="flex-1 bg-[#3182F6] text-white py-3 rounded-xl text-sm font-bold hover:bg-[#1B64DA] disabled:opacity-40 transition-colors">
-                  추가하기
+                  {submitting ? '추가 중…' : '추가하기'}
                 </button>
               </div>
             </div>
