@@ -1,7 +1,8 @@
 // app/api/marketing/blog-tracking/history/route.ts
 // ============================================================
-// 블로그 키워드 순위 — 특정 타겟의 체크 이력 조회
+// 블로그 키워드 순위 — 특정 타겟의 체크 이력 조회 (v2 — 18차-4)
 //   · GET ?target_id=<uuid>&limit=50
+//   · rank_hits jsonb 도 함께 반환 (UI 상세 표시용)
 // ============================================================
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/app/lib/adminAuth'
@@ -21,7 +22,6 @@ export async function GET(req: NextRequest) {
 
   const svc = createServiceClient()
 
-  // 소유자 검증
   const { data: t, error: tErr } = await svc
     .from('blog_tracking_targets')
     .select('id,user_id,label,keyword,target_url,blog_id,post_id')
@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
 
   const { data: history, error: hErr } = await svc
     .from('blog_tracking_history')
-    .select('id,checked_at,rank,section,total_found,note,source')
+    .select('id,checked_at,rank,section,total_found,note,source,rank_hits')
     .eq('target_id', target_id)
     .order('checked_at', { ascending: false })
     .limit(limit)
