@@ -3,8 +3,8 @@ import { NextRequest, NextResponse } from 'next/server'
 export const dynamic = 'force-dynamic'
 
 // Vercel 서버리스 특성상 메모리 캐시는 재시작 시 초기화됨
-// 실 운영에서는 Notion/Supabase 연동 권장
-// 여기선 간단한 API 형태만 제공 (프론트에서 localStorage로 관리)
+// 실 운영에서는 Supabase/Notion 영속 저장 권장 (15차-17에서는 localStorage + 메모리 폴백)
+// 본인 조회(?mine=true&ids=...)는 id 명시 시 인증 없이 허용 (본인이 가진 id만 조회)
 
 interface Inquiry {
   id: string
@@ -12,14 +12,31 @@ interface Inquiry {
   contact: string
   category: string
   message: string
-  status: 'new' | 'read' | 'replied'
+  status: 'new' | 'replied' | 'completed'
   createdAt: string
   reply?: string
   repliedAt?: string
+  completedAt?: string
 }
 
 // 인메모리 스토리지 (Vercel 환경에서는 재배포 시 초기화)
 const store: Inquiry[] = []
+
+function sanitize(inq: Inquiry) {
+  // 본인 조회 시 개인정보 최소화 (name/contact 는 본인이 이미 알고 있으니 그대로)
+  return {
+    id:          inq.id,
+    name:        inq.name,
+    contact:     inq.contact,
+    category:    inq.category,
+    message:     inq.message,
+    status:      inq.status,
+    createdAt:   inq.createdAt,
+    reply:       inq.reply ?? null,
+    repliedAt:   inq.repliedAt ?? null,
+    completedAt: inq.completedAt ?? null,
+  }
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -31,7 +48,7 @@ export async function POST(req: NextRequest) {
     }
 
     const inquiry: Inquiry = {
-      id: Date.now().toString(),
+      id: Date.now().toString() + Math.random().toString(36).slice(2, 6),
       name: name.trim(),
       contact: contact?.trim() || '',
       category: category || '일반문의',
@@ -81,25 +98,59 @@ export async function POST(req: NextRequest) {
   }
 }
 
-// 관리자 조회 (ADMIN_SECRET 헤더 필요)
+// GET: 관리자 조회(전체) OR 본인 조회(?mine=true&ids=id1,id2,...)
 export async function GET(req: NextRequest) {
+  const { searchParams } = new URL(req.url)
+  const mine = searchParams.get('mine') === 'true'
+  const idsParam = searchParams.get('ids') || ''
+
+  // 본인 조회 모드: 인증 없이 허용하되 id 목록 명시 필수 (본인이 아는 id만 매칭)
+  if (mine) {
+    const idSet = new Set(idsParam.split(',').map(s => s.trim()).filter(Boolean))
+    if (idSet.size === 0) return NextResponse.json({ inquiries: [] })
+    const found = store.filter(i => idSet.has(i.id)).sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    return NextResponse.json({ inquiries: found.map(sanitize) })
+  }
+
+  // 관리자 조회 모드
   const secret = req.headers.get('x-admin-secret')
   if (!secret || secret !== process.env.ADMIN_SECRET) {
     return NextResponse.json({ error: '인증 필요' }, { status: 401 })
   }
-  return NextResponse.json({ inquiries: store.sort((a, b) => b.createdAt.localeCompare(a.createdAt)) })
+  const all = store.slice().sort((a, b) => b.createdAt.localeCompare(a.createdAt)).map(sanitize)
+  const summary = {
+    total:     store.length,
+    new:       store.filter(i => i.status === 'new').length,
+    replied:   store.filter(i => i.status === 'replied').length,
+    completed: store.filter(i => i.status === 'completed').length,
+  }
+  return NextResponse.json({ inquiries: all, summary })
 }
 
-// 관리자 답변
+// PATCH: 관리자 답변 작성 / 완료 처리
 export async function PATCH(req: NextRequest) {
   const secret = req.headers.get('x-admin-secret')
   if (!secret || secret !== process.env.ADMIN_SECRET) {
     return NextResponse.json({ error: '인증 필요' }, { status: 401 })
   }
-  const { id, reply, status } = await req.json()
+  const { id, reply, status, markCompleted } = await req.json() as {
+    id: string; reply?: string; status?: Inquiry['status']; markCompleted?: boolean
+  }
   const item = store.find(i => i.id === id)
   if (!item) return NextResponse.json({ error: '문의를 찾을 수 없습니다' }, { status: 404 })
-  if (reply)  { item.reply = reply; item.repliedAt = new Date().toISOString(); item.status = 'replied' }
-  if (status) item.status = status
-  return NextResponse.json({ success: true })
+
+  if (typeof reply === 'string' && reply.trim().length > 0) {
+    item.reply = reply.trim()
+    item.repliedAt = new Date().toISOString()
+    // 답변이 달리면 기본적으로 'replied' 로 전이 (completed 는 유지)
+    if (item.status !== 'completed') item.status = 'replied'
+  }
+  if (markCompleted === true) {
+    item.status = 'completed'
+    item.completedAt = new Date().toISOString()
+  } else if (status && ['new', 'replied', 'completed'].includes(status)) {
+    item.status = status
+    if (status === 'completed' && !item.completedAt) item.completedAt = new Date().toISOString()
+  }
+  return NextResponse.json({ success: true, inquiry: sanitize(item) })
 }
