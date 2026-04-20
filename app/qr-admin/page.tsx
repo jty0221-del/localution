@@ -390,6 +390,263 @@ function buildReviewUrl(storeInfo: StoreInfo, settings: QRSettings): string {
 }
 
 // ─── 메인 ─────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────
+// QR 리뷰 생성 통계 (localStorage: localution.review_stats)
+// /review/[storeId] 페이지의 startGenerate 시점에 쌓이는 demographics 집계
+// ──────────────────────────────────────────────
+interface ReviewStatRecord {
+  ts: number
+  storeId: string
+  storeName: string
+  gender: 'F' | 'M' | '-'
+  age: '10s' | '20s' | '30s' | '40s' | '50s+'
+  tone: 'warm' | 'short' | 'detail' | 'casual'
+  length: 'short' | 'mid' | 'long'
+  photoCount: number
+  hasReceipt: boolean
+  hasPhoto: boolean
+}
+
+function ReviewStatsSection({ storeName }: { storeName: string }) {
+  const [records, setRecords] = useState<ReviewStatRecord[]>([])
+  const [filterMine, setFilterMine] = useState(true)
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const load = () => {
+      try {
+        const raw = window.localStorage.getItem('localution.review_stats')
+        if (!raw) { setRecords([]); return }
+        const arr = JSON.parse(raw)
+        setRecords(Array.isArray(arr) ? arr : [])
+      } catch { setRecords([]) }
+    }
+    load()
+    const onStorage = (e: StorageEvent) => { if (e.key === 'localution.review_stats') load() }
+    window.addEventListener('storage', onStorage)
+    return () => window.removeEventListener('storage', onStorage)
+  }, [])
+
+  // 내 매장 필터 (storeName 부분일치)
+  const filtered = (filterMine && storeName)
+    ? records.filter(r => (r.storeName || '').includes(storeName) || storeName.includes(r.storeName || ''))
+    : records
+
+  // 성별 × 연령 교차 집계
+  const ageKeys: ReviewStatRecord['age'][] = ['10s', '20s', '30s', '40s', '50s+']
+  const genderKeys: ReviewStatRecord['gender'][] = ['F', 'M', '-']
+  const crossTab: Record<string, number> = {}
+  for (const a of ageKeys) for (const g of genderKeys) crossTab[a + '|' + g] = 0
+  for (const r of filtered) {
+    const key = r.age + '|' + r.gender
+    if (key in crossTab) crossTab[key] += 1
+  }
+
+  // 톤·길이 집계
+  const toneCounts: Record<string, number> = { warm: 0, short: 0, detail: 0, casual: 0 }
+  const lengthCounts: Record<string, number> = { short: 0, mid: 0, long: 0 }
+  for (const r of filtered) {
+    if (r.tone in toneCounts) toneCounts[r.tone] += 1
+    if (r.length in lengthCounts) lengthCounts[r.length] += 1
+  }
+
+  // 최근 7일 추이
+  const now = Date.now()
+  const day = 24 * 60 * 60 * 1000
+  const days7: { label: string; count: number }[] = []
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(now - i * day)
+    const label = (d.getMonth() + 1) + '/' + d.getDate()
+    const start = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()
+    const end = start + day
+    const count = filtered.filter(r => r.ts >= start && r.ts < end).length
+    days7.push({ label, count })
+  }
+  const maxDay = Math.max(1, ...days7.map(d => d.count))
+
+  const maxCell = Math.max(1, ...Object.values(crossTab))
+  const total = filtered.length
+
+  const topCombo = Object.entries(crossTab).sort((a, b) => b[1] - a[1])[0]
+  const topComboLabel = topCombo && topCombo[1] > 0
+    ? (() => {
+        const [age, gender] = topCombo[0].split('|')
+        const gLabel = gender === 'F' ? '여성' : gender === 'M' ? '남성' : '미표시'
+        return age.replace('s+', '+').replace('s', '대') + ' ' + gLabel
+      })()
+    : '데이터 부족'
+
+  const genderLabel: Record<string, string> = { F: '여성', M: '남성', '-': '미표시' }
+  const toneLabel: Record<string, string> = { warm: '따뜻하게', short: '심플하게', detail: '자세하게', casual: '친근하게' }
+  const lengthLabel: Record<string, string> = { short: '짧음', mid: '중간', long: '길게' }
+
+  return (
+    <section className="mt-8 bg-white rounded-2xl p-5 md:p-6 shadow-sm border border-[#E5E8EB]">
+      <div className="flex items-center justify-between flex-wrap gap-2 mb-4">
+        <div className="min-w-0">
+          <h2 className="text-lg md:text-xl font-black text-[#191F28] flex items-center gap-2">
+            <span className="text-xl">📊</span> QR 리뷰 생성 통계
+          </h2>
+          <p className="text-xs text-[#8B95A1] mt-0.5">
+            /review QR 스캔 후 고객이 선택한 성별·연령·톤·길이 누적 집계 · 매장별 인사이트
+          </p>
+        </div>
+        <div className="flex items-center gap-1 bg-[#F2F4F6] rounded-lg p-0.5">
+          <button
+            onClick={() => setFilterMine(true)}
+            className={'px-3 py-1.5 rounded-md text-xs font-bold transition-colors ' + (filterMine ? 'bg-white shadow text-[#3182F6]' : 'text-[#8B95A1]')}
+          >내 매장</button>
+          <button
+            onClick={() => setFilterMine(false)}
+            className={'px-3 py-1.5 rounded-md text-xs font-bold transition-colors ' + (!filterMine ? 'bg-white shadow text-[#3182F6]' : 'text-[#8B95A1]')}
+          >전체</button>
+        </div>
+      </div>
+
+      {/* KPI 카드 */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3 mb-5">
+        <div className="bg-[#EFF6FF] rounded-xl p-3 border border-[#BFDBFE]">
+          <p className="text-[10px] text-[#3182F6] font-bold mb-1">누적 생성</p>
+          <p className="text-2xl font-black text-[#1B64DA]">{total}<span className="text-xs ml-1 font-bold">건</span></p>
+        </div>
+        <div className="bg-[#F0FDF4] rounded-xl p-3 border border-[#BBF7D0]">
+          <p className="text-[10px] text-[#059669] font-bold mb-1">최근 7일</p>
+          <p className="text-2xl font-black text-[#047857]">{days7.reduce((a, b) => a + b.count, 0)}<span className="text-xs ml-1 font-bold">건</span></p>
+        </div>
+        <div className="bg-[#FEF3C7] rounded-xl p-3 border border-[#FDE68A]">
+          <p className="text-[10px] text-[#B45309] font-bold mb-1">TOP 세그먼트</p>
+          <p className="text-base font-black text-[#92400E] leading-tight truncate">{topComboLabel}</p>
+        </div>
+        <div className="bg-[#FAE8FF] rounded-xl p-3 border border-[#F5D0FE]">
+          <p className="text-[10px] text-[#86198F] font-bold mb-1">사진 포함</p>
+          <p className="text-2xl font-black text-[#701A75]">
+            {total === 0 ? 0 : Math.round(filtered.filter(r => r.hasPhoto).length / total * 100)}<span className="text-xs ml-1 font-bold">%</span>
+          </p>
+        </div>
+      </div>
+
+      {total === 0 ? (
+        <div className="bg-[#F8F9FA] rounded-xl p-8 text-center">
+          <div className="text-3xl mb-2">📭</div>
+          <p className="text-sm text-[#4E5968] font-semibold mb-1">아직 수집된 제출 데이터가 없어요</p>
+          <p className="text-xs text-[#8B95A1]">고객이 QR을 스캔해 리뷰를 생성하면 자동으로 쌓여요</p>
+        </div>
+      ) : (
+        <>
+          {/* 성별 × 연령 교차 집계 */}
+          <div className="mb-5">
+            <h3 className="text-sm font-black text-[#191F28] mb-2">성별 × 연령 분포</h3>
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs border-collapse">
+                <thead>
+                  <tr>
+                    <th className="text-left p-2 text-[#8B95A1] font-bold">연령</th>
+                    {genderKeys.map(g => (
+                      <th key={g} className="text-center p-2 text-[#8B95A1] font-bold">{genderLabel[g]}</th>
+                    ))}
+                    <th className="text-center p-2 text-[#8B95A1] font-bold">합계</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {ageKeys.map(age => {
+                    const rowTotal = genderKeys.reduce((a, g) => a + crossTab[age + '|' + g], 0)
+                    return (
+                      <tr key={age} className="border-t border-[#F2F4F6]">
+                        <td className="p-2 font-bold text-[#4E5968]">{age.replace('s+', '+').replace('s', '대')}</td>
+                        {genderKeys.map(g => {
+                          const v = crossTab[age + '|' + g]
+                          const opacity = v === 0 ? 0 : 0.15 + (v / maxCell) * 0.85
+                          return (
+                            <td key={g} className="p-2 text-center">
+                              <div
+                                className="inline-flex items-center justify-center min-w-[36px] py-1 rounded-md font-bold"
+                                style={{
+                                  background: v === 0 ? '#F8F9FA' : 'rgba(49, 130, 246, ' + opacity + ')',
+                                  color: v === 0 ? '#C9CCCF' : (opacity > 0.5 ? '#ffffff' : '#1B64DA'),
+                                }}
+                              >{v}</div>
+                            </td>
+                          )
+                        })}
+                        <td className="p-2 text-center font-black text-[#191F28]">{rowTotal}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+            <p className="text-[10px] text-[#8B95A1] mt-2">셀이 진할수록 많이 선택된 조합 · 마케팅 타겟 설정 참고 자료</p>
+          </div>
+
+          {/* 톤 · 길이 선호도 */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
+            <div className="bg-[#F8F9FA] rounded-xl p-4">
+              <h3 className="text-sm font-black text-[#191F28] mb-2">말투 선호도</h3>
+              {(Object.keys(toneCounts) as (keyof typeof toneCounts)[]).map(k => {
+                const v = toneCounts[k] || 0
+                const pct = total === 0 ? 0 : Math.round(v / total * 100)
+                return (
+                  <div key={k} className="mb-2 last:mb-0">
+                    <div className="flex justify-between text-[11px] mb-0.5">
+                      <span className="font-bold text-[#4E5968]">{toneLabel[k]}</span>
+                      <span className="text-[#8B95A1]">{v}건 ({pct}%)</span>
+                    </div>
+                    <div className="h-2 bg-[#E5E8EB] rounded-full overflow-hidden">
+                      <div className="h-full rounded-full" style={{ width: pct + '%', background: '#3182F6' }} />
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+            <div className="bg-[#F8F9FA] rounded-xl p-4">
+              <h3 className="text-sm font-black text-[#191F28] mb-2">길이 선호도</h3>
+              {(Object.keys(lengthCounts) as (keyof typeof lengthCounts)[]).map(k => {
+                const v = lengthCounts[k] || 0
+                const pct = total === 0 ? 0 : Math.round(v / total * 100)
+                return (
+                  <div key={k} className="mb-2 last:mb-0">
+                    <div className="flex justify-between text-[11px] mb-0.5">
+                      <span className="font-bold text-[#4E5968]">{lengthLabel[k]}</span>
+                      <span className="text-[#8B95A1]">{v}건 ({pct}%)</span>
+                    </div>
+                    <div className="h-2 bg-[#E5E8EB] rounded-full overflow-hidden">
+                      <div className="h-full rounded-full" style={{ width: pct + '%', background: '#10B981' }} />
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          {/* 최근 7일 추이 */}
+          <div>
+            <h3 className="text-sm font-black text-[#191F28] mb-2">최근 7일 생성 추이</h3>
+            <div className="flex items-end gap-1 h-24">
+              {days7.map(d => {
+                const h = d.count === 0 ? 4 : Math.max(8, (d.count / maxDay) * 100)
+                return (
+                  <div key={d.label} className="flex-1 flex flex-col items-center gap-1">
+                    <span className="text-[10px] font-bold text-[#4E5968]">{d.count}</span>
+                    <div
+                      className="w-full rounded-t"
+                      style={{ height: h + '%', background: d.count === 0 ? '#E5E8EB' : 'linear-gradient(180deg, #3182F6 0%, #1B64DA 100%)' }}
+                    />
+                    <span className="text-[10px] text-[#8B95A1]">{d.label}</span>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+
+          <p className="text-[10px] text-[#8B95A1] mt-4">
+            ※ 현재 데이터는 방문자 브라우저 localStorage 기준 · Supabase 연동 시 전 매장 크로스 집계 가능
+          </p>
+        </>
+      )}
+    </section>
+  )
+}
+
 export default function QRAdmin() {
   const [activeTab, setActiveTab] = useState<'settings' | 'list' | 'stats'>('settings')
   const [settings, setSettings] = useState<QRSettings>(DEFAULT_SETTINGS)
@@ -1064,6 +1321,9 @@ export default function QRAdmin() {
             </div>
           )}
         </div>
+
+        {/* ── QR 리뷰 생성 통계 (/review/[storeId] 제출 데이터 집계) ── */}
+        <ReviewStatsSection storeName={storeInfo.name} />
 
         </div>
         <Footer />
