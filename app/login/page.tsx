@@ -22,7 +22,14 @@ export default function LoginPage() {
   useEffect(function() {
     const cookies = document.cookie
     if (cookies.indexOf('localution_session=') !== -1) {
-      window.location.href = '/dashboard'
+      // Hotfix 2026-04-21: redirect 쿼리 파라미터를 우선 처리
+      //   · 기존: 무조건 /dashboard 로 보냄 → 카카오 OAuth 도중 /login 거치면 /dashboard 튕김
+      //   · 수정: ?redirect=<path> 가 있으면 거기로, 없으면 /dashboard
+      const params = new URLSearchParams(window.location.search)
+      const redirect = params.get('redirect')
+      // 보안: open redirect 방지 — 같은 출처 path 만 허용
+      const safe = redirect && redirect.startsWith('/') && !redirect.startsWith('//') ? redirect : '/dashboard'
+      window.location.href = safe
     }
   }, [])
 
