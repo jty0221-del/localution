@@ -37,9 +37,47 @@ export default function MySubscriptionPage() {
   }
 
   if (loading) {
+    // 15차-10 스켈레톤 로더 (요약카드 + 모듈카드 2개 placeholder)
     return (
-      <div style={{ padding: 48, textAlign: 'center', color: '#6b7280' }}>
-        구독 정보 불러오는 중...
+      <div style={{ maxWidth: 860, margin: '0 auto', padding: '32px 20px 120px' }}>
+        <div style={{ marginBottom: 24 }}>
+          <div className="animate-pulse" style={{ height: 32, width: 120, background: '#E5E8EB', borderRadius: 8, marginBottom: 10 }} />
+          <div className="animate-pulse" style={{ height: 14, width: 260, background: '#F2F4F6', borderRadius: 6 }} />
+        </div>
+        <div
+          className="animate-pulse"
+          style={{
+            background: 'linear-gradient(135deg, #E0E7FF 0%, #C7D2FE 100%)',
+            borderRadius: 20,
+            padding: 24,
+            marginBottom: 24,
+            height: 140,
+          }}
+        />
+        {[0, 1].map(i => (
+          <div
+            key={i}
+            className="animate-pulse"
+            style={{
+              background: '#fff',
+              border: '1px solid #F2F4F6',
+              borderRadius: 16,
+              padding: 20,
+              marginBottom: 12,
+              height: 96,
+              display: 'flex',
+              alignItems: 'center',
+              gap: 16,
+            }}
+          >
+            <div style={{ width: 48, height: 48, borderRadius: 12, background: '#F2F4F6' }} />
+            <div style={{ flex: 1 }}>
+              <div style={{ height: 14, width: '40%', background: '#F2F4F6', borderRadius: 6, marginBottom: 8 }} />
+              <div style={{ height: 10, width: '65%', background: '#F2F4F6', borderRadius: 6 }} />
+            </div>
+            <div style={{ width: 70, height: 30, background: '#F2F4F6', borderRadius: 8 }} />
+          </div>
+        ))}
       </div>
     )
   }
