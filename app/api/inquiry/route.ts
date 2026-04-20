@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireAdmin } from '@/app/lib/adminAuth'
 
 export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
 
 // Vercel 서버리스 특성상 메모리 캐시는 재시작 시 초기화됨
 // 실 운영에서는 Supabase/Notion 영속 저장 권장 (15차-17에서는 localStorage + 메모리 폴백)
@@ -112,10 +114,10 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ inquiries: found.map(sanitize) })
   }
 
-  // 관리자 조회 모드
-  const secret = req.headers.get('x-admin-secret')
-  if (!secret || secret !== process.env.ADMIN_SECRET) {
-    return NextResponse.json({ error: '인증 필요' }, { status: 401 })
+  // 관리자 조회 모드 — 듀얼모드 인증 (NextAuth OAuth 쿠키 OR Supabase 세션)
+  const admin = await requireAdmin()
+  if (!admin.ok) {
+    return NextResponse.json({ error: admin.message }, { status: admin.status })
   }
   const all = store.slice().sort((a, b) => b.createdAt.localeCompare(a.createdAt)).map(sanitize)
   const summary = {
@@ -129,9 +131,9 @@ export async function GET(req: NextRequest) {
 
 // PATCH: 관리자 답변 작성 / 완료 처리
 export async function PATCH(req: NextRequest) {
-  const secret = req.headers.get('x-admin-secret')
-  if (!secret || secret !== process.env.ADMIN_SECRET) {
-    return NextResponse.json({ error: '인증 필요' }, { status: 401 })
+  const admin = await requireAdmin()
+  if (!admin.ok) {
+    return NextResponse.json({ error: admin.message }, { status: admin.status })
   }
   const { id, reply, status, markCompleted } = await req.json() as {
     id: string; reply?: string; status?: Inquiry['status']; markCompleted?: boolean
