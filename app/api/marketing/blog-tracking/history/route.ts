@@ -32,7 +32,7 @@ export async function GET(req: NextRequest) {
 
   const { data: history, error: hErr } = await svc
     .from('blog_tracking_history')
-    .select('id,checked_at,rank,section,total_found,note')
+    .select('id,checked_at,rank,section,total_found,note,source')
     .eq('target_id', target_id)
     .order('checked_at', { ascending: false })
     .limit(limit)
