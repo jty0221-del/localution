@@ -4,9 +4,13 @@
 //   · 비로그인도 접근 가능
 //   · 서버 컴포넌트 (ISR 60초)
 //   · released_at 기준 월 단위 그룹핑
+//   · 18차-5 핫픽스: 하단 CTA 로그인 여부에 따라 분기
+//       - 로그인 상태 → "← 대시보드로" (/dashboard)
+//       - 비로그인   → "← 홈으로"     (/)
 // ============================================================
 import { Metadata } from 'next'
 import Link from 'next/link'
+import { cookies } from 'next/headers'
 
 export const runtime = 'nodejs'
 export const revalidate = 60
@@ -57,8 +61,27 @@ async function fetchUpdates(): Promise<UpdateRow[]> {
   }
 }
 
+// ------------------------------------------------------------
+// 로그인 여부 감지 (쿠키 존재 여부만 확인, 토큰 검증은 생략)
+//   · localution_user (OAuth)  — 제품 기본 로그인 쿠키
+//   · sb-*-auth-token          — Supabase 세션 폴백
+// ------------------------------------------------------------
+async function isLoggedIn(): Promise<boolean> {
+  try {
+    const store = await cookies()
+    if (store.get('localution_user')?.value) return true
+    const sb = store.getAll().find(c => c.name.startsWith('sb-') && c.name.endsWith('-auth-token'))
+    return !!sb?.value
+  } catch {
+    return false
+  }
+}
+
 export default async function UpdatesPage() {
-  const updates = await fetchUpdates()
+  const [updates, loggedIn] = await Promise.all([fetchUpdates(), isLoggedIn()])
+
+  const ctaHref  = loggedIn ? '/dashboard' : '/'
+  const ctaLabel = loggedIn ? '← 대시보드로' : '← 홈으로'
 
   return (
     <main className="min-h-screen bg-[#F8F9FB] pb-24">
@@ -67,23 +90,16 @@ export default async function UpdatesPage() {
         <div className="max-w-3xl mx-auto text-center">
           <div className="mx-auto w-10 h-10 rounded-full bg-blue-500/10 text-blue-600 grid place-items-center mb-4">
             <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-              <path d="M12 2v4" />
-              <path d="M12 18v4" />
-              <path d="M4.93 4.93l2.83 2.83" />
-              <path d="M16.24 16.24l2.83 2.83" />
-              <path d="M2 12h4" />
-              <path d="M18 12h4" />
-              <path d="M4.93 19.07l2.83-2.83" />
-              <path d="M16.24 7.76l2.83-2.83" />
+              <path d="M16 8a6 6 0 1 0-12 0c0 7 12 7 12 0z"/>
+              <path d="M8 8a6 6 0 1 0 12 0c0 7-12 7-12 0z"/>
             </svg>
           </div>
-          <h1 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight leading-snug">
-            사장님의 매장과 함께{' '}
-            <span className="text-blue-600">성장</span>하는{' '}
-            <span className="text-blue-600">로컬루션</span>
+          <h1 className="text-2xl md:text-3xl font-bold text-slate-900 tracking-tight">
+            <span className="text-blue-600">원클릭</span>으로 모든 것을{' '}
+            <span className="text-blue-600">자동화</span>하세요
           </h1>
           <p className="mt-3 text-sm md:text-base text-slate-500">
-            현장의 목소리로 다듬어지는 새로운 기능과 개선사항을 이곳에 기록합니다.
+            로컬루션의 새로운 기능과 개선 내역을 한눈에 확인하세요.
           </p>
         </div>
       </section>
@@ -160,10 +176,10 @@ export default async function UpdatesPage() {
 
           <div className="mt-10 md:mt-12 text-center">
             <Link
-              href="/"
+              href={ctaHref}
               className="inline-flex items-center gap-2 text-sm text-slate-500 hover:text-slate-900 transition"
             >
-              ← 홈으로
+              {ctaLabel}
             </Link>
           </div>
         </div>
