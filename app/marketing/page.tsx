@@ -498,8 +498,8 @@ export default function MarketingPage() {
             <p className="text-sm text-[#8B95A1] mt-1">네이버 플레이스 키워드 순위 · 진단 · 유입 분석을 한 곳에서 관리하세요</p>
           </div>
 
-          {/* AI 콘텐츠 생성 배너 2종 */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">
+          {/* AI 콘텐츠 생성 + 순위 추적 배너 3종 */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-6">
             <Link href="/marketing/reels"
               className="block bg-gradient-to-r from-[#8B5CF6] via-[#A855F7] to-[#EC4899] rounded-2xl p-4 md:p-5 shadow-sm hover:shadow-lg transition-all group">
               <div className="flex items-center gap-4">
@@ -530,6 +530,24 @@ export default function MarketingPage() {
                     <div className="text-sm md:text-base font-black truncate">네이버 블로그 포스팅</div>
                   </div>
                   <div className="text-xs text-white/80">SEO 최적화 + 체류시간 후킹 자동 생성</div>
+                </div>
+                <ArrowRight size={18} strokeWidth={2.5}
+                  className="text-white group-hover:translate-x-1 transition-transform flex-shrink-0" />
+              </div>
+            </Link>
+
+            <Link href="/marketing/blog-tracking"
+              className="block bg-gradient-to-r from-[#3182F6] via-[#4F46E5] to-[#1B64DA] rounded-2xl p-4 md:p-5 shadow-sm hover:shadow-lg transition-all group">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center flex-shrink-0">
+                  <TrendingUp size={26} strokeWidth={2.25} className="text-white" />
+                </div>
+                <div className="flex-1 text-white min-w-0">
+                  <div className="flex items-center gap-2 mb-0.5">
+                    <span className="text-[10px] font-black bg-white text-[#3182F6] px-2 py-0.5 rounded-full">NEW</span>
+                    <div className="text-sm md:text-base font-black truncate">블로그 순위 추적</div>
+                  </div>
+                  <div className="text-xs text-white/80">체험단·내 블로그 글 네이버 인기글 순위 자동 체크</div>
                 </div>
                 <ArrowRight size={18} strokeWidth={2.5}
                   className="text-white group-hover:translate-x-1 transition-transform flex-shrink-0" />
