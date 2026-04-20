@@ -3,6 +3,7 @@
 import { useEffect } from 'react';
 import Link from 'next/link';
 import { AlertCircle, RotateCcw } from 'lucide-react';
+import { reportError } from './lib/telemetry';
 
 interface ErrorProps {
   error: Error & { digest?: string };
@@ -11,8 +12,12 @@ interface ErrorProps {
 
 export default function Error({ error, reset }: ErrorProps) {
   useEffect(() => {
-    // Optionally log the error to an error reporting service
-    console.error('Error caught:', error);
+    reportError(error, {
+      level: 'error',
+      digest: error.digest,
+      route: typeof window !== 'undefined' ? window.location.pathname : undefined,
+      tags: { boundary: 'error' },
+    });
   }, [error]);
 
   return (
