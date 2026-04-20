@@ -44,11 +44,41 @@ const STORES: Record<string, Store> = {
   },
 }
 
+// 브라우저·CDN에 따라 storeId가 URL-encoded 로 들어오거나(`%5B%ED%85%8C...%5D`),
+// next.js 템플릿 문자열(`[storeId]`)이 그대로 들어오는 경우가 있어 방어 처리
+function sanitizeStoreId(raw: string | string[] | undefined): string {
+  if (!raw) return 'default'
+  let s = Array.isArray(raw) ? raw[0] : raw
+  // 1) URL 디코드 (중첩 인코딩까지 대비 2회)
+  for (let i = 0; i < 2; i++) {
+    try {
+      const dec = decodeURIComponent(s)
+      if (dec === s) break
+      s = dec
+    } catch { break }
+  }
+  // 2) Next.js 미치환 템플릿 / 예약 문자 제거: [storeId], [테스트storeId] 등
+  s = s.replace(/^\[+|\]+$/g, '').trim()
+  if (/^\[.*\]$/.test(s)) s = s.replace(/^\[|\]$/g, '').trim()
+  // 3) placeholder 키워드 무효화
+  const lc = s.toLowerCase()
+  if (!s || lc === 'storeid' || lc === 'storeid%5d' || lc.includes('[storeid]')) return 'default'
+  return s
+}
+
+function toReadableName(storeId: string): string {
+  if (!storeId || storeId === 'default') return '우리 매장'
+  const cleaned = storeId
+    .replace(/-+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+  return cleaned || '우리 매장'
+}
+
 function getStore(storeId: string): Store {
   if (STORES[storeId]) return STORES[storeId]
-  // slug → 사람이 읽을 수 있는 이름으로 복원 시도 (한글 포함)
-  // 그래도 실제 상호가 안 맞을 수 있어, URL 쿼리 n= / Supabase 조회 결과가 덮어쓰도록 함
-  const readable = (storeId || '').replace(/-+/g, ' ').trim() || '우리 매장'
+  const readable = toReadableName(storeId)
+  const isGeneric = readable === '우리 매장'
   return {
     slug: storeId,
     name: readable,
@@ -56,7 +86,7 @@ function getStore(storeId: string): Store {
     address: '',
     keywords: ['맛있는 곳', '분위기 좋은 곳', '재방문 의사 있음'],
     naverUrl: 'https://m.place.naver.com/',
-    greeting: readable + '을(를) 방문해주셔서 감사합니다',
+    greeting: isGeneric ? '방문해 주셔서 감사합니다' : (readable + '을(를) 방문해주셔서 감사합니다'),
     signatures: ['대표 메뉴'],
   }
 }
@@ -68,7 +98,7 @@ type LengthKey = 'short' | 'mid' | 'long'
 export default function ReviewPage() {
   const params = useParams<{ storeId: string }>()
   const searchParams = useSearchParams()
-  const storeId = params?.storeId || 'default'
+  const storeId = sanitizeStoreId(params?.storeId)
   const baseStore = getStore(storeId)
 
   // QR URL 쿼리파라미터 — 어떤 기기에서 찍어도 정확한 매장 정보 전달
@@ -184,7 +214,9 @@ export default function ReviewPage() {
   const [final, setFinal] = useState('')
   const [copied, setCopied] = useState(false)
 
-  const fileRef = useRef<HTMLInputElement>(null)
+  // 앨범 선택 · 카메라 촬영 2개 입력 분리 (모바일에서 capture 속성으로 즉시 카메라 오픈)
+  const albumRef = useRef<HTMLInputElement>(null)
+  const cameraRef = useRef<HTMLInputElement>(null)
   const [uploadCat, setUploadCat] = useState<'receipt' | 'photo'>('receipt')
 
   const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -210,17 +242,47 @@ export default function ReviewPage() {
     e.target.value = ''
   }
 
-  const openPicker = (cat: 'receipt' | 'photo') => {
+  const openAlbum = (cat: 'receipt' | 'photo') => {
     setUploadCat(cat)
-    setTimeout(() => fileRef.current?.click(), 0)
+    setTimeout(() => albumRef.current?.click(), 0)
+  }
+  const openCamera = (cat: 'receipt' | 'photo') => {
+    setUploadCat(cat)
+    setTimeout(() => cameraRef.current?.click(), 0)
   }
 
   const removePhoto = (id: string) => {
     setPhotos(prev => prev.filter(p => p.id !== id))
   }
 
+  // /qr-admin에서 집계할 수 있도록 제출 메타데이터를 localStorage에 누적
+  const recordSubmission = () => {
+    if (typeof window === 'undefined') return
+    try {
+      const key = 'localution.review_stats'
+      const raw = window.localStorage.getItem(key)
+      const arr: any[] = raw ? (JSON.parse(raw) || []) : []
+      arr.push({
+        ts: Date.now(),
+        storeId,
+        storeName: store.name,
+        gender,        // 'F' | 'M' | '-'
+        age,           // '10s' | '20s' | '30s' | '40s' | '50s+'
+        tone,          // 'warm' | 'short' | 'detail' | 'casual'
+        length,        // 'short' | 'mid' | 'long'
+        photoCount: photos.length,
+        hasReceipt: photos.some(p => p.cat === 'receipt'),
+        hasPhoto: photos.some(p => p.cat === 'photo'),
+      })
+      // 최근 1000건만 유지
+      if (arr.length > 1000) arr.splice(0, arr.length - 1000)
+      window.localStorage.setItem(key, JSON.stringify(arr))
+    } catch (_) {}
+  }
+
   const startGenerate = () => {
     setDrafting(true)
+    recordSubmission()
     setTimeout(() => {
       setDraft(buildReview(store, gender, age, tone, length, photos))
       setDrafting(false)
@@ -262,7 +324,10 @@ export default function ReviewPage() {
 
   return (
     <div style={{ background: '#F7F8FA', minHeight: '100vh', color: BLACK }}>
-      <input ref={fileRef} type="file" accept="image/*" multiple hidden onChange={handleFile} />
+      {/* 앨범 선택 (capture 없음 · 다중 선택 가능) */}
+      <input ref={albumRef} type="file" accept="image/*" multiple hidden onChange={handleFile} />
+      {/* 바로 촬영 (capture="environment" · 후면 카메라 즉시 오픈) */}
+      <input ref={cameraRef} type="file" accept="image/*" capture="environment" hidden onChange={handleFile} />
 
       {/* 헤더 */}
       <header className="px-5 pt-8 pb-6 text-white" style={{ background: 'linear-gradient(180deg, ' + BLUE + ' 0%, ' + BLUE_DARK + ' 100%)' }}>
@@ -339,7 +404,7 @@ export default function ReviewPage() {
               <p className="text-xs" style={{ color: GRAY }}>영수증 1장 + 사진 몇 장이면 AI가 알아서 분석해요</p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+            <div className="space-y-2">
               {([
                 { cat: 'receipt', label: '영수증', desc: 'OCR로 메뉴 자동 인식', icon: '🧾' },
                 { cat: 'photo', label: '사진', desc: '음식 · 서비스 · 전경 등', icon: '📸' },
@@ -347,14 +412,36 @@ export default function ReviewPage() {
                 const count = photos.filter(p => p.cat === c.cat).length
                 const active = count > 0
                 return (
-                  <button key={c.cat} onClick={() => openPicker(c.cat)} className="p-5 rounded-2xl border-2 border-dashed bg-white text-left transition-colors" style={{ borderColor: active ? BLUE : BORDER }}>
-                    <div className="text-2xl mb-1">{c.icon}</div>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="font-black text-sm" style={{ color: BLACK }}>{c.label}</span>
-                      {active && (<span className="text-[11px] font-bold px-2 py-0.5 rounded-full text-white" style={{ background: BLUE }}>{count}</span>)}
+                  <div key={c.cat} className="p-4 rounded-2xl border-2 border-dashed bg-white transition-colors" style={{ borderColor: active ? BLUE : BORDER }}>
+                    <div className="flex items-center gap-3 mb-3">
+                      <div className="text-2xl">{c.icon}</div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2">
+                          <span className="font-black text-sm" style={{ color: BLACK }}>{c.label}</span>
+                          {active && (<span className="text-[11px] font-bold px-2 py-0.5 rounded-full text-white" style={{ background: BLUE }}>{count}장</span>)}
+                        </div>
+                        <p className="text-[11px] mt-0.5" style={{ color: GRAY }}>{c.desc}</p>
+                      </div>
                     </div>
-                    <p className="text-[11px]" style={{ color: GRAY }}>{c.desc}</p>
-                  </button>
+                    <div className="grid grid-cols-2 gap-2">
+                      <button
+                        onClick={() => openCamera(c.cat)}
+                        className="py-3 rounded-xl text-sm font-bold text-white flex items-center justify-center gap-1.5 shadow-sm"
+                        style={{ background: BLUE }}
+                      >
+                        <span className="text-base">📷</span>
+                        <span>바로 촬영</span>
+                      </button>
+                      <button
+                        onClick={() => openAlbum(c.cat)}
+                        className="py-3 rounded-xl text-sm font-bold border-2 flex items-center justify-center gap-1.5 bg-white"
+                        style={{ borderColor: BLUE, color: BLUE }}
+                      >
+                        <span className="text-base">🖼️</span>
+                        <span>앨범에서</span>
+                      </button>
+                    </div>
+                  </div>
                 )
               })}
             </div>
