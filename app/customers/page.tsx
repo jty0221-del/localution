@@ -68,8 +68,8 @@ export default function CustomersPage() {
   // 1) 템플릿 치환({고객명}) + 전화번호 리스트 포함하여 클립보드 복사
   // 2) KakaoTalk PC deep link 시도 (설치돼 있으면 자동 실행)
   // 3) 사용자에게 "카카오톡 대화창에 Ctrl+V 붙여넣기" 안내
-  //   ※ 실서비스 자동 발송은 Solapi/Aligo/NHN BizM 알림톡 API 연동으로 확장
-  const [sendMode, setSendMode] = useState<'kakao' | 'sms' | 'alimtalk'>('kakao')
+  //   ※ 알림톡 API 자동 발송은 전체 스탑 (2026-04-20)
+  const [sendMode, setSendMode] = useState<'kakao' | 'sms'>('kakao')
   const [sendError, setSendError] = useState<string | null>(null)
 
   const buildPersonalizedBlocks = (): string => {
@@ -271,7 +271,26 @@ export default function CustomersPage() {
             </span>
           </div>
 
-          {filtered.length === 0 ? (
+          {loading ? (
+            // 15차-10 스켈레톤 로더 (5행 animate-pulse)
+            Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-4 px-5 py-4 border-b border-[#F2F4F6] animate-pulse">
+                <div className="w-4 h-4 rounded bg-[#F2F4F6] flex-shrink-0" />
+                <div className="w-10 h-10 rounded-full bg-[#F2F4F6] flex-shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2 mb-2">
+                    <div className="h-3 bg-[#F2F4F6] rounded w-20" />
+                    <div className="h-3 bg-[#F2F4F6] rounded-full w-10" />
+                  </div>
+                  <div className="h-2.5 bg-[#F2F4F6] rounded w-28" />
+                </div>
+                <div className="text-right flex-shrink-0 hidden md:block space-y-1.5">
+                  <div className="h-3 bg-[#F2F4F6] rounded w-14 ml-auto" />
+                  <div className="h-2.5 bg-[#F2F4F6] rounded w-16 ml-auto" />
+                </div>
+              </div>
+            ))
+          ) : filtered.length === 0 ? (
             <div className="text-center py-16 text-[#8B95A1]">
               <div className="text-4xl mb-3">🧑‍🤝‍🧑</div>
               <div className="text-sm mb-3">
@@ -391,26 +410,18 @@ export default function CustomersPage() {
               <p className="text-xs text-[#8B95A1] mb-3">선택한 {selected.length}명에게 발송됩니다</p>
 
               {/* 채널 선택 */}
-              <div className="grid grid-cols-3 gap-2 mb-3">
+              <div className="grid grid-cols-2 gap-2 mb-3">
                 <button
                   onClick={() => setSendMode('kakao')}
-                  className={`py-2 rounded-lg text-[11px] md:text-xs font-bold transition-colors ${sendMode === 'kakao' ? 'bg-[#FEE500] text-[#191F28]' : 'bg-[#F2F4F6] text-[#8B95A1]'}`}>
+                  className={`py-2.5 rounded-lg text-xs font-bold transition-colors ${sendMode === 'kakao' ? 'bg-[#FEE500] text-[#191F28]' : 'bg-[#F2F4F6] text-[#8B95A1]'}`}>
                   카톡 복사
-                  <div className="text-[9px] opacity-70 font-normal">PC 카카오톡</div>
+                  <div className="text-[10px] opacity-70 font-normal">PC 카카오톡</div>
                 </button>
                 <button
                   onClick={() => setSendMode('sms')}
-                  className={`py-2 rounded-lg text-[11px] md:text-xs font-bold transition-colors ${sendMode === 'sms' ? 'bg-[#3182F6] text-white' : 'bg-[#F2F4F6] text-[#8B95A1]'}`}>
+                  className={`py-2.5 rounded-lg text-xs font-bold transition-colors ${sendMode === 'sms' ? 'bg-[#3182F6] text-white' : 'bg-[#F2F4F6] text-[#8B95A1]'}`}>
                   SMS 직발송
-                  <div className="text-[9px] opacity-70 font-normal">모바일 권장</div>
-                </button>
-                <button
-                  onClick={() => setSendMode('alimtalk')}
-                  disabled
-                  className="relative py-2 rounded-lg text-[11px] md:text-xs font-bold bg-[#F2F4F6] text-[#8B95A1] cursor-not-allowed opacity-70">
-                  알림톡 API
-                  <div className="text-[9px] opacity-70 font-normal">준비중</div>
-                  <span className="absolute -top-1 -right-1 bg-[#FF6B6B] text-white text-[8px] font-black px-1.5 py-0.5 rounded-full">Soon</span>
+                  <div className="text-[10px] opacity-70 font-normal">모바일 권장</div>
                 </button>
               </div>
 
@@ -438,14 +449,6 @@ export default function CustomersPage() {
                     <strong className="text-[#191F28]">모바일</strong>에서는 기본 메시지 앱이 열리며 수신자·본문이 자동 채워집니다.
                     <br />
                     <span className="text-[#8B95A1]">Windows 데스크톱: Phone Link(휴대폰 연결) 설치 시 SMS 발송 가능, 미설치 시 클립보드 복사로 대체</span>
-                  </p>
-                )}
-                {sendMode === 'alimtalk' && (
-                  <p className="text-[#4E5968]">
-                    <strong className="text-[#191F28]">알림톡 API 연동 예정</strong> — 네이버 Sens · 알리고 · NHN BizM 중 검토 중.
-                    연동 완료 시 버튼 한 번으로 수백 명에게 실시간 발송되며, 발송 로그·수신확인까지 자동 기록됩니다.
-                    <br />
-                    <span className="text-[#8B95A1]">※ 공급사 선정 후 7~10일 내 런칭 예정. 현재는 카톡 복사 / SMS 직발송 방식 사용해 주세요.</span>
                   </p>
                 )}
               </div>
