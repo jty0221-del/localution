@@ -114,22 +114,23 @@ function interpretScore(score: number) {
 }
 
 // ── URL 파싱 ───────────────────────────────────────────
-function parsePlaceId(raw: string): string | null {
+type ParsedPlace = { id: string; category: string | null }
+function parsePlace(raw: string): ParsedPlace | null {
   if (!raw) return null
   const url = raw.trim()
-  // m.place.naver.com/restaurant/12345 | /place/12345 | /hairshop/12345 etc
-  const m1 = url.match(/m\.place\.naver\.com\/(?:restaurant|place|hairshop|beautyshop|accommodation|hospital|cafe|attraction)\/(\d+)/)
-  if (m1) return m1[1]
-  // map.naver.com/p/entry/place/12345
+  // m.place.naver.com/{category}/{id}
+  const m1 = url.match(/m\.place\.naver\.com\/(restaurant|place|hairshop|beautyshop|accommodation|hospital|cafe|attraction)\/(\d+)/)
+  if (m1) return { category: m1[1], id: m1[2] }
+  // map.naver.com/p/entry/place/{id}
   const m2 = url.match(/map\.naver\.com\/p\/entry\/place\/(\d+)/)
-  if (m2) return m2[1]
-  // pcmap.place.naver.com/restaurant/12345
-  const m3 = url.match(/pcmap\.place\.naver\.com\/\w+\/(\d+)/)
-  if (m3) return m3[1]
-  // naver.me/xxxxx (단축URL은 클라이언트에서 해제 불가)
+  if (m2) return { category: null, id: m2[1] }
+  // pcmap.place.naver.com/{category}/{id}
+  const m3 = url.match(/pcmap\.place\.naver\.com\/(\w+)\/(\d+)/)
+  if (m3) return { category: m3[1], id: m3[2] }
+  // naver.me/xxxxx (단축URL 미지원)
   if (/naver\.me\//.test(url)) return null
-  // 순수 숫자 (직접 입력)
-  if (/^\d{5,}$/.test(url)) return url
+  // 순수 숫자
+  if (/^\d{5,}$/.test(url)) return { category: null, id: url }
   return null
 }
 
@@ -267,6 +268,9 @@ export default function PlaceDiagnosisPage() {
   const [modalItem, setModalItem] = useState<ChecklistItem | null>(null)
   const [storeInfo, setStoreInfo] = useState<any>(null)
   const [youtubeLinks, setYoutubeLinks] = useState<Record<string, string>>({})
+  const [fetchedInfo, setFetchedInfo] = useState<any>(null)
+  const [loadingInfo, setLoadingInfo] = useState(false)
+  const [fetchError, setFetchError] = useState<string>('')
 
   // localStorage: store_info + youtube links 로딩
   useEffect(() => {
@@ -310,13 +314,31 @@ export default function PlaceDiagnosisPage() {
   const ratio = Math.round((score / TOTAL_ITEMS) * 100)
   const interp = interpretScore(score)
 
-  const handleAnalyze = () => {
-    const id = parsePlaceId(urlInput)
-    if (!id) {
+  const handleAnalyze = async () => {
+    const parsed = parsePlace(urlInput)
+    if (!parsed) {
       alert('네이버 플레이스 URL에서 placeId 를 추출하지 못했어요.\n예: https://m.place.naver.com/restaurant/12345678 또는 숫자 ID 직접 입력')
       return
     }
-    setPlaceId(id)
+    setPlaceId(parsed.id)
+    setFetchError('')
+    setFetchedInfo(null)
+    setLoadingInfo(true)
+    try {
+      const qs = new URLSearchParams({ id: parsed.id })
+      if (parsed.category) qs.set('category', parsed.category)
+      const res = await fetch(`/api/place/lookup?${qs.toString()}`, { cache: 'no-store' })
+      const data = await res.json()
+      if (res.ok && data.ok && data.info) {
+        setFetchedInfo(data.info)
+      } else {
+        setFetchError(data.message || '네이버에서 정보를 가져오지 못했어요. 비공개 업체거나 일시적 차단일 수 있어요.')
+      }
+    } catch (e) {
+      setFetchError('네트워크 오류로 정보를 불러오지 못했어요.')
+    } finally {
+      setLoadingInfo(false)
+    }
   }
 
   const toggleItem = useCallback((id: string) => {
@@ -399,38 +421,72 @@ export default function PlaceDiagnosisPage() {
 
                 {/* 우: 매장정보 요약 */}
                 <div className="bg-white rounded-2xl shadow-sm p-5">
-                  <p className="text-sm font-bold text-[#191F28] mb-3">🏪 매장 정보</p>
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-sm font-bold text-[#191F28]">🏪 매장 정보</p>
+                    {loadingInfo && <span className="text-[10px] text-[#3182F6] font-semibold flex items-center gap-1"><span className="w-2 h-2 border-2 border-[#3182F6] border-t-transparent rounded-full animate-spin"/>불러오는 중</span>}
+                    {fetchedInfo && !loadingInfo && <span className="text-[10px] text-[#12B76A] font-bold">✓ 네이버 연동</span>}
+                  </div>
+
+                  {fetchedInfo?.thumbnail && (
+                    <img src={fetchedInfo.thumbnail} alt={fetchedInfo.name || ''}
+                      className="w-full h-32 object-cover rounded-xl mb-3" />
+                  )}
+
                   <div className="space-y-2 text-xs">
-                    <div className="flex justify-between">
-                      <span className="text-[#8B95A1]">플레이스 ID</span>
-                      <span className="font-mono font-bold text-[#191F28]">{placeId}</span>
+                    <div className="flex justify-between gap-2">
+                      <span className="text-[#8B95A1] flex-shrink-0">플레이스 ID</span>
+                      <span className="font-mono font-bold text-[#191F28] text-right truncate">{placeId}</span>
                     </div>
-                    {storeInfo?.name && (
-                      <div className="flex justify-between">
-                        <span className="text-[#8B95A1]">매장명</span>
-                        <span className="font-bold text-[#191F28]">{storeInfo.name}</span>
+                    {(fetchedInfo?.name || storeInfo?.name) && (
+                      <div className="flex justify-between gap-2">
+                        <span className="text-[#8B95A1] flex-shrink-0">매장명</span>
+                        <span className="font-bold text-[#191F28] text-right truncate">{fetchedInfo?.name || storeInfo?.name}</span>
                       </div>
                     )}
-                    {storeInfo?.category && (
-                      <div className="flex justify-between">
-                        <span className="text-[#8B95A1]">업종</span>
-                        <span className="font-bold text-[#191F28]">{storeInfo.category}</span>
+                    {(fetchedInfo?.categoryName || storeInfo?.category) && (
+                      <div className="flex justify-between gap-2">
+                        <span className="text-[#8B95A1] flex-shrink-0">업종</span>
+                        <span className="font-bold text-[#191F28] text-right truncate">{fetchedInfo?.categoryName || storeInfo?.category}</span>
                       </div>
                     )}
-                    {storeInfo?.region && (
-                      <div className="flex justify-between">
-                        <span className="text-[#8B95A1]">지역</span>
-                        <span className="font-bold text-[#191F28]">{storeInfo.region}</span>
+                    {fetchedInfo?.address && (
+                      <div className="flex justify-between gap-2">
+                        <span className="text-[#8B95A1] flex-shrink-0">주소</span>
+                        <span className="font-bold text-[#191F28] text-right text-[10px] leading-tight">{fetchedInfo.address}</span>
                       </div>
                     )}
-                    {!storeInfo && (
-                      <p className="text-[11px] text-[#8B95A1] italic">
-                        <a href="/my/settings" className="text-[#3182F6] font-semibold">매장 정보 연동</a> 시 더 많은 정보 표시
-                      </p>
+                    {fetchedInfo?.phone && (
+                      <div className="flex justify-between gap-2">
+                        <span className="text-[#8B95A1] flex-shrink-0">전화</span>
+                        <a href={`tel:${fetchedInfo.phone}`} className="font-bold text-[#3182F6] text-right">{fetchedInfo.phone}</a>
+                      </div>
+                    )}
+                    {fetchedInfo?.visitorReviewCount !== null && fetchedInfo?.visitorReviewCount !== undefined && (
+                      <div className="flex justify-between gap-2">
+                        <span className="text-[#8B95A1]">방문자 리뷰</span>
+                        <span className="font-bold text-[#191F28]">{fetchedInfo.visitorReviewCount}개</span>
+                      </div>
+                    )}
+                    {fetchedInfo?.blogReviewCount !== null && fetchedInfo?.blogReviewCount !== undefined && (
+                      <div className="flex justify-between gap-2">
+                        <span className="text-[#8B95A1]">블로그 리뷰</span>
+                        <span className="font-bold text-[#191F28]">{fetchedInfo.blogReviewCount}개</span>
+                      </div>
+                    )}
+                    {fetchedInfo?.rating !== null && fetchedInfo?.rating !== undefined && (
+                      <div className="flex justify-between gap-2">
+                        <span className="text-[#8B95A1]">평점</span>
+                        <span className="font-bold text-[#F59E0B]">★ {fetchedInfo.rating}</span>
+                      </div>
                     )}
                   </div>
+
+                  {fetchError && (
+                    <p className="mt-3 text-[10px] text-[#F04452] bg-[#FFF1F2] rounded-lg p-2 leading-relaxed">{fetchError}</p>
+                  )}
+
                   <div className="mt-4 pt-4 border-t border-[#F2F4F6] space-y-2">
-                    <a href={`https://m.place.naver.com/restaurant/${placeId}`} target="_blank" rel="noopener noreferrer"
+                    <a href={`https://m.place.naver.com/${fetchedInfo?.category || 'restaurant'}/${placeId}/home`} target="_blank" rel="noopener noreferrer"
                       className="block w-full text-center text-xs font-bold py-2.5 rounded-xl bg-[#03C75A] text-white hover:bg-[#02B350] transition-colors">
                       네이버 플레이스에서 보기 ↗
                     </a>
