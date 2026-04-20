@@ -3,6 +3,7 @@ import { Inter } from 'next/font/google'
 import './globals.css'
 import QuickSlot from './components/QuickSlot'
 import BottomTabBar from './components/BottomTabBar'
+import UpdatesPopupBanner from './components/UpdatesPopupBanner'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -85,6 +86,8 @@ export default function RootLayout({
         {children}
         <QuickSlot />
         <BottomTabBar />
+        {/* 19차-2 · 새 업데이트 팝업 배너 (클라이언트 컴포넌트, 공개 랜딩 제외) */}
+        <UpdatesPopupBanner />
       </body>
     </html>
   )
