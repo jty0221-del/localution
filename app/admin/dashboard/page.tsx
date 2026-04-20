@@ -2,7 +2,9 @@
 export const dynamic = 'force-dynamic'
 
 import { useEffect, useMemo, useState } from 'react'
+import Link from 'next/link'
 import { adminFetch } from '../../lib/adminFetch'
+import { MessageSquare, ArrowRight, Clock, CheckCircle2, Inbox } from 'lucide-react'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   BarChart, Bar, Cell, Legend,
@@ -16,12 +18,31 @@ type Overview = {
   loaded: boolean
 }
 
+type InquirySummary = {
+  total: number; new: number; replied: number; completed: number
+}
+type InquiryLite = {
+  id: string; name: string; category: string; message: string;
+  status: 'new' | 'replied' | 'completed'; createdAt: string
+}
+
 const EMPTY: Overview = {
   subscriptions: { active: 0, past_due: 0, cancelled: 0, total: 0 },
   mrr_krw: 0,
   users_total: 0,
   customers_total: 0,
   loaded: false,
+}
+
+const INQ_STATUS: Record<InquiryLite['status'], { label: string; bg: string; color: string }> = {
+  new:       { label: '신규',      bg: '#FEF3C7', color: '#92400E' },
+  replied:   { label: '답변완료',  bg: '#DBEAFE', color: '#1E40AF' },
+  completed: { label: '처리완료',  bg: '#D1FAE5', color: '#065F46' },
+}
+
+function fmtInqDate(iso: string) {
+  const d = new Date(iso)
+  return d.toLocaleString('ko-KR', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
 }
 
 // 지난 6개월 mock 추이 (실제 데이터 누적 전 시뮬레이션)
@@ -59,6 +80,9 @@ function buildModuleDist(totalActive: number) {
 export default function AdminDashboardPage() {
   const [data, setData] = useState<Overview>(EMPTY)
   const [err, setErr] = useState<string | null>(null)
+  const [inqSummary, setInqSummary] = useState<InquirySummary>({ total: 0, new: 0, replied: 0, completed: 0 })
+  const [inqRecent, setInqRecent]   = useState<InquiryLite[]>([])
+  const [inqLoaded, setInqLoaded]   = useState(false)
 
   useEffect(() => {
     (async () => {
@@ -73,6 +97,19 @@ export default function AdminDashboardPage() {
       } catch (e) {
         setErr(e instanceof Error ? e.message : 'fetch error')
       }
+    })()
+  }, [])
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const res = await adminFetch('/api/inquiry')
+        if (!res.ok) { setInqLoaded(true); return }
+        const json = await res.json()
+        if (json.summary) setInqSummary(json.summary)
+        if (Array.isArray(json.inquiries)) setInqRecent(json.inquiries.slice(0, 5))
+      } catch {}
+      finally { setInqLoaded(true) }
     })()
   }, [])
 
@@ -213,6 +250,79 @@ export default function AdminDashboardPage() {
               </div>
             )
           })}
+        </div>
+      </div>
+
+      {/* 1:1 문의 요약 + 최근 5건 */}
+      <div className="bg-white rounded-2xl shadow-sm p-5 mt-4">
+        <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+          <div className="flex items-center gap-2">
+            <div className="w-8 h-8 rounded-lg bg-[#EFF6FF] flex items-center justify-center">
+              <MessageSquare size={16} strokeWidth={2.25} className="text-[#3182F6]" />
+            </div>
+            <div>
+              <h2 className="font-black text-[#191F28]">1:1 문의 관리</h2>
+              <p className="text-[11px] text-[#8B95A1] mt-0.5">고객 문의 종합 조회 · 답변 작성 · 완료 처리</p>
+            </div>
+          </div>
+          <Link
+            href="/admin/inquiries"
+            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#3182F6] text-white text-xs font-bold hover:bg-[#1B64DA]"
+          >
+            관리 페이지 열기 <ArrowRight size={12} strokeWidth={2.5} />
+          </Link>
+        </div>
+
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mb-4">
+          {[
+            { label: '전체',     value: inqSummary.total,     icon: Inbox,         color: '#3182F6', bg: '#EFF6FF' },
+            { label: '신규',     value: inqSummary.new,       icon: Clock,         color: '#92400E', bg: '#FEF3C7' },
+            { label: '답변완료', value: inqSummary.replied,   icon: MessageSquare, color: '#1E40AF', bg: '#DBEAFE' },
+            { label: '처리완료', value: inqSummary.completed, icon: CheckCircle2,  color: '#065F46', bg: '#D1FAE5' },
+          ].map(k => {
+            const Icon = k.icon
+            return (
+              <div key={k.label} className="rounded-xl p-3" style={{ background: k.bg }}>
+                <div className="flex items-center justify-between">
+                  <Icon size={14} strokeWidth={2.5} style={{ color: k.color }} />
+                  <span className="text-xl font-black" style={{ color: k.color }}>
+                    {inqLoaded ? k.value.toLocaleString() : '—'}
+                  </span>
+                </div>
+                <div className="text-[10px] font-bold mt-0.5" style={{ color: k.color }}>{k.label}</div>
+              </div>
+            )
+          })}
+        </div>
+
+        <div className="border border-[#F2F4F6] rounded-xl overflow-hidden">
+          <div className="px-4 py-2.5 border-b border-[#F2F4F6] bg-[#FAFBFF] text-[11px] text-[#8B95A1] font-bold">
+            최근 문의 {inqRecent.length === 0 ? '' : `5건`}
+          </div>
+          {!inqLoaded ? (
+            <div className="px-4 py-6 text-center text-xs text-[#8B95A1]">불러오는 중…</div>
+          ) : inqRecent.length === 0 ? (
+            <div className="px-4 py-6 text-center text-xs text-[#8B95A1]">아직 접수된 문의가 없습니다.</div>
+          ) : (
+            <ul className="divide-y divide-[#F2F4F6]">
+              {inqRecent.map(inq => {
+                const m = INQ_STATUS[inq.status]
+                return (
+                  <li key={inq.id} className="px-4 py-2.5 flex items-center gap-3">
+                    <span
+                      className="text-[10px] font-bold px-2 py-0.5 rounded-full flex-shrink-0"
+                      style={{ background: m.bg, color: m.color }}
+                    >
+                      {m.label}
+                    </span>
+                    <span className="text-[11px] font-bold text-[#191F28] flex-shrink-0">{inq.name}</span>
+                    <span className="text-[11px] text-[#4E5968] line-clamp-1 flex-1">{inq.message}</span>
+                    <span className="text-[10px] text-[#8B95A1] flex-shrink-0">{fmtInqDate(inq.createdAt)}</span>
+                  </li>
+                )
+              })}
+            </ul>
+          )}
         </div>
       </div>
 
