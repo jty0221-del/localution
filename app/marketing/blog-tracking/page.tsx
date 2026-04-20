@@ -54,6 +54,16 @@ type HistoryPoint = {
   section: Section
   total_found: number | null
   note: string | null
+  source?: string | null       // 'naver_mobile' | 'cron_daily' | ...
+}
+
+type CronStatus = {
+  enabled:      boolean
+  schedule:     string
+  schedule_kst: string
+  last_run_at:  string | null
+  next_run_at:  string
+  runs_last_7d: number
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -98,6 +108,7 @@ function shortenUrl(url: string): string {
 // ─────────────────────────────────────────────────────────────
 export default function BlogTrackingPage() {
   const [targets, setTargets]   = useState<TargetRow[]>([])
+  const [cron, setCron]         = useState<CronStatus | null>(null)
   const [loading, setLoading]   = useState(true)
   const [error, setError]       = useState<string | null>(null)
 
@@ -132,6 +143,7 @@ export default function BlogTrackingPage() {
       }
       const j = await res.json()
       setTargets(Array.isArray(j.targets) ? j.targets : [])
+      setCron(j.cron ?? null)
     } catch (e) {
       setError(e instanceof Error ? e.message : '불러오기 실패')
     } finally {
@@ -323,12 +335,55 @@ export default function BlogTrackingPage() {
             </div>
           </div>
 
+          {/* 자동 체크 상태 카드 (18차-3) */}
+          {cron?.enabled && (
+            <div className="bg-gradient-to-br from-[#0B1F3B] via-[#1B3B8A] to-[#3182F6] text-white rounded-2xl p-5 mb-4 flex flex-col sm:flex-row items-start sm:items-center gap-4 shadow-[0_8px_32px_-8px_rgba(49,130,246,0.4)]">
+              <div className="flex items-center gap-3 flex-1 min-w-0">
+                <div className="w-11 h-11 rounded-xl bg-white/15 flex items-center justify-center flex-shrink-0 relative">
+                  <Activity size={20} className="text-white" />
+                  <span className="absolute -top-0.5 -right-0.5 w-3 h-3 rounded-full bg-[#03C75A] border-2 border-[#0B1F3B] animate-pulse" />
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 text-[11px] uppercase tracking-widest text-[#B4D2FF] font-semibold">
+                    자동 순위 체크 작동 중
+                  </div>
+                  <div className="text-[15px] font-bold mt-0.5">
+                    {cron.schedule_kst} · 네이버 인기글 자동 추적
+                  </div>
+                </div>
+              </div>
+              <div className="flex items-center gap-4 text-[12px] flex-shrink-0">
+                <div className="flex flex-col items-start sm:items-end">
+                  <span className="text-[#B4D2FF]">마지막 자동 체크</span>
+                  <span className="font-bold text-white">
+                    {cron.last_run_at ? formatDateTime(cron.last_run_at) : '첫 실행 대기'}
+                  </span>
+                </div>
+                <div className="w-px h-7 bg-white/20 hidden sm:block" />
+                <div className="flex flex-col items-start sm:items-end">
+                  <span className="text-[#B4D2FF]">다음 자동 체크</span>
+                  <span className="font-bold text-white">
+                    {new Date(cron.next_run_at).toLocaleString('ko-KR', {
+                      month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit',
+                    })}
+                  </span>
+                </div>
+                <div className="w-px h-7 bg-white/20 hidden sm:block" />
+                <div className="flex flex-col items-start sm:items-end">
+                  <span className="text-[#B4D2FF]">최근 7일 수집</span>
+                  <span className="font-bold text-white">{cron.runs_last_7d}건</span>
+                </div>
+              </div>
+            </div>
+          )}
+
           {/* 안내 인포박스 */}
           <div className="bg-[#EFF6FF] border border-[#DBEAFE] rounded-2xl p-4 mb-6 flex gap-3">
             <Search size={18} className="text-[#3182F6] flex-shrink-0 mt-0.5" />
             <div className="text-[13px] text-[#1E40AF] leading-relaxed">
               <b>조회 기준</b>: 네이버 모바일 통합검색 <b>인기글</b> 영역에서 해당 블로그 글의 노출 순위를 찾습니다.
               블로그탭이나 PC 검색과 다를 수 있으며, 인기글에 잡히지 않으면 <b>미노출</b>로 기록됩니다.
+              자동 체크는 <b>매일 오전 5시</b>에 진행되고, 수동으로 "전체 순위 갱신" 버튼을 눌러 즉시 확인할 수도 있습니다.
             </div>
           </div>
 
@@ -537,14 +592,26 @@ export default function BlogTrackingPage() {
                             <Sparkline history={history} />
                             {/* 최근 5건 리스트 */}
                             <div className="mt-3 space-y-1.5">
-                              {history.slice(0, 5).map(h => (
-                                <div key={h.id} className="flex items-center justify-between text-[11px]">
-                                  <span className="text-[#8B95A1]">{formatDateTime(h.checked_at)}</span>
-                                  <span className={`font-bold ${h.rank === null ? 'text-[#8B95A1]' : 'text-[#191F28]'}`}>
-                                    {h.rank === null ? '미노출' : `${h.rank}위`}
-                                  </span>
-                                </div>
-                              ))}
+                              {history.slice(0, 5).map(h => {
+                                const isCron = h.source === 'cron_daily'
+                                return (
+                                  <div key={h.id} className="flex items-center justify-between text-[11px] gap-2">
+                                    <div className="flex items-center gap-1.5 min-w-0">
+                                      <span className={
+                                        isCron
+                                          ? 'px-1.5 py-0.5 rounded-md bg-[#E8F1FE] text-[#3182F6] font-bold text-[10px] border border-[#CFDFFC]'
+                                          : 'px-1.5 py-0.5 rounded-md bg-[#F2F4F6] text-[#4E5968] font-bold text-[10px] border border-[#E5E8EB]'
+                                      } title={isCron ? '자동 일일 체크' : '사용자 수동 체크'}>
+                                        {isCron ? '자동' : '수동'}
+                                      </span>
+                                      <span className="text-[#8B95A1] truncate">{formatDateTime(h.checked_at)}</span>
+                                    </div>
+                                    <span className={`font-bold flex-shrink-0 ${h.rank === null ? 'text-[#8B95A1]' : 'text-[#191F28]'}`}>
+                                      {h.rank === null ? '미노출' : `${h.rank}위`}
+                                    </span>
+                                  </div>
+                                )
+                              })}
                             </div>
                           </>
                         )}
