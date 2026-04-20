@@ -36,33 +36,50 @@ function pickFirst(html: string, regex: RegExp): string {
   return m ? m[1] : ''
 }
 
-function parsePlaceHtml(html: string, placeId: string, category: string, sourceUrl: string): PlaceInfo {
-  // og 태그
-  const ogTitle = pickFirst(html, /<meta\s+property="og:title"\s+content="([^"]+)"/)
-  const ogDesc = pickFirst(html, /<meta\s+property="og:description"\s+content="([^"]+)"/)
-  const ogImage = pickFirst(html, /<meta\s+property="og:image"\s+content="([^"]+)"/)
+// <meta> 속성 순서 무관 파싱 (네이버는 id=...가 property=...보다 먼저 옴)
+function getMetaContent(html: string, key: string): string {
+  const tagRegex = new RegExp(`<meta[^>]*(?:property|name|id)="${key}"[^>]*>`, 'i')
+  const tag = html.match(tagRegex)?.[0]
+  if (!tag) return ''
+  const content = tag.match(/content="([^"]*)"/i)?.[1] || ''
+  return content
+}
 
-  // 상호명: og:title에서 " : 네이버" / " - 네이버" 꼬리 제거
-  let name = ogTitle
-    .replace(/\s*[-:]\s*네이버.*$/u, '')
-    .replace(/\s*\|\s*네이버.*$/u, '')
+// og:description "방문자리뷰 247 · 블로그리뷰 116" 에서 숫자 추출
+function parseReviewFromOgDesc(desc: string): { visitor: number | null; blog: number | null } {
+  const v = desc.match(/방문자리뷰\s*([\d,]+)/)?.[1]?.replace(/,/g, '')
+  const b = desc.match(/블로그리뷰\s*([\d,]+)/)?.[1]?.replace(/,/g, '')
+  return {
+    visitor: v ? Number(v) : null,
+    blog: b ? Number(b) : null,
+  }
+}
+
+function parsePlaceHtml(html: string, placeId: string, category: string, sourceUrl: string): PlaceInfo {
+  // og 태그 (속성 순서 무관)
+  const ogTitle = getMetaContent(html, 'og:title')
+  const ogDesc = getMetaContent(html, 'og:description')
+  const ogImage = getMetaContent(html, 'og:image')
+
+  // 상호명: og:title에서 " : 네이버" / " - 네이버" / " | 네이버" 꼬리 제거
+  const name = ogTitle
+    .replace(/\s*[-:|]\s*네이버.*$/u, '')
     .trim()
 
-  // 임베드 JSON에서 핵심 필드 회수 (SPA 초기 상태 dump 대상)
-  // 여러 패턴 시도 (모바일/PC 변형 대응)
-  const address = pickFirst(html, /"address"\s*:\s*"([^"\\]+)"/) ||
-                  pickFirst(html, /\\"address\\"\s*:\s*\\"([^"\\]+)\\"/)
-  const roadAddress = pickFirst(html, /"roadAddress"\s*:\s*"([^"\\]+)"/) ||
-                      pickFirst(html, /\\"roadAddress\\"\s*:\s*\\"([^"\\]+)\\"/)
-  const categoryName = pickFirst(html, /"category"\s*:\s*"([^"\\]+)"/) ||
-                       pickFirst(html, /\\"category\\"\s*:\s*\\"([^"\\]+)\\"/)
+  // 임베드 JSON 에서 핵심 필드 회수
+  // 네이버는 JSON 여러 카피를 뿌리므로 첫 매치 신뢰
+  const address = pickFirst(html, /"address"\s*:\s*"([^"\\]+)"/)
+  const roadAddress = pickFirst(html, /"roadAddress"\s*:\s*"([^"\\]+)"/)
+  const categoryName = pickFirst(html, /"category"\s*:\s*"([^"\\]+)"/)
   const phone = pickFirst(html, /"phone"\s*:\s*"([^"\\]*)"/) ||
-                pickFirst(html, /"virtualPhone"\s*:\s*"([^"\\]*)"/) ||
-                pickFirst(html, /\\"phone\\"\s*:\s*\\"([^"\\]*)\\"/)
+                pickFirst(html, /"virtualPhone"\s*:\s*"([^"\\]*)"/)
 
-  const vrcRaw = pickFirst(html, /"visitorReviewCount"\s*:\s*"?(\d+)"?/)
-  const brcRaw = pickFirst(html, /"blogReviewCount"\s*:\s*"?(\d+)"?/)
-  const ratingRaw = pickFirst(html, /"rating"\s*:\s*"?([\d.]+)"?/)
+  // og:description 에서 방문자/블로그 리뷰수 파싱 (JSON 필드보다 확실)
+  const { visitor, blog } = parseReviewFromOgDesc(ogDesc)
+
+  // 평점 (있을 경우)
+  const ratingRaw = pickFirst(html, /"reviewScore"\s*:\s*"?([\d.]+)"?/) ||
+                    pickFirst(html, /"rating"\s*:\s*"?([\d.]+)"?/)
 
   return {
     placeId,
@@ -72,8 +89,8 @@ function parsePlaceHtml(html: string, placeId: string, category: string, sourceU
     roadAddress,
     categoryName,
     phone,
-    visitorReviewCount: safeNum(vrcRaw),
-    blogReviewCount: safeNum(brcRaw),
+    visitorReviewCount: visitor,
+    blogReviewCount: blog,
     rating: safeNum(ratingRaw),
     thumbnail: ogImage,
     ogDescription: ogDesc,
