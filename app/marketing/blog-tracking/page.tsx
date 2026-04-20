@@ -496,9 +496,17 @@ export default function BlogTrackingPage() {
                 </div>
               ))}
             </div>
-          ) : targets.length === 0 ? (
-            <EmptyState onCreate={() => setFormOpen(true)} />
-          ) : (
+          ) : targets.length === 0 && !formOpen ? (
+            <EmptyState
+              onCreate={() => {
+                setFormOpen(true)
+                // 상단 폼 영역으로 부드럽게 스크롤 (모바일/데스크탑 UX)
+                if (typeof window !== 'undefined') {
+                  window.scrollTo({ top: 0, behavior: 'smooth' })
+                }
+              }}
+            />
+          ) : targets.length === 0 ? null : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {targets.map(t => {
                 const badge = rankBadgeStyle(t.latest_rank)
