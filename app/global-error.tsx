@@ -11,6 +11,7 @@
  */
 
 import { useEffect } from 'react'
+import { reportError } from './lib/telemetry'
 
 export default function GlobalError({
   error,
@@ -20,11 +21,13 @@ export default function GlobalError({
   reset: () => void
 }) {
   useEffect(() => {
-    // 운영 로그 수집 훅 자리 (Sentry 등 연결 예정)
-    if (typeof window !== 'undefined') {
-      // eslint-disable-next-line no-console
-      console.error('[global-error]', error.digest, error.message)
-    }
+    // 루트 레이아웃 에러 — fatal 레벨로 리포팅
+    reportError(error, {
+      level: 'fatal',
+      digest: error.digest,
+      route: typeof window !== 'undefined' ? window.location.pathname : undefined,
+      tags: { boundary: 'global-error' },
+    })
   }, [error])
 
   return (
