@@ -1,170 +1,224 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useState } from 'react'
+import { useState, useMemo, useEffect, useCallback } from 'react'
 import Sidebar from '../../components/Sidebar'
 import PageHeader from '../../components/PageHeader'
 import Footer from '../../components/Footer'
 
-// ── 진단 항목 데이터 ──────────────────────────────────
-const DIAGNOSIS_ITEMS = [
+// ── 34항목 체크리스트 (하랑마케팅 PDF 기반) ─────────────
+type ChecklistItem = { id: string; title: string; detail: string; weight?: number }
+type ChecklistGroup = { group: string; icon: string; color: string; items: ChecklistItem[] }
+
+const CHECKLIST: ChecklistGroup[] = [
   {
-    category: '기본 정보',
+    group: '기본정보 설정 점검',
     icon: '📋',
-    score: 92,
-    max: 100,
     color: '#3182F6',
-    checks: [
-      { label: '매장명 일치',      done: true,  desc: '네이버 플레이스와 실제 매장명이 일치합니다' },
-      { label: '주소 정확도',      done: true,  desc: '도로명 주소가 정확하게 등록되어 있습니다' },
-      { label: '전화번호 등록',    done: true,  desc: '대표번호가 정상 등록되어 있습니다' },
-      { label: '카테고리 최적화',  done: true,  desc: '업종 카테고리가 올바르게 설정되어 있습니다' },
-      { label: '홈페이지 URL',     done: false, desc: '홈페이지 URL이 등록되지 않았습니다 (권장)' },
+    items: [
+      { id: 'basic_1', title: '상호명 정확성', detail: '네이버 플레이스 상호명과 실제 매장명이 100% 일치해야 함. 띄어쓰기·영문 표기·특수문자까지 통일해야 검색 매칭이 잡힘. 간판과 다르면 신뢰도 감점.' },
+      { id: 'basic_2', title: '카테고리 적절성', detail: '업종 카테고리가 서비스/제품과 일치해야 정확한 검색 결과에 노출. 음식점이면 세부 카테고리(한식/일식/카페 등)까지 세팅.' },
+      { id: 'basic_3', title: '연락처·주소 최신화', detail: '번호 변경/이전 후 미업데이트 시 고객 이탈 + 검색 신뢰도 하락. 분기별 1회 이상 확인 권장.' },
+      { id: 'basic_4', title: '영업시간·휴무일', detail: '영업시간/휴무/공휴일 안내가 최신인지. 잘못된 정보는 별점 하락과 부정 리뷰 직결.' },
+      { id: 'basic_5', title: '편의시설 정보', detail: '주차, WiFi, 반려동물, 예약 가능, 포장 등 편의시설 체크. 등록 많을수록 네이버 알고리즘 가산점.' },
+      { id: 'basic_6', title: '메뉴·가격 정보', detail: '대표 메뉴/가격/사진이 정확하고 가독성 좋게 등록돼야 전환율 상승. 가격 숨기면 전환 손해 큼.' },
+      { id: 'basic_7', title: '소개글 및 대표키워드', detail: '소개글에 지역명+업종+차별점 키워드 자연스럽게 녹이기. 단순 나열 금지, 스토리텔링 형식이 유리.' },
     ],
   },
   {
-    category: '사진·미디어',
-    icon: '📸',
-    score: 74,
-    max: 100,
-    color: '#F59E0B',
-    checks: [
-      { label: '대표 사진 등록',   done: true,  desc: '대표 이미지가 등록되어 있습니다' },
-      { label: '내부 사진 10장+',  done: true,  desc: '내부 사진 12장 등록됨' },
-      { label: '메뉴 사진 등록',   done: false, desc: '메뉴 사진이 부족합니다 (현재 3장, 10장 권장)' },
-      { label: '외부 사진 등록',   done: true,  desc: '외부 사진 5장 등록됨' },
-      { label: '최근 3개월 업로드', done: false, desc: '최근 사진 업로드가 없습니다. 주기적 업로드를 권장합니다' },
-    ],
-  },
-  {
-    category: '리뷰 관리',
-    icon: '⭐',
-    score: 88,
-    max: 100,
-    color: '#12B76A',
-    checks: [
-      { label: '평점 4.0 이상',    done: true,  desc: '현재 평점 4.6점 (매우 양호)' },
-      { label: '리뷰 100건 이상',  done: true,  desc: '총 127건의 리뷰' },
-      { label: '사장님 답글 비율', done: true,  desc: '답글 비율 84% (양호)' },
-      { label: '최근 리뷰 7일 내', done: true,  desc: '최근 7일 내 리뷰 8건' },
-      { label: '부정 리뷰 대응',   done: false, desc: '미응답 부정 리뷰 2건이 있습니다' },
-    ],
-  },
-  {
-    category: '키워드 최적화',
+    group: '노출 순위 영향 요소',
     icon: '🔍',
-    score: 61,
-    max: 100,
-    color: '#F04452',
-    checks: [
-      { label: '주요 키워드 포함', done: true,  desc: '매장 소개에 주요 키워드 포함됨' },
-      { label: '상위 키워드 3개+', done: false, desc: '상위 5위 내 키워드가 1개뿐입니다 (목표: 3개+)' },
-      { label: '지역 키워드 노출', done: true,  desc: '지역명+업종 키워드 상위 노출 중' },
-      { label: '키워드 밀도',      done: false, desc: '소개글 키워드 밀도가 낮습니다 (3% 미만)' },
-      { label: '해시태그 등록',    done: false, desc: '해시태그가 등록되지 않았습니다' },
+    color: '#12B76A',
+    items: [
+      { id: 'rank_1', title: '키워드 연관성', detail: '검색 키워드와 상호/카테고리/리뷰 키워드 연관도. 고객이 쓸 법한 키워드 자연 노출이 관건.' },
+      { id: 'rank_2', title: '업체 인기도', detail: '조회수/클릭률/저장수/방문자수 지표. 네이버 내부 지표라 직접 확인 불가지만 활동성 유지가 답.' },
+      { id: 'rank_3', title: '리뷰 수 및 질', detail: '리뷰 수, 평점, 최신성, 키워드 다양성 모두 영향. 50건 이상 4.5점 유지가 최소 기준.' },
+      { id: 'rank_4', title: '사진 및 콘텐츠 품질', detail: '고화질 사진, 다양한 각도, 최신 이미지 필수. 대표사진·메뉴·내부·외부·분위기 최소 각 3장 이상.' },
+      { id: 'rank_5', title: '정보 최신성', detail: '정기 업데이트(이벤트/사진/소식)가 순위에 긍정 영향. 3개월 이상 방치 시 하락 위험.' },
+      { id: 'rank_6', title: '거리 및 위치 요소', detail: '사용자 검색 위치 기반 가중치. 물리적 거리는 못 바꾸니 타지역 키워드 노출은 리뷰/콘텐츠로 보완.' },
     ],
   },
   {
-    category: '영업 정보',
-    icon: '🕐',
-    score: 95,
-    max: 100,
+    group: '마케팅 활용 요소',
+    icon: '📣',
+    color: '#F59E0B',
+    items: [
+      { id: 'mkt_1', title: '리뷰 유도 및 관리', detail: '고객 자발적 리뷰 유도(영수증 안내/할인쿠폰). 부정 리뷰엔 24시간 내 답글 필수.' },
+      { id: 'mkt_2', title: '이벤트/소식 게시', detail: '월 1~2회 이상 이벤트·할인·신메뉴 등 소식 게시. "소식" 탭 활성화가 활동성 점수에 기여.' },
+      { id: 'mkt_3', title: '블로그/SNS 연동', detail: '자사 블로그/인스타/유튜브 링크 등록. 외부 채널 유입과 통합 브랜딩 효과.' },
+      { id: 'mkt_4', title: '키워드 모니터링', detail: '주요 키워드 순위를 주 1회 이상 체크. 순위 변동 시 원인 파악 → 콘텐츠/리뷰 보완.' },
+      { id: 'mkt_5', title: '네이버 예약 활용', detail: '예약 기능 활성화 시 예약 전환율 + 순위 가산점. 설정 안 하면 경쟁 업체에 밀림.' },
+      { id: 'mkt_6', title: '네이버 톡톡 응대', detail: '톡톡 문의 빠른 응답률은 신뢰도 상승 직결. 자동 응답 메시지도 설정 권장.' },
+    ],
+  },
+  {
+    group: '순위/매출 하락 위험 요소',
+    icon: '⚠️',
+    color: '#F04452',
+    items: [
+      { id: 'risk_1', title: '정보 불일치', detail: '네이버/지도/홈페이지/SNS 정보가 제각각이면 신뢰도 하락 + 알고리즘 감점. 주소·연락처·영업시간 통일 필수.' },
+      { id: 'risk_2', title: '과도한 정보 수정', detail: '짧은 시간에 상호/주소/카테고리 반복 수정 시 어뷰징으로 간주되어 순위 페널티. 수정은 월 1~2회 이내.' },
+      { id: 'risk_3', title: '리뷰 어뷰징 위험', detail: '가짜 리뷰/지인 리뷰/대행사 조작 리뷰 발각 시 플레이스 제재. 자연 발생 리뷰 중심으로 관리.' },
+      { id: 'risk_4', title: '부정적 평가 방치', detail: '1점 리뷰나 악성 평가에 무대응 시 잠재 고객 이탈. 답글 톤은 차분하고 개선 의지 담아 작성.' },
+      { id: 'risk_5', title: '정책 위반 및 신고', detail: '네이버 정책(유해 콘텐츠/허위 광고/과장 표현) 위반 누적 시 노출 제한. 소개글/사진 검토 주기 필요.' },
+      { id: 'risk_6', title: '경쟁 대비 활동 저하', detail: '경쟁 업체가 주 1회 업데이트할 때 우리가 월 1회면 상대적 순위 하락. 벤치마킹 정기 실행.' },
+    ],
+  },
+  {
+    group: '검색 알고리즘 & 순위 시스템 참고',
+    icon: '🧠',
     color: '#8B5CF6',
-    checks: [
-      { label: '영업시간 등록',    done: true,  desc: '전 요일 영업시간 등록됨' },
-      { label: '휴무일 표시',      done: true,  desc: '정기 휴무일 등록됨' },
-      { label: '주차 정보',        done: true,  desc: '주차 가능 정보 등록됨' },
-      { label: '예약 가능 설정',   done: true,  desc: '네이버 예약 연동됨' },
-      { label: '편의시설 정보',    done: false, desc: '편의시설 정보를 추가하면 노출에 유리합니다' },
+    items: [
+      { id: 'algo_1', title: '검색 연관성 (Relevance)', detail: '키워드-콘텐츠 매칭도. 상호·카테고리·리뷰 전반에 핵심 키워드가 자연스럽게 분포해야 함.' },
+      { id: 'algo_2', title: '사용자 인기 지표', detail: '클릭/저장/방문/공유 등 사용자 반응 지표. 이벤트/쿠폰으로 반응 유도 가능.' },
+      { id: 'algo_3', title: '거리 가중치', detail: '검색 위치 기반 거리 점수. 변경 불가지만 지역 키워드 강화로 일부 보완.' },
+      { id: 'algo_4', title: '정보 충실도', detail: '등록 정보량(카테고리/편의시설/메뉴/사진 등)이 많을수록 가산점. 빈칸 최소화.' },
+      { id: 'algo_5', title: '신뢰도 및 어뷰징 필터', detail: '비정상 활동(대량 리뷰/반복 수정) 감지 시 필터링. 건전한 운영 패턴 유지.' },
+    ],
+  },
+  {
+    group: '전문가 인사이트 추가 팁',
+    icon: '💡',
+    color: '#06B6D4',
+    items: [
+      { id: 'pro_1', title: '대표사진 주기적 교체', detail: '분기별 1회 대표사진 교체하면 "신규성" 가산점. 동일 사진 장기 노출은 감점 요인.' },
+      { id: 'pro_2', title: '새로 오픈 배지 활용', detail: '오픈 6개월 이내 배지 자동 부여. 이 기간엔 공격적 마케팅 + 리뷰 확보 골든타임.' },
+      { id: 'pro_3', title: '쿠폰 이벤트 제공', detail: '네이버 쿠폰 발행 시 노출 가산점 + 전환율 상승. 월 1~2회 소액 쿠폰이라도 지속 발행 권장.' },
+      { id: 'pro_4', title: '플레이스 기능 풀활용', detail: '예약·주문·메뉴·쿠폰·소식·사진·영상 등 모든 기능 활성화. 비워둔 기능 하나당 감점.' },
     ],
   },
 ]
 
-const TOTAL_SCORE = Math.round(DIAGNOSIS_ITEMS.reduce((s, d) => s + d.score, 0) / DIAGNOSIS_ITEMS.length)
+const TOTAL_ITEMS = CHECKLIST.reduce((s, g) => s + g.items.length, 0) // 34
 
-// ── 점수 게이지 ───────────────────────────────────────
-function ScoreGauge({ score }: { score: number }) {
-  const color = score >= 80 ? '#12B76A' : score >= 60 ? '#F59E0B' : '#F04452'
-  const label = score >= 80 ? '양호' : score >= 60 ? '보통' : '개선 필요'
+// ── 점수 구간 해석 ─────────────────────────────────────
+function interpretScore(score: number) {
+  if (score >= 31) return { label: '마케팅 잘 진행 중', color: '#12B76A', bg: '#ECFDF5', detail: '현재 운영 수준이 우수합니다. 주기적인 유지 관리와 경쟁 모니터링만 꾸준히 해주세요.' }
+  if (score >= 21) return { label: '1~2군데 보완 필요', color: '#3182F6', bg: '#EFF6FF', detail: '기본기는 잡혀 있습니다. 미체크 항목 중 위험/노출 관련 항목 우선 보완하세요.' }
+  if (score >= 16) return { label: '경쟁력 부족', color: '#F59E0B', bg: '#FFFBEB', detail: '경쟁 업체 대비 부족한 영역이 많습니다. 기본정보/노출/마케팅 3영역 동시 보완 필요.' }
+  return { label: '시급 (즉시 조치)', color: '#F04452', bg: '#FFF1F2', detail: '플레이스 최적화가 거의 안 된 상태입니다. 상위 노출이나 유입 기대 어려움. 1주일 내 전면 점검 권장.' }
+}
+
+// ── URL 파싱 ───────────────────────────────────────────
+function parsePlaceId(raw: string): string | null {
+  if (!raw) return null
+  const url = raw.trim()
+  // m.place.naver.com/restaurant/12345 | /place/12345 | /hairshop/12345 etc
+  const m1 = url.match(/m\.place\.naver\.com\/(?:restaurant|place|hairshop|beautyshop|accommodation|hospital|cafe|attraction)\/(\d+)/)
+  if (m1) return m1[1]
+  // map.naver.com/p/entry/place/12345
+  const m2 = url.match(/map\.naver\.com\/p\/entry\/place\/(\d+)/)
+  if (m2) return m2[1]
+  // pcmap.place.naver.com/restaurant/12345
+  const m3 = url.match(/pcmap\.place\.naver\.com\/\w+\/(\d+)/)
+  if (m3) return m3[1]
+  // naver.me/xxxxx (단축URL은 클라이언트에서 해제 불가)
+  if (/naver\.me\//.test(url)) return null
+  // 순수 숫자 (직접 입력)
+  if (/^\d{5,}$/.test(url)) return url
+  return null
+}
+
+// ── 상세 모달 ──────────────────────────────────────────
+function DetailModal({ item, onClose }: { item: ChecklistItem | null; onClose: () => void }) {
+  useEffect(() => {
+    if (!item) return
+    const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
+    window.addEventListener('keydown', esc)
+    return () => window.removeEventListener('keydown', esc)
+  }, [item, onClose])
+  if (!item) return null
   return (
-    <div className="flex flex-col items-center">
-      <div className="relative w-36 h-36">
-        <svg viewBox="0 0 120 120" className="w-full h-full -rotate-90">
-          <circle cx="60" cy="60" r="50" fill="none" stroke="#F2F4F6" strokeWidth="12"/>
-          <circle cx="60" cy="60" r="50" fill="none" stroke={color} strokeWidth="12"
-            strokeDasharray={`${2 * Math.PI * 50 * score / 100} ${2 * Math.PI * 50 * (1 - score / 100)}`}
-            strokeLinecap="round"/>
-        </svg>
-        <div className="absolute inset-0 flex flex-col items-center justify-center rotate-0">
-          <span className="text-3xl font-black" style={{ color }}>{score}</span>
-          <span className="text-xs text-[#8B95A1] font-medium">/ 100</span>
+    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40" onClick={onClose}>
+      <div className="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl animate-in slide-in-from-bottom" onClick={e => e.stopPropagation()}>
+        <div className="flex items-start justify-between mb-3">
+          <h3 className="text-base font-black text-[#191F28] pr-4">{item.title}</h3>
+          <button onClick={onClose} className="w-8 h-8 rounded-full hover:bg-[#F2F4F6] flex items-center justify-center text-[#8B95A1] text-xl leading-none">×</button>
         </div>
+        <p className="text-sm text-[#4E5968] leading-relaxed whitespace-pre-line">{item.detail}</p>
+        <button onClick={onClose} className="mt-5 w-full py-3 rounded-xl bg-[#3182F6] text-white text-sm font-bold hover:bg-[#1B64DA] transition-colors">확인</button>
       </div>
-      <span className="mt-2 text-sm font-bold" style={{ color }}>{label}</span>
     </div>
   )
 }
 
-// ── 진단 섹션 카드 ────────────────────────────────────
-function DiagnosisCard({ item }: { item: typeof DIAGNOSIS_ITEMS[0] }) {
-  const [open, setOpen] = useState(false)
-  const passed = item.checks.filter(c => c.done).length
+// ── 체크박스 + 제목 + 상세 버튼 ────────────────────────
+function ChecklistRow({ item, checked, onToggle, onOpen }: {
+  item: ChecklistItem; checked: boolean; onToggle: () => void; onOpen: () => void
+}) {
   return (
-    <div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-[#F2F4F6]">
-      <button onClick={() => setOpen(v => !v)} className="w-full px-5 py-4 flex items-center gap-4 hover:bg-[#FAFBFF] transition-colors text-left">
-        <span className="text-2xl">{item.icon}</span>
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center justify-between mb-1.5">
-            <span className="text-sm font-bold text-[#191F28]">{item.category}</span>
-            <span className="text-sm font-black" style={{ color: item.color }}>{item.score}점</span>
-          </div>
-          <div className="w-full bg-[#F2F4F6] rounded-full h-2 overflow-hidden">
-            <div className="h-full rounded-full transition-all" style={{ width: `${item.score}%`, background: item.color }}/>
-          </div>
-          <div className="flex items-center justify-between mt-1.5">
-            <span className="text-[10px] text-[#8B95A1]">통과 {passed}/{item.checks.length}</span>
-            <span className="text-[10px] text-[#8B95A1]">{open ? '▲ 접기' : '▼ 상세보기'}</span>
-          </div>
-        </div>
+    <div className="flex items-center gap-3 py-2.5 px-3 rounded-xl hover:bg-[#F8F9FA] transition-colors">
+      <button onClick={onToggle} className={`flex-shrink-0 w-6 h-6 rounded-md border-2 flex items-center justify-center transition-all ${checked ? 'bg-[#12B76A] border-[#12B76A]' : 'bg-white border-[#D1D5DB] hover:border-[#3182F6]'}`}>
+        {checked && <span className="text-white text-xs font-black">✓</span>}
       </button>
-
-      {open && (
-        <div className="px-5 pb-4 space-y-2 border-t border-[#F2F4F6] pt-3">
-          {item.checks.map((c, i) => (
-            <div key={i} className="flex items-start gap-3">
-              <span className={`flex-shrink-0 w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold mt-0.5 ${c.done ? 'bg-[#ECFDF5] text-[#12B76A]' : 'bg-[#FFF1F2] text-[#F04452]'}`}>
-                {c.done ? '✓' : '✗'}
-              </span>
-              <div>
-                <p className={`text-xs font-semibold ${c.done ? 'text-[#191F28]' : 'text-[#F04452]'}`}>{c.label}</p>
-                <p className="text-[11px] text-[#8B95A1] mt-0.5">{c.desc}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+      <button onClick={onToggle} className="flex-1 text-left min-w-0">
+        <p className={`text-sm font-semibold ${checked ? 'text-[#12B76A] line-through' : 'text-[#191F28]'}`}>{item.title}</p>
+      </button>
+      <button onClick={onOpen} className="flex-shrink-0 text-[11px] font-semibold text-[#3182F6] hover:text-[#1B64DA] px-2 py-1 rounded-lg hover:bg-[#EFF6FF] transition-colors">
+        상세 →
+      </button>
     </div>
   )
 }
 
-// ── 개선 추천 ─────────────────────────────────────────
-const RECOMMENDATIONS = [
-  { priority: 'HIGH', icon: '🔥', title: '키워드 최적화 필요', desc: '소개글에 지역+업종 키워드를 추가하고 해시태그를 5개 이상 등록하세요. 순위 상승에 직접적 영향을 줍니다.', impact: '+8~15순위 예상' },
-  { priority: 'HIGH', icon: '📸', title: '메뉴 사진 보강', desc: '메뉴 사진을 10장 이상 등록하면 플레이스 노출 빈도가 증가합니다.', impact: '클릭률 +20~30% 예상' },
-  { priority: 'MED',  icon: '💬', title: '부정 리뷰 답글 작성', desc: '미응답 부정 리뷰 2건에 성의있게 답글을 달아 신뢰도를 높이세요.', impact: '평점 관리 효과' },
-  { priority: 'LOW',  icon: '🌐', title: '홈페이지 URL 등록', desc: '공식 홈페이지나 SNS 주소를 등록하면 신뢰도 점수가 올라갑니다.', impact: '신뢰도 +5점 예상' },
-]
-
-// ── 메인 페이지 ───────────────────────────────────────
+// ── 메인 페이지 ────────────────────────────────────────
 export default function PlaceDiagnosisPage() {
-  const [isAnalyzing, setIsAnalyzing] = useState(false)
-  const [lastAnalyzed, setLastAnalyzed] = useState('2026.04.13 오전 1:46')
+  const [urlInput, setUrlInput] = useState('')
+  const [placeId, setPlaceId] = useState<string | null>(null)
+  const [checked, setChecked] = useState<Record<string, boolean>>({})
+  const [modalItem, setModalItem] = useState<ChecklistItem | null>(null)
+  const [storeInfo, setStoreInfo] = useState<any>(null)
 
-  const handleAnalyze = async () => {
-    setIsAnalyzing(true)
-    await new Promise(r => setTimeout(r, 2000))
-    setLastAnalyzed(new Date().toLocaleString('ko-KR'))
-    setIsAnalyzing(false)
+  // localStorage: store_info 로딩
+  useEffect(() => {
+    try {
+      const s = localStorage.getItem('localution.store_info')
+      if (s) setStoreInfo(JSON.parse(s))
+    } catch {}
+  }, [])
+
+  // placeId 바뀌면 해당 체크 복구
+  useEffect(() => {
+    if (!placeId) return
+    try {
+      const saved = localStorage.getItem(`localution.place_check.${placeId}`)
+      if (saved) setChecked(JSON.parse(saved))
+      else setChecked({})
+    } catch { setChecked({}) }
+  }, [placeId])
+
+  // checked 변경 시 저장
+  useEffect(() => {
+    if (!placeId) return
+    try { localStorage.setItem(`localution.place_check.${placeId}`, JSON.stringify(checked)) } catch {}
+  }, [checked, placeId])
+
+  const score = useMemo(() => Object.values(checked).filter(Boolean).length, [checked])
+  const ratio = Math.round((score / TOTAL_ITEMS) * 100)
+  const interp = interpretScore(score)
+
+  const handleAnalyze = () => {
+    const id = parsePlaceId(urlInput)
+    if (!id) {
+      alert('네이버 플레이스 URL에서 placeId 를 추출하지 못했어요.\n예: https://m.place.naver.com/restaurant/12345678 또는 숫자 ID 직접 입력')
+      return
+    }
+    setPlaceId(id)
+  }
+
+  const toggleItem = useCallback((id: string) => {
+    setChecked(p => ({ ...p, [id]: !p[id] }))
+  }, [])
+
+  const resetAll = () => {
+    if (!confirm('체크 상태를 초기화할까요?')) return
+    setChecked({})
+  }
+
+  const checkAll = () => {
+    const all: Record<string, boolean> = {}
+    CHECKLIST.forEach(g => g.items.forEach(i => { all[i.id] = true }))
+    setChecked(all)
   }
 
   return (
@@ -174,100 +228,176 @@ export default function PlaceDiagnosisPage() {
         <PageHeader
           icon="📍"
           title="네이버 플레이스 SEO"
-          subtitle="내 업체 노출 순위를 실시간으로 — 경쟁사 대비 위치·리뷰·반응까지"
+          subtitle="내 매장 URL 붙여넣고 34항목 체크리스트로 자체 점검"
           variant="placeGreen"
         />
-        <div className="p-4 md:p-6">
+        <div className="p-4 md:p-6 max-w-5xl mx-auto">
 
-        {/* ── 데모 안내 배너 (비로그인·게스트 대상) ── */}
-        <div className="mb-5 rounded-2xl border border-[#FDE68A] bg-[#FFFBEB] px-4 py-3 sm:px-5 sm:py-4 flex flex-col sm:flex-row sm:items-center gap-3">
-          <div className="flex items-center gap-2 shrink-0">
-            <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#F59E0B] text-white tracking-wider">샘플</span>
-            <span className="text-sm font-bold text-[#92400E]">아래 점수는 예시 매장 진단 결과입니다</span>
-          </div>
-          <p className="text-xs text-[#92400E] sm:ml-auto leading-relaxed">
-            내 가게 실제 점수를 보려면{' '}
-            <a href="/login?redirect=/marketing/place"
-              className="font-bold underline decoration-[#92400E] decoration-2 underline-offset-2">
-              무료 가입 → 네이버 플레이스 연동
-            </a>
-            {' '}하세요. 1분이면 충분해요.
-          </p>
-        </div>
-
-        {/* 페이지 헤더 */}
-        <div className="flex items-start justify-between mb-6">
-          <div>
-            <h1 className="text-xl font-black text-[#191F28]">📍 플레이스 진단</h1>
-            <p className="text-sm text-[#8B95A1] mt-0.5">네이버 플레이스 최적화 상태를 종합 분석합니다</p>
-          </div>
-          <div className="flex items-center gap-3">
-            <span className="text-[11px] text-[#8B95A1]">마지막 분석: {lastAnalyzed}</span>
-            <button onClick={handleAnalyze} disabled={isAnalyzing}
-              className="flex items-center gap-2 px-4 py-2 rounded-xl bg-[#3182F6] text-white text-sm font-semibold hover:bg-[#1B64DA] transition-colors disabled:opacity-60">
-              {isAnalyzing ? (
-                <><span className="w-3.5 h-3.5 border-2 border-white border-t-transparent rounded-full animate-spin"/>재분석 중...</>
-              ) : '🔄 다시 분석'}
-            </button>
-          </div>
-        </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-[320px_1fr] gap-6">
-
-          {/* 좌: 종합 점수 + 추천 */}
-          <div className="space-y-5">
-
-            {/* 종합 점수 카드 */}
-            <div className="bg-white rounded-2xl shadow-sm p-6">
-              <p className="text-sm font-bold text-[#191F28] mb-4 text-center">종합 플레이스 점수</p>
-              <div className="flex justify-center mb-4">
-                <ScoreGauge score={TOTAL_SCORE} />
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                {DIAGNOSIS_ITEMS.map(item => (
-                  <div key={item.category} className="flex items-center justify-between bg-[#F8F9FA] rounded-xl px-3 py-2">
-                    <span className="text-[11px] text-[#8B95A1]">{item.icon} {item.category}</span>
-                    <span className="text-xs font-bold" style={{ color: item.color }}>{item.score}</span>
-                  </div>
-                ))}
-              </div>
+          {/* URL 입력 박스 */}
+          <div className="bg-white rounded-2xl shadow-sm p-5 mb-5">
+            <label className="block text-sm font-bold text-[#191F28] mb-2">🔗 네이버 플레이스 URL 입력</label>
+            <div className="flex flex-col sm:flex-row gap-2">
+              <input
+                type="text"
+                value={urlInput}
+                onChange={e => setUrlInput(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && handleAnalyze()}
+                placeholder="https://m.place.naver.com/restaurant/12345678"
+                className="flex-1 px-4 py-3 rounded-xl border-2 border-[#E5E8EB] focus:border-[#3182F6] focus:outline-none text-sm"
+              />
+              <button onClick={handleAnalyze}
+                className="px-6 py-3 rounded-xl bg-[#3182F6] text-white text-sm font-bold hover:bg-[#1B64DA] transition-colors whitespace-nowrap">
+                분석 시작
+              </button>
             </div>
+            <p className="mt-2 text-[11px] text-[#8B95A1]">
+              • 네이버지도/플레이스 주소 또는 숫자 ID 직접 입력 가능 (예: <code className="bg-[#F2F4F6] px-1.5 py-0.5 rounded">37463942</code>)<br/>
+              • <code className="bg-[#F2F4F6] px-1.5 py-0.5 rounded">naver.me</code> 단축 URL 은 미지원 (원본 URL 붙여넣기)
+            </p>
+          </div>
 
-            {/* 개선 추천 */}
-            <div className="bg-white rounded-2xl shadow-sm p-5">
-              <p className="text-sm font-bold text-[#191F28] mb-3">🎯 개선 추천사항</p>
-              <div className="space-y-3">
-                {RECOMMENDATIONS.map((r, i) => (
-                  <div key={i} className={`p-3 rounded-xl border-l-4 ${r.priority === 'HIGH' ? 'bg-[#FFF1F2] border-[#F04452]' : r.priority === 'MED' ? 'bg-[#FFFBEB] border-[#F59E0B]' : 'bg-[#F0F9FF] border-[#3182F6]'}`}>
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="text-xs font-bold text-[#191F28]">{r.icon} {r.title}</span>
-                      <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${r.priority === 'HIGH' ? 'bg-[#F04452] text-white' : r.priority === 'MED' ? 'bg-[#F59E0B] text-white' : 'bg-[#3182F6] text-white'}`}>
-                        {r.priority}
-                      </span>
+          {/* 분석 결과 영역 */}
+          {placeId && (
+            <>
+              {/* 상단: 점수 + 매장정보 */}
+              <div className="grid grid-cols-1 md:grid-cols-[1fr_320px] gap-5 mb-5">
+
+                {/* 좌: 점수 카드 */}
+                <div className="bg-white rounded-2xl shadow-sm p-5">
+                  <div className="flex items-center justify-between mb-3">
+                    <p className="text-sm font-bold text-[#191F28]">종합 점검 점수</p>
+                    <div className="flex gap-2">
+                      <button onClick={checkAll} className="text-[11px] font-semibold text-[#3182F6] px-2 py-1 rounded-lg hover:bg-[#EFF6FF]">전체 체크</button>
+                      <button onClick={resetAll} className="text-[11px] font-semibold text-[#8B95A1] px-2 py-1 rounded-lg hover:bg-[#F2F4F6]">초기화</button>
                     </div>
-                    <p className="text-[11px] text-[#4E5968]">{r.desc}</p>
-                    <p className="text-[10px] font-semibold text-[#3182F6] mt-1">{r.impact}</p>
                   </div>
-                ))}
+                  <div className="flex items-end gap-3 mb-3">
+                    <span className="text-5xl font-black" style={{ color: interp.color }}>{score}</span>
+                    <span className="text-sm font-bold text-[#8B95A1] mb-2">/ {TOTAL_ITEMS}점 ({ratio}%)</span>
+                  </div>
+                  <div className="w-full bg-[#F2F4F6] rounded-full h-3 overflow-hidden mb-3">
+                    <div className="h-full rounded-full transition-all" style={{ width: `${ratio}%`, background: interp.color }}/>
+                  </div>
+                  <div className="rounded-xl p-3" style={{ background: interp.bg }}>
+                    <p className="text-sm font-bold mb-1" style={{ color: interp.color }}>{interp.label}</p>
+                    <p className="text-xs text-[#4E5968] leading-relaxed">{interp.detail}</p>
+                  </div>
+                </div>
+
+                {/* 우: 매장정보 요약 */}
+                <div className="bg-white rounded-2xl shadow-sm p-5">
+                  <p className="text-sm font-bold text-[#191F28] mb-3">🏪 매장 정보</p>
+                  <div className="space-y-2 text-xs">
+                    <div className="flex justify-between">
+                      <span className="text-[#8B95A1]">플레이스 ID</span>
+                      <span className="font-mono font-bold text-[#191F28]">{placeId}</span>
+                    </div>
+                    {storeInfo?.name && (
+                      <div className="flex justify-between">
+                        <span className="text-[#8B95A1]">매장명</span>
+                        <span className="font-bold text-[#191F28]">{storeInfo.name}</span>
+                      </div>
+                    )}
+                    {storeInfo?.category && (
+                      <div className="flex justify-between">
+                        <span className="text-[#8B95A1]">업종</span>
+                        <span className="font-bold text-[#191F28]">{storeInfo.category}</span>
+                      </div>
+                    )}
+                    {storeInfo?.region && (
+                      <div className="flex justify-between">
+                        <span className="text-[#8B95A1]">지역</span>
+                        <span className="font-bold text-[#191F28]">{storeInfo.region}</span>
+                      </div>
+                    )}
+                    {!storeInfo && (
+                      <p className="text-[11px] text-[#8B95A1] italic">
+                        <a href="/my/settings" className="text-[#3182F6] font-semibold">매장 정보 연동</a> 시 더 많은 정보 표시
+                      </p>
+                    )}
+                  </div>
+                  <div className="mt-4 pt-4 border-t border-[#F2F4F6] space-y-2">
+                    <a href={`https://m.place.naver.com/restaurant/${placeId}`} target="_blank" rel="noopener noreferrer"
+                      className="block w-full text-center text-xs font-bold py-2.5 rounded-xl bg-[#03C75A] text-white hover:bg-[#02B350] transition-colors">
+                      네이버 플레이스에서 보기 ↗
+                    </a>
+                    <a href={`https://map.naver.com/p/entry/place/${placeId}`} target="_blank" rel="noopener noreferrer"
+                      className="block w-full text-center text-xs font-bold py-2.5 rounded-xl bg-[#F2F4F6] text-[#191F28] hover:bg-[#E5E8EB] transition-colors">
+                      네이버 지도에서 열기 ↗
+                    </a>
+                  </div>
+                </div>
+              </div>
+
+              {/* 체크리스트 섹션 */}
+              <div className="space-y-4">
+                <div className="flex items-center justify-between">
+                  <p className="text-base font-black text-[#191F28]">📝 34항목 자체 점검 체크리스트</p>
+                  <span className="text-[11px] text-[#8B95A1]">각 항목 체크 + "상세" 버튼으로 설명 확인</span>
+                </div>
+
+                {CHECKLIST.map(group => {
+                  const groupChecked = group.items.filter(i => checked[i.id]).length
+                  return (
+                    <div key={group.group} className="bg-white rounded-2xl shadow-sm overflow-hidden border border-[#F2F4F6]">
+                      <div className="px-5 py-3 flex items-center gap-3 border-b border-[#F2F4F6]" style={{ background: `${group.color}0D` }}>
+                        <span className="text-xl">{group.icon}</span>
+                        <div className="flex-1">
+                          <p className="text-sm font-black text-[#191F28]">{group.group}</p>
+                        </div>
+                        <span className="text-xs font-bold px-2.5 py-1 rounded-full" style={{ background: group.color, color: '#fff' }}>
+                          {groupChecked}/{group.items.length}
+                        </span>
+                      </div>
+                      <div className="px-2 py-2">
+                        {group.items.map(item => (
+                          <ChecklistRow
+                            key={item.id}
+                            item={item}
+                            checked={!!checked[item.id]}
+                            onToggle={() => toggleItem(item.id)}
+                            onOpen={() => setModalItem(item)}
+                          />
+                        ))}
+                      </div>
+                    </div>
+                  )
+                })}
+              </div>
+
+              {/* 하단 안내 */}
+              <div className="mt-5 rounded-2xl bg-[#F8F9FA] border border-[#E5E8EB] p-4">
+                <p className="text-xs font-bold text-[#191F28] mb-1">💡 체크리스트 활용 팁</p>
+                <p className="text-[11px] text-[#4E5968] leading-relaxed">
+                  · 점검은 매장 대표가 직접 하는 걸 권장 (직원 위임 시 체감 온도 차이)<br/>
+                  · 1차 점검 후 미체크 항목부터 2주 단위로 개선 → 재점검<br/>
+                  · 체크 상태는 플레이스 ID별로 자동 저장됩니다
+                </p>
+              </div>
+            </>
+          )}
+
+          {/* placeId 없을 때 안내 */}
+          {!placeId && (
+            <div className="bg-white rounded-2xl shadow-sm p-8 text-center">
+              <div className="text-5xl mb-3">📍</div>
+              <p className="text-base font-black text-[#191F28] mb-1">URL을 입력하면 분석이 시작됩니다</p>
+              <p className="text-xs text-[#8B95A1] leading-relaxed">
+                네이버 플레이스 URL을 붙여넣고 분석 시작을 누르면<br/>
+                매장 정보 + 34항목 자체 점검 체크리스트가 표시됩니다.
+              </p>
+              <div className="mt-5 inline-block text-left bg-[#F8F9FA] rounded-xl p-4 text-[11px] text-[#4E5968] font-mono">
+                https://m.place.naver.com/restaurant/<span className="text-[#3182F6] font-bold">12345678</span><br/>
+                https://map.naver.com/p/entry/place/<span className="text-[#3182F6] font-bold">12345678</span>
               </div>
             </div>
-          </div>
+          )}
 
-          {/* 우: 항목별 진단 */}
-          <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <p className="text-sm font-bold text-[#191F28]">항목별 상세 진단</p>
-              <span className="text-[11px] text-[#8B95A1]">클릭하여 상세 항목 확인</span>
-            </div>
-            {DIAGNOSIS_ITEMS.map(item => (
-              <DiagnosisCard key={item.category} item={item} />
-            ))}
-          </div>
         </div>
-        </div>
+
+        <DetailModal item={modalItem} onClose={() => setModalItem(null)} />
         <Footer />
       </main>
     </div>
   )
 }
-
