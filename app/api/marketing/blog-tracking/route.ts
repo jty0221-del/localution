@@ -43,28 +43,35 @@ export async function GET() {
   const targetIds = (targets ?? []).map(t => t.target_id)
 
   // 크론 요약 (내 타겟 한정 · source='cron_daily')
+  //   ⚠ 쿼리 에러가 나더라도 GET 전체를 실패시키지 않는다.
+  //     (타겟 목록 자체는 정상 반환 → 페이지 인터랙션 유지)
   let lastCronAt: string | null = null
   let cronRuns7d = 0
   if (targetIds.length > 0) {
-    // 마지막 cron 실행
-    const { data: lastRow } = await svc
-      .from('blog_tracking_history')
-      .select('checked_at')
-      .in('target_id', targetIds)
-      .eq('source', 'cron_daily')
-      .order('checked_at', { ascending: false })
-      .limit(1)
-    lastCronAt = lastRow?.[0]?.checked_at ?? null
+    try {
+      // 마지막 cron 실행
+      const { data: lastRow, error: lastErr } = await svc
+        .from('blog_tracking_history')
+        .select('checked_at')
+        .in('target_id', targetIds)
+        .eq('source', 'cron_daily')
+        .order('checked_at', { ascending: false })
+        .limit(1)
+      if (!lastErr) lastCronAt = lastRow?.[0]?.checked_at ?? null
 
-    // 지난 7일 누적
-    const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
-    const { count } = await svc
-      .from('blog_tracking_history')
-      .select('id', { count: 'exact', head: true })
-      .in('target_id', targetIds)
-      .eq('source', 'cron_daily')
-      .gte('checked_at', since)
-    cronRuns7d = count ?? 0
+      // 지난 7일 누적
+      const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+      const { count, error: cntErr } = await svc
+        .from('blog_tracking_history')
+        .select('id', { count: 'exact', head: true })
+        .in('target_id', targetIds)
+        .eq('source', 'cron_daily')
+        .gte('checked_at', since)
+      if (!cntErr) cronRuns7d = count ?? 0
+    } catch (e) {
+      // 크론 요약 실패는 무시 — 기본값 반환
+      console.error('[blog-tracking GET] cron summary failed:', e)
+    }
   }
 
   return NextResponse.json({
