@@ -9,9 +9,18 @@ import PageHeader from '../components/PageHeader'
 import { toast } from '../lib/toast'
 import { buildSettingsHref } from '../lib/settings-tabs'
 
-const LS_STORE_INFO = 'localution.store_info'
-const LS_QR_CUSTOM_URL = 'localution.qr_custom_url'
-const LS_PLATFORM_LINKS = 'localution.platform_links'
+const LS_QR_SETTINGS = 'localution.qr_settings'
+const LS_QR_LIST     = 'localution.qr_list'
+const LS_STORE_INFO  = 'localution.store_info'
+
+interface QRSettings {
+  mainKeyword: string
+  subKeywords: string[]
+  subKwInput: string
+  rewardType: string
+  rewardValue: string
+  autoGenerate: boolean
+}
 
 interface StoreInfo {
   name: string
@@ -19,8 +28,29 @@ interface StoreInfo {
   location: string
   naverUrl: string
   connected: boolean
+  // 플랫폼 연동 메타 (localution.platform_links 에서 가져옴)
   naverPlaceId?: string
   linkedSource?: 'platform_links' | 'manual'
+}
+
+interface QRCode {
+  id: string
+  name: string
+  purpose: string
+  scans: number
+  reviews: number
+  createdAt: string
+  active: boolean
+  keyword: string
+}
+
+const DEFAULT_SETTINGS: QRSettings = {
+  mainKeyword: '',
+  subKeywords: [],
+  subKwInput: '',
+  rewardType: 'none',
+  rewardValue: '',
+  autoGenerate: true,
 }
 
 const DEFAULT_STORE: StoreInfo = {
@@ -34,6 +64,7 @@ const DEFAULT_STORE: StoreInfo = {
 }
 
 // /settings?tab=connect 에서 저장한 네이버 링크 읽어오기
+const LS_PLATFORM_LINKS = 'localution.platform_links'
 function readNaverLink(): {
   externalId: string
   externalName: string
@@ -45,6 +76,7 @@ function readNaverLink(): {
     const raw = typeof window !== 'undefined' ? window.localStorage.getItem(LS_PLATFORM_LINKS) : null
     if (!raw) return null
     const parsed = JSON.parse(raw)
+    // array 포맷 (/settings?tab=connect 에서 저장)
     if (Array.isArray(parsed)) {
       const n = parsed.find((l: any) => l?.platform === 'naver')
       return n ? {
@@ -55,6 +87,7 @@ function readNaverLink(): {
         category: n.category,
       } : null
     }
+    // object 포맷 (dashboard)
     if (parsed && typeof parsed === 'object' && parsed.naver) {
       const n = parsed.naver
       return {
@@ -71,38 +104,115 @@ function readNaverLink(): {
   }
 }
 
-// ── QR 생성기 (Google Charts API 활용) ──
-function QRCodeImage({ url, size = 200 }: { url: string; size?: number }) {
+const INITIAL_QR_LIST: QRCode[] = [
+  { id: '1', name: '입구 리뷰 QR', purpose: 'review', scans: 0, reviews: 0, createdAt: '2025-12-01', active: true, keyword: '' },
+  { id: '2', name: '테이블 QR #1', purpose: 'review', scans: 0, reviews: 0, createdAt: '2025-12-10', active: true, keyword: '' },
+]
+
+const PURPOSE_OPTIONS = [
+  { value: 'review',   label: '리뷰 유도',   icon: '⭐', desc: '네이버·구글 리뷰 작성' },
+  { value: 'menu',     label: '디지털 메뉴', icon: '📋', desc: 'QR로 메뉴판 연결' },
+  { value: 'event',    label: '쿠폰·이벤트', icon: '🎁', desc: '할인 쿠폰 / 이벤트 페이지' },
+  { value: 'sns',      label: 'SNS 팔로우',  icon: '📸', desc: '인스타·카카오 연결' },
+]
+
+// ─── QR 코드 SVG 생성 (더미 패턴) ────────────────────────────────
+function QRPreview({ text, size = 120 }: { text: string; size?: number }) {
+  const seed = text.split('').reduce((a, c) => a + c.charCodeAt(0), 0)
+  const cells = 21
+  const cellSize = size / cells
+  const pattern: boolean[][] = Array.from({ length: cells }, (_, r) =>
+    Array.from({ length: cells }, (_, c) => {
+      const inFinder = (r < 7 && c < 7) || (r < 7 && c >= cells - 7) || (r >= cells - 7 && c < 7)
+      if (inFinder) {
+        const lr = r % 7, lc = c % 7
+        return (lr === 0 || lr === 6 || lc === 0 || lc === 6 || (lr >= 2 && lr <= 4 && lc >= 2 && lc <= 4))
+      }
+      return ((seed * (r * cells + c + 1)) % 3) !== 0
+    })
+  )
+  return (
+    <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="block">
+      <rect width={size} height={size} fill="white" rx="4" />
+      {pattern.map((row, r) => row.map((filled, c) => filled ? (
+        <rect key={`${r}-${c}`} x={c * cellSize} y={r * cellSize}
+          width={cellSize} height={cellSize} fill="#191F28" />
+      ) : null))}
+    </svg>
+  )
+}
+
+
+// ── SEO 키워드 자동 추천 엔진 ──
+const CATEGORY_KW_MAP: Record<string, string[]> = {
+  '카페': ['카페', '커피', '디저트', '브런치카페', '분위기좋은카페'],
+  '음식점': ['맛집', '한식', '술집', '데이트코스', '회식장소'],
+  '한식': ['맛집', '한식당', '한정식', '백반', '가정식'],
+  '중식': ['중국집', '짜장면', '중화요리', '짬뽕맛집'],
+  '일식': ['초밥', '라멘', '일식당', '오마카세', '회'],
+  '양식': ['파스타', '스테이크', '브런치', '이탈리안'],
+  '치킨': ['치킨', '치맥', '배달맛집', '야식'],
+  '고기': ['고깃집', '삼겹살', '소고기', '회식장소'],
+  '술집': ['술집', '호프', '이자카야', '와인바', '칵테일바'],
+  '미용실': ['미용실', '헤어샵', '펌', '염색', '커트'],
+  '네일': ['네일샵', '젤네일', '네일아트', '손톱관리'],
+  '피부관리': ['피부관리', '에스테틱', '피부과', '관리샵'],
+  '헬스': ['헬스장', 'PT', '운동', '다이어트', '피트니스'],
+  '학원': ['학원', '과외', '교육', '입시', '공부'],
+  '병원': ['병원', '의원', '진료', '건강검진'],
+  '약국': ['약국', '건강', '비타민'],
+  '꽃집': ['꽃집', '플라워샵', '꽃배달', '꽃다발'],
+  '세탁': ['세탁소', '드라이클리닝', '빨래'],
+  '인테리어': ['인테리어', '리모델링', '시공'],
+}
+
+function generateSeoKeywords(location: string, category: string, storeName: string): string[] {
+  const results: string[] = []
+  const loc = location.trim()
+  const cat = category.trim()
+
+  // 1. 기본: 지역+업종 조합
+  if (loc && cat) {
+    results.push(loc + cat)
+    results.push(loc + ' ' + cat)
+  }
+
+  // 2. 카테고리 매핑 키워드
+  const matchedCat = Object.keys(CATEGORY_KW_MAP).find(k => cat.includes(k))
+  if (matchedCat && loc) {
+    const mapped = CATEGORY_KW_MAP[matchedCat]
+    mapped.forEach(kw => {
+      const combined = loc + kw
+      if (!results.includes(combined)) results.push(combined)
+    })
+  }
+
+  // 3. 매장명 기반
+  if (storeName && loc) {
+    results.push(loc + ' ' + storeName)
+  }
+
+  // 최대 8개까지
+  return results.slice(0, 8)
+}
+
+
+// ── QR 코드 생성기 (Google Charts API 활용) ──
+function QRCodeImage({ url, size = 180 }: { url: string; size?: number }) {
   const [imgSrc, setImgSrc] = useState('')
   const [error, setError] = useState(false)
 
   useEffect(() => {
+    // Google Chart API로 QR 생성
     const encoded = encodeURIComponent(url)
     const src = 'https://chart.googleapis.com/chart?cht=qr&chs=' + size + 'x' + size + '&chl=' + encoded + '&choe=UTF-8&chld=M|2'
     setImgSrc(src)
     setError(false)
   }, [url, size])
 
-  if (!url) {
-    return (
-      <div
-        className="flex items-center justify-center bg-[#F8F9FA] border-2 border-dashed border-[#E5E8EB] rounded-xl text-[#C9CDD2] text-xs"
-        style={{ width: size, height: size }}
-      >
-        URL을 입력하세요
-      </div>
-    )
-  }
-
   if (error || !imgSrc) {
-    return (
-      <div
-        className="flex items-center justify-center bg-[#FEF2F2] border border-[#FCA5A5] rounded-xl text-[#B91C1C] text-xs p-3"
-        style={{ width: size, height: size }}
-      >
-        QR 생성 실패
-      </div>
-    )
+    // 폴백: 더미 QR
+    return <QRPreview text={url} size={size} />
   }
 
   return (
@@ -117,19 +227,22 @@ function QRCodeImage({ url, size = 200 }: { url: string; size?: number }) {
   )
 }
 
+// 파일명 sanitize — OS·브라우저 호환용
 function safeFileName(raw: string): string {
   const trimmed = (raw || '업체').trim()
+  // 파일명 금지문자 + 한글·영문·숫자·하이픈만 유지 (공백은 _로)
   return trimmed
     .replace(/[\/\\:*?"<>|]/g, '')
     .replace(/\s+/g, '_')
     .slice(0, 40) || '업체'
 }
 
+// QR 다운로드 함수
 function downloadQR(url: string, fileName: string) {
-  if (!url) { toast.error('QR로 만들 URL이 없습니다.'); return }
-  const size = 600
+  const size = 400
   const encoded = encodeURIComponent(url)
   const src = 'https://chart.googleapis.com/chart?cht=qr&chs=' + size + 'x' + size + '&chl=' + encoded + '&choe=UTF-8&chld=M|2'
+
   const link = document.createElement('a')
   link.href = src
   link.download = fileName + '.png'
@@ -139,14 +252,20 @@ function downloadQR(url: string, fileName: string) {
   document.body.removeChild(link)
 }
 
+// A4 매장 부착용 인쇄 템플릿 — 새 창 열고 인쇄 다이얼로그 자동 호출
 function openPrintTemplate(opts: {
   url: string
   storeName: string
+  keyword?: string
+  rewardType?: string
+  rewardValue?: string
 }) {
-  const { url, storeName } = opts
-  if (!url) { toast.error('QR로 만들 URL이 없습니다.'); return }
+  const { url, storeName, keyword = '', rewardType = 'none', rewardValue = '' } = opts
   const qrSize = 600
   const qrSrc = 'https://chart.googleapis.com/chart?cht=qr&chs=' + qrSize + 'x' + qrSize + '&chl=' + encodeURIComponent(url) + '&choe=UTF-8&chld=M|2'
+  const rewardLine = rewardType !== 'none' && rewardValue
+    ? '<div class="reward">🎁 리뷰 남기면 <b>' + rewardValue.replace(/[<>&]/g, '') + '</b></div>'
+    : '<div class="reward-sub">리뷰 남겨주시면 감사하겠습니다 🙏</div>'
 
   const html = '<!DOCTYPE html><html><head><meta charset="utf-8"><title>' + storeName + ' - 리뷰 QR</title>' +
     '<style>' +
@@ -157,9 +276,11 @@ function openPrintTemplate(opts: {
     '.badge { display: inline-block; padding: 6px 18px; border-radius: 999px; background: #FEF3C7; color: #92400E; font-size: 14px; font-weight: 700; margin-bottom: 18px; }' +
     'h1 { font-size: 44px; font-weight: 900; color: #191F28; margin: 0 0 10px; letter-spacing: -1px; }' +
     '.sub { font-size: 20px; color: #4E5968; font-weight: 600; margin: 0 0 6px; }' +
+    '.store { font-size: 16px; color: #8B95A1; margin: 0; }' +
     '.qr-box { padding: 24px; background: #fff; border: 3px solid #191F28; border-radius: 24px; margin: 10px 0; }' +
     '.qr-box img { display: block; width: 140mm; height: 140mm; }' +
     '.scan-hint { font-size: 22px; font-weight: 800; color: #3182F6; margin: 10px 0 0; }' +
+    '.reward { background: #FEF3C7; padding: 18px 28px; border-radius: 16px; font-size: 22px; color: #92400E; font-weight: 700; text-align: center; width: 100%; box-sizing: border-box; }' +
     '.reward-sub { font-size: 18px; color: #4E5968; font-weight: 600; text-align: center; }' +
     '.bottom { width: 100%; text-align: center; padding-top: 8px; border-top: 2px dashed #E5E8EB; }' +
     '.steps { display: flex; justify-content: center; gap: 28px; margin: 12px 0 6px; font-size: 14px; color: #4E5968; }' +
@@ -175,10 +296,11 @@ function openPrintTemplate(opts: {
     '<div class="badge">📸 QR 찍고 리뷰 남기기</div>' +
     '<h1>' + storeName + '</h1>' +
     '<p class="sub">이용해주셔서 감사합니다 💛</p>' +
+    (keyword ? '<p class="store">#' + keyword + '</p>' : '') +
     '</div>' +
     '<div class="qr-box"><img src="' + qrSrc + '" alt="QR"/></div>' +
     '<p class="scan-hint">📱 카메라로 QR을 찍어주세요</p>' +
-    '<div class="reward-sub">리뷰 남겨주시면 감사하겠습니다 🙏</div>' +
+    rewardLine +
     '<div class="bottom">' +
     '<div class="steps">' +
     '<div class="step"><b>1</b>QR 스캔</div>' +
@@ -200,7 +322,12 @@ function openPrintTemplate(opts: {
   }
 }
 
-async function persistStoreToServer(storeInfo: StoreInfo): Promise<{ ok: boolean; slug?: string }> {
+// 서버(Supabase stores 테이블)에 업체 정보 영구 등록
+// /review/[slug] 페이지에서 누가 바로 열어도 업체 데이터로 꾸며지도록
+async function persistStoreToServer(
+  storeInfo: StoreInfo,
+  settings: QRSettings
+): Promise<{ ok: boolean; slug?: string }> {
   if (!storeInfo || !storeInfo.name) return { ok: false }
   try {
     const slug = makeStoreId(storeInfo.name)
@@ -214,6 +341,10 @@ async function persistStoreToServer(storeInfo: StoreInfo): Promise<{ ok: boolean
         location: storeInfo.location,
         naver_place_id: storeInfo.naverPlaceId,
         naver_url: storeInfo.naverUrl,
+        main_keyword: settings?.mainKeyword,
+        sub_keywords: settings?.subKeywords,
+        reward_type: settings?.rewardType,
+        reward_value: settings?.rewardValue,
       }),
     })
     const j = await res.json().catch(() => ({ ok: false }))
@@ -223,6 +354,7 @@ async function persistStoreToServer(storeInfo: StoreInfo): Promise<{ ok: boolean
   }
 }
 
+// storeId 생성 (상호명 기반 slug)
 function makeStoreId(name: string): string {
   let result = ''
   const lower = name.toLowerCase()
@@ -239,42 +371,29 @@ function makeStoreId(name: string): string {
   return result || 'store-' + Date.now()
 }
 
-// 리뷰 URL 생성 - 연동된 업체 정보를 쿼리파라미터에 담아 /review/[slug] 로 연결
-function buildReviewUrl(storeInfo: StoreInfo): string {
-  if (!storeInfo.connected || !storeInfo.name) return ''
+// 리뷰 URL 생성 (네이버 Place ID 포함 시 정확한 리뷰 페이지로 연결)
+function buildReviewUrl(storeInfo: StoreInfo, settings: QRSettings): string {
   const storeId = makeStoreId(storeInfo.name)
-  const base = (typeof window !== 'undefined' ? window.location.origin : 'https://www.localution.co.kr')
+  const base = (typeof window !== 'undefined' ? window.location.origin : 'https://localution.co.kr')
   const params = new URLSearchParams()
   if (storeInfo.name) params.set('n', storeInfo.name)
   if (storeInfo.category) params.set('t', storeInfo.category)
+  // a = 주소·지역 — 리뷰 페이지 헤더에 "카페 · 부천시 원미구" 식으로 노출
   if (storeInfo.location) params.set('a', storeInfo.location)
+  if (settings.mainKeyword) params.set('kw', settings.mainKeyword)
   if (storeInfo.naverUrl) params.set('naver', storeInfo.naverUrl)
+  // 네이버 Place ID — 리뷰 페이지에서 실제 네이버 리뷰 작성으로 리다이렉트 가능
   if (storeInfo.naverPlaceId) params.set('pid', storeInfo.naverPlaceId)
+  if (settings.rewardType !== 'none' && settings.rewardValue) params.set('reward', settings.rewardValue)
   const qs = params.toString()
   return base + '/review/' + storeId + (qs ? '?' + qs : '')
 }
 
-// URL 유효성 체크
-function isValidUrl(raw: string): boolean {
-  if (!raw) return false
-  try {
-    const u = new URL(raw.trim())
-    return u.protocol === 'http:' || u.protocol === 'https:'
-  } catch {
-    return false
-  }
-}
-
-function normalizeUrl(raw: string): string {
-  const t = (raw || '').trim()
-  if (!t) return ''
-  if (/^https?:\/\//i.test(t)) return t
-  return 'https://' + t
-}
-
-// ─────────────────────────────────────────────────────
-// QR 리뷰 생성 통계 (기존 유지)
-// ─────────────────────────────────────────────────────
+// ─── 메인 ─────────────────────────────────────────────────────────
+// ──────────────────────────────────────────────
+// QR 리뷰 생성 통계 (localStorage: localution.review_stats)
+// /review/[storeId] 페이지의 startGenerate 시점에 쌓이는 demographics 집계
+// ────────────────────────────────────���─────────
 interface ReviewStatRecord {
   ts: number
   storeId: string
@@ -308,10 +427,12 @@ function ReviewStatsSection({ storeName }: { storeName: string }) {
     return () => window.removeEventListener('storage', onStorage)
   }, [])
 
+  // 내 매장 필터 (storeName 부분일치)
   const filtered = (filterMine && storeName)
     ? records.filter(r => (r.storeName || '').includes(storeName) || storeName.includes(r.storeName || ''))
     : records
 
+  // 성별 × 연령 교차 집계
   const ageKeys: ReviewStatRecord['age'][] = ['10s', '20s', '30s', '40s', '50s+']
   const genderKeys: ReviewStatRecord['gender'][] = ['F', 'M', '-']
   const crossTab: Record<string, number> = {}
@@ -321,6 +442,7 @@ function ReviewStatsSection({ storeName }: { storeName: string }) {
     if (key in crossTab) crossTab[key] += 1
   }
 
+  // 톤·길이 집계
   const toneCounts: Record<string, number> = { warm: 0, short: 0, detail: 0, casual: 0 }
   const lengthCounts: Record<string, number> = { short: 0, mid: 0, long: 0 }
   for (const r of filtered) {
@@ -328,6 +450,7 @@ function ReviewStatsSection({ storeName }: { storeName: string }) {
     if (r.length in lengthCounts) lengthCounts[r.length] += 1
   }
 
+  // 최근 7일 추이
   const now = Date.now()
   const day = 24 * 60 * 60 * 1000
   const days7: { label: string; count: number }[] = []
@@ -340,6 +463,7 @@ function ReviewStatsSection({ storeName }: { storeName: string }) {
     days7.push({ label, count })
   }
   const maxDay = Math.max(1, ...days7.map(d => d.count))
+
   const maxCell = Math.max(1, ...Object.values(crossTab))
   const total = filtered.length
 
@@ -357,14 +481,14 @@ function ReviewStatsSection({ storeName }: { storeName: string }) {
   const lengthLabel: Record<string, string> = { short: '짧음', mid: '중간', long: '길게' }
 
   return (
-    <section className="mt-6 bg-white rounded-2xl p-5 md:p-6 shadow-sm border border-[#E5E8EB]">
+    <section className="mt-8 bg-white rounded-2xl p-5 md:p-6 shadow-sm border border-[#E5E8EB]">
       <div className="flex items-center justify-between flex-wrap gap-2 mb-4">
         <div className="min-w-0">
           <h2 className="text-lg md:text-xl font-black text-[#191F28] flex items-center gap-2">
             <span className="text-xl">📊</span> QR 리뷰 생성 통계
           </h2>
           <p className="text-xs text-[#8B95A1] mt-0.5">
-            /review QR 스캔 후 고객이 선택한 성별·연령·톤·길이 누적 집계
+            /review QR 스캔 후 고객이 선택한 성별·연령·톤·길이 누적 집계 · 매장별 인사이트
           </p>
         </div>
         <div className="flex items-center gap-1 bg-[#F2F4F6] rounded-lg p-0.5">
@@ -379,6 +503,7 @@ function ReviewStatsSection({ storeName }: { storeName: string }) {
         </div>
       </div>
 
+      {/* KPI 카드 */}
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2 md:gap-3 mb-5">
         <div className="bg-[#EFF6FF] rounded-xl p-3 border border-[#BFDBFE]">
           <p className="text-[10px] text-[#3182F6] font-bold mb-1">누적 생성</p>
@@ -408,6 +533,7 @@ function ReviewStatsSection({ storeName }: { storeName: string }) {
         </div>
       ) : (
         <>
+          {/* 성별 × 연령 교차 집계 */}
           <div className="mb-5">
             <h3 className="text-sm font-black text-[#191F28] mb-2">성별 × 연령 분포</h3>
             <div className="overflow-x-auto">
@@ -449,8 +575,10 @@ function ReviewStatsSection({ storeName }: { storeName: string }) {
                 </tbody>
               </table>
             </div>
+            <p className="text-[10px] text-[#8B95A1] mt-2">셀이 진할수록 많이 선택된 조합 · 마케팅 타겟 설정 참고 자료</p>
           </div>
 
+          {/* 톤 · 길이 선호도 */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-5">
             <div className="bg-[#F8F9FA] rounded-xl p-4">
               <h3 className="text-sm font-black text-[#191F28] mb-2">말투 선호도</h3>
@@ -490,6 +618,7 @@ function ReviewStatsSection({ storeName }: { storeName: string }) {
             </div>
           </div>
 
+          {/* 최근 7일 추이 */}
           <div>
             <h3 className="text-sm font-black text-[#191F28] mb-2">최근 7일 생성 추이</h3>
             <div className="flex items-end gap-1 h-24">
@@ -508,41 +637,50 @@ function ReviewStatsSection({ storeName }: { storeName: string }) {
               })}
             </div>
           </div>
+
+          <p className="text-[10px] text-[#8B95A1] mt-4">
+            ※ 현재 데이터는 방문자 브라우저 localStorage 기준 · Supabase 연동 시 전 매장 크로스 집계 가능
+          </p>
         </>
       )}
     </section>
   )
 }
 
-// ─────────────────────────────────────────────────────
-// 메인
-// ─────────────────────────────────────────────────────
 export default function QRAdmin() {
+  const [activeTab, setActiveTab] = useState<'settings' | 'list' | 'stats'>('settings')
+  const [settings, setSettings] = useState<QRSettings>(DEFAULT_SETTINGS)
   const [storeInfo, setStoreInfo] = useState<StoreInfo>(DEFAULT_STORE)
   const [storeEdit, setStoreEdit] = useState(false)
   const [storeDraft, setStoreDraft] = useState<StoreInfo>(DEFAULT_STORE)
-  const [naverLinked, setNaverLinked] = useState(false)
+  const [qrList, setQrList] = useState<QRCode[]>(INITIAL_QR_LIST)
+  const [saved, setSaved] = useState(false)
+  const [showCreate, setShowCreate] = useState(false)
+  const [newQR, setNewQR] = useState({ name: '', purpose: 'review', keyword: '' })
+  const [creating, setCreating] = useState(false)
+  const [created, setCreated] = useState(false)
+  const [previewQR, setPreviewQR] = useState<QRCode | null>(null)
+  const [suggestedKws, setSuggestedKws] = useState<string[]>([])
+  const kwInputRef = useRef<HTMLInputElement>(null)
 
-  // QR 생성기 상태
-  const [qrMode, setQrMode] = useState<'linked' | 'custom'>('linked')
-  const [customUrl, setCustomUrl] = useState('')
-  const [urlCopied, setUrlCopied] = useState(false)
-  const [showPreview, setShowPreview] = useState(false)
+  const [naverLinked, setNaverLinked] = useState(false)
 
   useEffect(() => {
     try {
+      const raw = localStorage.getItem(LS_QR_SETTINGS)
+      if (raw) setSettings(JSON.parse(raw))
+      const rawList = localStorage.getItem(LS_QR_LIST)
+      if (rawList) setQrList(JSON.parse(rawList))
       const rawStore = localStorage.getItem(LS_STORE_INFO)
       if (rawStore) setStoreInfo(JSON.parse(rawStore))
-      const rawCustom = localStorage.getItem(LS_QR_CUSTOM_URL)
-      if (rawCustom) setCustomUrl(rawCustom)
+
+      // /settings?tab=connect 에서 저장한 네이버 링크 감지
       const naver = readNaverLink()
       setNaverLinked(!!naver)
-      // 연동돼 있으면 기본은 '자동 연동' 모드
-      if (!naver && !rawStore) setQrMode('custom')
     } catch (_) {}
   }, [])
 
-  // 네이버 플레이스 연결 정보에서 원클릭 불러오기
+  // ⚡ 네이버 플레이스 연결 정보에서 자동으로 불러오기
   const importFromNaverLink = () => {
     const naver = readNaverLink()
     if (!naver) {
@@ -559,60 +697,138 @@ export default function QRAdmin() {
       linkedSource: 'platform_links',
     }
     setStoreInfo(next)
-    persistStoreToServer(next).catch(() => {})
+    // 네이버 연동 정보를 서버에 즉시 등록 (리뷰 페이지가 slug로 조회 가능하도록)
+    persistStoreToServer(next, settings).catch(() => {})
     setStoreDraft(next)
     try { localStorage.setItem(LS_STORE_INFO, JSON.stringify(next)) } catch (_) {}
-    setQrMode('linked')
-    toast.success('네이버 플레이스 정보를 불러왔어요. QR이 자동으로 생성됐습니다.')
+
+    // 키워드 자동 추천도 트리거
+    if (next.location && next.category) {
+      const suggestions = generateSeoKeywords(next.location, next.category, next.name)
+      if (suggestions.length > 0 && !settings.mainKeyword) {
+        const updated = {
+          ...settings,
+          mainKeyword: suggestions[0],
+          subKeywords: settings.subKeywords.length === 0 ? suggestions.slice(1, 6) : settings.subKeywords,
+        }
+        saveSettings(updated)
+        setSuggestedKws(suggestions)
+      }
+    }
   }
 
+  function saveSettings(next: QRSettings) {
+    setSettings(next)
+    try { localStorage.setItem(LS_QR_SETTINGS, JSON.stringify(next)) } catch (_) {}
+  }
+
+  function saveSetting<K extends keyof QRSettings>(key: K, value: QRSettings[K]) {
+    const next = { ...settings, [key]: value }
+    saveSettings(next)
+  }
+
+  // ── 서브키워드: 원자적 업데이트 (버그 수정)
+  const addSubKw = (raw: string) => {
+    const trimmed = raw.replace(/,/g, '').trim()
+    if (!trimmed || settings.subKeywords.includes(trimmed) || settings.subKeywords.length >= 5) return
+    const next = { ...settings, subKeywords: [...settings.subKeywords, trimmed], subKwInput: '' }
+    saveSettings(next)
+  }
+
+  const removeSubKw = (kw: string) => {
+    const next = { ...settings, subKeywords: settings.subKeywords.filter(k => k !== kw) }
+    saveSettings(next)
+  }
+
+  const handleSubKwKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === 'Enter' || e.key === ',') {
+      e.preventDefault()
+      addSubKw(settings.subKwInput)
+    }
+    if (e.key === 'Backspace' && !settings.subKwInput && settings.subKeywords.length > 0) {
+      const next = { ...settings, subKeywords: settings.subKeywords.slice(0, -1) }
+      saveSettings(next)
+    }
+  }
+
+  // ── 네이버 업체 연동
   const saveStoreInfo = () => {
     const next = { ...storeDraft, connected: !!(storeDraft.name && storeDraft.location) }
     setStoreInfo(next)
     try { localStorage.setItem(LS_STORE_INFO, JSON.stringify(next)) } catch (_) {}
     setStoreEdit(false)
-    if (next.connected) {
-      persistStoreToServer(next).catch(() => {})
-      setQrMode('linked')
-    }
-  }
-
-  const saveCustomUrl = (raw: string) => {
-    setCustomUrl(raw)
-    try { localStorage.setItem(LS_QR_CUSTOM_URL, raw) } catch (_) {}
-  }
-
-  const linkedUrl = buildReviewUrl(storeInfo)
-  const normalizedCustom = normalizeUrl(customUrl)
-  const activeUrl = qrMode === 'linked' ? linkedUrl : (isValidUrl(normalizedCustom) ? normalizedCustom : '')
-
-  const copyUrl = async () => {
-    if (!activeUrl) return
-    try {
-      await navigator.clipboard.writeText(activeUrl)
-      setUrlCopied(true)
-      setTimeout(() => setUrlCopied(false), 1500)
-    } catch {
-      // fallback
-      try {
-        const ta = document.createElement('textarea')
-        ta.value = activeUrl
-        ta.style.position = 'fixed'
-        ta.style.left = '-9999px'
-        document.body.appendChild(ta)
-        ta.select()
-        document.execCommand('copy')
-        document.body.removeChild(ta)
-        setUrlCopied(true)
-        setTimeout(() => setUrlCopied(false), 1500)
-      } catch {
-        toast.error('복사에 실패했습니다.')
+    // SEO 키워드 자동 추천
+    let effectiveSettings = settings
+    if (storeDraft.name && storeDraft.location) {
+      const suggestions = generateSeoKeywords(storeDraft.location, storeDraft.category, storeDraft.name)
+      if (suggestions.length > 0) {
+        const mainKw = suggestions[0]
+        const subKws = suggestions.slice(1, 6)
+        const next2 = {
+          ...settings,
+          mainKeyword: settings.mainKeyword || mainKw,
+          subKeywords: settings.subKeywords.length === 0 ? subKws : settings.subKeywords,
+        }
+        saveSettings(next2)
+        effectiveSettings = next2
+        setSuggestedKws(suggestions)
       }
     }
+    // Supabase stores 테이블에 영구 저장 — 다른 기기/경로에서 /review/[slug] 접근 시도 데이터 유지
+    if (next.connected) {
+      persistStoreToServer(next, effectiveSettings).catch(() => {})
+    }
   }
 
-  const storeId = storeInfo.connected ? makeStoreId(storeInfo.name) : ''
-  const previewSrc = qrMode === 'linked' ? linkedUrl : ''
+  const handleSaveSettings = () => {
+    persistStoreToServer(storeInfo, settings).catch(() => {})
+    setSaved(true)
+    setTimeout(() => setSaved(false), 2000)
+  }
+
+  const handleCreateQR = async () => {
+    if (!newQR.name) return
+    setCreating(true)
+    await new Promise(r => setTimeout(r, 1200))
+    const newItem: QRCode = {
+      id: Date.now().toString(),
+      name: newQR.name,
+      purpose: newQR.purpose,
+      scans: 0, reviews: 0,
+      createdAt: new Date().toISOString().slice(0, 10),
+      active: true,
+      keyword: newQR.keyword || settings.mainKeyword || '',
+    }
+    const updated = [newItem, ...qrList]
+    setQrList(updated)
+    try { localStorage.setItem(LS_QR_LIST, JSON.stringify(updated)) } catch (_) {}
+    setCreating(false)
+    setCreated(true)
+    setTimeout(() => {
+      setCreated(false)
+      setShowCreate(false)
+      setNewQR({ name: '', purpose: 'review', keyword: '' })
+      setActiveTab('list')
+    }, 1500)
+  }
+
+  const toggleQRActive = (id: string) => {
+    const updated = qrList.map(q => q.id === id ? { ...q, active: !q.active } : q)
+    setQrList(updated)
+    try { localStorage.setItem(LS_QR_LIST, JSON.stringify(updated)) } catch (_) {}
+  }
+
+  const activeCount = qrList.filter(q => q.active).length
+  // 전역 tone은 settings 페이지에서 관리
+  const globalTone = typeof window !== 'undefined'
+    ? (localStorage.getItem('ai.tone') || 'friendly')
+    : 'friendly'
+
+  const toneLabel: Record<string, string> = {
+    friendly: '친근하게', formal: '정중하게', casual: '캐주얼하게',
+    bright: '밝고 유쾌하게', warm: '따뜻하게', pro: '전문적으로',
+    empathy: '공감하며', simple: '간결하게',
+  }
 
   return (
     <div className="min-h-screen bg-[#F2F4F6] flex">
@@ -620,383 +836,563 @@ export default function QRAdmin() {
       <main className="flex-1 md:ml-[220px] pt-14 md:pt-0 min-w-0">
         <PageHeader
           icon="🧾"
-          title="QR 관리"
-          subtitle="QR 한 번 스캔 → 고객이 바로 5점 리뷰 — 매장 QR 생성기"
+          title="QR 리뷰 관리"
+          subtitle="QR 한 번 스캔 → 고객이 바로 5점 리뷰 — 매장·테이블별 생성기"
           variant="success"
         />
 
         <div className="max-w-5xl mx-auto p-4 md:p-6 w-full">
 
-          {/* 상태 요약 배너 */}
-          <div className="flex gap-3 mb-5 flex-wrap">
-            {storeInfo.connected ? (
-              <div className="bg-[#F0FDF4] rounded-2xl px-5 py-3.5 shadow-sm flex items-center gap-2 border border-[#BBF7D0]">
-                <span className="text-lg">🟢</span>
-                <div className="min-w-0">
-                  <p className="text-xs text-[#059669] font-semibold">업체 연동됨</p>
-                  <p className="text-xs text-[#4E5968] truncate max-w-[240px]">{storeInfo.name}</p>
-                </div>
-              </div>
-            ) : (
-              <div className="bg-[#FFFBEB] rounded-2xl px-5 py-3.5 shadow-sm flex items-center gap-2 border border-[#FDE68A]">
-                <span className="text-lg">⚠️</span>
-                <div>
-                  <p className="text-xs text-[#D97706] font-semibold">업체 미연동</p>
-                  <p className="text-xs text-[#4E5968]">아래에서 네이버 연동 먼저 하세요</p>
-                </div>
-              </div>
-            )}
-            {storeInfo.connected && storeId && (
-              <div className="bg-[#EFF6FF] rounded-2xl px-5 py-3.5 shadow-sm flex items-center gap-2 border border-[#BFDBFE] min-w-0">
-                <span className="text-lg">📱</span>
-                <div className="min-w-0">
-                  <p className="text-xs text-[#3182F6] font-semibold">내 리뷰 페이지</p>
-                  <p className="text-xs font-mono text-[#4E5968] truncate max-w-[280px]">/review/{storeId}</p>
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* ═══════════════════════════════════════════════════════
-               1. 네이버 업체 연동 카드 (축소형)
-             ═══════════════════════════════════════════════════════ */}
-          <div className="bg-white rounded-2xl p-6 shadow-sm mb-5">
-            <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
-              <div className="flex items-center gap-2 min-w-0">
-                <div className="w-9 h-9 rounded-xl bg-[#F0FDF4] flex items-center justify-center text-base flex-shrink-0">🟢</div>
-                <div className="min-w-0">
-                  <h3 className="font-bold text-[#191F28]">네이버 업체 연동</h3>
-                  <p className="text-xs text-[#8B95A1]">
-                    {naverLinked ? '플랫폼 연결 감지됨 · 원클릭으로 불러오세요' : '연동 시 QR이 자동으로 리뷰 페이지에 연결됩니다'}
-                  </p>
-                </div>
-              </div>
-              <div className="flex items-center gap-1.5">
-                {naverLinked && (
-                  <button
-                    onClick={importFromNaverLink}
-                    className="flex items-center gap-1 text-[11px] font-bold px-2.5 py-1.5 rounded-lg bg-[#03C75A] text-white hover:opacity-90 whitespace-nowrap">
-                    ⚡ 플레이스 불러오기
-                  </button>
-                )}
-                {!naverLinked && (
-                  <a href={buildSettingsHref('connect', { platform: 'naver' })}
-                    className="flex items-center gap-1 text-[11px] font-bold px-2.5 py-1.5 rounded-lg bg-[#EFF6FF] text-[#3182F6] hover:bg-[#DBEAFE] whitespace-nowrap">
-                    + 네이버 연결하기
-                  </a>
-                )}
-                {storeInfo.connected && !storeEdit && (
-                  <button
-                    onClick={() => { setStoreDraft(storeInfo); setStoreEdit(true) }}
-                    className="text-[11px] text-[#3182F6] font-semibold hover:underline whitespace-nowrap px-2">
-                    수정
-                  </button>
-                )}
+        {/* 상태 요약 */}
+        <div className="flex gap-3 mb-6 flex-wrap">
+          {storeInfo.connected ? (
+            <div className="bg-[#F0FDF4] rounded-2xl px-5 py-3.5 shadow-sm flex items-center gap-2 border border-[#BBF7D0]">
+              <span className="text-lg">🟢</span>
+              <div className="min-w-0">
+                <p className="text-xs text-[#059669] font-semibold">업체 연동됨</p>
+                <p className="text-xs text-[#4E5968] truncate max-w-[200px]">{storeInfo.name}</p>
               </div>
             </div>
-
-            {!storeEdit && !storeInfo.connected ? (
+          ) : (
+            <div className="bg-[#FFFBEB] rounded-2xl px-5 py-3.5 shadow-sm flex items-center gap-2 border border-[#FDE68A]">
+              <span className="text-lg">⚠️</span>
               <div>
-                <p className="text-sm text-[#4E5968] mb-4 leading-relaxed">
-                  업체 정보를 연결하면 <span className="text-[#3182F6] font-semibold">QR 스캔 시 바로 내 리뷰 페이지</span>로 연결돼요.
-                </p>
-                <button
-                  onClick={() => { setStoreDraft(DEFAULT_STORE); setStoreEdit(true) }}
-                  className="w-full py-3 rounded-xl border-2 border-dashed border-[#BFDBFE] text-[#3182F6] font-semibold text-sm hover:bg-[#EFF6FF] transition-colors">
-                  + 업체 정보 직접 입력
-                </button>
+                <p className="text-xs text-[#D97706] font-semibold">업체 미연동</p>
+                <p className="text-xs text-[#4E5968]">아래에서 네이버 연동 먼저 하세요</p>
               </div>
-            ) : storeEdit ? (
-              <div className="space-y-3">
-                <div>
-                  <label className="block text-xs font-semibold text-[#4E5968] mb-1">상호명 *</label>
-                  <input
-                    value={storeDraft.name}
-                    onChange={e => setStoreDraft(p => ({ ...p, name: e.target.value }))}
-                    placeholder="예: 하랑커피"
-                    className="w-full border border-[#E5E8EB] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#3182F6] transition-colors"
-                  />
-                </div>
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                  <div>
-                    <label className="block text-xs font-semibold text-[#4E5968] mb-1">업종</label>
-                    <input
-                      value={storeDraft.category}
-                      onChange={e => setStoreDraft(p => ({ ...p, category: e.target.value }))}
-                      placeholder="예: 카페"
-                      className="w-full border border-[#E5E8EB] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#3182F6] transition-colors"
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-xs font-semibold text-[#4E5968] mb-1">지역 *</label>
-                    <input
-                      value={storeDraft.location}
-                      onChange={e => setStoreDraft(p => ({ ...p, location: e.target.value }))}
-                      placeholder="예: 부천"
-                      className="w-full border border-[#E5E8EB] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#3182F6] transition-colors"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <label className="block text-xs font-semibold text-[#4E5968] mb-1">네이버 플레이스 URL <span className="font-normal">(선택)</span></label>
-                  <input
-                    value={storeDraft.naverUrl}
-                    onChange={e => setStoreDraft(p => ({ ...p, naverUrl: e.target.value }))}
-                    placeholder="https://naver.me/..."
-                    className="w-full border border-[#E5E8EB] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#3182F6] transition-colors"
-                  />
-                </div>
-                <div className="flex gap-2 pt-1">
-                  <button
-                    onClick={() => setStoreEdit(false)}
-                    className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-[#F2F4F6] text-[#4E5968] hover:bg-[#E5E8EB] transition-colors">
-                    취소
-                  </button>
-                  <button
-                    onClick={saveStoreInfo}
-                    disabled={!storeDraft.name || !storeDraft.location}
-                    className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
-                      storeDraft.name && storeDraft.location
-                        ? 'bg-[#059669] text-white hover:bg-[#047857]'
-                        : 'bg-[#F2F4F6] text-[#8B95A1] cursor-not-allowed'
-                    }`}>
-                    연동하기
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <div className="p-3.5 bg-[#F0FDF4] rounded-xl border border-[#BBF7D0]">
-                <div className="flex items-center gap-2 mb-1 flex-wrap">
-                  <span className="w-2 h-2 rounded-full bg-[#059669] flex-shrink-0" />
-                  <span className="font-bold text-[#191F28] text-sm">{storeInfo.name}</span>
-                  {storeInfo.linkedSource === 'platform_links' && (
-                    <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#03C75A] text-white font-bold">
-                      네이버 플레이스 연동
-                    </span>
-                  )}
-                </div>
-                <p className="text-xs text-[#4E5968] pl-4">
-                  {[storeInfo.category, storeInfo.location].filter(Boolean).join(' · ')}
-                </p>
-                {storeInfo.naverPlaceId && (
-                  <p className="text-[10px] text-[#8B95A1] pl-4 mt-0.5">
-                    Place ID: <span className="font-mono text-[#4E5968]">{storeInfo.naverPlaceId}</span>
-                  </p>
-                )}
-                {storeInfo.naverUrl && (
-                  <a href={storeInfo.naverUrl} target="_blank" rel="noopener noreferrer"
-                    className="text-xs text-[#3182F6] pl-4 hover:underline block mt-0.5">
-                    네이버 플레이스 보기 →
-                  </a>
-                )}
-              </div>
-            )}
+            </div>
+          )}
+          <div className="bg-[#EFF6FF] rounded-2xl px-5 py-3.5 shadow-sm flex items-center gap-2 border border-[#BFDBFE]">
+            <span className="text-lg">🤖</span>
+            <div>
+              <p className="text-xs text-[#3182F6] font-semibold">AI 리뷰 톤</p>
+              <p className="text-xs font-semibold text-[#4E5968]">{toneLabel[globalTone] || '친근하게'}</p>
+            </div>
           </div>
+        </div>
 
-          {/* ═══════════════════════════════════════════════════════
-               2. QR 생성기 (핵심)
-             ═══════════════════════════════════════════════════════ */}
-          <div className="bg-white rounded-2xl p-6 shadow-sm mb-5">
-            <div className="flex items-center gap-2 mb-1">
-              <span className="text-xl">📱</span>
-              <h3 className="font-bold text-[#191F28]">QR 생성기</h3>
-              <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#EFF6FF] text-[#3182F6] font-bold">naver 스타일</span>
-            </div>
-            <p className="text-xs text-[#8B95A1] mb-4">
-              URL을 직접 넣거나, 네이버 플레이스 연동 시 자동으로 내 리뷰 페이지 URL이 들어갑니다.
-            </p>
 
-            {/* 모드 탭 */}
-            <div className="grid grid-cols-2 gap-2 p-1 bg-[#F2F4F6] rounded-xl mb-5">
-              <button
-                onClick={() => setQrMode('linked')}
-                disabled={!storeInfo.connected}
-                className={`py-2.5 rounded-lg text-xs md:text-sm font-bold transition-colors ${
-                  qrMode === 'linked'
-                    ? 'bg-white shadow text-[#059669]'
-                    : !storeInfo.connected ? 'text-[#C9CDD2] cursor-not-allowed' : 'text-[#8B95A1] hover:text-[#4E5968]'
-                }`}>
-                🟢 플레이스 자동 연동 {storeInfo.connected && <span className="text-[10px] font-normal ml-1">(추천)</span>}
-              </button>
-              <button
-                onClick={() => setQrMode('custom')}
-                className={`py-2.5 rounded-lg text-xs md:text-sm font-bold transition-colors ${
-                  qrMode === 'custom' ? 'bg-white shadow text-[#3182F6]' : 'text-[#8B95A1] hover:text-[#4E5968]'
-                }`}>
-                ✏️ URL 직접 입력
-              </button>
-            </div>
 
-            {/* 모드별 입력 영역 */}
-            {qrMode === 'linked' ? (
-              <div className="mb-5">
-                {storeInfo.connected ? (
-                  <div className="p-4 bg-[#F0FDF4] rounded-xl border border-[#BBF7D0]">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-sm">⚡</span>
-                      <p className="text-xs font-bold text-[#059669]">연동된 리뷰 페이지 URL</p>
+        {/* ── AI 설정 (메인) ── */}
+        {(() => { const _show = true; return _show && (
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* 좌측 */}
+            <div className="space-y-5">
+
+              {/* 네이버 업체 연동 */}
+              <div className="bg-white rounded-2xl p-6 shadow-sm">
+                <div className="flex items-center justify-between mb-4 gap-3 flex-wrap">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <div className="w-8 h-8 rounded-xl bg-[#F0FDF4] flex items-center justify-center text-base flex-shrink-0">🟢</div>
+                    <div className="min-w-0">
+                      <h3 className="font-bold text-[#191F28]">네이버 업체 연동</h3>
+                      <p className="text-xs text-[#8B95A1]">
+                        {naverLinked ? '플랫폼 연결 감지됨 · 원클릭으로 불러오세요' : '연동 시 키워드 자동 설정'}
+                      </p>
                     </div>
-                    <p className="text-xs text-[#4E5968] break-all font-mono bg-white rounded-lg p-2.5 border border-[#BBF7D0]">
-                      {linkedUrl}
+                  </div>
+                  <div className="flex items-center gap-1.5">
+                    {naverLinked && (
+                      <button
+                        onClick={importFromNaverLink}
+                        className="flex items-center gap-1 text-[11px] font-bold px-2.5 py-1.5 rounded-lg bg-[#03C75A] text-white hover:opacity-90 whitespace-nowrap">
+                        ⚡ 설정에서 불러오기
+                      </button>
+                    )}
+                    {!naverLinked && (
+                      <a href={buildSettingsHref('connect', { platform: 'naver' })}
+                        className="flex items-center gap-1 text-[11px] font-bold px-2.5 py-1.5 rounded-lg bg-[#EFF6FF] text-[#3182F6] hover:bg-[#DBEAFE] whitespace-nowrap">
+                        + 네이버 연결하기
+                      </a>
+                    )}
+                    {storeInfo.connected && !storeEdit && (
+                      <button
+                        onClick={() => { setStoreDraft(storeInfo); setStoreEdit(true) }}
+                        className="text-[11px] text-[#3182F6] font-semibold hover:underline whitespace-nowrap px-2">
+                        수정
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {!storeEdit && !storeInfo.connected ? (
+                  <div>
+                    <p className="text-sm text-[#4E5968] mb-4 leading-relaxed">
+                      업체 정보를 입력하면 AI가 더 정확한 리뷰를 생성하고,<br/>
+                      <span className="text-[#3182F6] font-semibold">QR 코드에 리뷰 URL이 자동 연결</span>돼요.
                     </p>
-                    <p className="text-[11px] text-[#8B95A1] mt-2 leading-relaxed">
-                      고객이 QR을 스캔하면 네이버 연동 정보(상호·업종·지역·Place ID)가 자동으로 리뷰 페이지에 세팅됩니다.
-                    </p>
+                    <button
+                      onClick={() => { setStoreDraft(DEFAULT_STORE); setStoreEdit(true) }}
+                      className="w-full py-3 rounded-xl border-2 border-dashed border-[#BFDBFE] text-[#3182F6] font-semibold text-sm hover:bg-[#EFF6FF] transition-colors">
+                      + 업체 정보 입력하기
+                    </button>
+                  </div>
+                ) : storeEdit ? (
+                  <div className="space-y-3">
+                    <div>
+                      <label className="block text-xs font-semibold text-[#4E5968] mb-1">상호명 *</label>
+                      <input
+                        value={storeDraft.name}
+                        onChange={e => setStoreDraft(p => ({ ...p, name: e.target.value }))}
+                        placeholder="예: 하랑커피"
+                        className="w-full border border-[#E5E8EB] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#3182F6] transition-colors"
+                      />
+                    </div>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                      <div>
+                        <label className="block text-xs font-semibold text-[#4E5968] mb-1">업종</label>
+                        <input
+                          value={storeDraft.category}
+                          onChange={e => setStoreDraft(p => ({ ...p, category: e.target.value }))}
+                          placeholder="예: 카페"
+                          className="w-full border border-[#E5E8EB] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#3182F6] transition-colors"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-xs font-semibold text-[#4E5968] mb-1">지역 *</label>
+                        <input
+                          value={storeDraft.location}
+                          onChange={e => setStoreDraft(p => ({ ...p, location: e.target.value }))}
+                          placeholder="예: 부천"
+                          className="w-full border border-[#E5E8EB] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#3182F6] transition-colors"
+                        />
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-xs font-semibold text-[#4E5968] mb-1">네이버 플레이스 URL <span className="font-normal">(선택)</span></label>
+                      <input
+                        value={storeDraft.naverUrl}
+                        onChange={e => setStoreDraft(p => ({ ...p, naverUrl: e.target.value }))}
+                        placeholder="https://naver.me/..."
+                        className="w-full border border-[#E5E8EB] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#3182F6] transition-colors"
+                      />
+                    </div>
+                    <div className="flex gap-2 pt-1">
+                      <button
+                        onClick={() => setStoreEdit(false)}
+                        className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-[#F2F4F6] text-[#4E5968] hover:bg-[#E5E8EB] transition-colors">
+                        취소
+                      </button>
+                      <button
+                        onClick={saveStoreInfo}
+                        disabled={!storeDraft.name || !storeDraft.location}
+                        className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
+                          storeDraft.name && storeDraft.location
+                            ? 'bg-[#059669] text-white hover:bg-[#047857]'
+                            : 'bg-[#F2F4F6] text-[#8B95A1] cursor-not-allowed'
+                        }`}>
+                        연동하기
+                      </button>
+                    </div>
                   </div>
                 ) : (
-                  <div className="p-5 bg-[#F8F9FA] rounded-xl text-center">
-                    <div className="text-2xl mb-1">🔌</div>
-                    <p className="text-sm text-[#4E5968] font-semibold mb-1">업체가 아직 연동되지 않았어요</p>
-                    <p className="text-xs text-[#8B95A1] mb-3">위 카드에서 네이버 플레이스를 먼저 연결하세요.</p>
+                  <div className="p-3.5 bg-[#F0FDF4] rounded-xl border border-[#BBF7D0]">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <span className="w-2 h-2 rounded-full bg-[#059669] flex-shrink-0" />
+                      <span className="font-bold text-[#191F28] text-sm">{storeInfo.name}</span>
+                      {storeInfo.linkedSource === 'platform_links' && (
+                        <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#03C75A] text-white font-bold">
+                          네이버 플레이스 연동
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-[#4E5968] pl-4">
+                      {[storeInfo.category, storeInfo.location].filter(Boolean).join(' · ')}
+                    </p>
+                    {storeInfo.naverPlaceId && (
+                      <p className="text-[10px] text-[#8B95A1] pl-4 mt-0.5">
+                        Place ID: <span className="font-mono text-[#4E5968]">{storeInfo.naverPlaceId}</span>
+                      </p>
+                    )}
+                    {storeInfo.naverUrl && (
+                      <a href={storeInfo.naverUrl} target="_blank" rel="noopener noreferrer"
+                        className="text-xs text-[#3182F6] pl-4 hover:underline block mt-0.5">
+                        네이버 플레이스 보기 →
+                      </a>
+                    )}
+                    <div className="mt-2 pl-4">
+                      <p className="text-[10px] text-[#8B95A1]">리뷰 URL: <span className="text-[#3182F6] font-mono">/review/{makeStoreId(storeInfo.name)}</span></p>
+                    </div>
                   </div>
                 )}
               </div>
-            ) : (
-              <div className="mb-5">
-                <label className="block text-xs font-semibold text-[#4E5968] mb-1.5">QR로 만들 URL *</label>
-                <input
-                  type="url"
-                  value={customUrl}
-                  onChange={e => saveCustomUrl(e.target.value)}
-                  placeholder="https://smartplace.naver.com/... 또는 https://www.instagram.com/..."
-                  className="w-full border-2 border-[#E5E8EB] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#3182F6] transition-colors font-mono"
-                />
-                {customUrl && !isValidUrl(normalizedCustom) && (
-                  <p className="text-[11px] text-[#DC2626] mt-1.5">
-                    ⚠️ 올바른 URL 형식이 아닙니다 (http:// 또는 https:// 로 시작해야 함)
-                  </p>
-                )}
-                {customUrl && isValidUrl(normalizedCustom) && (
-                  <p className="text-[11px] text-[#059669] mt-1.5">
-                    ✓ 유효한 URL · 아래 QR이 이 주소로 연결됩니다
-                  </p>
-                )}
-                {/* 빠른 입력 프리셋 */}
-                <div className="flex flex-wrap gap-1.5 mt-3">
-                  <span className="text-[10px] text-[#8B95A1] font-bold self-center">빠른 입력:</span>
-                  {storeInfo.connected && (
-                    <button
-                      onClick={() => saveCustomUrl(linkedUrl)}
-                      className="text-[11px] px-2.5 py-1 rounded-lg bg-[#F0FDF4] text-[#059669] border border-[#BBF7D0] hover:bg-[#DCFCE7] font-semibold">
-                      내 리뷰 페이지
-                    </button>
-                  )}
-                  {storeInfo.naverUrl && (
-                    <button
-                      onClick={() => saveCustomUrl(storeInfo.naverUrl)}
-                      className="text-[11px] px-2.5 py-1 rounded-lg bg-[#EFF6FF] text-[#3182F6] border border-[#BFDBFE] hover:bg-[#DBEAFE] font-semibold">
-                      네이버 플레이스
-                    </button>
-                  )}
-                  <button
-                    onClick={() => saveCustomUrl('')}
-                    className="text-[11px] px-2.5 py-1 rounded-lg bg-[#F2F4F6] text-[#8B95A1] hover:bg-[#E5E8EB] font-semibold">
-                    지우기
-                  </button>
-                </div>
-              </div>
-            )}
 
-            {/* QR + 액션 */}
-            <div className="flex flex-col md:flex-row gap-6 items-start border-t border-[#F2F4F6] pt-5">
-              {/* QR 이미지 */}
+              {/* SEO 키워드 */}
+              <div className="bg-white rounded-2xl p-6 shadow-sm">
+                <div className="flex items-center gap-2 mb-5">
+                  <div className="w-8 h-8 rounded-xl bg-[#EFF6FF] flex items-center justify-center text-base">🔑</div>
+                  <div>
+                    <h3 className="font-bold text-[#191F28]">SEO 키워드 세팅</h3>
+                    <p className="text-xs text-[#8B95A1]">AI가 리뷰 생성 시 자동으로 활용합니다</p>
+                  </div>
+                </div>
+
+                {/* 상위노출 키워드 */}
+                <div className="mb-4">
+                  <label className="block text-sm font-semibold text-[#191F28] mb-2">
+                    상위노출 키워드
+                    <span className="text-xs font-normal text-[#8B95A1] ml-2">가장 중요한 키워드 1개</span>
+                  </label>
+                  <input
+                    value={settings.mainKeyword}
+                    onChange={e => saveSetting('mainKeyword', e.target.value)}
+                    onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur() }}
+                    placeholder="예: 부천맛집"
+                    className="w-full border-2 border-[#3182F6] rounded-xl px-4 py-3 text-sm focus:outline-none bg-[#F8FAFF] font-medium placeholder-[#C9CDD2]"
+                  />
+                </div>
+
+                {/* 대표 키워드 (서브) */}
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <label className="text-sm font-semibold text-[#191F28]">대표 키워드</label>
+                    <span className="text-xs text-[#8B95A1]">(최대 5개 · Enter 또는 쉼표로 추가)</span>
+                  </div>
+                  <div
+                    onClick={() => kwInputRef.current?.focus()}
+                    className={`flex flex-wrap gap-2 p-3 border-2 rounded-xl bg-white min-h-[52px] transition-colors cursor-text ${
+                      settings.subKeywords.length >= 5 ? 'border-[#E5E8EB] bg-[#F8F9FA]' : 'border-[#E5E8EB] focus-within:border-[#3182F6]'
+                    }`}>
+                    {settings.subKeywords.map(kw => (
+                      <span key={kw}
+                        className="flex items-center gap-1.5 px-3 py-1.5 bg-[#EFF6FF] text-[#3182F6] text-sm rounded-full font-medium flex-shrink-0 border border-[#BFDBFE]">
+                        #{kw}
+                        <button onClick={e => { e.stopPropagation(); removeSubKw(kw) }}
+                          className="text-[#3182F6]/60 hover:text-[#3182F6] font-black text-base leading-none">×</button>
+                      </span>
+                    ))}
+                    {settings.subKeywords.length < 5 && (
+                      <input
+                        ref={kwInputRef}
+                        value={settings.subKwInput}
+                        onChange={e => saveSetting('subKwInput', e.target.value)}
+                        onKeyDown={handleSubKwKeyDown}
+                        onBlur={() => { if (settings.subKwInput.trim()) addSubKw(settings.subKwInput) }}
+                        placeholder={settings.subKeywords.length === 0 ? "예: 부천카페, 오므라이스, 데이트코스" : "추가 입력..."}
+                        className="flex-1 min-w-[120px] outline-none text-sm py-1 bg-transparent placeholder-[#C9CDD2]"
+                      />
+                    )}
+                  </div>
+                  <p className="text-[11px] text-[#8B95A1] mt-1.5 pl-1">
+                    {settings.subKeywords.length}/5개 등록됨
+                  </p>
+                </div>
+
+                {/* AI 추천 키워드 */}
+                {suggestedKws.length > 0 && (
+                  <div className="mt-4 p-3.5 bg-gradient-to-r from-[#F0FDF4] to-[#ECFDF5] rounded-xl border border-[#BBF7D0]">
+                    <div className="flex items-center gap-2 mb-2">
+                      <span className="text-sm">🤖</span>
+                      <p className="text-xs font-bold text-[#059669]">AI 추천 키워드</p>
+                      <span className="text-[10px] px-1.5 py-0.5 bg-[#059669] text-white rounded font-bold">자동</span>
+                    </div>
+                    <p className="text-[11px] text-[#4E5968] mb-2">
+                      네이버 연동 정보 기반으로 추천된 키워드에요. 클릭하면 추가돼요.
+                    </p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {suggestedKws.filter(kw => kw !== settings.mainKeyword && !settings.subKeywords.includes(kw)).map(kw => (
+                        <button
+                          key={kw}
+                          onClick={() => {
+                            if (settings.subKeywords.length < 5) {
+                              const next = { ...settings, subKeywords: [...settings.subKeywords, kw] }
+                              saveSettings(next)
+                            }
+                          }}
+                          disabled={settings.subKeywords.length >= 5}
+                          className="text-xs px-2.5 py-1.5 bg-white text-[#059669] rounded-full font-medium border border-[#BBF7D0] hover:bg-[#DCFCE7] transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                        >
+                          + {kw}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* 키워드 미리보기 */}
+                {(settings.mainKeyword || settings.subKeywords.length > 0) && (
+                  <div className="mt-4 p-3 bg-[#F8FAFF] rounded-xl border border-[#BFDBFE]">
+                    <p className="text-xs font-semibold text-[#3182F6] mb-2">리뷰 생성 시 활용될 키워드 미리보기</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {settings.mainKeyword && (
+                        <span className="text-xs px-2.5 py-1 bg-[#3182F6] text-white rounded-full font-semibold">#{settings.mainKeyword}</span>
+                      )}
+                      {settings.subKeywords.map(kw => (
+                        <span key={kw} className="text-xs px-2.5 py-1 bg-white text-[#3182F6] rounded-full font-medium border border-[#BFDBFE]">#{kw}</span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* 우측 */}
+            <div className="space-y-5">
+
+              {/* AI 톤 안내 (전역 설정) */}
+              <div className="bg-gradient-to-br from-[#EFF6FF] to-[#F8FBFF] rounded-2xl p-5 border border-[#BFDBFE]">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="text-xl">🤖</span>
+                  <h3 className="font-bold text-[#191F28]">AI 리뷰 생성 톤</h3>
+                </div>
+                <p className="text-sm text-[#4E5968] mb-3 leading-relaxed">
+                  현재 전역 설정: <span className="font-bold text-[#3182F6]">{toneLabel[globalTone] || '친근하게'}</span>
+                </p>
+                <p className="text-xs text-[#8B95A1] mb-3">
+                  AI 톤은 설정 페이지에서 통합 관리됩니다. 변경하면 모든 AI 기능에 동일하게 적용돼요.
+                </p>
+                <a href="/settings?tab=ai"
+                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#3182F6] bg-white px-4 py-2 rounded-xl border border-[#BFDBFE] hover:bg-[#EFF6FF] transition-colors">
+                  ⚙️ AI 설정 변경하기
+                </a>
+              </div>
+
+              {/* 보상 설정 */}
+              <div className="bg-white rounded-2xl p-6 shadow-sm">
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="w-8 h-8 rounded-xl bg-[#FFF7ED] flex items-center justify-center text-base">🎁</div>
+                  <div>
+                    <h3 className="font-bold text-[#191F28]">고객 보상 설정</h3>
+                    <p className="text-xs text-[#8B95A1]">리뷰 작성 시 제공할 혜택</p>
+                  </div>
+                </div>
+                <div className="space-y-3">
+                  {[
+                    { value: 'none',    label: '없음',       desc: '순수 ���뷰 유도' },
+                    { value: 'coupon',  label: '쿠폰 제공',  desc: '할인 쿠폰 증정' },
+                    { value: 'stamp',   label: '스탬프',     desc: '스탬프 적립' },
+                    { value: 'free',    label: '서비스 제공', desc: '음료/디저트 서비스' },
+                  ].map(opt => (
+                    <label key={opt.value}
+                      className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-colors ${
+                        settings.rewardType === opt.value
+                          ? 'border-[#3182F6] bg-[#EFF6FF]'
+                          : 'border-[#E5E8EB] hover:border-[#BFDBFE]'
+                      }`}>
+                      <input type="radio" name="reward"
+                        checked={settings.rewardType === opt.value}
+                        onChange={() => saveSetting('rewardType', opt.value)}
+                        className="accent-[#3182F6]"
+                      />
+                      <div>
+                        <p className="text-sm font-semibold text-[#191F28]">{opt.label}</p>
+                        <p className="text-xs text-[#8B95A1]">{opt.desc}</p>
+                      </div>
+                    </label>
+                  ))}
+                </div>
+                {settings.rewardType !== 'none' && (
+                  <div className="mt-3">
+                    <input
+                      value={settings.rewardValue}
+                      onChange={e => saveSetting('rewardValue', e.target.value)}
+                      placeholder={
+                        settings.rewardType === 'coupon' ? '예: 아메리카노 10% 할인'
+                        : settings.rewardType === 'stamp' ? '예: 도장 1개 추가'
+                        : '예: 아이스크림 서비스'
+                      }
+                      className="w-full border border-[#E5E8EB] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#3182F6] transition-colors placeholder-[#C9CDD2]"
+                    />
+                  </div>
+                )}
+              </div>
+
+              {/* AI 리뷰 미리보기 */}
+              <div className="bg-white rounded-2xl p-6 shadow-sm">
+                <div className="flex items-center gap-2 mb-4">
+                  <div className="w-8 h-8 rounded-xl bg-[#F5F3FF] flex items-center justify-center text-base">✨</div>
+                  <h3 className="font-bold text-[#191F28]">AI 리뷰 미리보기</h3>
+                </div>
+                <div className="bg-[#F8FAFF] rounded-xl p-4 border border-[#BFDBFE] text-sm text-[#191F28] leading-relaxed italic">
+                  {settings.mainKeyword
+                    ? (() => {
+                        const kws = [settings.mainKeyword, ...settings.subKeywords].filter(Boolean)
+                        const kwStr = kws.slice(0, 3).map(k => '#' + k).join(' ')
+                        const reward = settings.rewardType !== 'none' && settings.rewardValue
+                          ? settings.rewardValue + '도 받아서 ' : ''
+                        const storeName = storeInfo.connected ? storeInfo.name + ' ' : ''
+                        return `${storeName}정말 좋은 경험이었어요! ${reward}기분 좋게 방문했습니다. 분위기도 좋고 직원분들도 친절해서 또 오고 싶어요 😊 ${kwStr}`
+                      })()
+                    : '키워드를 입력하면 AI 리뷰 미리보기가 표시됩니다...'
+                  }
+                </div>
+                <p className="text-[11px] text-[#8B95A1] mt-2 text-center">
+                  실제 생성 시 톤({toneLabel[globalTone] || '친근하게'})이 적용됩니다
+                </p>
+              </div>
+
+              {/* 저장 */}
+              <button onClick={handleSaveSettings}
+                className={`w-full py-3.5 rounded-xl font-bold text-base transition-colors ${
+                  saved ? 'bg-green-500 text-white' : 'bg-[#191F28] text-white hover:bg-[#333D4B]'
+                }`}>
+                {saved ? '✅ 저장됨' : '설정 저장��기'}
+              </button>
+            </div>
+          </div>
+        )})()}
+
+        {/* ═══════════════════════════════════════════════════════
+             내 리뷰 QR 코드 (자동 생성 · 단일)
+           ═══════════════════════════════════════════════════════ */}
+        <div className="mt-6 bg-white rounded-2xl p-6 shadow-sm">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-xl">📱</span>
+            <h3 className="font-bold text-[#191F28]">내 리뷰 QR 코드</h3>
+            {storeInfo.connected && (
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#ECFDF5] text-[#059669] font-bold">자동 연동됨</span>
+            )}
+          </div>
+          <p className="text-xs text-[#8B95A1] mb-4">
+            {storeInfo.connected
+              ? '연동된 네이버 업체 정보가 자동으로 반영됩니다. 다운로드 후 매장에 부착하세요.'
+              : '업체를 먼저 연동하면 QR이 생성됩니다.'}
+          </p>
+
+          {storeInfo.connected ? (
+            <div className="flex flex-col md:flex-row gap-6 items-start">
+              {/* QR */}
               <div className="p-4 bg-white rounded-2xl border-2 border-[#E5E8EB] shadow-sm shrink-0 mx-auto md:mx-0">
-                <QRCodeImage url={activeUrl} size={200} />
+                <QRCodeImage url={buildReviewUrl(storeInfo, settings)} size={200} />
               </div>
 
               {/* 정보 + 버튼 */}
               <div className="flex-1 min-w-0 w-full space-y-3">
-                <div>
-                  <p className="text-[11px] text-[#8B95A1] font-bold mb-1">생성된 QR URL</p>
-                  <div className="flex items-center gap-1.5">
-                    <p className="flex-1 text-xs text-[#3182F6] break-all font-mono bg-[#F8FAFF] rounded-lg p-2.5 border border-[#E5E8EB] min-h-[42px]">
-                      {activeUrl || <span className="text-[#C9CDD2]">URL이 설정되면 여기에 표시됩니다</span>}
-                    </p>
-                    <button
-                      onClick={copyUrl}
-                      disabled={!activeUrl}
-                      className={`shrink-0 px-3 py-2.5 rounded-lg text-xs font-bold transition-colors ${
-                        urlCopied ? 'bg-[#059669] text-white' :
-                        activeUrl ? 'bg-[#EFF6FF] text-[#3182F6] hover:bg-[#DBEAFE]' : 'bg-[#F2F4F6] text-[#C9CDD2] cursor-not-allowed'
-                      }`}>
-                      {urlCopied ? '✓ 복사됨' : '📋 복사'}
-                    </button>
+                <div className="space-y-1.5">
+                  <div className="flex items-start gap-2">
+                    <span className="text-[11px] text-[#8B95A1] font-semibold w-16 shrink-0 mt-0.5">상호</span>
+                    <span className="text-sm font-bold text-[#191F28]">{storeInfo.name}</span>
+                  </div>
+                  {storeInfo.category && (
+                    <div className="flex items-start gap-2">
+                      <span className="text-[11px] text-[#8B95A1] font-semibold w-16 shrink-0 mt-0.5">업종</span>
+                      <span className="text-sm text-[#4E5968]">{storeInfo.category}</span>
+                    </div>
+                  )}
+                  {storeInfo.location && (
+                    <div className="flex items-start gap-2">
+                      <span className="text-[11px] text-[#8B95A1] font-semibold w-16 shrink-0 mt-0.5">위치</span>
+                      <span className="text-sm text-[#4E5968]">{storeInfo.location}</span>
+                    </div>
+                  )}
+                  {storeInfo.naverPlaceId && (
+                    <div className="flex items-start gap-2">
+                      <span className="text-[11px] text-[#8B95A1] font-semibold w-16 shrink-0 mt-0.5">Place mid</span>
+                      <span className="text-sm text-[#4E5968] font-mono">{storeInfo.naverPlaceId}</span>
+                    </div>
+                  )}
+                  <div className="flex items-start gap-2">
+                    <span className="text-[11px] text-[#8B95A1] font-semibold w-16 shrink-0 mt-0.5">리뷰 URL</span>
+                    <span className="text-[11px] text-[#3182F6] break-all font-mono">
+                      {buildReviewUrl(storeInfo, settings).replace(/^https?:\/\//, '').slice(0, 60)}...
+                    </span>
                   </div>
                 </div>
 
-                <div className="grid grid-cols-2 gap-2">
+                <div className="grid grid-cols-2 gap-2 pt-2">
                   <button
-                    onClick={() => downloadQR(activeUrl, safeFileName(storeInfo.name || 'qr') + '-review-qr')}
-                    disabled={!activeUrl}
-                    className={`py-3 rounded-xl text-sm font-bold transition-colors ${
-                      activeUrl ? 'bg-[#3182F6] text-white hover:bg-[#1B64DA]' : 'bg-[#F2F4F6] text-[#C9CDD2] cursor-not-allowed'
-                    }`}>
+                    onClick={() => downloadQR(buildReviewUrl(storeInfo, settings), safeFileName(storeInfo.name) + '-review-qr')}
+                    className="py-3 rounded-xl text-sm font-bold bg-[#3182F6] text-white hover:bg-[#1B64DA] transition-colors">
                     📥 PNG 저장
                   </button>
                   <button
-                    onClick={() => openPrintTemplate({ url: activeUrl, storeName: storeInfo.name || '매장' })}
-                    disabled={!activeUrl}
-                    className={`py-3 rounded-xl text-sm font-bold transition-colors ${
-                      activeUrl ? 'bg-[#12B76A] text-white hover:bg-[#0E9655]' : 'bg-[#F2F4F6] text-[#C9CDD2] cursor-not-allowed'
-                    }`}>
+                    onClick={() => openPrintTemplate({
+                      url: buildReviewUrl(storeInfo, settings),
+                      storeName: storeInfo.name,
+                      keyword: settings.mainKeyword,
+                      rewardType: settings.rewardType,
+                      rewardValue: settings.rewardValue,
+                    })}
+                    className="py-3 rounded-xl text-sm font-bold bg-[#12B76A] text-white hover:bg-[#0E9655] transition-colors">
                     🖨️ A4 인쇄용
                   </button>
                 </div>
-
-                {qrMode === 'linked' && storeInfo.connected && (
-                  <button
-                    onClick={() => setShowPreview(v => !v)}
-                    className="w-full py-2.5 rounded-xl text-xs font-bold bg-white border border-[#E5E8EB] text-[#4E5968] hover:bg-[#F8F9FA] transition-colors">
-                    {showPreview ? '🙈 리뷰 페이지 미리보기 닫기' : '👁️ 리뷰 페이지 미리보기 열기'}
-                  </button>
-                )}
               </div>
             </div>
-          </div>
-
-          {/* ═══════════════════════════════════════════════════════
-               3. 리뷰 페이지 미리보기 (iframe)
-             ═══════════════════════════════════════════════════════ */}
-          {showPreview && qrMode === 'linked' && storeInfo.connected && previewSrc && (
-            <div className="bg-white rounded-2xl p-6 shadow-sm mb-5">
-              <div className="flex items-center justify-between gap-2 mb-3 flex-wrap">
-                <div>
-                  <h3 className="font-bold text-[#191F28] flex items-center gap-2">
-                    <span>👁️</span> 리뷰 페이지 미리보기
-                  </h3>
-                  <p className="text-xs text-[#8B95A1] mt-0.5">고객이 QR 스캔 시 보게 될 페이지 (실제 화면)</p>
-                </div>
-                <a
-                  href={previewSrc}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-[11px] font-bold px-2.5 py-1.5 rounded-lg bg-[#EFF6FF] text-[#3182F6] hover:bg-[#DBEAFE] whitespace-nowrap">
-                  새 창에서 열기 ↗
-                </a>
-              </div>
-              <div className="relative bg-[#F2F4F6] rounded-xl p-3 border border-[#E5E8EB]">
-                <iframe
-                  src={previewSrc}
-                  title="리뷰 페이지 미리보기"
-                  className="w-full bg-white rounded-lg border border-[#E5E8EB]"
-                  style={{ height: '680px' }}
-                  sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox"
-                />
-              </div>
-              <p className="text-[11px] text-[#8B95A1] mt-2 text-center">
-                ※ 실제 배포 페이지가 iframe으로 로드됩니다. QR 스캔 경험과 동일해요.
-              </p>
+          ) : (
+            <div className="bg-[#F8F9FA] rounded-xl p-6 text-center">
+              <div className="text-3xl mb-2">🔌</div>
+              <p className="text-sm text-[#4E5968] font-semibold mb-1">업체가 아직 연동되지 않았어요</p>
+              <p className="text-xs text-[#8B95A1] mb-4">네이버 플레이스를 연결하면 QR이 자동으로 만들어집니다.</p>
+              <a href={buildSettingsHref('connect', { platform: 'naver' })}
+                className="inline-block px-4 py-2 rounded-xl bg-[#03C75A] text-white text-xs font-bold">
+                네이버 플레이스 연결하기
+              </a>
             </div>
           )}
+        </div>
 
-          {/* ═══════════════════════════════════════════════════════
-               4. QR 리뷰 생성 통계
-             ═══════════════════════════════════════════════════════ */}
-          <ReviewStatsSection storeName={storeInfo.name} />
+        {/* ── QR 리뷰 생성 통계 (/review/[storeId] 제출 데이터 집계) ── */}
+        <ReviewStatsSection storeName={storeInfo.name} />
 
         </div>
         <Footer />
-      </main>
+</main>
+
+{/* ── QR 다운로드 미리보기 모달 ── */}
+      {previewQR && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
+          <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl">
+            <div className="flex items-center justify-between p-6 border-b border-[#F2F4F6]">
+              <h2 className="font-bold text-[#191F28]">{previewQR.name}</h2>
+              <button onClick={() => setPreviewQR(null)} className="text-[#8B95A1] hover:text-[#191F28] text-2xl leading-none">×</button>
+            </div>
+            <div className="p-6 flex flex-col items-center gap-4">
+              <div className="p-4 bg-white rounded-2xl border-2 border-[#E5E8EB] shadow-sm">
+                {storeInfo.connected
+                  ? <QRCodeImage url={buildReviewUrl(storeInfo, { ...settings, mainKeyword: previewQR.keyword || settings.mainKeyword })} size={180} />
+                  : <QRPreview text={previewQR.name + previewQR.keyword} size={180} />
+                }
+              </div>
+              {storeInfo.connected && (
+                <p className="text-[10px] text-[#8B95A1] text-center break-all max-w-[260px] leading-relaxed">
+                  {buildReviewUrl(storeInfo, { ...settings, mainKeyword: previewQR.keyword || settings.mainKeyword }).slice(0, 80)}...
+                </p>
+              )}
+              {previewQR.keyword && (
+                <span className="text-xs px-3 py-1.5 rounded-full bg-[#EFF6FF] text-[#3182F6] font-semibold">#{previewQR.keyword}</span>
+              )}
+              <p className="text-xs text-[#8B95A1] text-center">
+                스캔 시 AI가 자동으로 리뷰 초안을 생성해드려요
+              </p>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-2 w-full">
+                <button
+                  onClick={() => setPreviewQR(null)}
+                  className="py-3 rounded-xl text-sm font-semibold bg-[#F2F4F6] text-[#4E5968] hover:bg-[#E5E8EB] transition-colors">
+                  닫기
+                </button>
+                <button
+                  onClick={() => {
+                    if (storeInfo.connected) {
+                      downloadQR(buildReviewUrl(storeInfo, { ...settings, mainKeyword: previewQR.keyword || settings.mainKeyword }), safeFileName(previewQR.name))
+                    }
+                  }}
+                  disabled={!storeInfo.connected}
+                  className={'py-3 rounded-xl text-sm font-semibold transition-colors ' + (storeInfo.connected ? 'bg-[#3182F6] text-white hover:bg-[#1B64DA]' : 'bg-[#E5E8EB] text-[#8B95A1] cursor-not-allowed')}>
+                  ���� PNG 저장
+                </button>
+                <button
+                  onClick={() => {
+                    if (storeInfo.connected) {
+                      openPrintTemplate({
+                        url: buildReviewUrl(storeInfo, { ...settings, mainKeyword: previewQR.keyword || settings.mainKeyword }),
+                        storeName: storeInfo.name,
+                        keyword: previewQR.keyword || settings.mainKeyword,
+                        rewardType: settings.rewardType,
+                        rewardValue: settings.rewardValue,
+                      })
+                    }
+                  }}
+                  disabled={!storeInfo.connected}
+                  className={'py-3 rounded-xl text-sm font-semibold transition-colors ' + (storeInfo.connected ? 'bg-[#12B76A] text-white hover:bg-[#0E9655]' : 'bg-[#E5E8EB] text-[#8B95A1] cursor-not-allowed')}>
+                  🖨️ A4 인쇄용
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
+
