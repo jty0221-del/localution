@@ -9,6 +9,7 @@ import Footer from '../components/Footer'
 import { useConnections, PlatformId } from '../lib/connections'
 import { TABS, TAB_HERO, resolveTab, type Tab } from '../lib/settings-tabs'
 import { toast, confirmDialog, promptDialog } from '../lib/toast'
+import { INDUSTRY_CATALOG, INDUSTRY_LABELS, DEFAULT_INDUSTRY_GROUP_ID, findIndustryGroup } from '../lib/industry-catalog'
 
 // 토스페이먼츠 — 공식 SDK 테스트 클라이언트 키 (공개됨)
 // 실서비스 전환 시 env에서 주입: NEXT_PUBLIC_TOSS_CLIENT_KEY
@@ -168,7 +169,7 @@ function StoreTab() {
         setSynced(false)
       }
     } catch {
-      setSyncError('네트워크 오류가 발생했습니다. 잠시 후 다시 시도해주세요.')
+      setSyncError('네트워크 오류가 발생했습니���. 잠시 후 다시 시도해주세요.')
     } finally {
       setSyncing(false)
     }
@@ -443,6 +444,8 @@ function AITab() {
   const [age, setAge] = useState('none')
   const [autoReply, setAutoReply] = useState(false)
   const [bizType, setBizType] = useState('')
+  const [industryGroup, setIndustryGroup] = useState<string>(DEFAULT_INDUSTRY_GROUP_ID)
+  const [industrySearch, setIndustrySearch] = useState('')
   const [storeDesc, setStoreDesc] = useState('')
   const [closing, setClosing] = useState('')
   const [excludes, setExcludes] = useState('')
@@ -481,14 +484,101 @@ function AITab() {
       <div className="bg-white rounded-2xl p-6 shadow-sm">
         <h3 className="font-bold text-[#191F28] mb-4">매장 기본 설정</h3>
         <div className="mb-4">
-          <label className="block text-xs font-semibold text-[#4E5968] mb-2">업종 선택</label>
-          <div className="flex flex-wrap gap-2">
-            {['카페·베이커리','음식점','헤어샵','네일샵','피부관리','마사지·스파','의원·한의원','기타'].map(b => (
-              <button key={b} onClick={() => setBizType(b)}
-                className={`px-3 py-1.5 rounded-xl text-xs font-semibold border-2 transition-colors ${bizType === b ? 'border-[#3182F6] bg-[#EFF6FF] text-[#3182F6]' : 'border-[#E5E8EB] text-[#4E5968] hover:border-[#3182F6]'}`}>
-                {b}
+          <div className="flex items-center justify-between mb-2">
+            <label className="block text-xs font-semibold text-[#4E5968]">
+              업종 선택
+              {bizType && (
+                <span className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#EFF6FF] text-[#3182F6] text-[11px] font-bold">
+                  {findIndustryGroup(bizType)?.emoji || '✓'} {bizType}
+                  <button
+                    type="button"
+                    onClick={() => setBizType('')}
+                    className="ml-1 hover:text-[#1B64DA]"
+                    aria-label="선택 해제"
+                  >×</button>
+                </span>
+              )}
+            </label>
+            <span className="text-[10px] text-[#8B95A1]">총 {INDUSTRY_LABELS.length}개 업종</span>
+          </div>
+
+          {/* 대분류 탭 */}
+          <div className="flex flex-wrap gap-1.5 mb-3 pb-3 border-b border-[#F1F3F5]">
+            {INDUSTRY_CATALOG.map(g => (
+              <button
+                key={g.id}
+                type="button"
+                onClick={() => { setIndustryGroup(g.id); setIndustrySearch('') }}
+                title={g.desc}
+                className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-colors ${industryGroup === g.id ? 'border-[#3182F6] bg-[#3182F6] text-white' : 'border-[#E5E8EB] text-[#4E5968] hover:border-[#3182F6] hover:text-[#3182F6]'}`}
+              >
+                <span className="mr-1">{g.emoji}</span>{g.label}
               </button>
             ))}
+          </div>
+
+          {/* 소분류 pills */}
+          {!industrySearch && (
+            <div className="flex flex-wrap gap-1.5 max-h-44 overflow-y-auto pr-1">
+              {(INDUSTRY_CATALOG.find(g => g.id === industryGroup)?.items || []).map(item => (
+                <button
+                  key={item}
+                  type="button"
+                  onClick={() => setBizType(item)}
+                  className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-colors ${bizType === item ? 'border-[#3182F6] bg-[#EFF6FF] text-[#3182F6]' : 'border-[#E5E8EB] text-[#4E5968] hover:border-[#BFDBFE]'}`}
+                >
+                  {item}
+                </button>
+              ))}
+            </div>
+          )}
+
+          {/* 전체 업종 검색 */}
+          <div className="mt-3">
+            <div className="relative">
+              <input
+                type="text"
+                value={industrySearch}
+                onChange={e => setIndustrySearch(e.target.value)}
+                placeholder="업종 직접 검색 (예: 치과, 필라테스, 인테리어)"
+                className="w-full border border-[#E5E8EB] rounded-lg px-3 py-2 pr-8 text-xs focus:outline-none focus:border-[#3182F6] transition-colors"
+              />
+              {industrySearch && (
+                <button
+                  type="button"
+                  onClick={() => setIndustrySearch('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-[#8B95A1] hover:text-[#4E5968]"
+                  aria-label="검색 초기화"
+                >×</button>
+              )}
+            </div>
+            {industrySearch && (
+              <div className="mt-2 flex flex-wrap gap-1.5 max-h-44 overflow-y-auto pr-1">
+                {INDUSTRY_LABELS
+                  .filter(l => l.toLowerCase().includes(industrySearch.toLowerCase()))
+                  .slice(0, 40)
+                  .map(l => {
+                    const grp = findIndustryGroup(l)
+                    return (
+                      <button
+                        key={l}
+                        type="button"
+                        onClick={() => {
+                          setBizType(l)
+                          if (grp) setIndustryGroup(grp.id)
+                          setIndustrySearch('')
+                        }}
+                        className={`px-2.5 py-1 rounded-lg text-[11px] font-semibold border transition-colors ${bizType === l ? 'border-[#3182F6] bg-[#EFF6FF] text-[#3182F6]' : 'border-[#E5E8EB] text-[#4E5968] hover:border-[#BFDBFE]'}`}
+                      >
+                        {grp?.emoji} {l}
+                      </button>
+                    )
+                  })}
+                {INDUSTRY_LABELS.filter(l => l.toLowerCase().includes(industrySearch.toLowerCase())).length === 0 && (
+                  <span className="text-[11px] text-[#8B95A1] py-1">검색 결과 없음 — 아래 매장 소개에 자유롭게 입력하세요</span>
+                )}
+              </div>
+            )}
           </div>
         </div>
         <div>
@@ -589,7 +679,7 @@ function AITab() {
             { k:'mention',     label:'리뷰 내용 직접 언급',   desc:'고객이 언급한 메뉴·서비스 호응' },
             { k:'personalize', label:'닉네임 개인화 인사',    desc:'"OO님," 으로 시작' },
             { k:'improve',     label:'개선 의지 표현',        desc:'부정 리뷰 시 진정성 있는 사과' },
-            { k:'keyword',     label:'키워드 자연 포함',      desc:'SEO 핵심 키워드 1~2회 삽입' },
+            { k:'keyword',     label:'키��드 자연 포함',      desc:'SEO 핵심 키워드 1~2회 삽입' },
           ] as { k: keyof typeof includes; label: string; desc: string }[]).map(item => (
             <div key={item.k} className="flex items-center justify-between">
               <div>
@@ -746,7 +836,7 @@ function ConnectTab() {
       {/* 헤더 + 카운터 */}
       <div className="bg-white rounded-2xl p-4 md:p-5 border border-[#E5E8EB]">
         <div className="flex items-center justify-between gap-3 mb-1">
-          <h2 className="font-bold text-[#191F28]">플랫폼 연동 관리</h2>
+          <h2 className="font-bold text-[#191F28]">플랫폼 연동 관��</h2>
           <span className="text-xs font-bold text-[#3182F6] bg-[#EFF6FF] px-2.5 py-1 rounded-full whitespace-nowrap">
             {connectedCount} / {PLATFORMS_8.length} 연결됨
           </span>
@@ -979,7 +1069,7 @@ function PlanTab() {
           )}
           <div className="bg-blue-50 rounded-xl p-3 mb-4 text-xs text-[#3182F6] leading-relaxed">
             <p className="font-semibold mb-0.5">🎁 베타 오픈 기념 — 전 기능 무료 이용 중</p>
-            <p className="text-[#4E5968]">정식 요금제는 <Link href="/pricing" className="underline font-semibold text-[#3182F6]">요금제 페이지</Link>에서 미리 확인하실 수 있어요. 금액은 임시이며, 베타 종료 전 사전 공지드립니다.</p>
+            <p className="text-[#4E5968]">정식 요금제�� <Link href="/pricing" className="underline font-semibold text-[#3182F6]">요금제 페이지</Link>에서 미리 확인하실 수 있어요. 금액은 임시이며, 베타 종료 전 사전 공지드립니다.</p>
           </div>
           <div className="flex items-center justify-between border-t border-[#F2F4F6] pt-4">
             <p className="text-xs text-[#8B95A1]">포함: 리뷰·CRM·QR·키워드·블로그·SNS 등 12개 전체</p>
@@ -1158,7 +1248,7 @@ function PlanTab() {
               </div>
               {nextTier ? (
                 <p className="text-xs text-[#3182F6] bg-blue-50 rounded-lg px-3 py-2 mb-3 text-center font-semibold">
-                  정식 요금 시 <b>{nextTier.need}개</b> 더 담으면 <b>{nextTier.rate}%</b> 할인 예정
+                  정식 요금 시 <b>{nextTier.need}개</b> 더 담으면 <b>{nextTier.rate}%</b> ��인 예정
                 </p>
               ) : (
                 <p className="text-xs text-green-600 bg-green-50 rounded-lg px-3 py-2 mb-3 text-center font-semibold">최대 할인 티어(20%) 달성!</p>
