@@ -20,13 +20,15 @@ import Sidebar from '../../components/Sidebar'
 import PageHeader from '../../components/PageHeader'
 import Footer from '../../components/Footer'
 import KakaoAlertBanner from './_components/KakaoAlertBanner'
+import KeywordChangeTable from './_components/KeywordChangeTable'
 import {
   ArrowRight, TrendingUp, Plus, RefreshCw, Loader2, Trash2,
   ExternalLink, CheckCircle2, AlertCircle, Link as LinkIcon,
   Search, Eye, ChevronDown, ChevronUp, Clock, Activity,
+  BarChart3,
 } from 'lucide-react'
 
-// ─────────────────────���───────────────────────────────────────
+// ─────────────────────���──────────────────────────────────────��
 // 타입 (API 응답과 1:1 매칭) — v2 (18차-4): rank_hits jsonb 포함
 // ─────────────────────────────────────────────────────────────
 type Section = 'popular_post' | 'smart_block' | 'blog_tab' | 'not_found' | string
@@ -131,7 +133,7 @@ function shortenUrl(url: string): string {
   } catch { return url.length > 44 ? url.slice(0, 44) + '…' : url }
 }
 
-// ─────────────────────────────────────────────────────────────
+// ───────────────────────────────────────────��─────────────────
 // 메인 ��포넌트
 // ─────────────────────────────────────────────────────────────
 export default function BlogTrackingPage() {
@@ -151,6 +153,10 @@ export default function BlogTrackingPage() {
 
   // 일괄 체크
   const [bulkChecking, setBulkChecking] = useState(false)
+
+  // 20차-1: 키워드 변동 요약표 토글
+  const [showTable, setShowTable]             = useState(false)
+  const [tableReloadToken, setTableReloadToken] = useState(0)
 
   // 카드별 상태
   const [checkingIds, setCheckingIds] = useState<Set<string>>(new Set())
@@ -274,6 +280,7 @@ export default function BlogTrackingPage() {
       const j = await res.json()
       if (!res.ok) throw new Error(j.error || `HTTP ${res.status}`)
       await load()
+      setTableReloadToken(t => t + 1)
     } catch (e) {
       alert(e instanceof Error ? e.message : '전체 순위 조회 실패')
     } finally {
@@ -346,6 +353,19 @@ export default function BlogTrackingPage() {
             </div>
             <div className="flex items-center gap-2">
               <button
+                onClick={() => setShowTable(v => !v)}
+                disabled={!targets.length}
+                className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border text-sm font-semibold transition disabled:opacity-40 disabled:cursor-not-allowed ${
+                  showTable
+                    ? 'bg-[#3182F6] border-[#3182F6] text-white hover:bg-[#1B64DA]'
+                    : 'bg-white border-[#E5E8EB] text-[#4E5968] hover:text-[#191F28] hover:border-[#3182F6]'
+                }`}
+                title="기간별 순위 변동을 표·스파크라인으로 보기"
+              >
+                <BarChart3 size={14} />
+                {showTable ? '변동 표 닫기' : '변동 보기'}
+              </button>
+              <button
                 onClick={handleCheckAll}
                 disabled={bulkChecking || !targets.length}
                 className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl border border-[#E5E8EB] bg-white text-sm font-semibold text-[#4E5968] hover:text-[#191F28] hover:border-[#3182F6] disabled:opacity-40 disabled:cursor-not-allowed transition"
@@ -365,6 +385,14 @@ export default function BlogTrackingPage() {
 
           {/* 카카오톡 알림 연결 배너 (18차-5) */}
           <KakaoAlertBanner />
+
+          {/* 키워드 변동 요약표 (20차-1) — 토글 */}
+          {showTable && (
+            <KeywordChangeTable
+              reloadToken={tableReloadToken}
+              onClose={() => setShowTable(false)}
+            />
+          )}
 
           {/* 자동 체크 상태 카드 (18차-3) */}
           {cron?.enabled && (
@@ -438,7 +466,7 @@ export default function BlogTrackingPage() {
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
                 <div>
-                  <label className="block text-xs font-semibold text-[#4E5968] mb-1.5">라벨 *</label>
+                  <label className="block text-xs font-semibold text-[#4E5968] mb-1.5">라�� *</label>
                   <input
                     type="text"
                     value={fLabel}
@@ -696,7 +724,7 @@ export default function BlogTrackingPage() {
 
 // ─────────────────────────────────────────────────────────────
 // 빈 상태
-// ─────────────────────────────────────────────────────────────
+// ───────────────────────────────���─────────────────────────────
 function EmptyState({ onCreate }: { onCreate: () => void }) {
   return (
     <div className="bg-white border border-[#E5E8EB] rounded-2xl p-10 text-center">
@@ -723,7 +751,7 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
 
 // ─────────────────────────────────────────────────────────────
 // 스파크라인 (최근 20건, 미노출은 회색 점)
-//   · 독립 SVG, recharts 불필요
+//   · ��립 SVG, recharts ��필요
 // ─────────────────────────────────────────────────────────────
 function Sparkline({ history }: { history: HistoryPoint[] }) {
   // 최신이 앞이므로 뒤집어서 시간순
@@ -844,7 +872,7 @@ function BlockHitsSummary({
 
 // ─────────────────────────────────────────────────────────────
 // 최신 스냅샷 상세 (확장 패널 최상단)
-//   · history 의 첫 항목(최신)을 기준으로 스마트블록 전체 + 블로그탭을 표로
+//   �� history 의 첫 항목(최신)을 기준으로 스마트블록 전체 + 블로그탭을 표로
 //   · 내 글 순위뿐 아니라 그 블록에 몇 개가 있는지 (items) 도 같이 표시
 // ─────────────────────────────────────────────────────────────
 function BlockSnapshotDetail({ history }: { history: HistoryPoint[] }) {
