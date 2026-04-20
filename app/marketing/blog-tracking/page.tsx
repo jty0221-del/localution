@@ -19,13 +19,14 @@ import Link from 'next/link'
 import Sidebar from '../../components/Sidebar'
 import PageHeader from '../../components/PageHeader'
 import Footer from '../../components/Footer'
+import KakaoAlertBanner from './_components/KakaoAlertBanner'
 import {
   ArrowRight, TrendingUp, Plus, RefreshCw, Loader2, Trash2,
   ExternalLink, CheckCircle2, AlertCircle, Link as LinkIcon,
   Search, Eye, ChevronDown, ChevronUp, Clock, Activity,
 } from 'lucide-react'
 
-// ─────────────────────────────────────────────────────────────
+// ─────────────────────���───────────────────────────────────────
 // 타입 (API 응답과 1:1 매칭) — v2 (18차-4): rank_hits jsonb 포함
 // ─────────────────────────────────────────────────────────────
 type Section = 'popular_post' | 'smart_block' | 'blog_tab' | 'not_found' | string
@@ -131,7 +132,7 @@ function shortenUrl(url: string): string {
 }
 
 // ─────────────────────────────────────────────────────────────
-// 메인 컴포넌트
+// 메인 ��포넌트
 // ─────────────────────────────────────────────────────────────
 export default function BlogTrackingPage() {
   const [targets, setTargets]   = useState<TargetRow[]>([])
@@ -361,6 +362,9 @@ export default function BlogTrackingPage() {
               </button>
             </div>
           </div>
+
+          {/* 카카오톡 알림 연결 배너 (18차-5) */}
+          <KakaoAlertBanner />
 
           {/* 자동 체크 상태 카드 (18차-3) */}
           {cron?.enabled && (
@@ -886,7 +890,7 @@ function BlockSnapshotDetail({ history }: { history: HistoryPoint[] }) {
                 </span>
               </div>
               <div className="flex-shrink-0 text-[10px] text-[#8B95A1] flex items-center gap-1.5">
-                <span>총 {b.items}개</span>
+                <span>총 {b.items}���</span>
                 <span className={
                   hit
                     ? 'px-1.5 py-0.5 rounded bg-[#03C75A] text-white font-black text-[10px]'
