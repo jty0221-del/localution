@@ -19,6 +19,7 @@ const PROTECTED_PREFIXES = [
   '/settlement',
   '/my',
   '/reservations',
+  '/partner-points',
 ]
 
 function isProtected(pathname: string): boolean {
