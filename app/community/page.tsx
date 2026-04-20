@@ -11,7 +11,7 @@ import {
   LayoutGrid, Lightbulb, HelpCircle, PartyPopper, MessageCircle,
   Heart, Bookmark, Pencil, Megaphone, Search, Flame, BarChart3,
   X, Plus, ArrowRight, Play, LucideIcon, MapPin, Coins, Trophy,
-  Navigation, Loader2,
+  Navigation, Loader2, Store,
 } from 'lucide-react'
 import {
   COMMUNITY_REGIONS, regionLabel, groupedRegions, nearestRegions,
@@ -21,6 +21,9 @@ import {
   awardPoints, getBalance, readMyEmailFromCookie,
   maybeAwardFeatured, POINT_RULES, FEATURED_THRESHOLD,
 } from '../lib/points'
+import {
+  INDUSTRY_CATALOG, INDUSTRY_LABELS, DEFAULT_INDUSTRY_GROUP_ID, findIndustryGroup,
+} from '../lib/industry-catalog'
 import SlideAdBanner from '../components/SlideAdBanner'
 
 // ─── 카테고리 ─────────────────────────────────────────────────────
@@ -37,7 +40,7 @@ const CATEGORIES: Category[] = [
 // ─── 샘플 데이터 ──────────────────────────────────────────────────
 const INITIAL_POSTS: any[] = [
   {
-    id: 1, category: 'success', region_id: 'nationwide',
+    id: 1, category: 'success', region_id: 'nationwide', industry: '한식',
     author: '김사장님', avatar: '김', author_email: 'sample1@localution.co.kr',
     title: '네이버 플레이스 별점 4.2→4.8 만든 후기 공유해요',
     content: '안녕하세요! 3개월 동안 리뷰 관리를 열심히 했더니 별점이 크게 올랐어요. 핵심은 부정 리뷰에 빠르게 진심 어린 답변을 달고, 만족한 단골손님들께 자연스럽게 리뷰를 부탁드리는 거였어요. 로컬루션으로 리뷰 알림 받고 바로바로 대응한 게 정말 도움이 많이 됐습니다.',
@@ -48,7 +51,7 @@ const INITIAL_POSTS: any[] = [
     liked: false, bookmarked: false,
   },
   {
-    id: 2, category: 'tip', region_id: 'seoul-mapo',
+    id: 2, category: 'tip', region_id: 'seoul-mapo', industry: '고기집',
     author: '마케팅고수', avatar: '마', author_email: 'sample2@localution.co.kr',
     title: '인스타 릴스로 매출 30% 올린 방법 (식당 운영자)',
     content: '식당 운영 5년차입니다. 올해 초부터 릴스를 시작했는데 효과가 어마어마해요. 핵심 팁: 1) 음식 만드는 과정 ASMR 2) 사장님 얼굴 노출(친근감) 3) 자막 필수 4) 첫 3초 후킹.',
@@ -56,7 +59,7 @@ const INITIAL_POSTS: any[] = [
     liked: true, bookmarked: false,
   },
   {
-    id: 3, category: 'qna', region_id: 'seoul-gangnam',
+    id: 3, category: 'qna', region_id: 'seoul-gangnam', industry: '피부과',
     author: '초보사장', avatar: '초', author_email: 'sample3@localution.co.kr',
     title: '네이버 스마트플레이스 등록이 안 되는데 혹시 아시는 분?',
     content: '사업자등록증은 있는데 계속 반려가 되네요. 업종이 좀 특이해서 그런지... 혹시 비슷한 경험 있으신 분 도움 부탁드립니다ㅠ',
@@ -64,7 +67,7 @@ const INITIAL_POSTS: any[] = [
     liked: false, bookmarked: true,
   },
   {
-    id: 4, category: 'tip', region_id: 'busan-haeundae',
+    id: 4, category: 'tip', region_id: 'busan-haeundae', industry: '카페',
     author: '카페원장', avatar: '카', author_email: 'sample4@localution.co.kr',
     title: '단골 만드는 CRM 활용법 - 실전 경험 정리',
     content: '카페 운영하면서 고객 데이터 관리가 얼마나 중요한지 뼈저리게 느꼈어요. 생일 쿠폰, 방문 주기 파악, 선호 메뉴 기록... 이걸 체계적으로 하니까 재방문율이 확 올랐습니다.',
@@ -72,7 +75,7 @@ const INITIAL_POSTS: any[] = [
     liked: false, bookmarked: false,
   },
   {
-    id: 5, category: 'free', region_id: 'gyeonggi-bundang',
+    id: 5, category: 'free', region_id: 'gyeonggi-bundang', industry: '베이커리',
     author: '동네빵집', avatar: '동', author_email: 'sample5@localution.co.kr',
     title: '오늘 리뷰 답변하다가 감동받은 일',
     content: '별점 2점짜리 리뷰에 정성껏 답변했더니, 며칠 후 그 손님이 다시 오셔서 "사장님 답변 보고 마음 바뀌었어요"라고 하시더라구요.',
@@ -80,11 +83,27 @@ const INITIAL_POSTS: any[] = [
     liked: true, bookmarked: false,
   },
   {
-    id: 6, category: 'success', region_id: 'nationwide',
+    id: 6, category: 'success', region_id: 'nationwide', industry: '헤어샵',
     author: '뷰티샵원장', avatar: '뷰', author_email: 'sample6@localution.co.kr',
     title: 'QR코드 하나로 예약 문의 80% 줄인 방법',
     content: '손님들한테 QR 찍어서 카카오 예약 연결하도록 했더니 전화 문의가 확 줄었어요. 직접 예약이 가능하니 손님도 편하고 저도 편하고!',
     time: '4일 전', likes: 56, comments: [],
+    liked: false, bookmarked: false,
+  },
+  {
+    id: 7, category: 'tip', region_id: 'seoul-songpa', industry: '네일샵',
+    author: '네일아티', avatar: '네', author_email: 'sample7@localution.co.kr',
+    title: '네일샵 첫달 예약 30건 만든 인스타 전략',
+    content: '오픈 직후 인스타만 집중했어요. 1) 아트 영상 15초 2) 해시태그 지역 고정(#잠실네일 #송파네일) 3) 스토리 DM 할인쿠폰. 이 3개만 3주 돌렸더니 예약 꽉 찼습니다.',
+    time: '6일 전', likes: 78, comments: [],
+    liked: false, bookmarked: false,
+  },
+  {
+    id: 8, category: 'qna', region_id: 'seoul-gangnam', industry: '치과',
+    author: '치과원장', avatar: '치', author_email: 'sample8@localution.co.kr',
+    title: '치과 블로그 최적화 어느 정도 돌리면 효과 보나요',
+    content: '개원 6개월차고 블로그 주 3회 올리는데 검색 유입이 늘지 않네요. 플레이스 랭킹은 조금 오르는데 블로그는 답보입니다. 같은 진료과 원장님들 경험 공유 부탁드려요.',
+    time: '어제', likes: 18, comments: [],
     liked: false, bookmarked: false,
   },
 ]
@@ -109,6 +128,18 @@ function RegionPill({ region_id }: { region_id?: string }) {
     </span>
   )
 }
+
+function IndustryPill({ industry }: { industry?: string }) {
+  if (!industry) return null
+  const grp = findIndustryGroup(industry)
+  return (
+    <span className="inline-flex items-center gap-1 text-[11px] font-medium bg-[#FFF7ED] text-[#C2410C] px-2 py-0.5 rounded-full">
+      <span>{grp?.emoji || '🏷️'}</span>
+      {industry}
+    </span>
+  )
+}
+
 
 // 포인트 토스트(간이)
 function PointToast({ amount, label, onClose }: { amount: number; label: string; onClose: () => void }) {
@@ -135,6 +166,9 @@ function WriteModal({ onClose, onSubmit, defaultRegion }: {
   const [content, setContent] = useState('')
   const [category, setCategory] = useState('free')
   const [regionId, setRegionId] = useState(defaultRegion || 'nationwide')
+  const [industry, setIndustry] = useState<string>('')
+  const [industryGroup, setIndustryGroup] = useState<string>(DEFAULT_INDUSTRY_GROUP_ID)
+  const [industrySearch, setIndustrySearch] = useState('')
   const [media, setMedia] = useState<{ type: 'image'|'video'; url: string; name: string }[]>([])
 
   const handleFilesPicked = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -159,7 +193,7 @@ function WriteModal({ onClose, onSubmit, defaultRegion }: {
 
   const handleSubmit = () => {
     if (!title.trim() || !content.trim()) return
-    onSubmit({ title, content, category, region_id: regionId, media })
+    onSubmit({ title, content, category, region_id: regionId, industry: industry || undefined, media })
     onClose()
   }
 
@@ -194,6 +228,85 @@ function WriteModal({ onClose, onSubmit, defaultRegion }: {
               ))}
             </select>
             <p className="text-[11px] text-[#8B95A1] mt-1.5">같은 지역 사장님들만 서로 볼 수 있어요 · 전국 게시판은 누구나 열람 가능</p>
+          </div>
+
+          {/* 업종 게시판 (선택) */}
+          <div>
+            <label className="block text-sm font-medium text-[#191F28] mb-2">
+              업종 게시판 <span className="text-xs text-[#8B95A1] font-normal">(선택 · 미지정 가능)</span>
+              {industry && (
+                <span className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#FFF7ED] text-[#C2410C] text-[11px] font-bold">
+                  {findIndustryGroup(industry)?.emoji || '🏷️'} {industry}
+                  <button type="button" onClick={() => setIndustry('')} className="ml-1 hover:text-[#9A3412]">×</button>
+                </span>
+              )}
+            </label>
+
+            {/* 대분류 탭 */}
+            <div className="flex flex-wrap gap-1 mb-2 pb-2 border-b border-[#F1F3F5]">
+              {INDUSTRY_CATALOG.map(g => (
+                <button
+                  key={g.id}
+                  type="button"
+                  onClick={() => { setIndustryGroup(g.id); setIndustrySearch('') }}
+                  title={g.desc}
+                  className={`px-2 py-1 rounded-lg text-[11px] font-semibold border transition-colors ${industryGroup === g.id ? 'border-[#EA580C] bg-[#EA580C] text-white' : 'border-[#E5E8EB] text-[#4E5968] hover:border-[#EA580C] hover:text-[#EA580C]'}`}
+                >
+                  <span className="mr-0.5">{g.emoji}</span>{g.label}
+                </button>
+              ))}
+            </div>
+
+            {/* 소분류 pills */}
+            {!industrySearch && (
+              <div className="flex flex-wrap gap-1 max-h-32 overflow-y-auto pr-1">
+                {(INDUSTRY_CATALOG.find(g => g.id === industryGroup)?.items || []).map(item => (
+                  <button
+                    key={item}
+                    type="button"
+                    onClick={() => setIndustry(item)}
+                    className={`px-2 py-1 rounded-lg text-[11px] font-semibold border transition-colors ${industry === item ? 'border-[#EA580C] bg-[#FFF7ED] text-[#C2410C]' : 'border-[#E5E8EB] text-[#4E5968] hover:border-[#FED7AA]'}`}
+                  >
+                    {item}
+                  </button>
+                ))}
+              </div>
+            )}
+
+            {/* 업종 검색 */}
+            <div className="mt-2 relative">
+              <input
+                type="text"
+                value={industrySearch}
+                onChange={e => setIndustrySearch(e.target.value)}
+                placeholder="업종 직접 검색 (예: 치과, 필라테스)"
+                className="w-full border border-[#E5E8EB] rounded-lg px-3 py-2 text-xs focus:outline-none focus:border-[#EA580C] transition-colors"
+              />
+              {industrySearch && (
+                <div className="mt-2 flex flex-wrap gap-1 max-h-32 overflow-y-auto pr-1">
+                  {INDUSTRY_LABELS
+                    .filter(l => l.toLowerCase().includes(industrySearch.toLowerCase()))
+                    .slice(0, 30)
+                    .map(l => {
+                      const grp = findIndustryGroup(l)
+                      return (
+                        <button
+                          key={l}
+                          type="button"
+                          onClick={() => {
+                            setIndustry(l)
+                            if (grp) setIndustryGroup(grp.id)
+                            setIndustrySearch('')
+                          }}
+                          className={`px-2 py-1 rounded-lg text-[11px] font-semibold border transition-colors ${industry === l ? 'border-[#EA580C] bg-[#FFF7ED] text-[#C2410C]' : 'border-[#E5E8EB] text-[#4E5968] hover:border-[#FED7AA]'}`}
+                        >
+                          {grp?.emoji} {l}
+                        </button>
+                      )
+                    })}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* 카테고리 */}
@@ -293,6 +406,7 @@ function PostModal({ post, onClose, onLike, onBookmark, onComment }: any) {
               {cat?.label}
             </span>
             <RegionPill region_id={post.region_id} />
+            <IndustryPill industry={post.industry} />
             {post.featured && (
               <span className="inline-flex items-center gap-1 text-xs font-bold bg-gradient-to-r from-[#FFB703] to-[#FB8500] text-white px-2 py-1 rounded-full">
                 <Trophy size={10} strokeWidth={2.5} />인기글
@@ -393,6 +507,8 @@ export default function Community() {
   const [posts, setPosts] = useState<any[]>(INITIAL_POSTS)
   const [activeCategory, setActiveCategory] = useState('all')
   const [activeRegion, setActiveRegion] = useState<string>('nationwide')
+  const [activeIndustryGroup, setActiveIndustryGroup] = useState<string>('all')  // 'all' | IndustryGroup id
+  const [activeIndustry, setActiveIndustry] = useState<string>('all')  // 'all' | 특정 업종 라벨
   const [selectedPost, setSelectedPost] = useState<any>(null)
   const [showWrite, setShowWrite] = useState(false)
   const [searchQuery, setSearchQuery] = useState('')
@@ -506,8 +622,16 @@ export default function Community() {
     const matchCat    = activeCategory === 'all' || p.category === activeCategory
     const matchRegion = activeRegion === 'nationwide' || p.region_id === activeRegion
     const matchSearch = !searchQuery || p.title.includes(searchQuery) || p.content.includes(searchQuery)
-    return matchCat && matchRegion && matchSearch
-  }), [posts, activeCategory, activeRegion, searchQuery])
+    // 업종 필터: 전체면 통과. 특정 업종이면 정확 매칭. 대분류 그룹만 선택된 경우 그룹 내 업종 모두 매칭
+    let matchIndustry = true
+    if (activeIndustry !== 'all') {
+      matchIndustry = p.industry === activeIndustry
+    } else if (activeIndustryGroup !== 'all') {
+      const grp = INDUSTRY_CATALOG.find(g => g.id === activeIndustryGroup)
+      matchIndustry = !!(p.industry && grp && grp.items.includes(p.industry))
+    }
+    return matchCat && matchRegion && matchSearch && matchIndustry
+  }), [posts, activeCategory, activeRegion, activeIndustryGroup, activeIndustry, searchQuery])
 
   const hotPosts = useMemo(() => [...posts].sort((a, b) => b.likes - a.likes).slice(0, 3), [posts])
 
@@ -695,6 +819,51 @@ export default function Community() {
             )}
           </div>
 
+          {/* 모바일 · 태블릿 전용 업종 게시판 선택 (lg 이상은 우측 사이드바 카드로 표시) */}
+          <div className="lg:hidden bg-white rounded-2xl px-4 py-2.5 mb-4 shadow-sm border border-[#F2F4F6]">
+            <div className="flex items-center gap-2 mb-2">
+              <Store size={13} strokeWidth={2.25} className="text-[#EA580C] flex-shrink-0" />
+              <span className="text-xs font-bold text-[#191F28] flex-shrink-0">업종</span>
+              <select
+                value={activeIndustryGroup}
+                onChange={e => { setActiveIndustryGroup(e.target.value); setActiveIndustry('all') }}
+                className="flex-1 min-w-0 text-xs bg-[#FFF7ED] border-none rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#EA580C]/30 font-semibold text-[#9A3412]"
+              >
+                <option value="all">전체 업종</option>
+                {INDUSTRY_CATALOG.map(g => (
+                  <option key={g.id} value={g.id}>{g.emoji} {g.label}</option>
+                ))}
+              </select>
+              {(activeIndustryGroup !== 'all' || activeIndustry !== 'all') && (
+                <button
+                  onClick={() => { setActiveIndustryGroup('all'); setActiveIndustry('all') }}
+                  className="flex-shrink-0 text-[10px] text-[#8B95A1] hover:text-[#4E5968] px-1.5 py-0.5"
+                >초기화</button>
+              )}
+            </div>
+            {activeIndustryGroup !== 'all' && (
+              <div className="flex gap-1 overflow-x-auto pb-1">
+                <button
+                  type="button"
+                  onClick={() => setActiveIndustry('all')}
+                  className={`flex-shrink-0 px-2 py-1 rounded-lg text-[10px] font-semibold border transition-colors ${activeIndustry === 'all' ? 'border-[#EA580C] bg-[#FFF7ED] text-[#C2410C]' : 'border-[#E5E8EB] text-[#8B95A1]'}`}
+                >
+                  전체
+                </button>
+                {(INDUSTRY_CATALOG.find(g => g.id === activeIndustryGroup)?.items || []).slice(0, 12).map(item => (
+                  <button
+                    key={item}
+                    type="button"
+                    onClick={() => setActiveIndustry(item)}
+                    className={`flex-shrink-0 px-2 py-1 rounded-lg text-[10px] font-semibold border transition-colors ${activeIndustry === item ? 'border-[#EA580C] bg-[#FFF7ED] text-[#C2410C]' : 'border-[#E5E8EB] text-[#4E5968]'}`}
+                  >
+                    {item}
+                  </button>
+                ))}
+              </div>
+            )}
+          </div>
+
           {/* 광고 문의 라인 */}
           <div className="mb-5 flex items-center justify-between bg-white rounded-2xl px-4 py-2.5 shadow-sm border border-[#F2F4F6]">
             <p className="text-xs text-[#8B95A1]">
@@ -735,7 +904,13 @@ export default function Community() {
 
               {/* 현재 필터 요약 */}
               <div className="text-xs text-[#8B95A1] mb-3">
-                {regionLabel(activeRegion)} · {CATEGORIES.find(c => c.id === activeCategory)?.label} · 총 {filteredPosts.length}건
+                {regionLabel(activeRegion)} ·
+                {activeIndustry !== 'all'
+                  ? ` ${findIndustryGroup(activeIndustry)?.emoji || ''} ${activeIndustry}`
+                  : activeIndustryGroup !== 'all'
+                    ? ` ${INDUSTRY_CATALOG.find(g => g.id === activeIndustryGroup)?.emoji || ''} ${INDUSTRY_CATALOG.find(g => g.id === activeIndustryGroup)?.label}`
+                    : ' 전체 업종'} ·
+                {' '}{CATEGORIES.find(c => c.id === activeCategory)?.label} · 총 {filteredPosts.length}건
               </div>
 
               {/* 게시글 목록 */}
@@ -761,6 +936,7 @@ export default function Community() {
                                 <CatBadge cat={cat} size="xs" />
                               </span>
                               <RegionPill region_id={post.region_id} />
+                              <IndustryPill industry={post.industry} />
                               {post.featured && (
                                 <span className="inline-flex items-center gap-1 text-xs font-bold bg-gradient-to-r from-[#FFB703] to-[#FB8500] text-white px-2 py-0.5 rounded-full">
                                   <Trophy size={10} strokeWidth={2.5} />인기
@@ -872,6 +1048,58 @@ export default function Community() {
                 )}
               </div>
 
+              {/* 업종 게시판 (지역 게시판 바로 아래) */}
+              <div className="bg-white rounded-2xl p-3.5 shadow-sm border border-[#F2F4F6]">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <Store size={12} strokeWidth={2.25} className="text-[#EA580C]" />
+                  <h3 className="font-bold text-[#191F28] text-xs">업종 게시판</h3>
+                  {(activeIndustryGroup !== 'all' || activeIndustry !== 'all') && (
+                    <button
+                      onClick={() => { setActiveIndustryGroup('all'); setActiveIndustry('all') }}
+                      className="ml-auto text-[10px] text-[#8B95A1] hover:text-[#4E5968]"
+                    >초기화</button>
+                  )}
+                </div>
+
+                {/* 대분류 셀렉트 */}
+                <select
+                  value={activeIndustryGroup}
+                  onChange={e => { setActiveIndustryGroup(e.target.value); setActiveIndustry('all') }}
+                  className="w-full text-[11px] font-semibold text-[#9A3412] bg-[#FFF7ED] border-none rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#EA580C]/30"
+                >
+                  <option value="all">전체 업종</option>
+                  {INDUSTRY_CATALOG.map(g => (
+                    <option key={g.id} value={g.id}>{g.emoji} {g.label}</option>
+                  ))}
+                </select>
+
+                {/* 선택된 그룹의 세부업종 pills */}
+                {activeIndustryGroup !== 'all' && (
+                  <div className="mt-2 flex flex-wrap gap-1 max-h-40 overflow-y-auto pr-0.5">
+                    <button
+                      type="button"
+                      onClick={() => setActiveIndustry('all')}
+                      className={`px-1.5 py-0.5 rounded-md text-[10px] font-semibold border transition-colors ${activeIndustry === 'all' ? 'border-[#EA580C] bg-[#FFF7ED] text-[#C2410C]' : 'border-[#E5E8EB] text-[#8B95A1] hover:border-[#FED7AA]'}`}
+                    >
+                      전체
+                    </button>
+                    {(INDUSTRY_CATALOG.find(g => g.id === activeIndustryGroup)?.items || []).map(item => (
+                      <button
+                        key={item}
+                        type="button"
+                        onClick={() => setActiveIndustry(item)}
+                        className={`px-1.5 py-0.5 rounded-md text-[10px] font-semibold border transition-colors ${activeIndustry === item ? 'border-[#EA580C] bg-[#FFF7ED] text-[#C2410C]' : 'border-[#E5E8EB] text-[#4E5968] hover:border-[#FED7AA]'}`}
+                      >
+                        {item}
+                      </button>
+                    ))}
+                  </div>
+                )}
+                <p className="text-[10px] text-[#8B95A1] mt-1.5 leading-snug">
+                  같은 업종 사장님 글만 보기 · 총 {INDUSTRY_LABELS.length}개 업종
+                </p>
+              </div>
+
               {/* 내 포인트 */}
               <div className="bg-gradient-to-br from-[#FFF7ED] to-[#FFFBF0] rounded-2xl p-3.5 border border-[#FED7AA]">
                 <div className="flex items-center gap-1.5 mb-1">
@@ -945,7 +1173,16 @@ export default function Community() {
                 </h3>
                 <div className="space-y-1">
                   {CATEGORIES.filter(c => c.id !== 'all').map(cat => {
-                    const count = posts.filter(p => p.category === cat.id && (activeRegion === 'nationwide' || p.region_id === activeRegion)).length
+                    const count = posts.filter(p => {
+                      if (p.category !== cat.id) return false
+                      if (activeRegion !== 'nationwide' && p.region_id !== activeRegion) return false
+                      if (activeIndustry !== 'all') return p.industry === activeIndustry
+                      if (activeIndustryGroup !== 'all') {
+                        const grp = INDUSTRY_CATALOG.find(g => g.id === activeIndustryGroup)
+                        return !!(p.industry && grp && grp.items.includes(p.industry))
+                      }
+                      return true
+                    }).length
                     return (
                       <div key={cat.id} className="flex items-center justify-between text-[11px]">
                         <span className="inline-flex items-center gap-1 text-[#4E5968]">
