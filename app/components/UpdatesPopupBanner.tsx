@@ -93,8 +93,8 @@ export default function UpdatesPopupBanner() {
       try {
         const res = await fetch('/api/updates', { cache: 'no-store' })
         if (!res.ok) return
-        const data = await res.json() as { items?: UpdateItem[] }
-        const latest = Array.isArray(data?.items) && data.items.length > 0 ? data.items[0] : null
+        const data = await res.json() as { updates?: UpdateItem[] }
+        const latest = Array.isArray(data?.updates) && data.updates.length > 0 ? data.updates[0] : null
         if (cancelled || !latest) return
 
         // 이미 본 업데이트면 스킵
