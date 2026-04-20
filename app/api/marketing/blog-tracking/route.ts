@@ -1,14 +1,14 @@
 // app/api/marketing/blog-tracking/route.ts
 // ============================================================
-// 블로그 키워드 순위 추적 — 타겟 CRUD
-//   · GET   : 내 타겟 목록 + 최신 순위 (뷰 blog_tracking_latest 조회)
+// 블로그 키워드 순위 추적 — 타겟 CRUD (v2 — 18차-4)
+//   · GET   : 내 타겟 목록 + 최신 순위 (뷰 blog_tracking_latest, rank_hits 포함)
 //   · POST  : 신규 타겟 등록 (옵션: check=true 이면 즉시 1회 순위 체크)
 //   · DELETE: ?id=<uuid> 삭제
 // ============================================================
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/app/lib/adminAuth'
 import { requireUser } from '@/app/lib/userAuth'
-import { parseBlogUrl, checkNaverBlogRank } from '@/app/lib/naver-rank'
+import { parseBlogUrl, checkNaverBlogRank, RankResult } from '@/app/lib/naver-rank'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -25,6 +25,23 @@ function nextCronRunUTC(now: Date = new Date()): string {
   return out.toISOString()
 }
 
+function compactHits(r: RankResult) {
+  return {
+    smart_blocks: r.smart_blocks.map(b => ({
+      block_id:    b.block_id,
+      block_title: b.block_title,
+      my_rank:     b.my_rank,
+      items:       b.items.length,
+    })),
+    blog_tab: {
+      my_rank: r.blog_tab.my_rank,
+      items:   r.blog_tab.items.length,
+      checked: r.blog_tab.checked,
+    },
+    best_hit: r.best_hit,
+  }
+}
+
 // ---------- GET: list + cron 상태 ----------
 export async function GET() {
   const auth = await requireUser()
@@ -32,7 +49,7 @@ export async function GET() {
 
   const svc = createServiceClient()
 
-  // 타겟 목록
+  // 타겟 목록 (뷰에 last_rank_hits 포함됨 — 18차-4 SQL 이후)
   const { data: targets, error: tErr } = await svc
     .from('blog_tracking_latest')
     .select('*')
@@ -42,14 +59,10 @@ export async function GET() {
 
   const targetIds = (targets ?? []).map(t => t.target_id)
 
-  // 크론 요약 (내 타겟 한정 · source='cron_daily')
-  //   ⚠ 쿼리 에러가 나더라도 GET 전체를 실패시키지 않는다.
-  //     (타겟 목록 자체는 정상 반환 → 페이지 인터랙션 유지)
   let lastCronAt: string | null = null
   let cronRuns7d = 0
   if (targetIds.length > 0) {
     try {
-      // 마지막 cron 실행
       const { data: lastRow, error: lastErr } = await svc
         .from('blog_tracking_history')
         .select('checked_at')
@@ -59,7 +72,6 @@ export async function GET() {
         .limit(1)
       if (!lastErr) lastCronAt = lastRow?.[0]?.checked_at ?? null
 
-      // 지난 7일 누적
       const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
       const { count, error: cntErr } = await svc
         .from('blog_tracking_history')
@@ -69,7 +81,6 @@ export async function GET() {
         .gte('checked_at', since)
       if (!cntErr) cronRuns7d = count ?? 0
     } catch (e) {
-      // 크론 요약 실패는 무시 — 기본값 반환
       console.error('[blog-tracking GET] cron summary failed:', e)
     }
   }
@@ -78,7 +89,7 @@ export async function GET() {
     targets: targets ?? [],
     cron: {
       enabled:      true,
-      schedule:     '0 20 * * *',        // UTC 20:00
+      schedule:     '0 20 * * *',
       schedule_kst: '매일 오전 5시',
       last_run_at:  lastCronAt,
       next_run_at:  nextCronRunUTC(),
@@ -138,19 +149,25 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: insErr.message }, { status: 500 })
   }
 
-  // 옵션: 등록 즉시 1회 체크
-  let checked: Awaited<ReturnType<typeof checkNaverBlogRank>> | null = null
+  // 옵션: 등록 즉시 1회 체크 + rank_hits 저장
+  let checked: RankResult | null = null
   if (body.check_now) {
     checked = await checkNaverBlogRank(keyword, target_url).catch(() => null)
     if (checked) {
-      await svc.from('blog_tracking_history').insert({
+      const basePayload = {
         target_id:   inserted.id,
         rank:        checked.rank,
         section:     checked.section,
         source:      'naver_mobile',
         total_found: checked.total_found,
         note:        checked.note ?? null,
-      })
+      }
+      const { error: insErr } = await svc
+        .from('blog_tracking_history')
+        .insert({ ...basePayload, rank_hits: compactHits(checked) })
+      if (insErr && /rank_hits|column.*exist/i.test(insErr.message)) {
+        await svc.from('blog_tracking_history').insert(basePayload)
+      }
     }
   }
 
