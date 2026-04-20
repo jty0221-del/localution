@@ -7,8 +7,22 @@ import PageHeader from '../../components/PageHeader'
 import Footer from '../../components/Footer'
 
 // ── 34항목 체크리스트 (하랑마케팅 PDF 기반) ─────────────
-type ChecklistItem = { id: string; title: string; detail: string; weight?: number }
+type ChecklistItem = { id: string; title: string; detail: string; youtube?: string; weight?: number }
 type ChecklistGroup = { group: string; icon: string; color: string; items: ChecklistItem[] }
+
+// 유튜브 ID 추출 (watch?v=, youtu.be/, embed/ 모두 지원)
+function extractYoutubeId(url: string): string | null {
+  if (!url) return null
+  const m1 = url.match(/[?&]v=([a-zA-Z0-9_-]{11})/)
+  if (m1) return m1[1]
+  const m2 = url.match(/youtu\.be\/([a-zA-Z0-9_-]{11})/)
+  if (m2) return m2[1]
+  const m3 = url.match(/youtube\.com\/embed\/([a-zA-Z0-9_-]{11})/)
+  if (m3) return m3[1]
+  const m4 = url.match(/youtube\.com\/shorts\/([a-zA-Z0-9_-]{11})/)
+  if (m4) return m4[1]
+  return null
+}
 
 const CHECKLIST: ChecklistGroup[] = [
   {
@@ -120,22 +134,101 @@ function parsePlaceId(raw: string): string | null {
 }
 
 // ── 상세 모달 ──────────────────────────────────────────
-function DetailModal({ item, onClose }: { item: ChecklistItem | null; onClose: () => void }) {
+function DetailModal({ item, youtubeUrl, onSetYoutube, onClose }: {
+  item: ChecklistItem | null
+  youtubeUrl: string
+  onSetYoutube: (url: string) => void
+  onClose: () => void
+}) {
+  const [editMode, setEditMode] = useState(false)
+  const [inputUrl, setInputUrl] = useState('')
+
   useEffect(() => {
     if (!item) return
     const esc = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose() }
     window.addEventListener('keydown', esc)
     return () => window.removeEventListener('keydown', esc)
   }, [item, onClose])
+
+  useEffect(() => {
+    setEditMode(false)
+    setInputUrl(youtubeUrl || '')
+  }, [item, youtubeUrl])
+
   if (!item) return null
+  const ytId = extractYoutubeId(youtubeUrl)
+
+  const save = () => {
+    const v = inputUrl.trim()
+    if (v && !extractYoutubeId(v)) {
+      alert('유튜브 URL 형식이 올바르지 않아요.\n예: https://youtu.be/dQw4w9WgXcQ')
+      return
+    }
+    onSetYoutube(v)
+    setEditMode(false)
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40" onClick={onClose}>
-      <div className="bg-white w-full sm:max-w-md rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl animate-in slide-in-from-bottom" onClick={e => e.stopPropagation()}>
+      <div className="bg-white w-full sm:max-w-lg rounded-t-3xl sm:rounded-3xl p-6 shadow-2xl max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
         <div className="flex items-start justify-between mb-3">
           <h3 className="text-base font-black text-[#191F28] pr-4">{item.title}</h3>
           <button onClick={onClose} className="w-8 h-8 rounded-full hover:bg-[#F2F4F6] flex items-center justify-center text-[#8B95A1] text-xl leading-none">×</button>
         </div>
         <p className="text-sm text-[#4E5968] leading-relaxed whitespace-pre-line">{item.detail}</p>
+
+        {/* ── 유튜브 영상 섹션 ── */}
+        <div className="mt-5 pt-4 border-t border-[#F2F4F6]">
+          <div className="flex items-center justify-between mb-2">
+            <p className="text-xs font-bold text-[#191F28]">🎬 관련 영상</p>
+            {!editMode && (
+              <button onClick={() => setEditMode(true)} className="text-[11px] font-semibold text-[#8B95A1] hover:text-[#3182F6]">
+                {youtubeUrl ? '수정' : '+ 링크 추가'}
+              </button>
+            )}
+          </div>
+
+          {editMode ? (
+            <div className="space-y-2">
+              <input
+                type="text"
+                value={inputUrl}
+                onChange={e => setInputUrl(e.target.value)}
+                placeholder="https://youtu.be/..."
+                className="w-full px-3 py-2 rounded-lg border-2 border-[#E5E8EB] focus:border-[#3182F6] focus:outline-none text-xs"
+              />
+              <div className="flex gap-2">
+                <button onClick={save} className="flex-1 py-2 rounded-lg bg-[#FF0000] text-white text-xs font-bold hover:bg-[#CC0000]">저장</button>
+                <button onClick={() => { setEditMode(false); setInputUrl(youtubeUrl || '') }} className="flex-1 py-2 rounded-lg bg-[#F2F4F6] text-[#8B95A1] text-xs font-bold hover:bg-[#E5E8EB]">취소</button>
+                {youtubeUrl && (
+                  <button onClick={() => { onSetYoutube(''); setEditMode(false); setInputUrl('') }} className="px-3 py-2 rounded-lg bg-[#FFF1F2] text-[#F04452] text-xs font-bold hover:bg-[#FFE4E6]">삭제</button>
+                )}
+              </div>
+              <p className="text-[10px] text-[#8B95A1]">youtu.be / youtube.com/watch?v= / shorts / embed 형식 모두 지원</p>
+            </div>
+          ) : ytId ? (
+            <div className="space-y-2">
+              <div className="relative w-full" style={{ paddingBottom: '56.25%' }}>
+                <iframe
+                  src={`https://www.youtube.com/embed/${ytId}`}
+                  className="absolute inset-0 w-full h-full rounded-xl"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                  allowFullScreen
+                />
+              </div>
+              <a href={youtubeUrl} target="_blank" rel="noopener noreferrer"
+                className="block text-center text-[11px] text-[#3182F6] font-semibold hover:underline">
+                유튜브에서 열기 ↗
+              </a>
+            </div>
+          ) : (
+            <div className="text-center py-4 bg-[#F8F9FA] rounded-xl">
+              <p className="text-xs text-[#8B95A1]">아직 연결된 영상이 없습니다</p>
+              <p className="text-[10px] text-[#8B95A1] mt-1">"+ 링크 추가"로 유튜브 URL 붙여넣기</p>
+            </div>
+          )}
+        </div>
+
         <button onClick={onClose} className="mt-5 w-full py-3 rounded-xl bg-[#3182F6] text-white text-sm font-bold hover:bg-[#1B64DA] transition-colors">확인</button>
       </div>
     </div>
@@ -143,8 +236,8 @@ function DetailModal({ item, onClose }: { item: ChecklistItem | null; onClose: (
 }
 
 // ── 체크박스 + 제목 + 상세 버튼 ────────────────────────
-function ChecklistRow({ item, checked, onToggle, onOpen }: {
-  item: ChecklistItem; checked: boolean; onToggle: () => void; onOpen: () => void
+function ChecklistRow({ item, checked, hasVideo, onToggle, onOpen }: {
+  item: ChecklistItem; checked: boolean; hasVideo: boolean; onToggle: () => void; onOpen: () => void
 }) {
   return (
     <div className="flex items-center gap-3 py-2.5 px-3 rounded-xl hover:bg-[#F8F9FA] transition-colors">
@@ -154,6 +247,11 @@ function ChecklistRow({ item, checked, onToggle, onOpen }: {
       <button onClick={onToggle} className="flex-1 text-left min-w-0">
         <p className={`text-sm font-semibold ${checked ? 'text-[#12B76A] line-through' : 'text-[#191F28]'}`}>{item.title}</p>
       </button>
+      {hasVideo && (
+        <button onClick={onOpen} title="영상 보기" className="flex-shrink-0 w-6 h-6 rounded-full bg-[#FFF1F2] text-[#F04452] hover:bg-[#FF0000] hover:text-white flex items-center justify-center transition-colors">
+          <span className="text-[10px]">▶</span>
+        </button>
+      )}
       <button onClick={onOpen} className="flex-shrink-0 text-[11px] font-semibold text-[#3182F6] hover:text-[#1B64DA] px-2 py-1 rounded-lg hover:bg-[#EFF6FF] transition-colors">
         상세 →
       </button>
@@ -168,13 +266,28 @@ export default function PlaceDiagnosisPage() {
   const [checked, setChecked] = useState<Record<string, boolean>>({})
   const [modalItem, setModalItem] = useState<ChecklistItem | null>(null)
   const [storeInfo, setStoreInfo] = useState<any>(null)
+  const [youtubeLinks, setYoutubeLinks] = useState<Record<string, string>>({})
 
-  // localStorage: store_info 로딩
+  // localStorage: store_info + youtube links 로딩
   useEffect(() => {
     try {
       const s = localStorage.getItem('localution.store_info')
       if (s) setStoreInfo(JSON.parse(s))
     } catch {}
+    try {
+      const y = localStorage.getItem('localution.place_checklist_youtube')
+      if (y) setYoutubeLinks(JSON.parse(y))
+    } catch {}
+  }, [])
+
+  const setYoutubeLink = useCallback((itemId: string, url: string) => {
+    setYoutubeLinks(prev => {
+      const next = { ...prev }
+      if (url) next[itemId] = url
+      else delete next[itemId]
+      try { localStorage.setItem('localution.place_checklist_youtube', JSON.stringify(next)) } catch {}
+      return next
+    })
   }, [])
 
   // placeId 바뀌면 해당 체크 복구
@@ -355,6 +468,7 @@ export default function PlaceDiagnosisPage() {
                             key={item.id}
                             item={item}
                             checked={!!checked[item.id]}
+                            hasVideo={!!(youtubeLinks[item.id] || item.youtube)}
                             onToggle={() => toggleItem(item.id)}
                             onOpen={() => setModalItem(item)}
                           />
@@ -395,7 +509,12 @@ export default function PlaceDiagnosisPage() {
 
         </div>
 
-        <DetailModal item={modalItem} onClose={() => setModalItem(null)} />
+        <DetailModal
+          item={modalItem}
+          youtubeUrl={modalItem ? (youtubeLinks[modalItem.id] || modalItem.youtube || '') : ''}
+          onSetYoutube={(url) => modalItem && setYoutubeLink(modalItem.id, url)}
+          onClose={() => setModalItem(null)}
+        />
         <Footer />
       </main>
     </div>
