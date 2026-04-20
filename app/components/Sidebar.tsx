@@ -7,7 +7,7 @@ import { usePathname, useSearchParams } from 'next/navigation'
 import {
   ChevronDown, ChevronRight, List, Map, MapPin, Search, BarChart3,
   Sparkles, MessageCircle, Settings, LogOut, FileText, Lock, LucideIcon,
-  Plus, ArrowRight, Package, Bell,
+  Plus, ArrowRight, Package, Bell, TrendingUp,
 } from 'lucide-react'
 import { REGIONS } from '../lib/regions'
 import { useEntitlements } from '../lib/entitlements'
@@ -67,11 +67,12 @@ const REVIEW_SUB = [
 ]
 
 const MARKETING_SUB: { href: string; label: string; Icon: LucideIcon; badge: string }[] = [
-  { href: '/marketing/place',         label: '플레이스 진단',   Icon: MapPin,    badge: '' },
-  { href: '/marketing/keyword-rank',  label: '키워드 순위',     Icon: Search,    badge: '' },
-  { href: '/marketing/keyword-score', label: '키워드 점수분석', Icon: BarChart3, badge: '' },
-  { href: '/marketing/reels',         label: '릴스·쇼츠 생성',  Icon: Sparkles,  badge: 'NEW' },
-  { href: '/marketing/blog-post',     label: '블로그 포스팅',   Icon: FileText,  badge: 'NEW' },
+  { href: '/marketing/place',         label: '플레이스 진단',   Icon: MapPin,     badge: '' },
+  { href: '/marketing/keyword-rank',  label: '키워드 순위',     Icon: Search,     badge: '' },
+  { href: '/marketing/keyword-score', label: '키워드 점수분석', Icon: BarChart3,  badge: '' },
+  { href: '/marketing/blog-tracking', label: '블로그 순위 추적', Icon: TrendingUp, badge: 'NEW' },
+  { href: '/marketing/reels',         label: '릴스·쇼츠 생성',  Icon: Sparkles,   badge: 'NEW' },
+  { href: '/marketing/blog-post',     label: '블로그 포스팅',   Icon: FileText,   badge: 'NEW' },
 ]
 
 // REGIONS 는 app/lib/regions.ts 에서 중앙 관리
@@ -242,16 +243,23 @@ export default function Sidebar() {
         )}
       </div>
 
-      {/* 3. 마케팅 관리 */}
+      {/* 3. 마케팅 관리 — 좌측(허브 링크) + 우측(쉐브론 토글) 분할 */}
       <div>
-        <button onClick={() => setMarketingOpen(v => !v)}
-          className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left ${isMarketingSection ? 'bg-[#FFF7ED] text-[#EA580C] font-semibold' : 'text-[#4E5968] hover:bg-[#F2F4F6] font-medium'}`}>
-          <div className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold flex-shrink-0"
-            style={isMarketingSection ? { background: '#EA580C', color: '#fff' } : { background: '#FFF7ED', color: '#EA580C' }}>마케</div>
-          <span className="text-sm">마케팅 관리</span>
-          <ChevronDown size={14} strokeWidth={2.5}
-            className={`ml-auto transition-transform duration-200 ${marketingOpen ? 'rotate-180' : ''}`} />
-        </button>
+        <div className={`w-full flex items-center rounded-xl transition-all overflow-hidden ${isMarketingSection && pathname === '/marketing' ? 'bg-[#FFF7ED] text-[#EA580C] font-semibold' : isMarketingSection ? 'bg-[#FFF7ED]/60 text-[#EA580C] font-semibold' : 'text-[#4E5968] hover:bg-[#F2F4F6] font-medium'}`}>
+          <Link href="/marketing"
+            onClick={() => { setMobileOpen(false); setMarketingOpen(true) }}
+            className="flex-1 flex items-center gap-3 px-3 py-2.5">
+            <div className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold flex-shrink-0"
+              style={isMarketingSection ? { background: '#EA580C', color: '#fff' } : { background: '#FFF7ED', color: '#EA580C' }}>마케</div>
+            <span className="text-sm">마케팅 관리</span>
+          </Link>
+          <button onClick={() => setMarketingOpen(v => !v)}
+            aria-label={marketingOpen ? '마케팅 하위 메뉴 닫기' : '마케팅 하위 메뉴 열기'}
+            className="px-3 py-2.5 hover:bg-black/5 transition-colors flex-shrink-0">
+            <ChevronDown size={14} strokeWidth={2.5}
+              className={`transition-transform duration-200 ${marketingOpen ? 'rotate-180' : ''}`} />
+          </button>
+        </div>
         {marketingOpen && (
           <div className="mt-1 ml-3 pl-4 border-l-2 border-[#FFE4CC] space-y-0.5">
             {MARKETING_SUB.map(sub => {
