@@ -1,9 +1,15 @@
 // app/marketing/blog-tracking/_components/KakaoAlertBanner.tsx
 // ============================================================
-// 카카오톡 알림 연결 배너 + 설정 모달 — 18차-5
-//   · 미연결: 노란색 카드 + "연결하기" 버튼 → /api/auth/kakao/start
-//   · 연결됨: 초록색 카드 + "설정" 버튼 → 모달 (알림 토글 4개 + 테스트 발송 + 연결 해제)
+// 카카오톡 알림 연결 배너 + 설정 모달 — 18차-5 (Hotfix 2026-04-21)
+//   · 미로그인:   회색 카드 + "로그인하고 연결하기" 버튼 → /login?redirect=...
+//   · 미연결:     노란색 카드 + "연결하기" 버튼 → /api/auth/kakao/start
+//   · 연결됨:     초록색 카드 + "설정" 버튼 → 모달
 //   · URL ?connected=kakao / ?connected=error&reason=... 쿼리 감지해서 토스트 표시
+//
+// Hotfix 2026-04-21:
+//   · /api/marketing/kakao 가 401 을 반환하면 "미로그인" 상태로 분기
+//   · 비로그인 상태에선 연결 버튼 대신 로그인 버튼 표시
+//   · 이렇게 하면 비로그인 사용자가 연결 버튼 누르고 /dashboard 로 튕기는 경로 차단
 // ============================================================
 'use client'
 
@@ -36,6 +42,12 @@ type ConnectionInfo = {
   }>
 }
 
+type LoadState =
+  | { kind: 'loading' }
+  | { kind: 'unauthenticated' }         // 401
+  | { kind: 'ready'; info: ConnectionInfo }
+  | { kind: 'error'; message: string }
+
 const DEFAULT_PREFS: Required<AlertPrefs> = {
   band_change: true,
   entered:     true,
@@ -51,34 +63,38 @@ const LABELS: Record<keyof AlertPrefs, { title: string; desc: string }> = {
 }
 
 export default function KakaoAlertBanner() {
-  const [info, setInfo]       = useState<ConnectionInfo | null>(null)
-  const [loading, setLoading] = useState(true)
+  const [state, setState]     = useState<LoadState>({ kind: 'loading' })
   const [modalOpen, setModalOpen] = useState(false)
   const [toast, setToast]     = useState<{ kind: 'ok' | 'err'; text: string } | null>(null)
 
   // ---- 초기 로드 + URL 쿼리 토스트 ----
   const load = useCallback(async () => {
-    setLoading(true)
+    setState({ kind: 'loading' })
     try {
       const r = await fetch('/api/marketing/kakao', { cache: 'no-store' })
-      const j = await r.json()
-      setInfo(j)
+      if (r.status === 401) {
+        setState({ kind: 'unauthenticated' })
+        return
+      }
+      if (!r.ok) {
+        const j = await r.json().catch(() => ({}))
+        setState({ kind: 'error', message: j.error || `서버 응답 ${r.status}` })
+        return
+      }
+      const info = await r.json() as ConnectionInfo
+      setState({ kind: 'ready', info })
     } catch (e) {
-      setInfo({ connected: false, token: null, recent: [] })
-    } finally {
-      setLoading(false)
+      setState({ kind: 'error', message: e instanceof Error ? e.message : 'load failed' })
     }
   }, [])
 
   useEffect(() => {
     load()
-    // URL 쿼리 토스트
     if (typeof window === 'undefined') return
     const sp = new URLSearchParams(window.location.search)
     const c = sp.get('connected')
     if (c === 'kakao') {
       setToast({ kind: 'ok', text: '카카오톡 알림 연결이 완료됐어요.' })
-      // URL 정리
       const url = new URL(window.location.href)
       url.searchParams.delete('connected')
       window.history.replaceState({}, '', url.toString())
@@ -92,13 +108,13 @@ export default function KakaoAlertBanner() {
     }
   }, [load])
 
-  // 토스트 자동 닫힘
   useEffect(() => {
     if (!toast) return
     const t = setTimeout(() => setToast(null), 4000)
     return () => clearTimeout(t)
   }, [toast])
 
+  const info      = state.kind === 'ready' ? state.info : null
   const connected = !!info?.connected
   const nickname  = info?.token?.nickname || '내 카카오톡'
   const prefs: Required<AlertPrefs> = useMemo(() => ({
@@ -112,11 +128,18 @@ export default function KakaoAlertBanner() {
     window.location.href = `/api/auth/kakao/start?redirect=${redirect}`
   }
 
+  const onLogin = () => {
+    const redirect = encodeURIComponent('/marketing/blog-tracking')
+    window.location.href = `/login?redirect=${redirect}&connect_hint=kakao`
+  }
+
   const onPrefChange = async (key: keyof AlertPrefs, val: boolean) => {
-    // 낙관적 업데이트
-    setInfo(prev => prev && prev.token
-      ? { ...prev, token: { ...prev.token, alert_prefs: { ...prefs, [key]: val } } }
-      : prev)
+    if (state.kind !== 'ready' || !state.info.token) return
+    const nextPrefs = { ...prefs, [key]: val }
+    setState({ kind: 'ready', info: {
+      ...state.info,
+      token: { ...state.info.token, alert_prefs: nextPrefs },
+    }})
     try {
       const r = await fetch('/api/marketing/kakao/prefs', {
         method: 'PATCH',
@@ -156,10 +179,45 @@ export default function KakaoAlertBanner() {
   }
 
   // ---- 렌더 ----
-  if (loading) {
+  if (state.kind === 'loading') {
     return (
       <div className="mb-4 rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-500">
         카카오톡 알림 상태 확인 중...
+      </div>
+    )
+  }
+
+  if (state.kind === 'unauthenticated') {
+    return (
+      <div className="mb-4 flex items-center justify-between rounded-xl border border-slate-300 bg-slate-50 px-4 py-3">
+        <div className="flex items-center gap-3">
+          <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-slate-400 text-white">
+            ?
+          </span>
+          <div>
+            <div className="text-sm font-semibold text-slate-800">
+              로그인 후 카카오톡 알림을 연결할 수 있어요.
+            </div>
+            <div className="text-xs text-slate-600">
+              로그인하면 내 글 순위 변동을 카톡으로 받아볼 수 있습니다.
+            </div>
+          </div>
+        </div>
+        <button
+          type="button"
+          onClick={onLogin}
+          className="rounded-lg bg-slate-800 px-4 py-1.5 text-sm font-semibold text-white shadow-sm hover:bg-slate-700"
+        >
+          로그인하기
+        </button>
+      </div>
+    )
+  }
+
+  if (state.kind === 'error') {
+    return (
+      <div className="mb-4 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">
+        카카오 알림 상태 확인 실패: {state.message}
       </div>
     )
   }
@@ -229,7 +287,7 @@ export default function KakaoAlertBanner() {
       )}
 
       {/* 설정 모달 */}
-      {modalOpen && connected && (
+      {modalOpen && connected && info && (
         <div
           className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
           onClick={() => setModalOpen(false)}
@@ -264,8 +322,7 @@ export default function KakaoAlertBanner() {
                 </label>
               ))}
 
-              {/* 최근 발송 */}
-              {info?.recent && info.recent.length > 0 && (
+              {info.recent && info.recent.length > 0 && (
                 <div className="mt-2 rounded-lg bg-slate-50 p-3">
                   <div className="mb-1 text-xs font-semibold text-slate-600">최근 발송 5건</div>
                   <ul className="space-y-1 text-xs">
