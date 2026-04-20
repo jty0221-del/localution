@@ -1,13 +1,14 @@
 // app/api/marketing/blog-tracking/check/route.ts
 // ============================================================
-// 블로그 키워드 순위 — 수동 즉시 체크
-//   · POST { target_id: uuid }  → 1개 타겟 즉시 순위 조회 + history 저장
-//   · POST { target_id: 'all' } → 내 활성 타겟 전체 일괄 체크 (최대 20건)
+// 블로그 키워드 순위 — 수동 즉시 체크 (v2 — 18차-4)
+//   · v2 파서 (naver-rank.ts) 의 smart_blocks / blog_tab / best_hit 반환값을
+//     rank_hits jsonb 로 압축 저장.
+//   · rank / section / total_found 는 v1 호환 필드로 best_hit 기반 산출.
 // ============================================================
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/app/lib/adminAuth'
 import { requireUser } from '@/app/lib/userAuth'
-import { checkNaverBlogRank } from '@/app/lib/naver-rank'
+import { checkNaverBlogRank, RankResult } from '@/app/lib/naver-rank'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -21,24 +22,56 @@ interface TargetRow {
   label: string
 }
 
+// rank_hits jsonb 용으로 RankResult 를 슬림하게 압축
+function compactHits(r: RankResult) {
+  return {
+    smart_blocks: r.smart_blocks.map(b => ({
+      block_id:    b.block_id,
+      block_title: b.block_title,
+      my_rank:     b.my_rank,
+      items:       b.items.length,
+    })),
+    blog_tab: {
+      my_rank: r.blog_tab.my_rank,
+      items:   r.blog_tab.items.length,
+      checked: r.blog_tab.checked,
+    },
+    best_hit: r.best_hit,
+  }
+}
+
 async function runOne(
   svc: ReturnType<typeof createServiceClient>,
   t: TargetRow,
 ) {
-  const r = await checkNaverBlogRank(t.keyword, t.target_url).catch((e: unknown) => ({
-    rank: null as number | null,
-    section: 'not_found' as const,
-    total_found: 0,
-    note: e instanceof Error ? e.message : 'check_error',
-  }))
-  await svc.from('blog_tracking_history').insert({
+  const r: RankResult = await checkNaverBlogRank(t.keyword, t.target_url).catch(
+    (e: unknown): RankResult => ({
+      smart_blocks: [],
+      blog_tab:     { items: [], my_rank: null, checked: false },
+      best_hit:     null,
+      rank:         null,
+      section:      'not_found',
+      total_found:  0,
+      note:         e instanceof Error ? e.message : 'check_error',
+    }),
+  )
+
+  // 1차: rank_hits 포함 — 컬럼 없으면 fallback (SQL 마이그레이션 전 안전장치)
+  const basePayload = {
     target_id:   t.id,
     rank:        r.rank,
     section:     r.section,
     source:      'naver_mobile',
     total_found: r.total_found,
     note:        r.note ?? null,
-  })
+  }
+  const { error: insErr } = await svc
+    .from('blog_tracking_history')
+    .insert({ ...basePayload, rank_hits: compactHits(r) })
+  if (insErr && /rank_hits|column.*exist/i.test(insErr.message)) {
+    // 마이그레이션 이전 → rank_hits 빼고 재시도
+    await svc.from('blog_tracking_history').insert(basePayload)
+  }
   return { target_id: t.id, label: t.label, ...r }
 }
 
@@ -66,7 +99,6 @@ export async function POST(req: NextRequest) {
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
     const results: Array<Awaited<ReturnType<typeof runOne>>> = []
     for (const t of (rows ?? []) as TargetRow[]) {
-      // 네이버 rate-limit 보호: 간단 축차 실행 + 300ms gap
       // eslint-disable-next-line no-await-in-loop
       const r = await runOne(svc, t)
       results.push(r)
