@@ -591,6 +591,9 @@ export default function Community() {
             </button>
           </div>
 
+          {/* 슬라이드 광고 배너 — 최상단 (포인트·이용안내 위) */}
+          <SlideAdBanner className="mb-4" />
+
           {/* 포인트 이벤트 배너 */}
           <div className="bg-gradient-to-r from-[#FFF7ED] via-[#FFFBEB] to-[#FEF3C7] border border-[#FED7AA] rounded-2xl px-5 py-4 mb-4">
             <div className="flex items-start gap-3">
@@ -618,89 +621,36 @@ export default function Community() {
             </div>
           </div>
 
-          {/* 지역 게시판 선택 바 */}
-          <div className="bg-white rounded-2xl p-4 mb-4 shadow-sm">
-            <div className="flex items-center gap-2 mb-3">
-              <MapPin size={14} strokeWidth={2.25} className="text-[#3182F6]" />
-              <span className="text-sm font-bold text-[#191F28]">지역 게시판</span>
-              <span className="text-xs text-[#8B95A1]">· 우리 동네 사장님들만 모여요</span>
-              <button
-                onClick={requestGeoLocation}
-                disabled={geoStatus === 'loading'}
-                className="ml-auto inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold bg-[#EFF6FF] text-[#3182F6] hover:bg-[#DBEAFE] transition-colors disabled:opacity-60"
-              >
-                {geoStatus === 'loading'
-                  ? <Loader2 size={11} strokeWidth={2.5} className="animate-spin" />
-                  : <Navigation size={11} strokeWidth={2.5} />}
-                내 위치 찾기
-              </button>
-            </div>
-
-            {/* 내 근처 지역 추천 (당근식) */}
-            {geoStatus === 'ok' && nearRegions.length > 0 && (
-              <div className="mb-3 bg-[#F0FDF4] border border-[#BBF7D0] rounded-xl px-3 py-2.5">
-                <div className="flex items-center gap-1.5 mb-1.5">
-                  <Navigation size={11} strokeWidth={2.5} className="text-[#059669]" />
-                  <span className="text-[11px] font-bold text-[#065F46]">내 근처 지역</span>
-                  <span className="text-[10px] text-[#065F46]/70">· 가까운 순 {nearRegions.length}개</span>
-                </div>
-                <div className="flex gap-1.5 flex-wrap">
-                  {nearRegions.map(r => {
-                    const active = activeRegion === r.id
-                    return (
-                      <button
-                        key={r.id}
-                        onClick={() => setActiveRegion(r.id)}
-                        className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[11px] font-semibold transition-colors ${
-                          active
-                            ? 'bg-[#059669] text-white shadow-sm'
-                            : 'bg-white text-[#065F46] border border-[#BBF7D0] hover:bg-[#DCFCE7]'
-                        }`}
-                      >
-                        {r.parent_label ? `${r.parent_label} ${r.label}` : r.label}
-                        <span className="opacity-75 text-[10px]">
-                          {r.distance_km < 1 ? `${(r.distance_km * 1000).toFixed(0)}m` : `${r.distance_km.toFixed(1)}km`}
-                        </span>
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-            )}
-            {geoStatus === 'denied' && (
-              <div className="mb-3 text-[11px] text-[#8B95A1]">위치 권한이 거부됐어요. 브라우저 설정에서 허용해주세요.</div>
-            )}
-            {geoStatus === 'unsupported' && (
-              <div className="mb-3 text-[11px] text-[#8B95A1]">이 브라우저는 위치 서비스를 지원하지 않아요.</div>
-            )}
-
-            <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
+          {/* 모바일 · 태블릿 전용 지역 게시판 선택 (lg 이상은 우측 사이드바 카드로 표시) */}
+          <div className="lg:hidden bg-white rounded-2xl px-4 py-2.5 mb-4 shadow-sm border border-[#F2F4F6] flex items-center gap-2">
+            <MapPin size={13} strokeWidth={2.25} className="text-[#3182F6] flex-shrink-0" />
+            <span className="text-xs font-bold text-[#191F28] flex-shrink-0">지역</span>
+            <select
+              value={activeRegion}
+              onChange={e => setActiveRegion(e.target.value)}
+              className="flex-1 min-w-0 text-xs bg-[#F2F4F6] border-none rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#3182F6]/30 font-semibold text-[#191F28]"
+            >
               {regionGroups.map(g => (
-                <div key={g.parent ?? 'nationwide'} className="flex gap-1.5 flex-shrink-0">
-                  {g.items.map(r => {
-                    const active = activeRegion === r.id
-                    return (
-                      <button
-                        key={r.id}
-                        onClick={() => setActiveRegion(r.id)}
-                        className={`flex-shrink-0 inline-flex items-center gap-1 px-3 py-1.5 rounded-full text-xs font-semibold transition-colors whitespace-nowrap ${
-                          active
-                            ? 'bg-[#3182F6] text-white shadow-sm'
-                            : 'bg-[#F2F4F6] text-[#4E5968] hover:bg-[#E5E8EB]'
-                        }`}
-                      >
-                        {r.parent_label ? `${r.parent_label} ${r.label}` : r.label}
-                      </button>
-                    )
-                  })}
-                  <span className="w-px bg-[#E5E8EB] mx-1 last:hidden" />
-                </div>
+                <optgroup key={g.parent ?? 'nationwide'} label={g.parent ?? '전국'}>
+                  {g.items.map(r => (
+                    <option key={r.id} value={r.id}>
+                      {r.parent_label ? `${r.parent_label} ${r.label}` : r.label}
+                    </option>
+                  ))}
+                </optgroup>
               ))}
-            </div>
+            </select>
+            <button
+              onClick={requestGeoLocation}
+              disabled={geoStatus === 'loading'}
+              className="flex-shrink-0 inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold bg-[#EFF6FF] text-[#3182F6] hover:bg-[#DBEAFE] transition-colors disabled:opacity-60"
+            >
+              {geoStatus === 'loading'
+                ? <Loader2 size={11} strokeWidth={2.5} className="animate-spin" />
+                : <Navigation size={11} strokeWidth={2.5} />}
+              내 위치
+            </button>
           </div>
-
-          {/* 슬라이드 광고 배너 (대시보드와 공통) */}
-          <SlideAdBanner className="mb-5" />
 
           {/* 광고 문의 라인 */}
           <div className="mb-5 flex items-center justify-between bg-white rounded-2xl px-4 py-2.5 shadow-sm border border-[#F2F4F6]">
@@ -833,7 +783,44 @@ export default function Community() {
 
             {/* 데스크탑 사이드 — 슬림 버전 (w-64 → w-52, p-5 → p-4) */}
             <div className="hidden lg:block w-52 flex-shrink-0 space-y-3">
-              {/* 내 포인트 (최상단) */}
+              {/* 지역 게시판 (최상단 · 메인 라인에서 제거된 것을 사이드바에 컴팩트화) */}
+              <div className="bg-white rounded-2xl p-3.5 shadow-sm border border-[#F2F4F6]">
+                <div className="flex items-center gap-1.5 mb-2">
+                  <MapPin size={12} strokeWidth={2.25} className="text-[#3182F6]" />
+                  <h3 className="font-bold text-[#191F28] text-xs">지역 게시판</h3>
+                  <button
+                    onClick={requestGeoLocation}
+                    disabled={geoStatus === 'loading'}
+                    title="내 위치 찾기"
+                    className="ml-auto inline-flex items-center justify-center w-6 h-6 rounded-full bg-[#EFF6FF] text-[#3182F6] hover:bg-[#DBEAFE] transition-colors disabled:opacity-60"
+                  >
+                    {geoStatus === 'loading'
+                      ? <Loader2 size={10} strokeWidth={2.5} className="animate-spin" />
+                      : <Navigation size={10} strokeWidth={2.5} />}
+                  </button>
+                </div>
+                <select
+                  value={activeRegion}
+                  onChange={e => setActiveRegion(e.target.value)}
+                  className="w-full text-[11px] font-semibold text-[#191F28] bg-[#F2F4F6] border-none rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#3182F6]/30"
+                >
+                  {regionGroups.map(g => (
+                    <optgroup key={g.parent ?? 'nationwide'} label={g.parent ?? '전국'}>
+                      {g.items.map(r => (
+                        <option key={r.id} value={r.id}>
+                          {r.parent_label ? `${r.parent_label} ${r.label}` : r.label}
+                        </option>
+                      ))}
+                    </optgroup>
+                  ))}
+                </select>
+                <p className="text-[10px] text-[#8B95A1] mt-1.5 leading-snug">선택한 지역만 보기 · 전국 누구나 열람</p>
+                {geoStatus === 'denied' && (
+                  <p className="text-[10px] text-[#FB8500] mt-1 leading-snug">위치 권한 거부됨</p>
+                )}
+              </div>
+
+              {/* 내 포인트 */}
               <div className="bg-gradient-to-br from-[#FFF7ED] to-[#FFFBF0] rounded-2xl p-3.5 border border-[#FED7AA]">
                 <div className="flex items-center gap-1.5 mb-1">
                   <Coins size={13} strokeWidth={2.25} className="text-[#EA580C]" />
