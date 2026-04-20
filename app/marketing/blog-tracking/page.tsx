@@ -26,9 +26,33 @@ import {
 } from 'lucide-react'
 
 // ─────────────────────────────────────────────────────────────
-// 타입 (API 응답과 1:1 매칭)
+// 타입 (API 응답과 1:1 매칭) — v2 (18차-4): rank_hits jsonb 포함
 // ─────────────────────────────────────────────────────────────
-type Section = 'popular_post' | 'blog_tab' | 'not_found' | string
+type Section = 'popular_post' | 'smart_block' | 'blog_tab' | 'not_found' | string
+
+type SmartBlockCompact = {
+  block_id: string        // 'b1', 'b2', ...
+  block_title: string     // '강남역 점심 맛집' 등
+  my_rank: number | null  // 이 블록 안에서 내 순위 (null = 이 블록엔 미노출)
+  items: number           // 블록 총 아이템 수 (보통 3)
+}
+type BlogTabCompact = {
+  my_rank: number | null
+  items: number
+  checked: boolean
+}
+type BestHit = {
+  type: 'smart_block' | 'blog_tab'
+  block_id?: string
+  block_title: string
+  rank: number
+  url: string
+} | null
+type RankHitsCompact = {
+  smart_blocks?: SmartBlockCompact[]
+  blog_tab?:     BlogTabCompact
+  best_hit?:     BestHit
+}
 
 type TargetRow = {
   target_id: string
@@ -41,10 +65,12 @@ type TargetRow = {
   tags: string[]
   active: boolean
   created_at: string
-  latest_rank: number | null
-  latest_section: Section | null
-  latest_checked_at: string | null
-  latest_total_found: number | null
+  last_rank: number | null
+  last_section: Section | null
+  last_checked_at: string | null
+  last_total_found: number | null
+  last_note: string | null
+  last_rank_hits: RankHitsCompact | null
 }
 
 type HistoryPoint = {
@@ -54,7 +80,8 @@ type HistoryPoint = {
   section: Section
   total_found: number | null
   note: string | null
-  source?: string | null       // 'naver_mobile' | 'cron_daily' | ...
+  source?: string | null
+  rank_hits?: RankHitsCompact | null
 }
 
 type CronStatus = {
@@ -509,7 +536,11 @@ export default function BlogTrackingPage() {
           ) : targets.length === 0 ? null : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {targets.map(t => {
-                const badge = rankBadgeStyle(t.latest_rank)
+                const badge = rankBadgeStyle(t.last_rank)
+                const hits  = t.last_rank_hits ?? null
+                const smartBlocks = hits?.smart_blocks ?? []
+                const blogTab     = hits?.blog_tab ?? null
+                const bestHit     = hits?.best_hit ?? null
                 const checking = checkingIds.has(t.target_id)
                 const expanded = expandedIds.has(t.target_id)
                 const history  = historyMap[t.target_id] ?? []
@@ -547,13 +578,24 @@ export default function BlogTrackingPage() {
                         <span className="text-lg font-black leading-none">{badge.label}</span>
                       </div>
                       <div className="flex-1 min-w-0">
-                        <div className="text-[11px] text-[#8B95A1] mb-0.5">{badge.desc}</div>
+                        <div className="text-[11px] text-[#8B95A1] mb-0.5">
+                          {bestHit
+                            ? <>
+                                <b className="text-[#191F28]">{bestHit.block_title}</b>
+                                <span className="mx-1">·</span>
+                                {bestHit.type === 'blog_tab' ? '블로그탭' : '스마트블록'}
+                              </>
+                            : badge.desc}
+                        </div>
                         <div className="flex items-center gap-1 text-[11px] text-[#8B95A1]">
                           <Clock size={10} />
-                          <span>{formatDateTime(t.latest_checked_at)}</span>
+                          <span>{formatDateTime(t.last_checked_at)}</span>
                         </div>
                       </div>
                     </div>
+
+                    {/* 블록별 노출 요약 (v2) */}
+                    <BlockHitsSummary smartBlocks={smartBlocks} blogTab={blogTab} />
 
                     {/* URL */}
                     <a
@@ -596,12 +638,18 @@ export default function BlogTrackingPage() {
                           </div>
                         ) : (
                           <>
+                            {/* 최신 스냅샷 (v2) — 어느 블록에 노출됐는지 전체 표시 */}
+                            <BlockSnapshotDetail history={history} />
                             {/* 스파크라인 */}
-                            <Sparkline history={history} />
+                            <div className="mt-3">
+                              <Sparkline history={history} />
+                            </div>
                             {/* 최근 5건 리스트 */}
                             <div className="mt-3 space-y-1.5">
                               {history.slice(0, 5).map(h => {
                                 const isCron = h.source === 'cron_daily'
+                                const hitCount = (h.rank_hits?.smart_blocks ?? []).filter(b => b.my_rank !== null).length
+                                  + (h.rank_hits?.blog_tab?.my_rank !== null && h.rank_hits?.blog_tab?.my_rank !== undefined ? 1 : 0)
                                 return (
                                   <div key={h.id} className="flex items-center justify-between text-[11px] gap-2">
                                     <div className="flex items-center gap-1.5 min-w-0">
@@ -613,6 +661,11 @@ export default function BlogTrackingPage() {
                                         {isCron ? '자동' : '수동'}
                                       </span>
                                       <span className="text-[#8B95A1] truncate">{formatDateTime(h.checked_at)}</span>
+                                      {hitCount > 1 && (
+                                        <span className="px-1.5 py-0.5 rounded-md bg-[#E8F6EA] text-[#03C75A] font-bold text-[10px] border border-[#C7E9CE]">
+                                          {hitCount}곳
+                                        </span>
+                                      )}
                                     </div>
                                     <span className={`font-bold flex-shrink-0 ${h.rank === null ? 'text-[#8B95A1]' : 'text-[#191F28]'}`}>
                                       {h.rank === null ? '미노출' : `${h.rank}위`}
@@ -725,6 +778,157 @@ function Sparkline({ history }: { history: HistoryPoint[] }) {
         <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#3182F6]" /> 11~30</span>
         <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#F5A623]" /> 31~50</span>
         <span className="flex items-center gap-1"><span className="w-2 h-2 rounded-full bg-[#CBD5E1]" /> 미노출</span>
+      </div>
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────
+// 블록별 노출 요약 (카드 안, 뱃지 아래)
+//   · 노출된 블록만 녹색, 미노출 블록은 회색
+//   · 블록이 0개 (파서가 블록 못잡음) 면 렌더 안 함
+// ─────────────────────────────────────────────────────────────
+function BlockHitsSummary({
+  smartBlocks,
+  blogTab,
+}: {
+  smartBlocks: SmartBlockCompact[]
+  blogTab:     BlogTabCompact | null
+}) {
+  const hasAny = smartBlocks.length > 0 || (blogTab && blogTab.checked)
+  if (!hasAny) return null
+
+  return (
+    <div className="mb-3 flex flex-wrap gap-1.5">
+      {smartBlocks.map(b => {
+        const hit = b.my_rank !== null
+        return (
+          <span
+            key={b.block_id}
+            title={`${b.block_title} 블록 · 총 ${b.items}개 중 ${hit ? b.my_rank + '위' : '미노출'}`}
+            className={
+              hit
+                ? 'inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10.5px] font-semibold bg-[#E8F6EA] text-[#03874D] border border-[#C7E9CE]'
+                : 'inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10.5px] font-medium bg-[#F2F4F6] text-[#8B95A1] border border-[#E5E8EB]'
+            }
+          >
+            <span className="truncate max-w-[140px]">{b.block_title}</span>
+            <span className={hit ? 'font-black' : ''}>
+              {hit ? `${b.my_rank}위` : '—'}
+            </span>
+          </span>
+        )
+      })}
+      {blogTab && blogTab.checked && (
+        <span
+          title={`블로그 탭 상위 ${blogTab.items}건 중 ${blogTab.my_rank !== null ? blogTab.my_rank + '위' : '미노출'}`}
+          className={
+            blogTab.my_rank !== null
+              ? 'inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10.5px] font-semibold bg-[#E8F1FE] text-[#1B64DA] border border-[#CFDFFC]'
+              : 'inline-flex items-center gap-1 px-2 py-1 rounded-md text-[10.5px] font-medium bg-[#F2F4F6] text-[#8B95A1] border border-[#E5E8EB]'
+          }
+        >
+          블로그탭
+          <span className={blogTab.my_rank !== null ? 'font-black' : ''}>
+            {blogTab.my_rank !== null ? `${blogTab.my_rank}위` : '—'}
+          </span>
+        </span>
+      )}
+    </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────
+// 최신 스냅샷 상세 (확장 패널 최상단)
+//   · history 의 첫 항목(최신)을 기준으로 스마트블록 전체 + 블로그탭을 표로
+//   · 내 글 순위뿐 아니라 그 블록에 몇 개가 있는지 (items) 도 같이 표시
+// ─────────────────────────────────────────────────────────────
+function BlockSnapshotDetail({ history }: { history: HistoryPoint[] }) {
+  const latest = history[0]
+  if (!latest) return null
+  const hits = latest.rank_hits
+  if (!hits) return null
+
+  const smartBlocks = hits.smart_blocks ?? []
+  const blogTab     = hits.blog_tab
+  if (smartBlocks.length === 0 && (!blogTab || !blogTab.checked)) return null
+
+  return (
+    <div className="bg-gradient-to-br from-[#F8F9FB] to-[#EFF6FF] border border-[#E5E8EB] rounded-xl p-3 mb-3">
+      <div className="flex items-center justify-between mb-2">
+        <span className="text-[10px] font-bold text-[#191F28] uppercase tracking-wider">
+          최신 스냅샷
+        </span>
+        <span className="text-[10px] text-[#8B95A1]">
+          {formatDateTime(latest.checked_at)}
+        </span>
+      </div>
+      <div className="space-y-1">
+        {smartBlocks.map(b => {
+          const hit = b.my_rank !== null
+          return (
+            <div
+              key={b.block_id}
+              className={`flex items-center justify-between gap-2 text-[11px] px-2 py-1.5 rounded-md ${
+                hit ? 'bg-[#E8F6EA] border border-[#C7E9CE]' : 'bg-white border border-[#E5E8EB]'
+              }`}
+            >
+              <div className="flex items-center gap-1.5 min-w-0">
+                <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
+                  hit
+                    ? 'bg-[#03C75A] text-white'
+                    : 'bg-[#E5E8EB] text-[#8B95A1]'
+                }`}>
+                  {b.block_id.toUpperCase()}
+                </span>
+                <span className={`truncate ${hit ? 'font-bold text-[#191F28]' : 'text-[#4E5968]'}`}>
+                  {b.block_title}
+                </span>
+              </div>
+              <div className="flex-shrink-0 text-[10px] text-[#8B95A1] flex items-center gap-1.5">
+                <span>총 {b.items}개</span>
+                <span className={
+                  hit
+                    ? 'px-1.5 py-0.5 rounded bg-[#03C75A] text-white font-black text-[10px]'
+                    : 'text-[#8B95A1]'
+                }>
+                  {hit ? `${b.my_rank}위` : '미노출'}
+                </span>
+              </div>
+            </div>
+          )
+        })}
+        {blogTab && blogTab.checked && (
+          <div
+            className={`flex items-center justify-between gap-2 text-[11px] px-2 py-1.5 rounded-md ${
+              blogTab.my_rank !== null
+                ? 'bg-[#E8F1FE] border border-[#CFDFFC]'
+                : 'bg-white border border-[#E5E8EB]'
+            }`}
+          >
+            <div className="flex items-center gap-1.5 min-w-0">
+              <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded ${
+                blogTab.my_rank !== null
+                  ? 'bg-[#3182F6] text-white'
+                  : 'bg-[#E5E8EB] text-[#8B95A1]'
+              }`}>
+                블로그
+              </span>
+              <span className={`truncate ${blogTab.my_rank !== null ? 'font-bold text-[#191F28]' : 'text-[#4E5968]'}`}>
+                블로그 탭 상위 {blogTab.items}건
+              </span>
+            </div>
+            <div className="flex-shrink-0 text-[10px]">
+              <span className={
+                blogTab.my_rank !== null
+                  ? 'px-1.5 py-0.5 rounded bg-[#3182F6] text-white font-black text-[10px]'
+                  : 'text-[#8B95A1]'
+              }>
+                {blogTab.my_rank !== null ? `${blogTab.my_rank}위` : '미노출'}
+              </span>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )
