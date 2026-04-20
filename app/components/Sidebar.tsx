@@ -142,8 +142,8 @@ export default function Sidebar() {
       try {
         const res = await fetch('/api/updates', { cache: 'no-store' })
         if (!res.ok) return
-        const data = await res.json() as { items?: { id: string }[] }
-        const latestId = Array.isArray(data?.items) && data.items.length > 0 ? data.items[0].id : null
+        const data = await res.json() as { updates?: { id: string }[] }
+        const latestId = Array.isArray(data?.updates) && data.updates.length > 0 ? data.updates[0].id : null
         if (cancelled || !latestId) return
         const seen = typeof window !== 'undefined' ? localStorage.getItem(LS_UPDATES_LAST_SEEN) : null
         setHasUnseenUpdate(seen !== latestId)
@@ -155,8 +155,8 @@ export default function Sidebar() {
         try {
           const res = await fetch('/api/updates', { cache: 'no-store' })
           if (!res.ok) return
-          const data = await res.json() as { items?: { id: string }[] }
-          const latestId = Array.isArray(data?.items) && data.items.length > 0 ? data.items[0].id : null
+          const data = await res.json() as { updates?: { id: string }[] }
+          const latestId = Array.isArray(data?.updates) && data.updates.length > 0 ? data.updates[0].id : null
           if (latestId) {
             try { localStorage.setItem(LS_UPDATES_LAST_SEEN, latestId) } catch {}
             if (!cancelled) setHasUnseenUpdate(false)
