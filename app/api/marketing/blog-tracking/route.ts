@@ -13,20 +13,71 @@ import { parseBlogUrl, checkNaverBlogRank } from '@/app/lib/naver-rank'
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-// ---------- GET: list ----------
+// ---------- next cron run (UTC 20:00 = KST 05:00) ----------
+function nextCronRunUTC(now: Date = new Date()): string {
+  const n = new Date(now)
+  const today20 = new Date(Date.UTC(
+    n.getUTCFullYear(), n.getUTCMonth(), n.getUTCDate(), 20, 0, 0,
+  ))
+  const out = n.getTime() < today20.getTime()
+    ? today20
+    : new Date(today20.getTime() + 24 * 60 * 60 * 1000)
+  return out.toISOString()
+}
+
+// ---------- GET: list + cron 상태 ----------
 export async function GET() {
   const auth = await requireUser()
   if (!auth.ok) return NextResponse.json({ error: auth.message }, { status: auth.status })
 
   const svc = createServiceClient()
-  const { data, error } = await svc
+
+  // 타겟 목록
+  const { data: targets, error: tErr } = await svc
     .from('blog_tracking_latest')
     .select('*')
     .eq('user_id', auth.userId)
     .order('created_at', { ascending: false })
+  if (tErr) return NextResponse.json({ error: tErr.message }, { status: 500 })
 
-  if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-  return NextResponse.json({ targets: data ?? [] })
+  const targetIds = (targets ?? []).map(t => t.target_id)
+
+  // 크론 요약 (내 타겟 한정 · source='cron_daily')
+  let lastCronAt: string | null = null
+  let cronRuns7d = 0
+  if (targetIds.length > 0) {
+    // 마지막 cron 실행
+    const { data: lastRow } = await svc
+      .from('blog_tracking_history')
+      .select('checked_at')
+      .in('target_id', targetIds)
+      .eq('source', 'cron_daily')
+      .order('checked_at', { ascending: false })
+      .limit(1)
+    lastCronAt = lastRow?.[0]?.checked_at ?? null
+
+    // 지난 7일 누적
+    const since = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
+    const { count } = await svc
+      .from('blog_tracking_history')
+      .select('id', { count: 'exact', head: true })
+      .in('target_id', targetIds)
+      .eq('source', 'cron_daily')
+      .gte('checked_at', since)
+    cronRuns7d = count ?? 0
+  }
+
+  return NextResponse.json({
+    targets: targets ?? [],
+    cron: {
+      enabled:      true,
+      schedule:     '0 20 * * *',        // UTC 20:00
+      schedule_kst: '매일 오전 5시',
+      last_run_at:  lastCronAt,
+      next_run_at:  nextCronRunUTC(),
+      runs_last_7d: cronRuns7d,
+    },
+  })
 }
 
 // ---------- POST: create (옵션 즉시 체크) ----------
