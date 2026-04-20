@@ -401,7 +401,7 @@ export default function Community() {
   const [toast, setToast] = useState<{ amount: number; label: string } | null>(null)
 
   // 위치기반 (당근식)
-  const [geoStatus, setGeoStatus] = useState<'idle' | 'loading' | 'ok' | 'denied' | 'unsupported'>('idle')
+  const [geoStatus, setGeoStatus] = useState<'idle' | 'loading' | 'ok' | 'denied' | 'unavailable' | 'timeout' | 'unsupported'>('idle')
   const [nearRegions, setNearRegions] = useState<Array<CommunityRegion & { distance_km: number }>>([])
 
   const requestGeoLocation = () => {
@@ -410,6 +410,7 @@ export default function Community() {
       return
     }
     setGeoStatus('loading')
+    // 1차 시도: 고정밀 요청 (GPS/WiFi 기반, 정확도 ↑)
     navigator.geolocation.getCurrentPosition(
       (pos) => {
         try {
@@ -425,11 +426,43 @@ export default function Community() {
             }))
           } catch (_) {}
         } catch (_) {
-          setGeoStatus('denied')
+          setGeoStatus('unavailable')
         }
       },
-      () => setGeoStatus('denied'),
-      { enableHighAccuracy: false, timeout: 8000, maximumAge: 30 * 60 * 1000 },
+      (err) => {
+        // 고정밀 실패 시 저정밀로 2차 시도 (IP 기반, 커버리지 ↑)
+        if (err && err.code === 3 /* TIMEOUT */) {
+          navigator.geolocation.getCurrentPosition(
+            (pos) => {
+              try {
+                const list = nearestRegions(pos.coords.latitude, pos.coords.longitude, 6)
+                setNearRegions(list)
+                setGeoStatus('ok')
+                const top = list[0]
+                if (top) setActiveRegion(top.id)
+                try {
+                  window.localStorage.setItem('localution.community_geo', JSON.stringify({
+                    lat: pos.coords.latitude, lng: pos.coords.longitude, ts: Date.now(),
+                  }))
+                } catch (_) {}
+              } catch (_) {
+                setGeoStatus('unavailable')
+              }
+            },
+            (err2) => {
+              if (err2 && err2.code === 1) setGeoStatus('denied')
+              else if (err2 && err2.code === 3) setGeoStatus('timeout')
+              else setGeoStatus('unavailable')
+            },
+            { enableHighAccuracy: false, timeout: 8000, maximumAge: 5 * 60 * 1000 },
+          )
+          return
+        }
+        if (err && err.code === 1) setGeoStatus('denied')
+        else if (err && err.code === 2) setGeoStatus('unavailable')
+        else setGeoStatus('unavailable')
+      },
+      { enableHighAccuracy: true, timeout: 12000, maximumAge: 10 * 60 * 1000 },
     )
   }
 
@@ -622,34 +655,44 @@ export default function Community() {
           </div>
 
           {/* 모바일 · 태블릿 전용 지역 게시판 선택 (lg 이상은 우측 사이드바 카드로 표시) */}
-          <div className="lg:hidden bg-white rounded-2xl px-4 py-2.5 mb-4 shadow-sm border border-[#F2F4F6] flex items-center gap-2">
-            <MapPin size={13} strokeWidth={2.25} className="text-[#3182F6] flex-shrink-0" />
-            <span className="text-xs font-bold text-[#191F28] flex-shrink-0">지역</span>
-            <select
-              value={activeRegion}
-              onChange={e => setActiveRegion(e.target.value)}
-              className="flex-1 min-w-0 text-xs bg-[#F2F4F6] border-none rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#3182F6]/30 font-semibold text-[#191F28]"
-            >
-              {regionGroups.map(g => (
-                <optgroup key={g.parent ?? 'nationwide'} label={g.parent ?? '전국'}>
-                  {g.items.map(r => (
-                    <option key={r.id} value={r.id}>
-                      {r.parent_label ? `${r.parent_label} ${r.label}` : r.label}
-                    </option>
-                  ))}
-                </optgroup>
-              ))}
-            </select>
-            <button
-              onClick={requestGeoLocation}
-              disabled={geoStatus === 'loading'}
-              className="flex-shrink-0 inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold bg-[#EFF6FF] text-[#3182F6] hover:bg-[#DBEAFE] transition-colors disabled:opacity-60"
-            >
-              {geoStatus === 'loading'
-                ? <Loader2 size={11} strokeWidth={2.5} className="animate-spin" />
-                : <Navigation size={11} strokeWidth={2.5} />}
-              내 위치
-            </button>
+          <div className="lg:hidden bg-white rounded-2xl px-4 py-2.5 mb-4 shadow-sm border border-[#F2F4F6]">
+            <div className="flex items-center gap-2">
+              <MapPin size={13} strokeWidth={2.25} className="text-[#3182F6] flex-shrink-0" />
+              <span className="text-xs font-bold text-[#191F28] flex-shrink-0">지역</span>
+              <select
+                value={activeRegion}
+                onChange={e => setActiveRegion(e.target.value)}
+                className="flex-1 min-w-0 text-xs bg-[#F2F4F6] border-none rounded-lg px-2.5 py-1.5 focus:outline-none focus:ring-2 focus:ring-[#3182F6]/30 font-semibold text-[#191F28]"
+              >
+                {regionGroups.map(g => (
+                  <optgroup key={g.parent ?? 'nationwide'} label={g.parent ?? '전국'}>
+                    {g.items.map(r => (
+                      <option key={r.id} value={r.id}>
+                        {r.parent_label ? `${r.parent_label} ${r.label}` : r.label}
+                      </option>
+                    ))}
+                  </optgroup>
+                ))}
+              </select>
+              <button
+                onClick={requestGeoLocation}
+                disabled={geoStatus === 'loading'}
+                className="flex-shrink-0 inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-[11px] font-semibold bg-[#EFF6FF] text-[#3182F6] hover:bg-[#DBEAFE] transition-colors disabled:opacity-60"
+              >
+                {geoStatus === 'loading'
+                  ? <Loader2 size={11} strokeWidth={2.5} className="animate-spin" />
+                  : <Navigation size={11} strokeWidth={2.5} />}
+                내 위치
+              </button>
+            </div>
+            {(geoStatus === 'denied' || geoStatus === 'unavailable' || geoStatus === 'timeout' || geoStatus === 'unsupported') && (
+              <p className="text-[10px] text-[#FB8500] mt-1.5 leading-snug">
+                {geoStatus === 'denied' && '위치 권한이 차단돼 있어요. 브라우저 설정에서 허용해 주세요'}
+                {geoStatus === 'unavailable' && '위치를 확인할 수 없어요. WiFi/모바일 데이터 확인 후 다시 시도'}
+                {geoStatus === 'timeout' && '위치 찾기가 너무 오래 걸려요. 다시 시도해 주세요'}
+                {geoStatus === 'unsupported' && '이 브라우저는 위치 기능을 지원하지 않아요'}
+              </p>
+            )}
           </div>
 
           {/* 광고 문의 라인 */}
@@ -816,7 +859,16 @@ export default function Community() {
                 </select>
                 <p className="text-[10px] text-[#8B95A1] mt-1.5 leading-snug">선택한 지역만 보기 · 전국 누구나 열람</p>
                 {geoStatus === 'denied' && (
-                  <p className="text-[10px] text-[#FB8500] mt-1 leading-snug">위치 권한 거부됨</p>
+                  <p className="text-[10px] text-[#FB8500] mt-1 leading-snug">위치 권한이 차단돼 있어요. 브라우저 설정에서 허용해 주세요</p>
+                )}
+                {geoStatus === 'unavailable' && (
+                  <p className="text-[10px] text-[#FB8500] mt-1 leading-snug">위치를 확인할 수 없어요. WiFi/모바일 데이터 연결 확인 후 다시 시도</p>
+                )}
+                {geoStatus === 'timeout' && (
+                  <p className="text-[10px] text-[#FB8500] mt-1 leading-snug">위치 찾기가 너무 오래 걸려요. 다시 시도해 주세요</p>
+                )}
+                {geoStatus === 'unsupported' && (
+                  <p className="text-[10px] text-[#FB8500] mt-1 leading-snug">이 브라우저는 위치 기능을 지원하지 않아요</p>
                 )}
               </div>
 
