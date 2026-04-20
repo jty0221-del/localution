@@ -7,7 +7,7 @@ import { usePathname, useSearchParams } from 'next/navigation'
 import {
   ChevronDown, ChevronRight, List, Map, MapPin, Search, BarChart3,
   Sparkles, MessageCircle, Settings, LogOut, FileText, Lock, LucideIcon,
-  Plus, ArrowRight, Package,
+  Plus, ArrowRight, Package, Bell,
 } from 'lucide-react'
 import { REGIONS } from '../lib/regions'
 import { useEntitlements } from '../lib/entitlements'
@@ -77,9 +77,13 @@ const MARKETING_SUB: { href: string; label: string; Icon: LucideIcon; badge: str
 // REGIONS 는 app/lib/regions.ts 에서 중앙 관리
 
 const BOTTOM_NAV: { href: string; label: string; Icon: LucideIcon; colors: { bg: string; text: string } }[] = [
-  { href: '/inquiry',  label: '1:1 문의', Icon: MessageCircle, colors: { bg: '#FFF7ED', text: '#EA580C' } },
-  { href: '/settings', label: '설정',     Icon: Settings,      colors: { bg: '#F2F4F6', text: '#4E5968' } },
+  { href: '/updates',  label: '업데이트 내역', Icon: Bell,          colors: { bg: '#EFF6FF', text: '#3182F6' } },
+  { href: '/inquiry',  label: '1:1 문의',       Icon: MessageCircle, colors: { bg: '#FFF7ED', text: '#EA580C' } },
+  { href: '/settings', label: '설정',           Icon: Settings,      colors: { bg: '#F2F4F6', text: '#4E5968' } },
 ]
+
+// 19차-2 · 업데이트 내역 미확인 배지용 localStorage 키 (UpdatesPopupBanner와 동일)
+const LS_UPDATES_LAST_SEEN = 'localution.updates.lastSeenId'
 
 /** 플랫폼 상태 점 (LED 대체) */
 function StatusDot({ color }: { color: string }) {
@@ -129,6 +133,39 @@ export default function Sidebar() {
   // 로그인 사용자 프로필 + 매장 정보
   const [user, setUser] = useState<UserProfile | null>(null)
   const [store, setStore] = useState<StoreInfo>({})
+
+  // 19차-2 · 업데이트 내역 미확인 배지
+  const [hasUnseenUpdate, setHasUnseenUpdate] = useState(false)
+  useEffect(() => {
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch('/api/updates', { cache: 'no-store' })
+        if (!res.ok) return
+        const data = await res.json() as { items?: { id: string }[] }
+        const latestId = Array.isArray(data?.items) && data.items.length > 0 ? data.items[0].id : null
+        if (cancelled || !latestId) return
+        const seen = typeof window !== 'undefined' ? localStorage.getItem(LS_UPDATES_LAST_SEEN) : null
+        setHasUnseenUpdate(seen !== latestId)
+      } catch {}
+    })()
+    // /updates 페이지 들어가면 즉시 last_seen 갱신 + 배지 끄기
+    if (pathname === '/updates') {
+      ;(async () => {
+        try {
+          const res = await fetch('/api/updates', { cache: 'no-store' })
+          if (!res.ok) return
+          const data = await res.json() as { items?: { id: string }[] }
+          const latestId = Array.isArray(data?.items) && data.items.length > 0 ? data.items[0].id : null
+          if (latestId) {
+            try { localStorage.setItem(LS_UPDATES_LAST_SEEN, latestId) } catch {}
+            if (!cancelled) setHasUnseenUpdate(false)
+          }
+        } catch {}
+      })()
+    }
+    return () => { cancelled = true }
+  }, [pathname])
   useEffect(() => {
     setUser(readCookieUser())
     setStore(readStoreInfo())
@@ -298,16 +335,27 @@ export default function Sidebar() {
       {BOTTOM_NAV.map(item => {
         const active = pathname === item.href || pathname.startsWith(item.href + '/')
         const Icon = item.Icon
+        const showUnseenDot = item.href === '/updates' && hasUnseenUpdate && !active
         return (
           <Link key={item.href} href={item.href} onClick={() => setMobileOpen(false)}
-            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all ${active ? 'font-semibold' : 'text-[#4E5968] hover:bg-[#F2F4F6] font-medium'}`}
+            className={`flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all relative ${active ? 'font-semibold' : 'text-[#4E5968] hover:bg-[#F2F4F6] font-medium'}`}
             style={active ? { background: item.colors.bg, color: item.colors.text } : {}}>
-            <div className="w-7 rounded-lg flex items-center justify-center flex-shrink-0">
+            <div className="w-7 rounded-lg flex items-center justify-center flex-shrink-0 relative">
               <Icon size={16} strokeWidth={2}
                 style={active ? { color: item.colors.text } : { color: '#8B95A1' }} />
+              {showUnseenDot && (
+                <span
+                  className="absolute -top-0.5 -right-0.5 w-2 h-2 rounded-full ring-2 ring-white"
+                  style={{ background: '#EF4444' }}
+                  aria-label="새로운 업데이트 있음"
+                />
+              )}
             </div>
             <span className="text-sm">{item.label}</span>
-            {active && <span className="ml-auto w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: item.colors.text }} />}
+            {showUnseenDot && (
+              <span className="ml-auto text-[9px] font-black px-1.5 py-0.5 rounded-md bg-[#EF4444] text-white tracking-wide">N</span>
+            )}
+            {active && !showUnseenDot && <span className="ml-auto w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: item.colors.text }} />}
           </Link>
         )
       })}
