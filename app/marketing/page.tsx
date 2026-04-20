@@ -543,11 +543,15 @@ export default function MarketingPage() {
                   <TrendingUp size={26} strokeWidth={2.25} className="text-white" />
                 </div>
                 <div className="flex-1 text-white min-w-0">
-                  <div className="flex items-center gap-2 mb-0.5">
+                  <div className="flex items-center gap-2 mb-0.5 flex-wrap">
                     <span className="text-[10px] font-black bg-white text-[#3182F6] px-2 py-0.5 rounded-full">NEW</span>
+                    <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-[#03C75A] text-white px-2 py-0.5 rounded-full">
+                      <span className="w-1.5 h-1.5 rounded-full bg-white animate-pulse" />
+                      매일 자동 체크
+                    </span>
                     <div className="text-sm md:text-base font-black truncate">블로그 순위 추적</div>
                   </div>
-                  <div className="text-xs text-white/80">체험단·내 블로그 글 네이버 인기글 순위 자동 체크</div>
+                  <div className="text-xs text-white/80">체험단·내 블로그 글 네이버 인기글 순위 매일 오전 5시 자동 수집</div>
                 </div>
                 <ArrowRight size={18} strokeWidth={2.5}
                   className="text-white group-hover:translate-x-1 transition-transform flex-shrink-0" />
