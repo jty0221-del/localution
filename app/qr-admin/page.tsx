@@ -239,7 +239,7 @@ function safeFileName(raw: string): string {
     .slice(0, 40) || '업체'
 }
 
-// QR ��운로드 함수
+// QR ���운로드 함수
 function downloadQR(url: string, fileName: string) {
   const size = 400
   const encoded = encodeURIComponent(url)
@@ -301,7 +301,7 @@ function openPrintTemplate(opts: {
     (keyword ? '<p class="store">#' + keyword + '</p>' : '') +
     '</div>' +
     '<div class="qr-box"><img src="' + qrSrc + '" alt="QR"/></div>' +
-    '<p class="scan-hint">📱 카메라로 QR을 찍어주세요</p>' +
+    '<p class="scan-hint">��� 카메라로 QR을 찍어주세요</p>' +
     rewardLine +
     '<div class="bottom">' +
     '<div class="steps">' +
@@ -894,6 +894,16 @@ export default function QRAdmin() {
               <p className="text-xs font-semibold text-[#4E5968]">{toneLabel[globalTone] || '친근하게'}</p>
             </div>
           </div>
+          {/* 21차-1c-C: 내 리뷰 페이지 경로 배너 (업체 연동 시 노출) */}
+          {storeInfo.connected && (
+            <div className="bg-[#EFF6FF] rounded-2xl px-5 py-3.5 shadow-sm flex items-center gap-2 border border-[#BFDBFE] min-w-0">
+              <span className="text-lg">📱</span>
+              <div className="min-w-0">
+                <p className="text-xs text-[#3182F6] font-semibold">내 리뷰 페이지</p>
+                <p className="text-xs font-mono text-[#4E5968] truncate max-w-[280px]">/review/{makeStoreId(storeInfo.name)}</p>
+              </div>
+            </div>
+          )}
         </div>
 
 
@@ -912,7 +922,7 @@ export default function QRAdmin() {
                     <div className="min-w-0">
                       <h3 className="font-bold text-[#191F28]">네이버 업체 연동</h3>
                       <p className="text-xs text-[#8B95A1]">
-                        {naverLinked ? '플랫폼 연결 감지됨 · 원클릭으로 불러오세요' : '연동 시 키워드 자동 설정'}
+                        {naverLinked ? '플랫폼 연결 감지됨 · 원클릭으로 불���오세요' : '연동 시 키워드 자동 설정'}
                       </p>
                     </div>
                   </div>
@@ -1093,7 +1103,7 @@ export default function QRAdmin() {
                         onChange={e => saveSetting('subKwInput', e.target.value)}
                         onKeyDown={handleSubKwKeyDown}
                         onBlur={() => { if (settings.subKwInput.trim()) addSubKw(settings.subKwInput) }}
-                        placeholder={settings.subKeywords.length === 0 ? "예: 부천카페, 오므라이스, 데이트코스" : "추가 입력..."}
+                        placeholder={settings.subKeywords.length === 0 ? "예: 부천카페, 오므라이스, 데이트코스" : "추가 입��..."}
                         className="flex-1 min-w-[120px] outline-none text-sm py-1 bg-transparent placeholder-[#C9CDD2]"
                       />
                     )}
