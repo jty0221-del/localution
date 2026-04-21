@@ -9,7 +9,7 @@ import {
   MessageCircle, QrCode, Users, FileText, Sparkles,
   Coffee, UtensilsCrossed, Dumbbell,
   Flame, Heart, PenLine, Wine, UserPlus, Camera, Star,
-  ArrowRight, MapPin, Video,
+  ArrowRight, MapPin, Video, Layers, Zap, TrendingUp,
 } from 'lucide-react'
 
 const FEATURES = [
@@ -70,6 +70,35 @@ const FEATURES = [
     bg: 'bg-purple-50',
     tags: ['자동 분류', '알림톡', '재방문 유도'],
     href: '/service-intro',
+  },
+  {
+    Icon: Layers,
+    title: '카드뉴스 자동 제작',
+    desc: '주제만 던지면 인스타 캐러셀 10장이 AI로 완성. 스크롤 멈추는 훅·저장 유도·해시태그까지.',
+    color: 'from-rose-500 to-orange-500',
+    bg: 'bg-rose-50',
+    tags: ['인스타 캐러셀', 'PNG 저장', 'Claude AI'],
+    href: '/marketing/card-news',
+    badge: 'NEW',
+  },
+  {
+    Icon: Zap,
+    title: '플랫폼 통합 관리',
+    desc: '네이버·배민·요기요·쿠팡이츠 4곳 한 계정으로 연결. 리뷰·답글·순위를 한 화면에서.',
+    color: 'from-indigo-500 to-purple-600',
+    bg: 'bg-indigo-50',
+    tags: ['4대 플랫폼', '대리 게시', 'AES-256'],
+    href: '/my/platforms',
+    badge: 'NEW',
+  },
+  {
+    Icon: TrendingUp,
+    title: '블로그 순위 추적',
+    desc: '내 블로그 글이 스마트블록·블로그탭·인기글 어디에 몇 위로 떴는지 매일 자동 체크.',
+    color: 'from-amber-500 to-yellow-500',
+    bg: 'bg-amber-50',
+    tags: ['일 1회 자동', '스마트블록', '카톡 알림'],
+    href: '/marketing/blog-tracking',
   },
 ]
 
@@ -152,6 +181,15 @@ export default function LandingPage() {
   const [hero, setHero] = useState(HERO_DEMO)
   const [testimonials, setTestimonials] = useState<Testimonial[]>(TESTIMONIALS_DEMO)
   const [isDemo, setIsDemo] = useState(true)
+  // 25차-1: 쿠키 기반 로그인 여부 감지 → 하단 CTA 분기 (/updates 핸드오버 패턴 재사용)
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+
+  useEffect(() => {
+    if (typeof document === 'undefined') return
+    const c = document.cookie || ''
+    const hasCookie = /(^|;\s*)(localution_user|sb-[^=]+-auth-token)=/i.test(c)
+    setIsLoggedIn(hasCookie)
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -572,9 +610,10 @@ export default function LandingPage() {
               className="inline-flex items-center justify-center gap-2 border-2 border-[#3182F6] text-[#3182F6] font-bold px-8 py-4 rounded-2xl hover:bg-blue-50 transition-colors">
               요금 보기
             </Link>
-            <Link href="/login"
+            <Link href={isLoggedIn ? '/dashboard' : '/login'}
               className="inline-flex items-center justify-center gap-2 bg-[#3182F6] text-white font-bold px-8 py-4 rounded-2xl hover:bg-[#1B64DA] transition-colors shadow-lg shadow-blue-200">
-              지금 무료로 시작하기
+              {isLoggedIn ? '내 대시보드로 이동' : '지금 무료로 시작하기'}
+              <ArrowRight size={18} strokeWidth={2.5} />
             </Link>
           </div>
         </div>
