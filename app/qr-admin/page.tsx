@@ -239,7 +239,7 @@ function safeFileName(raw: string): string {
     .slice(0, 40) || '업체'
 }
 
-// QR ���운로드 함수
+// QR 다운로드 함수
 function downloadQR(url: string, fileName: string) {
   const size = 400
   const encoded = encodeURIComponent(url)
@@ -301,7 +301,7 @@ function openPrintTemplate(opts: {
     (keyword ? '<p class="store">#' + keyword + '</p>' : '') +
     '</div>' +
     '<div class="qr-box"><img src="' + qrSrc + '" alt="QR"/></div>' +
-    '<p class="scan-hint">��� 카메라로 QR을 찍어주세요</p>' +
+    '<p class="scan-hint">📸 카메라로 QR을 찍어주세요</p>' +
     rewardLine +
     '<div class="bottom">' +
     '<div class="steps">' +
@@ -391,11 +391,11 @@ function buildReviewUrl(storeInfo: StoreInfo, settings: QRSettings): string {
   return base + '/review/' + storeId + (qs ? '?' + qs : '')
 }
 
-// ─── 메인 ───────────────────────────────────────────────��─────────
+// ─── 메인 ─────────────────────────────────────────────────────────
 // ──────────────────────────────────────────────
 // QR 리뷰 생성 통계 (localStorage: localution.review_stats)
 // /review/[storeId] 페이지의 startGenerate 시점에 쌓이는 demographics 집계
-// ────────────────────────────────────���─────────
+// ──────────────────────────────────────────────
 interface ReviewStatRecord {
   ts: number
   storeId: string
@@ -490,7 +490,7 @@ function ReviewStatsSection({ storeName }: { storeName: string }) {
             <span className="text-xl">📊</span> QR 리뷰 생성 통계
           </h2>
           <p className="text-xs text-[#8B95A1] mt-0.5">
-            /review QR 스캔 후 고객이 선택한 성별·연령·톤·길이 누적 ��계 · 매장별 인사이트
+            /review QR 스캔 후 고객이 선택한 성별·연령·톤·길이 누적 통계 · 매장별 인사이트
           </p>
         </div>
         <div className="flex items-center gap-1 bg-[#F2F4F6] rounded-lg p-0.5">
@@ -922,7 +922,7 @@ export default function QRAdmin() {
                     <div className="min-w-0">
                       <h3 className="font-bold text-[#191F28]">네이버 업체 연동</h3>
                       <p className="text-xs text-[#8B95A1]">
-                        {naverLinked ? '플랫폼 연결 감지됨 · 원클릭으로 불���오세요' : '연동 시 키워드 자동 설정'}
+                        {naverLinked ? '플랫폼 연결 감지됨 · 원클릭으로 불러오세요' : '연동 시 키워드 자동 설정'}
                       </p>
                     </div>
                   </div>
@@ -931,7 +931,7 @@ export default function QRAdmin() {
                       <button
                         onClick={importFromNaverLink}
                         className="flex items-center gap-1 text-[11px] font-bold px-2.5 py-1.5 rounded-lg bg-[#03C75A] text-white hover:opacity-90 whitespace-nowrap">
-                        ⚡ 설정에서 불���오기
+                        ⚡ 설정에서 불러오기
                       </button>
                     )}
                     {!naverLinked && (
@@ -1103,7 +1103,7 @@ export default function QRAdmin() {
                         onChange={e => saveSetting('subKwInput', e.target.value)}
                         onKeyDown={handleSubKwKeyDown}
                         onBlur={() => { if (settings.subKwInput.trim()) addSubKw(settings.subKwInput) }}
-                        placeholder={settings.subKeywords.length === 0 ? "예: 부천카페, 오므라이스, 데이트코스" : "추가 입��..."}
+                        placeholder={settings.subKeywords.length === 0 ? "예: 부천카페, 오므라이스, 데이트코스" : "추가 입력..."}
                         className="flex-1 min-w-[120px] outline-none text-sm py-1 bg-transparent placeholder-[#C9CDD2]"
                       />
                     )}
@@ -1164,7 +1164,7 @@ export default function QRAdmin() {
             {/* 우측 */}
             <div className="space-y-5">
 
-              {/* AI 톤 안��� (전역 설정) */}
+              {/* AI 톤 안내 (전역 설정) */}
               <div className="bg-gradient-to-br from-[#EFF6FF] to-[#F8FBFF] rounded-2xl p-5 border border-[#BFDBFE]">
                 <div className="flex items-center gap-2 mb-2">
                   <span className="text-xl">🤖</span>
@@ -1193,7 +1193,7 @@ export default function QRAdmin() {
                 </div>
                 <div className="space-y-3">
                   {[
-                    { value: 'none',    label: '없음',       desc: '순수 ���뷰 유도' },
+                    { value: 'none',    label: '없음',       desc: '순수 리뷰 유도' },
                     { value: 'coupon',  label: '쿠폰 제공',  desc: '할인 쿠폰 증정' },
                     { value: 'stamp',   label: '스탬프',     desc: '스탬프 적립' },
                     { value: 'free',    label: '서비스 제공', desc: '음료/디저트 서비스' },
@@ -1252,7 +1252,7 @@ export default function QRAdmin() {
                   }
                 </div>
                 <p className="text-[11px] text-[#8B95A1] mt-2 text-center">
-                  실제 생성 시 ���({toneLabel[globalTone] || '친근하게'})이 적용됩니다
+                  실제 생성 시 톤({toneLabel[globalTone] || '친근하게'})이 적용됩니다
                 </p>
               </div>
 
@@ -1261,7 +1261,7 @@ export default function QRAdmin() {
                 className={`w-full py-3.5 rounded-xl font-bold text-base transition-colors ${
                   saved ? 'bg-green-500 text-white' : 'bg-[#191F28] text-white hover:bg-[#333D4B]'
                 }`}>
-                {saved ? '✅ 저장됨' : '설정 저장��기'}
+                {saved ? '✅ 저장됨' : '설정 저장하기'}
               </button>
             </div>
           </div>
@@ -1292,7 +1292,7 @@ export default function QRAdmin() {
               ? (storeInfo.connected
                   ? '연동된 네이버 업체 정보가 자동으로 반영됩니다. 다운로드 후 매장에 부착하세요.'
                   : '업체를 먼저 연동하면 QR이 생성됩니다.')
-              : '��하는 URL을 입력하면 즉시 QR이 생성됩니다. (스마트스토어·예약페이지·SNS 등)'}
+              : '원하는 URL을 입력하면 즉시 QR이 생성됩니다. (스마트스토어·예약페이지·SNS 등)'}
           </p>
 
           {/* 21차-1c-A: 모드 토글 */}
@@ -1500,7 +1500,7 @@ export default function QRAdmin() {
                   }}
                   disabled={!storeInfo.connected}
                   className={'py-3 rounded-xl text-sm font-semibold transition-colors ' + (storeInfo.connected ? 'bg-[#3182F6] text-white hover:bg-[#1B64DA]' : 'bg-[#E5E8EB] text-[#8B95A1] cursor-not-allowed')}>
-                  ���� PNG 저장
+                  💾 PNG 저장
                 </button>
                 <button
                   onClick={() => {
