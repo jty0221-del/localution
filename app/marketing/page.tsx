@@ -477,7 +477,7 @@ export default function MarketingPage() {
   const [tab, setTab] = useState<'rank'|'score'|'diag'|'inflow'>('rank')
 
   const tabs = [
-    { id: 'rank' as const,   label: '키워�� 순위',       Icon: TrendingUp },
+    { id: 'rank' as const,   label: '키워드 순위',       Icon: TrendingUp },
     { id: 'score' as const,  label: '키워드 점수 분석', Icon: Search },
     { id: 'diag' as const,   label: '플레이스 진단',     Icon: ClipboardCheck },
     { id: 'inflow' as const, label: '유입 분석',          Icon: Users },
