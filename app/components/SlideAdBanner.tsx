@@ -85,7 +85,7 @@ export const DEFAULT_BANNER_SLIDES: BannerSlide[] = [
     desc: '계정 한 번 연동 → 모든 채널 통합 관리 · 자동 게시',
     bg: 'linear-gradient(135deg, #6366F1 0%, #8B5CF6 50%, #A855F7 100%)',
     Icon: Zap,
-    link: '/marketing/platform-hub',
+    link: '/my/platforms',
   },
   {
     title: '블로그 순위 자동 추적',
