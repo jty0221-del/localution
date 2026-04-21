@@ -118,14 +118,28 @@ export async function GET() {
   // ── 3) stores 테이블 ──────────────────────────────────────────
   let store: any = null
   try {
-    const { data, error } = await svc
+    // 2026-04-22: description 컬럼 추가 (2000자 매장 소개)
+    // 마이그레이션 전 환경에서는 description 컬럼이 없어 에러 나므로 2단 select 로 graceful fallback
+    const fullSel =
+      'id, slug, name, category, location, address, phone, main_keyword, sub_keywords, naver_place_id, naver_url, naver_place_url, naver_blog_url, description, tone, cover_color, reward_type, reward_value, updated_at'
+    const liteSel =
+      'id, slug, name, category, location, address, phone, main_keyword, sub_keywords, naver_place_id, naver_url, naver_place_url, naver_blog_url, tone, cover_color, reward_type, reward_value, updated_at'
+    let { data, error } = await svc
       .from('stores')
-      .select(
-        'id, slug, name, category, location, address, phone, main_keyword, sub_keywords, naver_place_id, naver_url, naver_place_url, naver_blog_url, tone, cover_color, reward_type, reward_value, updated_at'
-      )
+      .select(fullSel)
       .eq('user_id', userId)
       .order('updated_at', { ascending: false })
       .limit(1)
+    if (error && /description/i.test(error.message || '')) {
+      const retry = await svc
+        .from('stores')
+        .select(liteSel)
+        .eq('user_id', userId)
+        .order('updated_at', { ascending: false })
+        .limit(1)
+      data = retry.data as any
+      error = retry.error
+    }
     if (!error && Array.isArray(data) && data.length > 0) {
       store = data[0]
     }
