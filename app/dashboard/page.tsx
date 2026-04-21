@@ -716,6 +716,38 @@ export default function Dashboard() {
     }))
   }, [canonicalConnections])
 
+  // 30차-2: 서버 단일 진실원 동기화 (/api/stores/me → platform_credentials)
+  //   · /my/platforms/[platform]/connect 에서 ID/비번 입력해 저장한 연결은
+  //     platform_credentials 테이블에 있고 localStorage 에는 없음.
+  //   · 여기서 서버 상태를 읽어 platforms[].connected 를 "true 로만" 덮어써서
+  //     로컬스토리지 기반 + 서버 기반 연결이 합쳐지도록 한다.
+  //   · 서버 slug (naver_place/baemin/yogiyo/coupangeats) 는 대시보드 PlatformId 와 동일명.
+  useEffect(() => {
+    if (!isLoggedIn) return
+    let cancelled = false
+    ;(async () => {
+      try {
+        const res = await fetch('/api/stores/me', { cache: 'no-store' })
+        if (!res.ok) return
+        const data = await res.json()
+        if (cancelled || !data?.ok) return
+        const server: Array<{ platform: string; connected: boolean }> = data.platforms ?? []
+        const connectedSet = new Set(
+          server.filter((p) => p.connected).map((p) => p.platform)
+        )
+        if (connectedSet.size === 0) return
+        setPlatforms((prev) =>
+          prev.map((p) => (connectedSet.has(p.id) ? { ...p, connected: true } : p))
+        )
+      } catch {
+        // graceful degrade — 서버 응답 실패시 localStorage 만 쓰임
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [isLoggedIn])
+
   // 프로필(매장 주소/이름) → 지역 기반 키워드 자동 생성
   useEffect(() => {
     function syncKeywordsFromProfile() {
