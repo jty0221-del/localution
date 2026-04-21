@@ -13,6 +13,8 @@
 | 28차-3a | /review-admin 서버 연결 상태 병합 | app/review-admin/page.tsx | ✅ 완료 |
 | 28차-3b | /settings StoreTab·ConnectTab 서버 통합 | app/settings/page.tsx | ✅ 완료 |
 | 28차-4 | /settings Kakao Maps 위젯 추가 (SmartMapBox) | app/settings/page.tsx | ✅ 완료 |
+| 29차-1 | /marketing/card-news 레이아웃 통일 (Sidebar + PageHeader + Footer) | app/marketing/card-news/page.tsx | ✅ 완료 |
+| 23차-3 | Railway Worker 스캐폴딩 + Redis 서비스 생성 | worker/ (9 files) | ✅ 인프라 배포, ⏳ ENV 3개 수동 대기 |
 
 ---
 
@@ -115,4 +117,90 @@ og:image 누락, JSON-LD 없음, sitemap 불완전 상태였음.
 
 ---
 
-*최종 업데이트: 2026-04-22 28차 완료*
+## 29차 — /marketing/card-news 레이아웃 통일 (2026-04-22)
+
+### 작업 배경
+카드뉴스 페이지가 좌측 사이드바 없이 단독 레이아웃이라 타 페이지와 이질감.
+`/marketing/blog-tracking` 과 동일한 Sidebar + PageHeader + Footer 구조로 통일.
+
+### 변경 내역
+- `force-dynamic` 추가
+- Sidebar 마운트 + `ml-[220px]` 본문 오프셋
+- 기존 핑크 그라디언트 히어로 → `<PageHeader variant="pink">` (공용 컴포넌트)
+- 마케팅 관리 > 인스타 캐러셀 카드뉴스 브레드크럼 추가
+- Footer 하단 추가
+- 배포 커밋 `4ecad48`
+
+---
+
+## 23차-3 — Railway Worker 인프라 (2026-04-22)
+
+### 작업 배경
+23차 PRD 의 멀티 플랫폼(네이버·배민·요기요·쿠팡이츠) 자동화를 위해
+Vercel(Next.js API)과 분리된 장시간 실행 Playwright 워커가 필요.
+Railway Hobby 플랜에서 BullMQ 기반 큐잉 + Docker 빌드 사용.
+
+### 변경 내역 — GitHub
+
+`worker/` 디렉토리 스캐폴딩 9개 파일 추가 (push_23cha3_worker_scaffold.js):
+
+| 파일 | 역할 |
+|------|------|
+| `worker/package.json` | bullmq 5 / ioredis 5 / playwright 1.47 / pino / supabase-js |
+| `worker/tsconfig.json` | strict TS, ES2022, outDir=dist |
+| `worker/Dockerfile` | `mcr.microsoft.com/playwright:v1.47.0-jammy` 베이스 |
+| `worker/.dockerignore` | node_modules / dist / .env 제외 |
+| `worker/railway.json` | builder DOCKERFILE 힌트 |
+| `worker/README.md` | 구조·환경변수·로컬 개발 가이드 |
+| `worker/src/index.ts` | BullMQ Worker 엔트리 + 헬스체크 HTTP(/health) |
+| `worker/src/jobs/index.ts` | 플랫폼 라우터 (naver_place/baemin/yogiyo/coupangeats) |
+| `worker/src/adapters/base.ts` | 공통 어댑터 인터페이스 + BrowserContext 헬퍼 |
+
+### 변경 내역 — Railway
+
+프로젝트 `localution-worker` (ID `70e9580f-1e8b-458d-aa55-41e2512ca9cd`):
+
+| 서비스 | 타입 | 상태 |
+|--------|------|------|
+| `redis` | image `redis:7-alpine` | ✅ SUCCESS 배포 |
+| `worker` | GitHub repo `jty0221-del/localution` / branch `main` / rootDir `/worker` | ⏳ ENV 3개 대기 |
+
+Worker 서비스 환경변수 (skipDeploys=true 로 세팅):
+- ✅ `REDIS_URL` = `redis://${{redis.RAILWAY_PRIVATE_DOMAIN}}:6379`
+- ✅ `NODE_ENV` = `production`
+- ✅ `WORKER_CONCURRENCY` = `2`
+- ✅ `LOG_LEVEL` = `info`
+
+### 잡 플로우 설계
+
+```
+Vercel API (답글 등록 요청)
+  ↓ BullMQ Queue 'platform-jobs' 에 job push
+  ↓
+Redis (Railway)
+  ↓
+Worker (Railway, Playwright)
+  ↓ platform 분기 → 어댑터 실행
+  ↓
+    naver_place / baemin / yogiyo / coupangeats
+  ↓ 세션 쿠키 복호화 → 브라우저 자동화
+  ↓ 결과를 Supabase 에 저장
+```
+
+현재 어댑터는 stub 상태 (23차-4~5 에서 실제 구현).
+
+### 사용자 액션 필요 (수동)
+
+Railway 대시보드 → `worker` 서비스 → Variables 에 아래 3개 추가
+(값은 Vercel → localution → Settings → Environment Variables 에서 복사):
+
+- [ ] `SUPABASE_URL` = `https://XXX.supabase.co` (NEXT_PUBLIC_SUPABASE_URL 동일)
+- [ ] `SUPABASE_SERVICE_ROLE_KEY` = Supabase service_role 키
+- [ ] `ENCRYPTION_KEK_HEX` = 23차-2 에서 생성한 32바이트 KEK (64 hex chars)
+
+3개 저장하면 Railway 가 자동으로 Dockerfile 빌드 → Worker 시작.
+로그에 `worker ready` + `redis connected` 확인.
+
+---
+
+*최종 업데이트: 2026-04-22 29차 + 23차-3 인프라 배포 완료*
