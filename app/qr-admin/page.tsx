@@ -666,6 +666,14 @@ export default function QRAdmin() {
   const kwInputRef = useRef<HTMLInputElement>(null)
 
   const [naverLinked, setNaverLinked] = useState(false)
+  // 27차-11: 서버(Supabase)에서 가져온 네이버 연결 데이터 — place_targets → platform_credentials 순 fallback
+  const [serverNaverLink, setServerNaverLink] = useState<{
+    externalId?: string
+    externalName?: string
+    externalUrl?: string
+    address?: string
+    category?: string
+  } | null>(null)
 
   // 21차-1c-A: QR 소스 모드 (자동 연동 vs URL 직접입력)
   const [qrMode, setQrMode] = useState<'linked' | 'custom'>('linked')
@@ -683,9 +691,45 @@ export default function QRAdmin() {
       const rawStore = localStorage.getItem(LS_STORE_INFO)
       if (rawStore) setStoreInfo(JSON.parse(rawStore))
 
-      // /settings?tab=connect 에서 저장한 네이버 링크 감지
-      const naver = readNaverLink()
-      setNaverLinked(!!naver)
+      // /settings?tab=connect 에서 저장한 네이버 링크 감지 (legacy localStorage)
+      const legacy = readNaverLink()
+      if (legacy) setNaverLinked(true)
+      // 27차-11: 서버에서도 fetch — /api/place/targets → /api/platform-accounts 순
+      ;(async () => {
+        try {
+          const tRes = await fetch('/api/place/targets', { credentials: 'include', cache: 'no-store' })
+          if (tRes.ok) {
+            const tj = await tRes.json()
+            const t = Array.isArray(tj?.targets) && tj.targets.length > 0 ? tj.targets[0] : null
+            if (t) {
+              setServerNaverLink({
+                externalId: t.place_id || t.external_id || '',
+                externalName: t.name || '',
+                externalUrl: t.url || (t.place_id ? ('https://map.naver.com/p/entry/place/' + t.place_id) : ''),
+                address: t.address || '',
+                category: t.category || '',
+              })
+              setNaverLinked(true)
+              return
+            }
+          }
+          const aRes = await fetch('/api/platform-accounts', { credentials: 'include', cache: 'no-store' })
+          if (aRes.ok) {
+            const aj = await aRes.json()
+            const np = Array.isArray(aj?.accounts) ? aj.accounts.find((x: any) => x?.platform === 'naver_place') : null
+            if (np) {
+              setServerNaverLink({
+                externalId: np.platform_store_id || '',
+                externalName: np.platform_store_name || '',
+                externalUrl: '',
+                address: '',
+                category: '',
+              })
+              setNaverLinked(true)
+            }
+          }
+        } catch (_) {}
+      })()
 
       // 21차-1c-A: custom URL / 모드 로드
       const rawCustom = localStorage.getItem(LS_QR_CUSTOM_URL)
@@ -706,10 +750,11 @@ export default function QRAdmin() {
   }
 
   // ⚡ 네이버 플레이스 연결 정보에서 자동으로 불러오기
+  // 27차-11: serverNaverLink(place_targets / platform-accounts) 우선, localStorage fallback
   const importFromNaverLink = () => {
-    const naver = readNaverLink()
+    const naver = serverNaverLink || readNaverLink()
     if (!naver) {
-      toast.warn('네이버 플레이스 연결 정보가 없습니다.\n설정 > 플랫폼 연결에서 먼저 네이버를 연결해주세요.')
+      toast.warn('네이버 플레이스 연결 정보가 없습니다.\n/my/platforms 또는 /marketing/place 에서 먼저 네이버 연결/등록 해주세요.')
       return
     }
     const next: StoreInfo = {
