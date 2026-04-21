@@ -153,9 +153,53 @@ export async function GET() {
     store = null
   }
 
+  // ── 3.5) platform_reviews 집계 (30차-15-B) ─────────────────
+  // 대시보드 "플랫폼별 별점·리뷰 현황" 에서 "데이터 수집 중..." 대신 실제 숫자를 뿌리기 위해
+  // 플랫폼별 { review_count, rating_avg, unreplied_count, latest_collected_at } 요약.
+  // ⚠️ 부차 쿼리 격리 원칙: 실패해도 메인 응답은 정상 반환.
+  const reviewAgg: Record<
+    string,
+    { review_count: number; rating_avg: number | null; unreplied_count: number; latest_collected_at: string | null }
+  > = {}
+  try {
+    const { data: rv, error: rvErr } = await svc
+      .from('platform_reviews')
+      .select('platform, rating, has_reply, collected_at')
+      .eq('user_id', userId)
+    if (rvErr) {
+      console.warn('[stores/me] platform_reviews agg failed:', rvErr.message)
+    } else if (Array.isArray(rv)) {
+      for (const r of rv as Array<{ platform: string; rating: number | null; has_reply: boolean; collected_at: string | null }>) {
+        const key = r.platform
+        if (!reviewAgg[key]) {
+          reviewAgg[key] = { review_count: 0, rating_avg: null, unreplied_count: 0, latest_collected_at: null }
+        }
+        const slot = reviewAgg[key]
+        slot.review_count += 1
+        if (!r.has_reply) slot.unreplied_count += 1
+        if (r.collected_at && (!slot.latest_collected_at || r.collected_at > slot.latest_collected_at)) {
+          slot.latest_collected_at = r.collected_at
+        }
+      }
+      // rating 평균은 rating 있는 행만 대상으로 별도 계산
+      for (const key of Object.keys(reviewAgg)) {
+        const subset = (rv as any[]).filter(
+          (r) => r.platform === key && typeof r.rating === 'number' && r.rating >= 1 && r.rating <= 5,
+        )
+        if (subset.length > 0) {
+          const sum = subset.reduce((a, b) => a + Number(b.rating), 0)
+          reviewAgg[key].rating_avg = Number((sum / subset.length).toFixed(2))
+        }
+      }
+    }
+  } catch (e) {
+    console.warn('[stores/me] platform_reviews agg threw:', e)
+  }
+
   // ── 4) 플랫폼 통합 배열 ────────────────────────────────────────
   const platforms = (VALID_PLATFORMS as readonly string[]).map((p) => {
     const c = credentials.find((x) => x.platform === p)
+    const agg = reviewAgg[p] ?? null
     return {
       platform: p,
       label: (PLATFORM_LABELS as Record<string, string>)[p] ?? p,
@@ -164,6 +208,11 @@ export async function GET() {
       platform_store_id: c?.platform_store_id ?? null,
       platform_store_name: c?.platform_store_name ?? null,
       connected_at: c?.connected_at ?? null,
+      // 30차-15-B: 리뷰 집계
+      review_count: agg?.review_count ?? 0,
+      rating_avg: agg?.rating_avg ?? null,
+      unreplied_count: agg?.unreplied_count ?? 0,
+      latest_collected_at: agg?.latest_collected_at ?? null,
     }
   })
 
