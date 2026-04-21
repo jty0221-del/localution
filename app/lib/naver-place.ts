@@ -136,28 +136,107 @@ function extractBrandToken(name: string): string {
   return first && first.length >= 2 ? first : ''
 }
 
-// 30차-6 · JSON-in-HTML 에서 description/영업시간 추출
-// 네이버 SSR 에서 쓰는 주요 키 후보: description / introduction / summary / bsnsHours / businessHours
+// 30차-12 · /information 페이지 HTML 마크업의 "소개" 섹션 innerText 추출 (최우선)
+// 네이버는 SSR 후에 `<h2>...소개</h2>` 섹션을 직접 렌더링하는데, 이 섹션 안의 텍스트가
+// 사장님이 직접 작성한 매장 소개 전문이다. JSON "description" 키는 메뉴/피드 설명까지 섞여 있어
+// 부정확했으므로 이 경로를 최우선으로 사용.
+function extractIntroSectionFromHtml(html: string): string {
+  // 앵커: `<div class="place_section_header_title">소개</div></h2>` (class 이름 해시 변동 대비 유연 매칭)
+  const anchor = html.match(/place_section_header_title"[^>]*>\s*소개\s*<\/div>\s*<\/h2>/)
+  if (!anchor || anchor.index === undefined) return ''
+  const tail = html.slice(anchor.index + anchor[0].length)
+
+  // place_section_content 블록 시작
+  const contentIdx = tail.indexOf('place_section_content')
+  if (contentIdx < 0) return ''
+  const openTagEnd = tail.indexOf('>', contentIdx)
+  if (openTagEnd < 0) return ''
+
+  // 다음 place_section_header_title 전까지가 현재 섹션 영역
+  const rest = tail.slice(openTagEnd + 1)
+  const nextHeader = rest.search(/place_section_header_title"/)
+  const sectionHtml = nextHeader > 0 ? rest.slice(0, nextHeader) : rest.slice(0, 20000)
+
+  let t = sectionHtml
+  // SVG · IMG · PATH 태그 완전 제거 (아이콘 노이즈)
+  t = t.replace(/<svg[\s\S]*?<\/svg>/gi, '')
+  t = t.replace(/<img[^>]*>/gi, '')
+  t = t.replace(/<path[\s\S]*?\/>/gi, '')
+  // <br>, <p> 등은 개행으로
+  t = t.replace(/<br\s*\/?>/gi, '\n')
+  t = t.replace(/<\/(p|div|li)>/gi, '\n')
+  // 나머지 태그 전부 제거
+  t = t.replace(/<[^>]+>/g, '')
+  // HTML 엔티티 디코드
+  t = t
+    .replace(/&nbsp;/g, ' ')
+    .replace(/&amp;/g, '&')
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&#x27;/g, "'")
+  // 공백 정리
+  t = t.replace(/[ \t]+/g, ' ')
+  t = t.replace(/\n[ \t]+/g, '\n')
+  t = t.replace(/\n{3,}/g, '\n\n')
+  t = t.trim()
+
+  if (t.length < 20) return ''
+  if (t.length > 2000) t = t.slice(0, 2000)
+  return t
+}
+
+// 30차-6 · JSON-in-HTML 에서 description 추출 (fallback)
+// 마크업에 "소개" 섹션이 없는 경우만 사용. JSON 에 여러 description 키가 공존하므로
+// 1) __typename=PBusiness / BusinessIntroduction 같은 블록 우선 매칭
+// 2) 못 찾으면 가장 긴 description 값 (메뉴 설명은 50자 안팎, 실제 소개는 100자 이상인 점 활용)
 function extractDescriptionFromHtml(html: string): string {
-  const candidates = [
-    /"description"\s*:\s*"((?:[^"\\]|\\.)*)"/,
+  // 1) 비즈니스 소개 전용 typename 근처 description 우선
+  const bizPat = /"__typename"\s*:\s*"(?:PBusiness|BusinessIntroduction|StoreIntroduction|ProfileInformation)"[^{}]{0,500}?"description"\s*:\s*"((?:[^"\\]|\\.)*)"/i
+  const bizM = html.match(bizPat)
+  if (bizM?.[1]) {
+    const v = decodeJsonStr(bizM[1])
+    if (v.length >= 20 && v.length <= 2000) return v
+  }
+
+  // 2) description 값 전수 수집 → 가장 긴 값 선택 (메뉴 설명 필터링 효과)
+  const all: string[] = []
+  const reAll = /"description"\s*:\s*"((?:[^"\\]|\\.)*)"/g
+  let m: RegExpExecArray | null
+  while ((m = reAll.exec(html)) !== null) {
+    if (m[1]) all.push(m[1])
+  }
+  if (all.length > 0) {
+    const sorted = all.map(decodeJsonStr).filter(s => s.length >= 50 && s.length <= 2000)
+    sorted.sort((a, b) => b.length - a.length)
+    if (sorted[0]) return sorted[0]
+  }
+
+  // 3) introduction / summary 백업
+  for (const re of [
     /"introduction"\s*:\s*"((?:[^"\\]|\\.)*)"/,
     /"summary"\s*:\s*"((?:[^"\\]|\\.)*)"/,
-  ]
-  for (const re of candidates) {
-    const m = html.match(re)
-    if (m?.[1]) {
-      const raw = m[1]
-        .replace(/\\n/g, ' ')
-        .replace(/\\r/g, '')
-        .replace(/\\"/g, '"')
-        .replace(/\\\//g, '/')
-        .replace(/\s+/g, ' ')
-        .trim()
-      if (raw.length >= 8 && raw.length <= 2000) return raw
+  ]) {
+    const mm = html.match(re)
+    if (mm?.[1]) {
+      const v = decodeJsonStr(mm[1])
+      if (v.length >= 20 && v.length <= 2000) return v
     }
   }
   return ''
+}
+
+function decodeJsonStr(s: string): string {
+  return s
+    .replace(/\\n/g, '\n')
+    .replace(/\\r/g, '')
+    .replace(/\\"/g, '"')
+    .replace(/\\\//g, '/')
+    .replace(/\\u([0-9a-fA-F]{4})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
+    .replace(/[ \t]+/g, ' ')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
 }
 
 function extractBusinessHoursFromHtml(html: string): string {
@@ -338,21 +417,38 @@ export async function lookupPlace(placeId: string, hint?: string | null): Promis
     const info = parsePlaceHtml(html, placeId, cat, url)
     if (!info.name) continue
 
-    // 30차-9: description / businessHours 가 비어있으면 /information 페이지 추가 fetch
-    // 네이버 플레이스 /information 에는 "업체 소개" 전문과 영업시간 상세가 들어있음
-    if (!info.description || !info.businessHours) {
+    // 30차-9 → 30차-12 개선:
+    // /information 페이지에 업체 "소개" 섹션 전문·영업시간 상세가 들어있음.
+    // [30차-12] JSON description 키는 메뉴 설명·피드 설명·공지까지 섞여 부정확 →
+    //          HTML 마크업의 `<h2>소개</h2>` 섹션 innerText 를 최우선으로 추출.
+    //          그 다음 JSON description 는 백업(메뉴 설명이 잡히면 버림).
+    try {
       const infoUrl = `https://m.place.naver.com/${cat}/${placeId}/information`
       const infoHtml = await tryFetch(infoUrl)
       if (infoHtml) {
-        if (!info.description) {
+        // 1순위: HTML "소개" 섹션 innerText (가장 정확)
+        const introSection = extractIntroSectionFromHtml(infoHtml)
+        if (introSection && introSection.length > (info.description?.length || 0)) {
+          info.description = introSection
+        } else {
+          // 2순위: JSON description (fallback, 대부분 메뉴 설명이라 잘 안 쓰임)
           const extraDesc = extractDescriptionFromHtml(infoHtml)
-          if (extraDesc) info.description = extraDesc
+          if (extraDesc && extraDesc.length > (info.description?.length || 0)) {
+            info.description = extraDesc
+          }
         }
         if (!info.businessHours) {
           const extraHours = extractBusinessHoursFromHtml(infoHtml)
           if (extraHours) info.businessHours = extraHours
         }
       }
+    } catch (_) {
+      // /information fetch 실패해도 /home 결과는 그대로 반환
+    }
+
+    // 2000자 초과면 컷 (DB 제약 맞춤)
+    if (info.description && info.description.length > 2000) {
+      info.description = info.description.slice(0, 2000)
     }
 
     return info
