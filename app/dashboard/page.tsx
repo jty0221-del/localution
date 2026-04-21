@@ -116,7 +116,7 @@ function HometaxLogo({ size = 28 }: { size?: number }) {
 //  타입 & 상수
 // ═══════════════════════════════════════════════════════════
 
-// 대시보��에서 쓰는 로컬 플랫폼 id (INITIAL_PLATFORMS 기준)
+// 대시보드에서 쓰는 로컬 플랫폼 id (INITIAL_PLATFORMS 기준)
 // naver_search 는 검색광고 연동 미구현 → 당분간 타입에서 제외
 type PlatformId =
   | 'naver_place' | 'google' | 'baemin'
@@ -406,7 +406,7 @@ function ConnectModal({ platform, onClose, onSave }: ConnectModalProps) {
 
 // ═══════════════════════════════════════════════════════════
 //  AI 답글 생성 모달
-// ════════════════════════════════════════════��════════════════
+// ═════════════════════════════════════════════════════════════
 interface ReplyModalProps {
   review: typeof RECENT_REVIEWS[number]
   onClose: () => void
@@ -672,7 +672,7 @@ export default function Dashboard() {
     }
     // 포커스 복귀 시 재검증(탭 복귀 직후 세션 만료 감지)
     const onFocus = () => check()
-    // 60초 주기 재검증(장��간 체류 중 만료 감지)
+    // 60초 주기 재검증(장시간 체류 중 만료 감지)
     const interval = window.setInterval(check, 60_000)
     window.addEventListener('localution:user-change', onUserChange)
     window.addEventListener('storage', onStorage)
@@ -1006,7 +1006,7 @@ export default function Dashboard() {
                 </div>
                 <p className="text-xs text-[#8B95A1]">
                   {!reviewPlatformConnected
-                    ? '샘플 데이터입니다. 리뷰 플랫폼(네이버·구글·배민·요기���·쿠팡)을 연결하면 실시간으로 표시됩니다'
+                    ? '샘플 데이터입니다. 리뷰 플랫폼(네이버·구글·배민·요기요·쿠팡)을 연결하면 실시간으로 표시됩니다'
                     : new Date().toLocaleDateString('ko-KR', { year:'numeric', month:'long', day:'numeric', weekday:'long' }) + ' · 우선순위가 높은 작업 순으로 표시됩니다'
                   }
                 </p>
@@ -1175,7 +1175,7 @@ export default function Dashboard() {
         {/* ── 메인 2컬럼 ── */}
         <div className="grid grid-cols-1 md:grid-cols-[1fr_300px_300px] gap-4 mb-5">
 
-          {/* 좌: 연동 플랫�� 별점·리뷰 현황 */}
+          {/* 좌: 연동 플랫폼 별점·리뷰 현황 */}
           <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
             <div className="px-5 py-4 border-b border-[#F2F4F6] flex items-center justify-between">
               <span className="text-sm font-bold text-[#191F28]">플랫폼별 별점 · 리뷰 현황</span>
