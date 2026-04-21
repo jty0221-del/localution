@@ -14,6 +14,7 @@ import {
   AlertTriangle, Rocket, TrendingUp,
   Smile, Meh, Frown,
   Link2, Lock, MapPin,
+  Layers, Zap,
 } from 'lucide-react'
 
 // ═══════════════════════════════════════════════════════════
@@ -115,7 +116,7 @@ function HometaxLogo({ size = 28 }: { size?: number }) {
 //  타입 & 상수
 // ═══════════════════════════════════════════════════════════
 
-// 대시보드에서 쓰는 로컬 플랫폼 id (INITIAL_PLATFORMS 기준)
+// 대시보��에서 쓰는 로컬 플랫폼 id (INITIAL_PLATFORMS 기준)
 // naver_search 는 검색광고 연동 미구현 → 당분간 타입에서 제외
 type PlatformId =
   | 'naver_place' | 'google' | 'baemin'
@@ -405,7 +406,7 @@ function ConnectModal({ platform, onClose, onSave }: ConnectModalProps) {
 
 // ═══════════════════════════════════════════════════════════
 //  AI 답글 생성 모달
-// ═════════════════════════════════════════════════════════════
+// ════════════════════════════════════════════��════════════════
 interface ReplyModalProps {
   review: typeof RECENT_REVIEWS[number]
   onClose: () => void
@@ -671,7 +672,7 @@ export default function Dashboard() {
     }
     // 포커스 복귀 시 재검증(탭 복귀 직후 세션 만료 감지)
     const onFocus = () => check()
-    // 60초 주기 재검증(장시간 체류 중 만료 감지)
+    // 60초 주기 재검증(장��간 체류 중 만료 감지)
     const interval = window.setInterval(check, 60_000)
     window.addEventListener('localution:user-change', onUserChange)
     window.addEventListener('storage', onStorage)
@@ -1005,7 +1006,7 @@ export default function Dashboard() {
                 </div>
                 <p className="text-xs text-[#8B95A1]">
                   {!reviewPlatformConnected
-                    ? '샘플 데이터입니다. 리뷰 플랫폼(네이버·구글·배민·요기요·쿠팡)을 연결하면 실시간으로 표시됩니다'
+                    ? '샘플 데이터입니다. 리뷰 플랫폼(네이버·구글·배민·요기���·쿠팡)을 연결하면 실시간으로 표시됩니다'
                     : new Date().toLocaleDateString('ko-KR', { year:'numeric', month:'long', day:'numeric', weekday:'long' }) + ' · 우선순위가 높은 작업 순으로 표시됩니다'
                   }
                 </p>
@@ -1058,6 +1059,53 @@ export default function Dashboard() {
               )
             })}
           </div>
+        </div>
+
+        {/* ── 25차-4: 신규 모듈 프로모 스트립 ── */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5">
+          <Link
+            href="/marketing/card-news"
+            className="group relative overflow-hidden rounded-2xl p-5 bg-gradient-to-br from-[#EC4899] via-[#F43F5E] to-[#F97316] text-white shadow-sm hover:shadow-lg transition-all"
+          >
+            <div className="absolute top-3 right-3 text-[9px] font-black bg-white/25 text-white px-2 py-0.5 rounded-full backdrop-blur">NEW</div>
+            <div className="flex items-center gap-2 mb-2">
+              <Layers size={20} strokeWidth={2.5} />
+              <span className="text-[13px] font-black">인스타 카드뉴스</span>
+            </div>
+            <p className="text-[11px] text-white/90 leading-snug mb-3">주제만 던지면 캐러셀 10장 AI 자동 생성 · PNG 저장</p>
+            <span className="inline-flex items-center gap-1 text-[11px] font-bold">
+              만들러 가기 <ArrowRight size={12} strokeWidth={2.75} className="group-hover:translate-x-0.5 transition-transform" />
+            </span>
+          </Link>
+
+          <Link
+            href="/my/platforms"
+            className="group relative overflow-hidden rounded-2xl p-5 bg-gradient-to-br from-[#6366F1] via-[#8B5CF6] to-[#A855F7] text-white shadow-sm hover:shadow-lg transition-all"
+          >
+            <div className="absolute top-3 right-3 text-[9px] font-black bg-white/25 text-white px-2 py-0.5 rounded-full backdrop-blur">NEW</div>
+            <div className="flex items-center gap-2 mb-2">
+              <Zap size={20} strokeWidth={2.5} />
+              <span className="text-[13px] font-black">플랫폼 통합 관리</span>
+            </div>
+            <p className="text-[11px] text-white/90 leading-snug mb-3">네이버·배민·요기요·쿠팡이츠 4곳 리뷰 답글 대리 게시</p>
+            <span className="inline-flex items-center gap-1 text-[11px] font-bold">
+              연결하러 가기 <ArrowRight size={12} strokeWidth={2.75} className="group-hover:translate-x-0.5 transition-transform" />
+            </span>
+          </Link>
+
+          <Link
+            href="/marketing/blog-tracking"
+            className="group relative overflow-hidden rounded-2xl p-5 bg-gradient-to-br from-[#F59E0B] via-[#FACC15] to-[#FCD34D] text-[#1F2937] shadow-sm hover:shadow-lg transition-all"
+          >
+            <div className="flex items-center gap-2 mb-2">
+              <TrendingUp size={20} strokeWidth={2.5} />
+              <span className="text-[13px] font-black">블로그 순위 추적</span>
+            </div>
+            <p className="text-[11px] text-[#1F2937]/85 leading-snug mb-3">스마트블록·블로그탭·인기글 3구간 일 1회 자동 추적</p>
+            <span className="inline-flex items-center gap-1 text-[11px] font-bold">
+              추적 시작 <ArrowRight size={12} strokeWidth={2.75} className="group-hover:translate-x-0.5 transition-transform" />
+            </span>
+          </Link>
         </div>
 
         {/* ── 플랫폼 연동 현황 바 ── */}
@@ -1127,7 +1175,7 @@ export default function Dashboard() {
         {/* ── 메인 2컬럼 ── */}
         <div className="grid grid-cols-1 md:grid-cols-[1fr_300px_300px] gap-4 mb-5">
 
-          {/* 좌: 연동 플랫폼 별점·리뷰 현황 */}
+          {/* 좌: 연동 플랫�� 별점·리뷰 현황 */}
           <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
             <div className="px-5 py-4 border-b border-[#F2F4F6] flex items-center justify-between">
               <span className="text-sm font-bold text-[#191F28]">플랫폼별 별점 · 리뷰 현황</span>
