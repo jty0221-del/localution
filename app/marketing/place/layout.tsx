@@ -1,4 +1,8 @@
-// 27차-7 SEO: /marketing/place 전용 metadata layout
+// 27차-7 복구: /marketing/place 공개 체험 layout (server component) + per-route metadata
+// - 원본: 'use client' 공개 접근 placeholder (ad0e73c Phase0.5 #6)
+// - 본 파일은 server component 로 재작성하여 metadata export 를 허용하되,
+//   원본과 동일하게 children 그대로 반환 (가드 없음, 공개 체험 유지)
+// - 비로그인 공개 1분 무료 진단 CTA 목적지이므로 GatedRoute 비적용 원칙 유지
 import type { Metadata } from 'next'
 
 const SITE_URL = 'https://www.localution.co.kr'
@@ -31,6 +35,7 @@ export const metadata: Metadata = {
   ],
 }
 
-export default function Layout({ children }: { children: React.ReactNode }) {
-  return children
+// 공개 접근 허용 — 페이지 내부에서 필요 시 인라인 LockedBanner 사용 (원본 주석 유지)
+export default function PlaceLayout({ children }: { children: React.ReactNode }) {
+  return <>{children}</>
 }
