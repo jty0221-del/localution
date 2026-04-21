@@ -1,6 +1,6 @@
 'use client'
 
-// 🔧 force-dynamic 제거 (2026-04-19) — 공개 랜딩이라 정적 shell 생성 허용 (LCP 개선)
+// 🔧 force-dynamic 제거 (2026-04-19) — 공개 랜딩이라 정적 shell 생��� 허용 (LCP 개선)
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import Footer from './components/Footer'
@@ -59,7 +59,7 @@ const FEATURES = [
     color: 'from-green-500 to-emerald-600',
     bg: 'bg-green-50',
     tags: ['QR 스캔', 'AI 생성', '네이버 연동'],
-    href: '/review/demo-restaurant-001',
+    href: '/review/demo',
     badge: '체험가능',
   },
   {
@@ -103,7 +103,7 @@ const FEATURES = [
 ]
 
 // ─────────────────────────────────────────────────────────────
-// 데모 데이터 (실제 데이터 연결 전 예시용)
+// 데모 데이터 (실제 데이터 연��� 전 예시용)
 // /api/landing-stats 가 실제 값을 반환하면 자동 교체됨
 // ─────────────────────────────────────────────────────────────
 const STATS_DEMO = [
@@ -147,7 +147,7 @@ const TESTIMONIALS_DEMO: Testimonial[] = [
   {
     name: '이○○ 대표님',
     store: '서울 맛집 운영',
-    text: '클라이언트 10곳 동시 관리하는데 로컬루션 없으면 못 살아요. 키워드 분석이랑 리뷰 관리가 한 곳에 있어서 너무 편해요.',
+    text: '클라이언트 10곳 동시 관리하는데 로컬루�� 없으면 못 살아요. 키워드 분석이랑 리뷰 관리가 한 곳에 있어서 너무 편해요.',
     rating: 5,
     iconKey: 'food',
     color: '#F59E0B',
@@ -410,7 +410,7 @@ export default function LandingPage() {
             ))}
           </div>
           <p className="text-center text-xs text-[#8B95A1] mt-6">
-            AI 정산·세금계산서·급여 관리는 곧 추가됩니다
+            AI 정산·세금계산서·급여 관리는 곧 ���가됩니다
           </p>
         </div>
       </section>
@@ -440,7 +440,7 @@ export default function LandingPage() {
                     </span>
                   ))}
                 </div>
-                <Link href="/review/demo-restaurant-001"
+                <Link href="/review/demo"
                   className="inline-flex items-center gap-2 bg-white text-[#3182F6] font-bold text-sm px-6 py-3 rounded-xl hover:bg-blue-50 transition-colors">
                   QR 리뷰 지금 체험하기
                   <ArrowRight size={16} strokeWidth={2.5} />
@@ -566,7 +566,7 @@ export default function LandingPage() {
               },
               {
                 q: '네이버 계정 연동이 걱정돼요. 비밀번호가 저장되나요?',
-                a: '네이버 공식 OAuth를 사용해서 비밀번호는 절대 저장되지 않아요. 리뷰·플레이스 정보 조회 권한만 받고, 언제든 네이버 설정에서 연동 해제 가능해요.',
+                a: '네이버 공식 OAuth를 사용해��� 비밀번호는 절대 저장되지 않아요. 리뷰·플레이스 정보 조회 권한만 받고, 언제든 네이버 설정에서 연동 해제 가능해요.',
               },
               {
                 q: '매장이 여러 개인데 한 계정에서 관리되나요?',
