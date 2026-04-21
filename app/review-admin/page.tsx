@@ -72,7 +72,7 @@ const PLATFORM_META: Record<PlatformKey, {
     legacyKeys: { connected: 'localution.yogiyo.connected', storeId: 'localution.yogiyo.storeId', token: 'localution.yogiyo.token' },
   },
   coupang: {
-    label: '쿠��이츠', color: '#FF4B30', bg: '#FFF3F0', textColor: '#900000', icon: 'C',
+    label: '쿠팡이츠', color: '#FF4B30', bg: '#FFF3F0', textColor: '#900000', icon: 'C',
     apiPath: '/api/reviews/coupang',
     detailPath: '/review-admin/coupang',
     legacyKeys: { connected: 'localution.coupang.connected', storeId: 'localution.coupang.storeId', token: 'localution.coupang.token' },
@@ -342,7 +342,7 @@ export default function ReviewAdminHub() {
           <div className="bg-white rounded-2xl border border-[#E5E8EB] p-8 md:p-12 text-center">
             <div className="text-4xl mb-3">📭</div>
             <p className="text-sm font-bold text-[#191F28] mb-1">아직 연결된 플랫폼이 없습니다</p>
-            <p className="text-xs text-[#8B95A1] mb-4">위에서 플랫폼을 연결하면 실시간 리뷰가 자동��로 표시됩니다.</p>
+            <p className="text-xs text-[#8B95A1] mb-4">위에서 플랫폼을 연결하면 실시간 리뷰가 자동으로 표시됩니다.</p>
             <Link href={buildSettingsHref('connect')}
               className="inline-block px-4 py-2 rounded-xl text-xs font-bold bg-[#3182F6] text-white hover:bg-[#1C6FE0]">
               연동 관리로 이동
