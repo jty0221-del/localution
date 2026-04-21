@@ -6,7 +6,7 @@ import Link from 'next/link'
 import Sidebar from '../components/Sidebar'
 import Footer from '../components/Footer'
 import SlideAdBanner from '../components/SlideAdBanner'
-import { useConnections, setConnection as libSetConnection, PlatformId as CanonicalPlatformId } from '../lib/connections'
+import { useConnections, setConnection as libSetConnection, removeConnection as libRemoveConnection, PlatformId as CanonicalPlatformId } from '../lib/connections'
 import { toast, confirmDialog } from '../lib/toast'
 import { buildSettingsHref } from '../lib/settings-tabs'
 import {
@@ -258,14 +258,20 @@ interface VerifyResult {
 
 interface ConnectModalProps {
   platform: Platform
+  initialUrl?: string
+  isConnected?: boolean
+  savedStoreName?: string | null
   onClose: () => void
   onSave: (id: PlatformId, data: VerifyResult & { input: string }) => void
+  onDisconnect?: (id: PlatformId) => Promise<void> | void
 }
 
-function ConnectModal({ platform, onClose, onSave }: ConnectModalProps) {
-  const [url, setUrl] = useState('')
+function ConnectModal({ platform, initialUrl, isConnected, savedStoreName, onClose, onSave, onDisconnect }: ConnectModalProps) {
+  // 30차-15-A: 이미 저장된 URL 이 있으면 prefill
+  const [url, setUrl] = useState(initialUrl ?? '')
   const [verifying, setVerifying] = useState(false)
   const [result, setResult] = useState<VerifyResult | null>(null)
+  const [disconnecting, setDisconnecting] = useState(false)
 
   const apiEndpoint = (() => {
     if (platform.id === 'naver_place') return '/api/platforms/naver'
@@ -351,11 +357,26 @@ function ConnectModal({ platform, onClose, onSave }: ConnectModalProps) {
       <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full p-6" onClick={e => e.stopPropagation()}>
         <div className="flex items-center gap-3 mb-4">
           {platform.logo(40)}
-          <div>
+          <div className="flex-1">
             <h3 className="text-lg font-black text-[#191F28]">{platform.name} 연동</h3>
-            <p className="text-xs text-[#8B95A1]">매장 URL 또는 ID를 입력하세요</p>
+            <p className="text-xs text-[#8B95A1]">
+              {isConnected ? '이미 연결됨 — URL 변경 또는 해제 가능' : '매장 URL 또는 ID를 입력하세요'}
+            </p>
           </div>
+          {isConnected && (
+            <div className="flex items-center gap-1 px-2 py-1 bg-[#E8FFF0] text-[#12B76A] rounded-md text-[10px] font-black">
+              <Check size={11} strokeWidth={3} />
+              연결됨
+            </div>
+          )}
         </div>
+
+        {isConnected && savedStoreName && (
+          <div className="mb-3 p-3 bg-[#F2F4F6] rounded-xl">
+            <div className="text-[10px] text-[#8B95A1] mb-0.5">현재 연결된 매장</div>
+            <div className="text-sm font-bold text-[#191F28]">{savedStoreName}</div>
+          </div>
+        )}
 
         <label className="block text-xs font-bold text-[#4E5968] mb-1.5">매장 URL</label>
         <input
@@ -384,6 +405,25 @@ function ConnectModal({ platform, onClose, onSave }: ConnectModalProps) {
           </div>
         )}
 
+        {isConnected && onDisconnect && (
+          <button
+            onClick={async () => {
+              if (!window.confirm(`${platform.name} 연결을 정말 해제할까요?\n해제 후 다시 연동하려면 ID/비밀번호를 다시 입력해야 해요.`)) return
+              setDisconnecting(true)
+              try {
+                await onDisconnect(platform.id)
+                onClose()
+              } finally {
+                setDisconnecting(false)
+              }
+            }}
+            disabled={disconnecting}
+            className="w-full mb-2 border border-[#F04452] text-[#F04452] py-2.5 rounded-xl text-xs font-bold hover:bg-[#FFF0F0] disabled:opacity-50"
+          >
+            {disconnecting ? '해제 중...' : '연결 해제'}
+          </button>
+        )}
+
         <div className="flex gap-2">
           <button
             onClick={onClose}
@@ -396,7 +436,7 @@ function ConnectModal({ platform, onClose, onSave }: ConnectModalProps) {
             disabled={!result?.ok}
             className="flex-1 bg-[#3182F6] text-white py-2.5 rounded-xl text-sm font-bold hover:bg-[#1B64DA] disabled:opacity-40"
           >
-            연동 저장
+            {isConnected ? '변경 저장' : '연동 저장'}
           </button>
         </div>
       </div>
@@ -700,6 +740,15 @@ export default function Dashboard() {
   const [connectPlatform, setConnectPlatform] = useState<Platform | null>(null)
   const [replyReview, setReplyReview] = useState<typeof RECENT_REVIEWS[number] | null>(null)
 
+  // 30차-15-A: 서버 저장된 플랫폼별 상세 (모달 prefill 용)
+  const [serverPlatformDetails, setServerPlatformDetails] = useState<
+    Record<string, { connected: boolean; platform_store_id: string | null; platform_store_name: string | null }>
+  >({})
+  const [serverStore, setServerStore] = useState<{
+    naver_place_id?: string | null
+    naver_url?: string | null
+  } | null>(null)
+
   // 공통 연동 훅 — /settings, /review-admin 과 동일 소스
   const { connections: canonicalConnections } = useConnections()
 
@@ -736,7 +785,31 @@ export default function Dashboard() {
         if (!res.ok) return
         const data = await res.json()
         if (cancelled || !data?.ok) return
-        const server: Array<{ platform: string; connected: boolean }> = data.platforms ?? []
+        const server: Array<{
+          platform: string
+          connected: boolean
+          platform_store_id: string | null
+          platform_store_name: string | null
+        }> = data.platforms ?? []
+
+        // 30차-15-A: 상세 데이터를 모달 prefill 용으로 저장
+        const detailsMap: Record<
+          string,
+          { connected: boolean; platform_store_id: string | null; platform_store_name: string | null }
+        > = {}
+        server.forEach((p) => {
+          detailsMap[p.platform] = {
+            connected: !!p.connected,
+            platform_store_id: p.platform_store_id ?? null,
+            platform_store_name: p.platform_store_name ?? null,
+          }
+        })
+        setServerPlatformDetails(detailsMap)
+        setServerStore({
+          naver_place_id: data.store?.naver_place_id ?? null,
+          naver_url: data.store?.naver_url ?? data.store?.naver_place_url ?? null,
+        })
+
         const connectedSet = new Set(
           server.filter((p) => p.connected).map((p) => p.platform)
         )
@@ -836,6 +909,43 @@ export default function Dashboard() {
           : p,
       ),
     )
+  }
+
+  // 30차-15-A: 연결 해제 — DELETE /api/platform-accounts + localStorage + 대시보드 state 정리
+  const handleDisconnect = async (id: PlatformId) => {
+    // naver_place / baemin / yogiyo / coupangeats 만 platform_credentials 로 저장됨
+    const credentialPlatforms = ['naver_place', 'baemin', 'yogiyo', 'coupangeats']
+    if (credentialPlatforms.includes(id)) {
+      try {
+        const res = await fetch(`/api/platform-accounts?platform=${id}`, {
+          method: 'DELETE',
+          credentials: 'include',
+        })
+        if (!res.ok) {
+          const msg = await res.text()
+          toast.error(`해제 실패: ${msg.slice(0, 80)}`)
+          return
+        }
+      } catch (e: any) {
+        toast.error(`해제 오류: ${e?.message || e}`)
+        return
+      }
+    }
+
+    // localStorage 정리 (canonical key)
+    const canon = TO_CANONICAL[id]
+    if (canon) libRemoveConnection(canon)
+
+    // 대시보드 state 즉시 반영
+    setPlatforms((prev) =>
+      prev.map((p) => (p.id === id ? { ...p, connected: false, rating: null, reviews: null } : p)),
+    )
+    setServerPlatformDetails((prev) => {
+      const next = { ...prev }
+      delete next[id]
+      return next
+    })
+    toast.success('연결이 해제되었습니다.')
   }
 
   const refreshKeywords = useCallback(async () => {
@@ -1462,13 +1572,34 @@ export default function Dashboard() {
       </main>
 
       {/* 모달들 */}
-      {connectPlatform && (
-        <ConnectModal
-          platform={connectPlatform}
-          onClose={() => setConnectPlatform(null)}
-          onSave={handleSaveConnection}
-        />
-      )}
+      {connectPlatform && (() => {
+        // 30차-15-A: 서버에서 기존 저장값 계산해서 prefill
+        const detail = serverPlatformDetails[connectPlatform.id]
+        const isConn = !!detail?.connected || connectPlatform.connected
+        let prefillUrl = ''
+        if (isConn) {
+          if (connectPlatform.id === 'naver_place') {
+            // 1순위: stores.naver_url, 2순위: platform_credentials.platform_store_id 로 URL 재구성
+            const pid = detail?.platform_store_id || serverStore?.naver_place_id
+            prefillUrl =
+              serverStore?.naver_url ||
+              (pid ? `https://map.naver.com/p/entry/place/${pid}` : '')
+          } else if (detail?.platform_store_id) {
+            prefillUrl = detail.platform_store_id
+          }
+        }
+        return (
+          <ConnectModal
+            platform={connectPlatform}
+            initialUrl={prefillUrl}
+            isConnected={isConn}
+            savedStoreName={detail?.platform_store_name ?? null}
+            onClose={() => setConnectPlatform(null)}
+            onSave={handleSaveConnection}
+            onDisconnect={handleDisconnect}
+          />
+        )
+      })()}
       {replyReview && (
         <AIReplyModal
           review={replyReview}
