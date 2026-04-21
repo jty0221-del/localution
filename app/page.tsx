@@ -183,6 +183,100 @@ export default function LandingPage() {
   return (
     <div className="min-h-screen bg-white">
 
+      {/* 23차-SEO: JSON-LD 구조화 데이터 – SoftwareApplication + Organization */}
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{
+          __html: JSON.stringify({
+            "@context": "https://schema.org",
+            "@graph": [
+              {
+                "@type": "SoftwareApplication",
+                "@id": "https://www.localution.co.kr/#app",
+                "name": "로컬루션",
+                "url": "https://www.localution.co.kr",
+                "applicationCategory": "BusinessApplication",
+                "operatingSystem": "Web",
+                "description": "네이버·구글·배민 리뷰 자동 답글, 블로그 포스팅, QR 리뷰 자동화, AI 매장 진단까지. 소상공인·자영업자를 위한 AI 마케팅 플랫폼.",
+                "offers": {
+                  "@type": "Offer",
+                  "price": "990",
+                  "priceCurrency": "KRW",
+                  "description": "월 990원부터 시작하는 구독 플랜"
+                },
+                "publisher": {
+                  "@type": "Organization",
+                  "@id": "https://www.localution.co.kr/#org",
+                  "name": "로컬루션",
+                  "url": "https://www.localution.co.kr",
+                  "logo": {
+                    "@type": "ImageObject",
+                    "url": "https://www.localution.co.kr/logo.png",
+                    "width": 512,
+                    "height": 512
+                  }
+                }
+              },
+              {
+                "@type": "Organization",
+                "@id": "https://www.localution.co.kr/#org",
+                "name": "로컬루션",
+                "url": "https://www.localution.co.kr",
+                "description": "소상공인·자영업자 전용 AI 마케팅 플랫폼. 네이버·구글·배민 리뷰 관리, 블로그 SEO, QR 자동화, 플레이스 최적화.",
+                "logo": {
+                  "@type": "ImageObject",
+                  "url": "https://www.localution.co.kr/logo.png"
+                },
+                "sameAs": [
+                  "https://www.localution.co.kr"
+                ]
+              },
+              {
+                "@type": "WebSite",
+                "@id": "https://www.localution.co.kr/#website",
+                "url": "https://www.localution.co.kr",
+                "name": "로컬루션",
+                "description": "사장님 마케팅 플랫폼",
+                "potentialAction": {
+                  "@type": "SearchAction",
+                  "target": "https://www.localution.co.kr/community?q={search_term_string}",
+                  "query-input": "required name=search_term_string"
+                }
+              },
+              {
+                "@type": "FAQPage",
+                "mainEntity": [
+                  {
+                    "@type": "Question",
+                    "name": "로컬루션은 무엇인가요?",
+                    "acceptedAnswer": {
+                      "@type": "Answer",
+                      "text": "로컬루션은 소상공인·자영업자를 위한 AI 마케팅 플랫폼입니다. 네이버·구글·배민 리뷰 자동 답글, 블로그 포스팅 자동화, QR 리뷰 수집, 플레이스 SEO 진단 등 12개 모듈을 월 990원부터 이용할 수 있습니다."
+                    }
+                  },
+                  {
+                    "@type": "Question",
+                    "name": "바로 시작할 수 있나요?",
+                    "acceptedAnswer": {
+                      "@type": "Answer",
+                      "text": "네, 구글 소셜 로그인 하나로 즉시 시작 가능합니다. 별도 설치 없이 웹 브라우저에서 모든 기능을 이용할 수 있습니다."
+                    }
+                  },
+                  {
+                    "@type": "Question",
+                    "name": "네이버 플레이스 순위를 올릴 수 있나요?",
+                    "acceptedAnswer": {
+                      "@type": "Answer",
+                      "text": "네이버 플레이스 SEO 진단 도구로 34항목 체크리스트를 점검하고, 블로그 포스팅 키워드 순위 추적까지 지원합니다."
+                    }
+                  }
+                ]
+              }
+            ]
+          })
+        }}
+      />
+
             <TopNav />
 
       {/* ── 히어로 ── */}
