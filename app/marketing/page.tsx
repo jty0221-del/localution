@@ -8,6 +8,7 @@ import Link from 'next/link'
 import {
   Search, TrendingUp, ClipboardCheck, Users, Sparkles, ArrowRight, FileText,
   ArrowUp, ArrowDown, Minus, CheckCircle2, AlertTriangle, XCircle,
+  Layers, Zap,
 } from 'lucide-react'
 import Footer from '../components/Footer'
 
@@ -476,7 +477,7 @@ export default function MarketingPage() {
   const [tab, setTab] = useState<'rank'|'score'|'diag'|'inflow'>('rank')
 
   const tabs = [
-    { id: 'rank' as const,   label: '키워드 순위',       Icon: TrendingUp },
+    { id: 'rank' as const,   label: '키워�� 순위',       Icon: TrendingUp },
     { id: 'score' as const,  label: '키워드 점수 분석', Icon: Search },
     { id: 'diag' as const,   label: '플레이스 진단',     Icon: ClipboardCheck },
     { id: 'inflow' as const, label: '유입 분석',          Icon: Users },
@@ -552,6 +553,45 @@ export default function MarketingPage() {
                     <div className="text-sm md:text-base font-black truncate">블로그 순위 추적</div>
                   </div>
                   <div className="text-xs text-white/80">체험단·내 블로그 글 네이버 인기글 순위 매일 오전 5시 자동 수집</div>
+                </div>
+                <ArrowRight size={18} strokeWidth={2.5}
+                  className="text-white group-hover:translate-x-1 transition-transform flex-shrink-0" />
+              </div>
+            </Link>
+          </div>
+
+          {/* 25차-4: 카드뉴스 + 플랫폼 허브 배너 2열 */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-6">
+            <Link href="/marketing/card-news"
+              className="block bg-gradient-to-r from-[#EC4899] via-[#F43F5E] to-[#F97316] rounded-2xl p-4 md:p-5 shadow-sm hover:shadow-lg transition-all group">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center flex-shrink-0">
+                  <Layers size={26} strokeWidth={2.25} className="text-white" />
+                </div>
+                <div className="flex-1 text-white min-w-0">
+                  <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                    <span className="text-[10px] font-black bg-white text-[#EC4899] px-2 py-0.5 rounded-full">NEW</span>
+                    <div className="text-sm md:text-base font-black truncate">카드뉴스 자동 제작</div>
+                  </div>
+                  <div className="text-xs text-white/80">인스타 10장 캐러셀 + Claude AI 카피 · PNG 일괄 저장</div>
+                </div>
+                <ArrowRight size={18} strokeWidth={2.5}
+                  className="text-white group-hover:translate-x-1 transition-transform flex-shrink-0" />
+              </div>
+            </Link>
+
+            <Link href="/my/platforms"
+              className="block bg-gradient-to-r from-[#6366F1] via-[#7C3AED] to-[#A855F7] rounded-2xl p-4 md:p-5 shadow-sm hover:shadow-lg transition-all group">
+              <div className="flex items-center gap-4">
+                <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center flex-shrink-0">
+                  <Zap size={26} strokeWidth={2.25} className="text-white" />
+                </div>
+                <div className="flex-1 text-white min-w-0">
+                  <div className="flex items-center gap-2 mb-0.5 flex-wrap">
+                    <span className="text-[10px] font-black bg-white text-[#6366F1] px-2 py-0.5 rounded-full">NEW</span>
+                    <div className="text-sm md:text-base font-black truncate">플랫폼 통합 관리</div>
+                  </div>
+                  <div className="text-xs text-white/80">네이버·배민·요기요·쿠팡이츠 4곳 한 계정 대리 게시 (AES-256)</div>
                 </div>
                 <ArrowRight size={18} strokeWidth={2.5}
                   className="text-white group-hover:translate-x-1 transition-transform flex-shrink-0" />
