@@ -1,5 +1,6 @@
 // ============================================================
 // 22차-2 · 네이버 플레이스 조회 공용 라이브러리
+// 30차-6 · PlaceInfo 확장 (description / 메인·서브 키워드 / 영업시간)
 // ============================================================
 // /api/place/lookup 과 /api/place/targets (snapshot) 양쪽에서 재사용
 // 네이버 m.place.naver.com HTML 을 파싱해 PlaceInfo 객체 생성
@@ -26,6 +27,13 @@ export type PlaceInfo = {
   thumbnail: string
   ogDescription: string
   sourceUrl: string
+
+  // 30차-6 확장 필드
+  description: string            // 업체 설명(소개) — description / introduction 원본
+  mainKeyword: string            // 자동 추론 대표 키워드 (예: "마포 카페")
+  subKeywords: string[]          // 서브 키워드 후보 배열
+  businessHours: string          // 영업시간 원문 (예: "매일 10:00 - 22:00")
+  regionKeyword: string          // 주소 기반 "지역 + 업종" 키워드 (예: "합정동 카페")
 }
 
 function safeNum(raw: string | undefined): number | null {
@@ -59,6 +67,127 @@ export function parseReviewFromOgDesc(desc: string): { visitor: number | null; b
   }
 }
 
+// 주소에서 행정구역(동/읍/면) 추출
+// "서울특별시 마포구 합정동 123-45" → "합정동"
+// "경상북도 포항시 북구 두호동" → "두호동"
+// 실패 시 구/군 단위 반환
+function extractRegionName(address: string): string {
+  if (!address) return ''
+  // 동/읍/면/가/리 패턴 우선
+  const m1 = address.match(/([가-힣0-9]+(?:동|읍|면|가|리))(?=\s|$|\d|[,])/)
+  if (m1) return m1[1]
+  // 구/군 단위 fallback
+  const m2 = address.match(/([가-힣]+(?:구|군))(?=\s|$)/)
+  if (m2) return m2[1]
+  // 시 단위 fallback
+  const m3 = address.match(/([가-힣]+시)(?=\s|$)/)
+  if (m3) return m3[1]
+  return ''
+}
+
+// 카테고리명에서 마지막 업종 추출 + 상위 업종
+// "음식점 > 카페 > 브런치카페" → { leaf: "브런치카페", base: "카페" }
+function extractCategoryTokens(categoryName: string): { leaf: string; base: string } {
+  if (!categoryName) return { leaf: '', base: '' }
+  const parts = categoryName.split('>').map(s => s.trim()).filter(Boolean)
+  const leaf = parts[parts.length - 1] || ''
+  const base = parts.length >= 2 ? parts[parts.length - 2] : leaf
+  return { leaf, base }
+}
+
+// 상호명에서 브랜드 토큰 추출 (맨 앞 단어)
+// "스타벅스 합정점" → "스타벅스"
+function extractBrandToken(name: string): string {
+  if (!name) return ''
+  const first = name.split(/\s+/)[0]
+  return first && first.length >= 2 ? first : ''
+}
+
+// 30차-6 · JSON-in-HTML 에서 description/영업시간 추출
+// 네이버 SSR 에서 쓰는 주요 키 후보: description / introduction / summary / bsnsHours / businessHours
+function extractDescriptionFromHtml(html: string): string {
+  const candidates = [
+    /"description"\s*:\s*"((?:[^"\\]|\\.)*)"/,
+    /"introduction"\s*:\s*"((?:[^"\\]|\\.)*)"/,
+    /"summary"\s*:\s*"((?:[^"\\]|\\.)*)"/,
+  ]
+  for (const re of candidates) {
+    const m = html.match(re)
+    if (m?.[1]) {
+      const raw = m[1]
+        .replace(/\\n/g, ' ')
+        .replace(/\\r/g, '')
+        .replace(/\\"/g, '"')
+        .replace(/\\\//g, '/')
+        .replace(/\s+/g, ' ')
+        .trim()
+      if (raw.length >= 8 && raw.length <= 2000) return raw
+    }
+  }
+  return ''
+}
+
+function extractBusinessHoursFromHtml(html: string): string {
+  const candidates = [
+    /"bsnsHours"\s*:\s*"((?:[^"\\]|\\.)*)"/,
+    /"businessHours"\s*:\s*"((?:[^"\\]|\\.)*)"/,
+    /"openHour"\s*:\s*"((?:[^"\\]|\\.)*)"/,
+    /"bizHourInfo"\s*:\s*"((?:[^"\\]|\\.)*)"/,
+  ]
+  for (const re of candidates) {
+    const m = html.match(re)
+    if (m?.[1]) {
+      const raw = m[1]
+        .replace(/\\n/g, ' / ')
+        .replace(/\\r/g, '')
+        .replace(/\\"/g, '"')
+        .replace(/\s+/g, ' ')
+        .trim()
+      if (raw.length >= 3 && raw.length <= 500) return raw
+    }
+  }
+  return ''
+}
+
+// 키워드 자동 추론
+// · mainKeyword: "지역명 + 업종leaf" (예: "합정동 카페")
+// · subKeywords: leaf 단독, base 단독, 구/군 + leaf, 브랜드 + leaf, og:description 에서 키워드형 명사 추출
+export function inferKeywords(params: {
+  name: string
+  address: string
+  categoryName: string
+}): { mainKeyword: string; subKeywords: string[]; regionKeyword: string } {
+  const region = extractRegionName(params.address)
+  const { leaf, base } = extractCategoryTokens(params.categoryName)
+  const brand = extractBrandToken(params.name)
+
+  const main = region && leaf ? `${region} ${leaf}` : leaf || region || ''
+
+  const subs: string[] = []
+  const push = (s: string) => {
+    const v = s.trim()
+    if (!v || v === main) return
+    if (!subs.includes(v)) subs.push(v)
+  }
+
+  if (leaf) push(leaf)
+  if (base && base !== leaf) push(base)
+  if (region && base && base !== leaf) push(`${region} ${base}`)
+
+  // 구/군 단위도 추출해서 보조 키워드에 포함
+  const gu = params.address.match(/([가-힣]+(?:구|군))(?=\s|$)/)?.[1]
+  if (gu && leaf) push(`${gu} ${leaf}`)
+
+  // 시 + leaf
+  const si = params.address.match(/([가-힣]+시)(?=\s|$)/)?.[1]
+  if (si && leaf) push(`${si} ${leaf}`)
+
+  if (brand) push(brand)
+  if (brand && leaf) push(`${brand} ${leaf}`)
+
+  return { mainKeyword: main, subKeywords: subs.slice(0, 6), regionKeyword: region && leaf ? `${region} ${leaf}` : '' }
+}
+
 export function parsePlaceHtml(
   html: string,
   placeId: string,
@@ -82,11 +211,22 @@ export function parsePlaceHtml(
   const ratingRaw = pickFirst(html, /"reviewScore"\s*:\s*"?([\d.]+)"?/) ||
                     pickFirst(html, /"rating"\s*:\s*"?([\d.]+)"?/)
 
+  // 30차-6 확장 필드
+  const description = extractDescriptionFromHtml(html)
+  const businessHours = extractBusinessHoursFromHtml(html)
+
+  const finalAddress = roadAddress || address || ''
+  const { mainKeyword, subKeywords, regionKeyword } = inferKeywords({
+    name,
+    address: finalAddress,
+    categoryName,
+  })
+
   return {
     placeId,
     category,
     name,
-    address: roadAddress || address || '',
+    address: finalAddress,
     roadAddress,
     categoryName,
     phone,
@@ -96,6 +236,12 @@ export function parsePlaceHtml(
     thumbnail: ogImage,
     ogDescription: ogDesc,
     sourceUrl,
+
+    description,
+    mainKeyword,
+    subKeywords,
+    businessHours,
+    regionKeyword,
   }
 }
 
