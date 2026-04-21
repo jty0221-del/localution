@@ -5,7 +5,6 @@ import Link from 'next/link'
 
 type Tone = 'info' | 'empathy' | 'warning' | 'action'
 type Ratio = '1:1' | '4:5'
-type Platform = 'instagram' | 'blog' | 'place' | 'threads'
 
 interface Slide {
   role: 'cover' | 'body' | 'cta'
@@ -42,15 +41,8 @@ const TONE_LABEL: Record<Tone, string> = {
 }
 
 const RATIO_LABEL: Record<Ratio, string> = {
-  '1:1': '1:1 정사각형 (1080×1080, 인스타 기본)',
-  '4:5': '4:5 세로 (1080×1350, 피드 점유율↑)',
-}
-
-const PLATFORM_LABEL: Record<Platform, string> = {
-  instagram: '인스타그램 피드',
-  blog: '네이버 블로그',
-  place: '네이버 플레이스',
-  threads: '스레드',
+  '1:1': '1:1 정사각 (1080×1080) — 피드 기본',
+  '4:5': '4:5 세로 (1080×1350) — 피드 점유율↑',
 }
 
 const BRAND_NAVY = '#1F2937'
@@ -62,8 +54,7 @@ export default function CardNewsPage() {
   const [target, setTarget] = useState('자영업자·소상공인')
   const [tone, setTone] = useState<Tone>('action')
   const [ratio, setRatio] = useState<Ratio>('1:1')
-  const [slideCount, setSlideCount] = useState<8 | 10>(8)
-  const [platform, setPlatform] = useState<Platform>('instagram')
+  const [slideCount, setSlideCount] = useState<8 | 10>(10)
   const [youtubeTitle, setYoutubeTitle] = useState('')
   const [loading, setLoading] = useState(false)
   const [data, setData] = useState<GenerateResponse | null>(null)
@@ -88,7 +79,8 @@ export default function CardNewsPage() {
           tone,
           ratio,
           slide_count: slideCount,
-          platform,
+          platform: 'instagram', // 인스타 캐러셀 전용 고정
+          format: 'carousel',
           youtube_title: youtubeTitle.trim() || null,
         }),
       })
@@ -110,7 +102,7 @@ export default function CardNewsPage() {
     const dataUrl = await mod.toPng(node, { pixelRatio: 2, backgroundColor: '#fff' })
     const a = document.createElement('a')
     a.href = dataUrl
-    a.download = `card-news-${idx + 1}.png`
+    a.download = `insta-carousel-${String(idx + 1).padStart(2, '0')}.png`
     a.click()
   }
 
@@ -124,12 +116,16 @@ export default function CardNewsPage() {
 
   const copyCaption = () => {
     if (!data) return
+    const cover = data.slides[0]
+    const bodies = data.slides.filter(s => s.role === 'body').map(s => `• ${s.headline}`)
+    const cta = data.slides.find(s => s.role === 'cta')
     const caption =
-      `${data.slides[0]?.headline || data.topic}\n\n` +
-      `${data.slides.filter(s => s.role === 'body').map(s => `• ${s.headline}`).join('\n')}\n\n` +
-      `${data.hashtags[platform === 'blog' ? 'blog' : platform === 'threads' ? 'threads' : 'instagram'].map(h => '#' + h).join(' ')}`
+      `${cover?.headline || data.topic}\n\n` +
+      `${bodies.join('\n')}\n\n` +
+      `👉 ${cta?.headline || '저장 · 공유로 놓치지 마세요'}\n\n` +
+      `${data.hashtags.instagram.map(h => '#' + h).join(' ')}`
     navigator.clipboard.writeText(caption)
-    alert('캡션이 복사되었습니다.')
+    alert('인스타 캡션이 복사되었습니다.')
   }
 
   const slideSize = ratio === '1:1' ? { w: 540, h: 540 } : { w: 540, h: 675 }
@@ -143,13 +139,15 @@ export default function CardNewsPage() {
             <div className="flex items-center gap-2 text-sm text-[#4E5968] mb-2">
               <Link href="/marketing" className="hover:underline">마케팅 관리</Link>
               <span>›</span>
-              <span>카드뉴스 제작</span>
+              <span>인스타 캐러셀 카드뉴스</span>
             </div>
             <h1 className="text-2xl md:text-3xl font-bold text-[#111827]">
-              🎴 카드뉴스 제작 <span className="ml-2 text-xs font-semibold text-[#6366F1] bg-[#EEF2FF] px-2 py-1 rounded-full align-middle">NEW</span>
+              📸 인스타 캐러셀 카드뉴스
+              <span className="ml-2 text-xs font-semibold text-[#6366F1] bg-[#EEF2FF] px-2 py-1 rounded-full align-middle">NEW</span>
+              <span className="ml-2 text-xs font-semibold text-[#EC4899] bg-[#FCE7F3] px-2 py-1 rounded-full align-middle">Carousel</span>
             </h1>
             <p className="text-sm text-[#4E5968] mt-1">
-              Claude Design 연동 — UX 카피 · 접근성(WCAG AA) · 디자인 비평 자동 내장. 8~10장 슬라이드 1클릭 제작.
+              인스타그램 캐러셀 전용 · 최대 10장 슬라이드 · Claude Design(UX Copy · 접근성 · 비평) 자동 내장 · 스와이프 유도 + 진행도 도트 포함.
             </p>
           </div>
           <Link
@@ -196,7 +194,7 @@ export default function CardNewsPage() {
               </select>
             </Field>
 
-            <Field label="슬라이드 수">
+            <Field label="슬라이드 수 (인스타 캐러셀 최대 10장)">
               <div className="flex gap-2">
                 {[8, 10].map(n => (
                   <button
@@ -215,15 +213,7 @@ export default function CardNewsPage() {
               </div>
             </Field>
 
-            <Field label="업로드 채널">
-              <select className="form-input" value={platform} onChange={e => setPlatform(e.target.value as Platform)}>
-                {(Object.keys(PLATFORM_LABEL) as Platform[]).map(k => (
-                  <option key={k} value={k}>{PLATFORM_LABEL[k]}</option>
-                ))}
-              </select>
-            </Field>
-
-            <Field label="(선택) 유튜브 제목과 주제 일치화" hint="유튜브팀 스킬로 만든 영상 제목을 넣으면 CTA가 '영상으로 보기'로 자동 설정됩니다.">
+            <Field label="(선택) 유튜브 제목 연동 — 주제 일치화" hint="youtube-production-team 스킬로 만든 영상 제목 입력 시 CTA에 '영상으로 보기' 자동 삽입.">
               <input
                 className="form-input"
                 placeholder="예) 플레이스 예약 전환율 3배 올린 실전 3가지"
@@ -243,9 +233,9 @@ export default function CardNewsPage() {
             <button
               onClick={runGenerate}
               disabled={loading}
-              className="px-6 py-3 bg-[#FACC15] hover:bg-[#EAB308] disabled:opacity-50 rounded-xl font-bold text-[#111827] shadow-sm"
+              className="px-6 py-3 bg-gradient-to-r from-[#EC4899] to-[#F97316] hover:opacity-90 disabled:opacity-50 rounded-xl font-bold text-white shadow-sm"
             >
-              {loading ? '생성 중… (15~25초)' : '✨ 카드뉴스 생성'}
+              {loading ? '생성 중… (15~25초)' : '✨ 캐러셀 생성'}
             </button>
             {data && (
               <>
@@ -253,16 +243,23 @@ export default function CardNewsPage() {
                   onClick={downloadAll}
                   className="px-5 py-3 bg-[#1F2937] hover:bg-black rounded-xl font-medium text-white"
                 >
-                  📥 전체 PNG 다운로드
+                  📥 10장 전체 PNG 다운로드
                 </button>
                 <button
                   onClick={copyCaption}
                   className="px-5 py-3 bg-white border border-gray-300 hover:bg-gray-50 rounded-xl font-medium text-[#4E5968]"
                 >
-                  📋 캡션+해시태그 복사
+                  📋 인스타 캡션 복사
                 </button>
               </>
             )}
+          </div>
+
+          <div className="mt-3 text-xs text-[#6B7280] flex flex-wrap gap-x-4 gap-y-1">
+            <span>✓ 업로드 채널 고정: <b>인스타그램 캐러셀</b></span>
+            <span>✓ 최대 10장 (인스타 정책 준수)</span>
+            <span>✓ 슬라이드 하단 진행도 도트 자동</span>
+            <span>✓ 첫 장 스와이프 힌트 내장</span>
           </div>
         </div>
 
@@ -271,7 +268,7 @@ export default function CardNewsPage() {
           <>
             <div className="mb-4 flex items-center justify-between">
               <h2 className="text-lg font-bold text-[#111827]">
-                슬라이드 미리보기 · {data.slides.length}장
+                캐러셀 미리보기 · {data.slides.length}장
               </h2>
               <div className="text-xs text-[#4E5968]">
                 🎨 대비 {data.accessibility.contrast_ratio} / 최소폰트 {data.accessibility.min_font_size} / {data.accessibility.passed ? '✅ WCAG AA 통과' : '⚠ 재조정 권장'}
@@ -291,7 +288,13 @@ export default function CardNewsPage() {
                     }}
                     className="relative"
                   >
-                    <SlideCard slide={s} index={i} total={data.slides.length} topic={data.topic} youtubeTitle={youtubeTitle} />
+                    <SlideCard
+                      slide={s}
+                      index={i}
+                      total={data.slides.length}
+                      topic={data.topic}
+                      youtubeTitle={youtubeTitle}
+                    />
                   </div>
                   <div className="flex items-center justify-between px-3 py-2 bg-gray-50 border-t">
                     <span className="text-xs font-medium text-[#4E5968]">
@@ -316,11 +319,11 @@ export default function CardNewsPage() {
 
             {/* Hashtags */}
             <div className="bg-white border border-gray-200 rounded-2xl p-6">
-              <h3 className="font-bold text-[#111827] mb-3">채널별 해시태그 세트</h3>
+              <h3 className="font-bold text-[#111827] mb-3">인스타그램 해시태그 (15개)</h3>
               <div className="space-y-3 text-sm">
-                <HashtagRow label="인스타그램 (15개)" tags={data.hashtags.instagram} />
-                <HashtagRow label="블로그 (10개)" tags={data.hashtags.blog} />
-                <HashtagRow label="스레드 (5개)" tags={data.hashtags.threads} />
+                <HashtagRow label="인스타그램 메인" tags={data.hashtags.instagram} />
+                <HashtagRow label="블로그 크로스포스팅용" tags={data.hashtags.blog} />
+                <HashtagRow label="스레드 크로스포스팅용" tags={data.hashtags.threads} />
               </div>
             </div>
           </>
@@ -328,9 +331,9 @@ export default function CardNewsPage() {
 
         {!data && !loading && (
           <div className="bg-white border border-dashed border-gray-300 rounded-2xl p-12 text-center text-[#4E5968]">
-            <div className="text-4xl mb-3">🎴</div>
-            <div className="font-medium mb-1">주제를 입력하고 생성 버튼을 누르세요</div>
-            <div className="text-xs">Claude가 슬라이드 구성 · 카피 · 해시태그 · 디자인 비평까지 한 번에 뽑아줍니다.</div>
+            <div className="text-4xl mb-3">📸</div>
+            <div className="font-medium mb-1">주제를 입력하고 캐러셀 생성 버튼을 누르세요</div>
+            <div className="text-xs">Claude가 인스타 캐러셀 10장 + 캡션 + 해시태그 + 디자인 비평까지 한 번에 뽑아줍니다.</div>
           </div>
         )}
       </div>
@@ -385,7 +388,7 @@ function InfoCard({ title, items }: { title: string; items: string[] }) {
       <ul className="space-y-1.5 text-sm text-[#4E5968]">
         {items.map((it, i) => (
           <li key={i} className="flex gap-2">
-            <span className="text-[#FACC15] mt-0.5">▸</span>
+            <span className="text-[#EC4899] mt-0.5">▸</span>
             <span>{it}</span>
           </li>
         ))}
@@ -414,6 +417,12 @@ function HashtagRow({ label, tags }: { label: string; tags: string[] }) {
   )
 }
 
+// ─────────────────────────────────────────────
+// Carousel Slide (Instagram 전용)
+//   · 표지:  네이비 배경 + 옐로우 포인트 + "→ 스와이프" 힌트
+//   · 본문:  흰 배경 + 좌상단 하이라이트 + 하단 진행도 도트 (N/M)
+//   · CTA:   옐로우 배경 + 저장·공유·팔로우 유도 + 유튜브 링크(선택)
+// ─────────────────────────────────────────────
 function SlideCard({
   slide,
   index,
@@ -448,9 +457,9 @@ function SlideCard({
         position: 'relative',
       }}
     >
-      {/* Top: label */}
+      {/* Top: brand label */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 13, fontWeight: 600, color: sub }}>
-        <span>{isCover ? '하랑마케팅' : isCta ? '지금 바로 해보세요' : `${index}/${total - 1}`}</span>
+        <span>{isCover ? '@harang.marketing' : isCta ? '저장 · 공유 · 팔로우' : `${index}/${total - 1}`}</span>
         {!isCover && !isCta && <span style={{ color: sub }}>{topic.slice(0, 20)}</span>}
       </div>
 
@@ -503,7 +512,7 @@ function SlideCard({
               <ul style={{ marginTop: 16, listStyle: 'none', padding: 0 }}>
                 {slide.bullets.map((b, i) => (
                   <li key={i} style={{ display: 'flex', gap: 10, fontSize: 16, color: fg, marginBottom: 8, lineHeight: 1.5 }}>
-                    <span style={{ color: BRAND_YELLOW, fontWeight: 900 }}>✓</span>
+                    <span style={{ color: '#EC4899', fontWeight: 900 }}>✓</span>
                     <span>{b}</span>
                   </li>
                 ))}
@@ -515,7 +524,7 @@ function SlideCard({
         {isCta && (
           <>
             <div style={{ fontSize: 16, fontWeight: 700, color: BRAND_INK, marginBottom: 14, opacity: 0.7 }}>
-              CTA
+              끝까지 봤다면
             </div>
             <div style={{ fontSize: 40, fontWeight: 900, lineHeight: 1.2, wordBreak: 'keep-all', marginBottom: 16 }}>
               {slide.headline}
@@ -525,15 +534,20 @@ function SlideCard({
                 {slide.subcopy}
               </div>
             )}
+            <div style={{ display: 'flex', gap: 10, marginTop: 20, flexWrap: 'wrap' }}>
+              <Pill>🔖 저장</Pill>
+              <Pill>📤 공유</Pill>
+              <Pill>➕ 팔로우</Pill>
+            </div>
             {youtubeTitle && (
               <div
                 style={{
-                  marginTop: 20,
-                  padding: '12px 16px',
+                  marginTop: 16,
+                  padding: '10px 14px',
                   background: BRAND_INK,
                   color: '#fff',
                   borderRadius: 12,
-                  fontSize: 15,
+                  fontSize: 14,
                   fontWeight: 700,
                   display: 'inline-block',
                   alignSelf: 'flex-start',
@@ -546,11 +560,82 @@ function SlideCard({
         )}
       </div>
 
-      {/* Bottom: brand */}
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12, fontWeight: 600, color: sub, marginTop: 24 }}>
-        <span>@harang.marketing</span>
-        <span>localution.co.kr</span>
+      {/* Bottom: swipe hint (cover) / progress dots (body) / brand (cta) */}
+      <div style={{ marginTop: 24 }}>
+        {isCover && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: 12, fontWeight: 600, color: sub }}>
+              localution.co.kr
+            </span>
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 8,
+                fontSize: 14,
+                fontWeight: 700,
+                color: BRAND_YELLOW,
+                animation: 'pulse 1.8s ease-in-out infinite',
+              }}
+            >
+              <span>→ 스와이프</span>
+            </div>
+          </div>
+        )}
+
+        {!isCover && !isCta && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <ProgressDots current={index} total={total} />
+            <span style={{ fontSize: 12, fontWeight: 600, color: sub }}>@harang.marketing</span>
+          </div>
+        )}
+
+        {isCta && (
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', fontSize: 12, fontWeight: 600, color: sub }}>
+            <span>@harang.marketing</span>
+            <span>localution.co.kr</span>
+          </div>
+        )}
       </div>
+    </div>
+  )
+}
+
+function Pill({ children }: { children: React.ReactNode }) {
+  return (
+    <span
+      style={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        background: 'rgba(17,24,39,0.12)',
+        color: BRAND_INK,
+        fontSize: 15,
+        fontWeight: 700,
+        padding: '8px 14px',
+        borderRadius: 999,
+      }}
+    >
+      {children}
+    </span>
+  )
+}
+
+function ProgressDots({ current, total }: { current: number; total: number }) {
+  // current = index (0-based). 표지는 0이라 진행도 dots은 body 에서만 호출됨.
+  return (
+    <div style={{ display: 'flex', gap: 6 }}>
+      {Array.from({ length: total }).map((_, i) => (
+        <span
+          key={i}
+          style={{
+            width: i === current ? 22 : 8,
+            height: 8,
+            borderRadius: 999,
+            background: i === current ? BRAND_INK : 'rgba(17,24,39,0.2)',
+            transition: 'all 0.2s',
+          }}
+        />
+      ))}
     </div>
   )
 }
