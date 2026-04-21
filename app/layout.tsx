@@ -11,6 +11,7 @@ const SITE_URL = 'https://www.localution.co.kr'
 const SITE_NAME = '로컬루션'
 const SITE_TITLE = '로컬루션 | 사장님의 네이버·구글·배민 마케팅, AI가 대신합니다'
 // 🔎 네이버 서치어드바이저 80자 제한 대응 (2026-04-19)
+// 23차-SEO: og:image 추가 (opengraph-image.tsx 자동 생성) (2026-04-21)
 // 민감 표현(AI 블로그 생성) 제거 → 리뷰 관리·SNS 자동화·AI 진단 중심으로 재작성
 const SITE_DESC  = '네이버·구글·배민·요기요 리뷰 자동 답글, 인스타·유튜브 쇼츠 자동화, AI 매장 진단까지. 월 990원부터 체험.'
 
@@ -40,11 +41,20 @@ export const metadata: Metadata = {
     title: SITE_TITLE,
     description: SITE_DESC,
     locale: 'ko_KR',
+    images: [
+      {
+        url: `${SITE_URL}/opengraph-image`,
+        width: 1200,
+        height: 630,
+        alt: '로컬루션 – 사장님 마케팅 플랫폼',
+      },
+    ],
   },
   twitter: {
     card: 'summary_large_image',
     title: SITE_TITLE,
     description: SITE_DESC,
+    images: [`${SITE_URL}/opengraph-image`],
   },
   // icons: Next.js app router가 app/icon.png, app/apple-icon.png, app/favicon.ico를
   // 자동 감지하여 <link rel="icon|apple-touch-icon"> 태그를 생성함. 명시적 설정 불필요.
