@@ -1,5 +1,9 @@
-// 27차-7 SEO: /marketing/blog-post 전용 metadata layout
+// 27차-7 복구: /marketing/blog-post GatedRoute(blog-ai) layout 복구 + per-route metadata
+// - 원본: 'use client' GatedRoute moduleId="blog-ai" (8505628 Phase0.5 #7)
+// - 본 파일은 server component 로 재작성하여 metadata export 를 허용하면서도
+//   GatedRoute 클라이언트 가드를 그대로 wrap 하여 구독 모듈 가드 동작 유지
 import type { Metadata } from 'next'
+import GatedRoute from '../../components/GatedRoute'
 
 const SITE_URL = 'https://www.localution.co.kr'
 const PAGE_URL = `${SITE_URL}/marketing/blog-post`
@@ -31,6 +35,7 @@ export const metadata: Metadata = {
   ],
 }
 
-export default function Layout({ children }: { children: React.ReactNode }) {
-  return children
+// 요구 모듈: blog-ai (원본 가드 유지)
+export default function BlogPostLayout({ children }: { children: React.ReactNode }) {
+  return <GatedRoute moduleId="blog-ai">{children}</GatedRoute>
 }
