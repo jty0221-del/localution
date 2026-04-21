@@ -450,22 +450,22 @@ export const PERSONA_BUNDLES = {
   'owner-solo': {
     name: '1인 자영업자',
     desc: '혼자 운영하는 소규모 매장',
-    modules: ['ai-review', 'qr-stamp', 'crm'] as ModuleId[],
+    modules: ['ai-review', 'qr-stamp', 'crm', 'platform-hub'] as ModuleId[],
   },
   'owner-team': {
     name: '팀 운영 사장님',
     desc: '직원 2~10명 규모 매장',
-    modules: ['ai-review', 'qr-stamp', 'crm', 'keyword', 'report'] as ModuleId[],
+    modules: ['ai-review', 'qr-stamp', 'crm', 'keyword', 'report', 'platform-hub'] as ModuleId[],
   },
   'marketer': {
     name: '마케터·대행사',
     desc: '여러 업체 관리하는 마케터',
-    modules: ['keyword', 'blog-ai', 'competitor', 'report', 'sns-manage'] as ModuleId[],
+    modules: ['keyword', 'blog-ai', 'competitor', 'report', 'sns-manage', 'card-news', 'blog-tracking'] as ModuleId[],
   },
   'sales': {
     name: '프랜차이즈·영업',
     desc: '다점포 브랜드',
-    modules: ['ai-review', 'qr-stamp', 'crm', 'keyword', 'report', 'competitor'] as ModuleId[],
+    modules: ['ai-review', 'qr-stamp', 'crm', 'keyword', 'report', 'competitor', 'platform-hub'] as ModuleId[],
   },
 } as const
 
