@@ -187,12 +187,89 @@ export function removeConnection(platform: PlatformId) {
   } catch {}
 }
 
-// React 훅 — 현재 연동 상태 + 변경 구독
+// 30차-3: 서버 단일 진실원 동기화
+// /api/stores/me 응답에서 connected:true 인 플랫폼을 가져와 로컬 상태에 머지한다.
+// 서버 slug (naver_place / baemin / yogiyo / coupangeats) → 캐노니컬 키 (naver / baemin / yogiyo / coupang).
+async function fetchServerConnections(): Promise<Partial<ConnectionsMap>> {
+  if (typeof window === 'undefined') return {}
+  try {
+    const res = await fetch('/api/stores/me', { cache: 'no-store', credentials: 'include' })
+    if (!res.ok) return {}
+    const data = await res.json()
+    if (!data?.ok) return {}
+    const out: Partial<ConnectionsMap> = {}
+    const server: Array<{
+      platform: string
+      connected: boolean
+      platform_store_name?: string | null
+      platform_store_id?: string | null
+      connected_at?: string | null
+    }> = data.platforms ?? []
+    // naver_link 도 보조 소스로 사용 (place_targets 기반)
+    const naverLink: {
+      external_id?: string | null
+      external_name?: string | null
+      external_url?: string | null
+    } | null = data.naver_link ?? null
+
+    for (const sp of server) {
+      if (!sp?.connected) continue
+      const k = normalizeKey(sp.platform)
+      if (!k) continue
+      const externalUrl =
+        k === 'naver' && sp.platform_store_id
+          ? `https://map.naver.com/p/entry/place/${sp.platform_store_id}`
+          : undefined
+      out[k] = {
+        connected: true,
+        externalName: sp.platform_store_name ?? undefined,
+        externalId: sp.platform_store_id ?? undefined,
+        externalUrl,
+        linkedAt: sp.connected_at ?? undefined,
+      }
+    }
+    // naver_place 가 platform_credentials 에 없어도 place_targets 에 있으면 naver 연결로 표시
+    if (!out.naver?.connected && naverLink && (naverLink.external_id || naverLink.external_name)) {
+      out.naver = {
+        connected: true,
+        externalName: naverLink.external_name ?? undefined,
+        externalId: naverLink.external_id ?? undefined,
+        externalUrl: naverLink.external_url ?? undefined,
+      }
+    }
+    return out
+  } catch {
+    return {}
+  }
+}
+
+function mergeServer(local: ConnectionsMap, server: Partial<ConnectionsMap>): ConnectionsMap {
+  const merged: ConnectionsMap = { ...local }
+  ;(Object.keys(server) as PlatformId[]).forEach((k) => {
+    const s = server[k]
+    if (!s?.connected) return
+    merged[k] = {
+      ...merged[k],
+      ...s,
+      connected: true,
+    }
+  })
+  return merged
+}
+
+// React 훅 — 현재 연동 상태 + 변경 구독 (로컬 + 서버 단일 진실원)
 export function useConnections() {
   const [map, setMap] = useState<ConnectionsMap>(emptyMap())
 
   const refresh = useCallback(() => {
-    setMap(getConnections())
+    // 1) localStorage 즉시 반영
+    const local = getConnections()
+    setMap(local)
+    // 2) 서버 단일 진실원 비동기 머지
+    fetchServerConnections().then((server) => {
+      if (!server || Object.keys(server).length === 0) return
+      setMap((prev) => mergeServer(prev, server))
+    })
   }, [])
 
   useEffect(() => {
@@ -202,11 +279,19 @@ export function useConnections() {
       if (e.key === LS_KEY || e.key.startsWith('localution.')) refresh()
     }
     const onCustom = () => refresh()
+    const onFocus = () => refresh()
+    const onVisible = () => {
+      if (document.visibilityState === 'visible') refresh()
+    }
     window.addEventListener('storage', onStorage)
     window.addEventListener(EVENT, onCustom as EventListener)
+    window.addEventListener('focus', onFocus)
+    document.addEventListener('visibilitychange', onVisible)
     return () => {
       window.removeEventListener('storage', onStorage)
       window.removeEventListener(EVENT, onCustom as EventListener)
+      window.removeEventListener('focus', onFocus)
+      document.removeEventListener('visibilitychange', onVisible)
     }
   }, [refresh])
 
