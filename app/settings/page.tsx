@@ -253,23 +253,63 @@ function StoreTab() {
     })()
   }, [])
 
+  // 30차-7: URL 입력 → /api/place/lookup (HTML 스크래핑, API 키 불필요)
+  //         입력 형식 자동 판별 — placeId/URL 이면 lookup, 아니면 (fallback) /api/naver-place/search
   const handleNaverSync = async () => {
-    const query = form.naverUrl.trim() || form.name.trim()
-    if (!query) { setSyncError('네이버 플레이스 URL 또는 매장명을 입력해주세요'); return }
-    setSyncing(true); setSyncError(''); setShowResults(false)
+    const raw = form.naverUrl.trim()
+    if (!raw) { setSyncError('네이버 플레이스 URL 또는 placeId 를 입력해주세요 (예: https://m.place.naver.com/restaurant/1129864566/home)'); return }
+    setSyncing(true); setSyncError(''); setShowResults(false); setIsMock(false)
+
+    // 1) URL 또는 숫자 ID 패턴 검출
+    const url = raw
+    let placeId: string | null = null
+    let category: string | null = null
+
+    // m.place.naver.com/{category}/{id}
+    const m1 = url.match(/m\.place\.naver\.com\/([a-z]+)\/(\d+)/i)
+    if (m1) { category = m1[1]; placeId = m1[2] }
+    if (!placeId) {
+      // map.naver.com/.../place/{id}
+      const m2 = url.match(/map\.naver\.com\/[^\s]*place\/(\d+)/i)
+      if (m2) placeId = m2[1]
+    }
+    if (!placeId) {
+      // place.naver.com/{cat}/{id}
+      const m3 = url.match(/place\.naver\.com\/([a-z]+)\/(\d+)/i)
+      if (m3) { category = m3[1]; placeId = m3[2] }
+    }
+    if (!placeId) {
+      // 순수 숫자만
+      const m4 = raw.match(/^(\d{6,})$/)
+      if (m4) placeId = m4[1]
+    }
+
     try {
-      const res = await fetch(`/api/naver-place/search?query=${encodeURIComponent(query)}`)
+      if (placeId) {
+        // URL 기반 정확 조회
+        const qs = new URLSearchParams({ id: placeId })
+        if (category) qs.set('category', category)
+        const res = await fetch(`/api/place/lookup?${qs.toString()}`, { cache: 'no-store' })
+        const data = await res.json()
+        if (!res.ok || !data?.ok || !data?.info) {
+          setSyncError(data?.message || data?.error || '네이버 플레이스에서 해당 ID를 찾지 못했습니다')
+          return
+        }
+        applyPlaceInfo(data.info)
+        return
+      }
+
+      // placeId 추출 실패 → fallback 으로 매장명 검색 (API 키 있는 환경에서만 동작)
+      const res = await fetch(`/api/naver-place/search?query=${encodeURIComponent(raw)}`)
       const data = await res.json()
-      if (!res.ok) { setSyncError(data.error || '연동에 실패했습니다'); return }
+      if (!res.ok) { setSyncError(data.error || 'URL 붙여넣기를 권장합니다 (예: https://m.place.naver.com/restaurant/1129864566/home)'); return }
       if (!data.items || data.items.length === 0) {
-        setSyncError('검색 결과가 없습니다. 다른 키워드로 시도해보세요.')
+        setSyncError('검색 결과가 없습니다. 네이버 플레이스 URL 을 붙여넣어주세요.')
         return
       }
       if (data._mock) {
         setIsMock(true)
-        setSyncError('API 키 미설정 — 테스트 목업 데이터입니다. Vercel 환경변수를 설정하세요.')
-      } else {
-        setIsMock(false)
+        setSyncError('검색 API 키 미설정 — 네이버 플레이스 URL 로 입력하시면 바로 연동됩니다')
       }
       if (data.items.length === 1) {
         applyPlace(data.items[0])
@@ -285,6 +325,47 @@ function StoreTab() {
     }
   }
 
+  // 30차-7: /api/place/lookup 응답 → form 전체 자동 채움
+  //   매장명 / 업종 / 전화 / 주소 + 메인키워드(자동추론) + 서브키워드(자동추론) + 매장소개
+  const applyPlaceInfo = (info: {
+    placeId: string
+    name: string
+    categoryName?: string
+    address?: string
+    roadAddress?: string
+    phone?: string
+    description?: string
+    mainKeyword?: string
+    subKeywords?: string[]
+    sourceUrl?: string
+  }) => {
+    setForm(p => {
+      const newAddress = info.roadAddress || info.address || p.address
+      const newCategory = info.categoryName?.split('>').pop()?.trim() || info.categoryName || p.category
+      const newMain = info.mainKeyword?.trim() || p.mainKeyword
+      const newSubs = Array.isArray(info.subKeywords) && info.subKeywords.length
+        ? info.subKeywords.join(', ')
+        : p.subKeywords
+      const newDesc = info.description?.trim() || p.desc
+      return {
+        ...p,
+        name: info.name || p.name,
+        category: newCategory,
+        address: newAddress,
+        phone: info.phone || p.phone,
+        naverUrl: info.sourceUrl || p.naverUrl,
+        mainKeyword: newMain,
+        subKeywords: newSubs,
+        desc: newDesc,
+      }
+    })
+    setShowResults(false)
+    setSynced(true)
+    setIsMock(false)
+    setTimeout(() => setSynced(false), 4000)
+  }
+
+  // 구형 네이버 검색 API 응답용 (fallback)
   const applyPlace = (place: NaverPlace) => {
     setForm(p => ({
       ...p,
@@ -314,6 +395,7 @@ function StoreTab() {
           naver_url: form.naverUrl,
           main_keyword: form.mainKeyword,
           sub_keywords: form.subKeywords.split(',').map(s => s.trim()).filter(Boolean),
+          desc: form.desc,
         }),
       })
       const data = await res.json()
@@ -343,7 +425,7 @@ function StoreTab() {
             <input
               value={form.naverUrl}
               onChange={e => { setForm(p => ({ ...p, naverUrl: e.target.value })); setSyncError(''); setShowResults(false) }}
-              placeholder="https://naver.me/... 또는 매장명 검색"
+              placeholder="https://m.place.naver.com/restaurant/1129864566/home"
               className="flex-1 border border-[#BFDBFE] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#3182F6] bg-white transition-colors"
               onKeyDown={e => e.key === 'Enter' && handleNaverSync()}
             />
@@ -377,7 +459,7 @@ function StoreTab() {
               ))}
             </div>
           )}
-          <p className="text-xs text-[#3182F6] mt-2 opacity-70">URL 붙여넣기 또는 매장명으로 검색 → 매장명·주소·전화번호·카테고리 자동 입력</p>
+          <p className="text-xs text-[#3182F6] mt-2 opacity-70">네이버 플레이스 URL 붙여넣기 → 매장명·업종·전화·주소·메인/서브 키워드·매장 소개 자동 입력 (API 키 불필요)</p>
         </div>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
           <div>
