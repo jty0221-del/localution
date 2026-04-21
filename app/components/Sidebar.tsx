@@ -7,7 +7,7 @@ import { usePathname, useSearchParams } from 'next/navigation'
 import {
   ChevronDown, ChevronRight, List, Map, MapPin, Search, BarChart3,
   Sparkles, MessageCircle, Settings, LogOut, FileText, Lock, LucideIcon,
-  Plus, ArrowRight, Package, Bell, TrendingUp, Gift,
+  Plus, ArrowRight, Package, Bell, TrendingUp, Gift, Zap,
 } from 'lucide-react'
 import { REGIONS } from '../lib/regions'
 import { useEntitlements } from '../lib/entitlements'
@@ -78,6 +78,7 @@ const MARKETING_SUB: { href: string; label: string; Icon: LucideIcon; badge: str
 // REGIONS 는 app/lib/regions.ts 에서 중앙 관리
 
 const BOTTOM_NAV: { href: string; label: string; Icon: LucideIcon; colors: { bg: string; text: string }; badge?: string }[] = [
+  { href: '/my/platforms', label: '플랫폼 연결', Icon: Zap,           colors: { bg: '#EEF2FF', text: '#6366F1' }, badge: 'NEW' },
   { href: '/partner-points', label: '파트너 포인트', Icon: Gift,          colors: { bg: '#FEF3C7', text: '#D97706' }, badge: 'NEW' },
   { href: '/updates',  label: '업데이트 내역', Icon: Bell,          colors: { bg: '#EFF6FF', text: '#3182F6' } },
   { href: '/inquiry',  label: '1:1 문의',       Icon: MessageCircle, colors: { bg: '#FFF7ED', text: '#EA580C' } },
