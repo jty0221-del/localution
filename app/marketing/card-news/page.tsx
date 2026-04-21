@@ -1,7 +1,12 @@
 'use client'
+export const dynamic = 'force-dynamic'
 
 import { useState, useRef } from 'react'
 import Link from 'next/link'
+import Sidebar from '../../components/Sidebar'
+import PageHeader from '../../components/PageHeader'
+import Footer from '../../components/Footer'
+import { ArrowRight } from 'lucide-react'
 
 type Tone = 'info' | 'empathy' | 'warning' | 'action'
 type Ratio = '1:1' | '4:5'
@@ -130,32 +135,37 @@ export default function CardNewsPage() {
   const slideSize = ratio === '1:1' ? { w: 540, h: 540 } : { w: 540, h: 675 }
 
   return (
-    <div className="min-h-screen bg-[#F9FAFB]">
-      <div className="max-w-7xl mx-auto px-4 py-8">
-        {/* Header */}
-        <div className="flex flex-wrap items-start justify-between gap-4 mb-6">
-          <div>
-            <div className="flex items-center gap-2 text-sm text-[#4E5968] mb-2">
-              <Link href="/marketing" className="hover:underline">마케팅 관리</Link>
-              <span>›</span>
-              <span>인스타 캐러셀 카드뉴스</span>
-            </div>
-            <h1 className="text-2xl md:text-3xl font-bold text-[#111827]">
-              📸 인스타 캐러셀 카드뉴스
-              <span className="ml-2 text-xs font-semibold text-[#6366F1] bg-[#EEF2FF] px-2 py-1 rounded-full align-middle">NEW</span>
-              <span className="ml-2 text-xs font-semibold text-[#EC4899] bg-[#FCE7F3] px-2 py-1 rounded-full align-middle">Carousel</span>
-            </h1>
-            <p className="text-sm text-[#4E5968] mt-1">
-              인스타그램 캐러셀 전용 · 최대 10장 슬라이드 · Claude Design(UX Copy · 접근성 · 비평) 자동 내장 · 스와이프 유도 + 진행도 도트 포함.
-            </p>
+    <div className="min-h-screen bg-[#F8F9FB] flex">
+      <Sidebar />
+      <main className="flex-1 ml-0 md:ml-[220px] pt-16 md:pt-0 min-w-0">
+        <PageHeader
+          icon="📸"
+          title="인스타 캐러셀 카드뉴스"
+          subtitle="주제 1문장 → Claude가 10장 슬라이드 + 캡션 + 해시태그 + 디자인 비평까지 자동 생성"
+          variant="pink"
+        />
+
+        <div className="max-w-7xl mx-auto px-4 md:px-8 pt-6 pb-20">
+          {/* 브레드크럼 */}
+          <div className="flex items-center gap-2 text-xs text-[#8B95A1] mb-4">
+            <Link href="/marketing" className="hover:text-[#191F28]">마케팅 관리</Link>
+            <ArrowRight size={12} />
+            <span className="text-[#EC4899] font-medium">인스타 캐러셀 카드뉴스</span>
           </div>
-          <Link
-            href="/marketing/place"
-            className="px-4 py-2 bg-white border border-gray-200 rounded-lg text-sm font-medium text-[#4E5968] hover:bg-gray-50"
-          >
-            ← 마케팅 홈
-          </Link>
-        </div>
+
+          {/* 상단 타이틀 블록 */}
+          <div className="flex items-start justify-between gap-4 flex-wrap mb-6">
+            <div>
+              <h1 className="text-2xl md:text-3xl font-bold text-[#111827] flex items-center gap-2 flex-wrap">
+                📸 인스타 캐러셀 카드뉴스
+                <span className="text-xs font-semibold text-[#6366F1] bg-[#EEF2FF] px-2 py-1 rounded-full align-middle">NEW</span>
+                <span className="text-xs font-semibold text-[#EC4899] bg-[#FCE7F3] px-2 py-1 rounded-full align-middle">Carousel</span>
+              </h1>
+              <p className="text-sm text-[#4E5968] mt-1.5">
+                인스타그램 캐러셀 전용 · 최대 10장 슬라이드 · Claude Design(UX Copy · 접근성 · 비평) 자동 내장 · 스와이프 유도 + 진행도 도트 포함.
+              </p>
+            </div>
+          </div>
 
         {/* Form */}
         <div className="bg-white rounded-2xl border border-gray-200 p-6 mb-6">
@@ -335,7 +345,10 @@ export default function CardNewsPage() {
             <div className="text-xs">Claude가 인스타 캐러셀 10장 + 캡션 + 해시태그 + 디자인 비평까지 한 번에 뽑아줍니다.</div>
           </div>
         )}
-      </div>
+        </div>
+
+        <Footer />
+      </main>
 
       <style jsx>{`
         .form-input {
