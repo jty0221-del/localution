@@ -33,6 +33,9 @@ export type ModuleId =
   | 'crm'
   | 'ai-chat'
   | 'sns-manage'
+  | 'card-news'
+  | 'platform-hub'
+  | 'blog-tracking'
 
 export interface Module {
   id: ModuleId
@@ -187,6 +190,41 @@ export const MODULES: readonly Module[] = [
     ],
   },
   {
+    id: 'card-news',
+    name: '인스타 카드뉴스 제작',
+    shortName: '카드뉴스',
+    price: 1490,
+    category: '마케터',
+    status: 'beta',
+    paths: [],
+    icon: 'Layers',
+    desc: '주제만 던지면 인스타 캐러셀 10장이 AI로 완성 · PNG 저장.',
+    bullets: [
+      '인스타 1080×1350 캐러셀 템플릿',
+      'Claude AI 슬라이드 카피 자동 생성',
+      '커버·본문·CTA 구조 자동 구성',
+      'PNG 일괄 다운로드 (저장/공유/팔로우 유도)',
+    ],
+    badge: 'NEW',
+  },
+  {
+    id: 'blog-tracking',
+    name: '블로그 순위 추적',
+    shortName: '블로그 순위',
+    price: 1490,
+    category: '마케터',
+    status: 'live',
+    paths: [],
+    icon: 'TrendingUp',
+    desc: '내 블로그 글이 스마트블록·블로그탭·인기글 어디 몇 위에 떴는지 일 1회 자동 추적.',
+    bullets: [
+      '스마트블록·블로그탭·인기글 3구간 순위',
+      '일 1회 자동 크롤링',
+      '진입/이탈 순간 카톡 알림',
+      '키워드별 히스토리 그래프',
+    ],
+  },
+  {
     id: 'competitor',
     name: '경쟁사 분석',
     shortName: '경쟁사',
@@ -277,6 +315,24 @@ export const MODULES: readonly Module[] = [
       '발행 스케줄 관리',
     ],
     badge: 'Beta',
+  },
+  {
+    id: 'platform-hub',
+    name: '플랫폼 통합 관리',
+    shortName: '플랫폼 허브',
+    price: 990,
+    category: '공통',
+    status: 'beta',
+    paths: [],
+    icon: 'Zap',
+    desc: '네이버·배민·요기요·쿠팡이츠 4곳을 한 계정으로 연결해 리뷰·공지 대리 게시.',
+    bullets: [
+      '4대 플랫폼 자격증명 AES-256 암호화',
+      '리뷰 답글 대리 게시',
+      '공지·이벤트 일괄 업로드',
+      '동의 이력·작업 로그 감사 추적',
+    ],
+    badge: 'NEW',
   },
 ] as const
 
