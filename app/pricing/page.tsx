@@ -12,6 +12,7 @@ import {
   ChefHat, Store, Megaphone, Briefcase, Calculator, Bell, UserCheck,
   ShoppingCart, Percent, UserPlus, Check, ShoppingBasket, X,
   Gift, Plus, ArrowRight, ChevronDown, LucideIcon, TrendingUp,
+  Layers, Zap,
 } from 'lucide-react'
 import { MODULES, calculateBundleDiscount, type ModuleId } from '../lib/modules'
 
@@ -29,6 +30,8 @@ const ICON_MAP: Record<string, LucideIcon> = {
   UserCheck: Users,
   Bot,
   Share2: Smartphone,
+  Layers,
+  Zap,
 }
 
 // 카테고리별 아이콘 색상 (UI 유지용)
