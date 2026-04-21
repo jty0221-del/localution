@@ -158,6 +158,51 @@ export async function POST(req: NextRequest) {
     )
   }
 
+  // ── 28차-2: stores 테이블 자동 upsert (단일 진실원) ───────────────
+  // 연결 성공 시 매장 정보가 /review-admin, /settings, /qr-admin 등
+  // 모든 페이지에서 공유되도록 stores 테이블에도 기본 레코드를 저장한다.
+  // 실패해도 연결 자체는 성공으로 응답 (stores 동기화는 부차 기능).
+  try {
+    const storeName = body.platform_store_name?.trim() || ''
+    if (storeName) {
+      // 기존 store 가 있으면 이름/ID 업데이트, 없으면 생성
+      const { data: existing } = await svc
+        .from('stores')
+        .select('id, slug, name, naver_place_id')
+        .eq('user_id', auth.userId)
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+
+      const isNaverPlace = body.platform === 'naver_place'
+      const payload: any = {
+        user_id: auth.userId,
+        name: existing?.name || storeName,
+        updated_at: new Date().toISOString(),
+      }
+      if (isNaverPlace && body.platform_store_id) {
+        payload.naver_place_id = body.platform_store_id
+        payload.naver_url = `https://map.naver.com/p/entry/place/${body.platform_store_id}`
+        payload.naver_place_url = payload.naver_url
+      }
+
+      if (existing?.id) {
+        await svc.from('stores').update(payload).eq('id', existing.id)
+      } else {
+        // slug 없으면 간단히 생성
+        const slug = storeName
+          .toLowerCase()
+          .replace(/[^a-z0-9가-힣]+/g, '-')
+          .replace(/^-+|-+$/g, '') || `store-${Date.now()}`
+        payload.slug = slug
+        payload.created_at = new Date().toISOString()
+        await svc.from('stores').insert(payload)
+      }
+    }
+  } catch (e) {
+    console.warn('[platform-accounts] stores auto-upsert failed (non-fatal):', e)
+  }
+
   return NextResponse.json({
     ok: true,
     id: result.id,
