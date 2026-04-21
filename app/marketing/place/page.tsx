@@ -30,7 +30,7 @@ const CHECKLIST: ChecklistGroup[] = [
     icon: '📋',
     color: '#3182F6',
     items: [
-      { id: 'basic_1', title: '상호명 정확성', detail: '네이버 플레이스 상호명과 실제 매장명이 100% 일치해야 함. 띄어쓰기·영문 표기·특수문자까지 통일해야 검색 매칭이 잡힘. 간판과 다르면 신뢰도 감점.' },
+      { id: 'basic_1', title: '상호명 정확성', detail: '네이버 플레이스 상호명과 실제 매장명이 100% 일치해야 함. 띄어쓰기·영문 표기·특수문자까지 통일해�� 검색 매칭이 잡힘. 간판과 다르면 신뢰도 감점.' },
       { id: 'basic_2', title: '카테고리 적절성', detail: '업종 카테고리가 서비스/제품과 일치해야 정확한 검색 결과에 노출. 음식점이면 세부 카테고리(한식/일식/카페 등)까지 세팅.' },
       { id: 'basic_3', title: '연락처·주소 최신화', detail: '번호 변경/이전 후 미업데이트 시 고객 이탈 + 검색 신뢰도 하락. 분기별 1회 이상 확인 권장.' },
       { id: 'basic_4', title: '영업시간·휴무일', detail: '영업시간/휴무/공휴일 안내가 최신인지. 잘못된 정보는 별점 하락과 부정 리뷰 직결.' },
@@ -84,7 +84,7 @@ const CHECKLIST: ChecklistGroup[] = [
     color: '#8B5CF6',
     items: [
       { id: 'algo_1', title: '검색 연관성 (Relevance)', detail: '키워드-콘텐츠 매칭도. 상호·카테고리·리뷰 전반에 핵심 키워드가 자연스럽게 분포해야 함.' },
-      { id: 'algo_2', title: '사용자 인기 지표', detail: '클릭/저장/방문/공유 등 사용자 반응 지표. 이벤트/쿠폰으로 반응 유도 가능.' },
+      { id: 'algo_2', title: '사용자 인기 지표', detail: '클릭/저장/방문/공유 등 사용자 반응 지표. 이벤��/쿠폰으로 반응 유도 가능.' },
       { id: 'algo_3', title: '거리 가중치', detail: '검색 위치 기반 거리 점수. 변경 불가지만 지역 키워드 강화로 일부 보완.' },
       { id: 'algo_4', title: '정보 충실도', detail: '등록 정보량(카테고리/편의시설/메뉴/사진 등)이 많을수록 가산점. 빈칸 최소화.' },
       { id: 'algo_5', title: '신뢰도 및 어뷰징 필터', detail: '비정상 활동(대량 리뷰/반복 수정) 감지 시 필터링. 건전한 운영 패턴 유지.' },
@@ -261,6 +261,73 @@ function ChecklistRow({ item, checked, hasVideo, onToggle, onOpen }: {
 }
 
 // ── 메인 페이지 ────────────────────────────────────────
+// ── 22차-3b: SVG sparkline 차트 ─────────────
+function SparklineChart({ title, snapshots, field, color }: {
+  title: string
+  snapshots: any[]
+  field: 'visitor_review_count' | 'blog_review_count'
+  color: string
+}) {
+  const pts = snapshots
+    .map(s => ({ ts: new Date(s.ts).getTime(), v: s[field] }))
+    .filter(p => typeof p.v === 'number' && !isNaN(p.v))
+  if (pts.length === 0) return null
+
+  const values = pts.map(p => p.v as number)
+  const minV = Math.min(...values)
+  const maxV = Math.max(...values)
+  const range = maxV - minV || 1
+  const first = values[0]
+  const last  = values[values.length - 1]
+  const delta = last - first
+
+  const W = 600
+  const H = 80
+  const pad = 4
+  const stepX = pts.length > 1 ? (W - pad * 2) / (pts.length - 1) : 0
+
+  const coords = pts.map((p, i) => {
+    const x = pad + i * stepX
+    const y = H - pad - ((p.v as number - minV) / range) * (H - pad * 2)
+    return { x, y, v: p.v as number, ts: p.ts }
+  })
+
+  const linePath = coords.map((c, i) => `${i === 0 ? 'M' : 'L'}${c.x.toFixed(1)},${c.y.toFixed(1)}`).join(' ')
+  const areaPath = coords.length > 1
+    ? `${linePath} L${coords[coords.length - 1].x.toFixed(1)},${H - pad} L${coords[0].x.toFixed(1)},${H - pad} Z`
+    : ''
+
+  const fmtDate = (ts: number) => new Date(ts).toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' })
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-2">
+        <p className="text-[11px] font-bold text-[#4E5968]">{title}</p>
+        <div className="flex items-center gap-2 text-[10px]">
+          <span className="text-[#8B95A1]">{first} → <span className="font-bold text-[#191F28]">{last}</span></span>
+          {delta !== 0 && (
+            <span className={`font-bold ${delta > 0 ? 'text-[#12B76A]' : 'text-[#F04452]'}`}>
+              {delta > 0 ? '+' : ''}{delta}
+            </span>
+          )}
+        </div>
+      </div>
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" preserveAspectRatio="none" style={{ height: 80 }}>
+        {areaPath && <path d={areaPath} fill={color} fillOpacity={0.12} />}
+        <path d={linePath} fill="none" stroke={color} strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" />
+        {coords.map((c, i) => (
+          <circle key={i} cx={c.x} cy={c.y} r={i === coords.length - 1 ? 3 : 2} fill={color} />
+        ))}
+      </svg>
+      <div className="flex justify-between text-[9px] text-[#B0B8C1] mt-1">
+        <span>{fmtDate(pts[0].ts)}</span>
+        {pts.length > 2 && <span>{fmtDate(pts[Math.floor(pts.length / 2)].ts)}</span>}
+        <span>{fmtDate(pts[pts.length - 1].ts)}</span>
+      </div>
+    </div>
+  )
+}
+
 export default function PlaceDiagnosisPage() {
   const [urlInput, setUrlInput] = useState('')
   const [placeId, setPlaceId] = useState<string | null>(null)
@@ -276,6 +343,11 @@ export default function PlaceDiagnosisPage() {
   const [loadingTargets, setLoadingTargets] = useState(false)
   const [registering, setRegistering] = useState(false)
   const [registerMsg, setRegisterMsg] = useState<string>('')
+  // 22차-3b: 차트/새로고침
+  const [expandedTargetId, setExpandedTargetId] = useState<string | null>(null)
+  const [historyByTarget, setHistoryByTarget] = useState<Record<string, any[]>>({})
+  const [loadingHistoryId, setLoadingHistoryId] = useState<string | null>(null)
+  const [refreshingId, setRefreshingId] = useState<string | null>(null)
 
   // localStorage: store_info + youtube links 로딩
   useEffect(() => {
@@ -366,6 +438,48 @@ export default function PlaceDiagnosisPage() {
     setFetchError('')
     window.scrollTo({ top: 0, behavior: 'smooth' })
   }, [])
+
+  // 22차-3b: 이력 로딩
+  const loadHistory = useCallback(async (targetId: string) => {
+    setLoadingHistoryId(targetId)
+    try {
+      const res = await fetch(`/api/place/history?target_id=${encodeURIComponent(targetId)}&days=30&limit=90`, { cache: 'no-store' })
+      if (!res.ok) { setHistoryByTarget(p => ({ ...p, [targetId]: [] })); return }
+      const data = await res.json()
+      setHistoryByTarget(p => ({ ...p, [targetId]: Array.isArray(data.snapshots) ? data.snapshots : [] }))
+    } catch {
+      setHistoryByTarget(p => ({ ...p, [targetId]: [] }))
+    } finally {
+      setLoadingHistoryId(null)
+    }
+  }, [])
+
+  const toggleExpand = useCallback((targetId: string) => {
+    setExpandedTargetId(cur => {
+      const next = cur === targetId ? null : targetId
+      if (next && !historyByTarget[targetId]) loadHistory(targetId)
+      return next
+    })
+  }, [historyByTarget, loadHistory])
+
+  // 22차-3b: 수동 새로고침
+  const refreshTarget = useCallback(async (targetId: string) => {
+    setRefreshingId(targetId)
+    try {
+      const res = await fetch('/api/place/snapshot', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target_id: targetId }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) { alert(data.error || '새로고침 실패'); return }
+      await Promise.all([reloadTargets(), loadHistory(targetId)])
+    } catch {
+      alert('네트워크 오류로 새로고침 실패')
+    } finally {
+      setRefreshingId(null)
+    }
+  }, [reloadTargets, loadHistory])
 
   const setYoutubeLink = useCallback((itemId: string, url: string) => {
     setYoutubeLinks(prev => {
@@ -474,7 +588,7 @@ export default function PlaceDiagnosisPage() {
             </p>
           </div>
 
-          {/* 22차-2: 내가 추적 중인 지점 */}
+          {/* 22차-2 + 22차-3b: 내가 추적 중인 지점 + 추이 차트 */}
           {trackedTargets.length > 0 && (
             <div className="bg-white rounded-2xl shadow-sm p-5 mb-5">
               <div className="flex items-center justify-between mb-3">
@@ -482,45 +596,107 @@ export default function PlaceDiagnosisPage() {
                 {loadingTargets && <span className="text-[10px] text-[#8B95A1]">불러오는 중...</span>}
               </div>
               <div className="space-y-2">
-                {trackedTargets.map((t: any) => (
-                  <div key={t.id} className="flex items-center gap-3 p-3 rounded-xl bg-[#F8F9FA] hover:bg-[#F2F4F6] transition-colors">
-                    {t.thumbnail_url && (
-                      <img src={t.thumbnail_url} alt={t.name} className="w-12 h-12 rounded-lg object-cover flex-shrink-0"
-                        onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <p className="text-sm font-bold text-[#191F28] truncate">{t.name}</p>
-                      <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-[#8B95A1]">
-                        {t.category_name && <span>{t.category_name}</span>}
-                        {t.last_visitor_review !== null && t.last_visitor_review !== undefined && (
-                          <span>방문 <span className="text-[#3182F6] font-bold">{t.last_visitor_review}</span></span>
+                {trackedTargets.map((t: any) => {
+                  const expanded = expandedTargetId === t.id
+                  const hist: any[] = historyByTarget[t.id] || []
+                  const latestVisitor = hist.length > 0 ? hist[hist.length - 1].visitor_review_count : t.last_visitor_review
+                  const firstVisitor  = hist.length > 0 ? hist[0].visitor_review_count : null
+                  const visitorDelta  = (latestVisitor != null && firstVisitor != null) ? latestVisitor - firstVisitor : null
+                  const latestBlog    = hist.length > 0 ? hist[hist.length - 1].blog_review_count : t.last_blog_review
+                  const firstBlog     = hist.length > 0 ? hist[0].blog_review_count : null
+                  const blogDelta     = (latestBlog != null && firstBlog != null) ? latestBlog - firstBlog : null
+                  return (
+                    <div key={t.id} className="rounded-xl bg-[#F8F9FA] hover:bg-[#F2F4F6] transition-colors">
+                      <div className="flex items-center gap-3 p-3">
+                        {t.thumbnail_url && (
+                          <img src={t.thumbnail_url} alt={t.name} className="w-12 h-12 rounded-lg object-cover flex-shrink-0"
+                            onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
                         )}
-                        {t.last_blog_review !== null && t.last_blog_review !== undefined && (
-                          <span>블로그 <span className="text-[#3182F6] font-bold">{t.last_blog_review}</span></span>
-                        )}
-                        {t.last_rating !== null && t.last_rating !== undefined && (
-                          <span>★ <span className="text-[#F59E0B] font-bold">{t.last_rating}</span></span>
-                        )}
-                        {t.last_ts && <span className="text-[#B0B8C1]">· {new Date(t.last_ts).toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' })}</span>}
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-bold text-[#191F28] truncate">{t.name}</p>
+                          <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-[#8B95A1]">
+                            {t.category_name && <span>{t.category_name}</span>}
+                            {t.last_visitor_review != null && (
+                              <span>방문 <span className="text-[#3182F6] font-bold">{t.last_visitor_review}</span>
+                                {visitorDelta != null && visitorDelta !== 0 && (
+                                  <span className={`ml-0.5 text-[9px] font-bold ${visitorDelta > 0 ? 'text-[#12B76A]' : 'text-[#F04452]'}`}>
+                                    {visitorDelta > 0 ? '+' : ''}{visitorDelta}
+                                  </span>
+                                )}
+                              </span>
+                            )}
+                            {t.last_blog_review != null && (
+                              <span>블로그 <span className="text-[#3182F6] font-bold">{t.last_blog_review}</span>
+                                {blogDelta != null && blogDelta !== 0 && (
+                                  <span className={`ml-0.5 text-[9px] font-bold ${blogDelta > 0 ? 'text-[#12B76A]' : 'text-[#F04452]'}`}>
+                                    {blogDelta > 0 ? '+' : ''}{blogDelta}
+                                  </span>
+                                )}
+                              </span>
+                            )}
+                            {t.last_rating != null && (
+                              <span>★ <span className="text-[#F59E0B] font-bold">{t.last_rating}</span></span>
+                            )}
+                            {t.last_ts && <span className="text-[#B0B8C1]">· {new Date(t.last_ts).toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' })}</span>}
+                          </div>
+                        </div>
+                        <div className="flex gap-1 flex-shrink-0">
+                          <button
+                            onClick={() => toggleExpand(t.id)}
+                            className={`px-2.5 py-1.5 text-[10px] font-bold rounded-lg transition-colors ${expanded ? 'bg-[#EFF6FF] text-[#3182F6]' : 'bg-white text-[#4E5968] hover:bg-[#EFF6FF] hover:text-[#3182F6] border border-[#E5E8EB]'}`}>
+                            {expanded ? '▲ 닫기' : '📈 차트'}
+                          </button>
+                          <button
+                            onClick={() => refreshTarget(t.id)}
+                            disabled={refreshingId === t.id}
+                            className="px-2.5 py-1.5 text-[10px] font-bold rounded-lg bg-white text-[#4E5968] hover:bg-[#F2F4F6] border border-[#E5E8EB] transition-colors disabled:opacity-50">
+                            {refreshingId === t.id ? '…' : '↻'}
+                          </button>
+                          <button
+                            onClick={() => loadTrackedTarget(t)}
+                            className="px-3 py-1.5 text-[10px] font-bold rounded-lg bg-[#3182F6] text-white hover:bg-[#1B64DA] transition-colors">
+                            점검
+                          </button>
+                          <button
+                            onClick={() => removeTarget(t.id, t.name)}
+                            className="px-2 py-1.5 text-[10px] font-bold rounded-lg bg-white text-[#8B95A1] hover:bg-[#FFF1F2] hover:text-[#F04452] border border-[#E5E8EB] transition-colors">
+                            ✕
+                          </button>
+                        </div>
                       </div>
+                      {expanded && (
+                        <div className="border-t border-[#E5E8EB] bg-white rounded-b-xl p-4">
+                          {loadingHistoryId === t.id && (
+                            <p className="text-[11px] text-[#8B95A1]">이력 불러오는 중...</p>
+                          )}
+                          {loadingHistoryId !== t.id && hist.length === 0 && (
+                            <p className="text-[11px] text-[#8B95A1]">아직 이력이 없습니다. ↻ 버튼으로 수동 새로고침하거나 매일 자동 스냅샷을 기다려 주세요.</p>
+                          )}
+                          {loadingHistoryId !== t.id && hist.length >= 1 && (
+                            <div className="space-y-4">
+                              <SparklineChart
+                                title="방문자 리뷰 추이"
+                                snapshots={hist}
+                                field="visitor_review_count"
+                                color="#3182F6"
+                              />
+                              <SparklineChart
+                                title="블로그 리뷰 추이"
+                                snapshots={hist}
+                                field="blog_review_count"
+                                color="#12B76A"
+                              />
+                              <p className="text-[10px] text-[#8B95A1] text-right">최근 30일 · 총 {hist.length}개 스냅샷</p>
+                            </div>
+                          )}
+                        </div>
+                      )}
                     </div>
-                    <div className="flex gap-1 flex-shrink-0">
-                      <button
-                        onClick={() => loadTrackedTarget(t)}
-                        className="px-3 py-1.5 text-[10px] font-bold rounded-lg bg-[#3182F6] text-white hover:bg-[#1B64DA] transition-colors">
-                        점검
-                      </button>
-                      <button
-                        onClick={() => removeTarget(t.id, t.name)}
-                        className="px-2 py-1.5 text-[10px] font-bold rounded-lg bg-white text-[#8B95A1] hover:bg-[#FFF1F2] hover:text-[#F04452] border border-[#E5E8EB] transition-colors">
-                        ✕
-                      </button>
-                    </div>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
               <p className="mt-3 text-[10px] text-[#8B95A1] leading-relaxed">
-                · 등록한 지점은 매일 자동으로 리뷰수/평점이 스냅샷 저장됩니다 (추이 차트는 다음 업데이트에 공개)
+                · 등록한 지점은 매일 자동으로 리뷰수/평점이 스냅샷 저장됩니다. ↻ 버튼으로 즉시 새로고침 가능.
               </p>
             </div>
           )}
