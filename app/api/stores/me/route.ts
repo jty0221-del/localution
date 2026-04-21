@@ -52,21 +52,26 @@ export async function GET() {
     connected_at: string | null
   }> = []
   try {
+    // 30차-14: platform_credentials 테이블엔 created_at 컬럼 없음 → updated_at 만 사용
+    //          기존 select 에 created_at 있어서 쿼리 실패 → credentials = [] → 전부 미연결 표시되던 버그
     const { data, error } = await svc
       .from('platform_credentials')
-      .select('platform, account_id, platform_store_id, platform_store_name, updated_at, created_at')
+      .select('platform, account_id, platform_store_id, platform_store_name, updated_at')
       .eq('user_id', userId)
+    if (error) {
+      console.warn('[stores/me] platform_credentials select failed:', error.message)
+    }
     if (!error && Array.isArray(data)) {
       credentials = data.map((r: any) => ({
         platform: r.platform,
         account_id: r.account_id ?? null,
         platform_store_id: r.platform_store_id ?? null,
         platform_store_name: r.platform_store_name ?? null,
-        connected_at: r.updated_at ?? r.created_at ?? null,
+        connected_at: r.updated_at ?? null,
       }))
     }
-  } catch (_) {
-    // graceful degrade
+  } catch (e) {
+    console.warn('[stores/me] platform_credentials threw:', e)
   }
 
   // ── 2) place_targets: 네이버 플레이스 순위 추적 등록 ──────────────
