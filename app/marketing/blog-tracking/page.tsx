@@ -28,7 +28,7 @@ import {
   BarChart3,
 } from 'lucide-react'
 
-// ─────────────────────���──────────────────────────────────────��
+// ─────────────────────────────────────────────────────────────
 // 타입 (API 응답과 1:1 매칭) — v2 (18차-4): rank_hits jsonb 포함
 // ─────────────────────────────────────────────────────────────
 type Section = 'popular_post' | 'smart_block' | 'blog_tab' | 'not_found' | string
@@ -133,8 +133,8 @@ function shortenUrl(url: string): string {
   } catch { return url.length > 44 ? url.slice(0, 44) + '…' : url }
 }
 
-// ───────────────────────────────────────────��─────────────────
-// 메인 ��포넌트
+// ─────────────────────────────────────────────────────────────
+// 메인 컴포넌트
 // ─────────────────────────────────────────────────────────────
 export default function BlogTrackingPage() {
   const [targets, setTargets]   = useState<TargetRow[]>([])
@@ -466,7 +466,7 @@ export default function BlogTrackingPage() {
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
                 <div>
-                  <label className="block text-xs font-semibold text-[#4E5968] mb-1.5">라�� *</label>
+                  <label className="block text-xs font-semibold text-[#4E5968] mb-1.5">라벨 *</label>
                   <input
                     type="text"
                     value={fLabel}
@@ -724,7 +724,7 @@ export default function BlogTrackingPage() {
 
 // ─────────────────────────────────────────────────────────────
 // 빈 상태
-// ───────────────────────────────���─────────────────────────────
+// ─────────────────────────────────────────────────────────────
 function EmptyState({ onCreate }: { onCreate: () => void }) {
   return (
     <div className="bg-white border border-[#E5E8EB] rounded-2xl p-10 text-center">
@@ -751,7 +751,7 @@ function EmptyState({ onCreate }: { onCreate: () => void }) {
 
 // ─────────────────────────────────────────────────────────────
 // 스파크라인 (최근 20건, 미노출은 회색 점)
-//   · ��립 SVG, recharts ��필요
+//   · 독립 SVG, recharts 불필요
 // ─────────────────────────────────────────────────────────────
 function Sparkline({ history }: { history: HistoryPoint[] }) {
   // 최신이 앞이므로 뒤집어서 시간순
@@ -872,7 +872,7 @@ function BlockHitsSummary({
 
 // ─────────────────────────────────────────────────────────────
 // 최신 스냅샷 상세 (확장 패널 최상단)
-//   �� history 의 첫 항목(최신)을 기준으로 스마트블록 전체 + 블로그탭을 표로
+//   · history 의 첫 항목(최신)을 기준으로 스마트블록 전체 + 블로그탭을 표로
 //   · 내 글 순위뿐 아니라 그 블록에 몇 개가 있는지 (items) 도 같이 표시
 // ─────────────────────────────────────────────────────────────
 function BlockSnapshotDetail({ history }: { history: HistoryPoint[] }) {
@@ -918,7 +918,7 @@ function BlockSnapshotDetail({ history }: { history: HistoryPoint[] }) {
                 </span>
               </div>
               <div className="flex-shrink-0 text-[10px] text-[#8B95A1] flex items-center gap-1.5">
-                <span>총 {b.items}���</span>
+                <span>총 {b.items}개</span>
                 <span className={
                   hit
                     ? 'px-1.5 py-0.5 rounded bg-[#03C75A] text-white font-black text-[10px]'
