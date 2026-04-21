@@ -9,9 +9,11 @@ import PageHeader from '../components/PageHeader'
 import { toast } from '../lib/toast'
 import { buildSettingsHref } from '../lib/settings-tabs'
 
-const LS_QR_SETTINGS = 'localution.qr_settings'
-const LS_QR_LIST     = 'localution.qr_list'
-const LS_STORE_INFO  = 'localution.store_info'
+const LS_QR_SETTINGS   = 'localution.qr_settings'
+const LS_QR_LIST       = 'localution.qr_list'
+const LS_STORE_INFO    = 'localution.store_info'
+const LS_QR_CUSTOM_URL = 'localution.qr_custom_url'
+const LS_QR_MODE       = 'localution.qr_mode'
 
 interface QRSettings {
   mainKeyword: string
@@ -389,7 +391,7 @@ function buildReviewUrl(storeInfo: StoreInfo, settings: QRSettings): string {
   return base + '/review/' + storeId + (qs ? '?' + qs : '')
 }
 
-// ─── 메인 ─────────────────────────────────────────────────────────
+// ─── 메인 ───────────────────────────────────────────────��─────────
 // ──────────────────────────────────────────────
 // QR 리뷰 생성 통계 (localStorage: localution.review_stats)
 // /review/[storeId] 페이지의 startGenerate 시점에 쌓이는 demographics 집계
@@ -665,6 +667,10 @@ export default function QRAdmin() {
 
   const [naverLinked, setNaverLinked] = useState(false)
 
+  // 21차-1c-A: QR 소스 모드 (자동 연동 vs URL 직접입력)
+  const [qrMode, setQrMode] = useState<'linked' | 'custom'>('linked')
+  const [customUrl, setCustomUrl] = useState('')
+
   useEffect(() => {
     try {
       const raw = localStorage.getItem(LS_QR_SETTINGS)
@@ -677,8 +683,24 @@ export default function QRAdmin() {
       // /settings?tab=connect 에서 저장한 네이버 링크 감지
       const naver = readNaverLink()
       setNaverLinked(!!naver)
+
+      // 21차-1c-A: custom URL / 모드 로드
+      const rawCustom = localStorage.getItem(LS_QR_CUSTOM_URL)
+      if (rawCustom) setCustomUrl(rawCustom)
+      const rawMode = localStorage.getItem(LS_QR_MODE)
+      if (rawMode === 'custom' || rawMode === 'linked') setQrMode(rawMode)
     } catch (_) {}
   }, [])
+
+  // 21차-1c-A: custom URL 저장
+  const saveCustomUrl = (url: string) => {
+    setCustomUrl(url)
+    try { localStorage.setItem(LS_QR_CUSTOM_URL, url) } catch (_) {}
+  }
+  const switchQrMode = (mode: 'linked' | 'custom') => {
+    setQrMode(mode)
+    try { localStorage.setItem(LS_QR_MODE, mode) } catch (_) {}
+  }
 
   // ⚡ 네이버 플레이스 연결 정보에서 자동으로 불러오기
   const importFromNaverLink = () => {
@@ -896,7 +918,7 @@ export default function QRAdmin() {
                       <button
                         onClick={importFromNaverLink}
                         className="flex items-center gap-1 text-[11px] font-bold px-2.5 py-1.5 rounded-lg bg-[#03C75A] text-white hover:opacity-90 whitespace-nowrap">
-                        ⚡ 설정에서 불러오기
+                        ⚡ 설정에서 불���오기
                       </button>
                     )}
                     {!naverLinked && (
@@ -1129,7 +1151,7 @@ export default function QRAdmin() {
             {/* 우측 */}
             <div className="space-y-5">
 
-              {/* AI 톤 안내 (전역 설정) */}
+              {/* AI 톤 안��� (전역 설정) */}
               <div className="bg-gradient-to-br from-[#EFF6FF] to-[#F8FBFF] rounded-2xl p-5 border border-[#BFDBFE]">
                 <div className="flex items-center gap-2 mb-2">
                   <span className="text-xl">🤖</span>
@@ -1217,7 +1239,7 @@ export default function QRAdmin() {
                   }
                 </div>
                 <p className="text-[11px] text-[#8B95A1] mt-2 text-center">
-                  실제 생성 시 톤({toneLabel[globalTone] || '친근하게'})이 적용됩니다
+                  실제 생성 시 ���({toneLabel[globalTone] || '친근하게'})이 적용됩니다
                 </p>
               </div>
 
@@ -1235,70 +1257,120 @@ export default function QRAdmin() {
         {/* ═══════════════════════════════════════════════════════
              내 리뷰 QR 코드 (자동 생성 · 단일)
            ═══════════════════════════════════════════════════════ */}
+        {(() => {
+          const linkedUrl = buildReviewUrl(storeInfo, settings)
+          const qrTargetUrl = qrMode === 'custom' ? customUrl.trim() : linkedUrl
+          const customValid = qrMode === 'custom' && /^https?:\/\//.test(customUrl.trim())
+          const canRender = qrMode === 'linked' ? storeInfo.connected : customValid
+          return (
         <div className="mt-6 bg-white rounded-2xl p-6 shadow-sm">
           <div className="flex items-center gap-2 mb-1">
             <span className="text-xl">📱</span>
             <h3 className="font-bold text-[#191F28]">내 리뷰 QR 코드</h3>
-            {storeInfo.connected && (
+            {qrMode === 'linked' && storeInfo.connected && (
               <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#ECFDF5] text-[#059669] font-bold">자동 연동됨</span>
             )}
+            {qrMode === 'custom' && (
+              <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#EFF6FF] text-[#3182F6] font-bold">URL 직접입력</span>
+            )}
           </div>
-          <p className="text-xs text-[#8B95A1] mb-4">
-            {storeInfo.connected
-              ? '연동된 네이버 업체 정보가 자동으로 반영됩니다. 다운로드 후 매장에 부착하세요.'
-              : '업체를 먼저 연동하면 QR이 생성됩니다.'}
+          <p className="text-xs text-[#8B95A1] mb-3">
+            {qrMode === 'linked'
+              ? (storeInfo.connected
+                  ? '연동된 네이버 업체 정보가 자동으로 반영됩니다. 다운로드 후 매장에 부착하세요.'
+                  : '업체를 먼저 연동하면 QR이 생성됩니다.')
+              : '원하는 URL을 입력하면 즉시 QR이 생성됩니다. (스마트스토어·예약페이지·SNS 등)'}
           </p>
 
-          {storeInfo.connected ? (
+          {/* 21차-1c-A: 모드 토글 */}
+          <div className="inline-flex p-1 bg-[#F2F4F6] rounded-xl mb-4">
+            <button
+              onClick={() => switchQrMode('linked')}
+              className={'px-4 py-1.5 rounded-lg text-xs font-bold transition-colors ' +
+                (qrMode === 'linked' ? 'bg-white text-[#191F28] shadow-sm' : 'text-[#8B95A1] hover:text-[#4E5968]')}>
+              자동 연동
+            </button>
+            <button
+              onClick={() => switchQrMode('custom')}
+              className={'px-4 py-1.5 rounded-lg text-xs font-bold transition-colors ' +
+                (qrMode === 'custom' ? 'bg-white text-[#191F28] shadow-sm' : 'text-[#8B95A1] hover:text-[#4E5968]')}>
+              URL 직접입력
+            </button>
+          </div>
+
+          {qrMode === 'custom' && (
+            <div className="mb-4">
+              <input
+                type="url"
+                value={customUrl}
+                onChange={(e) => saveCustomUrl(e.target.value)}
+                placeholder="https://smartstore.naver.com/..."
+                className="w-full px-4 py-3 rounded-xl border border-[#E5E8EB] focus:border-[#3182F6] focus:outline-none text-sm font-mono" />
+              {customUrl && !customValid && (
+                <p className="text-[11px] text-[#F04438] mt-1.5">※ http:// 또는 https:// 로 시작하는 URL을 입력하세요.</p>
+              )}
+            </div>
+          )}
+
+          {canRender ? (
             <div className="flex flex-col md:flex-row gap-6 items-start">
               {/* QR */}
               <div className="p-4 bg-white rounded-2xl border-2 border-[#E5E8EB] shadow-sm shrink-0 mx-auto md:mx-0">
-                <QRCodeImage url={buildReviewUrl(storeInfo, settings)} size={200} />
+                <QRCodeImage url={qrTargetUrl} size={200} />
               </div>
 
               {/* 정보 + 버튼 */}
               <div className="flex-1 min-w-0 w-full space-y-3">
                 <div className="space-y-1.5">
-                  <div className="flex items-start gap-2">
-                    <span className="text-[11px] text-[#8B95A1] font-semibold w-16 shrink-0 mt-0.5">상호</span>
-                    <span className="text-sm font-bold text-[#191F28]">{storeInfo.name}</span>
-                  </div>
-                  {storeInfo.category && (
+                  {qrMode === 'linked' ? (
+                    <>
+                      <div className="flex items-start gap-2">
+                        <span className="text-[11px] text-[#8B95A1] font-semibold w-16 shrink-0 mt-0.5">상호</span>
+                        <span className="text-sm font-bold text-[#191F28]">{storeInfo.name}</span>
+                      </div>
+                      {storeInfo.category && (
+                        <div className="flex items-start gap-2">
+                          <span className="text-[11px] text-[#8B95A1] font-semibold w-16 shrink-0 mt-0.5">업종</span>
+                          <span className="text-sm text-[#4E5968]">{storeInfo.category}</span>
+                        </div>
+                      )}
+                      {storeInfo.location && (
+                        <div className="flex items-start gap-2">
+                          <span className="text-[11px] text-[#8B95A1] font-semibold w-16 shrink-0 mt-0.5">위치</span>
+                          <span className="text-sm text-[#4E5968]">{storeInfo.location}</span>
+                        </div>
+                      )}
+                      {storeInfo.naverPlaceId && (
+                        <div className="flex items-start gap-2">
+                          <span className="text-[11px] text-[#8B95A1] font-semibold w-16 shrink-0 mt-0.5">Place mid</span>
+                          <span className="text-sm text-[#4E5968] font-mono">{storeInfo.naverPlaceId}</span>
+                        </div>
+                      )}
+                      <div className="flex items-start gap-2">
+                        <span className="text-[11px] text-[#8B95A1] font-semibold w-16 shrink-0 mt-0.5">리뷰 URL</span>
+                        <span className="text-[11px] text-[#3182F6] break-all font-mono">
+                          {qrTargetUrl.replace(/^https?:\/\//, '').slice(0, 60)}...
+                        </span>
+                      </div>
+                    </>
+                  ) : (
                     <div className="flex items-start gap-2">
-                      <span className="text-[11px] text-[#8B95A1] font-semibold w-16 shrink-0 mt-0.5">업종</span>
-                      <span className="text-sm text-[#4E5968]">{storeInfo.category}</span>
+                      <span className="text-[11px] text-[#8B95A1] font-semibold w-16 shrink-0 mt-0.5">대상 URL</span>
+                      <span className="text-[11px] text-[#3182F6] break-all font-mono">{qrTargetUrl}</span>
                     </div>
                   )}
-                  {storeInfo.location && (
-                    <div className="flex items-start gap-2">
-                      <span className="text-[11px] text-[#8B95A1] font-semibold w-16 shrink-0 mt-0.5">위치</span>
-                      <span className="text-sm text-[#4E5968]">{storeInfo.location}</span>
-                    </div>
-                  )}
-                  {storeInfo.naverPlaceId && (
-                    <div className="flex items-start gap-2">
-                      <span className="text-[11px] text-[#8B95A1] font-semibold w-16 shrink-0 mt-0.5">Place mid</span>
-                      <span className="text-sm text-[#4E5968] font-mono">{storeInfo.naverPlaceId}</span>
-                    </div>
-                  )}
-                  <div className="flex items-start gap-2">
-                    <span className="text-[11px] text-[#8B95A1] font-semibold w-16 shrink-0 mt-0.5">리뷰 URL</span>
-                    <span className="text-[11px] text-[#3182F6] break-all font-mono">
-                      {buildReviewUrl(storeInfo, settings).replace(/^https?:\/\//, '').slice(0, 60)}...
-                    </span>
-                  </div>
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 pt-2">
                   <button
-                    onClick={() => downloadQR(buildReviewUrl(storeInfo, settings), safeFileName(storeInfo.name) + '-review-qr')}
+                    onClick={() => downloadQR(qrTargetUrl, qrMode === 'linked' ? (safeFileName(storeInfo.name) + '-review-qr') : 'custom-qr')}
                     className="py-3 rounded-xl text-sm font-bold bg-[#3182F6] text-white hover:bg-[#1B64DA] transition-colors">
                     📥 PNG 저장
                   </button>
                   <button
                     onClick={() => openPrintTemplate({
-                      url: buildReviewUrl(storeInfo, settings),
-                      storeName: storeInfo.name,
+                      url: qrTargetUrl,
+                      storeName: qrMode === 'linked' ? storeInfo.name : 'Custom QR',
                       keyword: settings.mainKeyword,
                       rewardType: settings.rewardType,
                       rewardValue: settings.rewardValue,
@@ -1309,7 +1381,7 @@ export default function QRAdmin() {
                 </div>
               </div>
             </div>
-          ) : (
+          ) : qrMode === 'linked' ? (
             <div className="bg-[#F8F9FA] rounded-xl p-6 text-center">
               <div className="text-3xl mb-2">🔌</div>
               <p className="text-sm text-[#4E5968] font-semibold mb-1">업체가 아직 연동되지 않았어요</p>
@@ -1319,8 +1391,15 @@ export default function QRAdmin() {
                 네이버 플레이스 연결하기
               </a>
             </div>
+          ) : (
+            <div className="bg-[#F8F9FA] rounded-xl p-6 text-center">
+              <div className="text-3xl mb-2">🔗</div>
+              <p className="text-sm text-[#4E5968] font-semibold">위에 URL을 입력하면 QR이 즉시 생성됩니다.</p>
+            </div>
           )}
         </div>
+          )
+        })()}
 
         {/* ── QR 리뷰 생성 통계 (/review/[storeId] 제출 데이터 집계) ── */}
         <ReviewStatsSection storeName={storeInfo.name} />
