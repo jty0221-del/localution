@@ -1,6 +1,6 @@
 'use client'
 
-// ═══════════════════════════════════════════════════════════
+// ══════════════════════════���════════════════════════════════
 //  SlideAdBanner — 공통 롤링 광고 배너 (dashboard + community 공용)
 //  · 4초 자동 전환 · 도트 인디케이터 · 좌우 화살표 · 터치 스와이프
 //  · link 가 http 로 시작하면 새 창, 아니면 현재 창 이동
@@ -12,6 +12,9 @@ import {
   BarChart3,
   Wallet,
   Rocket,
+  Layers,
+  Zap,
+  TrendingUp,
   ChevronLeft,
   ChevronRight,
   type LucideIcon,
@@ -67,6 +70,30 @@ export const DEFAULT_BANNER_SLIDES: BannerSlide[] = [
     bg: 'linear-gradient(135deg, #0f766e 0%, #14b8a6 100%)',
     Icon: Rocket,
     link: '/marketing',
+  },
+  {
+    title: '인스타 카드뉴스 AI 자동 생성',
+    sub: '주제만 던지면 캐러셀 10장 완성',
+    desc: '6테마 × 30주제 · 1080px PNG 저장 · 바로 업로드',
+    bg: 'linear-gradient(135deg, #EC4899 0%, #F43F5E 50%, #F97316 100%)',
+    Icon: Layers,
+    link: '/marketing/card-news',
+  },
+  {
+    title: '플랫폼 연동 허브 한 곳에서',
+    sub: '네이버 · 인스타 · 카카오톡 통합',
+    desc: '계정 한 번 연동 → 모든 채널 통합 관리 · 자동 게시',
+    bg: 'linear-gradient(135deg, #6366F1 0%, #8B5CF6 50%, #A855F7 100%)',
+    Icon: Zap,
+    link: '/marketing/platform-hub',
+  },
+  {
+    title: '블로그 순위 자동 추적',
+    sub: '키워드별 노출 변동 매일 모니터링',
+    desc: '네이버 검색 상위 노출 · 스마트블록 · 인플루언서 포함',
+    bg: 'linear-gradient(135deg, #B45309 0%, #D97706 50%, #F59E0B 100%)',
+    Icon: TrendingUp,
+    link: '/marketing/blog-tracking',
   },
 ]
 
