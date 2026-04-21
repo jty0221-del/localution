@@ -660,7 +660,12 @@ export default function Dashboard() {
   useEffect(() => {
     const check = () => {
       if (typeof document === 'undefined') return
-      const has = document.cookie.indexOf('localution_session=') !== -1
+      // 30차-4: 쿠키 이름 정합성 — 서버 requireUser() 는 localution_user 쿠키를 읽음.
+      // 기존엔 localution_session 만 검사해서 OAuth 로그인 상태에서도 isLoggedIn=false 였음.
+      const c = document.cookie
+      const has =
+        c.indexOf('localution_user=') !== -1 ||
+        c.indexOf('localution_session=') !== -1
       setIsLoggedIn(prev => (prev === has ? prev : has))
     }
     check()
