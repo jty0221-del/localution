@@ -498,3 +498,170 @@ export function extractPlaceIdAndCategory(raw: string): { id: string | null; cat
 
   return { id: null, category: null }
 }
+
+// ============================================================
+// 30차-15-B · 네이버 플레이스 방문자 리뷰 공개 수집기
+// ------------------------------------------------------------
+// 소스: m.place.naver.com/{cat}/{placeId}/review/visitor (SSR HTML)
+// 로그인 불필요, 공개 리뷰만 수집. 첫 페이지 기본 10개.
+//
+// 전략: naver 는 클래스명이 해시(pui__Xxxxx)로 변동하므로 HTML 선택자 대신
+//        SSR 에 박혀 있는 Apollo 캐시(__APOLLO_STATE__ / __NEXT_DATA__ / 본문 속 JSON)
+//        를 정규식으로 긁어 VisitorReviewItem 구조체를 복원한다.
+// ============================================================
+export type VisitorReview = {
+  reviewId: string            // platform_review_id (naver 내 고유)
+  authorName: string | null
+  rating: number | null       // 1~5
+  body: string                // 리뷰 본문
+  visitedAt: string | null    // YYYY-MM-DD or ISO
+  postedAt: string | null     // ISO
+  photos: string[]            // 첨부 사진 URL
+  raw?: unknown               // 디버깅용 원본
+}
+
+function decodeJsonStringField(s: string): string {
+  try {
+    // JSON.parse 로 이스케이프 해석 (JSON 문자열로 감싸서)
+    return JSON.parse('"' + s.replace(/"/g, '\\"').replace(/\\"/g, '\\"') + '"')
+  } catch {
+    return s
+      .replace(/\\n/g, '\n')
+      .replace(/\\r/g, '')
+      .replace(/\\"/g, '"')
+      .replace(/\\\//g, '/')
+      .replace(/\\u([0-9a-fA-F]{4})/g, (_, hex) => String.fromCharCode(parseInt(hex, 16)))
+  }
+}
+
+/**
+ * Apollo/Apollo-like 캐시 JSON 에서 VisitorReviewItem 추출.
+ * 네이버는 `"VisitorReviewItem:{id}": { "id":"...", "body":"...", "rating":5, "visitedDate":"...", ... }`
+ * 꼴로 객체를 뿌린다. 각 객체는 한 줄일수도, 여러줄일수도 있으므로 밸런스 카운팅으로 잘라낸다.
+ */
+function extractApolloReviews(html: string): VisitorReview[] {
+  const results: VisitorReview[] = []
+  const keyRegex = /"VisitorReviewItem:([^"]+)"\s*:\s*\{/g
+  let m: RegExpExecArray | null
+  while ((m = keyRegex.exec(html)) !== null) {
+    const startIdx = m.index + m[0].length - 1 // 여는 { 위치
+    // 중괄호 균형 맞추기
+    let depth = 0
+    let i = startIdx
+    let inStr = false
+    let esc = false
+    for (; i < html.length; i++) {
+      const ch = html[i]
+      if (esc) { esc = false; continue }
+      if (ch === '\\') { esc = true; continue }
+      if (ch === '"') { inStr = !inStr; continue }
+      if (inStr) continue
+      if (ch === '{') depth++
+      else if (ch === '}') { depth--; if (depth === 0) { i++; break } }
+    }
+    if (depth !== 0) continue
+    const objStr = html.slice(startIdx, i)
+    const parsed = parseReviewObject(objStr, m[1])
+    if (parsed) results.push(parsed)
+  }
+  return results
+}
+
+/**
+ * VisitorReviewItem JSON 문자열 하나를 VisitorReview 로 변환.
+ * 필드명이 플랫폼마다 다르므로 여러 후보를 시도.
+ */
+function parseReviewObject(objStr: string, fallbackId: string): VisitorReview | null {
+  const pick = (re: RegExp): string | null => {
+    const mm = objStr.match(re)
+    return mm?.[1] ?? null
+  }
+  const pickNum = (re: RegExp): number | null => {
+    const mm = objStr.match(re)
+    if (!mm?.[1]) return null
+    const n = Number(mm[1])
+    return Number.isFinite(n) ? n : null
+  }
+  const rawBody =
+    pick(/"body"\s*:\s*"((?:[^"\\]|\\.)*)"/) ||
+    pick(/"content"\s*:\s*"((?:[^"\\]|\\.)*)"/) ||
+    ''
+  if (!rawBody) return null // 본문 없는 건 리뷰 아님 (예: 숨겨진 리뷰)
+
+  const body = decodeJsonStringField(rawBody).trim()
+  if (body.length < 2) return null
+
+  const rating =
+    pickNum(/"rating"\s*:\s*(\d+)/) ||
+    pickNum(/"ratingScore"\s*:\s*(\d+)/) ||
+    null
+
+  const authorRaw =
+    pick(/"nickname"\s*:\s*"((?:[^"\\]|\\.)*)"/) ||
+    pick(/"author"\s*:\s*"((?:[^"\\]|\\.)*)"/) ||
+    pick(/"userName"\s*:\s*"((?:[^"\\]|\\.)*)"/) ||
+    null
+  const authorName = authorRaw ? decodeJsonStringField(authorRaw) : null
+
+  const visitedRaw =
+    pick(/"visited(?:Date|At)?"\s*:\s*"((?:[^"\\]|\\.)*)"/) ||
+    pick(/"visitDate"\s*:\s*"((?:[^"\\]|\\.)*)"/) ||
+    null
+  const visitedAt = visitedRaw ? decodeJsonStringField(visitedRaw) : null
+
+  const postedRaw =
+    pick(/"created(?:At|Date)?"\s*:\s*"((?:[^"\\]|\\.)*)"/) ||
+    pick(/"registeredAt"\s*:\s*"((?:[^"\\]|\\.)*)"/) ||
+    null
+  const postedAt = postedRaw ? decodeJsonStringField(postedRaw) : null
+
+  // 사진: "thumbnail":"..." / "url":"..." 여러 개 — 간단하게 URL 배열 수집
+  const photos: string[] = []
+  const picRe = /"(?:thumbnail|thumbnailUrl|url|original)"\s*:\s*"(https?:\/\/[^"\\]+)"/g
+  let pm: RegExpExecArray | null
+  while ((pm = picRe.exec(objStr)) !== null) {
+    if (!photos.includes(pm[1])) photos.push(pm[1])
+  }
+
+  const reviewId =
+    pick(/"id"\s*:\s*"((?:[^"\\]|\\.)*)"/) ||
+    pick(/"reviewId"\s*:\s*"((?:[^"\\]|\\.)*)"/) ||
+    fallbackId
+  const cleanId = String(reviewId).replace(/^VisitorReviewItem:/, '')
+
+  return {
+    reviewId: cleanId,
+    authorName,
+    rating,
+    body,
+    visitedAt,
+    postedAt,
+    photos: photos.slice(0, 6),
+  }
+}
+
+/**
+ * 본 함수: placeId 하나에서 최근 방문자 리뷰 수집.
+ * - hint 카테고리 우선 시도, 실패시 전체 순회
+ * - 정상 응답이면 VisitorReview[] 반환, 실패시 빈 배열
+ */
+export async function fetchVisitorReviews(
+  placeId: string,
+  hint?: string | null,
+): Promise<VisitorReview[]> {
+  if (!/^\d+$/.test(placeId)) return []
+
+  const tryOrder: string[] = []
+  if (hint && (PLACE_CATEGORIES as readonly string[]).includes(hint)) tryOrder.push(hint)
+  for (const c of PLACE_CATEGORIES) if (!tryOrder.includes(c)) tryOrder.push(c)
+
+  for (const cat of tryOrder) {
+    const url = `https://m.place.naver.com/${cat}/${placeId}/review/visitor`
+    const html = await tryFetch(url)
+    if (!html) continue
+    const reviews = extractApolloReviews(html)
+    if (reviews.length > 0) return reviews
+    // 카테고리가 안 맞으면 SSR 에 리뷰가 안 박혀있을 수 있음 → 다음 카테고리 시도
+  }
+  return []
+}
