@@ -1,15 +1,36 @@
-'use client'
+// 27차-7 SEO: /marketing/place 전용 metadata layout
+import type { Metadata } from 'next'
 
-/**
- * /marketing/place 권한 가드
- * 요구 모듈: keyword (플레이스 진단은 키워드 모듈에 포함)
- *
- * ⚠️ 현재 이 경로는 비로그인 공개 체험 도구이기도 함 (홈 히어로 "1분 무료 진단" CTA 목적지).
- * 따라서 GatedRoute 를 페이지에 걸지 않고, 페이지 내부에서 결과 저장/고급기능만 가드하는 구조가 적합.
- * 해당 파일은 임시 placeholder 로 둔다. Phase 0.5 에서 세부 정책 결정.
- */
+const SITE_URL = 'https://www.localution.co.kr'
+const PAGE_URL = `${SITE_URL}/marketing/place`
 
-export default function PlaceLayout({ children }: { children: React.ReactNode }) {
-  // 공개 접근 허용 — 페이지 내부에서 필요 시 인라인 LockedBanner 사용
-  return <>{children}</>
+const TITLE = '네이버 플레이스 진단·상위노출'
+const DESC =
+  '네이버 플레이스 키워드 진단·리뷰수·답글률을 한 번에 분석하고 상위노출 체크리스트로 약점을 잡아주는 자영업자 전용 무료 도구. 매장 주소만 입력하면 즉시 결과 제공.'
+
+export const metadata: Metadata = {
+  title: TITLE,
+  description: DESC,
+  alternates: { canonical: PAGE_URL },
+  openGraph: {
+    type: 'website',
+    url: PAGE_URL,
+    title: `${TITLE} | 로컬루션`,
+    description: DESC,
+    locale: 'ko_KR',
+  },
+  twitter: {
+    card: 'summary_large_image',
+    title: `${TITLE} | 로컬루션`,
+    description: DESC,
+  },
+  keywords: [
+    '네이버 플레이스', '플레이스 상위노출', '플레이스 진단',
+    '네이버 지도 상위노출', '맛집 상위노출', '플레이스 키워드',
+    '플레이스 리뷰 관리', '플레이스 마케팅', '자영업자 마케팅',
+  ],
+}
+
+export default function Layout({ children }: { children: React.ReactNode }) {
+  return children
 }
