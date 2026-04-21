@@ -64,6 +64,81 @@ interface NaverPlace {
   mapy: string;
 }
 
+// 28차-4: Kakao Maps SDK 위젯 (무료·간편)
+// env 필요: NEXT_PUBLIC_KAKAO_MAP_KEY (JavaScript 키)
+// 발급: https://developers.kakao.com/console → 앱 생성 → 앱 키 → JavaScript 키
+// 플랫폼 등록: Web 플랫폼 도메인에 https://www.localution.co.kr 추가
+function KakaoMapBox({ address }: { address: string }) {
+  const mapRef = useRef<HTMLDivElement>(null)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const key = process.env.NEXT_PUBLIC_KAKAO_MAP_KEY
+    if (!key) { setError('카카오 지도 API 키 미설정'); return }
+    if (!address) { setError('주소 입력 대기 중'); return }
+
+    const w = window as unknown as { kakao?: any }
+    const init = () => {
+      if (!w.kakao || !w.kakao.maps || !mapRef.current) return
+      w.kakao.maps.load(() => {
+        const geocoder = new w.kakao.maps.services.Geocoder()
+        geocoder.addressSearch(address, (result: any[], status: string) => {
+          if (status !== w.kakao.maps.services.Status.OK || !result || !result[0]) {
+            setError('해당 주소를 찾을 수 없습니다')
+            return
+          }
+          const latlng = new w.kakao.maps.LatLng(parseFloat(result[0].y), parseFloat(result[0].x))
+          const map = new w.kakao.maps.Map(mapRef.current, {
+            center: latlng,
+            level: 3,
+          })
+          new w.kakao.maps.Marker({ position: latlng, map })
+          setError('')
+        })
+      })
+    }
+
+    if (w.kakao && w.kakao.maps) { init(); return }
+    const existing = document.getElementById('kakao-maps-sdk')
+    if (existing) { existing.addEventListener('load', init); return }
+    const script = document.createElement('script')
+    script.id = 'kakao-maps-sdk'
+    script.src = `https://dapi.kakao.com/v2/maps/sdk.js?appkey=${key}&libraries=services&autoload=false`
+    script.async = true
+    script.onload = init
+    script.onerror = () => setError('카카오 지도 스크립트 로드 실패')
+    document.head.appendChild(script)
+  }, [address])
+
+  return (
+    <div className="relative w-full bg-[#F8FAFF]" style={{ height: 620 }}>
+      <div ref={mapRef} className="absolute inset-0 w-full h-full" />
+      {error && (
+        <div className="absolute inset-0 flex flex-col items-center justify-center bg-gradient-to-br from-[#FFFBEB] via-[#FFFDF5] to-[#FFFBEB] text-center px-6">
+          <div className="w-16 h-16 rounded-2xl bg-[#FEE500] flex items-center justify-center text-[#3B1E1E] font-black text-2xl mb-3 shadow-lg">K</div>
+          <p className="text-base font-bold text-[#191F28] mb-1">카카오 지도</p>
+          <p className="text-xs text-[#8B95A1] mb-4">{error}</p>
+          <div className="bg-white rounded-xl px-4 py-3 shadow-sm max-w-[300px]">
+            <p className="text-xs font-semibold text-[#4E5968] mb-1">주소</p>
+            <p className="text-sm text-[#191F28] leading-relaxed">{address || '주소 미입력'}</p>
+          </div>
+          <a href={'https://map.kakao.com/?q=' + encodeURIComponent(address || '')} target="_blank" rel="noopener noreferrer" className="mt-4 px-5 py-2.5 rounded-xl bg-[#FEE500] text-[#3B1E1E] text-xs font-bold hover:brightness-95 transition-all">
+            카카오맵에서 열기 →
+          </a>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// Map 선택기 — 둘 중 환경변수가 있는 쪽 자동 사용 (Kakao 우선)
+function SmartMapBox({ address }: { address: string }) {
+  const hasKakao = !!process.env.NEXT_PUBLIC_KAKAO_MAP_KEY
+  if (hasKakao) return <KakaoMapBox address={address} />
+  return <NaverMapBox address={address} />
+}
+
 function NaverMapBox({ address }: { address: string }) {
   const mapRef = useRef<HTMLDivElement>(null)
   const [error, setError] = useState('')
@@ -136,12 +211,47 @@ function StoreTab() {
     naverUrl: '', mainKeyword: '', subKeywords: '', desc: '',
   })
   const [saved, setSaved] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState('')
   const [syncing, setSyncing] = useState(false)
   const [synced, setSynced] = useState(false)
   const [syncError, setSyncError] = useState('')
   const [searchResults, setSearchResults] = useState<NaverPlace[]>([])
   const [showResults, setShowResults] = useState(false)
   const [isMock, setIsMock] = useState(false)
+  const [loadingInitial, setLoadingInitial] = useState(true)
+  const [serverPlatforms, setServerPlatforms] = useState<Array<{
+    platform: string; label: string; connected: boolean;
+    platform_store_id: string | null; platform_store_name: string | null;
+    account_id_masked: string
+  }>>([])
+
+  // 28차-3: /api/stores/me 에서 매장 정보 불러와 form 채우기
+  useEffect(() => {
+    ;(async () => {
+      try {
+        const res = await fetch('/api/stores/me', { credentials: 'include', cache: 'no-store' })
+        if (!res.ok) { setLoadingInitial(false); return }
+        const j = await res.json()
+        if (!j?.ok) { setLoadingInitial(false); return }
+        setServerPlatforms(j.platforms || [])
+        const s = j.store || null
+        const nl = j.naver_link || null
+        setForm(prev => ({
+          ...prev,
+          name: s?.name || nl?.external_name || prev.name,
+          category: s?.category || nl?.category || prev.category,
+          address: s?.address || nl?.address || prev.address,
+          phone: s?.phone || prev.phone,
+          naverUrl: s?.naver_url || s?.naver_place_url || nl?.external_url || prev.naverUrl,
+          mainKeyword: s?.main_keyword || prev.mainKeyword,
+          subKeywords: Array.isArray(s?.sub_keywords) ? s.sub_keywords.join(', ') : (s?.sub_keywords || prev.subKeywords),
+          desc: s?.desc || prev.desc,
+        }))
+      } catch (_) {}
+      setLoadingInitial(false)
+    })()
+  }, [])
 
   const handleNaverSync = async () => {
     const query = form.naverUrl.trim() || form.name.trim()
@@ -189,7 +299,35 @@ function StoreTab() {
     setTimeout(() => setSynced(false), 4000)
   }
 
-  const handleSave = () => { setSaved(true); setTimeout(() => setSaved(false), 2000) }
+  const handleSave = async () => {
+    setSaving(true); setSaveError('')
+    try {
+      const res = await fetch('/api/stores/register', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: form.name,
+          category: form.category,
+          address: form.address,
+          phone: form.phone,
+          naver_url: form.naverUrl,
+          main_keyword: form.mainKeyword,
+          sub_keywords: form.subKeywords.split(',').map(s => s.trim()).filter(Boolean),
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data?.ok) {
+        setSaveError(data?.error || '저장 실패')
+      } else {
+        setSaved(true); setTimeout(() => setSaved(false), 2500)
+      }
+    } catch (e: any) {
+      setSaveError('네트워크 오류')
+    } finally {
+      setSaving(false)
+    }
+  }
   const mapAddress = form.address || '서울특별시 마포구 합정동'
 
   return (
@@ -286,8 +424,24 @@ function StoreTab() {
           <label htmlFor="form-desc" className="block text-xs font-semibold text-[#4E5968] mb-1.5">매장 소개</label>
           <textarea id="form-desc" value={form.desc} onChange={e => setForm(p => ({ ...p, desc: e.target.value }))} rows={3} placeholder="AI 리뷰 답변 작성 시 참고하는 문구입니다. 매장 특징을 입력하세요." className="w-full border border-[#E5E8EB] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#3182F6] transition-colors resize-none" />
         </div>
-        <button onClick={handleSave} className={`w-full py-3 rounded-xl font-bold text-sm transition-colors ${saved ? 'bg-green-500 text-white' : 'bg-[#191F28] text-white hover:bg-[#333D4B]'}`}>
-          {saved ? '저장됨' : '저장하기'}
+        {serverPlatforms.some(p => p.connected) && (
+          <div className="bg-[#F0FDF4] border border-[#BBF7D0] rounded-xl p-3">
+            <p className="text-xs font-bold text-[#166534] mb-2">🔗 연결된 플랫폼 ({serverPlatforms.filter(p => p.connected).length}개)</p>
+            <div className="flex flex-wrap gap-1.5">
+              {serverPlatforms.filter(p => p.connected).map(p => (
+                <span key={p.platform} className="text-[11px] px-2.5 py-1 rounded-full bg-white border border-[#BBF7D0] text-[#166534] font-semibold">
+                  {p.label}{p.platform_store_name ? ` · ${p.platform_store_name}` : ''}
+                </span>
+              ))}
+            </div>
+            <a href="/my/platforms" className="inline-block text-[11px] text-[#3182F6] hover:underline mt-2 font-semibold">플랫폼 연결 관리 →</a>
+          </div>
+        )}
+        {saveError && (
+          <p className="text-xs text-red-500 font-medium">❌ {saveError}</p>
+        )}
+        <button onClick={handleSave} disabled={saving} className={`w-full py-3 rounded-xl font-bold text-sm transition-colors ${saved ? 'bg-green-500 text-white' : saving ? 'bg-[#93C5FD] text-white cursor-not-allowed' : 'bg-[#191F28] text-white hover:bg-[#333D4B]'}`}>
+          {saving ? '저장 중...' : saved ? '저장됨' : '저장하기'}
         </button>
       </div>
       <div className="flex-1 min-w-0 hidden lg:block space-y-4">
@@ -306,20 +460,28 @@ function StoreTab() {
               </a>
             )}
           </div>
-          <NaverMapBox address={mapAddress} />
+          <SmartMapBox address={mapAddress} />
         </div>
         <div className="bg-[#FFFBEB] rounded-2xl p-4 border border-[#FDE68A]">
-          <p className="text-xs font-bold text-[#92400E] mb-2">네이버 지도 API 키 설정</p>
-          <p className="text-[11px] text-[#78350F] leading-relaxed mb-2">실제 지도 렌더링을 위해 Vercel 환경변수에 추가해주세요:</p>
+          <p className="text-xs font-bold text-[#92400E] mb-2">지도 API 키 설정 (Kakao 추천)</p>
+          <p className="text-[11px] text-[#78350F] leading-relaxed mb-2">둘 중 하나만 설정해도 지도가 표시됩니다. Kakao 가 발급·사용이 더 간단합니다:</p>
           <div className="bg-white rounded-lg p-2 font-mono text-[10px] text-[#4E5968] space-y-1">
+            <p className="text-[#FF6B00] font-bold"># 카카오 지도 (우선·추천)</p>
+            <p>NEXT_PUBLIC_KAKAO_MAP_KEY=JavaScript_키</p>
+            <p className="text-[#9CA3AF]"># Kakao Developers Web 플랫폼 도메인 등록 필요</p>
+            <p className="text-[#03C75A] font-bold mt-2"># 네이버 지도 (폴백)</p>
             <p>NEXT_PUBLIC_NAVER_MAP_CLIENT_ID=발급받은_ID</p>
-            <p className="text-[#9CA3AF]"># 플레이스 검색용</p>
             <p>NAVER_CLIENT_ID=발급받은_ID</p>
             <p>NAVER_CLIENT_SECRET=발급받은_시크릿</p>
           </div>
-          <a href="https://console.ncloud.com/naver-service/application" target="_blank" rel="noopener noreferrer" className="block mt-2 text-[11px] text-[#3182F6] hover:underline font-semibold">
-            네이버 클라우드 플랫폼에서 Maps API 발급 →
-          </a>
+          <div className="flex gap-2 mt-2 flex-wrap">
+            <a href="https://developers.kakao.com/console/app" target="_blank" rel="noopener noreferrer" className="text-[11px] text-[#FF6B00] hover:underline font-semibold">
+              카카오 JS 키 발급 →
+            </a>
+            <a href="https://console.ncloud.com/naver-service/application" target="_blank" rel="noopener noreferrer" className="text-[11px] text-[#03C75A] hover:underline font-semibold">
+              네이버 Maps API 발급 →
+            </a>
+          </div>
         </div>
       </div>
     </div>
@@ -809,7 +971,82 @@ function ConnectTab() {
 
   const { connections, isConnected, connectedCount, setConnection, removeConnection } = useConnections()
 
+  // 28차-3: 서버(platform_credentials) 연결 상태 병합
+  const [serverConnected, setServerConnected] = useState<Record<string, { connected: boolean; storeName: string | null; accountMasked: string }>>({})
+
+  useEffect(() => {
+    ;(async () => {
+      try {
+        const res = await fetch('/api/stores/me', { credentials: 'include', cache: 'no-store' })
+        if (!res.ok) return
+        const j = await res.json()
+        if (!j?.ok) return
+        // slug → settings ConnectTab key 매핑
+        const slugToKey: Record<string, string> = {
+          naver_place: 'naver',
+          baemin: 'baemin',
+          yogiyo: 'yogiyo',
+          coupangeats: 'coupang',
+        }
+        const map: Record<string, any> = {}
+        for (const p of (j.platforms || [])) {
+          const key = slugToKey[p.platform]
+          if (!key) continue
+          map[key] = {
+            connected: !!p.connected,
+            storeName: p.platform_store_name || null,
+            accountMasked: p.account_id_masked || '',
+          }
+        }
+        setServerConnected(map)
+      } catch (_) {}
+    })()
+  }, [])
+
+  // 서버 연결 정보 + 로컬 훅 정보 병합 (서버가 우선)
+  const effectiveConnected = (key: PlatformId) => !!serverConnected[key]?.connected || isConnected(key)
+  const effectiveCount =
+    Object.values(serverConnected).filter(v => v.connected).length +
+    (['google', 'kakao', 'yeoshin', 'hometax'] as PlatformId[]).filter(k => isConnected(k)).length
+
+  const PLATFORM_SLUG_SERVER: Record<string, string> = {
+    naver: 'naver_place',
+    baemin: 'baemin',
+    yogiyo: 'yogiyo',
+    coupang: 'coupangeats',
+  }
+
   const handleConnect = async (key: PlatformId, label: string) => {
+    const serverPlatformSlug = PLATFORM_SLUG_SERVER[key]
+
+    // 서버 기반 4개 플랫폼 → /my/platforms 로 이동 (실제 아이디/비번 연결)
+    if (serverPlatformSlug) {
+      if (serverConnected[key]?.connected) {
+        // 해제 확인 → DELETE API 호출
+        const ok = await confirmDialog(`${label} 연동을 해제할까요? (서버 자격증명 삭제)`, {
+          title: '연동 해제',
+          okText: '해제',
+          danger: true,
+        })
+        if (!ok) return
+        try {
+          const res = await fetch(`/api/platform-accounts?platform=${serverPlatformSlug}`, {
+            method: 'DELETE', credentials: 'include',
+          })
+          if (!res.ok) { toast.error('해제 실패'); return }
+          setServerConnected(prev => ({ ...prev, [key]: { connected: false, storeName: null, accountMasked: '' } }))
+          toast.success(`${label} 연동을 해제했어요`)
+        } catch (_) { toast.error('네트워크 오류') }
+        return
+      }
+      // 미연결 → /my/platforms 연결 페이지로 이동
+      if (typeof window !== 'undefined') {
+        window.location.href = `/my/platforms/${serverPlatformSlug}/connect`
+      }
+      return
+    }
+
+    // legacy 플랫폼 (google, kakao, yeoshin, hometax) → 기존 localStorage 플로우
     if (isConnected(key)) {
       const ok = await confirmDialog(`${label} 연동을 해제할까요?`, {
         title: '연동 해제',
@@ -838,17 +1075,18 @@ function ConnectTab() {
         <div className="flex items-center justify-between gap-3 mb-1">
           <h2 className="font-bold text-[#191F28]">플랫폼 연동 관리</h2>
           <span className="text-xs font-bold text-[#3182F6] bg-[#EFF6FF] px-2.5 py-1 rounded-full whitespace-nowrap">
-            {connectedCount} / {PLATFORMS_8.length} 연결됨
+            {effectiveCount} / {PLATFORMS_8.length} 연결됨
           </span>
         </div>
-        <p className="text-xs text-[#8B95A1]">리뷰·주문·매출 데이터를 한 곳에서 관리해요. 연동 상태는 대시보드·리뷰관리와 자동으로 동기화됩니다.</p>
+        <p className="text-xs text-[#8B95A1]">리뷰·주문·매출 데이터를 한 곳에서 관리해요. 네이버/배민/요기요/쿠팡이츠는 <a href="/my/platforms" className="text-[#3182F6] font-bold hover:underline">플랫폼 연결 관리</a>에서 아이디·비번 저장. 연동 상태는 /dashboard · /review-admin · /qr-admin 과 자동 동기화됩니다.</p>
       </div>
 
       {/* 카드 그리드 — review-admin 과 동일한 스타일 */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
         {PLATFORMS_8.map(p => {
           const c = connections[p.key]
-          const connected = !!c?.connected
+          const sv = serverConnected[p.key]
+          const connected = effectiveConnected(p.key)
           return (
             <div key={p.key} className="bg-white rounded-2xl border border-[#E5E8EB] p-4 md:p-5 flex flex-col">
               <div className="flex items-center gap-2.5 mb-3">
@@ -866,8 +1104,11 @@ function ConnectTab() {
               {connected ? (
                 <>
                   <div className="bg-[#F9FAFB] rounded-lg px-2.5 py-2 mb-2.5 min-h-[44px]">
-                    <p className="text-[11px] text-[#8B95A1] mb-0.5">연결된 계정</p>
-                    <p className="text-xs font-semibold text-[#191F28] truncate">{c?.externalName || '—'}</p>
+                    <p className="text-[11px] text-[#8B95A1] mb-0.5">{sv?.connected ? '서버 저장' : '연결된 계정'}</p>
+                    <p className="text-xs font-semibold text-[#191F28] truncate">{sv?.storeName || c?.externalName || '—'}</p>
+                    {sv?.accountMasked && (
+                      <p className="text-[10px] text-[#8B95A1] truncate mt-0.5">ID: {sv.accountMasked}</p>
+                    )}
                   </div>
                   <button
                     onClick={() => handleConnect(p.key, p.label)}
@@ -896,8 +1137,9 @@ function ConnectTab() {
         })}
       </div>
 
-      <div className="text-[11px] text-[#8B95A1] px-1">
-        * 연동 정보는 이 기기의 브라우저에 저장되며, /dashboard · /review-admin 에서도 즉시 반영됩니다.
+      <div className="text-[11px] text-[#8B95A1] px-1 space-y-1">
+        <p>* 네이버/배민/요기요/쿠팡이츠는 <a href="/my/platforms" className="text-[#3182F6] hover:underline font-semibold">플랫폼 연결 관리</a>에서 아이디·비번이 AES-256 암호화되어 서버에 저장됩니다.</p>
+        <p>* 구글/카카오/여신금융/홈택스는 이 기기의 브라우저에만 저장되며, /dashboard · /review-admin 에서 즉시 반영됩니다.</p>
       </div>
     </div>
   )
