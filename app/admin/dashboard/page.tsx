@@ -58,16 +58,19 @@ function buildMrrTrend(currentMrr: number) {
   })
 }
 
-// 모듈별 활성 구독 mock 분포 (Phase 0 카탈로그 기준)
+// 모듈별 활성 구독 mock 분포 (Phase 0 카탈로그 기준 + 25차 신규 3종 포함)
 function buildModuleDist(totalActive: number) {
   const weights = [
-    { module: '리뷰관리',  w: 0.28, color: '#3182F6' },
-    { module: '키워드',    w: 0.22, color: '#10B981' },
-    { module: '블로그',    w: 0.15, color: '#F59E0B' },
-    { module: '릴스',      w: 0.12, color: '#EC4899' },
-    { module: 'QR체험단',  w: 0.10, color: '#8B5CF6' },
-    { module: '고객관리',  w: 0.08, color: '#F97316' },
-    { module: '커뮤니티',  w: 0.05, color: '#14B8A6' },
+    { module: '리뷰관리',    w: 0.22, color: '#3182F6' },
+    { module: '키워드',      w: 0.17, color: '#10B981' },
+    { module: '블로그AI',    w: 0.12, color: '#06B6D4' },
+    { module: '릴스',        w: 0.10, color: '#F43F5E' },
+    { module: 'QR체험단',    w: 0.08, color: '#8B5CF6' },
+    { module: '고객관리',    w: 0.07, color: '#F97316' },
+    { module: '커뮤니티',    w: 0.04, color: '#14B8A6' },
+    { module: '카드뉴스',    w: 0.08, color: '#EC4899' },   // 25차 신규
+    { module: '플랫폼허브',  w: 0.07, color: '#6366F1' },   // 25차 신규
+    { module: '블로그순위',  w: 0.05, color: '#D97706' },   // 25차 신규
   ]
   const base = totalActive > 0 ? totalActive : 100 // mock fallback
   return weights.map(w => ({
@@ -199,15 +202,28 @@ export default function AdminDashboardPage() {
           <div className="flex items-center justify-between mb-3">
             <div>
               <h2 className="font-black text-[#191F28]">모듈별 활성 구독</h2>
-              <p className="text-[11px] text-[#8B95A1] mt-0.5">Phase 0 카탈로그 기준 · mock 가중치</p>
+              <p className="text-[11px] text-[#8B95A1] mt-0.5">Phase 0 카탈로그 + 25차 신규 3종 · mock 가중치</p>
             </div>
-            <span className="text-[10px] font-bold text-[#7C3AED] bg-[#F5F3FF] px-2 py-0.5 rounded-full">DEMO</span>
+            <div className="flex items-center gap-1">
+              <span className="text-[10px] font-bold text-[#EC4899] bg-[#FDF2F8] px-2 py-0.5 rounded-full">+3 NEW</span>
+              <span className="text-[10px] font-bold text-[#7C3AED] bg-[#F5F3FF] px-2 py-0.5 rounded-full">DEMO</span>
+            </div>
           </div>
-          <div className="w-full h-[220px]">
+          <div className="w-full h-[240px]">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={moduleDist} margin={{ top: 8, right: 12, left: -12, bottom: 0 }}>
+              <BarChart data={moduleDist} margin={{ top: 8, right: 12, left: -12, bottom: 20 }}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#F2F4F6" />
-                <XAxis dataKey="module" stroke="#8B95A1" fontSize={10} tickLine={false} axisLine={false} interval={0} />
+                <XAxis
+                  dataKey="module"
+                  stroke="#8B95A1"
+                  fontSize={9}
+                  tickLine={false}
+                  axisLine={false}
+                  interval={0}
+                  angle={-30}
+                  textAnchor="end"
+                  height={40}
+                />
                 <YAxis stroke="#8B95A1" fontSize={11} tickLine={false} axisLine={false} allowDecimals={false} />
                 <Tooltip
                   formatter={(v: number) => [`${v}건`, '활성']}
