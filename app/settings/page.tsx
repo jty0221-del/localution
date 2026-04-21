@@ -246,7 +246,8 @@ function StoreTab() {
           naverUrl: s?.naver_url || s?.naver_place_url || nl?.external_url || prev.naverUrl,
           mainKeyword: s?.main_keyword || prev.mainKeyword,
           subKeywords: Array.isArray(s?.sub_keywords) ? s.sub_keywords.join(', ') : (s?.sub_keywords || prev.subKeywords),
-          desc: s?.desc || prev.desc,
+          // 2026-04-22: stores.description 컬럼으로 이전. 레거시 s?.desc 도 호환.
+          desc: s?.description || s?.desc || prev.desc,
         }))
       } catch (_) {}
       setLoadingInitial(false)
@@ -395,7 +396,8 @@ function StoreTab() {
           naver_url: form.naverUrl,
           main_keyword: form.mainKeyword,
           sub_keywords: form.subKeywords.split(',').map(s => s.trim()).filter(Boolean),
-          desc: form.desc,
+          // 2026-04-22: 서버는 description(신규) / desc(레거시) 둘 다 받음. 신규 필드로 전송.
+          description: form.desc,
         }),
       })
       const data = await res.json()
@@ -503,8 +505,48 @@ function StoreTab() {
           )}
         </div>
         <div>
-          <label htmlFor="form-desc" className="block text-xs font-semibold text-[#4E5968] mb-1.5">매장 소개</label>
-          <textarea id="form-desc" value={form.desc} onChange={e => setForm(p => ({ ...p, desc: e.target.value }))} rows={3} placeholder="AI 리뷰 답변 작성 시 참고하는 문구입니다. 매장 특징을 입력하세요." className="w-full border border-[#E5E8EB] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#3182F6] transition-colors resize-none" />
+          <div className="flex items-center justify-between mb-1.5">
+            <label htmlFor="form-desc" className="block text-xs font-semibold text-[#4E5968]">
+              매장 소개
+              <span className="ml-1.5 text-[10px] text-[#8B95A1] font-normal">AI 리뷰·블로그 작성 참고용 · 최대 2000자</span>
+            </label>
+            <button
+              type="button"
+              onClick={handleNaverSync}
+              disabled={syncing || !form.naverUrl.trim()}
+              title="네이버 플레이스 /information 페이지에서 매장 소개 가져오기"
+              className={`text-[11px] px-2.5 py-1 rounded-lg font-bold transition-colors ${
+                syncing || !form.naverUrl.trim()
+                  ? 'bg-[#F2F4F6] text-[#8B95A1] cursor-not-allowed'
+                  : 'bg-[#EFF6FF] text-[#3182F6] hover:bg-[#DBEAFE]'
+              }`}
+            >
+              {syncing ? '불러오는 중...' : '네이버에서 가져오기'}
+            </button>
+          </div>
+          <textarea
+            id="form-desc"
+            value={form.desc}
+            onChange={e => {
+              const v = e.target.value.slice(0, 2000)
+              setForm(p => ({ ...p, desc: v }))
+            }}
+            maxLength={2000}
+            rows={10}
+            placeholder="예: 포항 용흥동에서 10년째 운영 중인 스페셜티 카페입니다. 제주산 원두 직접 로스팅, 수제 디저트, 반려동물 동반 가능. 주차 20대, 와이파이 제공. 매주 수요일 원두 할인 이벤트.&#10;&#10;⚙️ AI 가 리뷰 답글·블로그 포스팅을 쓸 때 이 소개를 참고합니다. 매장 특징·대표 메뉴·위치·이벤트 등을 자세히 적을수록 품질이 올라갑니다."
+            className="w-full border border-[#E5E8EB] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#3182F6] transition-colors resize-y leading-relaxed"
+            style={{ minHeight: '240px' }}
+          />
+          <div className="flex items-center justify-between mt-1.5">
+            <p className="text-[10px] text-[#8B95A1]">
+              네이버 플레이스 URL 이 위에 있으면 "네이버에서 가져오기" 한 번으로 자동 채움 (information 페이지 전문 수집)
+            </p>
+            <p className={`text-[11px] font-semibold tabular-nums ${
+              form.desc.length > 1900 ? 'text-red-500' : form.desc.length > 1500 ? 'text-orange-500' : 'text-[#8B95A1]'
+            }`}>
+              {form.desc.length.toLocaleString()} / 2,000
+            </p>
+          </div>
         </div>
         {serverPlatforms.some(p => p.connected) && (
           <div className="bg-[#F0FDF4] border border-[#BBF7D0] rounded-xl p-3">
