@@ -67,22 +67,55 @@ export function parseReviewFromOgDesc(desc: string): { visitor: number | null; b
   }
 }
 
-// 주소에서 행정구역(동/읍/면) 추출
-// "서울특별시 마포구 합정동 123-45" → "합정동"
-// "경상북도 포항시 북구 두호동" → "두호동"
-// 실패 시 구/군 단위 반환
-function extractRegionName(address: string): string {
+// 30차-9 · 주소에서 최상위 광역(특별시·광역시·도) 추출 + 축약
+// "인천광역시 강화군 길상면 ..." → { full: "인천광역시", short: "인천" }
+// "경기도 수원시 ..." → { full: "경기도", short: "경기" }
+function extractTopRegion(address: string): { full: string; short: string } {
+  if (!address) return { full: '', short: '' }
+  const m = address.match(/^([가-힣]+(?:특별시|광역시|특별자치시|특별자치도|도))(?=\s|$)/)
+  if (!m) return { full: '', short: '' }
+  const full = m[1]
+  const short = full
+    .replace(/서울특별시/, '서울')
+    .replace(/부산광역시/, '부산')
+    .replace(/대구광역시/, '대구')
+    .replace(/인천광역시/, '인천')
+    .replace(/광주광역시/, '광주')
+    .replace(/대전광역시/, '대전')
+    .replace(/울산광역시/, '울산')
+    .replace(/세종특별자치시/, '세종')
+    .replace(/경기도/, '경기')
+    .replace(/강원특별자치도/, '강원')
+    .replace(/강원도/, '강원')
+    .replace(/충청북도/, '충북')
+    .replace(/충청남도/, '충남')
+    .replace(/전라북도/, '전북')
+    .replace(/전북특별자치도/, '전북')
+    .replace(/전라남도/, '전남')
+    .replace(/경상북도/, '경북')
+    .replace(/경상남도/, '경남')
+    .replace(/제주특별자치도/, '제주')
+    .replace(/제주도/, '제주')
+  return { full, short }
+}
+
+// 시/군 추출 + 축약
+// "강화군" → { full: "강화군", short: "강화" }
+// "수원시" → { full: "수원시", short: "수원" }
+function extractCityGun(address: string): { full: string; short: string } {
+  if (!address) return { full: '', short: '' }
+  const m = address.match(/([가-힣0-9]+(?:시|군))(?=\s|$)/)
+  if (!m) return { full: '', short: '' }
+  const full = m[1]
+  const short = full.replace(/(시|군)$/, '')
+  return { full, short }
+}
+
+// 구 추출 (서울/광역시의 기초지자체)
+function extractGu(address: string): string {
   if (!address) return ''
-  // 동/읍/면/가/리 패턴 우선
-  const m1 = address.match(/([가-힣0-9]+(?:동|읍|면|가|리))(?=\s|$|\d|[,])/)
-  if (m1) return m1[1]
-  // 구/군 단위 fallback
-  const m2 = address.match(/([가-힣]+(?:구|군))(?=\s|$)/)
-  if (m2) return m2[1]
-  // 시 단위 fallback
-  const m3 = address.match(/([가-힣]+시)(?=\s|$)/)
-  if (m3) return m3[1]
-  return ''
+  const m = address.match(/([가-힣]+구)(?=\s|$)/)
+  return m ? m[1] : ''
 }
 
 // 카테고리명에서 마지막 업종 추출 + 상위 업종
@@ -149,19 +182,29 @@ function extractBusinessHoursFromHtml(html: string): string {
   return ''
 }
 
-// 키워드 자동 추론
-// · mainKeyword: "지역명 + 업종leaf" (예: "합정동 카페")
-// · subKeywords: leaf 단독, base 단독, 구/군 + leaf, 브랜드 + leaf, og:description 에서 키워드형 명사 추출
+// 30차-9 · 키워드 자동 추론 (최상위 지역 기반, 동·읍·면 배제)
+// · mainKeyword: "최상위 광역축약 + 업종" (예: "인천 카페", "경기 카페", "서울 카페")
+//   광역 없을 때만 시/군 축약 fallback
+// · subKeywords: 군/시 축약 + leaf, 군/시 풀네임 + leaf, 구 + leaf, 광역 풀네임 + leaf, 단독 leaf, base, 브랜드
+//   동·읍·면 단위는 상위노출에 거의 잡히지 않으므로 제외
 export function inferKeywords(params: {
   name: string
   address: string
   categoryName: string
 }): { mainKeyword: string; subKeywords: string[]; regionKeyword: string } {
-  const region = extractRegionName(params.address)
+  const top = extractTopRegion(params.address)
+  const cg = extractCityGun(params.address)
+  const gu = extractGu(params.address)
   const { leaf, base } = extractCategoryTokens(params.categoryName)
   const brand = extractBrandToken(params.name)
 
-  const main = region && leaf ? `${region} ${leaf}` : leaf || region || ''
+  // 메인 키워드 = 최상위 광역 축약 + 업종 (예: "인천 카페")
+  // 광역이 없으면 시/군 축약 fallback (예: "수원 카페")
+  const main = top.short && leaf
+    ? `${top.short} ${leaf}`
+    : (cg.short && leaf
+        ? `${cg.short} ${leaf}`
+        : (leaf || top.short || cg.short || ''))
 
   const subs: string[] = []
   const push = (s: string) => {
@@ -170,22 +213,29 @@ export function inferKeywords(params: {
     if (!subs.includes(v)) subs.push(v)
   }
 
-  if (leaf) push(leaf)
-  if (base && base !== leaf) push(base)
-  if (region && base && base !== leaf) push(`${region} ${base}`)
-
-  // 구/군 단위도 추출해서 보조 키워드에 포함
-  const gu = params.address.match(/([가-힣]+(?:구|군))(?=\s|$)/)?.[1]
+  // 1순위: 시/군 축약 + leaf (예: "강화 카페")
+  if (cg.short && leaf) push(`${cg.short} ${leaf}`)
+  // 2순위: 시/군 풀네임 + leaf (예: "강화군 카페")
+  if (cg.full && cg.full !== cg.short && leaf) push(`${cg.full} ${leaf}`)
+  // 3순위: 구 + leaf (서울/광역시 케이스, 예: "마포구 카페")
   if (gu && leaf) push(`${gu} ${leaf}`)
-
-  // 시 + leaf
-  const si = params.address.match(/([가-힣]+시)(?=\s|$)/)?.[1]
-  if (si && leaf) push(`${si} ${leaf}`)
-
+  // 4순위: 광역 풀네임 + leaf (예: "인천광역시 카페")
+  if (top.full && top.full !== top.short && leaf) push(`${top.full} ${leaf}`)
+  // 5순위: 광역 축약 + base (상위 카테고리, 예: "인천 음식점")
+  if (top.short && base && base !== leaf) push(`${top.short} ${base}`)
+  // 6순위: 단독 leaf
+  if (leaf) push(leaf)
+  // 7순위: base 단독
+  if (base && base !== leaf) push(base)
+  // 8순위: 브랜드
   if (brand) push(brand)
   if (brand && leaf) push(`${brand} ${leaf}`)
 
-  return { mainKeyword: main, subKeywords: subs.slice(0, 6), regionKeyword: region && leaf ? `${region} ${leaf}` : '' }
+  return {
+    mainKeyword: main,
+    subKeywords: subs.slice(0, 8),
+    regionKeyword: top.short || cg.short || ''
+  }
 }
 
 export function parsePlaceHtml(
@@ -287,6 +337,24 @@ export async function lookupPlace(placeId: string, hint?: string | null): Promis
     if (!html) continue
     const info = parsePlaceHtml(html, placeId, cat, url)
     if (!info.name) continue
+
+    // 30차-9: description / businessHours 가 비어있으면 /information 페이지 추가 fetch
+    // 네이버 플레이스 /information 에는 "업체 소개" 전문과 영업시간 상세가 들어있음
+    if (!info.description || !info.businessHours) {
+      const infoUrl = `https://m.place.naver.com/${cat}/${placeId}/information`
+      const infoHtml = await tryFetch(infoUrl)
+      if (infoHtml) {
+        if (!info.description) {
+          const extraDesc = extractDescriptionFromHtml(infoHtml)
+          if (extraDesc) info.description = extraDesc
+        }
+        if (!info.businessHours) {
+          const extraHours = extractBusinessHoursFromHtml(infoHtml)
+          if (extraHours) info.businessHours = extraHours
+        }
+      }
+    }
+
     return info
   }
   return null
