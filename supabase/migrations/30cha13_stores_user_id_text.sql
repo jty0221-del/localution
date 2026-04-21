@@ -6,20 +6,26 @@
 --   - 해결: user_id uuid → text 로 변경 + RLS 정책도 text 비교로 재설정
 --   - 원칙: 새 테이블은 무조건 text, 기존 uuid 컬럼은 발견 즉시 마이그레이션
 --
+-- 2차 시도 수정사항:
+--   - 기존 정책 이름이 `s1`, `s2` 같이 짧아서 정적 DROP POLICY 리스트로 못 잡음
+--   - pg_policies 를 순회하며 public.stores 의 모든 정책을 동적 DROP
+--
 -- 실행 위치: Supabase SQL Editor (프로젝트 콘솔)
 -- ============================================================
 
--- 1. RLS 정책 임시 제거 — user_id 타입 의존 정책 있으면 ALTER COLUMN 실패 방지
-drop policy if exists "stores_select_own"   on public.stores;
-drop policy if exists "stores_insert_own"   on public.stores;
-drop policy if exists "stores_update_own"   on public.stores;
-drop policy if exists "stores_delete_own"   on public.stores;
-drop policy if exists "stores_all_own"      on public.stores;
-drop policy if exists "stores_owner_access" on public.stores;
-drop policy if exists "Users can view own stores"   on public.stores;
-drop policy if exists "Users can insert own stores" on public.stores;
-drop policy if exists "Users can update own stores" on public.stores;
-drop policy if exists "Users can delete own stores" on public.stores;
+-- 1. public.stores 의 모든 RLS 정책 동적 DROP
+do $$
+declare
+  p record;
+begin
+  for p in
+    select policyname
+    from pg_policies
+    where schemaname = 'public' and tablename = 'stores'
+  loop
+    execute format('drop policy if exists %I on public.stores', p.policyname);
+  end loop;
+end $$;
 
 -- 2. user_id 컬럼 uuid → text (기존 uuid 값도 text 로 안전 캐스팅)
 alter table public.stores
