@@ -1,11 +1,16 @@
 // app/api/marketing/card-news/generate/route.ts
 // ============================================================
-// 24차-2: 카드뉴스 생성 API (Anthropic Claude)
+// 24차-2: 카드뉴스 생성 API (Anthropic Claude) — Instagram 캐러셀 전용
 //
 // Claude Design 3종 연동 (단일 프롬프트 내장):
-//   ① ux-copy:          헤드라인 15자·소제목 20자·CTA 7자 제약
+//   ① ux-copy:          헤드라인 15자·소제목 20자·CTA 15자 제약
 //   ② accessibility:    WCAG AA 대비 4.5:1 + 폰트 17pt/36pt+ 강제
 //   ③ design-critique:  시선흐름·계층·일관성 비평 출력
+//
+// Instagram 캐러셀 특화:
+//   - 표지: 스크롤 멈추는 훅 (숫자·호기심·반전 3종 중 1)
+//   - 마지막 본문: "다음 장 → 저장" 암시
+//   - CTA: 저장·공유·팔로우 3종 유도 (인스타 노출 알고리즘 최적화)
 //
 // env 필수: ANTHROPIC_API_KEY (Vercel 등록)
 // ============================================================
@@ -26,7 +31,8 @@ interface GenerateBody {
   tone?: 'info' | 'empathy' | 'warning' | 'action'
   ratio?: '1:1' | '4:5'
   slide_count?: 8 | 10
-  platform?: 'instagram' | 'blog' | 'place' | 'threads'
+  platform?: 'instagram'
+  format?: 'carousel'
   youtube_title?: string | null
 }
 
@@ -38,22 +44,35 @@ const TONE_DESCRIPTION: Record<string, string> = {
 }
 
 function buildPrompt(body: GenerateBody) {
-  const { topic, target, tone, ratio, slide_count, platform, youtube_title } = body
+  const { topic, target, tone, ratio, slide_count, youtube_title } = body
   const toneKey = tone || 'action'
-  return `너는 하랑마케팅(10년차 자영업 마케팅 대행사, 대표 전태영)의 카드뉴스 제작팀이다.
-아래 요구사항으로 **${slide_count}장**짜리 카드뉴스를 만들어라.
+  const totalSlides = slide_count || 10
+  const bodyCount = totalSlides - 2
+  return `너는 하랑마케팅(10년차 자영업 마케팅 대행사, 대표 전태영)의 **인스타그램 캐러셀 제작팀**이다.
+아래 요구사항으로 **${totalSlides}장**짜리 **Instagram 캐러셀**을 만들어라.
 
 [주제] ${topic}
 [타겟] ${target || '자영업자·소상공인'}
 [톤] ${toneKey} — ${TONE_DESCRIPTION[toneKey]}
-[비율] ${ratio} (${ratio === '1:1' ? '1080×1080 정사각' : '1080×1350 세로'})
-[업로드 채널] ${platform}
+[비율] ${ratio} (${ratio === '1:1' ? '1080×1080 정사각' : '1080×1350 세로 — 피드 체류시간↑'})
+[업로드 채널] Instagram 캐러셀 (최대 10장 스와이프)
 ${youtube_title ? `[연결 유튜브 제목] ${youtube_title} ← CTA 슬라이드에 "영상으로 보기" 유도 문구 자연스럽게 삽입` : ''}
 
+## 인스타 캐러셀 필수 법칙 (생략 금지)
+1. **표지는 스크롤 멈추는 훅** — 숫자·호기심·반전 3종 중 반드시 1개 사용
+   (예: "예약 전환 90% 이렇게 만든다" / "아무도 안 알려주는 3가지" / "돈 버는 사장의 반대")
+2. **끝까지 보고 싶게 하는 티징** — 표지 subcopy 에 "→ 스와이프" 암시 키워드 (예: "3번째가 핵심")
+3. **마지막 본문 슬라이드** — "다음 장 → 저장해두세요" 암시 (CTA 직전에 행동 유도)
+4. **CTA 슬라이드** — 저장(Save)·공유(Share)·팔로우(Follow) 3종 중 최소 2개 명시 유도
+5. **해시태그는 인스타 위주 15개** — blog/threads 는 참고용 소수만
+
 ## 구조 (반드시 이 순서)
-1. 표지(cover) 1장 — 훅 헤드라인 + 부제
-2. 본문(body) ${(slide_count || 8) - 2}장 — 1슬라이드 = 1메시지 원칙
-3. CTA(cta) 1장 — 행동 유도 + 하랑마케팅 브랜딩
+1. 표지(cover) 1장 — 스크롤 멈추는 헤드라인 + 스와이프 유도 subcopy
+2. 본문(body) ${bodyCount}장 — 1슬라이드 = 1메시지 원칙
+   · 첫 본문: 공감/진단 (사장님 현 상황 찌르기)
+   · 중간 본문: 핵심 인사이트·팁 순차 공개
+   · 마지막 본문: "지금 저장해두세요" 또는 "다음 장에서 실전 적용" 암시
+3. CTA(cta) 1장 — 행동 유도(저장·공유·팔로우) + 하랑마케팅 @harang.marketing 브랜딩
 
 ## Claude Design 3종 제약 (생략 금지)
 ### ① UX Copy (design:ux-copy)
@@ -74,6 +93,7 @@ ${youtube_title ? `[연결 유튜브 제목] ${youtube_title} ← CTA 슬라이�
 - 시선 흐름 Z/F 패턴 (상단 훅 → 중앙 메시지 → 하단 CTA)
 - 슬라이드 전체 계층 일관성 (bullet 리스트는 본문 0~2장만)
 - 정보 밀도 경고: 한 슬라이드 3개 이상 정보 → critique 에 기록
+- 캐러셀 완결성: 표지→본문→CTA 내러티브 흐름 평가
 
 ## 출력 — 엄격한 JSON (다른 설명·머리말 금지)
 {
@@ -85,17 +105,17 @@ ${youtube_title ? `[연결 유튜브 제목] ${youtube_title} ← CTA 슬라이�
       "role": "cover|body|cta",
       "headline": "string (위 제약 준수)",
       "subcopy": "string | null",
-      "highlight": "string (body 좌상단 라벨, 예: '1단계' '핵심 팁') | null",
+      "highlight": "string (body 좌상단 라벨, 예: '1단계' '핵심 팁' '마지막') | null",
       "bullets": ["string", ...]
     }
   ],
   "hashtags": {
-    "instagram": ["태그15개 (샵 없이)"],
-    "blog":      ["태그10개"],
-    "threads":   ["태그5개"]
+    "instagram": ["태그15개 (샵 없이) — #자영업, #소상공인, #사장님공부 포함"],
+    "blog":      ["태그5개 (인스타 복제 가능)"],
+    "threads":   ["태그3개"]
   },
   "ux_copy_notes": ["카피 교정 포인트 3~5개"],
-  "design_critique": ["비평 3~5개"],
+  "design_critique": ["비평 3~5개 + 캐러셀 내러티브 흐름 평가 1개"],
   "accessibility": {
     "contrast_ratio": "12.6:1",
     "min_font_size": "17pt",
@@ -135,8 +155,9 @@ export async function POST(req: NextRequest) {
       target: body.target,
       tone: body.tone || 'action',
       ratio: body.ratio || '1:1',
-      slide_count: body.slide_count === 10 ? 10 : 8,
-      platform: body.platform || 'instagram',
+      slide_count: body.slide_count === 8 ? 8 : 10,
+      platform: 'instagram',
+      format: 'carousel',
       youtube_title: body.youtube_title || null,
     })
 
@@ -209,8 +230,8 @@ export async function POST(req: NextRequest) {
         topic: body.topic,
         target: body.target || null,
         tone: body.tone || 'action',
-        slide_count: body.slide_count || 8,
-        platform: body.platform || 'instagram',
+        slide_count: body.slide_count || 10,
+        platform: 'instagram_carousel',
         input_tokens: data?.usage?.input_tokens || null,
         output_tokens: data?.usage?.output_tokens || null,
       })
