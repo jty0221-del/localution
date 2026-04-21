@@ -35,16 +35,28 @@ export type EncryptedPayload = {
 // 내부: KEK 로드 + 검증
 // ─────────────────────────────────────────────
 function loadKek(): { key: Buffer; version: string } {
-  const hex = process.env.ENCRYPTION_KEK_HEX
+  const raw = process.env.ENCRYPTION_KEK_HEX
   const version = process.env.ENCRYPTION_KEK_VERSION || 'v1'
 
-  if (!hex) {
+  if (!raw) {
     throw new Error('ENCRYPTION_KEK_HEX 환경변수가 설정되지 않음. 암호화 불가.')
   }
-  if (!/^[0-9a-f]{64}$/i.test(hex)) {
-    throw new Error('ENCRYPTION_KEK_HEX 형식 오류 (64자 hex string 이어야 함).')
+  // 30차-1: Vercel/Railway 에 붙여넣기 할 때 생기는 공백·개행·탭 허용
+  // 64자 정확한 hex 가 아니면 먼저 공백류만 제거 후 재검증
+  let hex = raw.trim()
+  if (!/^[0-9a-fA-F]{64}$/.test(hex)) {
+    const cleaned = raw.replace(/\s+/g, '')
+    if (/^[0-9a-fA-F]{64}$/.test(cleaned)) {
+      hex = cleaned
+    } else {
+      throw new Error(
+        `ENCRYPTION_KEK_HEX 형식 오류 — 64자 hex 이어야 함 ` +
+        `(원본 ${raw.length}자, 공백제거 후 ${cleaned.length}자, hex 외 문자 ${cleaned.replace(/[0-9a-fA-F]/g, '').length}개). ` +
+        `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))" 로 재생성 후 Vercel/Railway 양쪽에 동일 값 등록.`
+      )
+    }
   }
-  return { key: Buffer.from(hex, 'hex'), version }
+  return { key: Buffer.from(hex.toLowerCase(), 'hex'), version }
 }
 
 // ─────────────────────────────────────────────
