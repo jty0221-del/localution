@@ -7,7 +7,7 @@ import { usePathname, useSearchParams } from 'next/navigation'
 import {
   ChevronDown, ChevronRight, List, Map, MapPin, Search, BarChart3,
   Sparkles, MessageCircle, Settings, LogOut, FileText, Lock, LucideIcon,
-  Plus, ArrowRight, Package, Bell, TrendingUp, Gift, Zap,
+  Plus, ArrowRight, Package, Bell, TrendingUp, Gift, Zap, Layers,
 } from 'lucide-react'
 import { REGIONS } from '../lib/regions'
 import { useEntitlements } from '../lib/entitlements'
@@ -73,6 +73,7 @@ const MARKETING_SUB: { href: string; label: string; Icon: LucideIcon; badge: str
   { href: '/marketing/blog-tracking', label: '블로그 순위 추적', Icon: TrendingUp, badge: 'NEW' },
   { href: '/marketing/reels',         label: '릴스·쇼츠 생성',  Icon: Sparkles,   badge: 'NEW' },
   { href: '/marketing/blog-post',     label: '블로그 포스팅',   Icon: FileText,   badge: 'NEW' },
+  { href: '/marketing/card-news',     label: '카드뉴스 제작',   Icon: Layers,     badge: 'NEW' },
 ]
 
 // REGIONS 는 app/lib/regions.ts 에서 중앙 관리
