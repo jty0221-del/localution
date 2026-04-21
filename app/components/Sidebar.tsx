@@ -86,7 +86,7 @@ const BOTTOM_NAV: { href: string; label: string; Icon: LucideIcon; colors: { bg:
   { href: '/settings', label: '설정',           Icon: Settings,      colors: { bg: '#F2F4F6', text: '#4E5968' } },
 ]
 
-// 19차-2 · ��데이트 내역 미확인 배지용 localStorage 키 (UpdatesPopupBanner와 동일)
+// 19차-2 · 업데이트 내역 미확인 배지용 localStorage 키 (UpdatesPopupBanner와 동일)
 const LS_UPDATES_LAST_SEEN = 'localution.updates.lastSeenId'
 
 /** 플랫폼 상태 점 (LED 대체) */
@@ -153,7 +153,7 @@ export default function Sidebar() {
         setHasUnseenUpdate(seen !== latestId)
       } catch {}
     })()
-    // /updates 페이지 들어가��� 즉시 last_seen 갱신 + 배지 끄기
+    // /updates 페이지 들어가면 즉시 last_seen 갱신 + 배지 끄기
     if (pathname === '/updates') {
       ;(async () => {
         try {
@@ -406,7 +406,7 @@ export default function Sidebar() {
         </div>
         <NavItems />
 
-        {/* 구독 추가 CTA — 수익 유도 동�� (12차 추가) */}
+        {/* 구독 추가 CTA — 수익 유도 동선 (12차 추가) */}
         <div className="px-4 pt-3 pb-0 border-t border-[#F2F4F6] space-y-1.5">
           <Link href="/pricing" onClick={() => setMobileOpen(false)}
             className="group flex items-center gap-2 px-3 py-2.5 rounded-xl bg-gradient-to-r from-[#3182F6] to-[#1B64DA] text-white hover:shadow-md hover:brightness-110 transition-all text-sm font-bold">
