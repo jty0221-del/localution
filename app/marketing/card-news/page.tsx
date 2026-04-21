@@ -97,8 +97,7 @@ export default function CardNewsPage() {
   const downloadPng = async (idx: number) => {
     const node = slidesRef.current[idx]
     if (!node) return
-    // @ts-ignore — runtime import
-    const mod = await import('https://cdn.jsdelivr.net/npm/html-to-image@1.11.11/+esm')
+    const mod = await import('html-to-image')
     const dataUrl = await mod.toPng(node, { pixelRatio: 2, backgroundColor: '#fff' })
     const a = document.createElement('a')
     a.href = dataUrl
