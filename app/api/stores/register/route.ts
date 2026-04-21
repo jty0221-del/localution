@@ -6,6 +6,10 @@
 //     → user_id=null 로 insert 시도 → stores RLS 차단
 //   - 수정: requireUser() + createServiceClient() 로 통일
 //     (/api/stores/me 와 동일한 인증 패턴)
+// 30차-11: `desc` 컬럼명 → `description` 통일
+//   - desc 는 SQL 예약어라 Supabase schema cache 반영 불안정
+//   - description 컬럼 없는 DB 대비 graceful retry — 에러 패턴 확장
+//     ("schema cache", "does not exist", "could not find" 전부 catch)
 // ============================================================
 import { NextRequest, NextResponse } from 'next/server'
 import { requireUser } from '@/app/lib/userAuth'
@@ -47,6 +51,22 @@ function extractPlaceIdFromUrl(url: string | null | undefined): string | null {
   return null
 }
 
+// description 컬럼 미존재 에러 패턴 — Supabase 는 상황에 따라 다음 4가지 중 하나로 반환
+//   1) column "description" of relation "stores" does not exist   (실제 insert 시)
+//   2) column stores.description does not exist                   (PostgREST)
+//   3) Could not find the 'description' column of 'stores' in the schema cache   (캐시 미반영)
+//   4) column "desc" ...                                          (legacy)
+function isDescriptionColumnMissing(msg: string): boolean {
+  const m = String(msg || '').toLowerCase()
+  if (!m) return false
+  const mentionsDescription = m.includes('description') || m.includes('"desc"') || m.includes(' desc ')
+  if (!mentionsDescription) return false
+  return m.includes('does not exist') ||
+         m.includes('schema cache') ||
+         m.includes('could not find') ||
+         m.includes('not found')
+}
+
 export async function POST(req: NextRequest) {
   const auth = await requireUser()
   if (!auth.ok) {
@@ -67,7 +87,8 @@ export async function POST(req: NextRequest) {
       naver_url,
       main_keyword,
       sub_keywords,
-      desc,
+      description,
+      desc, // 구형 페이로드 호환
       reward_type,
       reward_value,
     } = body || {}
@@ -78,12 +99,13 @@ export async function POST(req: NextRequest) {
 
     const slug = (slugIn && typeof slugIn === 'string' ? slugIn : makeSlug(name)) || makeSlug(name)
     const placeId = naver_place_id || extractPlaceIdFromUrl(naver_url)
+    const descText = (typeof description === 'string' && description.trim())
+      ? description.trim()
+      : (typeof desc === 'string' && desc.trim() ? desc.trim() : null)
 
     const svc = createServiceClient()
 
     // user_id + slug 기준 upsert — user_id 는 requireUser() 결과 신뢰
-    // 기존 onConflict:'slug' 는 다른 사용자의 동일 slug 를 덮어쓸 수 있어 위험
-    // user_id 와 함께 복합 match 로 기존 레코드 조회 후 update/insert 분기
     const { data: existing } = await svc
       .from('stores')
       .select('id, slug')
@@ -106,46 +128,61 @@ export async function POST(req: NextRequest) {
       reward_value: reward_value || null,
       user_id: userId,
     }
-    if (desc) payload.desc = desc
+    if (descText) payload.description = descText
 
     let result: any
     if (existing?.id) {
-      const { data, error } = await svc
-        .from('stores')
-        .update(payload)
-        .eq('id', existing.id)
-        .eq('user_id', userId)
-        .select('id, slug, name, updated_at')
-        .single()
-      if (error) {
+      const tryUpdate = async (withDesc: boolean) => {
+        const p = { ...payload }
+        if (!withDesc) delete p.description
+        return svc
+          .from('stores')
+          .update(p)
+          .eq('id', existing.id)
+          .eq('user_id', userId)
+          .select('id, slug, name, description, updated_at')
+          .single()
+      }
+      let { data, error } = await tryUpdate(true)
+      if (error && isDescriptionColumnMissing(error.message)) {
+        const retry = await tryUpdate(false)
+        if (retry.error) {
+          return NextResponse.json({
+            ok: false,
+            error: retry.error.message,
+            hint: 'stores.description 컬럼이 없습니다. supabase/migrations/30cha11_stores_description.sql 을 Supabase SQL Editor 에서 실행하세요.',
+          }, { status: 500 })
+        }
+        data = retry.data
+      } else if (error) {
         return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
       }
       result = data
     } else {
-      const { data, error } = await svc
-        .from('stores')
-        .insert(payload)
-        .select('id, slug, name, updated_at')
-        .single()
-      if (error) {
-        // desc 컬럼 없는 스키마 대비 — desc 제거 후 재시도
-        if (/column\s+"?desc"?\s+does\s+not\s+exist/i.test(error.message)) {
-          delete payload.desc
-          const retry = await svc
-            .from('stores')
-            .insert(payload)
-            .select('id, slug, name, updated_at')
-            .single()
-          if (retry.error) {
-            return NextResponse.json({ ok: false, error: retry.error.message }, { status: 500 })
-          }
-          result = retry.data
-        } else {
-          return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
-        }
-      } else {
-        result = data
+      const tryInsert = async (withDesc: boolean) => {
+        const p = { ...payload }
+        if (!withDesc) delete p.description
+        return svc
+          .from('stores')
+          .insert(p)
+          .select('id, slug, name, description, updated_at')
+          .single()
       }
+      let { data, error } = await tryInsert(true)
+      if (error && isDescriptionColumnMissing(error.message)) {
+        const retry = await tryInsert(false)
+        if (retry.error) {
+          return NextResponse.json({
+            ok: false,
+            error: retry.error.message,
+            hint: 'stores.description 컬럼이 없습니다. supabase/migrations/30cha11_stores_description.sql 을 Supabase SQL Editor 에서 실행하세요.',
+          }, { status: 500 })
+        }
+        data = retry.data
+      } else if (error) {
+        return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
+      }
+      result = data
     }
 
     return NextResponse.json({ ok: true, slug: result.slug, store: result })
