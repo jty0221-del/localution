@@ -271,6 +271,11 @@ export default function PlaceDiagnosisPage() {
   const [fetchedInfo, setFetchedInfo] = useState<any>(null)
   const [loadingInfo, setLoadingInfo] = useState(false)
   const [fetchError, setFetchError] = useState<string>('')
+  // 22차-2: 추적 등록
+  const [trackedTargets, setTrackedTargets] = useState<any[]>([])
+  const [loadingTargets, setLoadingTargets] = useState(false)
+  const [registering, setRegistering] = useState(false)
+  const [registerMsg, setRegisterMsg] = useState<string>('')
 
   // localStorage: store_info + youtube links 로딩
   useEffect(() => {
@@ -282,6 +287,84 @@ export default function PlaceDiagnosisPage() {
       const y = localStorage.getItem('localution.place_checklist_youtube')
       if (y) setYoutubeLinks(JSON.parse(y))
     } catch {}
+  }, [])
+
+  // 22차-2: 추적 목록 로딩
+  const reloadTargets = useCallback(async () => {
+    setLoadingTargets(true)
+    try {
+      const res = await fetch('/api/place/targets', { cache: 'no-store' })
+      if (res.status === 401) { setTrackedTargets([]); return }
+      const data = await res.json()
+      if (res.ok && Array.isArray(data.targets)) setTrackedTargets(data.targets)
+    } catch {} finally { setLoadingTargets(false) }
+  }, [])
+  useEffect(() => { reloadTargets() }, [reloadTargets])
+
+  const isCurrentTracked = useMemo(
+    () => !!placeId && trackedTargets.some(t => t.place_id === placeId),
+    [placeId, trackedTargets],
+  )
+
+  const registerTarget = useCallback(async () => {
+    if (!placeId) return
+    setRegistering(true)
+    setRegisterMsg('')
+    try {
+      const res = await fetch('/api/place/targets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: urlInput || placeId }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        if (res.status === 401) setRegisterMsg('로그인 후 이용 가능합니다.')
+        else setRegisterMsg(data.error || '등록 실패')
+        return
+      }
+      setRegisterMsg(`✓ "${data.target?.name || placeId}" 추적 등록 완료`)
+      await reloadTargets()
+    } catch (e: any) {
+      setRegisterMsg('네트워크 오류로 등록 실패')
+    } finally {
+      setRegistering(false)
+    }
+  }, [placeId, urlInput, reloadTargets])
+
+  const removeTarget = useCallback(async (targetId: string, name: string) => {
+    if (!confirm(`"${name}" 추적을 해제할까요? 스냅샷 이력도 함께 삭제됩니다.`)) return
+    try {
+      const res = await fetch(`/api/place/targets?target_id=${encodeURIComponent(targetId)}`, { method: 'DELETE' })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        alert(data.error || '삭제 실패')
+        return
+      }
+      await reloadTargets()
+    } catch {
+      alert('네트워크 오류로 삭제 실패')
+    }
+  }, [reloadTargets])
+
+  const loadTrackedTarget = useCallback((t: any) => {
+    const url = `https://m.place.naver.com/${t.category || 'restaurant'}/${t.place_id}/home`
+    setUrlInput(url)
+    setPlaceId(t.place_id)
+    setFetchedInfo({
+      placeId:              t.place_id,
+      category:             t.category,
+      categoryName:         t.category_name,
+      name:                 t.name,
+      address:              t.road_address || '',
+      roadAddress:          t.road_address || '',
+      phone:                t.phone || '',
+      thumbnail:            t.thumbnail_url || '',
+      visitorReviewCount:   t.last_visitor_review,
+      blogReviewCount:      t.last_blog_review,
+      rating:               t.last_rating,
+    })
+    setFetchError('')
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }, [])
 
   const setYoutubeLink = useCallback((itemId: string, url: string) => {
@@ -391,6 +474,57 @@ export default function PlaceDiagnosisPage() {
             </p>
           </div>
 
+          {/* 22차-2: 내가 추적 중인 지점 */}
+          {trackedTargets.length > 0 && (
+            <div className="bg-white rounded-2xl shadow-sm p-5 mb-5">
+              <div className="flex items-center justify-between mb-3">
+                <p className="text-sm font-bold text-[#191F28]">📍 내가 추적 중인 지점 <span className="text-[#8B95A1] font-normal">({trackedTargets.length})</span></p>
+                {loadingTargets && <span className="text-[10px] text-[#8B95A1]">불러오는 중...</span>}
+              </div>
+              <div className="space-y-2">
+                {trackedTargets.map((t: any) => (
+                  <div key={t.id} className="flex items-center gap-3 p-3 rounded-xl bg-[#F8F9FA] hover:bg-[#F2F4F6] transition-colors">
+                    {t.thumbnail_url && (
+                      <img src={t.thumbnail_url} alt={t.name} className="w-12 h-12 rounded-lg object-cover flex-shrink-0"
+                        onError={e => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold text-[#191F28] truncate">{t.name}</p>
+                      <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-[10px] text-[#8B95A1]">
+                        {t.category_name && <span>{t.category_name}</span>}
+                        {t.last_visitor_review !== null && t.last_visitor_review !== undefined && (
+                          <span>방문 <span className="text-[#3182F6] font-bold">{t.last_visitor_review}</span></span>
+                        )}
+                        {t.last_blog_review !== null && t.last_blog_review !== undefined && (
+                          <span>블로그 <span className="text-[#3182F6] font-bold">{t.last_blog_review}</span></span>
+                        )}
+                        {t.last_rating !== null && t.last_rating !== undefined && (
+                          <span>★ <span className="text-[#F59E0B] font-bold">{t.last_rating}</span></span>
+                        )}
+                        {t.last_ts && <span className="text-[#B0B8C1]">· {new Date(t.last_ts).toLocaleDateString('ko-KR', { month: 'numeric', day: 'numeric' })}</span>}
+                      </div>
+                    </div>
+                    <div className="flex gap-1 flex-shrink-0">
+                      <button
+                        onClick={() => loadTrackedTarget(t)}
+                        className="px-3 py-1.5 text-[10px] font-bold rounded-lg bg-[#3182F6] text-white hover:bg-[#1B64DA] transition-colors">
+                        점검
+                      </button>
+                      <button
+                        onClick={() => removeTarget(t.id, t.name)}
+                        className="px-2 py-1.5 text-[10px] font-bold rounded-lg bg-white text-[#8B95A1] hover:bg-[#FFF1F2] hover:text-[#F04452] border border-[#E5E8EB] transition-colors">
+                        ✕
+                      </button>
+                    </div>
+                  </div>
+                ))}
+              </div>
+              <p className="mt-3 text-[10px] text-[#8B95A1] leading-relaxed">
+                · 등록한 지점은 매일 자동으로 리뷰수/평점이 스냅샷 저장됩니다 (추이 차트는 다음 업데이트에 공개)
+              </p>
+            </div>
+          )}
+
           {/* 분석 결과 영역 */}
           {placeId && (
             <>
@@ -486,6 +620,24 @@ export default function PlaceDiagnosisPage() {
                   )}
 
                   <div className="mt-4 pt-4 border-t border-[#F2F4F6] space-y-2">
+                    {/* 22차-2: 추적 등록 버튼 */}
+                    {fetchedInfo && (
+                      isCurrentTracked ? (
+                        <div className="w-full text-center text-xs font-bold py-2.5 rounded-xl bg-[#E8F5E9] text-[#12B76A] border border-[#12B76A]/30">
+                          ✓ 추적 중 (매일 자동 갱신)
+                        </div>
+                      ) : (
+                        <button
+                          onClick={registerTarget}
+                          disabled={registering}
+                          className="block w-full text-center text-xs font-bold py-2.5 rounded-xl bg-[#3182F6] text-white hover:bg-[#1B64DA] transition-colors disabled:opacity-50">
+                          {registering ? '등록 중...' : '📍 추적 등록 (매일 자동 갱신)'}
+                        </button>
+                      )
+                    )}
+                    {registerMsg && (
+                      <p className="text-[10px] text-center text-[#4E5968] leading-relaxed">{registerMsg}</p>
+                    )}
                     <a href={`https://m.place.naver.com/${fetchedInfo?.category || 'restaurant'}/${placeId}/home`} target="_blank" rel="noopener noreferrer"
                       className="block w-full text-center text-xs font-bold py-2.5 rounded-xl bg-[#03C75A] text-white hover:bg-[#02B350] transition-colors">
                       네이버 플레이스에서 보기 ↗
