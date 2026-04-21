@@ -157,7 +157,14 @@ export default function LoginPage() {
         .sIcon { width:20px; height:20px; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
 
         .errMsg { background:rgba(239,68,68,0.1); border:1px solid rgba(239,68,68,0.3); color:#fca5a5; padding:12px; border-radius:10px; font-size:13px; margin-bottom:20px; text-align:center; animation: fadeInUp 0.4s ease; }
-        .footer { margin-top:28px; text-align:center; font-size:12px; color:#64748b; line-height:1.8; }
+        .consentMsg { margin-top:16px; padding:10px 12px; background:rgba(59,130,246,0.06); border:1px solid rgba(59,130,246,0.15); border-radius:10px; font-size:11px; color:#94a3b8; line-height:1.6; text-align:center; }
+        .consentMsg a { color:#60a5fa; text-decoration:underline; }
+        .consentMsg a:hover { color:#93c5fd; }
+        .footer { margin-top:20px; text-align:center; font-size:12px; color:#64748b; line-height:1.8; }
+        .footerLinks { display:flex; justify-content:center; gap:12px; margin-bottom:8px; font-size:11px; }
+        .footerLinks a { color:#64748b; text-decoration:none; }
+        .footerLinks a:hover { color:#94a3b8; text-decoration:underline; }
+        .footerDivider { color:#334155; }
 
         @media (max-width: 1100px) {
           .mainWrap { flex-direction:column; height:auto; }
@@ -329,7 +336,22 @@ export default function LoginPage() {
               </a>
             </div>
 
+            <div className='consentMsg'>
+              {isSignup ? '가입하면 ' : '로그인하면 '}
+              <a href='/terms' target='_blank' rel='noopener'>이용약관</a>
+              {' 및 '}
+              <a href='/privacy' target='_blank' rel='noopener'>개인정보처리방침</a>
+              에 동의하는 것으로 간주됩니다.
+            </div>
+
             <div className='footer'>
+              <div className='footerLinks'>
+                <a href='/terms' target='_blank' rel='noopener'>이용약관</a>
+                <span className='footerDivider'>·</span>
+                <a href='/privacy' target='_blank' rel='noopener'>개인정보처리방침</a>
+                <span className='footerDivider'>·</span>
+                <a href='/legal/platform-consent' target='_blank' rel='noopener'>위임동의서</a>
+              </div>
               &copy; 2026 하랑<br/>
               Powered by 하랑마케팅
             </div>
