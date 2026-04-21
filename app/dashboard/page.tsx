@@ -776,55 +776,135 @@ export default function Dashboard() {
   //   · 여기서 서버 상태를 읽어 platforms[].connected 를 "true 로만" 덮어써서
   //     로컬스토리지 기반 + 서버 기반 연결이 합쳐지도록 한다.
   //   · 서버 slug (naver_place/baemin/yogiyo/coupangeats) 는 대시보드 PlatformId 와 동일명.
-  useEffect(() => {
-    if (!isLoggedIn) return
-    let cancelled = false
-    ;(async () => {
-      try {
-        const res = await fetch('/api/stores/me', { cache: 'no-store' })
-        if (!res.ok) return
-        const data = await res.json()
-        if (cancelled || !data?.ok) return
-        const server: Array<{
-          platform: string
-          connected: boolean
-          platform_store_id: string | null
-          platform_store_name: string | null
-        }> = data.platforms ?? []
+  // 30차-15-B: 서버 응답의 review_count/rating_avg 도 대시보드 state 로 반영.
+  //   → "데이터 수집 중..." → 실제 별점/리뷰 수로 자동 전환
+  const [reviewsFetchState, setReviewsFetchState] = useState<'idle' | 'fetching' | 'done' | 'error'>('idle')
+  const reloadStoresMe = useCallback(async (): Promise<void> => {
+    try {
+      const res = await fetch('/api/stores/me', { cache: 'no-store' })
+      if (!res.ok) return
+      const data = await res.json()
+      if (!data?.ok) return
+      const server: Array<{
+        platform: string
+        connected: boolean
+        platform_store_id: string | null
+        platform_store_name: string | null
+        review_count?: number
+        rating_avg?: number | null
+      }> = data.platforms ?? []
 
-        // 30차-15-A: 상세 데이터를 모달 prefill 용으로 저장
-        const detailsMap: Record<
-          string,
-          { connected: boolean; platform_store_id: string | null; platform_store_name: string | null }
-        > = {}
-        server.forEach((p) => {
-          detailsMap[p.platform] = {
-            connected: !!p.connected,
-            platform_store_id: p.platform_store_id ?? null,
-            platform_store_name: p.platform_store_name ?? null,
+      const detailsMap: Record<
+        string,
+        { connected: boolean; platform_store_id: string | null; platform_store_name: string | null }
+      > = {}
+      const aggMap: Record<string, { review_count: number; rating_avg: number | null }> = {}
+      server.forEach((p) => {
+        detailsMap[p.platform] = {
+          connected: !!p.connected,
+          platform_store_id: p.platform_store_id ?? null,
+          platform_store_name: p.platform_store_name ?? null,
+        }
+        aggMap[p.platform] = {
+          review_count: Number(p.review_count ?? 0),
+          rating_avg: typeof p.rating_avg === 'number' ? p.rating_avg : null,
+        }
+      })
+      setServerPlatformDetails(detailsMap)
+      setServerStore({
+        naver_place_id: data.store?.naver_place_id ?? null,
+        naver_url: data.store?.naver_url ?? data.store?.naver_place_url ?? null,
+      })
+
+      const connectedSet = new Set(
+        server.filter((p) => p.connected).map((p) => p.platform)
+      )
+      setPlatforms((prev) =>
+        prev.map((p) => {
+          const agg = aggMap[p.id]
+          const hasAgg = agg && agg.review_count > 0
+          return {
+            ...p,
+            connected: connectedSet.has(p.id) ? true : p.connected,
+            // 서버 집계가 있으면 실제 값으로 덮어쓰기. 없으면 기존 state 유지 (localStorage 값 포함)
+            rating: hasAgg ? agg.rating_avg : p.rating,
+            reviews: hasAgg ? agg.review_count : p.reviews,
           }
         })
-        setServerPlatformDetails(detailsMap)
-        setServerStore({
-          naver_place_id: data.store?.naver_place_id ?? null,
-          naver_url: data.store?.naver_url ?? data.store?.naver_place_url ?? null,
-        })
+      )
+    } catch {
+      // graceful degrade — 서버 응답 실패시 localStorage 만 쓰임
+    }
+  }, [])
 
-        const connectedSet = new Set(
-          server.filter((p) => p.connected).map((p) => p.platform)
-        )
-        if (connectedSet.size === 0) return
-        setPlatforms((prev) =>
-          prev.map((p) => (connectedSet.has(p.id) ? { ...p, connected: true } : p))
-        )
+  useEffect(() => {
+    if (!isLoggedIn) return
+    reloadStoresMe()
+  }, [isLoggedIn, reloadStoresMe])
+
+  // 30차-15-B: 연결된 네이버 플레이스가 있고 리뷰 집계가 0건이면 자동으로 1회 수집 시도
+  //   · 사용자가 "지금 수집" 을 누르지 않아도 연결 직후 첫 수집을 빠르게 반영해
+  //     "데이터 수집 중..." 라벨이 저절로 해소되도록 한다.
+  //   · 중복 호출 방지: reviewsFetchState 로 가드
+  useEffect(() => {
+    if (!isLoggedIn) return
+    if (reviewsFetchState !== 'idle') return
+    const nv = platforms.find((p) => p.id === 'naver_place')
+    if (!nv?.connected) return
+    // 이미 집계가 있으면 (reviews > 0) 수집 스킵
+    if (typeof nv.reviews === 'number' && nv.reviews > 0) return
+
+    setReviewsFetchState('fetching')
+    ;(async () => {
+      try {
+        const res = await fetch('/api/place/reviews/fetch', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({}),
+        })
+        if (!res.ok) {
+          setReviewsFetchState('error')
+          return
+        }
+        const j = await res.json().catch(() => null)
+        if (j?.ok && typeof j.total === 'number' && j.total > 0) {
+          await reloadStoresMe()
+        }
+        setReviewsFetchState('done')
       } catch {
-        // graceful degrade — 서버 응답 실패시 localStorage 만 쓰임
+        setReviewsFetchState('error')
       }
     })()
-    return () => {
-      cancelled = true
+  }, [isLoggedIn, platforms, reviewsFetchState, reloadStoresMe])
+
+  const handleCollectNaverReviews = async () => {
+    setReviewsFetchState('fetching')
+    try {
+      const res = await fetch('/api/place/reviews/fetch', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      })
+      const j = await res.json().catch(() => null)
+      if (!res.ok || !j?.ok) {
+        toast.error(j?.error || `리뷰 수집 실패 (${res.status})`)
+        setReviewsFetchState('error')
+        return
+      }
+      await reloadStoresMe()
+      if (j.total > 0) {
+        toast.success(`네이버 리뷰 ${j.total}건 수집 완료`)
+      } else {
+        toast.info(j.note || '수집된 리뷰가 없습니다')
+      }
+      setReviewsFetchState('done')
+    } catch (e: any) {
+      toast.error(`수집 오류: ${e?.message || e}`)
+      setReviewsFetchState('error')
     }
-  }, [isLoggedIn])
+  }
 
   // 프로필(매장 주소/이름) → 지역 기반 키워드 자동 생성
   useEffect(() => {
@@ -1326,7 +1406,19 @@ export default function Dashboard() {
           <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
             <div className="px-5 py-4 border-b border-[#F2F4F6] flex items-center justify-between">
               <span className="text-sm font-bold text-[#191F28]">플랫폼별 별점 · 리뷰 현황</span>
-              <span className="text-[11px] text-[#8B95A1]">연동된 플랫폼만 표시</span>
+              {/* 30차-15-B: "지금 수집" 버튼 — 네이버 플레이스 연동됐을 때만 노출 */}
+              {platforms.find(p => p.id === 'naver_place')?.connected ? (
+                <button
+                  onClick={handleCollectNaverReviews}
+                  disabled={reviewsFetchState === 'fetching'}
+                  className="text-[11px] px-2 py-1 rounded-lg bg-[#E8FBF0] text-[#015C2C] font-bold hover:bg-[#D1F7E0] disabled:opacity-50 transition-colors"
+                  title="네이버 플레이스 공개 리뷰를 지금 불러옵니다"
+                >
+                  {reviewsFetchState === 'fetching' ? '수집 중...' : '↻ 지금 수집'}
+                </button>
+              ) : (
+                <span className="text-[11px] text-[#8B95A1]">연동된 플랫폼만 표시</span>
+              )}
             </div>
             <div className="p-5 space-y-4">
               {platforms.filter(p => p.connected).length === 0 ? (
@@ -1335,7 +1427,9 @@ export default function Dashboard() {
                   <p className="text-xs text-[#8B95A1]">상단 로고를 클릭해 연동을 시작하세요</p>
                 </div>
               ) : (
-                platforms.filter(p => p.connected).map(p => (
+                platforms.filter(p => p.connected).map(p => {
+                  const isFetchingThis = p.id === 'naver_place' && reviewsFetchState === 'fetching'
+                  return (
                   <div key={p.id} className="flex items-center gap-4">
                     <div className="flex-shrink-0">{p.logo(36)}</div>
                     <div className="flex-1 min-w-0">
@@ -1346,8 +1440,18 @@ export default function Dashboard() {
                             <Stars rating={p.rating} />
                             <span className="text-xs text-[#8B95A1]">리뷰 <strong className="text-[#191F28]">{p.reviews}건</strong></span>
                           </div>
+                        ) : isFetchingThis ? (
+                          <span className="inline-flex items-center gap-1.5 text-xs text-[#3182F6] font-semibold">
+                            <span className="w-2 h-2 rounded-full bg-[#3182F6] animate-pulse" />
+                            리뷰 수집 중...
+                          </span>
+                        ) : p.id === 'naver_place' ? (
+                          <span className="inline-flex items-center gap-1.5 text-xs text-[#8B95A1]">
+                            <span className="w-1.5 h-1.5 rounded-full bg-[#F59E0B]" />
+                            아직 수집 전 — 상단 "지금 수집" 클릭
+                          </span>
                         ) : (
-                          <span className="text-xs text-[#8B95A1]">데이터 수집 중...</span>
+                          <span className="text-xs text-[#8B95A1]">Worker 자동수집 대기</span>
                         )}
                       </div>
                       {p.rating !== null && (
@@ -1360,7 +1464,8 @@ export default function Dashboard() {
                       )}
                     </div>
                   </div>
-                ))
+                  )
+                })
               )}
 
               {platforms.filter(p => !p.connected).length > 0 && (
