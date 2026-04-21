@@ -114,21 +114,79 @@ export default function ReviewAdminHub() {
   const [feedError, setFeedError] = useState('')
   const [filter, setFilter] = useState<'all' | PlatformKey>('all')
 
-  // 훅 기반 stats 파생
+  // 28차-3: /api/stores/me 서버 소스 (platform_credentials 기반)
+  const [serverPlatforms, setServerPlatforms] = useState<Record<string, {
+    connected: boolean
+    platform_store_id: string | null
+    platform_store_name: string | null
+    account_id_masked: string
+  }>>({})
+  const [serverNaverLink, setServerNaverLink] = useState<{
+    external_id: string | null
+    external_name: string | null
+    external_url: string | null
+  } | null>(null)
+
+  useEffect(() => {
+    ;(async () => {
+      try {
+        const res = await fetch('/api/stores/me', { credentials: 'include', cache: 'no-store' })
+        if (!res.ok) return
+        const j = await res.json()
+        if (!j?.ok) return
+        // platform slug → review-admin key 매핑: naver_place→naver, coupangeats→coupang
+        const slugToKey: Record<string, string> = {
+          naver_place: 'naver',
+          baemin: 'baemin',
+          yogiyo: 'yogiyo',
+          coupangeats: 'coupang',
+        }
+        const map: Record<string, any> = {}
+        for (const p of (j.platforms || [])) {
+          const key = slugToKey[p.platform] || p.platform
+          map[key] = {
+            connected: !!p.connected,
+            platform_store_id: p.platform_store_id,
+            platform_store_name: p.platform_store_name,
+            account_id_masked: p.account_id_masked || '',
+          }
+        }
+        setServerPlatforms(map)
+        setServerNaverLink(j.naver_link || null)
+      } catch (_) {}
+    })()
+  }, [])
+
+  // 훅 기반 stats 파생 (로컬 훅 + 서버 연결 정보 병합)
   const stats: PlatformStat[] = useMemo(() => ALL_PLATFORMS.map(p => {
     const c = connections[p as PlatformId]
+    const s = serverPlatforms[p]
     const r = reviewStats[p] || {}
+    // 네이버는 platform_credentials 에 naver_place 로 저장되면 연결 처리
+    const naverFromServer = p === 'naver' && (s?.connected || !!serverNaverLink)
+    const connected = !!c?.connected || !!s?.connected || naverFromServer
+    const externalName =
+      c?.externalName ||
+      s?.platform_store_name ||
+      (p === 'naver' ? serverNaverLink?.external_name || undefined : undefined)
+    const externalUrl =
+      c?.externalUrl ||
+      (p === 'naver' ? serverNaverLink?.external_url || undefined : undefined)
+    const storeId =
+      c?.externalId ||
+      s?.platform_store_id ||
+      (p === 'naver' ? serverNaverLink?.external_id || undefined : undefined)
     return {
       platform: p,
-      connected: !!c?.connected,
-      externalName: c?.externalName,
-      externalUrl: c?.externalUrl,
-      storeId: c?.externalId,
+      connected,
+      externalName: externalName ?? undefined,
+      externalUrl: externalUrl ?? undefined,
+      storeId: storeId ?? undefined,
       reviewCount: r.reviewCount,
       avgRating: r.avgRating,
       unreplied: r.unreplied,
     }
-  }), [connections, reviewStats])
+  }), [connections, reviewStats, serverPlatforms, serverNaverLink])
 
   // ─── 리뷰 피드 로드 ──────────────────────────────────────
   const loadFeed = useCallback(async () => {
