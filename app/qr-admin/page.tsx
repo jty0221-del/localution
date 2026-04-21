@@ -239,7 +239,7 @@ function safeFileName(raw: string): string {
     .slice(0, 40) || '업체'
 }
 
-// QR 다운로드 함수
+// QR ��운로드 함수
 function downloadQR(url: string, fileName: string) {
   const size = 400
   const encoded = encodeURIComponent(url)
@@ -490,7 +490,7 @@ function ReviewStatsSection({ storeName }: { storeName: string }) {
             <span className="text-xl">📊</span> QR 리뷰 생성 통계
           </h2>
           <p className="text-xs text-[#8B95A1] mt-0.5">
-            /review QR 스캔 후 고객이 선택한 성별·연령·톤·길이 누적 집계 · 매장별 인사이트
+            /review QR 스캔 후 고객이 선택한 성별·연령·톤·길이 누적 ��계 · 매장별 인사이트
           </p>
         </div>
         <div className="flex items-center gap-1 bg-[#F2F4F6] rounded-lg p-0.5">
@@ -670,6 +670,9 @@ export default function QRAdmin() {
   // 21차-1c-A: QR 소스 모드 (자동 연동 vs URL 직접입력)
   const [qrMode, setQrMode] = useState<'linked' | 'custom'>('linked')
   const [customUrl, setCustomUrl] = useState('')
+
+  // 21차-1c-B: 리뷰 페이지 iframe 미리보기 토글
+  const [showPreview, setShowPreview] = useState(false)
 
   useEffect(() => {
     try {
@@ -1279,7 +1282,7 @@ export default function QRAdmin() {
               ? (storeInfo.connected
                   ? '연동된 네이버 업체 정보가 자동으로 반영됩니다. 다운로드 후 매장에 부착하세요.'
                   : '업체를 먼저 연동하면 QR이 생성됩니다.')
-              : '원하는 URL을 입력하면 즉시 QR이 생성됩니다. (스마트스토어·예약페이지·SNS 등)'}
+              : '��하는 URL을 입력하면 즉시 QR이 생성됩니다. (스마트스토어·예약페이지·SNS 등)'}
           </p>
 
           {/* 21차-1c-A: 모드 토글 */}
@@ -1395,6 +1398,45 @@ export default function QRAdmin() {
             <div className="bg-[#F8F9FA] rounded-xl p-6 text-center">
               <div className="text-3xl mb-2">🔗</div>
               <p className="text-sm text-[#4E5968] font-semibold">위에 URL을 입력하면 QR이 즉시 생성됩니다.</p>
+            </div>
+          )}
+
+          {/* 21차-1c-B: 리뷰 페이지 iframe 미리보기 */}
+          {canRender && (
+            <div className="mt-6 pt-5 border-t border-[#F2F4F6]">
+              <div className="flex items-center justify-between mb-3">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm">👁️</span>
+                  <h4 className="text-sm font-bold text-[#191F28]">QR 스캔 후 고객이 보는 화면</h4>
+                </div>
+                <div className="flex items-center gap-2">
+                  <a href={qrTargetUrl} target="_blank" rel="noopener noreferrer"
+                     className="text-[11px] font-bold px-2.5 py-1.5 rounded-lg bg-[#EFF6FF] text-[#3182F6] hover:bg-[#DBEAFE] whitespace-nowrap">
+                    새 창에서 열기 ↗
+                  </a>
+                  <button onClick={() => setShowPreview(v => !v)}
+                    className={'text-[11px] font-bold px-2.5 py-1.5 rounded-lg whitespace-nowrap transition-colors ' +
+                      (showPreview ? 'bg-[#F2F4F6] text-[#4E5968] hover:bg-[#E5E8EB]' : 'bg-[#191F28] text-white hover:bg-[#333D4B]')}>
+                    {showPreview ? '미리보기 숨기기' : '미리보기 보기'}
+                  </button>
+                </div>
+              </div>
+              {showPreview && (
+                <>
+                  <div className="relative bg-[#F2F4F6] rounded-xl p-3 border border-[#E5E8EB]">
+                    <iframe
+                      src={qrTargetUrl}
+                      title="리뷰 페이지 미리보기"
+                      className="w-full bg-white rounded-lg border border-[#E5E8EB]"
+                      style={{ height: '680px' }}
+                      sandbox="allow-same-origin allow-scripts allow-forms allow-popups allow-popups-to-escape-sandbox"
+                    />
+                  </div>
+                  <p className="text-[11px] text-[#8B95A1] mt-2 text-center">
+                    ※ 실제 배포 페이지가 iframe으로 로드됩니다. QR 스캔 경험과 동일해요.
+                  </p>
+                </>
+              )}
             </div>
           )}
         </div>
