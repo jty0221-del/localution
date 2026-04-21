@@ -22,8 +22,9 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages'
-const MODEL = 'claude-3-5-sonnet-20241022'
-// 향후 'claude-sonnet-4-6' 로 교체 가능
+// 27차-9b: claude-3-5-sonnet-20241022 deprecation 대응 — 최신 sonnet-4-6 로 교체
+// env ANTHROPIC_MODEL 로 오버라이드 가능 (공식 지원 중단 시 즉시 교체)
+const MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6'
 
 interface GenerateBody {
   topic: string
