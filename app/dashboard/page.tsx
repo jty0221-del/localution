@@ -766,7 +766,11 @@ export default function Dashboard() {
           reviews: p.reviews ?? c.reviewCount ?? null,
         }
       }
-      return { ...p, connected: false, rating: null, reviews: null }
+      // 30차-18: canonical 이 "disconnected" 여도 rating/reviews 는 초기화하지 않는다.
+      //   · reloadStoresMe 가 이미 set 한 집계(p.reviews=20)를 여기서 덮어쓰면
+      //     "20건 수집했는데 대시보드에 안 보임" 재현 버그.
+      //   · connected 플래그만 canonical 기준으로 해제하고, 집계는 /api/stores/me 를 단일 진실원으로.
+      return { ...p, connected: false }
     }))
   }, [canonicalConnections])
 
