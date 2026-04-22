@@ -19,6 +19,7 @@
 | 30차-19 | AI 답글 재작성 — review_id 로 stores+사진 자동 로드 + SEO 키워드 추론 + Claude Vision | app/api/ai-review-reply/route.ts | ✅ 완료 (8338c99) |
 | 30차-20 | 원클릭 자동 등록 버튼 (생성→복사→스마트플레이스 탭) + handleAiReply review_id 전환 | app/review-admin/naver/page.tsx | ✅ 완료 (782aeb0) |
 | 30차-21 | 댓글 초안→편집→자동등록 2단 시스템 전면 재구성 + 프롬프트 절제 + Worker 큐 인프라 | supabase/migrations/30cha21_platform_reviews_draft_columns.sql, app/api/ai-review-reply/route.ts, app/api/review-reply/draft/route.ts, app/api/review-reply/submit/route.ts, app/api/place/reviews/route.ts, app/review-admin/naver/page.tsx | ✅ 완료 |
+| 30차-22 | 초안 일괄 생성 + 3 플랫폼 2단 플로우 확장 + connect 미니멀 로그인 UI | app/api/review-reply/bulk-draft/route.ts, app/review-admin/components/PlatformReviewAdmin.tsx, app/review-admin/naver/page.tsx, app/review-admin/baemin/page.tsx, app/review-admin/yogiyo/page.tsx, app/review-admin/coupang/page.tsx, app/my/platforms/[platform]/connect/page.tsx | ✅ 완료 |
 
 ---
 
@@ -323,4 +324,68 @@ Railway 대시보드 → `worker` 서비스 → Variables 에 아래 3개 추가
 
 ---
 
-*최종 업데이트: 2026-04-22 30차-21 배포 완료 (댓글 초안→편집→자동등록 2단 시스템 + Worker 큐 인프라)*
+## 30차-22 — 초안 일괄 생성 + 3 플랫폼 2단 플로우 확장 + connect 미니멀 로그인 UI (2026-04-22)
+
+### 사용자 피드백
+> "B로 할꺼 같음 또한 이미지처럼 배민/요기요/쿠팡이츠 리뷰관리 페이지에도 동일하게 플로우를 적용하고 https://www.localution.co.kr/my/platforms 여기에 연결할 때 저런형태의 양식으로 변경해줘 네이버도 그렇게 해서 정리"
+
+30차-21 배포 완료 직후, 대표가 (A) 일괄 선택 체크박스 (B) 초안 일괄 생성 중에서 **B 채택**. 동시에 3 플랫폼 동일 플로우 확장과 connect 화면 미니멀 로그인 UI 요청.
+
+### 변경 내역
+
+#### 30차-22(1) — `POST /api/review-reply/bulk-draft` 신규
+- 미답변(has_reply=false) + 상태(none|draft|failed) 리뷰 id 목록을 최대 50개 반환
+- 실제 AI 호출은 클라이언트가 순차 수행 (서버 타임아웃 회피)
+- 응답 형태: `{ ok, platform, total, candidates: [{ id, has_draft, reply_status }] }`
+
+#### 30차-22(2) — `app/review-admin/components/PlatformReviewAdmin.tsx` 신규 공통 컴포넌트
+- 30차-21 네이버 페이지 600 줄 로직을 **플랫폼 config 주입형** 재사용 컴포넌트로 추출
+- props: `platform / uiKey / label / color / bg / textColor / icon / iconLetter / supportsFetch / connectHref`
+- 내부 기능 (공통):
+  - /api/stores/me 로 해당 플랫폼 연결 상태 + 집계 로드
+  - /api/place/reviews?platform= 로 리뷰 목록 로드
+  - /api/ai-review-reply → /api/review-reply/draft 순차 호출 (단일 초안)
+  - /api/review-reply/submit (이대로 등록)
+  - **/api/review-reply/bulk-draft 후보 조회 → 클라이언트 순차 반복 실행 (진행률 + 중단 버튼)**
+  - 평점/상태 필터, 통계 카드, 초기 진입 버튼, 편집 textarea, 톤 선택, 상태 배지
+  - supportsFetch=true (naver_place) 만 "지금 수집" 노출 — 배민/요기요/쿠팡은 Worker 대기 (23차-5)
+
+#### 30차-22(3) — 네이버 페이지 공통 컴포넌트 wrapper 로 축약
+- `/review-admin/naver/page.tsx` 600 줄 → **23 줄**
+- config: naver_place / naver / #03C75A / supportsFetch=true / connectHref=/my/platforms/naver_place/connect
+
+#### 30차-22(4) — 배민/요기요/쿠팡이츠 신규 2단 플로우 페이지
+- `/review-admin/baemin/page.tsx` 전면 재작성 → 공통 컴포넌트 wrapper (#2AC1BC, 🍔, 배)
+- `/review-admin/yogiyo/page.tsx` 전면 재작성 → 공통 컴포넌트 wrapper (#FA0050, 🛵, 요)
+- `/review-admin/coupang/page.tsx` 전면 재작성 → 공통 컴포넌트 wrapper (#FF4B30, 🚀, 쿠)
+- 기존 localStorage 기반 연결 판정 / /api/baemin-reviews 레거시 코드 전부 제거
+- 모두 platform_reviews 테이블 + 30차-21 draft/submit 파이프라인으로 통합
+
+#### 30차-22(5) — `/my/platforms/[platform]/connect` 미니멀 로그인 UI 리디자인
+- **STEP 1** (대리권 위임 동의 3 체크박스) 유지 + 상단에 컬러 로고 아이콘 추가
+- **STEP 2** (자격증명 입력) 을 모바일 앱 로그인 화면 카피:
+  - 좌측 상단 STEP 배지 + 우측 상단 X 닫기 버튼
+  - 컬러 로고 아이콘 (w-14 h-14 rounded-2xl) + 브랜드 색상
+  - 큰 타이틀: "{플랫폼} 리뷰 관리를 위해 로그인이 필요해요" (shortLabel 사용 — "배민" / "요기요" / "쿠팡이츠" / "네이버")
+  - 라벨 없는 input (placeholder 로만 안내) + 반투명 회색 배경
+  - 비밀번호 입력 eye 아이콘 토글 (SVG)
+  - 풀너비 "로그인" 버튼 — 배민/요기요/쿠팡은 이미지처럼 파스텔 라벤더(#E8E0FF / #4C3D8F), 네이버는 브랜드 그린
+  - 하단 "{플랫폼} 아이디, 비밀번호를 까먹었다면?" + "아이디 찾기 >" / "비밀번호 찾기 >" 2버튼 (배민은 통합 1버튼)
+  - 하단 보안 안내 "AES-256-GCM 암호화"
+- 선택 입력(storeName) 제거 — stores.name 은 platform-accounts POST 후 자동 upsert (28차-2) 로 커버
+
+### 배포 결과
+`scripts/push_30cha22_bulk_draft_and_minimal_login.js` — 7개 파일 일괄 커밋
+- da2e9f7: bulk-draft API
+- 87576ce: PlatformReviewAdmin 공통 컴포넌트
+- e146a6c: naver wrapper
+- 9c8d02b / 959a4b3 / 3a43757: baemin / yogiyo / coupang wrapper
+- cc6d8a0: connect 미니멀 로그인 UI
+
+### 다음 단계 (미해결)
+- 23차-5 Worker 어댑터 완성 시 배민/요기요/쿠팡 "지금 수집" 및 `queued → submitted` 루프 실제 가동
+- 30차-21 SQL 마이그레이션은 이미 Supabase 에서 실행 완료 (Success. No rows returned 확인)
+
+---
+
+*최종 업데이트: 2026-04-22 30차-22 배포 완료 (초안 일괄 생성 + 3 플랫폼 2단 확장 + connect 미니멀 로그인)*
