@@ -20,6 +20,7 @@
 | 30차-20 | 원클릭 자동 등록 버튼 (생성→복사→스마트플레이스 탭) + handleAiReply review_id 전환 | app/review-admin/naver/page.tsx | ✅ 완료 (782aeb0) |
 | 30차-21 | 댓글 초안→편집→자동등록 2단 시스템 전면 재구성 + 프롬프트 절제 + Worker 큐 인프라 | supabase/migrations/30cha21_platform_reviews_draft_columns.sql, app/api/ai-review-reply/route.ts, app/api/review-reply/draft/route.ts, app/api/review-reply/submit/route.ts, app/api/place/reviews/route.ts, app/review-admin/naver/page.tsx | ✅ 완료 |
 | 30차-22 | 초안 일괄 생성 + 3 플랫폼 2단 플로우 확장 + connect 미니멀 로그인 UI | app/api/review-reply/bulk-draft/route.ts, app/review-admin/components/PlatformReviewAdmin.tsx, app/review-admin/naver/page.tsx, app/review-admin/baemin/page.tsx, app/review-admin/yogiyo/page.tsx, app/review-admin/coupang/page.tsx, app/my/platforms/[platform]/connect/page.tsx | ✅ 완료 |
+| 30차-23 | 리뷰 UX 통합 개선 — 사진 썸네일/라이트박스 + 기간 필터(7/30/전체) + 헤더 카피 네이버 중심 + 대시보드 실데이터 통합 | app/review-admin/components/PlatformReviewAdmin.tsx, app/api/place/reviews/route.ts, app/dashboard/page.tsx | ✅ 완료 (22b8694 / 2918f12 / fda29e9) |
 
 ---
 
@@ -388,4 +389,54 @@ Railway 대시보드 → `worker` 서비스 → Variables 에 아래 3개 추가
 
 ---
 
-*최종 업데이트: 2026-04-22 30차-22 배포 완료 (초안 일괄 생성 + 3 플랫폼 2단 확장 + connect 미니멀 로그인)*
+## 30차-23 — 리뷰 UX 통합 개선 + 대시보드 실데이터 통합 (2026-04-22)
+
+### 작업 배경
+사용자 요청 5개:
+1. `/review-admin/naver` 에 리뷰 사진이 나오지 않음 → 사진 썸네일 + 라이트박스
+2. 리뷰가 20건까지만 보임 → 기간 필터(7/30/전체) + limit 상한 1000
+3. 상단 "연결된 매장 · AI 답글 2단 플로우" 카피가 네이버 플레이스 맥락과 안 맞음 → 네이버 플레이스 중심 안내 재작성
+4. `/dashboard` 의 "플랫폼별 별점·리뷰 현황" 에서도 실제 리뷰 미노출 → 플랫폼별 최신 2건 미니 카드
+5. `/dashboard` 하단 "최근 리뷰" 샘플 데이터 → 전 플랫폼 통합 실데이터 + AI 답글 진입점
+
+### 변경 내역
+
+#### 30차-23-1/2/3 — `app/review-admin/components/PlatformReviewAdmin.tsx`
+- review 타입에 `photos: string[]` + `photoCount: number` 추가 (기존 count-only → URL 배열)
+- `lightboxUrl` 상태 + 클릭 시 확대 모달 (`<dialog>` 스타일 fullscreen overlay)
+- 썸메일 그리드: 최대 10장 + 11장째부터 `+N` 오버레이 뱃지, `referrerPolicy="no-referrer"` 로 네이버 CDN 차단 우회
+- `period` 상태 (7 | 30 | all) + URLSearchParams 기반 fetch: `limit=1000&period=${period}`
+- 네이버 플레이스 전용 서브타이틀: "공개 리뷰 자동 수집 · 미답변 리뷰에 사장님 답글 작성"
+- 네이버 공개 GraphQL 의 키워드 리뷰 특성(rating=null) 안내 카드 + 원본 리뷰 페이지 외부 링크 추가
+
+#### 30차-23-2 — `app/api/place/reviews/route.ts`
+- `limit`: 기본 30 → 200, 상한 100 → 1000
+- `period` 파라미터 추가: `7` / `30` / `all` (기본 all) → posted_at 기준 서버사이드 필터
+- `unreplied_only=1` 파라미터 추가 → `has_reply=false` 자동 필터
+- 기간 필터는 Supabase `.gte('posted_at', ISO)` 로 구현해 대량 조회에도 DB 단 카트오프 적용
+
+#### 30차-23-4/5 — `app/dashboard/page.tsx`
+- `platformReviews: Record<string, RealReview[]>` 상태 + `loadPlatformReviews()` 콜백
+- 연결된 플랫폼이 바뀌면 `/api/place/reviews?platform=X&limit=30&period=all` 병렬 로드
+- `mergedRealReviews`: 전 플랫폼 리뷰 머지 + `posted_at` 기준 DESC 정렬
+- 감정 집계 / 미답변 카운트 / 부정 미답변 카운트 → `hasRealReviews` 여부로 실데이터 ↔ RECENT_REVIEWS(데모) 자동 스위치
+- 좌측 "플랫폼별 별점·리뷰 현황" 카드: 플랫폼 행 하단에 최신 2건 미니 렌더 (작성자·별점·시간·미답변 배지) + "전체보기" 링크
+- 하단 "최근 리뷰": 전 플랫폼 통합 10건 표시, 집계 플랫폼 배지 행 추가, 각 리뷰별 "AI 답글" 버튼이 `openAIReplyFromReal()` 통해 기존 AIReplyModal 로 연결 (RealReview → `{ platform, name, rating, text, time, replied, color }` 변환)
+- `timeAgo()` / `dbPlatformToId()` 헬퍼 추가
+- `handleCollectNaverReviews` 성공 후 `loadPlatformReviews(['naver_place'])` 즉시 호출 → 수집 버튼 누르면 아래 리뷰 목록도 즉시 갱신
+
+### 배포 정보
+- `scripts/push_30cha23_reviews_ux_dashboard.js` — 3 파일 일괄 PUT
+- commit: `22b8694` (PlatformReviewAdmin) / `2918f12` (reviews route) / `fda29e9` (dashboard)
+
+### 영향 범위
+- 네이버 플레이스 공개 리뷰에 한정해 실데이터 반영 (Worker 미완 플랫폼은 연결만 되면 빈 배열 반환 → UI 는 플랫폼 행만 표시)
+- 23차-5 Worker 어댑터 완성 시 배민/요기요/쿠팡이츠 실데이터도 자동으로 좌측 카드·하단 통합 리뷰에 섞여 들어감 (코드 수정 불필요)
+
+### 다음 단계 (미해결)
+- 23차-5 Worker 실제 수집 후 통합 리뷰가 4개 플랫폼 전부 섞여 뜨는지 확인
+- `/dashboard` 좌측 카드에서 "AI 답글" 클릭 시 AIReplyModal → 실제 게시는 네이버 플레이스만 지원 (배민/요기요/쿠팡은 30차-22 draft 큐에 묶여 있으므로 UX 분기 필요할 수 있음)
+
+---
+
+*최종 업데이트: 2026-04-22 30차-23 배포 완료 (리뷰 사진 + 기간 필터 + 네이버 헤더 + 대시보드 실데이터 통합)*
