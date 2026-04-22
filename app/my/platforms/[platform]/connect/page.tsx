@@ -22,7 +22,7 @@ export const dynamic = 'force-dynamic'
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useParams } from 'next/navigation'
-import PlatformLogo from '../../../components/PlatformLogo'
+import PlatformLogo from '../../../../components/PlatformLogo'
 
 type PlatformSlug = 'naver_place' | 'baemin' | 'yogiyo' | 'coupangeats' | 'kakao_map'
 const VALID_PLATFORMS: PlatformSlug[] = ['naver_place', 'baemin', 'yogiyo', 'coupangeats', 'kakao_map']
