@@ -24,6 +24,11 @@
 | 31차-1 | Kakao Map 플랫폼 추가(5번째) — DB/슬러그/대시보드/connect/리뷰어드민/worker 전파 | app/lib/platform-credentials.ts, app/lib/connections.ts, app/my/platforms/page.tsx, app/my/platforms/[platform]/connect/page.tsx, app/api/review-reply/bulk-draft/route.ts, app/review-admin/page.tsx, app/review-admin/kakao/page.tsx, app/dashboard/page.tsx, worker/src/jobs/index.ts | ✅ 완료 (bfc4cf3 / 4b9088f / 6b59ee3 / 02f46a3 / 9965d32 / 0f5e574 / 43aa6c2 / 6ac3aa5 / 716bd70) |
 | 31차-2 | /settings/profile 서버 단일 진실원 동기화 — `/api/stores/me` 연동 + 연결 플랫폼 뱃지 | app/settings/profile/page.tsx | ✅ 완료 (c0f4a07) |
 | 31차-3 | 카카오맵 공개 리뷰 수집기 — panel3 JSON 파서 + 수집 API + PlatformReviewAdmin.collectEndpoint 옵션 | app/lib/kakao-place.ts, app/api/place/kakao/collect/route.ts, app/review-admin/components/PlatformReviewAdmin.tsx | ✅ 완료 (9271f4f / 4a7b5af / 5d42435) |
+| 32차-1 | Worker 공통 라이브러리 (AES-256 복호화 + Supabase 서비스 + credentials 로더 + reviews UPSERT 헬퍼) | worker/src/lib/crypto.ts, worker/src/lib/supabase.ts, worker/src/lib/credentials.ts, worker/src/lib/reviews.ts | ✅ 완료 |
+| 32차-2 | 배민/요기요/쿠팡이츠 Playwright 어댑터 3종 (로그인 + 리뷰 파싱 + post_reply 자동 등록) | worker/src/adapters/baemin.ts, worker/src/adapters/yogiyo.ts, worker/src/adapters/coupangeats.ts | ✅ 완료 |
+| 32차-3 | Worker jobs 라우터 stub 제거 + Playwright Browser 싱글턴 + 실제 어댑터 라우팅 + payload 전달 | worker/src/jobs/index.ts, worker/src/index.ts | ✅ 완료 |
+| 32차-4 | BullMQ 큐 클라이언트 + /api/review-reply/collect 라우트 (Vercel→Railway enqueue) | app/lib/queue.ts, app/api/review-reply/collect/route.ts | ✅ 완료 |
+| 32차-5 | 3 플랫폼 wrapper supportsFetch:true + collectEndpoint 연결 (리뷰관리 "지금 수집" 활성화) | app/review-admin/baemin/page.tsx, app/review-admin/yogiyo/page.tsx, app/review-admin/coupang/page.tsx | ✅ 완료 |
 
 ---
 
@@ -565,3 +570,63 @@ Railway 대시보드 → `worker` 서비스 → Variables 에 아래 3개 추가
 ---
 
 *최종 업데이트: 2026-04-22 31차 배포 완료 (Kakao Map 5번째 플랫폼 통합 + /settings/profile 서버 동기화 + panel3 공개 수집기)*
+
+---
+
+## 32차 — Worker 어댑터 3종 실장 (배민/요기요/쿠팡이츠 리뷰 수집 + 답글 자동 등록)
+
+### 작업 배경
+대표님 질의: "배달의 민족, 요기요, 쿠팡이츠 전부 네이버와 마찬가지로 각각 시스템에 아이디, 비밀번호 연동까지 다했는데 왜 리뷰를 worker에서 못가져오는지 파악해서 전부 가져올 수 있게 구현해 ... 각각 매장에서 접속하여 리뷰를 가져올 수 있게 답글도 달수있게 구현"
+
+원인 진단 3가지:
+1. `worker/src/jobs/index.ts` 모든 플랫폼 stub — `status: 'skipped'` 반환
+2. `/review-admin/baemin|yogiyo|coupang` wrapper 에서 `supportsFetch: false` → "지금 수집" 버튼 비활성
+3. Vercel 측 BullMQ enqueue API 부재 (네이버는 공개 GraphQL 로 우회)
+
+### 변경 내역
+
+#### 32차-1 — Worker 공통 라이브러리 4종 신규
+- `worker/src/lib/crypto.ts` — 2단 AES-256-GCM 복호화 (KEK → DEK → plaintext)
+- `worker/src/lib/supabase.ts` — service-role 싱글턴
+- `worker/src/lib/credentials.ts` — `loadPlainCredentials()` / `markLoginStatus()`
+- `worker/src/lib/reviews.ts` — `upsertReviews()` + `maskAuthor()` (onConflict: `platform,platform_review_id`)
+
+#### 32차-2 — Playwright 어댑터 3종 신규
+- `worker/src/adapters/baemin.ts` — `https://self.baemin.com/login` → `/shops/{shopId}/reviews` → DOM 파싱 → `postBaeminReply()` 답글 자동 등록
+- `worker/src/adapters/yogiyo.ts` — `https://ceo.yogiyo.co.kr/login/` → `/reviews/` → DOM 파싱 → `postYogiyoReply()`
+- `worker/src/adapters/coupangeats.ts` — `https://store.coupangeats.com/merchant/login` → `/management/reviews` → DOM 파싱 → `postCoupangEatsReply()`
+- 공통 동작: ko-KR locale + Asia/Seoul timezone + 1366×900 viewport + 가짜 UA
+- 캡챠/블록 감지 시 `markLoginStatus('captcha')` + failed 반환
+- 스크롤 8회 로드 → 카드당 author/rating/content/photos/posted_at/has_reply/reply_content 파싱
+- `normalizeDate()` — "N일 전" / "YYYY.MM.DD" / ISO 8601 모두 지원
+
+#### 32차-3 — Worker 엔트리 재구성
+- `worker/src/jobs/index.ts` — stub 전면 제거, 실제 어댑터 호출 + `data.payload` 3번째 인자 전달
+- `worker/src/index.ts` — `chromium.launch()` 싱글턴, Worker 핸들러에서 `getBrowser()` 호출 후 `runJob(job.data, log, browser)` 주입, graceful shutdown 에서 `browser.close()`
+
+#### 32차-4 — Vercel 큐 클라이언트
+- `app/lib/queue.ts` — `IORedis` + `Queue<PlatformJobData>` 싱글턴, `enqueuePlatformJob()` 헬퍼
+- `app/api/review-reply/collect/route.ts` — POST `?platform=baemin|yogiyo|coupangeats` 시 `platform_credentials` 검증 + `storeId` 해소 + 10분 단위 jobId 중복 방지 + enqueue
+- `naver_place`/`kakao_map` 은 공개 수집기 경로 안내 후 거절
+
+#### 32차-5 — 리뷰관리 wrapper 활성화
+- `app/review-admin/baemin/page.tsx` / `yogiyo/page.tsx` / `coupang/page.tsx` 모두 `supportsFetch: true` + `collectEndpoint: '/api/review-reply/collect?platform=X'`
+- `PlatformReviewAdmin` 기존 collectNow 로직 그대로 활용 (응답 `{ok,total,note}` 호환)
+
+### Railway 재배포 필요 절차 (수동)
+1. Railway 대시보드 → Worker 서비스 → Settings → Redeploy
+2. 환경변수 확인: `REDIS_URL` / `SUPABASE_URL` / `SUPABASE_SERVICE_ROLE_KEY` / `ENCRYPTION_KEK_HEX` 4종
+3. Vercel 프로젝트 환경변수에 `REDIS_URL` 동일 값 추가 (Railway 의 shared Redis 사용)
+4. 로그에 `chromium launched` + `worker ready { queue: 'platform-jobs' }` 확인
+
+### MVP 주의 — DOM 셀렉터 사후 조정 필요
+배민/요기요/쿠팡이츠 DOM 은 비공식 구조 → `DOM_SELECTORS` 상수는 휴리스틱 MVP. 실제 배포 후 로그 / Playwright screenshot 확인하며 각 어댑터 상단 셀렉터 교체 루프 필요.
+
+### 남은 과제
+- `app/api/review-reply/submit/route.ts` 가 여전히 DB polling 전제 — `post_reply` 액션을 BullMQ 로 enqueue 하도록 전환 (현재는 Worker 내부 post_reply 호출 경로만 준비됨)
+- Naver/Kakao 공개 수집기 통합 Worker 라우트 고민 (현재 Vercel side 우회)
+- Railway 재배포 후 실제 배민 매장 로그인 테스트 → DOM 셀렉터 피드백
+
+---
+
+*최종 업데이트: 2026-04-22 32차 배포 완료 (배민/요기요/쿠팡이츠 Playwright 어댑터 3종 + BullMQ 큐 + /api/review-reply/collect)*
