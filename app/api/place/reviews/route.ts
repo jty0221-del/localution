@@ -37,7 +37,8 @@ export async function GET(req: NextRequest) {
     let q = svc
       .from('platform_reviews')
       .select(
-        'id, platform, platform_store_id, platform_review_id, author_name, author_mask, rating, content, photos, posted_at, collected_at, has_reply, sentiment',
+        // 30차-21: 초안/큐 컬럼 7개 추가 — UI 가 상태 배지/편집박스 렌더링에 사용
+        'id, platform, platform_store_id, platform_review_id, author_name, author_mask, rating, content, photos, posted_at, collected_at, has_reply, sentiment, draft_reply, reply_status, reply_tone, reply_queued_at, reply_submitted_at, reply_error, reply_attempts',
       )
       .eq('user_id', userId)
       .eq('platform', platform)
