@@ -1,0 +1,224 @@
+// worker/src/adapters/coupangeats.ts
+// ============================================================
+// 32차-2 · CoupangEatsAdapter (store.coupangeats.com)
+// ============================================================
+import type { Browser } from 'playwright'
+import type { Logger } from 'pino'
+import { getServiceClient } from '../lib/supabase'
+import { loadPlainCredentials, markLoginStatus } from '../lib/credentials'
+import { upsertReviews, CollectedReview } from '../lib/reviews'
+import type { JobResult, Action } from '../jobs'
+
+const LOGIN_URL = 'https://store.coupangeats.com/merchant/login'
+const REVIEWS_URL = 'https://store.coupangeats.com/merchant/management/reviews'
+
+const DOM_SELECTORS = {
+  idInput: 'input[name="loginId"], input[type="text"][placeholder*="아이디"]',
+  pwInput: 'input[name="password"], input[type="password"]',
+  loginBtn: 'button[type="submit"], button:has-text("로그인")',
+  reviewCard: '[class*="ReviewItem"], [class*="review-item"], [data-testid*="review"]',
+  reviewAuthor: '[class*="name"], [class*="nickname"], [class*="author"]',
+  starFilled: '[class*="star"][class*="fill"], svg[class*="active"], [class*="StarActive"]',
+  ratingText: '[class*="rating"], [class*="Rating"]',
+  reviewContent: '[class*="content"], [class*="Content"], p[class*="body"]',
+  reviewDate: 'time, [class*="date"], [class*="Date"]',
+  reviewPhoto: 'img[class*="photo"], img[class*="image"], img[class*="thumbnail"]',
+  ownerReply: '[class*="reply"][class*="owner"], [class*="OwnerReply"], [class*="StoreReply"]',
+  replyButton: 'button:has-text("답글"), button:has-text("사장님 답글"), [class*="replyButton"]',
+  replyTextarea: 'textarea[placeholder*="답글"], textarea[class*="reply"]',
+  replySubmit: 'button:has-text("등록"), button:has-text("저장"), button:has-text("확인")',
+}
+
+export type CoupangOptions = {
+  userId: string
+  storeId: string
+  browser: Browser
+  log: Logger
+}
+
+export async function runCoupangEats(
+  opts: CoupangOptions,
+  action: Action,
+  payload?: Record<string, unknown>,
+): Promise<JobResult> {
+  const { userId, browser, log } = opts
+
+  if (action !== 'fetch_reviews' && action !== 'health_check' && action !== 'post_reply') {
+    return { status: 'skipped', message: `coupangeats: action ${action} not yet supported` }
+  }
+
+  const svc = getServiceClient()
+  const creds = await loadPlainCredentials(svc, userId, 'coupangeats')
+  const context = await browser.newContext({
+    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36',
+    viewport: { width: 1366, height: 900 },
+    locale: 'ko-KR',
+    timezoneId: 'Asia/Seoul',
+  })
+  const page = await context.newPage()
+
+  try {
+    // 1) 로그인
+    await page.goto(LOGIN_URL, { waitUntil: 'domcontentloaded', timeout: 30000 })
+    await page.waitForTimeout(1500)
+
+    await page.fill(DOM_SELECTORS.idInput, creds.account_id)
+    await page.fill(DOM_SELECTORS.pwInput, creds.password)
+    await Promise.all([
+      page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => null),
+      page.click(DOM_SELECTORS.loginBtn),
+    ])
+
+    const currentUrl = page.url()
+    if (currentUrl.includes('captcha')) {
+      await markLoginStatus(svc, userId, 'coupangeats', 'captcha', currentUrl)
+      return { status: 'failed', message: 'coupangeats captcha — 수동 로그인 필요' }
+    }
+    if (currentUrl.includes('/login')) {
+      await markLoginStatus(svc, userId, 'coupangeats', 'failed', 'stayed on login')
+      return { status: 'failed', message: 'coupangeats login failed — 아이디/비밀번호 확인' }
+    }
+
+    await markLoginStatus(svc, userId, 'coupangeats', 'success')
+    if (action === 'health_check') return { status: 'ok', message: 'coupangeats login ok' }
+
+    // 2) 리뷰 페이지 이동
+    await page.goto(REVIEWS_URL, { waitUntil: 'networkidle', timeout: 45000 })
+    await page.waitForTimeout(2500)
+
+    for (let i = 0; i < 8; i++) {
+      await page.evaluate(() => window.scrollBy(0, 1200))
+      await page.waitForTimeout(700)
+    }
+
+    // 3) 파싱
+    const reviews = await page.evaluate((sel) => {
+      const cards = Array.from(document.querySelectorAll(sel.reviewCard))
+      return cards.slice(0, 200).map((c, idx) => {
+        const author = (c.querySelector(sel.reviewAuthor) as HTMLElement | null)?.innerText?.trim() ?? null
+        const filled = c.querySelectorAll(sel.starFilled).length
+        let rating: number | null = filled > 0 && filled <= 5 ? filled : null
+        if (rating === null) {
+          const ratingEl = c.querySelector(sel.ratingText) as HTMLElement | null
+          const t = ratingEl?.innerText || ''
+          const m = t.match(/(\d(?:\.\d)?)/)
+          if (m) rating = Math.round(parseFloat(m[1]))
+        }
+        const content = (c.querySelector(sel.reviewContent) as HTMLElement | null)?.innerText?.trim() ?? null
+        const dateEl = c.querySelector(sel.reviewDate) as HTMLElement | null
+        const posted = dateEl?.getAttribute('datetime') || dateEl?.innerText || null
+        const photos = Array.from(c.querySelectorAll(sel.reviewPhoto))
+          .map((img) => (img as HTMLImageElement).src)
+          .filter(Boolean)
+        const hasReply = !!c.querySelector(sel.ownerReply)
+        const replyContent = hasReply
+          ? (c.querySelector(sel.ownerReply) as HTMLElement | null)?.innerText?.trim() ?? null
+          : null
+        const idAttr =
+          (c as HTMLElement).getAttribute('data-review-id') ||
+          (c as HTMLElement).getAttribute('data-id') ||
+          null
+        return {
+          platform_review_id: idAttr || `coupangeats:${idx}:${(content || '').slice(0, 20)}:${posted || ''}`,
+          author_name: author,
+          rating,
+          content,
+          photos,
+          posted_at: posted,
+          has_reply: hasReply,
+          reply_content: replyContent,
+        }
+      })
+    }, DOM_SELECTORS)
+
+    const normalized: CollectedReview[] = reviews
+      .filter((r) => r.content || r.author_name)
+      .map((r) => ({ ...r, posted_at: normalizeDate(r.posted_at) }))
+
+    const shopId = creds.platform_store_id || 'unknown'
+    const res = await upsertReviews(svc, userId, 'coupangeats', shopId, normalized)
+    log.info({ ...res }, 'coupangeats reviews upserted')
+
+    if (action === 'post_reply' && payload?.platform_review_id && payload?.reply_text) {
+      const targetId = String(payload.platform_review_id)
+      const replyText = String(payload.reply_text)
+      const replied = await postCoupangEatsReply(page, targetId, replyText, log)
+      if (replied.ok) {
+        await svc
+          .from('platform_reviews')
+          .update({
+            has_reply: true,
+            reply_content: replyText,
+            reply_status: 'submitted',
+            reply_submitted_at: new Date().toISOString(),
+          })
+          .eq('user_id', userId)
+          .eq('platform', 'coupangeats')
+          .eq('platform_review_id', targetId)
+        return { status: 'ok', message: `coupangeats: reply posted for ${targetId}` }
+      }
+      return { status: 'failed', message: `coupangeats reply 실패: ${replied.reason}` }
+    }
+
+    return {
+      status: 'ok',
+      message: `coupangeats: collected ${res.total}, upserted ${res.inserted}`,
+      data: res,
+    }
+  } catch (e: any) {
+    log.error({ err: e?.message }, 'coupangeats error')
+    return { status: 'failed', message: `coupangeats: ${e?.message || e}` }
+  } finally {
+    await context.close().catch(() => null)
+  }
+}
+
+async function postCoupangEatsReply(
+  page: any,
+  platformReviewId: string,
+  replyText: string,
+  log: Logger,
+): Promise<{ ok: true } | { ok: false; reason: string }> {
+  try {
+    const card = await page.$(`[data-review-id="${platformReviewId}"], [data-id="${platformReviewId}"]`)
+    if (!card) return { ok: false, reason: `card not found for ${platformReviewId}` }
+
+    const replyBtn = await card.$(DOM_SELECTORS.replyButton)
+    if (!replyBtn) return { ok: false, reason: 'reply button not found' }
+    await replyBtn.click()
+    await page.waitForTimeout(1200)
+
+    const textarea = await page.$(DOM_SELECTORS.replyTextarea)
+    if (!textarea) return { ok: false, reason: 'reply textarea not found' }
+    await textarea.fill(replyText)
+    await page.waitForTimeout(500)
+
+    const submit = await page.$(DOM_SELECTORS.replySubmit)
+    if (!submit) return { ok: false, reason: 'reply submit button not found' }
+    await submit.click()
+    await page.waitForTimeout(2500)
+
+    return { ok: true }
+  } catch (e: any) {
+    log.error({ err: e?.message }, 'coupangeats reply error')
+    return { ok: false, reason: e?.message || 'unknown' }
+  }
+}
+
+function normalizeDate(raw: string | null): string | null {
+  if (!raw) return null
+  const s = raw.trim()
+  if (/^\d{4}-\d{2}-\d{2}T/.test(s)) return s
+  const m1 = s.match(/(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})/)
+  if (m1) {
+    const [, y, mo, d] = m1
+    return `${y}-${mo.padStart(2, '0')}-${d.padStart(2, '0')}T00:00:00+09:00`
+  }
+  const now = new Date()
+  const mDay = s.match(/(\d+)일\s*전/)
+  if (mDay) {
+    now.setDate(now.getDate() - parseInt(mDay[1], 10))
+    return now.toISOString()
+  }
+  return null
+}
