@@ -1,9 +1,45 @@
+// app/api/ai-review-reply/route.ts
+// ============================================================
+// 30차-19 · AI 답글 생성 (커뮤니케이션 전문가 + 네이버 플레이스 SEO 상위노출)
+//
+//   POST /api/ai-review-reply
+//
+//   입력 (신규):
+//     { review_id?: string,                // platform_reviews.id → DB 에서 content/photos/rating 로드
+//       review?: string,                   // 직접 입력한 리뷰 텍스트 (review_id 미지정 시)
+//       review_text?: string,              // 레거시 호환 (= review)
+//       photos?: string[],                 // 리뷰 사진 URL 배열 (Claude Vision 에 전달)
+//       rating?: number,
+//       platform?: string,                 // 'naver_place' 기본
+//       tone?: string,                     // 레거시 호환 (= aiSettings.tone)
+//       store_name?: string,               // 레거시 호환
+//       aiSettings?: { tone, length, closing, excludes, includes }
+//       customerProfile?: { gender, age }
+//     }
+//
+//   자동 로드 (로그인 사용자):
+//     · stores 테이블: name / category / address / main_keyword / sub_keywords / description
+//     · platform_reviews 테이블: review_id 로 content / photos / rating 조회
+//
+//   응답:
+//     { ok: true, reply, lang, reviewType, mode: 'vision' | 'text' }
+//
+//   프롬프트 전략:
+//     · 커뮤니케이션 전문가 + 네이버 플레이스 SEO 상위노출 담당 페르소나
+//     · 지역+업종/지역+메인키워드/메인키워드/보조키워드 자동 조합
+//     · 사진이 있으면 Claude Vision 으로 "사진 속 메뉴·분위기·플레이팅" 추론 반영
+//     · 첫 문단에 "지역+업종" 또는 매장명, 마지막 문단에 "재방문 유도 + 위치·서비스" 자연 노출
+// ============================================================
 import { NextRequest, NextResponse } from 'next/server'
+import { requireUser } from '@/app/lib/userAuth'
+import { createServiceClient } from '@/app/lib/adminAuth'
 
+export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
+// ── 언어 감지 ────────────────────────────────────────────
 function detectLang(text: string): string {
-  const t = text.trim()
+  const t = (text || '').trim()
   if (!t) return 'ko'
   let ko = 0, ja = 0, zh = 0, ar = 0, en = 0
   for (const ch of t) {
@@ -50,16 +86,18 @@ const LANG_CONFIG: Record<string, { rule: string; forbidden: string; userPrefix:
   },
 }
 
-function classifyReview(text: string, rating: number): 'positive' | 'negative' | 'neutral' | 'empty' | 'photo_only' {
-  const t = text.trim()
-  if (!t) return rating > 0 ? 'empty' : 'photo_only'
+function classifyReview(text: string, rating: number | null): 'positive' | 'negative' | 'neutral' | 'empty' | 'photo_only' {
+  const t = (text || '').trim()
+  const r = typeof rating === 'number' ? rating : 0
+  if (!t) return r > 0 ? 'empty' : 'photo_only'
   if (t.length < 5) return 'photo_only'
-  if (rating <= 2) return 'negative'
-  if (rating >= 4) return 'positive'
+  if (r && r <= 2) return 'negative'
+  if (r && r >= 4) return 'positive'
+  if (!r && t.length > 10) return 'positive' // 키워드 리뷰(별점 null) + 본문 있으면 긍정 취급
   return 'neutral'
 }
 
-// 전문업체(expert)/심플(simple) 톤에서 이모지·마크다운 제거
+// ── 아티팩트 제거 ────────────────────────────────────────
 function stripArtifacts(text: string, dropEmoji: boolean): string {
   let out = text
   out = out.split('**').join('')
@@ -82,7 +120,7 @@ function stripArtifacts(text: string, dropEmoji: boolean): string {
   return out.trim()
 }
 
-// 6종 톤 정의
+// ── 톤 정의 ──────────────────────────────────────────────
 function toneDescription(tone: string): string {
   const map: Record<string, string> = {
     friendly: '친근하고 따뜻한 사장님 어투. 구어체("~거든요", "~잖아요", "~더라고요")를 자연스럽게 섞고, 사장님이 단골한테 말하듯 작성. 이모지는 전체에서 최대 1개.',
@@ -101,14 +139,12 @@ function genderLabel(g: string): string {
   if (g === 'female') return '여성 고객'
   return ''
 }
-
 function ageLabel(a: string): string {
   const map: Record<string, string> = {
     teen: '10대', '20s': '20대', '30s': '30대', '40s': '40대', '50s': '50대', '60s': '60대 이상',
   }
   return map[a] || ''
 }
-
 function ageToneHint(a: string): string {
   const map: Record<string, string> = {
     teen: '10대 고객. 너무 어른스럽지 않게, 밝고 경쾌한 톤. 과한 존댓말은 피하고 부드럽게',
@@ -121,6 +157,47 @@ function ageToneHint(a: string): string {
   return map[a] || ''
 }
 
+// ── 지역 추출 (주소/매장명에서) ─────────────────────────
+function extractRegionFromAddress(address: string | null, storeName: string | null): string {
+  const a = (address || '').trim()
+  // 주소에서 "○○시 ○○동" 혹은 "○○구" 단위로 추출
+  const m1 = a.match(/([가-힣]+시)\s+([가-힣]+구)\s+([가-힣0-9]+동)/)
+  if (m1) return `${m1[1]} ${m1[2]} ${m1[3]}`
+  const m2 = a.match(/([가-힣]+시)\s+([가-힣0-9]+동)/)
+  if (m2) return `${m2[1]} ${m2[2]}`
+  const m3 = a.match(/([가-힣]+구)\s+([가-힣0-9]+동)/)
+  if (m3) return `${m3[1]} ${m3[2]}`
+  const m4 = a.match(/([가-힣]+시)/)
+  if (m4) return m4[1]
+  // 매장명에서 지역명 추출 fallback
+  const n = (storeName || '').match(/^(\S+?)\s/)
+  return n?.[1] || ''
+}
+
+// ── SEO 키워드 자동 조합 ─────────────────────────────────
+function buildSeoKeywords(opts: {
+  region: string
+  bizType: string
+  storeName: string
+  mainKeyword: string
+  subKeywords: string
+}): string[] {
+  const { region, bizType, storeName, mainKeyword, subKeywords } = opts
+  const list: string[] = []
+  if (region && mainKeyword)               list.push(`${region} ${mainKeyword}`)
+  if (region && bizType && bizType !== mainKeyword) list.push(`${region} ${bizType}`)
+  if (mainKeyword)                          list.push(mainKeyword)
+  if (storeName)                            list.push(storeName)
+  subKeywords
+    .split(/[,，、]/)
+    .map(s => s.trim())
+    .filter(Boolean)
+    .forEach(k => { if (!list.includes(k)) list.push(k) })
+  // 중복 제거
+  return Array.from(new Set(list.filter(Boolean)))
+}
+
+// ── System Prompt 빌더 ──────────────────────────────────
 function buildSystemPrompt(ctx: {
   lang: string
   platform: string
@@ -134,6 +211,7 @@ function buildSystemPrompt(ctx: {
   ownerMindset: string
   reviewType: 'positive' | 'negative' | 'neutral' | 'empty' | 'photo_only'
   rating: number
+  hasPhotos: boolean
   aiSettings: {
     tone: string
     length: string
@@ -144,7 +222,7 @@ function buildSystemPrompt(ctx: {
   customerProfile: { gender: string; age: string }
 }): string {
   const { lang, platform, bizType, storeName, region, mainKeyword, subKeywords,
-          storeDesc, storeStrengths, ownerMindset, reviewType, rating, aiSettings, customerProfile } = ctx
+          storeDesc, storeStrengths, ownerMindset, reviewType, rating, hasPhotos, aiSettings, customerProfile } = ctx
   const lc = LANG_CONFIG[lang] || LANG_CONFIG['ko']
   const isExpert = aiSettings.tone === 'expert' || aiSettings.tone === 'formal' || aiSettings.tone === 'simple'
 
@@ -155,35 +233,36 @@ function buildSystemPrompt(ctx: {
   }
   const length = lengthMap[aiSettings.length] || lengthMap['medium']
   const toneText = toneDescription(aiSettings.tone)
-
-  const kwArr = [
-    region && mainKeyword ? region + ' ' + mainKeyword : '',
-    region && bizType     ? region + ' ' + bizType     : '',
-    mainKeyword,
-    ...subKeywords.split(',').map(k => k.trim()).filter(Boolean),
-  ].filter(Boolean)
+  const kwList = buildSeoKeywords({ region, bizType, storeName, mainKeyword, subKeywords })
 
   const lines: string[] = []
 
+  // ── 0) 역할 정의 (최상위) ──
+  lines.push('=== 역할 ===')
+  lines.push('당신은 10년차 베테랑 자영업자 답글 전문가이자 네이버 플레이스 SEO 상위노출 담당 컨설턴트입니다.')
+  lines.push('단순한 "감사합니다"가 아니라, 리뷰 한 줄마다 지역·업종·서비스 키워드를 자연스럽게 녹여')
+  lines.push('네이버 플레이스 검색 순위(상위노출)와 키워드 리뷰 시스템에 긍정 시그널을 남기는 답글을 씁니다.')
+  lines.push('')
+
+  // ── 1) 언어 규칙 ──
   lines.push('=== LANGUAGE RULE (HIGHEST PRIORITY) ===')
   lines.push(lc.rule)
   lines.push('FORBIDDEN: ' + lc.forbidden)
   lines.push('')
 
-  lines.push('You are writing a ' + platform + ' review reply on behalf of the owner of "' + (storeName || '이 매장') + '".')
-  lines.push('')
-
-  lines.push('[매장 정보]')
+  // ── 2) 매장 컨텍스트 ──
+  lines.push('[매장 컨텍스트]')
   if (storeName)       lines.push('- 매장명: ' + storeName)
   if (region)          lines.push('- 지역: ' + region)
   if (bizType)         lines.push('- 업종: ' + bizType)
-  if (storeDesc)       lines.push('- 매장 소개: ' + storeDesc)
+  if (storeDesc)       lines.push('- 매장 소개: ' + storeDesc.slice(0, 400))
   if (storeStrengths)  lines.push('- 매장 강점: ' + storeStrengths)
   if (ownerMindset)    lines.push('- 사장 마인드/철학: ' + ownerMindset)
-  if (kwArr.length)    lines.push('- SEO 핵심 키워드: ' + kwArr.join(' / '))
+  if (kwList.length)   lines.push('- SEO 핵심 키워드 풀: ' + kwList.slice(0, 6).join(' / '))
+  lines.push('- 플랫폼: ' + platform)
   lines.push('')
 
-  // 고객 프로필
+  // ── 3) 고객 프로필 ──
   const g = genderLabel(customerProfile.gender)
   const a = ageLabel(customerProfile.age)
   if (g || a) {
@@ -196,43 +275,62 @@ function buildSystemPrompt(ctx: {
     lines.push('')
   }
 
+  // ── 4) 상황별 답글 전략 ──
   lines.push('[이 리뷰의 상황 및 답글 전략]')
   if (reviewType === 'empty' || reviewType === 'photo_only') {
-    lines.push('- 고객은 텍스트 없이 ' + (rating > 0 ? '별점 ' + rating + '점' : '사진만') + ' 남겼습니다.')
-    lines.push('- 방문 감사와 매장 강점을 자연스럽게 녹여 작성하세요.')
+    if (hasPhotos) {
+      lines.push('- 고객은 텍스트 없이 ' + (rating > 0 ? '별점 ' + rating + '점 + ' : '') + '사진을 남겼습니다.')
+      lines.push('- 첨부된 사진을 분석해서 사진에 담긴 메뉴·분위기·플레이팅·인테리어를 구체적으로 읽어내고,')
+      lines.push('  "사진에서 보이는 ○○" 식으로 자연스럽게 답글에 녹여내세요.')
+      lines.push('- "별점 감사합니다" 같은 뻔한 문구는 금지. 사진에서 읽어낸 구체 요소를 먼저 언급하세요.')
+    } else {
+      lines.push('- 고객은 텍스트 없이 ' + (rating > 0 ? '별점 ' + rating + '점' : '사진만') + ' 남겼습니다.')
+      lines.push('- 방문 감사 + 매장 강점 + 재방문 유도 3박자로 구성하세요.')
+    }
   } else if (reviewType === 'negative') {
     lines.push('- 별점 ' + rating + '점의 부정 리뷰입니다.')
     lines.push('- 변명 금지. 진심 어린 사과가 먼저입니다.')
     lines.push('- 불만을 구체적으로 인정하고 개선 의지를 전달하세요.')
+    lines.push('- SEO 키워드는 자제하고, 진정성에 집중.')
   } else if (reviewType === 'positive') {
-    lines.push('- 별점 ' + rating + '점의 긍정 리뷰입니다.')
-    lines.push('- 리뷰에서 언급된 구체적 내용에 직접 반응하세요.')
+    lines.push('- 긍정 리뷰입니다' + (rating ? ' (별점 ' + rating + '점)' : ' (키워드 리뷰)') + '.')
+    lines.push('- 리뷰에서 언급된 구체적 키워드·메뉴·서비스에 직접 반응하세요.')
+    if (hasPhotos) {
+      lines.push('- 첨부 사진이 있으니 사진 속 메뉴/플레이팅/분위기를 구체적으로 읽고, 리뷰 글과 교차해서 반응하세요.')
+    }
+    lines.push('- 고객이 언급한 포인트를 다시 우리 매장 SEO 키워드와 자연스럽게 연결하세요.')
   } else {
-    lines.push('- 별점 ' + rating + '점 리뷰입니다. 균형 잡힌 답변을 작성하세요.')
+    lines.push('- 중립 리뷰입니다. 과하지 않게, 균형 잡힌 답변을 작성하세요.')
   }
   lines.push('')
 
+  // ── 5) 답변 기준 ──
   lines.push('[답변 기준]')
   lines.push('- 톤: ' + toneText)
   lines.push('- 길이: ' + length)
   lines.push('')
 
-  if (kwArr.length) {
-    lines.push('[SEO 최적화]')
-    lines.push('- 아래 키워드를 자연스럽게 2~3회 녹여 넣으세요: ' + kwArr.slice(0, 4).join(', '))
-    lines.push('- 매장명 또는 지역+업종을 첫 문단이나 마지막 문단에 1회 이상 언급')
+  // ── 6) SEO 상위노출 전략 (핵심) ──
+  if (kwList.length && reviewType !== 'negative') {
+    lines.push('[네이버 플레이스 SEO 상위노출 전략 — 반드시 지킬 것]')
+    lines.push('- 다음 키워드 풀에서 2~4개를 자연스러운 문장 안에 녹여 넣으세요: ' + kwList.slice(0, 6).join(', '))
+    lines.push('- "매장명" 또는 "지역+업종" 조합을 답글 안에서 최소 1회 이상 언급.')
+    lines.push('- 첫 문단: 고객이 언급한 디테일에 반응 → 이 과정에서 업종/메뉴 키워드 자연 노출.')
+    lines.push('- 마지막 문단: 재방문 유도 + "지역+업종" 또는 매장명으로 마무리. (예: "○○동 오실 일 있으면 편하게 들러 주세요.")')
+    lines.push('- 키워드를 나열하듯 박지 말 것. 반드시 문장 안에서 "서비스/경험" 맥락으로 사용.')
+    lines.push('- 검색 의도와 맞는 보조 키워드(예: "맛집", "주차 가능", "데이트", "가족 모임", "단체석")는 리뷰 맥락에 맞으면 자연스럽게 섞어도 됩니다.')
     lines.push('')
   }
 
-  // 공통 AI 말투 금지
+  // ── 7) 공통 AI 말투 금지 ──
   lines.push('[AI 말투 금지 · 모든 톤 공통]')
-  lines.push('- 다음 과장 형용사 금지: 혁신적인, 경이로운, 단연코, 필수적, 주목할 만한, 완벽한, 최고의, 압도적, 궁극의')
+  lines.push('- 과장 형용사 금지: 혁신적인, 경이로운, 단연코, 필수적, 주목할 만한, 완벽한, 최고의, 압도적, 궁극의')
   lines.push('- 영혼 없는 마무리 금지: 결론적으로, 요약하자면, 마지막으로, 이처럼, 이상으로, 정리하자면')
   lines.push('- 번역투 금지: "~에 있어서", "~하는 것은 중요합니다", "~을 제공합니다", "당신은"')
   lines.push('- 딱딱한 다나까 반복 금지. 구어체 어미를 자연스럽게 섞을 것')
   lines.push('- 뻔한 도입부 금지: "안녕하세요. 오늘은 ..."')
-  lines.push('- 마크다운 서식 금지: 별표 두 개, 별표 하나, 밑줄 두 개, 우물정 두 개, 백틱 모두 금지. 평문으로만')
-  lines.push('- 키워드 기계적 볼드 금지')
+  lines.push('- 마크다운 서식 금지: 별표 · 밑줄 · 우물정 · 백틱 모두 금지. 평문으로만')
+  lines.push('- 키워드 기계적 볼드·나열 금지')
   lines.push('- 규칙적 이모지 패턴 금지. 문장마다 이모지를 박지 말 것')
   lines.push('')
 
@@ -240,7 +338,6 @@ function buildSystemPrompt(ctx: {
     lines.push('[전문업체/심플 톤 · 추가 규칙]')
     lines.push('- 이모티콘 절대 금지. 단 한 개도 쓰지 마세요')
     lines.push('- 느낌표는 전체 답글에서 최대 1회')
-    lines.push('- 마크다운 절대 금지. 평문으로만')
     lines.push('- 짧고 단정한 문장. 정중한 서면 톤')
     lines.push('')
   }
@@ -248,7 +345,6 @@ function buildSystemPrompt(ctx: {
   lines.push('[절대 금지]')
   lines.push('- ' + lc.forbidden)
   lines.push('- 동일 표현 반복')
-  lines.push('- 마크다운 볼드/이탤릭')
   if (aiSettings.excludes) lines.push('- 사용 금지 표현: ' + aiSettings.excludes)
   lines.push('')
 
@@ -258,109 +354,170 @@ function buildSystemPrompt(ctx: {
     lines.push('')
   }
 
-  lines.push('리뷰 상황에 맞게 매장 강점과 사장 마인드를 담아 작성하세요. 마크다운 없이 평문으로만 출력하세요.')
+  lines.push('마크다운 없이 평문으로만 출력하세요. 답글 본문만 출력하고, 서문·해설·제목은 쓰지 마세요.')
   return lines.join('\n')
+}
+
+// ── 사진 URL 필터 (https 만, 최대 N 개) ──
+function sanitizePhotos(photos: unknown, limit: number = 4): string[] {
+  if (!Array.isArray(photos)) return []
+  return (photos as unknown[])
+    .filter((u): u is string => typeof u === 'string' && /^https:\/\//.test(u))
+    .slice(0, limit)
 }
 
 export async function POST(req: NextRequest) {
   try {
-    const body = await req.json()
-    const {
-      review = '',
-      rating = 0,
-      platform = '리뷰 플랫폼',
-      bizType = '',
-      storeName = '',
-      region = '',
-      mainKeyword = '',
-      subKeywords = '',
-      storeDesc = '',
-      storeStrengths = '',
-      ownerMindset = '',
-      customerProfile = { gender: 'none', age: '' },
-      aiSettings = {
-        tone: 'friendly',
-        length: 'medium',
-        includes: { thanks: true, revisit: true, mention: true, personalize: false,
-                    improve: true, keyword: true, strengths: true, mindset: false },
-        closing: '',
-        excludes: '',
-      },
-    } = body
+    const body = await req.json().catch(() => ({}))
 
-    const reviewText = (review || '').trim()
-    const reviewType = classifyReview(reviewText, rating)
+    // 1) 입력 정규화 (구·신 파라미터 동시 지원)
+    const reviewId: string | null = body?.review_id ? String(body.review_id) : null
+    let reviewText: string = String(body?.review ?? body?.review_text ?? '').trim()
+    let rating: number = Number(body?.rating ?? 0)
+    let photos: string[] = sanitizePhotos(body?.photos)
+    const platform: string = String(body?.platform ?? 'naver_place')
+    const aiSettingsIn = body?.aiSettings ?? {}
+    const tone: string = String(body?.tone ?? aiSettingsIn?.tone ?? 'friendly')
+    const aiSettings = {
+      tone,
+      length: String(aiSettingsIn?.length ?? 'medium'),
+      closing: String(aiSettingsIn?.closing ?? ''),
+      excludes: String(aiSettingsIn?.excludes ?? ''),
+      includes: aiSettingsIn?.includes ?? {
+        thanks: true, revisit: true, mention: true, personalize: false,
+        improve: true, keyword: true, strengths: true, mindset: false,
+      },
+    }
+    const customerProfile = {
+      gender: String(body?.customerProfile?.gender ?? 'none'),
+      age: String(body?.customerProfile?.age ?? ''),
+    }
+
+    // 2) 로그인 사용자의 매장/리뷰 자동 로드
+    const auth = await requireUser()
+    let storeName: string = String(body?.storeName ?? body?.store_name ?? '')
+    let region: string = String(body?.region ?? '')
+    let bizType: string = String(body?.bizType ?? body?.biz_type ?? '')
+    let mainKeyword: string = String(body?.mainKeyword ?? body?.main_keyword ?? '')
+    let subKeywords: string = String(body?.subKeywords ?? body?.sub_keywords ?? '')
+    let storeDesc: string = String(body?.storeDesc ?? body?.store_desc ?? '')
+    let storeStrengths: string = String(body?.storeStrengths ?? body?.store_strengths ?? '')
+    let ownerMindset: string = String(body?.ownerMindset ?? body?.owner_mindset ?? '')
+    let addressForRegion = ''
+
+    if (auth.ok) {
+      const svc = createServiceClient()
+
+      // 2-a) stores 자동 로드
+      try {
+        const fullSel = 'name, category, address, main_keyword, sub_keywords, description'
+        const liteSel = 'name, category, address, main_keyword, sub_keywords'
+        let { data, error } = await svc
+          .from('stores')
+          .select(fullSel)
+          .eq('user_id', auth.userId)
+          .order('updated_at', { ascending: false })
+          .limit(1)
+        if (error && /description/i.test(error.message || '')) {
+          const retry = await svc
+            .from('stores')
+            .select(liteSel)
+            .eq('user_id', auth.userId)
+            .order('updated_at', { ascending: false })
+            .limit(1)
+          data = retry.data as any
+          error = retry.error
+        }
+        if (!error && Array.isArray(data) && data.length > 0) {
+          const s: any = data[0]
+          if (!storeName    && s.name)          storeName    = String(s.name)
+          if (!bizType      && s.category)      bizType      = String(s.category)
+          if (!mainKeyword  && s.main_keyword)  mainKeyword  = String(s.main_keyword)
+          if (!subKeywords  && s.sub_keywords)  subKeywords  = String(Array.isArray(s.sub_keywords) ? s.sub_keywords.join(',') : s.sub_keywords)
+          if (!storeDesc    && s.description)   storeDesc    = String(s.description)
+          if (s.address)                         addressForRegion = String(s.address)
+        }
+      } catch (_) { /* graceful degrade */ }
+
+      // 2-b) review_id 자동 로드
+      if (reviewId) {
+        try {
+          const { data } = await svc
+            .from('platform_reviews')
+            .select('content, rating, photos, platform')
+            .eq('id', reviewId)
+            .eq('user_id', auth.userId)
+            .maybeSingle()
+          if (data) {
+            if (!reviewText) reviewText = String(data.content ?? '').trim()
+            if (!rating && typeof data.rating === 'number') rating = Number(data.rating)
+            if (photos.length === 0 && Array.isArray(data.photos)) {
+              photos = sanitizePhotos(data.photos)
+            }
+          }
+        } catch (_) { /* graceful degrade */ }
+      }
+    }
+
+    if (!region) {
+      region = extractRegionFromAddress(addressForRegion, storeName)
+    }
+
+    // 3) 분류 및 프롬프트 구성
+    const reviewType = classifyReview(reviewText, rating || null)
     const lang = detectLang(reviewText)
-    const lc   = LANG_CONFIG[lang] || LANG_CONFIG['ko']
-    const isExpert = aiSettings.tone === 'expert' || aiSettings.tone === 'formal' || aiSettings.tone === 'simple'
+    const lc = LANG_CONFIG[lang] || LANG_CONFIG['ko']
+    const isExpert = tone === 'expert' || tone === 'formal' || tone === 'simple'
+    const hasPhotos = photos.length > 0
 
     const systemPrompt = buildSystemPrompt({
       lang, platform, bizType, storeName, region, mainKeyword, subKeywords,
-      storeDesc, storeStrengths, ownerMindset, reviewType, rating, aiSettings,
+      storeDesc, storeStrengths, ownerMindset, reviewType,
+      rating: typeof rating === 'number' ? rating : 0,
+      hasPhotos,
+      aiSettings,
       customerProfile,
     })
 
-    let userMessage: string
+    // 4) 사용자 메시지 (텍스트 + 사진)
+    let textPart: string
     if (reviewType === 'empty') {
-      userMessage = lc.userPrefix + '\n\n[이 고객은 텍스트 리뷰 없이 별점 ' + rating + '점만 남겼습니다. 매장 정보와 강점을 활용해서 담백한 감사 답글을 작성해 주세요.]'
+      textPart = lc.userPrefix + '\n\n[이 고객은 텍스트 리뷰 없이 별점 ' + (rating || 0) + '점만 남겼습니다. 매장 정보와 강점을 활용해서 담백한 감사 답글을 작성해 주세요.]'
     } else if (reviewType === 'photo_only') {
-      userMessage = lc.userPrefix + '\n\n[이 고객은 사진만 올리고 텍스트를 남기지 않았습니다. 매장 강점과 사장 마인드를 담아 자연스러운 감사 답글을 작성해 주세요.]'
+      textPart = lc.userPrefix + '\n\n[이 고객은 사진만 올리고 텍스트를 남기지 않았습니다. 첨부된 사진을 분석해서 사진에서 읽히는 구체 요소(메뉴·플레이팅·분위기·인테리어)를 먼저 언급하고, 매장 강점을 자연스럽게 연결해 주세요.]'
     } else {
-      userMessage = lc.userPrefix + '\n\n"' + reviewText + '"'
+      textPart = lc.userPrefix + '\n\n"' + reviewText + '"'
+      if (hasPhotos) {
+        textPart += '\n\n[참고: 고객이 첨부한 사진이 함께 전달됩니다. 사진 속 메뉴·분위기·플레이팅을 리뷰 글과 교차해 구체적으로 언급해 주세요.]'
+      }
     }
 
+    const userContent: any[] = [{ type: 'text', text: textPart }]
+    if (hasPhotos) {
+      for (const url of photos) {
+        userContent.push({ type: 'image', source: { type: 'url', url } })
+      }
+    }
+
+    // 5) API 키 없으면 목업
     const apiKey = process.env.ANTHROPIC_API_KEY
     if (!apiKey) {
       const name = storeName || '저희 매장'
-      const reg  = region || ''
-      const tone = aiSettings.tone
-
-      const mocks: Record<string, Record<string, string>> = {
-        friendly: {
-          empty: '방문해 주셔서 감사해요. 별점 남겨 주신 것만으로도 힘이 나더라고요. ' + (reg ? reg + ' ' : '') + name + ' 운영하면서 하나하나 신경 쓰고 있거든요. 다음에 오시면 더 좋은 시간 드릴게요.',
-          negative: '불편하셨던 부분 정말 죄송해요. 말씀해 주신 내용 꼼꼼히 보고 바로잡을게요. 다시 한 번 기회 주시면 더 나아진 모습으로 맞이할게요.',
-          positive: '이렇게 따뜻하게 써 주셔서 정말 감사해요. 말씀하신 부분 읽으면서 저희도 기분 좋아졌거든요. 다음에도 같은 정성으로 준비해 둘게요.',
-          neutral: '리뷰 남겨 주셔서 감사해요. 부족했던 부분 더 다듬어서 다음엔 더 좋은 경험 드릴게요.',
-        },
-        expert: {
-          empty: '방문해 주셔서 감사합니다. ' + (reg ? reg + ' ' : '') + name + '은 매장 운영에 최선을 다하고 있습니다. 다음 방문 시에도 만족스러운 경험을 드릴 수 있도록 준비하겠습니다.',
-          negative: '불편을 드려 죄송합니다. 남겨 주신 의견을 진지하게 받아들이고 개선에 반영하겠습니다. 다시 방문해 주시면 더 나은 모습으로 맞이하겠습니다.',
-          positive: '소중한 리뷰 감사드립니다. 언급해 주신 부분은 저희가 지속적으로 신경 쓰는 영역입니다. 앞으로도 일관된 품질로 준비하겠습니다.',
-          neutral: '리뷰 남겨 주셔서 감사합니다. 말씀하신 부분은 내부적으로 검토하여 개선하겠습니다.',
-        },
-        witty: {
-          empty: '별점 감사합니다. 저희가 준비한 정성이 조금이라도 전해졌다면 그걸로 충분하거든요. 다음에 오시면 메뉴판 숨겨둔 비밀 하나 살짝 알려드릴게요.',
-          negative: '이번엔 저희가 많이 부족했네요. 솔직하게 말씀해 주신 게 제일 감사해요. 다음엔 꼭 달라진 모습으로 만나뵐게요.',
-          positive: '리뷰 읽으면서 주방에서 다 같이 웃었거든요. 다음에 오시면 살짝 더 신경 써서 준비해 둘게요. 또 뵙고 싶어요.',
-          neutral: '리뷰 감사해요. 아쉬운 부분 하나씩 다듬어 나가는 중이거든요. 다음엔 더 마음에 드시면 좋겠어요.',
-        },
-        simple: {
-          empty: '방문과 별점 감사합니다. 다음에도 좋은 시간 드릴 수 있도록 준비하겠습니다.',
-          negative: '불편을 드려 죄송합니다. 말씀해 주신 부분 개선하겠습니다. 다시 찾아주시면 감사하겠습니다.',
-          positive: '좋은 리뷰 감사합니다. 다음에도 같은 정성으로 준비하겠습니다.',
-          neutral: '리뷰 감사합니다. 부족한 부분 다듬어 나가겠습니다.',
-        },
-        emo: {
-          empty: '저희 가게 찾아 주셔서 고마워요. 말 없이 남기신 별 하나하나가 저희에겐 오래 기억되거든요. 다음 걸음도 따뜻하게 맞이할게요.',
-          negative: '마음 불편하게 해드려 정말 죄송해요. 꾸며내지 않고 말씀해 주셔서 오히려 감사한 마음이에요. 다시 기회 주시면 꼭 달라진 모습으로 뵐게요.',
-          positive: '이렇게 정성스러운 리뷰, 오래 간직할게요. 글 하나하나 읽으면서 저희도 괜히 뭉클해졌거든요. 다음 걸음도 기다릴게요.',
-          neutral: '리뷰 남겨 주셔서 고마워요. 부족했던 부분, 조용히 하나씩 채워 나갈게요.',
-        },
-        mz: {
-          empty: '방문해 주셔서 감사해요. 별점 남겨 주신 것만으로도 진짜 힘 나거든요. 다음에 오시면 더 신경 써서 준비해 둘게요.',
-          negative: '이번엔 저희가 많이 부족했네요. 솔직한 후기 정말 감사해요. 말씀해 주신 부분 바로 손볼게요. 다음엔 꼭 더 나은 모습으로 뵙고 싶어요.',
-          positive: '리뷰 읽다가 혼자 괜히 미소 지었어요. 이런 말 해주셔서 진짜 감사해요. 다음에도 같은 느낌 드릴 수 있게 준비해 둘게요.',
-          neutral: '리뷰 감사해요. 아쉬운 부분 하나씩 다듬어 보고 있어요. 다음엔 더 좋아진 모습으로 뵐게요.',
-        },
+      const reg = region || ''
+      const prefix = (reg ? reg + ' ' : '') + name
+      const mocks: Record<string, string> = {
+        positive: `${prefix} 찾아 주셔서 감사해요. 리뷰 읽으면서 저희도 기분 좋아졌거든요. 다음에도 같은 정성으로 준비해 둘게요.`,
+        negative: `불편하셨던 부분 정말 죄송해요. 말씀해 주신 내용 꼼꼼히 보고 바로잡을게요. 다시 한 번 기회 주시면 더 나아진 모습으로 맞이할게요.`,
+        neutral:  `리뷰 남겨 주셔서 감사해요. 부족했던 부분 다듬어서 다음엔 더 좋은 경험 드릴게요.`,
+        empty:    `${prefix} 방문해 주셔서 감사해요. 다음에 오시면 더 좋은 시간 드릴게요.`,
+        photo_only: `${prefix} 사진까지 남겨 주셔서 감사해요. 다음 방문 때도 같은 느낌 드리려고 준비해 둘게요.`,
       }
-      mocks.formal = mocks.expert
-
-      const set = mocks[tone] || mocks.friendly
-      const typeKey = reviewType === 'photo_only' ? 'empty' : reviewType
-      let reply = set[typeKey] || set['positive']
-      if (isExpert) reply = stripArtifacts(reply, true)
-      return NextResponse.json({ reply, lang, reviewType, mock: true })
+      const reply = mocks[reviewType] || mocks.positive
+      return NextResponse.json({ ok: true, reply, lang, reviewType, mode: 'mock' })
     }
+
+    // 6) 모델 선택: 사진 있으면 sonnet(비전 성능↑), 없으면 haiku(속도↑)
+    const model = hasPhotos ? 'claude-sonnet-4-6' : 'claude-haiku-4-5-20251001'
 
     const resp = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -370,26 +527,56 @@ export async function POST(req: NextRequest) {
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify({
-        model: 'claude-haiku-4-5-20251001',
+        model,
         max_tokens: 1200,
         system: systemPrompt,
-        messages: [{ role: 'user', content: userMessage }],
+        messages: [{ role: 'user', content: userContent }],
       }),
     })
 
     if (!resp.ok) {
-      const err = await resp.text()
-      console.error('Claude API error:', err)
-      return NextResponse.json({ error: 'AI 서버 오류' }, { status: 500 })
+      const errText = await resp.text()
+      console.error('[ai-review-reply] Claude API error:', resp.status, errText.slice(0, 500))
+      // 사진 업로드 실패 시 사진 없이 재시도 (Vision URL 거부 대응)
+      if (hasPhotos) {
+        const retry = await fetch('https://api.anthropic.com/v1/messages', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-api-key': apiKey,
+            'anthropic-version': '2023-06-01',
+          },
+          body: JSON.stringify({
+            model: 'claude-haiku-4-5-20251001',
+            max_tokens: 1200,
+            system: systemPrompt,
+            messages: [{ role: 'user', content: [{ type: 'text', text: textPart }] }],
+          }),
+        })
+        if (retry.ok) {
+          const d2 = await retry.json()
+          let reply2 = d2.content?.[0]?.text?.trim() || '답변 생성 실패'
+          if (isExpert) reply2 = stripArtifacts(reply2, true)
+          return NextResponse.json({ ok: true, reply: reply2, lang, reviewType, mode: 'text-fallback' })
+        }
+      }
+      return NextResponse.json({ ok: false, error: 'AI 서버 오류' }, { status: 500 })
     }
 
-    const data  = await resp.json()
+    const data = await resp.json()
     let reply = data.content?.[0]?.text?.trim() || '답변 생성 실패'
     if (isExpert) reply = stripArtifacts(reply, true)
 
-    return NextResponse.json({ reply, lang, reviewType })
-  } catch (err) {
-    console.error('ai-review-reply error:', err)
-    return NextResponse.json({ error: '서버 오류가 발생했습니다' }, { status: 500 })
+    return NextResponse.json({
+      ok: true,
+      reply,
+      lang,
+      reviewType,
+      mode: hasPhotos ? 'vision' : 'text',
+      meta: { model, photos: photos.length, region, storeName, mainKeyword },
+    })
+  } catch (err: any) {
+    console.error('[ai-review-reply] exception:', err?.message || err)
+    return NextResponse.json({ ok: false, error: '서버 오류가 발생했습니다' }, { status: 500 })
   }
 }
