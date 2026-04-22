@@ -4,7 +4,7 @@
 // ============================================================
 import type { Logger } from 'pino'
 
-export type Platform = 'naver_place' | 'baemin' | 'yogiyo' | 'coupangeats'
+export type Platform = 'naver_place' | 'baemin' | 'yogiyo' | 'coupangeats' | 'kakao_map'
 export type Action =
   | 'fetch_reviews'          // 리뷰 수집
   | 'post_reply'             // 답글 등록
@@ -41,6 +41,8 @@ export async function runJob(data: PlatformJobData, log: Logger): Promise<JobRes
       return stubRun('YogiyoAdapter', action, log)
     case 'coupangeats':
       return stubRun('CoupangEatsAdapter', action, log)
+    case 'kakao_map':
+      return stubRun('KakaoMapAdapter', action, log)
     default:
       return { status: 'failed', message: `unknown platform: ${platform}` }
   }
