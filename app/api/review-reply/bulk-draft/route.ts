@@ -3,7 +3,7 @@
 // 30차-22-A · 미답변 리뷰 초안 일괄 생성 — 대상 ID 목록만 반환
 //
 //   POST /api/review-reply/bulk-draft
-//     body: { platform: 'naver_place' | 'baemin' | 'yogiyo' | 'coupangeats' }
+//     body: { platform: 'naver_place' | 'baemin' | 'yogiyo' | 'coupangeats' | 'kakao_map' }
 //
 //   동작:
 //     · 해당 플랫폼의 본인 platform_reviews 에서
@@ -21,7 +21,7 @@ import { createServiceClient } from '@/app/lib/adminAuth'
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-const VALID_PLATFORMS = ['naver_place', 'baemin', 'yogiyo', 'coupangeats'] as const
+const VALID_PLATFORMS = ['naver_place', 'baemin', 'yogiyo', 'coupangeats', 'kakao_map'] as const
 
 export async function POST(req: NextRequest) {
   const auth = await requireUser()
@@ -36,7 +36,7 @@ export async function POST(req: NextRequest) {
 
   if (!platform || !VALID_PLATFORMS.includes(platform as any)) {
     return NextResponse.json(
-      { ok: false, error: 'platform 값 필요 (naver_place|baemin|yogiyo|coupangeats)' },
+      { ok: false, error: 'platform 값 필요 (naver_place|baemin|yogiyo|coupangeats|kakao_map)' },
       { status: 400 },
     )
   }
