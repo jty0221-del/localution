@@ -25,8 +25,13 @@ export async function GET(req: NextRequest) {
   const u = new URL(req.url)
   const platform = u.searchParams.get('platform') || 'naver_place'
   const limit = Math.min(100, Math.max(1, Number(u.searchParams.get('limit') || 30)))
-  const minRating = Number(u.searchParams.get('min_rating') || 1)
-  const maxRating = Number(u.searchParams.get('max_rating') || 5)
+  // 30차-17: 네이버 공개 GraphQL 은 rating=null 이 표준 (키워드 리뷰).
+  //   기본 min_rating=1 이면 gte('rating',1) 필터가 null 행을 전부 제외해 리뷰가 0건으로 보임.
+  //   → 쿼리파라미터로 "명시적으로 값이 있을 때만" 필터 적용.
+  const minRatingRaw = u.searchParams.get('min_rating')
+  const maxRatingRaw = u.searchParams.get('max_rating')
+  const minRating = minRatingRaw !== null ? Number(minRatingRaw) : null
+  const maxRating = maxRatingRaw !== null ? Number(maxRatingRaw) : null
 
   try {
     let q = svc
@@ -39,8 +44,12 @@ export async function GET(req: NextRequest) {
       .order('posted_at', { ascending: false, nullsFirst: false })
       .order('collected_at', { ascending: false })
       .limit(limit)
-    if (minRating >= 1) q = q.gte('rating', minRating)
-    if (maxRating <= 5) q = q.lte('rating', maxRating)
+    if (typeof minRating === 'number' && !Number.isNaN(minRating) && minRating >= 1) {
+      q = q.gte('rating', minRating)
+    }
+    if (typeof maxRating === 'number' && !Number.isNaN(maxRating) && maxRating <= 5) {
+      q = q.lte('rating', maxRating)
+    }
     const { data, error } = await q
     if (error) {
       return NextResponse.json(
