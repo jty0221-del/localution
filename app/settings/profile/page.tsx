@@ -1,17 +1,35 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+// ============================================================
+// 31차-2 · /settings/profile — 서버 단일 진실원 동기화
+//
+//   - /api/stores/me GET: 매장 + 연결된 플랫폼 한방 조회
+//   - 저장시 /api/stores/register POST 로 서버 + localStorage 동시 반영
+//   - 연결된 플랫폼 뱃지 자동 표시 (연동 상태 한눈에)
+// ============================================================
+
+import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import Sidebar from '../../components/Sidebar'
-import { User, Store, MapPin, Save, Check, ArrowLeft, Mail, Phone, LogOut } from 'lucide-react'
+import { User, Store, MapPin, Save, Check, ArrowLeft, Mail, Phone, LogOut, Link2 } from 'lucide-react'
 import Footer from '../../components/Footer'
-import { confirmDialog } from '../../lib/toast'
+import { confirmDialog, toast } from '../../lib/toast'
 
 type UserCookie = {
   id?: string; name?: string; email?: string; provider?: string; profile_image?: string;
 }
 type StoreInfo = {
   storeName?: string; branch?: string; address?: string; phone?: string;
+}
+
+type PlatformRow = {
+  platform: string
+  label: string
+  connected: boolean
+  platform_store_id: string | null
+  platform_store_name: string | null
+  review_count: number
+  rating_avg: number | null
 }
 
 function readCookieUser(): UserCookie | null {
@@ -27,14 +45,53 @@ const PROVIDER_LABEL: Record<string, string> = {
   kakao: '카카오', naver: '네이버', google: '구글',
 }
 
+const PLATFORM_COLOR: Record<string, { bg: string; fg: string }> = {
+  naver_place: { bg: '#EDF7ED', fg: '#03C75A' },
+  baemin:      { bg: '#E6FAF9', fg: '#00A4A6' },
+  yogiyo:      { bg: '#FEECEE', fg: '#FA0050' },
+  coupangeats: { bg: '#F3E9FF', fg: '#8B4CE8' },
+  kakao_map:   { bg: '#FFFBE5', fg: '#6B5A00' },
+}
+
 export default function ProfileSettingsPage() {
   const [user, setUser] = useState<UserCookie | null>(null)
   const [form, setForm] = useState<StoreInfo>({ storeName: '', branch: '', address: '', phone: '' })
   const [saved, setSaved] = useState(false)
   const [loaded, setLoaded] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [platforms, setPlatforms] = useState<PlatformRow[]>([])
+  const [serverReady, setServerReady] = useState(false)
+
+  // ── 서버 단일 진실원 로드 ─────────────────────────
+  const loadServer = useCallback(async () => {
+    try {
+      const res = await fetch('/api/stores/me', { credentials: 'include', cache: 'no-store' })
+      const data = await res.json()
+      if (!res.ok || !data?.ok) return
+      // store
+      if (data.store) {
+        setForm((prev) => ({
+          storeName: prev.storeName || data.store.name || '',
+          branch: prev.branch || '',
+          address: prev.address || data.store.address || '',
+          phone: prev.phone || data.store.phone || '',
+        }))
+      }
+      // platforms
+      if (Array.isArray(data.platforms)) {
+        setPlatforms(
+          (data.platforms as PlatformRow[]).filter((p) => p.connected || p.review_count > 0),
+        )
+      }
+      setServerReady(true)
+    } catch (e) {
+      console.warn('[profile] stores/me load failed', e)
+    }
+  }, [])
 
   useEffect(() => {
     setUser(readCookieUser())
+    // localStorage 우선 (즉시 표시)
     try {
       const raw = localStorage.getItem('localution_store')
       if (raw) {
@@ -48,16 +105,51 @@ export default function ProfileSettingsPage() {
       }
     } catch {}
     setLoaded(true)
-  }, [])
+    // 서버 조회 → 누락된 필드 보충
+    loadServer()
+  }, [loadServer])
 
-  function handleSave(e: React.FormEvent) {
+  async function handleSave(e: React.FormEvent) {
     e.preventDefault()
+    if (!form.storeName) return
+    setSaving(true)
+    // 1) localStorage (사이드바 즉시 반영)
     try {
       localStorage.setItem('localution_store', JSON.stringify(form))
       window.dispatchEvent(new CustomEvent('localution:user-change'))
+    } catch {}
+
+    // 2) 서버 upsert — 로그인 상태일 때만
+    try {
+      if (user?.id) {
+        const res = await fetch('/api/stores/register', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: form.storeName,
+            address: form.address || null,
+            phone: form.phone || null,
+          }),
+        })
+        const data = await res.json().catch(() => ({}))
+        if (!res.ok || !data?.ok) {
+          toast.error(data?.error || '서버 저장 실패 (로컬은 저장됨)')
+        } else {
+          toast.success('저장 완료 (서버 + 브라우저)')
+        }
+      } else {
+        toast.info('로컬 저장됨 (로그인하면 서버에도 자동 동기화돼요)')
+      }
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
-    } catch {}
+      // 저장 후 재조회 → platforms 갱신
+      loadServer()
+    } catch (err: any) {
+      toast.error('저장 중 오류: ' + (err?.message || err))
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -148,6 +240,50 @@ export default function ProfileSettingsPage() {
             )}
           </div>
 
+          {/* 연결된 플랫폼 (31차-2) */}
+          <div className="bg-white rounded-2xl shadow-sm p-6 mb-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="flex items-center gap-2">
+                <Link2 size={14} strokeWidth={2.5} className="text-[#3182F6]" />
+                <h2 className="text-sm font-bold text-[#191F28]">연결된 플랫폼</h2>
+              </div>
+              <Link
+                href="/my/platforms"
+                className="text-[11px] font-bold text-[#3182F6] hover:underline"
+              >
+                관리 →
+              </Link>
+            </div>
+            {!serverReady ? (
+              <p className="text-xs text-[#8B95A1]">서버에서 조회 중...</p>
+            ) : platforms.length === 0 ? (
+              <p className="text-xs text-[#8B95A1]">
+                아직 연결된 플랫폼이 없어요. <Link href="/my/platforms" className="text-[#3182F6] font-semibold underline">연결하러 가기</Link>
+              </p>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {platforms.map((p) => {
+                  const color = PLATFORM_COLOR[p.platform] ?? { bg: '#F2F4F6', fg: '#4E5968' }
+                  return (
+                    <div
+                      key={p.platform}
+                      className="px-3 py-2 rounded-xl text-[11px] font-bold flex items-center gap-2"
+                      style={{ background: color.bg, color: color.fg }}
+                    >
+                      <span>{p.label}</span>
+                      {p.review_count > 0 && (
+                        <span className="text-[10px] opacity-80">
+                          리뷰 {p.review_count}
+                          {p.rating_avg != null ? ` · ${p.rating_avg.toFixed(1)}★` : ''}
+                        </span>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            )}
+          </div>
+
           {/* 매장 정보 폼 */}
           <form onSubmit={handleSave} className="bg-white rounded-2xl shadow-sm p-6">
             <div className="flex items-center justify-between mb-4">
@@ -219,14 +355,14 @@ export default function ProfileSettingsPage() {
 
             <button
               type="submit"
-              disabled={!loaded || !form.storeName}
+              disabled={!loaded || !form.storeName || saving}
               className="mt-5 w-full inline-flex items-center justify-center gap-2 py-3 rounded-xl bg-[#3182F6] text-white font-bold text-sm hover:bg-[#1B64DA] transition-all disabled:opacity-50 disabled:cursor-not-allowed">
               <Save size={15} strokeWidth={2.5} />
-              저장하기
+              {saving ? '저장 중…' : '저장하기'}
             </button>
 
             <p className="text-[10px] text-[#8B95A1] text-center mt-3">
-              브라우저에 저장됩니다. 여러 기기에서 사용하려면 추후 업데이트로 동기화 예정
+              서버 + 브라우저 양쪽에 저장됩니다. 플랫폼 연결은 <Link href="/my/platforms" className="text-[#3182F6] underline">플랫폼 관리</Link> 에서.
             </p>
           </form>
         </div>
