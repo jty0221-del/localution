@@ -25,7 +25,7 @@ import Footer from '../../components/Footer'
 import PageHeader from '../../components/PageHeader'
 import { toast } from '../../lib/toast'
 
-type PlatformSlug = 'naver_place' | 'baemin' | 'yogiyo' | 'coupangeats'
+type PlatformSlug = 'naver_place' | 'baemin' | 'yogiyo' | 'coupangeats' | 'kakao_map'
 type ReplyStatus = 'none' | 'draft' | 'queued' | 'submitting' | 'submitted' | 'failed'
 
 interface Review {
@@ -77,6 +77,7 @@ export interface PlatformConfig {
   iconLetter: string              // "N" 원형 아이콘 글자 (사용 안 해도 됨)
   supportsFetch: boolean          // "지금 수집" 버튼 노출 여부
   connectHref: string             // 미연결 시 이동 경로 (/dashboard or /my/platforms/xxx/connect)
+  collectEndpoint?: string        // 31차-3: "지금 수집" 커스텀 엔드포인트 (기본 /api/place/reviews/fetch)
 }
 
 function Stars({ n, color }: { n: number; color: string }) {
@@ -252,7 +253,8 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
     if (!connected || fetching) return
     setFetching(true)
     try {
-      const res = await fetch('/api/place/reviews/fetch', {
+      const endpoint = config.collectEndpoint || '/api/place/reviews/fetch'
+      const res = await fetch(endpoint, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
