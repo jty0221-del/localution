@@ -18,6 +18,7 @@
 | 30차-18 | dashboard canonicalConnections 가 reviews/rating 덮어쓰지 않도록 보존 + /api/stores/me naver_place 연결 판정 확장 | app/dashboard/page.tsx, app/api/stores/me/route.ts | ✅ 완료 (0b2dbe8, 5af647f) |
 | 30차-19 | AI 답글 재작성 — review_id 로 stores+사진 자동 로드 + SEO 키워드 추론 + Claude Vision | app/api/ai-review-reply/route.ts | ✅ 완료 (8338c99) |
 | 30차-20 | 원클릭 자동 등록 버튼 (생성→복사→스마트플레이스 탭) + handleAiReply review_id 전환 | app/review-admin/naver/page.tsx | ✅ 완료 (782aeb0) |
+| 30차-21 | 댓글 초안→편집→자동등록 2단 시스템 전면 재구성 + 프롬프트 절제 + Worker 큐 인프라 | supabase/migrations/30cha21_platform_reviews_draft_columns.sql, app/api/ai-review-reply/route.ts, app/api/review-reply/draft/route.ts, app/api/review-reply/submit/route.ts, app/api/place/reviews/route.ts, app/review-admin/naver/page.tsx | ✅ 완료 |
 
 ---
 
@@ -254,4 +255,72 @@ Railway 대시보드 → `worker` 서비스 → Variables 에 아래 3개 추가
 
 ---
 
-*최종 업데이트: 2026-04-22 30차-18/19/20 배포 완료 (dashboard 리뷰 wipe 방지 + AI 답글 SEO·Vision + 원클릭 등록)*
+## 30차-21 — 댓글 초안→편집→자동등록 2단 시스템 전면 재구성 (2026-04-22)
+
+### 사용자 피드백
+> "원클릭 자동 등록 버튼을 만들어준거 확인했는데 전체적으로 시스템을 바꿔야 할것으로 보임. 댓글 초안 생성하기를 만들어서 ... 이후 초안생성이 완료 되면 AI 초안 수정과 이대로 등록하기 버튼 2가지로 나뉘게 만들고 그걸 통해서 이대로 등록하기 버튼 누르면 자동으로 네이버에 댓글을 등록할 수 있게 만들어줘"
+>
+> + "너무 많은 키워드와 미사어구가 달리지 않도록"
+
+30차-20 원클릭 버튼은 "생성→복사→네이버 탭" 까지는 해줬지만 사용자가 초안을 확인·수정할 틈이 없었고, 키워드 + 미사여구가 너무 많이 끼어 들어가는 프롬프트 과다 이슈가 있었음.
+
+### 변경 내역
+
+#### 30차-21(1) — SQL migration: platform_reviews 초안/큐 컬럼 7개 추가
+- `supabase/migrations/30cha21_platform_reviews_draft_columns.sql` 신규
+- 컬럼: `draft_reply`(text) / `reply_status`(text default 'none') / `reply_tone`(text) / `reply_queued_at` / `reply_submitted_at` / `reply_error` / `reply_attempts`(int default 0)
+- 상태 enum CHECK: `none | draft | queued | submitting | submitted | failed`
+- 부분 인덱스: `(platform, reply_queued_at) WHERE reply_status='queued'` — Worker 픽업 최적화
+- **⚠️ 수동 실행 대기**: Supabase SQL Editor 에서 실행해야 함
+
+#### 30차-21(2) — `/api/ai-review-reply` 프롬프트 절제 강화
+- 기존 SEO 블록(lines 313~)의 "2~4개 자연 노출" 규칙 → **"딱 1~2개만 골라서 자연스럽게 녹이세요"** 로 강화
+- 추가 규칙:
+  - 같은 키워드 2번 이상 등장 금지 (검색 스팸 역효과)
+  - "매장명" 또는 "지역+업종" 조합은 답글 전체에서 1회만
+  - 4~6문장 이내 권장
+  - 인사말은 "안녕하세요, ○○입니다" 수준 1줄
+  - "정말 너무" / "완전 진짜" / "최고의" 같은 겹수식어 금지
+  - 키워드가 문맥상 어색하면 차라리 빼라
+
+#### 30차-21(3) — `POST /api/review-reply/draft` 신규
+- 초안 저장 전용 엔드포인트. body: `{ review_id, draft, tone? }`
+- `requireUser()` + 본인 소유 검증 + queued/submitting/submitted 상태에서는 수정 거부
+- update: `draft_reply`, `reply_status='draft'`, `reply_tone`, `reply_error=null`
+
+#### 30차-21(4) — `POST /api/review-reply/submit` 신규
+- "이대로 등록하기" → Worker 큐 등록. body: `{ review_id }`
+- 조건 체크: 본인 소유 + `has_reply=false` + `draft_reply` 존재 + `reply_status in (none,draft,failed)`
+- update: `reply_status='queued'`, `reply_queued_at=now()`
+- 네이버 어댑터(23차-4) 미완 상태에 대한 투명한 note 응답 포함
+
+#### 30차-21(5) — `/api/place/reviews` GET 확장
+- 초안/상태 컬럼 7개 추가 반환: `draft_reply, reply_status, reply_tone, reply_queued_at, reply_submitted_at, reply_error, reply_attempts`
+- UI 가 상태 배지/편집박스/재진입 처리에 사용
+
+#### 30차-21(6) — `/review-admin/naver` 페이지 전면 리팩터
+- 기존 2버튼("⚡ 원클릭 자동 등록" + "✨ 먼저 미리보기") 제거
+- **초기 상태**: 리뷰 카드 아래 단일 "✍️ 댓글 초안 생성" 버튼
+- **생성 후**: 편집 가능한 `<textarea>` + 톤 선택 + 3버튼:
+  - "🔁 AI 초안 수정" — 재생성
+  - "✅ 이대로 등록하기" — Worker 큐 등록
+  - "닫기" — 편집창 종료
+- **재진입**: draft 가 있으면 "📝 초안 이어서 편집" 버튼으로 노출 (60자 미리보기)
+- **상태 배지**: draft / queued / submitting / submitted / failed 색상 뱃지
+- queued 상태 알림: "Worker 가 네이버에 올려드려요"
+- failed 상태 시 `reply_error` 빨간 박스 표시
+
+### 큐 → 실제 submit 연결 플랜
+현재 Railway Worker 어댑터(23차-4)는 stub 상태. `reply_status='queued'` 행은 DB 에 쌓이지만 Worker 가 아직 픽업하지 않음. 23차-4 완성 시 자동으로:
+1. Worker 가 4시간 polling 또는 realtime trigger 로 `queued` 행 감지
+2. `reply_status='submitting'` 으로 마킹
+3. Playwright 로 스마트플레이스 로그인 + 답글 submit
+4. 성공 → `reply_status='submitted'` + `reply_submitted_at=now()` + `has_reply=true`
+5. 실패 → `reply_status='failed'` + `reply_error=...` + `reply_attempts+=1`
+
+### 배포 스크립트
+`scripts/push_30cha21_review_reply_draft_queue_system.js` — 6개 파일 일괄 커밋
+
+---
+
+*최종 업데이트: 2026-04-22 30차-21 배포 완료 (댓글 초안→편집→자동등록 2단 시스템 + Worker 큐 인프라)*
