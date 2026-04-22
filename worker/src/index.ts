@@ -9,6 +9,7 @@ import { Worker, Queue, Job } from 'bullmq'
 import IORedis from 'ioredis'
 import pino from 'pino'
 import http from 'http'
+import { chromium, Browser } from 'playwright'
 import { runJob, PlatformJobData } from './jobs'
 
 const log = pino({
@@ -49,6 +50,27 @@ connection.on('connect', () => log.info('redis connected'))
 connection.on('error', (err) => log.error({ err }, 'redis error'))
 
 // ─────────────────────────────────────────────
+// Playwright Browser 싱글턴
+//   · 컨테이너 기동 시 1회만 launch, 모든 잡이 newContext() 로 격리
+// ─────────────────────────────────────────────
+let browserSingleton: Browser | null = null
+async function getBrowser(): Promise<Browser> {
+  if (browserSingleton && browserSingleton.isConnected()) return browserSingleton
+  log.info('launching chromium...')
+  browserSingleton = await chromium.launch({
+    headless: true,
+    args: [
+      '--no-sandbox',
+      '--disable-setuid-sandbox',
+      '--disable-dev-shm-usage',
+      '--disable-blink-features=AutomationControlled',
+    ],
+  })
+  log.info('chromium launched')
+  return browserSingleton
+}
+
+// ─────────────────────────────────────────────
 // Worker 등록 — 큐 이름: 'platform-jobs'
 // ─────────────────────────────────────────────
 const QUEUE_NAME = 'platform-jobs'
@@ -57,7 +79,8 @@ const worker = new Worker<PlatformJobData>(
   QUEUE_NAME,
   async (job: Job<PlatformJobData>) => {
     log.info({ jobId: job.id, name: job.name, data: { platform: job.data.platform, action: job.data.action } }, 'job start')
-    const result = await runJob(job.data, log)
+    const browser = await getBrowser()
+    const result = await runJob(job.data, log, browser)
     log.info({ jobId: job.id, result: result.status }, 'job done')
     return result
   },
@@ -108,6 +131,10 @@ async function shutdown(signal: string) {
     await worker.close()
     await connection.quit()
     healthServer.close()
+    if (browserSingleton) {
+      await browserSingleton.close().catch(() => null)
+      browserSingleton = null
+    }
   } catch (e) {
     log.error({ e }, 'shutdown error')
   } finally {
