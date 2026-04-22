@@ -79,9 +79,11 @@ interface PlatformStat {
 const ALL_PLATFORMS = ['naver', 'kakao', 'google', 'baemin', 'yogiyo', 'coupang'] as const
 type PlatformKey = typeof ALL_PLATFORMS[number]
 
+type LogoFC = React.FC<{ size?: number }>
+
 const PLATFORM_META: Record<PlatformKey, {
   label: string; color: string; bg: string; textColor: string; icon: string
-  logo?: (size: number) => React.ReactNode
+  Logo?: LogoFC
   apiPath?: string
   detailPath: string
   legacyKeys?: { connected: string; storeId: string; token: string }
@@ -101,21 +103,21 @@ const PLATFORM_META: Record<PlatformKey, {
   },
   baemin: {
     label: '배민', color: '#2AC1BC', bg: '#E6F9F8', textColor: '#0B7B78', icon: 'B',
-    logo: (s) => <BaeminLogo size={s} />,
+    Logo: BaeminLogo,
     apiPath: '/api/baemin-reviews',
     detailPath: '/review-admin/baemin',
     legacyKeys: { connected: 'localution.baemin.connected', storeId: 'localution.baemin.storeId', token: 'localution.baemin.token' },
   },
   yogiyo: {
     label: '요기요', color: '#E5007F', bg: '#FEF0EB', textColor: '#B32B00', icon: 'Y',
-    logo: (s) => <YogiyoLogo size={s} />,
+    Logo: YogiyoLogo,
     apiPath: '/api/yogiyo-reviews',
     detailPath: '/review-admin/yogiyo',
     legacyKeys: { connected: 'localution.yogiyo.connected', storeId: 'localution.yogiyo.storeId', token: 'localution.yogiyo.token' },
   },
   coupang: {
     label: '쿠팡이츠', color: '#FF5A00', bg: '#FFF3F0', textColor: '#900000', icon: 'C',
-    logo: (s) => <CoupangEatsLogo size={s} />,
+    Logo: CoupangEatsLogo,
     apiPath: '/api/reviews/coupang',
     detailPath: '/review-admin/coupang',
     legacyKeys: { connected: 'localution.coupang.connected', storeId: 'localution.coupang.storeId', token: 'localution.coupang.token' },
@@ -338,10 +340,11 @@ export default function ReviewAdminHub() {
                 {/* 헤더 */}
                 <div className="flex items-center gap-2.5 mb-3">
                   <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden"
-                    style={meta.logo ? {} : { background: meta.color }}>
-                    {meta.logo ? meta.logo(36) : (
-                      <span className="text-white font-black text-sm">{meta.icon}</span>
-                    )}
+                    style={meta.Logo ? {} : { background: meta.color }}>
+                    {meta.Logo
+                      ? React.createElement(meta.Logo, { size: 36 })
+                      : <span className="text-white font-black text-sm">{meta.icon}</span>
+                    }
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-bold text-[#191F28]">{meta.label}</p>
@@ -457,4 +460,4 @@ export default function ReviewAdminHub() {
         ) : loadingFeed ? (
           <div className="bg-white rounded-2xl border border-[#E5E8EB] p-12 text-center text-sm text-[#8B95A1]">
             리뷰 불러오는 중...
-         
+   
