@@ -21,6 +21,9 @@
 | 30차-21 | 댓글 초안→편집→자동등록 2단 시스템 전면 재구성 + 프롬프트 절제 + Worker 큐 인프라 | supabase/migrations/30cha21_platform_reviews_draft_columns.sql, app/api/ai-review-reply/route.ts, app/api/review-reply/draft/route.ts, app/api/review-reply/submit/route.ts, app/api/place/reviews/route.ts, app/review-admin/naver/page.tsx | ✅ 완료 |
 | 30차-22 | 초안 일괄 생성 + 3 플랫폼 2단 플로우 확장 + connect 미니멀 로그인 UI | app/api/review-reply/bulk-draft/route.ts, app/review-admin/components/PlatformReviewAdmin.tsx, app/review-admin/naver/page.tsx, app/review-admin/baemin/page.tsx, app/review-admin/yogiyo/page.tsx, app/review-admin/coupang/page.tsx, app/my/platforms/[platform]/connect/page.tsx | ✅ 완료 |
 | 30차-23 | 리뷰 UX 통합 개선 — 사진 썸네일/라이트박스 + 기간 필터(7/30/전체) + 헤더 카피 네이버 중심 + 대시보드 실데이터 통합 | app/review-admin/components/PlatformReviewAdmin.tsx, app/api/place/reviews/route.ts, app/dashboard/page.tsx | ✅ 완료 (22b8694 / 2918f12 / fda29e9) |
+| 31차-1 | Kakao Map 플랫폼 추가(5번째) — DB/슬러그/대시보드/connect/리뷰어드민/worker 전파 | app/lib/platform-credentials.ts, app/lib/connections.ts, app/my/platforms/page.tsx, app/my/platforms/[platform]/connect/page.tsx, app/api/review-reply/bulk-draft/route.ts, app/review-admin/page.tsx, app/review-admin/kakao/page.tsx, app/dashboard/page.tsx, worker/src/jobs/index.ts | ✅ 완료 (bfc4cf3 / 4b9088f / 6b59ee3 / 02f46a3 / 9965d32 / 0f5e574 / 43aa6c2 / 6ac3aa5 / 716bd70) |
+| 31차-2 | /settings/profile 서버 단일 진실원 동기화 — `/api/stores/me` 연동 + 연결 플랫폼 뱃지 | app/settings/profile/page.tsx | ✅ 완료 (c0f4a07) |
+| 31차-3 | 카카오맵 공개 리뷰 수집기 — panel3 JSON 파서 + 수집 API + PlatformReviewAdmin.collectEndpoint 옵션 | app/lib/kakao-place.ts, app/api/place/kakao/collect/route.ts, app/review-admin/components/PlatformReviewAdmin.tsx | ✅ 완료 (9271f4f / 4a7b5af / 5d42435) |
 
 ---
 
@@ -439,4 +442,126 @@ Railway 대시보드 → `worker` 서비스 → Variables 에 아래 3개 추가
 
 ---
 
-*최종 업데이트: 2026-04-22 30차-23 배포 완료 (리뷰 사진 + 기간 필터 + 네이버 헤더 + 대시보드 실데이터 통합)*
+## 31차 — Kakao Map 플랫폼 통합 + 프로필 서버 동기화 (2026-04-22)
+
+### 작업 배경
+1. **5번째 플랫폼 — 카카오맵**: 기존 4플랫폼(naver_place / baemin / yogiyo / coupangeats) 체계에 카카오맵 추가 요청. ID/PW 로그인 + `place.map.kakao.com/{id}#review` URL 기반 리뷰 수집. 대시보드부터 전 페이지까지 한 번에 전파.
+2. **`/settings/profile` 서버 동기화**: `/settings` 에서 플랫폼을 연결해도 `/settings/profile` 이 로컬스토리지만 참조해 "방금 연결한 플랫폼이 프로필에 안 뜨는" 이슈. 28차 아키텍처(stores = 단일 진실원) 일관성 회복.
+3. **카카오맵 공개 리뷰 수집 MVP**: 네이버의 `/api/place/reviews/fetch` 가 네이버 전용이라 카카오 전용 수집기가 필요. 로그인 기반 전체 수집은 Worker 적재, 우선은 panel3 임베디드 최근 리뷰(3~5건)로 MVP.
+
+### 변경 내역
+
+#### 31차-1 — Kakao Map 플랫폼 전파 (9 파일)
+
+**app/lib/platform-credentials.ts**
+- `PLATFORM_SLUGS` 에 `kakao_map` 추가
+- `PLATFORM_LABEL` 에 `kakao_map: '카카오맵'` 추가
+- 암호화/저장 패스 재활용 (AES-256-GCM)
+
+**app/lib/connections.ts**
+- `CANONICAL_MAP` 에 `kakao_map → kakao` 정규화 엔트리
+- `buildPlaceUrl(kakao_map, id)` → `https://place.map.kakao.com/{id}#review` 자동 생성
+
+**app/my/platforms/page.tsx**
+- `PLATFORMS` 배열에 카카오맵 카드(🟡 #FEE500) 추가
+- `/my/platforms/kakao_map/connect` 로 라우팅
+
+**app/my/platforms/[platform]/connect/page.tsx**
+- `PLATFORM_META.kakao_map` 등록 (라벨/로고 placeholder/가이드 문구 포함)
+- placeholder: `https://place.map.kakao.com/616380187`
+
+**app/api/review-reply/bulk-draft/route.ts**
+- `VALID_PLATFORMS` 에 `kakao_map` 추가해 일괄 초안 생성 파이프도 5플랫폼 지원
+
+**app/review-admin/page.tsx**
+- `slugToKey()` 매핑에 `kakao_map → kakao` 추가 → 허브 카드에서 카카오맵 행 표시
+
+**app/review-admin/kakao/page.tsx (NEW wrapper)**
+- `PlatformReviewAdmin` 공통 컴포넌트 호출 + `collectEndpoint: '/api/place/kakao/collect'` 지정
+- `supportsFetch: true` 로 공개 수집 버튼 활성화 (색: #FEE500, bg: #FFFBE5)
+
+**app/dashboard/page.tsx**
+- `KakaoMapLogo` 컴포넌트 (🟡 원형 이니셜 "카")
+- 플랫폼 요약 행 / 연결 모달 / 상세 모달 전부 `kakao_map` 분기 추가
+- ConnectModal `apiEndpoint` 에 `kakao_map → /api/platforms/kakao` 라인 (legacy stub 체계 유지)
+- 더미 데이터 "카카오맵" 행 제거 → 연결 상태 기반 동적 렌더
+
+**worker/src/jobs/index.ts**
+- `Platform` 유니온 타입에 `kakao_map` 추가
+- `run()` 스위치에 `case 'kakao_map': return stubRun('KakaoMapAdapter', ...)` 추가 (실제 Playwright 어댑터는 23차-5 후속)
+
+#### 31차-2 — /settings/profile 서버 단일 진실원 동기화
+
+**app/settings/profile/page.tsx (전체 재작성)**
+- `loadServer()` 콜백: mount 시 `/api/stores/me` GET → store.name/description/address/hours/phone 으로 폼 초기화
+- `connectedPlatforms` 파생 상태: `platforms[]` 중 `connected || review_count > 0` 필터링, `PLATFORM_COLOR` 맵으로 뱃지 컬러 렌더
+- `handleSave()`: `/api/stores/register` POST 로 서버 upsert + 로컬스토리지 병기 유지 (캐시 워밍용)
+- 연결 플랫폼 섹션 신설: 뱃지 UI (naver_place=초록 / kakao_map=노랑 / baemin=민트 / yogiyo=빨강 / coupangeats=파랑)
+- 로컬전용 코드 제거 → 항상 서버가 진실원, 로컬은 fallback
+
+#### 31차-3 — 카카오맵 공개 리뷰 수집기 (panel3 기반)
+
+**app/lib/kakao-place.ts (NEW · 7KB)**
+- `extractKakaoPlaceId(input)`: URL/숫자 양방향 파싱
+- `lookupKakaoPlace(input)`: 장소 메타(이름/주소/별점/리뷰수/좌표) 조회 — verify 용
+- `fetchKakaoVisitorReviews(placeId)`: panel3 JSON `kakaomap_review.reviews[]` 파싱 → `{reviewId, authorName, rating, body, visitedAt, postedAt, photos[]}` 배열
+- **핵심 발견: `pf: web` 헤더 필수** — `Accept: application/json` 만으로는 406 Not Acceptable. `pf: web` 헤더가 있어야 JSON 응답 해금. curl 로 헤더 조합 실험으로 확인.
+- `parseDateKST()`: `"2026-04-21 18:42:38"` → ISO KST 변환
+
+**app/api/place/kakao/collect/route.ts (NEW)**
+- `POST` — body `{ place_id? }` 수용, 없으면 자동 탐색: `platform_credentials(platform='kakao_map').platform_store_id` → `stores.kakao_place_id` 순
+- 공개 리뷰 UPSERT: `platform_reviews` 테이블에 `onConflict: 'platform,platform_review_id'` 로 멱등 저장
+- `author_mask()` 로 닉네임 마스킹(앞 1글자 + *** + 끝 1글자), 원문도 `author_name` 에 저장
+- `raw_snapshot` 에 panel3 원본 JSON 보존
+- `GET` — `?place={url|id}` 로 lookup verify 용도 (저장 안 함)
+- `requireUser()` 기반 인증, `runtime = 'nodejs'` 고정
+
+**app/review-admin/components/PlatformReviewAdmin.tsx**
+- `PlatformConfig` 에 `collectEndpoint?: string` 옵션 추가
+- `collectNow()` 수정: `const endpoint = config.collectEndpoint || '/api/place/reviews/fetch'` — 기본은 네이버용, 카카오는 custom 지정
+- 이후 다른 플랫폼(배민/요기요/쿠팡)도 공개 수집기 생기면 `collectEndpoint` 만 덮으면 됨 → 확장성 확보
+
+### panel3 API 발견 로그
+1. 초기 `https://place-api.map.kakao.com/places/panel3/{id}` 직접 호출 → 406 Not Acceptable
+2. `User-Agent: Mozilla/5.0 (...)` 만 추가 → 여전히 406
+3. `Accept: application/json` 추가 → 여전히 406
+4. **`pf: web` 헤더 추가 → 200 OK + JSON 반환** ✅
+5. `kakaomap_review.reviews[]` 에 최근 3~5건 포함, 각 리뷰 `contents / star_rating / photos / meta.owner.nickname / meta.visit_date`
+6. 페이지네이션 엔드포인트 `.../reviews` `.../kakaomapReviews` 양쪽 404 — panel3 임베디드만 공개 API. 전체 이력은 Worker 로그인 필요.
+
+### 배포 정보
+- `scripts/push_31_kakao_map.js` — 13 파일 일괄 PUT (dotenv 부트스트랩 · sha 선조회 · 커밋별 메시지 분리)
+- 배포 결과: 13/13 모두 성공
+  - `app/lib/platform-credentials.ts` — `bfc4cf3`
+  - `app/lib/connections.ts` — `4b9088f`
+  - `app/my/platforms/page.tsx` — `6b59ee3`
+  - `app/my/platforms/[platform]/connect/page.tsx` — `02f46a3`
+  - `app/api/review-reply/bulk-draft/route.ts` — `9965d32`
+  - `app/lib/kakao-place.ts` — `9271f4f`
+  - `app/api/place/kakao/collect/route.ts` — `4a7b5af`
+  - `app/review-admin/components/PlatformReviewAdmin.tsx` — `5d42435`
+  - `app/review-admin/kakao/page.tsx` — `43aa6c2`
+  - `app/review-admin/page.tsx` — `0f5e574`
+  - `app/dashboard/page.tsx` — `6ac3aa5`
+  - `worker/src/jobs/index.ts` — `716bd70`
+  - `app/settings/profile/page.tsx` — `c0f4a07`
+
+### 영향 범위
+- **`/my/platforms`**: 카카오맵 카드 추가 (5개 타일 그리드)
+- **`/my/platforms/kakao_map/connect`**: 아이디/비번 + 카카오맵 URL 입력 폼 (PLATFORM_META 기반)
+- **`/review-admin`**: 허브 카드에 카카오맵 행 표시
+- **`/review-admin/kakao`**: 공개 수집 버튼 + 초안 생성/편집/등록 2단 플로우 즉시 동작
+- **`/dashboard`**: 상단 플랫폼 요약 / 연결 모달 / 상세 모달 카카오맵 분기
+- **`/settings/profile`**: 서버 동기화 완료 → 어디서 연결하든 프로필에서 뱃지로 확인
+- **Worker**: `kakao_map` 작업이 들어와도 stub 이라 에러 없이 skip (adapter 완성 대기)
+- **DB**: `platform_reviews.platform = 'kakao_map'` 행 수집 시작 (수집 버튼 1회 누르면 최근 3~5건 UPSERT)
+
+### 다음 단계 (미해결)
+- Kakao JS 키 수동 등록 완료 후 `/dashboard` + `/settings` SmartMapBox 카카오맵 카드 실제 지도 렌더 확인
+- `KakaoMapAdapter` (Railway Worker) Playwright 로그인 + 전체 리뷰 이력 수집 어댑터 구현 (23차-5 후속)
+- panel3 응답에 `tips[]` (다른 종류의 리뷰 블록) 포함되는 경우 있음 — 필요 시 `fetchKakaoVisitorReviews` 에 `tips` 병합 로직 추가
+- `cron/collect-all` 추가 시 `'kakao_map'` 도 루프에 포함해 자동 수집 스케줄링
+
+---
+
+*최종 업데이트: 2026-04-22 31차 배포 완료 (Kakao Map 5번째 플랫폼 통합 + /settings/profile 서버 동기화 + panel3 공개 수집기)*
