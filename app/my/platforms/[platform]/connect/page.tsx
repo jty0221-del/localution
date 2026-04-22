@@ -17,11 +17,12 @@
 //     · /api/legal/platform-consent POST (STEP 1)
 //     · /api/platform-accounts POST (STEP 2)
 // ============================================================
+export const dynamic = 'force-dynamic'
+
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useParams } from 'next/navigation'
-
-export const dynamic = 'force-dynamic'
+import PlatformLogo from '../../../../components/PlatformLogo'
 
 type PlatformSlug = 'naver_place' | 'baemin' | 'yogiyo' | 'coupangeats' | 'kakao_map'
 const VALID_PLATFORMS: PlatformSlug[] = ['naver_place', 'baemin', 'yogiyo', 'coupangeats', 'kakao_map']
@@ -238,12 +239,8 @@ export default function ConnectPlatformPage() {
             style={{ background: meta.brandColor + '15', borderColor: meta.brandColor + '40' }}
           >
             <div className="flex items-center gap-3 mb-2">
-              <div
-                className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl font-black"
-                style={{ background: meta.brandColor, color: meta.brandTextColor }}
-              >
-                {meta.initial}
-              </div>
+              {/* 35차-4: 공통 PlatformLogo 로 교체 */}
+              <PlatformLogo platform={platform} size={48} rounded={14} />
               <div>
                 <div className="text-[11px] font-bold mb-0.5" style={{ color: meta.brandColor }}>
                   STEP 1 / 2
@@ -369,12 +366,9 @@ export default function ConnectPlatformPage() {
 
       {/* 본문 */}
       <div className="flex-1 max-w-sm w-full mx-auto px-6 pt-6 pb-8 flex flex-col">
-        {/* 컬러 로고 아이콘 */}
-        <div
-          className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl font-black mb-8 shadow-sm"
-          style={{ background: meta.brandColor, color: meta.brandTextColor }}
-        >
-          {meta.initial}
+        {/* 컬러 로고 아이콘 (35차-4: 공통 PlatformLogo) */}
+        <div className="mb-8">
+          <PlatformLogo platform={platform} size={56} rounded={14} />
         </div>
 
         {/* 타이틀 */}
