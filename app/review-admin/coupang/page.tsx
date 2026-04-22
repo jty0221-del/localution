@@ -19,7 +19,8 @@ const CONFIG: PlatformConfig = {
   textColor: '#A32A17',
   icon: '🚀',
   iconLetter: '쿠',
-  supportsFetch: false,
+  supportsFetch: true,               // 32차-2 CoupangEatsAdapter 완료
+  collectEndpoint: '/api/review-reply/collect?platform=coupangeats',
   connectHref: '/my/platforms/coupangeats/connect',
 }
 
