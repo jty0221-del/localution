@@ -23,8 +23,8 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useParams } from 'next/navigation'
 
-type PlatformSlug = 'naver_place' | 'baemin' | 'yogiyo' | 'coupangeats'
-const VALID_PLATFORMS: PlatformSlug[] = ['naver_place', 'baemin', 'yogiyo', 'coupangeats']
+type PlatformSlug = 'naver_place' | 'baemin' | 'yogiyo' | 'coupangeats' | 'kakao_map'
+const VALID_PLATFORMS: PlatformSlug[] = ['naver_place', 'baemin', 'yogiyo', 'coupangeats', 'kakao_map']
 
 const PLATFORM_META: Record<PlatformSlug, {
   label: string                // 전체 이름
@@ -89,6 +89,19 @@ const PLATFORM_META: Record<PlatformSlug, {
     loginUrl: 'https://store.coupangeats.com/',
     forgotIdUrl: 'https://store.coupangeats.com/',
     forgotPwUrl: 'https://store.coupangeats.com/',
+    singleForgot: false,
+  },
+  kakao_map: {
+    label: '카카오맵',
+    shortLabel: '카카오',
+    brandColor: '#FEE500',
+    brandTextColor: '#191919',
+    initial: '카',
+    loginBg: '#FEE500',
+    loginFg: '#191919',
+    loginUrl: 'https://place.map.kakao.com/',
+    forgotIdUrl: 'https://accounts.kakao.com/weblogin/find_account/email',
+    forgotPwUrl: 'https://accounts.kakao.com/weblogin/find_password',
     singleForgot: false,
   },
 }
