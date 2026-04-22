@@ -17,6 +17,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import Sidebar from '../../components/Sidebar'
 import Footer from '../../components/Footer'
+import PlatformLogo from '../../components/PlatformLogo'
 
 type PlatformSlug = 'naver_place' | 'baemin' | 'yogiyo' | 'coupangeats' | 'kakao_map'
 
@@ -245,14 +246,13 @@ export default function MyPlatformsPage() {
                       key={item.platform}
                       className="rounded-xl bg-white border border-[#E5E7EB] p-5 hover:border-[#D1D5DB] transition-colors"
                     >
-                      {/* 상단: 로고 + 제목 */}
+                      {/* 상단: 로고 + 제목 (35차-4: 공통 PlatformLogo 로 교체) */}
                       <div className="flex items-center gap-3 mb-4">
-                        <div
-                          className="w-11 h-11 rounded-full flex items-center justify-center font-bold text-white text-lg flex-shrink-0"
-                          style={{ background: meta.brandColor }}
-                        >
-                          {meta.initial}
-                        </div>
+                        <PlatformLogo
+                          platform={item.platform}
+                          size={44}
+                          rounded={11}
+                        />
                         <div className="flex-1 min-w-0">
                           <div className="font-semibold text-[#191F28] truncate">{meta.label}</div>
                           <div className="text-xs text-[#6B7280]">{meta.description}</div>
