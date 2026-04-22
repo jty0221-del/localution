@@ -9,6 +9,7 @@ import type { Logger } from 'pino'
 import { runBaemin } from '../adapters/baemin'
 import { runYogiyo } from '../adapters/yogiyo'
 import { runCoupangEats } from '../adapters/coupangeats'
+import { runKakao } from '../adapters/kakao'
 
 export type Platform = 'naver_place' | 'baemin' | 'yogiyo' | 'coupangeats' | 'kakao_map'
 export type Action =
@@ -52,9 +53,7 @@ export async function runJob(
       log.warn({ platform, action }, 'naver_place handled by Vercel public collector')
       return { status: 'skipped', message: 'naver_place: use /api/place/reviews/fetch on Vercel' }
     case 'kakao_map':
-      // 카카오맵은 Vercel 쪽 /api/place/kakao/collect 공개 panel3 으로 수집.
-      log.warn({ platform, action }, 'kakao_map handled by Vercel panel3 collector')
-      return { status: 'skipped', message: 'kakao_map: use /api/place/kakao/collect on Vercel' }
+      return runKakao(opts, action, payload)
     default:
       return { status: 'failed', message: `unknown platform: ${platform}` }
   }
