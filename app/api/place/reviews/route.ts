@@ -2,9 +2,11 @@
 // ============================================================
 // 30차-15-B · 저장된 네이버 플레이스 리뷰 조회
 //
-//   GET /api/place/reviews?platform=naver_place&limit=30&min_rating=1&max_rating=5
+//   GET /api/place/reviews?platform=naver_place&limit=30&min_rating=1&max_rating=5&period=7|30|all&unreplied_only=1
 //     · 본인 소유 platform_reviews 반환 (posted_at DESC)
 //     · 평점 필터 지원 (min_rating / max_rating)
+//     · 기간 필터 (30차-23): period=7/30/all (posted_at 기준, all = 전체)
+//     · 미답변만 (30차-23): unreplied_only=1 → has_reply=false
 //     · 집계 요약: { count, avg_rating, negative_count, unreplied_count }
 // ============================================================
 import { NextRequest, NextResponse } from 'next/server'
@@ -24,7 +26,8 @@ export async function GET(req: NextRequest) {
 
   const u = new URL(req.url)
   const platform = u.searchParams.get('platform') || 'naver_place'
-  const limit = Math.min(100, Math.max(1, Number(u.searchParams.get('limit') || 30)))
+  // 30차-23: 대량 조회 허용 (기본 200, 상한 1000)
+  const limit = Math.min(1000, Math.max(1, Number(u.searchParams.get('limit') || 200)))
   // 30차-17: 네이버 공개 GraphQL 은 rating=null 이 표준 (키워드 리뷰).
   //   기본 min_rating=1 이면 gte('rating',1) 필터가 null 행을 전부 제외해 리뷰가 0건으로 보임.
   //   → 쿼리파라미터로 "명시적으로 값이 있을 때만" 필터 적용.
@@ -32,6 +35,11 @@ export async function GET(req: NextRequest) {
   const maxRatingRaw = u.searchParams.get('max_rating')
   const minRating = minRatingRaw !== null ? Number(minRatingRaw) : null
   const maxRating = maxRatingRaw !== null ? Number(maxRatingRaw) : null
+
+  // 30차-23: 기간 필터 (period=7 / 30 / all)
+  const periodRaw = (u.searchParams.get('period') || 'all').toLowerCase()
+  const periodDays = periodRaw === '7' ? 7 : periodRaw === '30' ? 30 : null
+  const unrepliedOnly = ['1', 'true', 'yes'].includes((u.searchParams.get('unreplied_only') || '').toLowerCase())
 
   try {
     let q = svc
@@ -50,6 +58,13 @@ export async function GET(req: NextRequest) {
     }
     if (typeof maxRating === 'number' && !Number.isNaN(maxRating) && maxRating <= 5) {
       q = q.lte('rating', maxRating)
+    }
+    if (periodDays) {
+      const since = new Date(Date.now() - periodDays * 86400000).toISOString()
+      q = q.gte('posted_at', since)
+    }
+    if (unrepliedOnly) {
+      q = q.eq('has_reply', false)
     }
     const { data, error } = await q
     if (error) {
