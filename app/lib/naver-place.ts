@@ -650,10 +650,128 @@ function parseReviewObject(objStr: string, fallbackId: string): VisitorReview | 
   }
 }
 
+// ============================================================
+// 30차-16 · 네이버 방문자 리뷰 수집 — GraphQL 전환
+// ------------------------------------------------------------
+// 네이버가 m.place.naver.com SSR 에서 "VisitorReviewItem:" Apollo 캐시를
+// 더 이상 내리지 않음(CSR 전환). 2026-04 기준 SSR 스크래핑은 영구 0건.
+//
+// 대신 공식 CSR 이 사용하는 pcmap-api.place.naver.com/graphql 엔드포인트로
+// 직접 POST 해서 리뷰 수집한다.
+//
+// 스키마 (실측 확인, 2026-04-22):
+//   POST https://pcmap-api.place.naver.com/graphql
+//   Body: [{
+//     operationName: "getVisitorReviews",
+//     variables: { input: { businessId, businessType, item:"0", page, size,
+//                           isPhotoUsed:false, includeContent:true, getReactions:true } },
+//     query: "...visitorReviews(input:$input){ total items{id rating body visited visitedDate
+//             created author{id nickname} originType userIdno media{type thumbnail videoId trailerUrl}}}"
+//   }]
+//   Response: [{ data: { visitorReviews: { total, items: [...] } } }]
+//
+// rating 은 네이버가 2022년 이후 대부분 null. 별점 표시는 영수증 리뷰 속성이 기준.
+// ============================================================
+
+const NAVER_GRAPHQL_URL = 'https://pcmap-api.place.naver.com/graphql'
+const VISITOR_REVIEWS_QUERY =
+  'query getVisitorReviews($input: VisitorReviewsInput) { visitorReviews(input: $input) { total items { id rating body visited visitedDate created author { id nickname } originType userIdno media { type thumbnail videoId trailerUrl } } } }'
+
+type GraphQLReviewItem = {
+  id: string
+  rating: number | null
+  body: string | null
+  visited: string | null
+  visitedDate: string | null
+  created: string | null
+  author: { id: string | null; nickname: string | null } | null
+  originType: string | null
+  userIdno: string | null
+  media: Array<{ type: string | null; thumbnail: string | null; videoId: string | null; trailerUrl: string | null }> | null
+}
+
+async function fetchVisitorReviewsGraphQL(
+  placeId: string,
+  businessType: string,
+  size: number = 20,
+): Promise<VisitorReview[] | null> {
+  const body = [
+    {
+      operationName: 'getVisitorReviews',
+      variables: {
+        input: {
+          businessId: placeId,
+          businessType,
+          item: '0',
+          page: 1,
+          size,
+          isPhotoUsed: false,
+          includeContent: true,
+          getReactions: true,
+        },
+      },
+      query: VISITOR_REVIEWS_QUERY,
+    },
+  ]
+  try {
+    const res = await fetch(NAVER_GRAPHQL_URL, {
+      method: 'POST',
+      headers: {
+        'User-Agent':
+          'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1',
+        'Accept': '*/*',
+        'Accept-Language': 'ko-KR,ko;q=0.9',
+        'Content-Type': 'application/json',
+        'Origin': 'https://m.place.naver.com',
+        'Referer': `https://m.place.naver.com/${businessType}/${placeId}/review/visitor`,
+      },
+      body: JSON.stringify(body),
+      signal: AbortSignal.timeout(10000),
+      cache: 'no-store',
+    })
+    if (!res.ok) return null
+    const j = (await res.json()) as Array<{
+      data?: { visitorReviews?: { total: number; items: GraphQLReviewItem[] } }
+      errors?: unknown
+    }>
+    const d = j?.[0]?.data?.visitorReviews
+    if (!d) return null
+    if (!Array.isArray(d.items)) return []
+    if (d.items.length === 0) return [] // businessType 미스매치 or 리뷰 0건 → 다음 카테고리 시도
+
+    return d.items.map((it): VisitorReview => {
+      const body = (it.body ?? '').trim()
+      const photos = Array.isArray(it.media)
+        ? it.media
+            .map((m) => m?.thumbnail || m?.trailerUrl)
+            .filter((u): u is string => typeof u === 'string' && u.length > 0)
+            .slice(0, 6)
+        : []
+      return {
+        reviewId: String(it.id),
+        authorName: it.author?.nickname ?? null,
+        rating: typeof it.rating === 'number' ? it.rating : null,
+        body,
+        visitedAt: it.visitedDate || it.visited || null,
+        postedAt: it.created || null,
+        photos,
+      }
+    })
+  } catch (e) {
+    console.warn(
+      '[naver-place] GraphQL fetch failed',
+      placeId,
+      businessType,
+      e instanceof Error ? e.message : e,
+    )
+    return null
+  }
+}
+
 /**
  * 본 함수: placeId 하나에서 최근 방문자 리뷰 수집.
- * - hint 카테고리 우선 시도, 실패시 전체 순회
- * - 정상 응답이면 VisitorReview[] 반환, 실패시 빈 배열
+ * - hint 카테고리(businessType) 우선, 실패 시 전체 순회
+ * - 30차-16 부터 GraphQL 우선, 구 SSR 파서는 fallback 으로만 유지 (회귀 대응)
  */
 export async function fetchVisitorReviews(
   placeId: string,
@@ -665,13 +783,21 @@ export async function fetchVisitorReviews(
   if (hint && (PLACE_CATEGORIES as readonly string[]).includes(hint)) tryOrder.push(hint)
   for (const c of PLACE_CATEGORIES) if (!tryOrder.includes(c)) tryOrder.push(c)
 
+  // 1) GraphQL 우선 시도
+  for (const cat of tryOrder) {
+    const reviews = await fetchVisitorReviewsGraphQL(placeId, cat)
+    if (reviews && reviews.length > 0) return reviews
+    // null = 네트워크/스키마 오류, [] = 카테고리 미스매치 or 리뷰 없음 → 다음 카테고리 계속
+  }
+
+  // 2) Fallback — 구 SSR Apollo 파서 (네이버가 SSR 을 되돌릴 경우 대비)
   for (const cat of tryOrder) {
     const url = `https://m.place.naver.com/${cat}/${placeId}/review/visitor`
     const html = await tryFetch(url)
     if (!html) continue
     const reviews = extractApolloReviews(html)
     if (reviews.length > 0) return reviews
-    // 카테고리가 안 맞으면 SSR 에 리뷰가 안 박혀있을 수 있음 → 다음 카테고리 시도
   }
+
   return []
 }
