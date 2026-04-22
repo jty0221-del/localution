@@ -13,7 +13,7 @@ export type PlatformId = typeof CANONICAL_PLATFORMS[number]
 export const PLATFORM_LABEL: Record<PlatformId, string> = {
   naver: '네이버 플레이스',
   google: '구글 비즈니스',
-  kakao: '카카오톡 채널',
+  kakao: '카카오맵',
   baemin: '배달의민족',
   yogiyo: '요기요',
   coupang: '쿠팡이츠',
@@ -39,6 +39,7 @@ const EVENT = 'localution:connections-change'
 const ALIAS_MAP: Record<string, PlatformId> = {
   naver_place: 'naver',
   coupangeats: 'coupang',
+  kakao_map: 'kakao',
 }
 
 export function normalizeKey(k: string): PlatformId | null {
@@ -219,6 +220,8 @@ async function fetchServerConnections(): Promise<Partial<ConnectionsMap>> {
       const externalUrl =
         k === 'naver' && sp.platform_store_id
           ? `https://map.naver.com/p/entry/place/${sp.platform_store_id}`
+          : k === 'kakao' && sp.platform_store_id
+          ? `https://place.map.kakao.com/${sp.platform_store_id}`
           : undefined
       out[k] = {
         connected: true,
