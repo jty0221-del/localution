@@ -32,6 +32,12 @@
 | 33차-1 | Worker 진단 로깅 헬퍼 (trySelectors/dumpPageDiagnostics/startNetworkCapture/detectLoginFailure) | worker/src/lib/diagnostics.ts | ✅ 완료 |
 | 33차-2 | 3 어댑터에 진단 훅업 — 빈 결과 시 페이지 구조 덤프 + 로그인 실패 텍스트 판별 강화 | worker/src/adapters/baemin.ts, worker/src/adapters/yogiyo.ts, worker/src/adapters/coupangeats.ts | ✅ 완료 |
 | 33차-3 | DEBUG_CAPTURE=1 일 때 review 관련 XHR 응답 자동 로깅 (DOM→API 전환 힌트용) | worker/src/adapters/baemin.ts + yogiyo + coupangeats | ✅ 완료 |
+| 34차 핫픽스 | package-lock.json 재생성 (bullmq/ioredis Module not found 해결) | package-lock.json | ✅ 완료 |
+| 35차 핫픽스 | worker/tsconfig.json DOM lib 추가 + Dockerfile cache 무효화 + is_active 컬럼 제거 | worker/ | ✅ 완료 |
+| 35차-4 | 공통 PlatformLogo 컴포넌트 (5개 SVG) — my/platforms, connect, dashboard 반영 | app/components/PlatformLogo.tsx 외 3 | ✅ 완료 |
+| 35차-5 | SWC build fix truncate 복구 — JSX 잘린 6개 파일 원상복구 | PageHeader, PlatformReviewAdmin, baemin/coupang/naver page.tsx, connect/page.tsx | ✅ 완료 |
+| 36차-1 | /api/review-reply/submit BullMQ post_reply enqueue 전환 + 어댑터 실패 상태 DB 반영 | app/api/review-reply/submit/route.ts, worker/src/adapters/* | ✅ 완료 |
+| 36차-2 | KakaoMapAdapter — 로그인 + API 인터셉트 + DOM fallback + post_reply | worker/src/adapters/kakao.ts, worker/src/jobs/index.ts | ✅ 완료 |
 
 ---
 
@@ -667,4 +673,112 @@ Railway 재배포 후 "리뷰 0건 수집" 으로 끝날 때 **뭐가 실패했�
 
 ---
 
-*최종 업데이트: 2026-04-22 33차 배포 완료 (Worker 진단 로깅 헬퍼 + 3 어댑터 훅업)*
+## 34차 — package-lock.json 재생성 핫픽스 (2026-04-22)
+
+### 작업 배경
+Vercel 빌드에서 `bullmq` / `ioredis` 관련 `Module not found` 에러 발생.
+기존 `package-lock.json` 에 해당 패키지 엔트리가 누락되어 있었음.
+
+### 변경 내역
+- `package-lock.json` 전체 재생성 — bullmq/ioredis 의존성 엔트리 포함
+- 배포 커밋 `bff8897`
+
+### 결과
+- Vercel 빌드 성공 → `app/lib/queue.ts` 런타임 정상 동작
+
+---
+
+## 35차 — Worker TS 컴파일 에러 수정 + SVG 로고 통합 + truncate 복구 (2026-04-22)
+
+### 35차 핫픽스 (1~3) — Worker TypeScript 컴파일 수정
+
+| 커밋 | 내용 |
+|------|------|
+| `e69a7d8` (35차) | `worker/tsconfig.json` lib 에 `DOM` 추가 — `page.evaluate()` 내 `document.*` / `window.*` 타입 컴파일 에러 해결 |
+| `48ea9bf` (35차-2) | `railway.Dockerfile` `RUN tsc` 라인에 build-marker echo 추가 — Docker 레이어 캐시 무효화로 DOM lib 실제 적용 보장 |
+| `b9e9640` (35차-3) | `/api/review-reply/collect` 에서 `platform_credentials` 테이블에 없는 `is_active` 컬럼 참조 제거 (500 에러 해결) |
+
+### 35차-4 — 공통 PlatformLogo 컴포넌트 신규 (4 파일)
+
+**`app/components/PlatformLogo.tsx` 신규**
+- naver_place / baemin / yogiyo / coupangeats / kakao_map 5개 플랫폼 SVG 아이콘 통합
+- 브랜드 공식 컬러/형태 기반 렌더링 (단순 이니셜 원형 → 실제 로고 SVG)
+- `size` / `className` prop 지원
+
+**적용 범위**
+- `app/my/platforms/page.tsx` — 4 플랫폼 카드 로고 교체 (이니셜 → PlatformLogo)
+- `app/my/platforms/[platform]/connect/page.tsx` — STEP1 · STEP2 아이콘 교체
+- `app/dashboard/page.tsx` — YogiyoLogo 스마일 제거, CoupangEatsLogo 가운데 정렬·주황 "eats" 텍스트
+- 배포 커밋: `d1efa8d` / `b77ae6d` / `6007c41` / `146d94c`
+
+### 35차-5 — 07:10 SWC build fix 커밋 truncate 복구 (6 파일)
+
+**사고 원인**  
+이전 세션에서 반복된 `fix(30차-22): SWC build fix` 커밋이 6개 파일의 JSX 를 중간에서 잘라먹음 (파일 끝 누락).
+
+**복구 내역**
+
+| 파일 | 복원 기준 커밋 |
+|------|--------------|
+| `app/my/platforms/[platform]/connect/page.tsx` | import 경로 `../../../` → `../../../../` 수정 |
+| `app/components/PageHeader.tsx` | `65d433d` (15차-4 ② 기준) JSX 마감 복구 |
+| `app/review-admin/components/PlatformReviewAdmin.tsx` | `5d42435` (31차-3 기준) truncate 복구 |
+| `app/review-admin/baemin/page.tsx` | `dfabbee` (32차-5 기준) |
+| `app/review-admin/coupang/page.tsx` | `c3093dd` (32차-5 기준) |
+| `app/review-admin/naver/page.tsx` | `e146a6c` (30차-22 기준) |
+
+---
+
+## 36차 — submit BullMQ 전환 + KakaoMapAdapter 구현 (2026-04-22)
+
+### 36차-1 — /api/review-reply/submit BullMQ post_reply enqueue 전환
+
+**작업 배경**  
+`/api/review-reply/submit` 이 DB 에 `reply_status='queued'` 만 기록하고 실제 Worker 에 잡을 전달하지 않았음. Worker 가 polling 없이는 픽업 불가 상태.
+
+**변경 내역**
+
+- `app/api/review-reply/submit/route.ts`
+  - `platform_review_id` 컬럼 추가 select
+  - baemin / yogiyo / coupangeats 플랫폼에 한해 DB update 후 `enqueuePlatformJob(post_reply)` 즉시 호출
+  - payload: `{ platform_review_id, reply_text, review_db_id }` — `review_db_id`(UUID) 로 DB 행 정확 지정
+  - naver_place: "복사→스마트플레이스 직접 등록" 안내
+  - kakao_map: "자동 등록 준비 중" 안내
+  - enqueue 실패 시에도 DB queued 상태 유지 + 에러 메시지 note 반환
+
+- `worker/src/adapters/baemin.ts` / `yogiyo.ts` / `coupangeats.ts`
+  - `payload.review_db_id` 수신 → `id` 컬럼 기준 DB 업데이트 (기존 `platform_review_id` 매칭보다 정확)
+  - 답글 실패 시 기존 반환만 하던 버그 수정 → `reply_status='failed'` + `reply_error` DB 저장
+
+- 배포 커밋: `23aecab`
+
+### 36차-2 — KakaoMapAdapter Playwright 어댑터 구현
+
+**작업 배경**  
+31차에서 `kakao_map` 을 5번째 플랫폼으로 추가했지만 Worker jobs/index.ts 에 stub 상태. panel3 공개 수집기는 3~5건 제한 — 로그인 기반 전체 이력 수집 필요.
+
+**변경 내역**
+
+- `worker/src/adapters/kakao.ts` 신규 (약 300줄)
+  - **로그인**: `accounts.kakao.com/login` — email/phone + password 입력, 2FA/캡챠 감지 시 failed 반환
+  - **리뷰 수집 우선순위**:
+    1. network intercept: `panel3` + `place-api.map.kakao.com` 응답 자동 파싱 (`extractReviewsFromApiResponse`)
+    2. DOM fallback: `place.map.kakao.com/{placeId}` 스크롤 10회 + 카드 파싱
+  - **빈 결과 시**: `dumpPageDiagnostics` 덤프 → 셀렉터 튜닝 단서
+  - **post_reply**: 장소 페이지 내 사장님 댓글 버튼 클릭 → textarea fill → 등록
+  - `review_db_id` 기반 정확한 DB 업데이트 (submitted / failed)
+  - `normalizeDate`: KST datetime, 날짜만, N일 전 형식 모두 지원
+
+- `worker/src/jobs/index.ts`
+  - `kakao_map → runKakao()` 실제 연결 (stub 제거)
+
+- 배포 커밋: `0ac7064`
+
+### 남은 과제
+- Railway Worker 재배포 후 카카오맵 실 로그인 테스트 → DOM 셀렉터 / API 경로 확인
+- `DEBUG_CAPTURE=1` 로 카카오 place-api review 엔드포인트 발견 후 DOM 의존 제거
+- 사장님 답글 버튼 노출 조건 (Kakao My Business 가입 여부) 확인 필요
+
+---
+
+*최종 업데이트: 2026-04-22 36차 배포 완료 (submit BullMQ 전환 + KakaoMapAdapter 구현)*
