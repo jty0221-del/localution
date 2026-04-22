@@ -10,6 +10,7 @@ import { useConnections, PlatformId } from '../lib/connections'
 import { TABS, TAB_HERO, resolveTab, type Tab } from '../lib/settings-tabs'
 import { toast, confirmDialog, promptDialog } from '../lib/toast'
 import { INDUSTRY_CATALOG, INDUSTRY_LABELS, DEFAULT_INDUSTRY_GROUP_ID, findIndustryGroup } from '../lib/industry-catalog'
+import PlatformLogo from './components/PlatformLogo'
 
 // 토스페이먼츠 — 공식 SDK 테스트 클라이언트 키 (공개됨)
 // 실서비스 전환 시 env에서 주입: NEXT_PUBLIC_TOSS_CLIENT_KEY
@@ -1048,29 +1049,19 @@ function AITab() {
   )
 }
 
-function NaverLogoS() {
-  return (<svg width="32" height="32" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="10" fill="#03C75A"/><path d="M9 39V9h8L31 27V9h8v30h-8L17 21v18H9Z" fill="white"/></svg>)
-}
+function NaverLogoS() { return <PlatformLogo platform="naver_place" size={32} /> }
 
 function GoogleLogoS() {
   return (<svg width="32" height="32" viewBox="0 0 48 48"><rect width="48" height="48" rx="10" fill="white" stroke="#E5E8EB" strokeWidth="1.5"/><path d="M43.6 24.5c0-1.5-.14-3-.38-4.5H24v8.5h10.94c-.5 2.5-1.96 4.6-4.16 6v5h6.74c3.94-3.62 6.08-9 6.08-15z" fill="#4285F4"/><path d="M24 44c5.4 0 9.92-1.8 13.24-4.86l-6.46-5c-1.8 1.2-4.1 1.92-6.78 1.92-5.22 0-9.64-3.52-11.22-8.26H6.12v5.14C9.42 40.02 16.28 44 24 44z" fill="#34A853"/><path d="M12.78 27.8A11.94 11.94 0 0112.2 24c0-1.32.22-2.6.58-3.8v-5.14H6.12A20 20 0 004 24c0 3.22.78 6.28 2.12 9.14l6.66-5.34z" fill="#FBBC05"/><path d="M24 12.08c2.94 0 5.58 1.02 7.66 3l5.74-5.74C33.9 6.06 29.38 4 24 4 16.28 4 9.42 7.98 6.12 14.86l6.66 5.14C14.36 15.6 18.78 12.08 24 12.08z" fill="#EA4335"/></svg>)
 }
 
-function KakaoLogoS() {
-  return (<svg width="32" height="32" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="10" fill="#FEE500"/><path d="M24 10C16.27 10 10 14.69 10 20.5c0 3.89 2.46 7.3 6.2 9.38L14.6 36l6.8-4.5c.84.11 1.71.17 2.6.17 7.73 0 14-4.69 14-10.5S31.73 10 24 10z" fill="#3B1E1E"/></svg>)
-}
+function KakaoLogoS() { return <PlatformLogo platform="kakao_map" size={32} /> }
 
-function BaeminLogoS() {
-  return (<svg width="32" height="32" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="12" fill="#2AC1BC"/><text x="24" y="30" fontSize="17" fontWeight="900" fill="#1A1A1A" fontFamily="'Apple SD Gothic Neo','Noto Sans KR',sans-serif" textAnchor="middle" letterSpacing="-0.5">배민</text></svg>)
-}
+function BaeminLogoS() { return <PlatformLogo platform="baemin" size={32} /> }
 
-function YogiyoLogoS() {
-  return (<svg width="32" height="32" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="12" fill="#E5007F"/><text x="24" y="23" fontSize="11" fontWeight="900" fill="white" fontFamily="'Apple SD Gothic Neo','Noto Sans KR',sans-serif" textAnchor="middle">요기요</text><circle cx="24" cy="33" r="4" fill="white"/><path d="M16 43 Q24 39 32 43" stroke="white" strokeWidth="2.2" fill="none" strokeLinecap="round"/></svg>)
-}
+function YogiyoLogoS() { return <PlatformLogo platform="yogiyo" size={32} /> }
 
-function CoupangLogoS() {
-  return (<svg width="32" height="32" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="12" fill="white" stroke="#E5E7EB" strokeWidth="1.5"/><text x="5" y="25" fontSize="9.5" fontWeight="800" fontFamily="Arial,sans-serif" letterSpacing="0.2"><tspan fill="#E31837">c</tspan><tspan fill="#F4A900">o</tspan><tspan fill="#E31837">u</tspan><tspan fill="#5BAD48">p</tspan><tspan fill="#3B79BE">a</tspan><tspan fill="#E31837">n</tspan><tspan fill="#F4A900">g</tspan></text><text x="5" y="39" fontSize="13" fontWeight="900" fill="#4A2C0A" fontFamily="Arial,sans-serif">eats</text></svg>)
-}
+function CoupangLogoS() { return <PlatformLogo platform="coupangeats" size={32} /> }
 
 function YeoshinLogoS() {
   return (<svg width="32" height="32" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="10" fill="#003087"/><rect x="10" y="16" width="28" height="18" rx="3" stroke="white" strokeWidth="2.2" fill="none"/><rect x="10" y="22" width="28" height="4" fill="white"/><rect x="13" y="28" width="8" height="2.5" rx="1" fill="white" opacity="0.6"/><text x="24" y="12" fontSize="7" fontWeight="800" fill="white" fontFamily="Arial" textAnchor="middle">여신금융</text></svg>)

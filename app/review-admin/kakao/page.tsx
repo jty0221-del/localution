@@ -8,7 +8,8 @@
 
 export const dynamic = 'force-dynamic'
 
-import PlatformReviewAdmin, { PlatformConfig } from '../components/PlatformReviewAdmin'
+import PlatformReviewAdmin from '../components/PlatformReviewAdmin'
+import type { PlatformConfig } from '../components/PlatformReviewAdmin'
 
 const CONFIG: PlatformConfig = {
   platform: 'kakao_map',

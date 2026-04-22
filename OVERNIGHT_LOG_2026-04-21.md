@@ -38,6 +38,9 @@
 | 35차-5 | SWC build fix truncate 복구 — JSX 잘린 6개 파일 원상복구 | PageHeader, PlatformReviewAdmin, baemin/coupang/naver page.tsx, connect/page.tsx | ✅ 완료 |
 | 36차-1 | /api/review-reply/submit BullMQ post_reply enqueue 전환 + 어댑터 실패 상태 DB 반영 | app/api/review-reply/submit/route.ts, worker/src/adapters/* | ✅ 완료 |
 | 36차-2 | KakaoMapAdapter — 로그인 + API 인터셉트 + DOM fallback + post_reply | worker/src/adapters/kakao.ts, worker/src/jobs/index.ts | ✅ 완료 |
+| 36차-3 | OVERNIGHT_LOG 34/35/36차 섹션 추가 + 요약표 업데이트 | OVERNIGHT_LOG_2026-04-21.md | ✅ 완료 |
+| 36차-4 | review-admin PlatformLogo 마이그레이션 완료 + naver collectEndpoint 추가 | app/review-admin/page.tsx, app/review-admin/naver/page.tsx | ✅ 완료 |
+| 36차-5 | kakao/page.tsx SWC type import 수정 + settings 두 파일 PlatformLogo 마이그레이션 | app/review-admin/kakao/page.tsx, app/settings/page.tsx, app/settings/connect/page.tsx | ✅ 완료 |
 
 ---
 

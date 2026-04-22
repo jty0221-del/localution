@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react'
 import Sidebar from '../../components/Sidebar'
 import Footer from '../../components/Footer'
 import { toast, confirmDialog } from '../../lib/toast'
+import PlatformLogo from '../../components/PlatformLogo'
 
 // ── 대시보드 업체 목록 타입 ────────────────────────────────
 type Store = {
@@ -46,14 +47,9 @@ function storesFromProfile(): Store[] {
   } catch { return [] }
 }
 
-// ── SVG 로고 (간략) ────────────────────────────────────────
+// ── SVG 로고 (PlatformLogo 미지원 플랫폼만 인라인 유지) ────
 function NaverLogo({ size = 48 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
-      <rect width="48" height="48" rx="12" fill="#03C75A"/>
-      <path d="M27 24.6L20.4 13.5H13.5v21H20V19.4l6.8 11.1H33.5v-21H27v15.1z" fill="white"/>
-    </svg>
-  )
+  return <PlatformLogo platform="naver_place" size={size} />
 }
 function GoogleLogo({ size = 48 }: { size?: number }) {
   return (
@@ -67,36 +63,16 @@ function GoogleLogo({ size = 48 }: { size?: number }) {
   )
 }
 function KakaoLogo({ size = 48 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
-      <rect width="48" height="48" rx="12" fill="#FEE500"/>
-      <path d="M24 10C16.27 10 10 14.69 10 20.5c0 3.89 2.46 7.3 6.2 9.38L14.6 36l6.8-4.5c.84.11 1.71.17 2.6.17 7.73 0 14-4.69 14-10.5S31.73 10 24 10z" fill="#3B1E1E"/>
-    </svg>
-  )
+  return <PlatformLogo platform="kakao_map" size={size} />
 }
 function BaeminLogo({ size = 48 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
-      <rect width="48" height="48" rx="12" fill="#2AC1BC"/>
-      <path d="M13 15h9.8c4.14 0 6.76 2.01 6.76 5.26 0 2.1-1.2 3.76-3 4.64 2.26.76 3.76 2.56 3.76 5.1 0 3.6-2.7 6-7.5 6H13V15z" fill="white"/>
-    </svg>
-  )
+  return <PlatformLogo platform="baemin" size={size} />
 }
 function YogiyoLogo({ size = 48 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
-      <rect width="48" height="48" rx="12" fill="#FA0050"/>
-      <text x="24" y="30" fontSize="13" fontWeight="900" fill="white" textAnchor="middle">요기요</text>
-    </svg>
-  )
+  return <PlatformLogo platform="yogiyo" size={size} />
 }
 function CoupangEatsLogo({ size = 48 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
-      <rect width="48" height="48" rx="12" fill="#FF4B30"/>
-      <path d="M12 17h24M12 24h18M12 31h12" stroke="white" strokeWidth="3.5" strokeLinecap="round"/>
-    </svg>
-  )
+  return <PlatformLogo platform="coupangeats" size={size} />
 }
 
 const PLATFORMS = [
