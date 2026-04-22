@@ -199,6 +199,52 @@ const RECENT_REVIEWS = [
   { platform: '구글',    name: 'L**',  rating: 3, text: 'Food was okay but waiting time was a bit long. Interior is nice though.', time: '어제',     replied: false, color: '#4285F4' },
 ]
 
+// 30차-23: 실제 platform_reviews 레코드 (요약 카드·하단 최근 리뷰 용)
+interface RealReview {
+  id: string
+  platform: string              // 'naver_place' | 'baemin' | ...
+  platform_review_id?: string | null
+  author_name?: string | null
+  author_mask?: string | null
+  rating: number | null
+  content: string
+  photos?: string[] | null
+  posted_at: string | null
+  collected_at?: string | null
+  has_reply: boolean
+  sentiment?: 'positive' | 'neutral' | 'negative' | null
+}
+
+// "2026-04-21T10:22:00Z" → "1시간 전" / "어제" / "3일 전" / "4월 12일"
+function timeAgo(iso: string | null | undefined): string {
+  if (!iso) return ''
+  const t = new Date(iso).getTime()
+  if (!Number.isFinite(t)) return ''
+  const diffMs = Date.now() - t
+  const min = Math.floor(diffMs / 60000)
+  if (min < 1) return '방금 전'
+  if (min < 60) return `${min}분 전`
+  const hr = Math.floor(min / 60)
+  if (hr < 24) return `${hr}시간 전`
+  const day = Math.floor(hr / 24)
+  if (day === 1) return '어제'
+  if (day < 7) return `${day}일 전`
+  const d = new Date(iso)
+  return `${d.getMonth() + 1}월 ${d.getDate()}일`
+}
+
+// DB platform slug → 대시보드 PlatformId (동일하지만 타입 안정성)
+function dbPlatformToId(dbPlatform: string): PlatformId | null {
+  const map: Record<string, PlatformId> = {
+    naver_place: 'naver_place',
+    google: 'google',
+    baemin: 'baemin',
+    yogiyo: 'yogiyo',
+    coupangeats: 'coupangeats',
+  }
+  return map[dbPlatform] ?? null
+}
+
 const LS_STORE = 'localution_store'
 
 // ═══════════════════════════════════════════════════════════
@@ -783,6 +829,31 @@ export default function Dashboard() {
   // 30차-15-B: 서버 응답의 review_count/rating_avg 도 대시보드 state 로 반영.
   //   → "데이터 수집 중..." → 실제 별점/리뷰 수로 자동 전환
   const [reviewsFetchState, setReviewsFetchState] = useState<'idle' | 'fetching' | 'done' | 'error'>('idle')
+
+  // 30차-23: 연결된 플랫폼별 실제 리뷰 (키: PlatformId, 값: RealReview[])
+  //   · 좌측 "플랫폼별 별점·리뷰 현황" 카드의 플랫폼 행 아래 최신 2건 미니 렌더
+  //   · 하단 "최근 리뷰" 섹션에 전 플랫폼 통합 정렬
+  const [platformReviews, setPlatformReviews] = useState<Record<string, RealReview[]>>({})
+  const loadPlatformReviews = useCallback(async (platformIds: PlatformId[]): Promise<void> => {
+    if (platformIds.length === 0) return
+    const results: Record<string, RealReview[]> = {}
+    await Promise.all(
+      platformIds.map(async (pid) => {
+        try {
+          const params = new URLSearchParams({ platform: pid, limit: '30', period: 'all' })
+          const res = await fetch(`/api/place/reviews?${params.toString()}`, { cache: 'no-store' })
+          if (!res.ok) return
+          const j = await res.json().catch(() => null)
+          if (!j?.ok || !Array.isArray(j.reviews)) return
+          results[pid] = j.reviews as RealReview[]
+        } catch {
+          // 단일 플랫폼 실패는 다른 플랫폼 결과를 막지 않음
+        }
+      }),
+    )
+    setPlatformReviews((prev) => ({ ...prev, ...results }))
+  }, [])
+
   const reloadStoresMe = useCallback(async (): Promise<void> => {
     try {
       const res = await fetch('/api/stores/me', { cache: 'no-store' })
@@ -846,6 +917,22 @@ export default function Dashboard() {
     reloadStoresMe()
   }, [isLoggedIn, reloadStoresMe])
 
+  // 30차-23: 연결된 플랫폼이 하나라도 변경되면 실제 리뷰 로드
+  //   · 현재 platform_reviews 테이블에 데이터가 있는 건 naver_place 뿐이지만,
+  //     baemin/yogiyo/coupangeats 도 23차-5 Worker 붙으면 자동으로 채워진다.
+  useEffect(() => {
+    if (!isLoggedIn) return
+    const connectedIds = platforms
+      .filter((p) => p.connected && (p.category === '리뷰·검색' || p.category === '배달'))
+      .map((p) => p.id)
+      .filter((pid) => pid === 'naver_place' || pid === 'baemin' || pid === 'yogiyo' || pid === 'coupangeats' || pid === 'google')
+    if (connectedIds.length === 0) {
+      setPlatformReviews({})
+      return
+    }
+    loadPlatformReviews(connectedIds)
+  }, [isLoggedIn, platforms, loadPlatformReviews])
+
   // 30차-15-B: 연결된 네이버 플레이스가 있고 리뷰 집계가 0건이면 자동으로 1회 수집 시도
   //   · 사용자가 "지금 수집" 을 누르지 않아도 연결 직후 첫 수집을 빠르게 반영해
   //     "데이터 수집 중..." 라벨이 저절로 해소되도록 한다.
@@ -898,6 +985,8 @@ export default function Dashboard() {
         return
       }
       await reloadStoresMe()
+      // 30차-23: 수집 직후 리뷰 목록도 즉시 갱신 → UI 바로 반영
+      await loadPlatformReviews(['naver_place'])
       if (j.total > 0) {
         toast.success(`네이버 리뷰 ${j.total}건 수집 완료`)
       } else {
@@ -1053,13 +1142,35 @@ export default function Dashboard() {
     return () => clearInterval(id)
   }, [refreshKeywords])
 
-  // 리뷰 감정 분석
+  // 30차-23: 연결된 전 플랫폼 실제 리뷰 → 최신순 머지
+  //   · has_reply=false 포함 전체 리뷰 대상 감정·미답변 집계
+  //   · posted_at 없는 행은 collected_at 으로 폴백
+  const mergedRealReviews: Array<RealReview & { _platformId: PlatformId }> = (() => {
+    const arr: Array<RealReview & { _platformId: PlatformId }> = []
+    for (const [pid, rs] of Object.entries(platformReviews)) {
+      const id = dbPlatformToId(pid)
+      if (!id) continue
+      for (const r of rs) arr.push({ ...r, _platformId: id })
+    }
+    arr.sort((a, b) => {
+      const ta = a.posted_at || a.collected_at || ''
+      const tb = b.posted_at || b.collected_at || ''
+      return tb.localeCompare(ta)
+    })
+    return arr
+  })()
+  const hasRealReviews = mergedRealReviews.length > 0
+
+  // 리뷰 감정 분석 — 실데이터가 있으면 실데이터, 없으면 RECENT_REVIEWS (데모)
+  const sentimentSource: Array<{ rating: number | null; has_reply?: boolean; replied?: boolean }> = hasRealReviews
+    ? mergedRealReviews.map((r) => ({ rating: r.rating, has_reply: r.has_reply }))
+    : RECENT_REVIEWS.map((r) => ({ rating: r.rating, replied: r.replied }))
   const sentimentCount = {
-    positive: RECENT_REVIEWS.filter(r => r.rating >= 4).length,
-    neutral:  RECENT_REVIEWS.filter(r => r.rating === 3).length,
-    negative: RECENT_REVIEWS.filter(r => r.rating <= 2).length,
+    positive: sentimentSource.filter((r) => typeof r.rating === 'number' && r.rating >= 4).length,
+    neutral:  sentimentSource.filter((r) => typeof r.rating === 'number' && r.rating === 3).length,
+    negative: sentimentSource.filter((r) => typeof r.rating === 'number' && r.rating <= 2).length,
   }
-  const sentimentTotal = RECENT_REVIEWS.length || 1
+  const sentimentTotal = sentimentSource.filter((r) => typeof r.rating === 'number').length || 1
   const sentiment = {
     positive: Math.round(sentimentCount.positive / sentimentTotal * 100),
     neutral:  Math.round(sentimentCount.neutral  / sentimentTotal * 100),
@@ -1073,10 +1184,13 @@ export default function Dashboard() {
   ]
   const totalWeekSale = weekSales.reduce((s, x) => s + x.v, 0)
 
-  // 오늘의 할 일
-  const unansweredCount = RECENT_REVIEWS.filter(r => !r.replied).length
-  const negativeUnansweredReviews = RECENT_REVIEWS.filter(r => r.rating <= 2 && !r.replied)
-  const negativeUnansweredCount = negativeUnansweredReviews.length
+  // 오늘의 할 일 — 실데이터 있으면 실데이터 기준
+  const unansweredCount = hasRealReviews
+    ? mergedRealReviews.filter((r) => !r.has_reply).length
+    : RECENT_REVIEWS.filter((r) => !r.replied).length
+  const negativeUnansweredCount = hasRealReviews
+    ? mergedRealReviews.filter((r) => typeof r.rating === 'number' && r.rating <= 2 && !r.has_reply).length
+    : RECENT_REVIEWS.filter((r) => r.rating <= 2 && !r.replied).length
 
   useEffect(() => {
     try {
@@ -1098,6 +1212,24 @@ export default function Dashboard() {
   //  오늘 처리할 작업 — 플랫폼 연동 현황에 따라 동적 렌더
   //  카테고리 기반 판정 (INITIAL_PLATFORMS의 category 필드가 단일 소스)
   // ─────────────────────────────────────────────────────────
+  // 30차-23: 실제 리뷰 → AIReplyModal 이 요구하는 shape 변환
+  const openAIReplyFromReal = useCallback(
+    (r: RealReview, platformId: PlatformId) => {
+      const pf = platforms.find((x) => x.id === platformId)
+      const displayName = r.author_mask || r.author_name || '익명'
+      setReplyReview({
+        platform: pf?.shortName || pf?.name || platformId,
+        name: displayName,
+        rating: typeof r.rating === 'number' ? r.rating : 0,
+        text: r.content || '',
+        time: timeAgo(r.posted_at) || (r.collected_at ? timeAgo(r.collected_at) : ''),
+        replied: !!r.has_reply,
+        color: pf?.color || '#03C75A',
+      })
+    },
+    [platforms],
+  )
+
   const reviewPlatformConnected = platforms.some(p => (p.category === '리뷰·검색' || p.category === '배달') && p.connected)
   const financePlatformConnected = platforms.some(p => p.category === '금융·세무' && p.connected)
   // 고객 관리/예약은 현재 별도 연동 테이블 없음 → 향후 지점 DB로 대체.
@@ -1433,49 +1565,100 @@ export default function Dashboard() {
               ) : (
                 platforms.filter(p => p.connected).map(p => {
                   const isFetchingThis = p.id === 'naver_place' && reviewsFetchState === 'fetching'
+                  // 30차-23: 이 플랫폼의 최신 리뷰 2건 미니 리스트
+                  const miniReviews = (platformReviews[p.id] || []).slice(0, 2)
                   return (
-                  <div key={p.id} className="flex items-center gap-4">
-                    <div className="flex-shrink-0">{p.logo(36)}</div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-sm font-semibold text-[#191F28]">{p.name}</span>
-                        {/* 30차-17: 리뷰 카운트 기준으로 분기. 네이버 공개 GraphQL 은 rating=null
-                            반환(키워드 리뷰 시스템) 이므로 rating 기준 분기는 수집 성공해도
-                            "아직 수집 전" 이 계속 노출되던 버그가 있었다. → reviews 개수 기준 */}
-                        {typeof p.reviews === 'number' && p.reviews > 0 ? (
-                          <div className="flex items-center gap-3">
-                            {p.rating !== null ? (
-                              <Stars rating={p.rating} />
-                            ) : (
-                              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#F2F4F6] text-[#8B95A1] font-semibold">
-                                키워드 리뷰
-                              </span>
-                            )}
-                            <span className="text-xs text-[#8B95A1]">리뷰 <strong className="text-[#191F28]">{p.reviews}건</strong></span>
+                  <div key={p.id} className="flex flex-col gap-3 pb-4 border-b border-[#F2F4F6] last:border-0 last:pb-0">
+                    <div className="flex items-center gap-4">
+                      <div className="flex-shrink-0">{p.logo(36)}</div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-sm font-semibold text-[#191F28]">{p.name}</span>
+                          {/* 30차-17: 리뷰 카운트 기준으로 분기. 네이버 공개 GraphQL 은 rating=null
+                              반환(키워드 리뷰 시스템) 이므로 rating 기준 분기는 수집 성공해도
+                              "아직 수집 전" 이 계속 노출되던 버그가 있었다. → reviews 개수 기준 */}
+                          {typeof p.reviews === 'number' && p.reviews > 0 ? (
+                            <div className="flex items-center gap-3">
+                              {p.rating !== null ? (
+                                <Stars rating={p.rating} />
+                              ) : (
+                                <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#F2F4F6] text-[#8B95A1] font-semibold">
+                                  키워드 리뷰
+                                </span>
+                              )}
+                              <span className="text-xs text-[#8B95A1]">리뷰 <strong className="text-[#191F28]">{p.reviews}건</strong></span>
+                            </div>
+                          ) : isFetchingThis ? (
+                            <span className="inline-flex items-center gap-1.5 text-xs text-[#3182F6] font-semibold">
+                              <span className="w-2 h-2 rounded-full bg-[#3182F6] animate-pulse" />
+                              리뷰 수집 중...
+                            </span>
+                          ) : p.id === 'naver_place' ? (
+                            <span className="inline-flex items-center gap-1.5 text-xs text-[#8B95A1]">
+                              <span className="w-1.5 h-1.5 rounded-full bg-[#F59E0B]" />
+                              아직 수집 전 — 상단 "지금 수집" 클릭
+                            </span>
+                          ) : (
+                            <span className="text-xs text-[#8B95A1]">Worker 자동수집 대기</span>
+                          )}
+                        </div>
+                        {p.rating !== null && (
+                          <div className="w-full bg-[#F2F4F6] rounded-full h-2 overflow-hidden">
+                            <div
+                              className="h-full rounded-full transition-all"
+                              style={{ width: `${(p.rating / 5) * 100}%`, background: p.color }}
+                            />
                           </div>
-                        ) : isFetchingThis ? (
-                          <span className="inline-flex items-center gap-1.5 text-xs text-[#3182F6] font-semibold">
-                            <span className="w-2 h-2 rounded-full bg-[#3182F6] animate-pulse" />
-                            리뷰 수집 중...
-                          </span>
-                        ) : p.id === 'naver_place' ? (
-                          <span className="inline-flex items-center gap-1.5 text-xs text-[#8B95A1]">
-                            <span className="w-1.5 h-1.5 rounded-full bg-[#F59E0B]" />
-                            아직 수집 전 — 상단 "지금 수집" 클릭
-                          </span>
-                        ) : (
-                          <span className="text-xs text-[#8B95A1]">Worker 자동수집 대기</span>
                         )}
                       </div>
-                      {p.rating !== null && (
-                        <div className="w-full bg-[#F2F4F6] rounded-full h-2 overflow-hidden">
-                          <div
-                            className="h-full rounded-full transition-all"
-                            style={{ width: `${(p.rating / 5) * 100}%`, background: p.color }}
-                          />
-                        </div>
-                      )}
                     </div>
+                    {/* 30차-23: 최신 리뷰 2건 미니 카드 */}
+                    {miniReviews.length > 0 && (
+                      <div className="pl-[52px] space-y-1.5">
+                        {miniReviews.map((r) => (
+                          <button
+                            key={r.id}
+                            onClick={() => openAIReplyFromReal(r, p.id)}
+                            className="w-full text-left flex items-start gap-2 px-2.5 py-2 rounded-lg hover:bg-[#FAFBFF] transition-colors group"
+                          >
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-center gap-1.5 mb-0.5">
+                                <span className="text-[11px] font-bold text-[#4E5968] truncate">
+                                  {r.author_mask || r.author_name || '익명'}
+                                </span>
+                                {typeof r.rating === 'number' && <Stars rating={r.rating} />}
+                                <span className="text-[10px] text-[#8B95A1]">· {timeAgo(r.posted_at)}</span>
+                                {r.has_reply ? (
+                                  <span className="inline-flex items-center gap-0.5 text-[9px] bg-[#E8FFF0] text-[#12B76A] px-1.5 py-0.5 rounded-full font-semibold">
+                                    <Check size={9} strokeWidth={3} /> 답변완료
+                                  </span>
+                                ) : (
+                                  <span className="text-[9px] bg-[#FFF0F0] text-[#F04452] px-1.5 py-0.5 rounded-full font-semibold">
+                                    미답변
+                                  </span>
+                                )}
+                              </div>
+                              <p className="text-xs text-[#4E5968] line-clamp-1 group-hover:text-[#191F28]">
+                                {r.content || '(내용 없음)'}
+                              </p>
+                            </div>
+                            {!r.has_reply && (
+                              <span className="text-[10px] text-[#3182F6] font-bold flex-shrink-0 pt-0.5 group-hover:underline">
+                                AI 답글 →
+                              </span>
+                            )}
+                          </button>
+                        ))}
+                        {(platformReviews[p.id]?.length ?? 0) > 2 && (
+                          <Link
+                            href={p.id === 'naver_place' ? '/review-admin/naver' : p.id === 'baemin' ? '/review-admin/baemin' : p.id === 'yogiyo' ? '/review-admin/yogiyo' : p.id === 'coupangeats' ? '/review-admin/coupang' : '/reviews'}
+                            className="block text-center text-[10px] text-[#3182F6] font-bold py-1 hover:underline"
+                          >
+                            {p.name} 리뷰 전체보기 ({platformReviews[p.id]?.length ?? 0}건) →
+                          </Link>
+                        )}
+                      </div>
+                    )}
                   </div>
                   )
                 })
@@ -1606,10 +1789,15 @@ export default function Dashboard() {
           <div className="px-5 py-4 border-b border-[#F2F4F6] flex items-center justify-between">
             <div className="flex items-center gap-2 flex-wrap">
               <span className="text-sm font-bold text-[#191F28]">최근 리뷰</span>
-              {!reviewPlatformConnected && (
+              {!hasRealReviews && (
                 <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-[#FEF3C7] text-[#92400E] font-bold">데모</span>
               )}
-              <span className="text-[11px] text-[#8B95A1]">미답변 {RECENT_REVIEWS.filter(r => !r.replied).length}건</span>
+              {hasRealReviews && (
+                <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-[#E8F4FD] text-[#3182F6] font-bold">전 플랫폼 통합</span>
+              )}
+              <span className="text-[11px] text-[#8B95A1]">
+                미답변 {hasRealReviews ? mergedRealReviews.filter((r) => !r.has_reply).length : RECENT_REVIEWS.filter(r => !r.replied).length}건
+              </span>
               <span className="flex items-center gap-1 ml-2">
                 <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-[#ECFDF5] text-[10px] font-bold text-[#059669]" title={`긍정 ${sentimentCount.positive}건`}>
                   <Smile size={11} strokeWidth={2.5} />
@@ -1633,7 +1821,7 @@ export default function Dashboard() {
               전체보기 <ArrowRight size={11} strokeWidth={2.5} />
             </Link>
           </div>
-          {!reviewPlatformConnected && (
+          {!hasRealReviews && !reviewPlatformConnected && (
             <div className="px-5 py-4 bg-[#FFFBEB] border-b border-[#FEF3C7]">
               <p className="text-[11px] font-semibold text-[#92400E] mb-1 flex items-center gap-1">
                 <Lock size={11} strokeWidth={2.5}/> 아래는 샘플 리뷰입니다
@@ -1646,39 +1834,99 @@ export default function Dashboard() {
               </p>
             </div>
           )}
+          {/* 30차-23: 연결된 플랫폼 뱃지 행 — 리뷰가 어느 플랫폼에서 왔는지 한눈에 */}
+          {hasRealReviews && (
+            <div className="px-5 py-3 bg-[#FAFBFF] border-b border-[#F2F4F6] flex items-center gap-2 flex-wrap">
+              <span className="text-[10px] text-[#8B95A1] font-semibold">집계 플랫폼:</span>
+              {platforms
+                .filter((p) => p.connected && (platformReviews[p.id]?.length ?? 0) > 0)
+                .map((p) => (
+                  <span
+                    key={p.id}
+                    className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full text-white"
+                    style={{ background: p.color }}
+                  >
+                    {p.logo(12)}
+                    {p.shortName}
+                    <span className="bg-white/25 rounded-full px-1 text-[9px]">{platformReviews[p.id]?.length ?? 0}</span>
+                  </span>
+                ))}
+            </div>
+          )}
           <div className="divide-y divide-[#F2F4F6]">
-            {RECENT_REVIEWS.map((r, i) => (
-              <div key={i} className="px-5 py-4 hover:bg-[#FAFBFF] transition-colors flex items-start gap-4">
-                <div
-                  className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-black text-white mt-0.5"
-                  style={{ background: r.color }}
-                >
-                  {r.platform.slice(0, 2)}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-1">
-                    <span className="text-xs font-bold text-[#4E5968]">{r.name}</span>
-                    <Stars rating={r.rating} />
-                    <span className="text-[10px] text-[#8B95A1]">{r.time}</span>
-                    {r.replied && (
-                      <span className="inline-flex items-center gap-1 text-[10px] bg-[#E8FFF0] text-[#12B76A] px-1.5 py-0.5 rounded-full font-semibold">
-                        <Check size={10} strokeWidth={3} />
-                        답변완료
-                      </span>
+            {hasRealReviews ? (
+              mergedRealReviews.slice(0, 10).map((r) => {
+                const pf = platforms.find((x) => x.id === r._platformId)
+                const displayColor = pf?.color || '#03C75A'
+                const shortLabel = pf?.shortName || r._platformId
+                return (
+                  <div key={`${r._platformId}-${r.id}`} className="px-5 py-4 hover:bg-[#FAFBFF] transition-colors flex items-start gap-4">
+                    <div
+                      className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-black text-white mt-0.5"
+                      style={{ background: displayColor }}
+                      title={pf?.name}
+                    >
+                      {shortLabel.slice(0, 2)}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-2 mb-1 flex-wrap">
+                        <span className="text-xs font-bold text-[#4E5968]">{r.author_mask || r.author_name || '익명'}</span>
+                        {typeof r.rating === 'number' && <Stars rating={r.rating} />}
+                        <span className="text-[10px] text-[#8B95A1]">{timeAgo(r.posted_at)}</span>
+                        {r.has_reply && (
+                          <span className="inline-flex items-center gap-1 text-[10px] bg-[#E8FFF0] text-[#12B76A] px-1.5 py-0.5 rounded-full font-semibold">
+                            <Check size={10} strokeWidth={3} />
+                            답변완료
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-sm text-[#4E5968] line-clamp-1">{r.content || '(내용 없음)'}</p>
+                    </div>
+                    {!r.has_reply && (
+                      <button
+                        onClick={() => openAIReplyFromReal(r, r._platformId)}
+                        className="flex-shrink-0 ml-4 text-xs bg-[#3182F6] text-white px-3 py-1.5 rounded-xl font-semibold hover:bg-[#1B64DA] transition-colors"
+                      >
+                        AI 답글
+                      </button>
                     )}
                   </div>
-                  <p className="text-sm text-[#4E5968] line-clamp-1">{r.text}</p>
-                </div>
-                {!r.replied && (
-                  <button
-                    onClick={() => setReplyReview(r)}
-                    className="flex-shrink-0 ml-4 text-xs bg-[#3182F6] text-white px-3 py-1.5 rounded-xl font-semibold hover:bg-[#1B64DA] transition-colors"
+                )
+              })
+            ) : (
+              RECENT_REVIEWS.map((r, i) => (
+                <div key={i} className="px-5 py-4 hover:bg-[#FAFBFF] transition-colors flex items-start gap-4">
+                  <div
+                    className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-black text-white mt-0.5"
+                    style={{ background: r.color }}
                   >
-                    AI 답글
-                  </button>
-                )}
-              </div>
-            ))}
+                    {r.platform.slice(0, 2)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1">
+                      <span className="text-xs font-bold text-[#4E5968]">{r.name}</span>
+                      <Stars rating={r.rating} />
+                      <span className="text-[10px] text-[#8B95A1]">{r.time}</span>
+                      {r.replied && (
+                        <span className="inline-flex items-center gap-1 text-[10px] bg-[#E8FFF0] text-[#12B76A] px-1.5 py-0.5 rounded-full font-semibold">
+                          <Check size={10} strokeWidth={3} />
+                          답변완료
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-sm text-[#4E5968] line-clamp-1">{r.text}</p>
+                  </div>
+                  {!r.replied && (
+                    <button
+                      onClick={() => setReplyReview(r)}
+                      className="flex-shrink-0 ml-4 text-xs bg-[#3182F6] text-white px-3 py-1.5 rounded-xl font-semibold hover:bg-[#1B64DA] transition-colors"
+                    >
+                      AI 답글
+                    </button>
+                  )}
+                </div>
+              ))
+            )}
           </div>
         </div>
 
