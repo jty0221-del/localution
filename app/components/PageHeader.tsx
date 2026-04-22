@@ -12,6 +12,7 @@ export type PageHeaderVariant = BrandGradientKey
 
 export interface PageHeaderProps {
   icon: string          // 이모지 1~2자 또는 심볼
+  logoNode?: ReactNode  // SVG 로고 컴포넌트 — 있으면 icon 대신 사용
   title: string
   subtitle?: string
   variant?: PageHeaderVariant  // 기본 'primary'
@@ -22,6 +23,7 @@ export interface PageHeaderProps {
 
 export default function PageHeader({
   icon,
+  logoNode,
   title,
   subtitle,
   variant = 'primary',
@@ -37,8 +39,14 @@ export default function PageHeader({
       }} />
       <div className="relative max-w-5xl mx-auto px-4 md:px-8 py-9 md:py-12 flex items-center gap-3.5 md:gap-5">
         {/* 아이콘 뱃지 — glass + ring + drop shadow */}
-        <div className="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-white/20 backdrop-blur-md flex items-center justify-center text-3xl md:text-4xl flex-shrink-0 ring-1 ring-white/30 shadow-[0_8px_24px_-8px_rgba(0,0,0,0.35)]">
-          <span className="drop-shadow-sm leading-none">{icon}</span>
+        <div className="w-14 h-14 md:w-16 md:h-16 rounded-2xl overflow-hidden flex items-center justify-center flex-shrink-0 ring-1 ring-white/30 shadow-[0_8px_24px_-8px_rgba(0,0,0,0.35)]"
+          style={logoNode ? {} : undefined}>
+          {logoNode
+            ? logoNode
+            : <div className="w-full h-full bg-white/20 backdrop-blur-md flex items-center justify-center text-3xl md:text-4xl">
+                <span className="drop-shadow-sm leading-none">{icon}</span>
+              </div>
+          }
         </div>
         <div className="flex-1 min-w-0">
           <h1 className="text-[22px] md:text-[28px] font-black tracking-tight leading-tight">{title}</h1>
@@ -49,13 +57,4 @@ export default function PageHeader({
           )}
         </div>
         {right ? (
-          <div className="hidden md:flex items-center gap-2 flex-shrink-0">{right}</div>
-        ) : badge ? (
-          <div className="hidden md:flex items-center gap-1.5 text-[11px] font-bold text-white/95 bg-white/15 backdrop-blur px-3 py-1.5 rounded-full border border-white/25 flex-shrink-0 shadow-sm">
-            {badge}
-          </div>
-        ) : null}
-      </div>
-    </section>
-  )
-}
+          <div className="hidden md:flex items-center gap-2 flex-shrink-0">{right
