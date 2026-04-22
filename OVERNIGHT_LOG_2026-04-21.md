@@ -29,6 +29,9 @@
 | 32차-3 | Worker jobs 라우터 stub 제거 + Playwright Browser 싱글턴 + 실제 어댑터 라우팅 + payload 전달 | worker/src/jobs/index.ts, worker/src/index.ts | ✅ 완료 |
 | 32차-4 | BullMQ 큐 클라이언트 + /api/review-reply/collect 라우트 (Vercel→Railway enqueue) | app/lib/queue.ts, app/api/review-reply/collect/route.ts | ✅ 완료 |
 | 32차-5 | 3 플랫폼 wrapper supportsFetch:true + collectEndpoint 연결 (리뷰관리 "지금 수집" 활성화) | app/review-admin/baemin/page.tsx, app/review-admin/yogiyo/page.tsx, app/review-admin/coupang/page.tsx | ✅ 완료 |
+| 33차-1 | Worker 진단 로깅 헬퍼 (trySelectors/dumpPageDiagnostics/startNetworkCapture/detectLoginFailure) | worker/src/lib/diagnostics.ts | ✅ 완료 |
+| 33차-2 | 3 어댑터에 진단 훅업 — 빈 결과 시 페이지 구조 덤프 + 로그인 실패 텍스트 판별 강화 | worker/src/adapters/baemin.ts, worker/src/adapters/yogiyo.ts, worker/src/adapters/coupangeats.ts | ✅ 완료 |
+| 33차-3 | DEBUG_CAPTURE=1 일 때 review 관련 XHR 응답 자동 로깅 (DOM→API 전환 힌트용) | worker/src/adapters/baemin.ts + yogiyo + coupangeats | ✅ 완료 |
 
 ---
 
@@ -629,4 +632,39 @@ Railway 대시보드 → `worker` 서비스 → Variables 에 아래 3개 추가
 
 ---
 
-*최종 업데이트: 2026-04-22 32차 배포 완료 (배민/요기요/쿠팡이츠 Playwright 어댑터 3종 + BullMQ 큐 + /api/review-reply/collect)*
+---
+
+## 33차 — Worker 어댑터 진단 로깅 강화 (2026-04-22)
+
+### 작업 배경
+32차에서 배민/요기요/쿠팡이츠 어댑터를 실장했지만 DOM 셀렉터는 MVP 추정값.
+Railway 재배포 후 "리뷰 0건 수집" 으로 끝날 때 **뭐가 실패했는지 로그에 안 남음** → 튜닝 불가.
+또한 로그인 실패 판별이 URL 기반이라 "세션 만료/비밀번호 변경/2FA" 구분이 안 됨.
+
+### 변경 내역
+
+#### 33차-1 — `worker/src/lib/diagnostics.ts` 신규
+- `trySelectors(page, [...])` — 셀렉터 후보 배열 순차 시도, 첫 매칭 반환
+- `dumpPageDiagnostics(page, log, tag)` — 현재 페이지의 URL/title/body HTML 앞 3000자 + 고유 className 앞 100개 + `data-testid` 앞 50개 덤프
+- `startNetworkCapture(page, log, keywords)` — `DEBUG_CAPTURE=1` 환경변수일 때만 활성화. `review/feedback/rating` 등 키워드 URL XHR 응답을 요약 로깅 → DOM 파싱 대신 내부 API 직접 호출 전환 단서 확보
+- `detectLoginFailure(page)` — "비밀번호/아이디/일치하지/잘못된/실패/incorrect" 문자열 스캔 → 로그인 실패 원인 반환
+
+#### 33차-2 — 3 어댑터에 훅업
+- `baemin.ts`, `yogiyo.ts`, `coupangeats.ts` 모두:
+  - `startNetworkCapture()` 를 `newPage()` 직후 호출
+  - 로그인 URL 잔류 시 `detectLoginFailure()` 로 구체적 원인 `markLoginStatus()` 에 기록
+  - 리뷰 파싱 결과 `reviews.length === 0` 이면 `dumpPageDiagnostics()` 호출 (각 플랫폼별 `*-no-review-cards` 태그)
+
+### Railway 에서 디버그 로그 확인 방법
+1. 평소엔 환경변수 없이 배포 → 빈 결과 시 페이지 구조만 자동 덤프
+2. DOM 대신 내부 API 직접 호출로 전환하고 싶으면 Railway Worker 에 `DEBUG_CAPTURE=1` 환경변수 추가 → 다시 수집 시도 → 로그에서 `review` 키워드 URL 의 응답 본문 확인
+3. 덤프 로그의 `candidate_classes` / `data_testids` 를 보고 `DOM_SELECTORS` 상수를 실제 네이밍으로 교체
+
+### 남은 과제
+- 실제 배민 로그인 테스트 → diagnostics dump 기반 셀렉터 확정
+- 확정된 셀렉터를 DOM_SELECTORS 에 반영 후 34차 배포
+- `DEBUG_CAPTURE=1` 환경에서 발견된 내부 API endpoint 를 어댑터가 직접 호출하는 방식으로 점진 전환 (DOM 파싱 fragile 회피)
+
+---
+
+*최종 업데이트: 2026-04-22 33차 배포 완료 (Worker 진단 로깅 헬퍼 + 3 어댑터 훅업)*
