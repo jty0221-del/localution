@@ -2,20 +2,13 @@
 
 // ============================================================
 // 30차-22 · /review-admin/naver — 공통 컴포넌트 사용 wrapper
+//   실제 로직은 app/review-admin/components/PlatformReviewAdmin.tsx 참고
+//   (30차-21 초안→편집→등록 + 30차-22 일괄 초안 생성)
 // ============================================================
-
-import PlatformReviewAdmin, { PlatformConfig } from '../components/PlatformReviewAdmin'
 
 export const dynamic = 'force-dynamic'
 
-function NaverLogo() {
-  return (
-    <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
-      <rect width="64" height="64" rx="14" fill="#03C75A"/>
-      <path d="M13 51V13h10.5L40 38.5V13H51v38H40.5L24 25.5V51H13Z" fill="white"/>
-    </svg>
-  )
-}
+import PlatformReviewAdmin, { PlatformConfig } from '../components/PlatformReviewAdmin'
 
 const CONFIG: PlatformConfig = {
   platform: 'naver_place',
@@ -24,11 +17,12 @@ const CONFIG: PlatformConfig = {
   color: '#03C75A',
   bg: '#E8FBF0',
   textColor: '#015C2C',
-  icon: 'N',
+  icon: '🟢',
   iconLetter: 'N',
-  logoNode: <NaverLogo />,
-  supportsFetch: true,
+  supportsFetch: true,               // 23차-15-B 에서 이미 수집 파이프 완료
   connectHref: '/my/platforms/naver_place/connect',
 }
 
-export default function NaverRe
+export default function NaverReviewPage() {
+  return <PlatformReviewAdmin config={CONFIG} />
+}
