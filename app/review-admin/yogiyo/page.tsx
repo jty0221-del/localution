@@ -19,7 +19,8 @@ const CONFIG: PlatformConfig = {
   textColor: '#A3003A',
   icon: '🛵',
   iconLetter: '요',
-  supportsFetch: false,
+  supportsFetch: true,               // 32차-2 YogiyoAdapter 완료
+  collectEndpoint: '/api/review-reply/collect?platform=yogiyo',
   connectHref: '/my/platforms/yogiyo/connect',
 }
 
