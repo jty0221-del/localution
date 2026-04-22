@@ -7,6 +7,7 @@ import type { Logger } from 'pino'
 import { getServiceClient } from '../lib/supabase'
 import { loadPlainCredentials, markLoginStatus } from '../lib/credentials'
 import { upsertReviews, CollectedReview } from '../lib/reviews'
+import { dumpPageDiagnostics, startNetworkCapture, detectLoginFailure } from '../lib/diagnostics'
 import type { JobResult, Action } from '../jobs'
 
 const LOGIN_URL = 'https://ceo.yogiyo.co.kr/login/'
@@ -55,6 +56,7 @@ export async function runYogiyo(
     timezoneId: 'Asia/Seoul',
   })
   const page = await context.newPage()
+  startNetworkCapture(page, log, ['review', 'feedback', 'rating'])
 
   try {
     // 1) 로그인
@@ -74,8 +76,14 @@ export async function runYogiyo(
       return { status: 'failed', message: 'yogiyo captcha — 수동 로그인 필요' }
     }
     if (currentUrl.includes('login') || currentUrl.includes('signin')) {
-      await markLoginStatus(svc, userId, 'yogiyo', 'failed', 'stayed on login')
-      return { status: 'failed', message: 'yogiyo login failed — 아이디/비밀번호 확인' }
+      const { failed, reason } = await detectLoginFailure(page)
+      await markLoginStatus(svc, userId, 'yogiyo', 'failed', reason || 'stayed on login')
+      return {
+        status: 'failed',
+        message: failed
+          ? `yogiyo login failed — ${reason}`
+          : 'yogiyo login failed — 아이디/비밀번호 확인 또는 페이지 지연',
+      }
     }
 
     await markLoginStatus(svc, userId, 'yogiyo', 'success')
@@ -128,6 +136,10 @@ export async function runYogiyo(
         }
       })
     }, DOM_SELECTORS)
+
+    if (!reviews || reviews.length === 0) {
+      await dumpPageDiagnostics(page, log, 'yogiyo-no-review-cards')
+    }
 
     const normalized: CollectedReview[] = reviews
       .filter((r) => r.content || r.author_name)
