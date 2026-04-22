@@ -112,6 +112,15 @@ function HometaxLogo({ size = 28 }: { size?: number }) {
   )
 }
 
+function KakaoMapLogo({ size = 28 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
+      <rect width="48" height="48" rx="12" fill="#FEE500"/>
+      <path d="M24 11c-7 0-12.5 4.4-12.5 10 0 3.7 2.5 7 6.3 8.9l-1.5 5.3c-.1.3.3.5.5.3l6.2-4.3c.3 0 .7.1 1 .1 7 0 12.5-4.4 12.5-10S31 11 24 11Z" fill="#191919"/>
+    </svg>
+  )
+}
+
 // ═══════════════════════════════════════════════════════════
 //  타입 & 상수
 // ═══════════════════════════════════════════════════════════
@@ -119,7 +128,7 @@ function HometaxLogo({ size = 28 }: { size?: number }) {
 // 대시보드에서 쓰는 로컬 플랫폼 id (INITIAL_PLATFORMS 기준)
 // naver_search 는 검색광고 연동 미구현 → 당분간 타입에서 제외
 type PlatformId =
-  | 'naver_place' | 'google' | 'baemin'
+  | 'naver_place' | 'google' | 'kakao_map' | 'baemin'
   | 'yogiyo' | 'coupangeats' | 'yeoshin' | 'hometax'
 
 interface Platform {
@@ -127,7 +136,7 @@ interface Platform {
   name: string
   shortName: string
   logo: (size?: number) => JSX.Element
-  category: '리뷰·검색' | '배달' | '금융·세무'
+  category: '리뷰·검색' | '지도·리뷰' | '배달' | '금융·세무'
   connected: boolean
   rating: number | null
   reviews: number | null
@@ -138,6 +147,7 @@ interface Platform {
 const TO_CANONICAL: Record<PlatformId, CanonicalPlatformId> = {
   naver_place: 'naver',
   google: 'google',
+  kakao_map: 'kakao',
   baemin: 'baemin',
   yogiyo: 'yogiyo',
   coupangeats: 'coupang',
@@ -147,6 +157,7 @@ const TO_CANONICAL: Record<PlatformId, CanonicalPlatformId> = {
 const INITIAL_PLATFORMS: Platform[] = [
   { id: 'naver_place',  name: '네이버 플레이스', shortName: '네이버',   logo: (s) => <NaverPlaceLogo size={s}/>,   category: '리뷰·검색', connected: false, rating: null, reviews: null, color: '#03C75A' },
   { id: 'google',       name: '구글 비즈니스',   shortName: '구글',     logo: (s) => <GoogleLogo size={s}/>,       category: '리뷰·검색', connected: false, rating: null, reviews: null, color: '#4285F4' },
+  { id: 'kakao_map',    name: '카카오맵',          shortName: '카카오',   logo: (s) => <KakaoMapLogo size={s}/>,     category: '지도·리뷰', connected: false, rating: null, reviews: null, color: '#FEE500' },
   { id: 'baemin',       name: '배달의민족',        shortName: '배민',     logo: (s) => <BaeminLogo size={s}/>,       category: '배달',      connected: false, rating: null, reviews: null, color: '#2AC1BC' },
   { id: 'yogiyo',       name: '요기요',            shortName: '요기요',   logo: (s) => <YogiyoLogo size={s}/>,       category: '배달',      connected: false, rating: null, reviews: null, color: '#FA1A32' },
   { id: 'coupangeats',  name: '쿠팡이츠',          shortName: '쿠팡이츠', logo: (s) => <CoupangEatsLogo size={s}/>,  category: '배달',      connected: false, rating: null, reviews: null, color: '#FF5A00' },
@@ -238,6 +249,7 @@ function dbPlatformToId(dbPlatform: string): PlatformId | null {
   const map: Record<string, PlatformId> = {
     naver_place: 'naver_place',
     google: 'google',
+    kakao_map: 'kakao_map',
     baemin: 'baemin',
     yogiyo: 'yogiyo',
     coupangeats: 'coupangeats',
@@ -322,12 +334,14 @@ function ConnectModal({ platform, initialUrl, isConnected, savedStoreName, onClo
   const apiEndpoint = (() => {
     if (platform.id === 'naver_place') return '/api/platforms/naver'
     if (platform.id === 'google') return '/api/platforms/google'
+    if (platform.id === 'kakao_map') return '/api/platforms/kakao'
     return '/api/platforms/delivery'
   })()
 
   const placeholder = (() => {
     if (platform.id === 'naver_place') return 'https://map.naver.com/p/entry/place/1234567890'
     if (platform.id === 'google') return 'https://www.google.com/maps/place/... 또는 Place ID (ChIJ...)'
+    if (platform.id === 'kakao_map') return 'https://place.map.kakao.com/616380187'
     if (platform.id === 'baemin') return 'https://baemin.me/... 또는 배민 매장 URL'
     if (platform.id === 'yogiyo') return 'https://www.yogiyo.co.kr/mobile/#/123456'
     if (platform.id === 'coupangeats') return 'https://www.coupangeats.com/restaurants/...'
@@ -925,7 +939,7 @@ export default function Dashboard() {
     const connectedIds = platforms
       .filter((p) => p.connected && (p.category === '리뷰·검색' || p.category === '배달'))
       .map((p) => p.id)
-      .filter((pid) => pid === 'naver_place' || pid === 'baemin' || pid === 'yogiyo' || pid === 'coupangeats' || pid === 'google')
+      .filter((pid) => pid === 'naver_place' || pid === 'baemin' || pid === 'yogiyo' || pid === 'coupangeats' || pid === 'google' || pid === 'kakao_map')
     if (connectedIds.length === 0) {
       setPlatformReviews({})
       return
@@ -1087,7 +1101,7 @@ export default function Dashboard() {
   // 30차-15-A: 연결 해제 — DELETE /api/platform-accounts + localStorage + 대시보드 state 정리
   const handleDisconnect = async (id: PlatformId) => {
     // naver_place / baemin / yogiyo / coupangeats 만 platform_credentials 로 저장됨
-    const credentialPlatforms = ['naver_place', 'baemin', 'yogiyo', 'coupangeats']
+    const credentialPlatforms = ['naver_place', 'baemin', 'yogiyo', 'coupangeats', 'kakao_map']
     if (credentialPlatforms.includes(id)) {
       try {
         const res = await fetch(`/api/platform-accounts?platform=${id}`, {
@@ -1651,7 +1665,7 @@ export default function Dashboard() {
                         ))}
                         {(platformReviews[p.id]?.length ?? 0) > 2 && (
                           <Link
-                            href={p.id === 'naver_place' ? '/review-admin/naver' : p.id === 'baemin' ? '/review-admin/baemin' : p.id === 'yogiyo' ? '/review-admin/yogiyo' : p.id === 'coupangeats' ? '/review-admin/coupang' : '/reviews'}
+                            href={p.id === 'naver_place' ? '/review-admin/naver' : p.id === 'baemin' ? '/review-admin/baemin' : p.id === 'yogiyo' ? '/review-admin/yogiyo' : p.id === 'coupangeats' ? '/review-admin/coupang' : p.id === 'kakao_map' ? '/review-admin/kakao' : '/reviews'}
                             className="block text-center text-[10px] text-[#3182F6] font-bold py-1 hover:underline"
                           >
                             {p.name} 리뷰 전체보기 ({platformReviews[p.id]?.length ?? 0}건) →
