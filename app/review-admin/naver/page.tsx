@@ -344,7 +344,14 @@ export default function NaverReviewPage() {
                 </div>
                 <div className="bg-white rounded-2xl p-4 border border-[#E5E8EB]">
                   <p className="text-[11px] text-[#8B95A1] font-medium mb-1">평균 별점</p>
-                  <p className="text-xl font-black text-[#191F28]">{ratingDisplay}점</p>
+                  {agg.rating_avg === null && agg.review_count > 0 ? (
+                    <p className="text-xs font-bold text-[#4E5968] leading-tight">
+                      키워드 리뷰<br/>
+                      <span className="text-[10px] text-[#8B95A1] font-medium">별점 없음</span>
+                    </p>
+                  ) : (
+                    <p className="text-xl font-black text-[#191F28]">{ratingDisplay}점</p>
+                  )}
                 </div>
                 <div className="bg-white rounded-2xl p-4 border border-[#E5E8EB]">
                   <p className="text-[11px] text-[#8B95A1] font-medium mb-1">미답변</p>
