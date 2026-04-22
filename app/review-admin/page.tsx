@@ -140,6 +140,7 @@ export default function ReviewAdminHub() {
           baemin: 'baemin',
           yogiyo: 'yogiyo',
           coupangeats: 'coupang',
+          kakao_map: 'kakao',
         }
         const map: Record<string, any> = {}
         for (const p of (j.platforms || [])) {
