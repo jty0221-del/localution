@@ -1,21 +1,27 @@
 // worker/src/jobs/index.ts
 // ============================================================
-// 잡 라우터 — platform + action 조합으로 어댑터 호출
+// 32차-3 · 잡 라우터 — platform + action 조합으로 어댑터 호출
+//   · 23차 stub 체계 제거 → 실제 어댑터 인스턴스로 라우팅
+//   · Playwright Browser 는 엔트리(index.ts) 에서 싱글톤 주입
 // ============================================================
+import type { Browser } from 'playwright'
 import type { Logger } from 'pino'
+import { runBaemin } from '../adapters/baemin'
+import { runYogiyo } from '../adapters/yogiyo'
+import { runCoupangEats } from '../adapters/coupangeats'
 
 export type Platform = 'naver_place' | 'baemin' | 'yogiyo' | 'coupangeats' | 'kakao_map'
 export type Action =
-  | 'fetch_reviews'          // 리뷰 수집
-  | 'post_reply'             // 답글 등록
-  | 'fetch_rank'             // 순위 조회
-  | 'health_check'           // 단순 ping (연결/로그인 상태 확인)
+  | 'fetch_reviews'
+  | 'post_reply'
+  | 'fetch_rank'
+  | 'health_check'
 
 export interface PlatformJobData {
   platform: Platform
   action: Action
-  userId: string             // Supabase auth.uid
-  storeId: string            // stores.store_id
+  userId: string
+  storeId: string
   payload?: Record<string, unknown>
 }
 
@@ -25,33 +31,31 @@ export interface JobResult {
   data?: unknown
 }
 
-// ─────────────────────────────────────────────
-// 실행 라우터 (어댑터는 23차-4~5 에서 구현)
-// 현재는 스텁 — 환경 검증 + 스킵 반환
-// ─────────────────────────────────────────────
-export async function runJob(data: PlatformJobData, log: Logger): Promise<JobResult> {
-  const { platform, action } = data
+export async function runJob(
+  data: PlatformJobData,
+  log: Logger,
+  browser: Browser,
+): Promise<JobResult> {
+  const { platform, action, userId, storeId, payload } = data
+  const opts = { userId, storeId, browser, log }
 
   switch (platform) {
-    case 'naver_place':
-      return stubRun('NaverPlaceAdapter', action, log)
     case 'baemin':
-      return stubRun('BaeminAdapter', action, log)
+      return runBaemin(opts, action, payload)
     case 'yogiyo':
-      return stubRun('YogiyoAdapter', action, log)
+      return runYogiyo(opts, action, payload)
     case 'coupangeats':
-      return stubRun('CoupangEatsAdapter', action, log)
+      return runCoupangEats(opts, action, payload)
+    case 'naver_place':
+      // 네이버는 Vercel 쪽 /api/place/reviews/fetch 공개 GraphQL 으로 수집.
+      // Worker 에서 호출된 경우는 향후 답글 자동 등록용 예약.
+      log.warn({ platform, action }, 'naver_place handled by Vercel public collector')
+      return { status: 'skipped', message: 'naver_place: use /api/place/reviews/fetch on Vercel' }
     case 'kakao_map':
-      return stubRun('KakaoMapAdapter', action, log)
+      // 카카오맵은 Vercel 쪽 /api/place/kakao/collect 공개 panel3 으로 수집.
+      log.warn({ platform, action }, 'kakao_map handled by Vercel panel3 collector')
+      return { status: 'skipped', message: 'kakao_map: use /api/place/kakao/collect on Vercel' }
     default:
       return { status: 'failed', message: `unknown platform: ${platform}` }
-  }
-}
-
-async function stubRun(adapterName: string, action: Action, log: Logger): Promise<JobResult> {
-  log.warn({ adapter: adapterName, action }, 'adapter not implemented yet (23차-4~5 대기)')
-  return {
-    status: 'skipped',
-    message: `${adapterName} not implemented yet — queued for 23차-4~5`,
   }
 }
