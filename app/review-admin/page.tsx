@@ -2,8 +2,47 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useState, useEffect, useCallback, useMemo } from 'react'
+import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
+
+// ═══════════════════════════════════════════════════════════════
+//  플랫폼 로고 SVG 컴포넌트 (대시보드와 동일)
+// ═══════════════════════════════════════════════════════════════
+
+function BaeminLogo({ size = 28 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
+      <rect width="48" height="48" rx="12" fill="#2AC1BC"/>
+      <text x="24" y="31" fontSize="18" fontWeight="900" fill="#1A1A1A"
+        fontFamily="'Apple SD Gothic Neo','Noto Sans KR',sans-serif"
+        textAnchor="middle" letterSpacing="-0.5">배민</text>
+    </svg>
+  )
+}
+
+function YogiyoLogo({ size = 28 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
+      <rect width="48" height="48" rx="12" fill="#E5007F"/>
+      <text x="24" y="23" fontSize="11" fontWeight="900" fill="white"
+        fontFamily="'Apple SD Gothic Neo','Noto Sans KR',sans-serif" textAnchor="middle">요기요</text>
+      <circle cx="24" cy="33" r="4" fill="white"/>
+      <path d="M16 43 Q24 39 32 43" stroke="white" strokeWidth="2.2" fill="none" strokeLinecap="round"/>
+    </svg>
+  )
+}
+
+function CoupangEatsLogo({ size = 28 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
+      <rect width="48" height="48" rx="12" fill="white" stroke="#E5E7EB" strokeWidth="1.5"/>
+      <text x="5" y="25" fontSize="9.5" fontWeight="800" fontFamily="Arial,sans-serif" letterSpacing="0.2">
+        <tspan fill="#E31837">c</tspan><tspan fill="#F4A900">o</tspan><tspan fill="#E31837">u</tspan><tspan fill="#5BAD48">p</tspan><tspan fill="#3B79BE">a</tspan><tspan fill="#E31837">n</tspan><tspan fill="#F4A900">g</tspan>
+      </text>
+      <text x="5" y="39" fontSize="13" fontWeight="900" fill="#4A2C0A" fontFamily="Arial,sans-serif">eats</text>
+    </svg>
+  )
+}
 import Sidebar from '../components/Sidebar'
 import Footer from '../components/Footer'
 import PageHeader from '../components/PageHeader'
@@ -42,6 +81,7 @@ type PlatformKey = typeof ALL_PLATFORMS[number]
 
 const PLATFORM_META: Record<PlatformKey, {
   label: string; color: string; bg: string; textColor: string; icon: string
+  logo?: (size: number) => React.ReactNode
   apiPath?: string
   detailPath: string
   legacyKeys?: { connected: string; storeId: string; token: string }
@@ -61,18 +101,21 @@ const PLATFORM_META: Record<PlatformKey, {
   },
   baemin: {
     label: '배민', color: '#2AC1BC', bg: '#E6F9F8', textColor: '#0B7B78', icon: 'B',
+    logo: (s) => <BaeminLogo size={s} />,
     apiPath: '/api/baemin-reviews',
     detailPath: '/review-admin/baemin',
     legacyKeys: { connected: 'localution.baemin.connected', storeId: 'localution.baemin.storeId', token: 'localution.baemin.token' },
   },
   yogiyo: {
-    label: '요기요', color: '#FA3C00', bg: '#FEF0EB', textColor: '#B32B00', icon: 'Y',
+    label: '요기요', color: '#E5007F', bg: '#FEF0EB', textColor: '#B32B00', icon: 'Y',
+    logo: (s) => <YogiyoLogo size={s} />,
     apiPath: '/api/yogiyo-reviews',
     detailPath: '/review-admin/yogiyo',
     legacyKeys: { connected: 'localution.yogiyo.connected', storeId: 'localution.yogiyo.storeId', token: 'localution.yogiyo.token' },
   },
   coupang: {
-    label: '쿠팡이츠', color: '#FF4B30', bg: '#FFF3F0', textColor: '#900000', icon: 'C',
+    label: '쿠팡이츠', color: '#FF5A00', bg: '#FFF3F0', textColor: '#900000', icon: 'C',
+    logo: (s) => <CoupangEatsLogo size={s} />,
     apiPath: '/api/reviews/coupang',
     detailPath: '/review-admin/coupang',
     legacyKeys: { connected: 'localution.coupang.connected', storeId: 'localution.coupang.storeId', token: 'localution.coupang.token' },
@@ -294,8 +337,12 @@ export default function ReviewAdminHub() {
                 className="bg-white rounded-2xl border border-[#E5E8EB] p-4 md:p-5 flex flex-col">
                 {/* 헤더 */}
                 <div className="flex items-center gap-2.5 mb-3">
-                  <div className="w-9 h-9 rounded-xl flex items-center justify-center text-white font-black text-sm flex-shrink-0"
-                    style={{ background: meta.color }}>{meta.icon}</div>
+                  <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden"
+                    style={meta.logo ? {} : { background: meta.color }}>
+                    {meta.logo ? meta.logo(36) : (
+                      <span className="text-white font-black text-sm">{meta.icon}</span>
+                    )}
+                  </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-sm font-bold text-[#191F28]">{meta.label}</p>
                     {stat.connected ? (
@@ -410,54 +457,4 @@ export default function ReviewAdminHub() {
         ) : loadingFeed ? (
           <div className="bg-white rounded-2xl border border-[#E5E8EB] p-12 text-center text-sm text-[#8B95A1]">
             리뷰 불러오는 중...
-          </div>
-        ) : filteredFeed.length === 0 ? (
-          <div className="bg-white rounded-2xl border border-[#E5E8EB] p-8 text-center text-sm text-[#8B95A1]">
-            표시할 리뷰가 없습니다.
-          </div>
-        ) : (
-          <div className="space-y-3">
-            {filteredFeed.slice(0, 30).map(r => {
-              const meta = PLATFORM_META[r.platform as PlatformKey]
-              return (
-                <div key={r.id}
-                  className="bg-white rounded-2xl border border-[#E5E8EB] p-4 md:p-5 hover:border-[#3182F6] transition-colors">
-                  <div className="flex items-start gap-3">
-                    {/* 플랫폼 배지 */}
-                    <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-black text-xs flex-shrink-0"
-                      style={{ background: meta.color }}>{meta.icon}</div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-1 flex-wrap">
-                        <span className="text-xs font-bold text-[#191F28]">{r.author}</span>
-                        <Stars n={r.rating} color={meta.color} />
-                        <span className="text-[10px] text-[#8B95A1]">{timeAgo(r.date)}</span>
-                        {r.replied ? (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#ECFDF5] text-[#059669] font-semibold">답글완료</span>
-                        ) : (
-                          <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#FEF3C7] text-[#92400E] font-semibold">미답변</span>
-                        )}
-                      </div>
-                      <p className="text-xs md:text-sm text-[#4E5968] leading-relaxed mb-2 break-words">{r.text}</p>
-                      <Link href={meta.detailPath}
-                        className="inline-block text-[11px] font-semibold hover:underline"
-                        style={{ color: meta.color }}>
-                        {meta.label}에서 답글 작성 →
-                      </Link>
-                    </div>
-                  </div>
-                </div>
-              )
-            })}
-            {filteredFeed.length > 30 && (
-              <p className="text-center text-xs text-[#8B95A1] py-2">최근 30개 표시 중 (총 {filteredFeed.length}개)</p>
-            )}
-          </div>
-        )}
-        </div>
-        </main>
-      </div>
-      <Footer />
-    </div>
-  )
-}
-
+         
