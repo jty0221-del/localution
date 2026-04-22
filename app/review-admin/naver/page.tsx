@@ -223,6 +223,10 @@ export default function NaverReviewPage() {
   }, [connected, autoFetchTried, loadingReviews, reviews.length, collectNow])
 
   // ── 5) AI 답글 ───────────────────────────────────────
+  // 30차-19: 백엔드가 review_id 만 받아도 stores + platform_reviews 에서 자동으로
+  //          매장 컨텍스트(지역/카테고리/메인키워드/description)와 리뷰 사진 URL 을
+  //          끌어와 Vision + SEO 키워드 추론으로 답글을 만든다.
+  //          프런트는 review_id 만 넘기고 tone 만 추가 전달.
   const handleAiReply = async (review: Review) => {
     setReplyingId(review.id)
     setGenerating(true)
@@ -230,13 +234,14 @@ export default function NaverReviewPage() {
     try {
       const res = await fetch('/api/ai-review-reply', {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          review_text: review.content,
-          reviewer_name: review.author,
-          rating: review.rating ?? 5,
-          store_name: storeName || '저희 매장',
-          tone,
+          review_id: review.id,
+          // 백엔드가 DB에서 다시 읽지만, 혹시 모를 race 대비 fallback 값도 함께 전달
+          review: review.content,
+          rating: review.rating,
+          aiSettings: { tone, length: 'medium' },
         }),
       })
       const data = await res.json()
@@ -256,6 +261,50 @@ export default function NaverReviewPage() {
       window.open('https://new.smartplace.naver.com/', '_blank', 'noopener,noreferrer')
     } catch {
       toast.warn('자동 복사가 안 돼요. 답글을 직접 드래그해서 복사해주세요 ✍️')
+    }
+  }
+
+  // 30차-20: 원클릭 자동 등록 — "생성→복사→네이버 열기" 1버튼 플로우
+  //   · 단기 UX: AI 답글 생성 완료 후 자동으로 클립보드 복사 + 스마트플레이스 탭 오픈
+  //   · 장기 플랜: Railway Worker + Playwright (23차-4) 와 연동되면 실제 submit 까지 자동화
+  const handleOneClickReply = async (review: Review) => {
+    setReplyingId(review.id)
+    setGenerating(true)
+    setAiReply('')
+    try {
+      const res = await fetch('/api/ai-review-reply', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          review_id: review.id,
+          review: review.content,
+          rating: review.rating,
+          aiSettings: { tone, length: 'medium' },
+        }),
+      })
+      const data = await res.json()
+      const generated = data.reply || data.message || ''
+      if (!generated) {
+        setAiReply('답글을 만들지 못했어요. 재생성을 눌러주세요 🔁')
+        return
+      }
+      setAiReply(generated)
+      // 생성 성공 → 바로 클립보드 복사
+      try {
+        await navigator.clipboard.writeText(generated)
+        setCopied(true)
+        setTimeout(() => setCopied(false), 2500)
+        toast.success('답글 복사 완료! 네이버 스마트플레이스에 붙여넣기만 하면 돼요 ✨')
+      } catch {
+        toast.warn('자동 복사가 안 됐어요. 답글을 직접 드래그해서 복사해주세요 ✍️')
+      }
+      // 그리고 네이버 스마트플레이스 새 탭 오픈
+      window.open('https://new.smartplace.naver.com/', '_blank', 'noopener,noreferrer')
+    } catch {
+      setAiReply('연결이 잠깐 불안정했어요. 다시 시도해주세요 🙏')
+    } finally {
+      setGenerating(false)
     }
   }
 
@@ -545,13 +594,23 @@ export default function NaverReviewPage() {
                         )}
 
                         {!review.hasReply && replyingId !== review.id && (
-                          <button
-                            onClick={() => handleAiReply(review)}
-                            className="px-4 py-2 rounded-xl text-xs font-bold text-white hover:opacity-90"
-                            style={{ background: PLATFORM.color }}
-                          >
-                            ✨ AI 답글 생성
-                          </button>
+                          <div className="flex gap-2 flex-wrap">
+                            <button
+                              onClick={() => handleOneClickReply(review)}
+                              className="px-4 py-2 rounded-xl text-xs font-bold text-white hover:opacity-90 shadow-sm"
+                              style={{ background: PLATFORM.color }}
+                              title="생성 → 복사 → 네이버 스마트플레이스 열기까지 한 번에"
+                            >
+                              ⚡ 원클릭 자동 등록
+                            </button>
+                            <button
+                              onClick={() => handleAiReply(review)}
+                              className="px-4 py-2 rounded-xl text-xs font-bold bg-white border hover:bg-[#F9FAFB]"
+                              style={{ borderColor: PLATFORM.color + '60', color: PLATFORM.textColor }}
+                            >
+                              ✨ 먼저 미리보기
+                            </button>
+                          </div>
                         )}
                       </div>
                     )
