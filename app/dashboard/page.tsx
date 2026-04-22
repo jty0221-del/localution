@@ -953,6 +953,8 @@ export default function Dashboard() {
   const [collectingPlatform, setCollectingPlatform] = useState<string | null>(null)
   const handleCollectPlatform = async (pid: string) => {
     setCollectingPlatform(pid)
+    const ctrl = new AbortController()
+    const timer = setTimeout(() => ctrl.abort(), 20_000)
     try {
       let endpoint = ''
       if (pid === 'kakao_map') endpoint = '/api/place/kakao/collect'
@@ -967,6 +969,7 @@ export default function Dashboard() {
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({}),
+        signal: ctrl.signal,
       })
       const j = await res.json().catch(() => null)
       if (!res.ok || !j?.ok) {
@@ -983,8 +986,13 @@ export default function Dashboard() {
         toast.info('수집 요청을 보냈습니다. 1~3분 뒤 새로고침 해주세요.')
       }
     } catch (e: any) {
-      toast.error(`수집 오류: ${e?.message || e}`)
+      if (e?.name === 'AbortError') {
+        toast.error('수집 요청 20초 초과 — Worker/Redis 상태 확인')
+      } else {
+        toast.error(`수집 오류: ${e?.message || e}`)
+      }
     } finally {
+      clearTimeout(timer)
       setCollectingPlatform(null)
     }
   }

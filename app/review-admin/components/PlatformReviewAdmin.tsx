@@ -252,6 +252,8 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
     }
     if (!connected || fetching) return
     setFetching(true)
+    const ctrl = new AbortController()
+    const timer = setTimeout(() => ctrl.abort(), 20_000) // 20s hard timeout
     try {
       const endpoint = config.collectEndpoint || '/api/place/reviews/fetch'
       const res = await fetch(endpoint, {
@@ -259,6 +261,7 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(placeId ? { place_id: placeId } : {}),
+        signal: ctrl.signal,
       })
       const data = await res.json()
       if (!res.ok || !data?.ok) {
@@ -272,8 +275,13 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
       }
       await Promise.all([loadStoresMe(), loadReviews()])
     } catch (e: any) {
-      toast.error('수집 중 오류: ' + (e?.message || e))
+      if (e?.name === 'AbortError') {
+        toast.error('수집 요청 20초 초과 — Worker/Redis 상태 확인')
+      } else {
+        toast.error('수집 중 오류: ' + (e?.message || e))
+      }
     } finally {
+      clearTimeout(timer)
       setFetching(false)
     }
   }, [connected, fetching, placeId, loadStoresMe, loadReviews, config.supportsFetch, config.label])

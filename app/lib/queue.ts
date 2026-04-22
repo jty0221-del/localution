@@ -29,10 +29,14 @@ function getRedis(): IORedis {
   const url = process.env.REDIS_URL
   if (!url) throw new Error('REDIS_URL missing — BullMQ enqueue 불가')
   redisClient = new IORedis(url, {
-    maxRetriesPerRequest: null,
+    maxRetriesPerRequest: null,   // BullMQ requirement
     enableReadyCheck: false,
     lazyConnect: false,
+    connectTimeout: 5000,          // 5s 내 연결 못 하면 즉시 실패
+    commandTimeout: 8000,          // 개별 커맨드 8s timeout
+    retryStrategy: (times) => (times > 2 ? null : Math.min(times * 500, 2000)),
   })
+  redisClient.on('error', () => {/* swallow — throw는 enqueue 단에서 */})
   return redisClient
 }
 
@@ -58,10 +62,15 @@ export async function enqueuePlatformJob(
 ): Promise<{ ok: true; jobId: string } | { ok: false; error: string }> {
   try {
     const q = getPlatformQueue()
-    const job = await q.add(`${data.platform}:${data.action}`, data, {
+    // 10s 이상 걸리면 강제 실패 — hang 방지
+    const addPromise = q.add(`${data.platform}:${data.action}`, data, {
       jobId: opts.jobId,
       priority: opts.priority,
     })
+    const timeout = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('enqueue timeout (10s) — Redis 연결 확인')), 10_000),
+    )
+    const job = await Promise.race([addPromise, timeout])
     return { ok: true, jobId: String(job.id) }
   } catch (e: any) {
     return { ok: false, error: e?.message || String(e) }
