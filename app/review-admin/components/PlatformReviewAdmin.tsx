@@ -37,7 +37,8 @@ interface Review {
   postedAt: string | null
   collectedAt: string | null
   hasReply: boolean
-  photos: number
+  photos: string[]           // 30차-23: 사진 URL 배열 (썸네일 렌더용)
+  photoCount: number         // 요약 뱃지용 (photos.length)
   draftReply: string | null
   replyStatus: ReplyStatus
   replyTone: string | null
@@ -144,6 +145,10 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
   const [autoFetchTried, setAutoFetchTried] = useState(false)
   const [filterRating, setFilterRating] = useState<number | null>(null)
   const [filterReplied, setFilterReplied] = useState<'all' | 'replied' | 'unreplied' | 'negative'>('all')
+  // 30차-23: 기간 필터 (7일 / 30일 / 전체) — 서버 쿼리 파라미터로 넘겨서 re-fetch
+  const [period, setPeriod] = useState<'7' | '30' | 'all'>('all')
+  // 30차-23: 사진 라이트박스
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
 
   // ── 초안 편집 상태 ────────────────────────────
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -191,36 +196,48 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
     if (!connected) return
     setLoadingReviews(true)
     try {
-      const res = await fetch(`/api/place/reviews?platform=${config.platform}&limit=100`, {
+      // 30차-23: limit=1000 + period 쿼리 → 서버에서 기간 필터 처리
+      const params = new URLSearchParams({
+        platform: config.platform,
+        limit: '1000',
+        period,
+      })
+      const res = await fetch(`/api/place/reviews?${params.toString()}`, {
         credentials: 'include',
         cache: 'no-store',
       })
       const data = await res.json()
       if (data?.ok && Array.isArray(data.reviews)) {
-        const mapped: Review[] = data.reviews.map((r: any) => ({
-          id: String(r.id),
-          platform_review_id: String(r.platform_review_id),
-          author: r.author_mask || r.author_name || '익명',
-          rating: typeof r.rating === 'number' ? r.rating : null,
-          content: r.content || '',
-          postedAt: r.posted_at || null,
-          collectedAt: r.collected_at || null,
-          hasReply: !!r.has_reply,
-          photos: Array.isArray(r.photos) ? r.photos.length : 0,
-          draftReply: r.draft_reply || null,
-          replyStatus: (r.reply_status || 'none') as ReplyStatus,
-          replyTone: r.reply_tone || null,
-          replyQueuedAt: r.reply_queued_at || null,
-          replySubmittedAt: r.reply_submitted_at || null,
-          replyError: r.reply_error || null,
-        }))
+        const mapped: Review[] = data.reviews.map((r: any) => {
+          const photoArr: string[] = Array.isArray(r.photos)
+            ? (r.photos.filter((p: any) => typeof p === 'string' && p.length > 0) as string[])
+            : []
+          return {
+            id: String(r.id),
+            platform_review_id: String(r.platform_review_id),
+            author: r.author_mask || r.author_name || '익명',
+            rating: typeof r.rating === 'number' ? r.rating : null,
+            content: r.content || '',
+            postedAt: r.posted_at || null,
+            collectedAt: r.collected_at || null,
+            hasReply: !!r.has_reply,
+            photos: photoArr,
+            photoCount: photoArr.length,
+            draftReply: r.draft_reply || null,
+            replyStatus: (r.reply_status || 'none') as ReplyStatus,
+            replyTone: r.reply_tone || null,
+            replyQueuedAt: r.reply_queued_at || null,
+            replySubmittedAt: r.reply_submitted_at || null,
+            replyError: r.reply_error || null,
+          }
+        })
         setReviews(mapped)
       }
     } catch (_) {}
     finally {
       setLoadingReviews(false)
     }
-  }, [connected, config.platform])
+  }, [connected, config.platform, period])
 
   useEffect(() => {
     if (connected) loadReviews()
@@ -523,8 +540,12 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
             title={`${config.label} 리뷰 관리`}
             subtitle={
               connected
-                ? `${storeName || '연결된 매장'} · AI 답글 2단 플로우 (초안 → 편집 → 이대로 등록)`
-                : `${config.label}을 연결하면 리뷰가 자동 수집됩니다`
+                ? (config.platform === 'naver_place'
+                    ? `${storeName || '연결된 매장'} · ${agg.review_count}건 수집 중 · 미답변 ${agg.unreplied_count}건`
+                    : `${storeName || '연결된 매장'} · 리뷰 ${agg.review_count}건 · 미답변 ${agg.unreplied_count}건`)
+                : (config.platform === 'naver_place'
+                    ? '네이버 플레이스 공개 리뷰 자동 수집 · 미답변 리뷰에 사장님 답글 작성'
+                    : `${config.label}을 연결하면 리뷰가 자동 수집됩니다`)
             }
             variant={config.uiKey as any}
           />
@@ -639,9 +660,56 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
               </div>
             )}
 
+            {/* 네이버 플레이스 전용 안내 (30차-23-3) */}
+            {connected && config.platform === 'naver_place' && (
+              <div className="bg-white rounded-2xl border border-[#E5E8EB] p-4 mb-4">
+                <div className="flex items-start gap-3 flex-wrap">
+                  <span className="text-xl leading-none mt-0.5">🟢</span>
+                  <div className="flex-1 min-w-[200px]">
+                    <p className="text-sm font-bold text-[#191F28] mb-1">네이버 플레이스 리뷰 — 자동 수집 + 사장님 답글 작성</p>
+                    <p className="text-xs text-[#4E5968] leading-relaxed">
+                      네이버는 공개 리뷰 GraphQL 로 별점 없는 <b>키워드 리뷰</b> 도 함께 수집돼요.
+                      미답변 리뷰에 AI 초안을 만들어 수정 후 "이대로 등록" 하면,
+                      Worker 가 네이버 사장님 센터에 자동으로 답글을 올려드립니다. (현재 <b>Worker 어댑터 준비 중</b>)
+                    </p>
+                  </div>
+                  {placeId && (
+                    <a
+                      href={`https://m.place.naver.com/restaurant/${placeId}/review/visitor`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[11px] font-bold px-3 py-1.5 rounded-lg bg-[#E8FBF0] text-[#015C2C] hover:bg-[#D1F7E0]"
+                    >
+                      네이버 리뷰 원본 ↗
+                    </a>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* 필터 + 액션 바 */}
             {connected && (
               <div className="bg-white rounded-2xl border border-[#E5E8EB] p-3 mb-4 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+                {/* 30차-23: 기간 필터 */}
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  <span className="text-[11px] text-[#8B95A1] font-semibold mr-1">기간</span>
+                  {(
+                    [
+                      ['7', '최근 7일'],
+                      ['30', '최근 30일'],
+                      ['all', '전체'],
+                    ] as const
+                  ).map(([v, l]) => (
+                    <button
+                      key={v}
+                      onClick={() => setPeriod(v)}
+                      className={`px-2.5 py-1 rounded-lg text-xs font-semibold ${period === v ? 'text-white' : 'bg-[#F2F4F6] text-[#4E5968]'}`}
+                      style={period === v ? { background: config.color } : {}}
+                    >
+                      {l}
+                    </button>
+                  ))}
+                </div>
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <span className="text-[11px] text-[#8B95A1] font-semibold mr-1">평점</span>
                   <button
@@ -747,9 +815,9 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
                           <div className="flex items-center gap-2 flex-wrap">
                             <span className="text-sm font-bold text-[#191F28]">{review.author}</span>
                             {typeof review.rating === 'number' && <Stars n={review.rating} color={config.color} />}
-                            {review.photos > 0 && (
+                            {review.photoCount > 0 && (
                               <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#EFF6FF] text-[#3182F6] font-semibold">
-                                📷 사진 {review.photos}
+                                📷 사진 {review.photoCount}
                               </span>
                             )}
                             {isNegative && (
@@ -771,6 +839,35 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
                         <p className="text-sm text-[#4E5968] leading-relaxed mb-3 break-words whitespace-pre-wrap">
                           {review.content || '(내용 없음)'}
                         </p>
+
+                        {/* 30차-23: 사진 썸네일 그리드 */}
+                        {review.photos.length > 0 && (
+                          <div className="grid grid-cols-4 sm:grid-cols-5 gap-1.5 mb-3">
+                            {review.photos.slice(0, 10).map((url, i) => (
+                              <button
+                                key={i}
+                                onClick={() => setLightboxUrl(url)}
+                                className="relative aspect-square rounded-lg overflow-hidden bg-[#F2F4F6] group"
+                                title="크게 보기"
+                              >
+                                {/* eslint-disable-next-line @next/next/no-img-element */}
+                                <img
+                                  src={url}
+                                  alt={`review-photo-${i + 1}`}
+                                  loading="lazy"
+                                  referrerPolicy="no-referrer"
+                                  className="w-full h-full object-cover group-hover:opacity-90 transition"
+                                  onError={(e) => { (e.currentTarget.style.display = 'none') }}
+                                />
+                              </button>
+                            ))}
+                            {review.photos.length > 10 && (
+                              <div className="aspect-square rounded-lg bg-[#F2F4F6] flex items-center justify-center text-xs font-bold text-[#8B95A1]">
+                                +{review.photos.length - 10}
+                              </div>
+                            )}
+                          </div>
+                        )}
 
                         {/* 편집중 UI */}
                         {isEditing && (
@@ -907,6 +1004,32 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
           </div>
         </main>
       </div>
+
+      {/* 30차-23: 사진 라이트박스 */}
+      {lightboxUrl && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 bg-black/80 z-[9999] flex items-center justify-center p-4"
+          onClick={() => setLightboxUrl(null)}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={lightboxUrl}
+            alt="review-photo-large"
+            referrerPolicy="no-referrer"
+            className="max-w-full max-h-full rounded-lg shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+          <button
+            onClick={() => setLightboxUrl(null)}
+            className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/90 text-[#191F28] font-bold text-lg flex items-center justify-center hover:bg-white"
+            aria-label="닫기"
+          >
+            ✕
+          </button>
+        </div>
+      )}
     </div>
   )
 }
