@@ -1,24 +1,16 @@
 'use client'
 
 // ============================================================
-// 30차-15-C · /review-admin/naver 실데이터 전환
+// 30차-21 · /review-admin/naver — 댓글 초안→편집→자동등록 2단 시스템
 //
-//   기존 (30차-15-B 이전):
-//     - localStorage.platform_links / localStorage.naver.connected 만 확인
-//     - DEMO_REVIEWS 5건 하드코딩
-//     - "데모 모드 · API 연동 준비중" 배너 상시 노출
-//     - 연결하기 버튼 → /settings?tab=connect&platform=naver 로 튕김
-//
-//   변경 (30차-15-C):
-//     - /api/stores/me 서버 단일 진실원으로 연결 상태 판정
-//       (platform_credentials.naver_place 또는 place_targets 존재 = 연결)
-//     - 연결됨이면 /api/place/reviews?platform=naver_place 로 실제 리뷰 로드
-//     - 연결됐는데 저장 리뷰 0 이면 /api/place/reviews/fetch 자동 1회 트리거
-//     - "↻ 지금 수집" 버튼 상시 제공 (연결된 상태)
-//     - 데모모드 배너 완전 제거 (미연결 안내 카드로 대체)
-//     - 미연결이면 /dashboard 로 이동 (ConnectModal 있음)
-//     - ★≤3 부정리뷰 하이라이트 + 평점/답변상태 필터
-//     - AI 답글 생성 파이프라인 유지
+//   변경 (30차-21):
+//     - 기존 "⚡ 원클릭 자동 등록" + "✨ 먼저 미리보기" 2버튼 제거
+//     - 단일 "✍️ 댓글 초안 생성" 버튼 → AI 초안 생성 + 자동 저장
+//     - 생성 완료 후 편집 textarea + "🔁 AI 초안 수정" + "✅ 이대로 등록하기" 2버튼
+//     - 상태 배지 (none/draft/queued/submitting/submitted/failed)
+//     - 프롬프트는 30차-21 키워드 과다·미사여구 방지 룰 적용됨
+//     - 이대로 등록하기 → /api/review-reply/submit 호출 → Worker 큐에 등록
+//       (Worker 가 23차-4 네이버 어댑터 완성 시 실제 submit)
 // ============================================================
 
 export const dynamic = 'force-dynamic'
@@ -30,6 +22,8 @@ import Footer from '../../components/Footer'
 import PageHeader from '../../components/PageHeader'
 import { toast } from '../../lib/toast'
 
+type ReplyStatus = 'none' | 'draft' | 'queued' | 'submitting' | 'submitted' | 'failed'
+
 interface Review {
   id: string
   platform_review_id: string
@@ -40,6 +34,12 @@ interface Review {
   collectedAt: string | null
   hasReply: boolean
   photos: number
+  draftReply: string | null
+  replyStatus: ReplyStatus
+  replyTone: string | null
+  replyQueuedAt: string | null
+  replySubmittedAt: string | null
+  replyError: string | null
 }
 
 interface StoreMeResponse {
@@ -94,8 +94,30 @@ function timeAgo(iso: string | null): string {
   return d.toLocaleDateString('ko-KR')
 }
 
+// 상태 배지
+function StatusBadge({ status }: { status: ReplyStatus }) {
+  if (status === 'none') return null
+  const map: Record<ReplyStatus, { label: string; bg: string; fg: string }> = {
+    none: { label: '', bg: '', fg: '' },
+    draft: { label: '📝 초안 저장됨', bg: '#EFF6FF', fg: '#1D4ED8' },
+    queued: { label: '⏳ 등록 대기열', bg: '#FEF3C7', fg: '#92400E' },
+    submitting: { label: '🚀 등록 중...', bg: '#E0F2FE', fg: '#075985' },
+    submitted: { label: '✅ 등록 완료', bg: '#ECFDF5', fg: '#059669' },
+    failed: { label: '❌ 등록 실패', bg: '#FEE2E2', fg: '#DC2626' },
+  }
+  const s = map[status]
+  return (
+    <span
+      className="text-[10px] px-1.5 py-0.5 rounded font-semibold"
+      style={{ background: s.bg, color: s.fg }}
+    >
+      {s.label}
+    </span>
+  )
+}
+
 export default function NaverReviewPage() {
-  // ── 연결 상태 (서버 단일 진실원) ─────────────────────────
+  // ── 연결 상태 ─────────────────────────
   const [loadingConn, setLoadingConn] = useState(true)
   const [connected, setConnected] = useState(false)
   const [storeName, setStoreName] = useState<string>('')
@@ -107,7 +129,7 @@ export default function NaverReviewPage() {
     latest_collected_at: null,
   })
 
-  // ── 리뷰 목록 ────────────────────────────────────────
+  // ── 리뷰 목록 ────────────────────────────
   const [reviews, setReviews] = useState<Review[]>([])
   const [loadingReviews, setLoadingReviews] = useState(false)
   const [fetching, setFetching] = useState(false)
@@ -115,12 +137,12 @@ export default function NaverReviewPage() {
   const [filterRating, setFilterRating] = useState<number | null>(null)
   const [filterReplied, setFilterReplied] = useState<'all' | 'replied' | 'unreplied' | 'negative'>('all')
 
-  // ── AI 답글 ────────────────────────────────────────
-  const [replyingId, setReplyingId] = useState<string | null>(null)
-  const [aiReply, setAiReply] = useState('')
-  const [generating, setGenerating] = useState(false)
+  // ── 초안 편집 상태 ────────────────────────────
+  const [editingId, setEditingId] = useState<string | null>(null)          // 현재 편집창 열린 리뷰
+  const [draftText, setDraftText] = useState<string>('')                   // 편집중 텍스트
+  const [generating, setGenerating] = useState(false)                      // AI 초안 생성 중
+  const [submitting, setSubmitting] = useState(false)                      // 큐 등록 중
   const [tone, setTone] = useState<'warm' | 'polite' | 'formal'>('warm')
-  const [copied, setCopied] = useState(false)
 
   // ── 1) /api/stores/me 로드 ────────────────────────────
   const loadStoresMe = useCallback(async () => {
@@ -169,6 +191,12 @@ export default function NaverReviewPage() {
           collectedAt: r.collected_at || null,
           hasReply: !!r.has_reply,
           photos: Array.isArray(r.photos) ? r.photos.length : 0,
+          draftReply: r.draft_reply || null,
+          replyStatus: (r.reply_status || 'none') as ReplyStatus,
+          replyTone: r.reply_tone || null,
+          replyQueuedAt: r.reply_queued_at || null,
+          replySubmittedAt: r.reply_submitted_at || null,
+          replyError: r.reply_error || null,
         }))
         setReviews(mapped)
       }
@@ -182,7 +210,7 @@ export default function NaverReviewPage() {
     if (connected) loadReviews()
   }, [connected, loadReviews])
 
-  // ── 3) 지금 수집 (POST /api/place/reviews/fetch) ─────
+  // ── 3) 지금 수집 ─────
   const collectNow = useCallback(async () => {
     if (!connected || fetching) return
     setFetching(true)
@@ -203,7 +231,6 @@ export default function NaverReviewPage() {
       } else {
         toast.info(data.note || '새로 수집된 리뷰가 없어요')
       }
-      // 재로드
       await Promise.all([loadStoresMe(), loadReviews()])
     } catch (e: any) {
       toast.error('수집 중 오류: ' + (e?.message || e))
@@ -212,7 +239,7 @@ export default function NaverReviewPage() {
     }
   }, [connected, fetching, placeId, loadStoresMe, loadReviews])
 
-  // ── 4) 자동 1회 수집: 연결됐는데 저장 리뷰 0 이면 ─────
+  // ── 4) 자동 1회 수집 ─────
   useEffect(() => {
     if (!connected) return
     if (autoFetchTried) return
@@ -222,57 +249,18 @@ export default function NaverReviewPage() {
     collectNow()
   }, [connected, autoFetchTried, loadingReviews, reviews.length, collectNow])
 
-  // ── 5) AI 답글 ───────────────────────────────────────
-  // 30차-19: 백엔드가 review_id 만 받아도 stores + platform_reviews 에서 자동으로
-  //          매장 컨텍스트(지역/카테고리/메인키워드/description)와 리뷰 사진 URL 을
-  //          끌어와 Vision + SEO 키워드 추론으로 답글을 만든다.
-  //          프런트는 review_id 만 넘기고 tone 만 추가 전달.
-  const handleAiReply = async (review: Review) => {
-    setReplyingId(review.id)
+  // ── 5) 초안 생성 ───────────────────────
+  //  한 번의 버튼 클릭으로:
+  //    1. /api/ai-review-reply 호출 (SEO+Vision+지역 자동)
+  //    2. 결과를 /api/review-reply/draft 로 저장 (reply_status='draft')
+  //    3. 편집창 열기 (setEditingId + setDraftText)
+  const handleGenerateDraft = async (review: Review, currentTone?: typeof tone) => {
+    const useTone = currentTone || tone
+    setEditingId(review.id)
     setGenerating(true)
-    setAiReply('')
+    setDraftText('')
     try {
-      const res = await fetch('/api/ai-review-reply', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          review_id: review.id,
-          // 백엔드가 DB에서 다시 읽지만, 혹시 모를 race 대비 fallback 값도 함께 전달
-          review: review.content,
-          rating: review.rating,
-          aiSettings: { tone, length: 'medium' },
-        }),
-      })
-      const data = await res.json()
-      setAiReply(data.reply || data.message || '답글을 만들지 못했어요. 재생성을 눌러주세요 🔁')
-    } catch {
-      setAiReply('연결이 잠깐 불안정했어요. 다시 시도해주세요 🙏')
-    } finally {
-      setGenerating(false)
-    }
-  }
-
-  const handleCopy = async () => {
-    try {
-      await navigator.clipboard.writeText(aiReply)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
-      window.open('https://new.smartplace.naver.com/', '_blank', 'noopener,noreferrer')
-    } catch {
-      toast.warn('자동 복사가 안 돼요. 답글을 직접 드래그해서 복사해주세요 ✍️')
-    }
-  }
-
-  // 30차-20: 원클릭 자동 등록 — "생성→복사→네이버 열기" 1버튼 플로우
-  //   · 단기 UX: AI 답글 생성 완료 후 자동으로 클립보드 복사 + 스마트플레이스 탭 오픈
-  //   · 장기 플랜: Railway Worker + Playwright (23차-4) 와 연동되면 실제 submit 까지 자동화
-  const handleOneClickReply = async (review: Review) => {
-    setReplyingId(review.id)
-    setGenerating(true)
-    setAiReply('')
-    try {
-      const res = await fetch('/api/ai-review-reply', {
+      const aiRes = await fetch('/api/ai-review-reply', {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -280,31 +268,136 @@ export default function NaverReviewPage() {
           review_id: review.id,
           review: review.content,
           rating: review.rating,
-          aiSettings: { tone, length: 'medium' },
+          aiSettings: { tone: useTone, length: 'medium' },
         }),
       })
-      const data = await res.json()
-      const generated = data.reply || data.message || ''
+      const aiData = await aiRes.json()
+      const generated = String(aiData?.reply || aiData?.message || '').trim()
       if (!generated) {
-        setAiReply('답글을 만들지 못했어요. 재생성을 눌러주세요 🔁')
+        toast.error('답글 생성 실패. 다시 시도해주세요 🙏')
+        setGenerating(false)
         return
       }
-      setAiReply(generated)
-      // 생성 성공 → 바로 클립보드 복사
+      setDraftText(generated)
+
+      // DB 에 초안 저장
       try {
-        await navigator.clipboard.writeText(generated)
-        setCopied(true)
-        setTimeout(() => setCopied(false), 2500)
-        toast.success('답글 복사 완료! 네이버 스마트플레이스에 붙여넣기만 하면 돼요 ✨')
-      } catch {
-        toast.warn('자동 복사가 안 됐어요. 답글을 직접 드래그해서 복사해주세요 ✍️')
+        const saveRes = await fetch('/api/review-reply/draft', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            review_id: review.id,
+            draft: generated,
+            tone: useTone,
+          }),
+        })
+        const saveData = await saveRes.json()
+        if (!saveRes.ok || !saveData?.ok) {
+          toast.warn('초안은 생성됐지만 저장 실패: ' + (saveData?.error || ''))
+        } else {
+          // 로컬 상태 업데이트
+          setReviews((prev) =>
+            prev.map((r) =>
+              r.id === review.id
+                ? { ...r, draftReply: generated, replyStatus: 'draft', replyTone: useTone }
+                : r,
+            ),
+          )
+        }
+      } catch (e: any) {
+        toast.warn('초안 저장 중 오류: ' + (e?.message || e))
       }
-      // 그리고 네이버 스마트플레이스 새 탭 오픈
-      window.open('https://new.smartplace.naver.com/', '_blank', 'noopener,noreferrer')
-    } catch {
-      setAiReply('연결이 잠깐 불안정했어요. 다시 시도해주세요 🙏')
+    } catch (e: any) {
+      toast.error('초안 생성 오류: ' + (e?.message || e))
     } finally {
       setGenerating(false)
+    }
+  }
+
+  // ── 6) 편집창 열기 (기존 초안이 있을 때) ───────────────
+  const openEditor = (review: Review) => {
+    setEditingId(review.id)
+    setDraftText(review.draftReply || '')
+    if (review.replyTone === 'warm' || review.replyTone === 'polite' || review.replyTone === 'formal') {
+      setTone(review.replyTone)
+    }
+  }
+
+  // ── 7) 수정된 초안 저장 (자동 저장) ─────────────────────
+  const saveDraftEdit = async (review: Review, text: string) => {
+    try {
+      const res = await fetch('/api/review-reply/draft', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          review_id: review.id,
+          draft: text,
+          tone,
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data?.ok) {
+        toast.warn('저장 실패: ' + (data?.error || ''))
+        return false
+      }
+      setReviews((prev) =>
+        prev.map((r) => (r.id === review.id ? { ...r, draftReply: text, replyStatus: 'draft' } : r)),
+      )
+      return true
+    } catch (e: any) {
+      toast.warn('저장 오류: ' + (e?.message || e))
+      return false
+    }
+  }
+
+  // ── 8) 이대로 등록하기 → /api/review-reply/submit ─────
+  const handleSubmit = async (review: Review) => {
+    if (!draftText || !draftText.trim()) {
+      toast.warn('먼저 답글 초안을 생성해주세요')
+      return
+    }
+    setSubmitting(true)
+    try {
+      // 1. 편집된 내용을 먼저 저장
+      const saved = await saveDraftEdit(review, draftText.trim())
+      if (!saved) {
+        setSubmitting(false)
+        return
+      }
+      // 2. 큐에 등록
+      const res = await fetch('/api/review-reply/submit', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ review_id: review.id }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data?.ok) {
+        toast.error('등록 실패: ' + (data?.error || ''))
+        return
+      }
+      toast.success(data.note || '대기열에 등록됐어요 ✨')
+      setReviews((prev) =>
+        prev.map((r) =>
+          r.id === review.id
+            ? {
+                ...r,
+                replyStatus: 'queued',
+                replyQueuedAt: data.reply_queued_at || new Date().toISOString(),
+                draftReply: draftText.trim(),
+              }
+            : r,
+        ),
+      )
+      // 편집창 닫기
+      setEditingId(null)
+      setDraftText('')
+    } catch (e: any) {
+      toast.error('등록 오류: ' + (e?.message || e))
+    } finally {
+      setSubmitting(false)
     }
   }
 
@@ -332,7 +425,7 @@ export default function NaverReviewPage() {
             title="네이버 리뷰 관리"
             subtitle={
               connected
-                ? `${storeName || '연결된 매장'} · 공개 리뷰 자동 수집`
+                ? `${storeName || '연결된 매장'} · 공개 리뷰 자동 수집 + AI 답글 2단 플로우`
                 : '플레이스를 연결하면 리뷰가 자동 수집됩니다'
             }
             variant="naver"
@@ -354,7 +447,7 @@ export default function NaverReviewPage() {
               )}
             </div>
 
-            {/* ── 미연결 안내 (데모 모드 배너 대체) ── */}
+            {/* 미연결 안내 */}
             {!loadingConn && !connected && (
               <div className="bg-white border border-[#E5E8EB] rounded-2xl p-5 mb-5">
                 <div className="flex items-start gap-3 flex-wrap">
@@ -384,7 +477,7 @@ export default function NaverReviewPage() {
               </div>
             )}
 
-            {/* ── 통계 카드 (연결됐을 때만) ── */}
+            {/* 통계 카드 */}
             {connected && (
               <div className="grid grid-cols-4 gap-3 mb-5">
                 <div className="bg-white rounded-2xl p-4 border border-[#E5E8EB]">
@@ -413,7 +506,7 @@ export default function NaverReviewPage() {
               </div>
             )}
 
-            {/* ── 지금 수집 버튼 + 필터 (연결됐을 때만) ── */}
+            {/* 필터 */}
             {connected && (
               <div className="bg-white rounded-2xl border border-[#E5E8EB] p-3 mb-4 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
                 <div className="flex items-center gap-1.5 flex-wrap">
@@ -469,7 +562,7 @@ export default function NaverReviewPage() {
               </div>
             )}
 
-            {/* ── 리뷰 목록 ── */}
+            {/* 리뷰 목록 */}
             {connected ? (
               loadingReviews ? (
                 <div className="bg-white rounded-2xl p-12 text-center text-sm text-[#8B95A1] border border-[#E5E8EB]">
@@ -493,6 +586,10 @@ export default function NaverReviewPage() {
                 <div className="space-y-3">
                   {filtered.map((review) => {
                     const isNegative = typeof review.rating === 'number' && review.rating <= 3
+                    const isEditing = editingId === review.id
+                    const hasDraft = !!(review.draftReply && review.draftReply.trim())
+                    const isQueued = review.replyStatus === 'queued' || review.replyStatus === 'submitting'
+                    const isSubmitted = review.replyStatus === 'submitted'
                     return (
                       <div
                         key={review.id}
@@ -512,6 +609,7 @@ export default function NaverReviewPage() {
                                 부정 리뷰
                               </span>
                             )}
+                            <StatusBadge status={review.replyStatus} />
                           </div>
                           <div className="flex items-center gap-2">
                             <span className="text-[11px] text-[#8B95A1]">{timeAgo(review.postedAt || review.collectedAt)}</span>
@@ -526,90 +624,130 @@ export default function NaverReviewPage() {
                           {review.content || '(내용 없음)'}
                         </p>
 
-                        {replyingId === review.id && (
+                        {/* 편집중 UI */}
+                        {isEditing && (
                           <div
                             className="rounded-xl p-3 mb-3 border"
                             style={{ background: PLATFORM.bg, borderColor: PLATFORM.color + '40' }}
                           >
                             {generating ? (
-                              <p className="text-sm font-semibold" style={{ color: PLATFORM.textColor }}>
-                                AI 답글 생성 중...
+                              <p className="text-sm font-semibold py-2" style={{ color: PLATFORM.textColor }}>
+                                ✍️ AI가 초안을 만드는 중... (사진·SEO 키워드 분석 포함)
                               </p>
-                            ) : aiReply ? (
+                            ) : (
                               <>
-                                <div className="mb-2">
-                                  <div className="flex items-center gap-1.5 mb-2 flex-wrap">
-                                    <span className="text-[10px] text-[#8B95A1] font-semibold">톤</span>
-                                    {(['warm', 'polite', 'formal'] as const).map((t) => {
-                                      const label = t === 'warm' ? '😊 친근' : t === 'polite' ? '🙂 정중' : '🧑‍💼 공식'
-                                      const active = tone === t
-                                      return (
-                                        <button
-                                          key={t}
-                                          onClick={() => {
-                                            setTone(t)
-                                            if (replyingId && aiReply) {
-                                              const r = reviews.find((x) => x.id === replyingId)
-                                              if (r) { setTone(t); setTimeout(() => handleAiReply(r), 0) }
-                                            }
-                                          }}
-                                          className={`px-2 py-1 rounded-lg text-[10px] font-bold transition ${active ? 'text-white' : 'bg-[#F2F4F6] text-[#4E5968]'}`}
-                                          style={active ? { background: PLATFORM.color } : {}}
-                                        >
-                                          {label}
-                                        </button>
-                                      )
-                                    })}
-                                    <span className="text-[9px] text-[#8B95A1] ml-0.5">· 클릭하면 재생성</span>
-                                  </div>
-                                  <p className="text-[10px] text-[#8B95A1] mb-1.5 flex items-center gap-1">
-                                    💡 복사 후 네이버 스마트플레이스에 붙여넣기
-                                  </p>
-                                  <p className="text-sm text-[#191F28] leading-relaxed whitespace-pre-wrap">{aiReply}</p>
+                                {/* 톤 선택 */}
+                                <div className="flex items-center gap-1.5 mb-2 flex-wrap">
+                                  <span className="text-[10px] text-[#8B95A1] font-semibold">톤</span>
+                                  {(['warm', 'polite', 'formal'] as const).map((t) => {
+                                    const label = t === 'warm' ? '😊 친근' : t === 'polite' ? '🙂 정중' : '🧑‍💼 공식'
+                                    const active = tone === t
+                                    return (
+                                      <button
+                                        key={t}
+                                        onClick={() => setTone(t)}
+                                        className={`px-2 py-1 rounded-lg text-[10px] font-bold transition ${active ? 'text-white' : 'bg-white text-[#4E5968] border border-[#E5E8EB]'}`}
+                                        style={active ? { background: PLATFORM.color } : {}}
+                                      >
+                                        {label}
+                                      </button>
+                                    )
+                                  })}
                                 </div>
-                                <div className="flex gap-2 flex-wrap">
+
+                                {/* 편집 가능한 textarea */}
+                                <p className="text-[10px] text-[#8B95A1] mb-1 flex items-center gap-1">
+                                  💡 필요하면 직접 수정한 뒤 등록하세요
+                                </p>
+                                <textarea
+                                  value={draftText}
+                                  onChange={(e) => setDraftText(e.target.value)}
+                                  disabled={isQueued || isSubmitted || submitting}
+                                  className="w-full rounded-lg border border-[#E5E8EB] p-2.5 text-sm text-[#191F28] bg-white focus:outline-none focus:ring-2 focus:ring-[#03C75A40] leading-relaxed resize-y min-h-[120px] disabled:bg-[#F9FAFB]"
+                                  placeholder="AI 초안이 여기에 나타나요..."
+                                />
+                                <p className="text-[10px] text-[#8B95A1] mt-1 text-right">
+                                  {draftText.length}자
+                                </p>
+
+                                {/* 2버튼 분기 */}
+                                <div className="flex gap-2 flex-wrap mt-2">
                                   <button
-                                    onClick={handleCopy}
-                                    className="px-3 py-1.5 rounded-lg text-xs font-bold text-white hover:opacity-90"
+                                    onClick={() => handleGenerateDraft(review)}
+                                    disabled={generating || submitting || isQueued || isSubmitted}
+                                    className="px-3 py-1.5 rounded-lg text-xs font-bold bg-white border hover:bg-[#F9FAFB] disabled:opacity-50"
+                                    style={{ borderColor: PLATFORM.color + '60', color: PLATFORM.textColor }}
+                                    title="AI에게 다시 써달라고 요청"
+                                  >
+                                    🔁 AI 초안 수정
+                                  </button>
+                                  <button
+                                    onClick={() => handleSubmit(review)}
+                                    disabled={generating || submitting || !draftText.trim() || isQueued || isSubmitted}
+                                    className="px-4 py-1.5 rounded-lg text-xs font-bold text-white hover:opacity-90 disabled:opacity-50 shadow-sm"
                                     style={{ background: PLATFORM.color }}
+                                    title="네이버에 자동 등록 (Worker 처리)"
                                   >
-                                    {copied ? '✓ 복사됨! 붙여넣기' : '📋 복사 + 네이버 열기'}
+                                    {submitting ? '등록 중...' : isQueued ? '대기열 등록됨' : '✅ 이대로 등록하기'}
                                   </button>
                                   <button
-                                    onClick={() => handleAiReply(review)}
-                                    className="px-3 py-1.5 rounded-lg text-xs font-bold bg-[#F2F4F6] text-[#4E5968]"
+                                    onClick={() => { setEditingId(null); setDraftText('') }}
+                                    disabled={submitting}
+                                    className="px-3 py-1.5 rounded-lg text-xs font-bold text-[#8B95A1] hover:bg-[#F2F4F6] ml-auto"
                                   >
-                                    재생성
-                                  </button>
-                                  <button
-                                    onClick={() => { setReplyingId(null); setAiReply('') }}
-                                    className="px-3 py-1.5 rounded-lg text-xs font-bold text-[#8B95A1]"
-                                  >
-                                    취소
+                                    닫기
                                   </button>
                                 </div>
+
+                                {/* 상태 안내 */}
+                                {isQueued && (
+                                  <p className="text-[11px] mt-2 text-[#92400E] bg-[#FEF3C7] rounded-lg px-2 py-1.5">
+                                    ⏳ 등록 대기열에 올라와 있어요.{' '}
+                                    {review.replyQueuedAt && `(${timeAgo(review.replyQueuedAt)} 전 등록)`}{' '}
+                                    Worker 가 네이버에 올려드려요.
+                                  </p>
+                                )}
+                                {isSubmitted && (
+                                  <p className="text-[11px] mt-2 text-[#059669] bg-[#ECFDF5] rounded-lg px-2 py-1.5">
+                                    ✅ 네이버에 등록 완료 ({timeAgo(review.replySubmittedAt)} 전)
+                                  </p>
+                                )}
+                                {review.replyStatus === 'failed' && review.replyError && (
+                                  <p className="text-[11px] mt-2 text-[#DC2626] bg-[#FEE2E2] rounded-lg px-2 py-1.5">
+                                    ❌ 등록 실패: {review.replyError}
+                                  </p>
+                                )}
                               </>
-                            ) : null}
+                            )}
                           </div>
                         )}
 
-                        {!review.hasReply && replyingId !== review.id && (
-                          <div className="flex gap-2 flex-wrap">
-                            <button
-                              onClick={() => handleOneClickReply(review)}
-                              className="px-4 py-2 rounded-xl text-xs font-bold text-white hover:opacity-90 shadow-sm"
-                              style={{ background: PLATFORM.color }}
-                              title="생성 → 복사 → 네이버 스마트플레이스 열기까지 한 번에"
-                            >
-                              ⚡ 원클릭 자동 등록
-                            </button>
-                            <button
-                              onClick={() => handleAiReply(review)}
-                              className="px-4 py-2 rounded-xl text-xs font-bold bg-white border hover:bg-[#F9FAFB]"
-                              style={{ borderColor: PLATFORM.color + '60', color: PLATFORM.textColor }}
-                            >
-                              ✨ 먼저 미리보기
-                            </button>
+                        {/* 초기 진입 버튼 */}
+                        {!isEditing && !review.hasReply && (
+                          <div className="flex gap-2 flex-wrap items-center">
+                            {hasDraft ? (
+                              <>
+                                <button
+                                  onClick={() => openEditor(review)}
+                                  className="px-4 py-2 rounded-xl text-xs font-bold text-white hover:opacity-90 shadow-sm"
+                                  style={{ background: PLATFORM.color }}
+                                >
+                                  📝 초안 이어서 편집
+                                </button>
+                                <span className="text-[11px] text-[#8B95A1] truncate max-w-[280px]">
+                                  {(review.draftReply || '').slice(0, 60)}{(review.draftReply || '').length > 60 ? '...' : ''}
+                                </span>
+                              </>
+                            ) : (
+                              <button
+                                onClick={() => handleGenerateDraft(review)}
+                                className="px-4 py-2 rounded-xl text-xs font-bold text-white hover:opacity-90 shadow-sm"
+                                style={{ background: PLATFORM.color }}
+                                title="지역·업종·사진·키워드 자동 분석 → AI 답글 초안 생성"
+                              >
+                                ✍️ 댓글 초안 생성
+                              </button>
+                            )}
                           </div>
                         )}
                       </div>
@@ -619,7 +757,6 @@ export default function NaverReviewPage() {
               )
             ) : null}
 
-            {/* ── Footer ── */}
             <div className="-mx-4 md:-mx-6 mt-10">
               <Footer />
             </div>
