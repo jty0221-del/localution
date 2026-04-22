@@ -114,8 +114,8 @@ export default function AboutPage() {
               14일 무료로 시작하기
               <span aria-hidden="true">→</span>
             </Link>
-            <a href="https://open.kakao.com/o/gXyJ6xrg" target="_blank" rel="noopener" className="inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-[#FEE500] text-[#191F28] font-semibold rounded-2xl hover:brightness-95 transition-all">
-              카카오 1:1 상담
+            <a href="https://open.kakao.com/o/gSC9jrqi" target="_blank" rel="noopener" className="inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-[#FEE500] text-[#191F28] font-semibold rounded-2xl hover:brightness-95 transition-all">
+              로컬루션 오픈채팅방
             </a>
           </div>
           <p className="mt-5 text-xs text-[#8B95A1]">
@@ -361,8 +361,8 @@ export default function AboutPage() {
             <Link href="/signup" className="inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-white text-[#3182F6] font-bold rounded-2xl hover:bg-[#F5F9FF] transition-colors shadow-[0_4px_14px_rgba(0,0,0,0.15)]">
               무료로 시작하기 <span aria-hidden="true">→</span>
             </Link>
-            <a href="https://open.kakao.com/o/gXyJ6xrg" target="_blank" rel="noopener" className="inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-[#FEE500] text-[#191F28] font-bold rounded-2xl hover:brightness-95 transition-all shadow-[0_4px_14px_rgba(0,0,0,0.15)]">
-              💬 카카오 1:1 상담
+            <a href="https://open.kakao.com/o/gSC9jrqi" target="_blank" rel="noopener" className="inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-[#FEE500] text-[#191F28] font-bold rounded-2xl hover:brightness-95 transition-all shadow-[0_4px_14px_rgba(0,0,0,0.15)]">
+              💬 로컬루션 오픈채팅방
             </a>
           </div>
 

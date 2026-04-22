@@ -24,7 +24,7 @@ import { createServiceClient } from '@/app/lib/adminAuth'
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-const VALID_PLATFORMS = ['naver_place', 'baemin', 'yogiyo', 'coupangeats'] as const
+const VALID_PLATFORMS = ['naver_place', 'baemin', 'yogiyo', 'coupangeats', 'kakao_map'] as const
 type PlatformSlug = typeof VALID_PLATFORMS[number]
 
 const CURRENT_VERSIONS = {
