@@ -5,50 +5,12 @@ import Link from 'next/link'
 import Sidebar from '../components/Sidebar'
 import Footer from '../components/Footer'
 import PageHeader from '../components/PageHeader'
+import PlatformLogo from '../components/PlatformLogo'
 import { useConnections, PlatformId } from '../lib/connections'
 import { toast, confirmDialog } from '../lib/toast'
 import { buildSettingsHref } from '../lib/settings-tabs'
 
 export const dynamic = 'force-dynamic'
-
-// ═══════════════════════════════════════════════════════════════
-//  플랫폼 로고 SVG 컴포넌트 (대시보드와 동일)
-// ═══════════════════════════════════════════════════════════════
-
-function BaeminLogo({ size = 28 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
-      <rect width="48" height="48" rx="12" fill="#2AC1BC"/>
-      <text x="24" y="31" fontSize="18" fontWeight="900" fill="#1A1A1A"
-        fontFamily="'Apple SD Gothic Neo','Noto Sans KR',sans-serif"
-        textAnchor="middle" letterSpacing="-0.5">배민</text>
-    </svg>
-  )
-}
-
-function YogiyoLogo({ size = 28 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
-      <rect width="48" height="48" rx="12" fill="#E5007F"/>
-      <text x="24" y="23" fontSize="11" fontWeight="900" fill="white"
-        fontFamily="'Apple SD Gothic Neo','Noto Sans KR',sans-serif" textAnchor="middle">요기요</text>
-      <circle cx="24" cy="33" r="4" fill="white"/>
-      <path d="M16 43 Q24 39 32 43" stroke="white" strokeWidth="2.2" fill="none" strokeLinecap="round"/>
-    </svg>
-  )
-}
-
-function CoupangEatsLogo({ size = 28 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
-      <rect width="48" height="48" rx="12" fill="white" stroke="#E5E7EB" strokeWidth="1.5"/>
-      <text x="5" y="25" fontSize="9.5" fontWeight="800" fontFamily="Arial,sans-serif" letterSpacing="0.2">
-        <tspan fill="#E31837">c</tspan><tspan fill="#F4A900">o</tspan><tspan fill="#E31837">u</tspan><tspan fill="#5BAD48">p</tspan><tspan fill="#3B79BE">a</tspan><tspan fill="#E31837">n</tspan><tspan fill="#F4A900">g</tspan>
-      </text>
-      <text x="5" y="39" fontSize="13" fontWeight="900" fill="#4A2C0A" fontFamily="Arial,sans-serif">eats</text>
-    </svg>
-  )
-}
 
 // ═══════════════════════════════════════════════════════════════
 //  타입 & 상수
@@ -79,11 +41,17 @@ interface PlatformStat {
 const ALL_PLATFORMS = ['naver', 'kakao', 'google', 'baemin', 'yogiyo', 'coupang'] as const
 type PlatformKey = typeof ALL_PLATFORMS[number]
 
-type LogoFC = React.FC<{ size?: number }>
+// platform key → PlatformLogo platform slug (naver/kakao/google 은 PlatformLogo 미지원)
+const PLATFORM_LOGO_SLUG: Partial<Record<PlatformKey, 'naver_place' | 'baemin' | 'yogiyo' | 'coupangeats' | 'kakao_map'>> = {
+  naver: 'naver_place',
+  kakao: 'kakao_map',
+  baemin: 'baemin',
+  yogiyo: 'yogiyo',
+  coupang: 'coupangeats',
+}
 
 const PLATFORM_META: Record<PlatformKey, {
   label: string; color: string; bg: string; textColor: string; icon: string
-  Logo?: LogoFC
   apiPath?: string
   detailPath: string
   legacyKeys?: { connected: string; storeId: string; token: string }
@@ -103,21 +71,18 @@ const PLATFORM_META: Record<PlatformKey, {
   },
   baemin: {
     label: '배민', color: '#2AC1BC', bg: '#E6F9F8', textColor: '#0B7B78', icon: 'B',
-    Logo: BaeminLogo,
     apiPath: '/api/baemin-reviews',
     detailPath: '/review-admin/baemin',
     legacyKeys: { connected: 'localution.baemin.connected', storeId: 'localution.baemin.storeId', token: 'localution.baemin.token' },
   },
   yogiyo: {
-    label: '요기요', color: '#E5007F', bg: '#FEF0EB', textColor: '#B32B00', icon: 'Y',
-    Logo: YogiyoLogo,
+    label: '요기요', color: '#FA0050', bg: '#FFF0F5', textColor: '#A0003A', icon: 'Y',
     apiPath: '/api/yogiyo-reviews',
     detailPath: '/review-admin/yogiyo',
     legacyKeys: { connected: 'localution.yogiyo.connected', storeId: 'localution.yogiyo.storeId', token: 'localution.yogiyo.token' },
   },
   coupang: {
-    label: '쿠팡이츠', color: '#FF5A00', bg: '#FFF3F0', textColor: '#900000', icon: 'C',
-    Logo: CoupangEatsLogo,
+    label: '쿠팡이츠', color: '#F2622B', bg: '#FFF3EE', textColor: '#8B2800', icon: 'C',
     apiPath: '/api/reviews/coupang',
     detailPath: '/review-admin/coupang',
     legacyKeys: { connected: 'localution.coupang.connected', storeId: 'localution.coupang.storeId', token: 'localution.coupang.token' },
@@ -340,9 +305,9 @@ export default function ReviewAdminHub() {
                 {/* 헤더 */}
                 <div className="flex items-center gap-2.5 mb-3">
                   <div className="w-9 h-9 rounded-xl flex items-center justify-center flex-shrink-0 overflow-hidden"
-                    style={meta.Logo ? {} : { background: meta.color }}>
-                    {meta.Logo
-                      ? React.createElement(meta.Logo, { size: 36 })
+                    style={PLATFORM_LOGO_SLUG[stat.platform as PlatformKey] ? {} : { background: meta.color }}>
+                    {PLATFORM_LOGO_SLUG[stat.platform as PlatformKey]
+                      ? <PlatformLogo platform={PLATFORM_LOGO_SLUG[stat.platform as PlatformKey]!} size={36} />
                       : <span className="text-white font-black text-sm">{meta.icon}</span>
                     }
                   </div>
@@ -470,15 +435,15 @@ export default function ReviewAdminHub() {
             {filteredFeed.map(review => {
               const meta = PLATFORM_META[review.platform as PlatformKey]
               if (!meta) return null
-              const Logo = meta.Logo
               return (
                 <div key={review.id} className="bg-white rounded-2xl border border-[#E5E8EB] p-4 md:p-5">
                   <div className="flex items-start gap-3">
                     <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
                       style={{ background: meta.bg }}>
-                      {Logo ? <Logo size={20} /> : (
-                        <span className="text-xs font-bold" style={{ color: meta.textColor }}>{meta.icon}</span>
-                      )}
+                      {PLATFORM_LOGO_SLUG[review.platform as PlatformKey]
+                        ? <PlatformLogo platform={PLATFORM_LOGO_SLUG[review.platform as PlatformKey]!} size={20} />
+                        : <span className="text-xs font-bold" style={{ color: meta.textColor }}>{meta.icon}</span>
+                      }
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between gap-2 mb-1">

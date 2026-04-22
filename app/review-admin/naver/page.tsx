@@ -22,6 +22,7 @@ const CONFIG: PlatformConfig = {
   icon: '🟢',
   iconLetter: 'N',
   supportsFetch: true,               // 23차-15-B 에서 이미 수집 파이프 완료
+  collectEndpoint: '/api/place/reviews/fetch',
   connectHref: '/my/platforms/naver_place/connect',
 }
 
