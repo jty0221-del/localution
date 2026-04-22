@@ -10,6 +10,7 @@ import type { Logger } from 'pino'
 import { getServiceClient } from '../lib/supabase'
 import { loadPlainCredentials, markLoginStatus } from '../lib/credentials'
 import { upsertReviews, CollectedReview } from '../lib/reviews'
+import { dumpPageDiagnostics, startNetworkCapture, detectLoginFailure } from '../lib/diagnostics'
 import type { JobResult, Action } from '../jobs'
 
 const LOGIN_URL = 'https://self.baemin.com/login'
@@ -61,6 +62,8 @@ export async function runBaemin(
     timezoneId: 'Asia/Seoul',
   })
   const page = await context.newPage()
+  // 33차-2: DEBUG_CAPTURE=1 일 때 review 관련 XHR 자동 로깅
+  startNetworkCapture(page, log, ['review', 'feedback', 'rating', 'shop'])
 
   try {
     // ── 1) 로그인 ───────────────────────────────
@@ -81,8 +84,14 @@ export async function runBaemin(
       return { status: 'failed', message: 'baemin captcha/block — 수동 로그인 필요' }
     }
     if (currentUrl.includes('login')) {
-      await markLoginStatus(svc, userId, 'baemin', 'failed', 'stayed on login')
-      return { status: 'failed', message: 'baemin login failed — 아이디/비밀번호 확인' }
+      const { failed, reason } = await detectLoginFailure(page)
+      await markLoginStatus(svc, userId, 'baemin', 'failed', reason || 'stayed on login')
+      return {
+        status: 'failed',
+        message: failed
+          ? `baemin login failed — ${reason}`
+          : 'baemin login failed — 아이디/비밀번호 확인 또는 페이지 지연',
+      }
     }
 
     await markLoginStatus(svc, userId, 'baemin', 'success')
@@ -164,6 +173,11 @@ export async function runBaemin(
         }
       })
     }, DOM_SELECTORS)
+
+    // 33차-2: 리뷰 카드 매칭 실패 시 페이지 구조 덤프 → 셀렉터 튜닝 단서
+    if (!reviews || reviews.length === 0) {
+      await dumpPageDiagnostics(page, log, 'baemin-no-review-cards')
+    }
 
     // posted_at 문자열을 ISO 로 변환 (배민은 "2일 전" / "2024.03.15" 등 다양)
     const normalized: CollectedReview[] = reviews
