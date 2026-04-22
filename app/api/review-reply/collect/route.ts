@@ -57,10 +57,11 @@ export async function POST(req: NextRequest) {
   try {
     const svc = createServiceClient()
 
-    // 해당 user 의 platform_credentials 존재 + login_status 확인 (is_active 컬럼 미도입)
+    // 해당 user 의 platform_credentials 존재 + last_login_status 확인 (is_active 컬럼 미도입)
+    // 37차-3 hotfix: 컬럼명은 last_login_status — Worker 가 upsert 하는 실제 스키마와 일치
     const { data: cred, error: credErr } = await svc
       .from('platform_credentials')
-      .select('id, platform, platform_store_id, login_status')
+      .select('id, platform, platform_store_id, last_login_status')
       .eq('user_id', userId)
       .eq('platform', platform)
       .maybeSingle()
@@ -74,7 +75,7 @@ export async function POST(req: NextRequest) {
         { status: 400 },
       )
     }
-    if (cred.login_status === 'disabled') {
+    if (cred.last_login_status === 'disabled') {
       return NextResponse.json(
         { ok: false, error: `${platform} 연결이 비활성화 상태입니다.` },
         { status: 400 },

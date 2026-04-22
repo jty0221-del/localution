@@ -1096,12 +1096,13 @@ function ConnectTab() {
         if (!res.ok) return
         const j = await res.json()
         if (!j?.ok) return
-        // slug → settings ConnectTab key 매핑
+        // slug → settings ConnectTab key 매핑 (37차-3: kakao_map 추가)
         const slugToKey: Record<string, string> = {
           naver_place: 'naver',
           baemin: 'baemin',
           yogiyo: 'yogiyo',
           coupangeats: 'coupang',
+          kakao_map: 'kakao',
         }
         const map: Record<string, any> = {}
         for (const p of (j.platforms || [])) {
@@ -1120,15 +1121,18 @@ function ConnectTab() {
 
   // 서버 연결 정보 + 로컬 훅 정보 병합 (서버가 우선)
   const effectiveConnected = (key: PlatformId) => !!serverConnected[key]?.connected || isConnected(key)
+  // 37차-3: kakao 도 서버 기반(kakao_map)으로 이동 → legacy 카운트에서 제거
   const effectiveCount =
     Object.values(serverConnected).filter(v => v.connected).length +
-    (['google', 'kakao', 'yeoshin', 'hometax'] as PlatformId[]).filter(k => isConnected(k)).length
+    (['google', 'yeoshin', 'hometax'] as PlatformId[]).filter(k => isConnected(k)).length
 
+  // 37차-3: kakao → kakao_map 서버 슬러그 매핑 추가 (동의·자격증명 저장 경로 통일)
   const PLATFORM_SLUG_SERVER: Record<string, string> = {
     naver: 'naver_place',
     baemin: 'baemin',
     yogiyo: 'yogiyo',
     coupang: 'coupangeats',
+    kakao: 'kakao_map',
   }
 
   const handleConnect = async (key: PlatformId, label: string) => {
@@ -1193,7 +1197,7 @@ function ConnectTab() {
             {effectiveCount} / {PLATFORMS_8.length} 연결됨
           </span>
         </div>
-        <p className="text-xs text-[#8B95A1]">리뷰·주문·매출 데이터를 한 곳에서 관리해요. 네이버/배민/요기요/쿠팡이츠는 <a href="/my/platforms" className="text-[#3182F6] font-bold hover:underline">플랫폼 연결 관리</a>에서 아이디·비번 저장. 연동 상태는 /dashboard · /review-admin · /qr-admin 과 자동 동기화됩니다.</p>
+        <p className="text-xs text-[#8B95A1]">리뷰·주문·매출 데이터를 한 곳에서 관리해요. 네이버/카카오맵/배민/요기요/쿠팡이츠는 <a href="/my/platforms" className="text-[#3182F6] font-bold hover:underline">플랫폼 연결 관리</a>에서 아이디·비번 저장. 연동 상태는 /dashboard · /review-admin · /qr-admin 과 자동 동기화됩니다.</p>
       </div>
 
       {/* 카드 그리드 — review-admin 과 동일한 스타일 */}

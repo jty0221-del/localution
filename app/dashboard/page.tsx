@@ -946,6 +946,49 @@ export default function Dashboard() {
     }
   }
 
+  // 37차-3 · 배민/요기요/쿠팡이츠/카카오맵 플랫폼별 수집 트리거
+  //   · 배민/요기요/쿠팡이츠 → /api/review-reply/collect (BullMQ enqueue, Worker 비동기 실행)
+  //   · kakao_map 은 공개 수집기 /api/place/kakao/collect 바로 호출
+  //   · naver_place 는 handleCollectNaverReviews() 따로 씀
+  const [collectingPlatform, setCollectingPlatform] = useState<string | null>(null)
+  const handleCollectPlatform = async (pid: string) => {
+    setCollectingPlatform(pid)
+    try {
+      let endpoint = ''
+      if (pid === 'kakao_map') endpoint = '/api/place/kakao/collect'
+      else if (['baemin', 'yogiyo', 'coupangeats'].includes(pid)) {
+        endpoint = `/api/review-reply/collect?platform=${pid}`
+      } else {
+        toast.warn('지원하지 않는 플랫폼입니다')
+        return
+      }
+      const res = await fetch(endpoint, {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({}),
+      })
+      const j = await res.json().catch(() => null)
+      if (!res.ok || !j?.ok) {
+        toast.error(j?.error || `수집 실패 (${res.status})`)
+        return
+      }
+      if (typeof j.total === 'number' && j.total > 0) {
+        await reloadStoresMe()
+        await loadPlatformReviews([pid as PlatformId])
+        toast.success(`리뷰 ${j.total}건 수집 완료`)
+      } else if (j.note || j.message) {
+        toast.info(j.note || j.message)
+      } else {
+        toast.info('수집 요청을 보냈습니다. 1~3분 뒤 새로고침 해주세요.')
+      }
+    } catch (e: any) {
+      toast.error(`수집 오류: ${e?.message || e}`)
+    } finally {
+      setCollectingPlatform(null)
+    }
+  }
+
   // 프로필(매장 주소/이름) → 지역 기반 키워드 자동 생성
   useEffect(() => {
     function syncKeywordsFromProfile() {
@@ -1545,8 +1588,18 @@ export default function Dashboard() {
                               <span className="w-1.5 h-1.5 rounded-full bg-[#F59E0B]" />
                               아직 수집 전 — 상단 "지금 수집" 클릭
                             </span>
+                          ) : ['baemin', 'yogiyo', 'coupangeats', 'kakao_map'].includes(p.id) ? (
+                            <button
+                              onClick={() => handleCollectPlatform(p.id)}
+                              disabled={collectingPlatform === p.id}
+                              className="text-[11px] px-2 py-1 rounded-lg font-bold text-white transition-colors disabled:opacity-50 hover:brightness-95"
+                              style={{ background: p.color }}
+                              title={`${p.name} 리뷰를 지금 수집합니다`}
+                            >
+                              {collectingPlatform === p.id ? '수집 중...' : '↻ 지금 수집'}
+                            </button>
                           ) : (
-                            <span className="text-xs text-[#8B95A1]">Worker 자동수집 대기</span>
+                            <span className="text-xs text-[#8B95A1]">준비 중</span>
                           )}
                         </div>
                         {p.rating !== null && (

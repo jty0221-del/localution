@@ -274,8 +274,8 @@ function extractBusinessHoursFromHtml(html: string): string {
 // 30차-9 · 키워드 자동 추론 (최상위 지역 기반, 동·읍·면 배제)
 // · mainKeyword: "최상위 광역축약 + 업종" (예: "인천 카페", "경기 카페", "서울 카페")
 //   광역 없을 때만 시/군 축약 fallback
-// · subKeywords: 군/시 축약 + leaf, 군/시 풀네임 + leaf, 구 + leaf, 광역 풀네임 + leaf, 단독 leaf, base, 브랜드
-//   동·읍·면 단위는 상위노출에 거의 잡히지 않으므로 제외
+// · subKeywords: 중복 없이 의미가 다른 최대 4개 — 37차-2 간소화
+//   (풀네임 variant 제거: "강화군 카페" 같이 "강화 카페"와 실질 동일한 항목 컷)
 export function inferKeywords(params: {
   name: string
   address: string
@@ -304,25 +304,16 @@ export function inferKeywords(params: {
 
   // 1순위: 시/군 축약 + leaf (예: "강화 카페")
   if (cg.short && leaf) push(`${cg.short} ${leaf}`)
-  // 2순위: 시/군 풀네임 + leaf (예: "강화군 카페")
-  if (cg.full && cg.full !== cg.short && leaf) push(`${cg.full} ${leaf}`)
-  // 3순위: 구 + leaf (서울/광역시 케이스, 예: "마포구 카페")
+  // 2순위: 구 + leaf (서울/광역시 케이스, 예: "마포구 카페")
   if (gu && leaf) push(`${gu} ${leaf}`)
-  // 4순위: 광역 풀네임 + leaf (예: "인천광역시 카페")
-  if (top.full && top.full !== top.short && leaf) push(`${top.full} ${leaf}`)
-  // 5순위: 광역 축약 + base (상위 카테고리, 예: "인천 음식점")
-  if (top.short && base && base !== leaf) push(`${top.short} ${base}`)
-  // 6순위: 단독 leaf
-  if (leaf) push(leaf)
-  // 7순위: base 단독
-  if (base && base !== leaf) push(base)
-  // 8순위: 브랜드
-  if (brand) push(brand)
+  // 3순위: 브랜드 + leaf (예: "스타벅스 카페")
   if (brand && leaf) push(`${brand} ${leaf}`)
+  // 4순위: 단독 leaf (long-tail)
+  if (leaf) push(leaf)
 
   return {
     mainKeyword: main,
-    subKeywords: subs.slice(0, 8),
+    subKeywords: subs.slice(0, 4),
     regionKeyword: top.short || cg.short || ''
   }
 }
