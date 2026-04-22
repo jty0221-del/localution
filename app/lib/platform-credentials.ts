@@ -9,13 +9,14 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { encryptSecret, decryptSecret, encouragePlaintextCleanup } from './crypto-utils'
 
-export type PlatformSlug = 'naver_place' | 'baemin' | 'yogiyo' | 'coupangeats'
+export type PlatformSlug = 'naver_place' | 'baemin' | 'yogiyo' | 'coupangeats' | 'kakao_map'
 
 export const VALID_PLATFORMS: readonly PlatformSlug[] = [
   'naver_place',
   'baemin',
   'yogiyo',
   'coupangeats',
+  'kakao_map',
 ] as const
 
 export const PLATFORM_LABELS: Record<PlatformSlug, string> = {
@@ -23,6 +24,7 @@ export const PLATFORM_LABELS: Record<PlatformSlug, string> = {
   baemin: '배달의민족',
   yogiyo: '요기요',
   coupangeats: '쿠팡이츠',
+  kakao_map: '카카오맵',
 }
 
 // ─────────────────────────────────────────────
