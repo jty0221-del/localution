@@ -155,7 +155,17 @@ function extractIntroSectionFromHtml(html: string): string {
   // 다음 place_section_header_title 전까지가 현재 섹션 영역
   const rest = tail.slice(openTagEnd + 1)
   const nextHeader = rest.search(/place_section_header_title"/)
-  const sectionHtml = nextHeader > 0 ? rest.slice(0, nextHeader) : rest.slice(0, 20000)
+  let sectionHtml = nextHeader > 0 ? rest.slice(0, nextHeader) : rest.slice(0, 20000)
+
+  // 30차-15-E: 다음 섹션 헤더 직전에서 잘린 미완성 태그(`<div class="`) 꼬리 제거
+  //   nextHeader 가 `<div class="place_section_header_title"` 태그 한가운데를 자를 수 있어
+  //   뒤에 `<div class="` 같은 비공식 태그 문자열이 남고, 이후 `<[^>]+>` 치환으로는 없어지지 않아
+  //   최종 텍스트 꼬리에 `<div class="` 리터럴이 노출되는 버그가 있었음.
+  //   → 마지막 `<` 이후 `>` 없으면 해당 `<` 부터 절삭.
+  const lastLt = sectionHtml.lastIndexOf('<')
+  if (lastLt >= 0 && sectionHtml.indexOf('>', lastLt) < 0) {
+    sectionHtml = sectionHtml.slice(0, lastLt)
+  }
 
   let t = sectionHtml
   // SVG · IMG · PATH 태그 완전 제거 (아이콘 노이즈)
