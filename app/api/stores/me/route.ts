@@ -197,16 +197,39 @@ export async function GET() {
   }
 
   // ── 4) 플랫폼 통합 배열 ────────────────────────────────────────
+  // 30차-18: naver_place 는 "연결 상태" 판단 소스를 확장한다.
+  //   · platform_credentials 뿐 아니라 stores.naver_place_id / place_targets(naverLink) /
+  //     platform_reviews 존재도 "연결됨" 으로 간주. 사용자 입장에선 어느 경로로 등록했든
+  //     "네이버 플레이스 연결 됐음" 이므로 대시보드 카드에 나타나야 함.
+  const storesNaverPlaceId: string | null = (store && (store as any).naver_place_id) || null
+  const storesName: string | null = (store && (store as any).name) || null
   const platforms = (VALID_PLATFORMS as readonly string[]).map((p) => {
     const c = credentials.find((x) => x.platform === p)
     const agg = reviewAgg[p] ?? null
+    let connected = !!c
+    let platform_store_id: string | null = c?.platform_store_id ?? null
+    let platform_store_name: string | null = c?.platform_store_name ?? null
+    if (p === 'naver_place' && !connected) {
+      if (naverLink && (naverLink.external_id || naverLink.external_name)) {
+        connected = true
+        platform_store_id = platform_store_id ?? naverLink.external_id ?? null
+        platform_store_name = platform_store_name ?? naverLink.external_name ?? null
+      } else if (storesNaverPlaceId) {
+        connected = true
+        platform_store_id = platform_store_id ?? storesNaverPlaceId
+        platform_store_name = platform_store_name ?? storesName
+      } else if ((agg?.review_count ?? 0) > 0) {
+        // 리뷰만 남아 있는 예외 상태 — 사용자 입장에선 "이미 사용 중"
+        connected = true
+      }
+    }
     return {
       platform: p,
       label: (PLATFORM_LABELS as Record<string, string>)[p] ?? p,
-      connected: !!c,
+      connected,
       account_id_masked: c ? maskAccountId(c.account_id) : '',
-      platform_store_id: c?.platform_store_id ?? null,
-      platform_store_name: c?.platform_store_name ?? null,
+      platform_store_id,
+      platform_store_name,
       connected_at: c?.connected_at ?? null,
       // 30차-15-B: 리뷰 집계
       review_count: agg?.review_count ?? 0,
