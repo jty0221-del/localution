@@ -4,9 +4,9 @@
 // 30차-22 · /review-admin/baemin — 공통 컴포넌트 사용 wrapper
 // ============================================================
 
-export const dynamic = 'force-dynamic'
-
 import PlatformReviewAdmin, { PlatformConfig } from '../components/PlatformReviewAdmin'
+
+export const dynamic = 'force-dynamic'
 
 function BaeminLogo() {
   return (
