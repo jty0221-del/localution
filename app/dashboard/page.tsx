@@ -61,24 +61,24 @@ function BaeminLogo({ size = 28 }: { size?: number }) {
 }
 
 function YogiyoLogo({ size = 28 }: { size?: number }) {
+  // 35차-4: 브랜드 로고 이미지 기준 재디자인 (핑크 배경 + 흰 "요기요" 단순 텍스트)
   return (
     <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
-      <rect width="48" height="48" rx="12" fill="#E5007F"/>
-      <text x="24" y="23" fontSize="11" fontWeight="900" fill="white" fontFamily="'Apple SD Gothic Neo','Noto Sans KR',sans-serif" textAnchor="middle">요기요</text>
-      <circle cx="24" cy="33" r="4" fill="white"/>
-      <path d="M16 43 Q24 39 32 43" stroke="white" strokeWidth="2.2" fill="none" strokeLinecap="round"/>
+      <rect width="48" height="48" rx="12" fill="#FA0050"/>
+      <text x="24" y="30" fontSize="12" fontWeight="900" fill="#FFFFFF" fontFamily="'Apple SD Gothic Neo','Noto Sans KR',sans-serif" textAnchor="middle" letterSpacing="-0.4">요기요</text>
     </svg>
   )
 }
 
 function CoupangEatsLogo({ size = 28 }: { size?: number }) {
+  // 35차-4: 브랜드 로고 이미지 기준 재디자인 (coupang 가운데 정렬 + eats 주황)
   return (
     <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
-      <rect width="48" height="48" rx="12" fill="white" stroke="#E5E7EB" strokeWidth="1.5"/>
-      <text x="5" y="25" fontSize="9.5" fontWeight="800" fontFamily="Arial,sans-serif" letterSpacing="0.2">
-        <tspan fill="#E31837">c</tspan><tspan fill="#F4A900">o</tspan><tspan fill="#E31837">u</tspan><tspan fill="#5BAD48">p</tspan><tspan fill="#3B79BE">a</tspan><tspan fill="#E31837">n</tspan><tspan fill="#F4A900">g</tspan>
+      <rect width="48" height="48" rx="12" fill="#FFFFFF" stroke="#E5E7EB" strokeWidth="1"/>
+      <text x="24" y="21" fontSize="8" fontWeight="900" fontFamily="Arial,sans-serif" textAnchor="middle" letterSpacing="-0.1">
+        <tspan fill="#F2622B">c</tspan><tspan fill="#3BA94A">o</tspan><tspan fill="#F2C22B">u</tspan><tspan fill="#2E79D0">p</tspan><tspan fill="#F2622B">a</tspan><tspan fill="#F2C22B">n</tspan><tspan fill="#3BA94A">g</tspan>
       </text>
-      <text x="5" y="39" fontSize="13" fontWeight="900" fill="#4A2C0A" fontFamily="Arial,sans-serif">eats</text>
+      <text x="24" y="38" fontSize="13" fontWeight="900" fill="#F2622B" fontFamily="Arial,sans-serif" textAnchor="middle" letterSpacing="-0.3">eats</text>
     </svg>
   )
 }
@@ -159,8 +159,8 @@ const INITIAL_PLATFORMS: Platform[] = [
   { id: 'google',       name: '구글 비즈니스',   shortName: '구글',     logo: (s) => <GoogleLogo size={s}/>,       category: '리뷰·검색', connected: false, rating: null, reviews: null, color: '#4285F4' },
   { id: 'kakao_map',    name: '카카오맵',          shortName: '카카오',   logo: (s) => <KakaoMapLogo size={s}/>,     category: '지도·리뷰', connected: false, rating: null, reviews: null, color: '#FEE500' },
   { id: 'baemin',       name: '배달의민족',        shortName: '배민',     logo: (s) => <BaeminLogo size={s}/>,       category: '배달',      connected: false, rating: null, reviews: null, color: '#2AC1BC' },
-  { id: 'yogiyo',       name: '요기요',            shortName: '요기요',   logo: (s) => <YogiyoLogo size={s}/>,       category: '배달',      connected: false, rating: null, reviews: null, color: '#FA1A32' },
-  { id: 'coupangeats',  name: '쿠팡이츠',          shortName: '쿠팡이츠', logo: (s) => <CoupangEatsLogo size={s}/>,  category: '배달',      connected: false, rating: null, reviews: null, color: '#FF5A00' },
+  { id: 'yogiyo',       name: '요기요',            shortName: '요기요',   logo: (s) => <YogiyoLogo size={s}/>,       category: '배달',      connected: false, rating: null, reviews: null, color: '#FA0050' },
+  { id: 'coupangeats',  name: '쿠팡이츠',          shortName: '쿠팡이츠', logo: (s) => <CoupangEatsLogo size={s}/>,  category: '배달',      connected: false, rating: null, reviews: null, color: '#F2622B' },
   { id: 'yeoshin',      name: '여신금융',           shortName: '여신금융', logo: (s) => <YeoshinLogo size={s}/>,      category: '금융·세무', connected: false, rating: null, reviews: null, color: '#003087' },
   { id: 'hometax',      name: '홈택스',            shortName: '홈택스',   logo: (s) => <HometaxLogo size={s}/>,      category: '금융·세무', connected: false, rating: null, reviews: null, color: '#006AB4' },
 ]
