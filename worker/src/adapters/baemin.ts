@@ -194,9 +194,13 @@ export async function runBaemin(
     if (action === 'post_reply' && payload?.platform_review_id && payload?.reply_text) {
       const targetId = String(payload.platform_review_id)
       const replyText = String(payload.reply_text)
+      const reviewDbId = payload.review_db_id ? String(payload.review_db_id) : null
+      // review_db_id(UUID) 있으면 정확한 행 지정, 없으면 platform_review_id 로 매칭
+      const col = reviewDbId ? 'id' : 'platform_review_id'
+      const val = reviewDbId ?? targetId
+
       const replied = await postBaeminReply(page, targetId, replyText, log)
       if (replied.ok) {
-        // DB 상태 업데이트
         await svc
           .from('platform_reviews')
           .update({
@@ -204,12 +208,20 @@ export async function runBaemin(
             reply_content: replyText,
             reply_status: 'submitted',
             reply_submitted_at: new Date().toISOString(),
+            reply_error: null,
           })
+          .eq(col, val)
           .eq('user_id', userId)
-          .eq('platform', 'baemin')
-          .eq('platform_review_id', targetId)
         return { status: 'ok', message: `baemin: reply posted for ${targetId}` }
       }
+      await svc
+        .from('platform_reviews')
+        .update({
+          reply_status: 'failed',
+          reply_error: replied.reason,
+        })
+        .eq(col, val)
+        .eq('user_id', userId)
       return { status: 'failed', message: `baemin reply 실패: ${replied.reason}` }
     }
 

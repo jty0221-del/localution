@@ -152,6 +152,10 @@ export async function runYogiyo(
     if (action === 'post_reply' && payload?.platform_review_id && payload?.reply_text) {
       const targetId = String(payload.platform_review_id)
       const replyText = String(payload.reply_text)
+      const reviewDbId = payload.review_db_id ? String(payload.review_db_id) : null
+      const col = reviewDbId ? 'id' : 'platform_review_id'
+      const val = reviewDbId ?? targetId
+
       const replied = await postYogiyoReply(page, targetId, replyText, log)
       if (replied.ok) {
         await svc
@@ -161,12 +165,17 @@ export async function runYogiyo(
             reply_content: replyText,
             reply_status: 'submitted',
             reply_submitted_at: new Date().toISOString(),
+            reply_error: null,
           })
+          .eq(col, val)
           .eq('user_id', userId)
-          .eq('platform', 'yogiyo')
-          .eq('platform_review_id', targetId)
         return { status: 'ok', message: `yogiyo: reply posted for ${targetId}` }
       }
+      await svc
+        .from('platform_reviews')
+        .update({ reply_status: 'failed', reply_error: replied.reason })
+        .eq(col, val)
+        .eq('user_id', userId)
       return { status: 'failed', message: `yogiyo reply 실패: ${replied.reason}` }
     }
 
