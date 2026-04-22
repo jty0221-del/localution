@@ -2,14 +2,20 @@
 
 // app/my/platforms/[platform]/connect/page.tsx
 // ============================================================
-// 23차-8d: 플랫폼 연결 폼 (2026-04-21)
+// 30차-22-C: 미니멀 로그인 스타일 리디자인 (2026-04-22)
 //
-//   · 2단계 플로우
-//     Step 1: 대리권 위임 동의 — 3개 필수 체크박스
-//     Step 2: 자격증명 입력 — account_id / password (+ optional store info)
-//   · Step 1 통과 → POST /api/legal/platform-consent
-//   · Step 2 통과 → POST /api/platform-accounts
-//   · 완료 후 /my/platforms 로 복귀
+//   STEP 1: 대리권 위임 동의 (3 체크박스) — 기존 유지, 상단 아이콘 업데이트
+//   STEP 2: 미니멀 로그인 UI — 플랫폼 앱 로그인 화면 카피
+//     · 상단 X 버튼
+//     · 컬러 로고 아이콘
+//     · "{플랫폼} 리뷰 관리를 위해 로그인이 필요해요" 타이틀
+//     · ID / 비밀번호 입력
+//     · 로그인 버튼 (풀너비, 파스텔 톤)
+//     · "{플랫폼} 아이디, 비밀번호를 까먹었다면?" + 2 보조 버튼
+//
+//   API:
+//     · /api/legal/platform-consent POST (STEP 1)
+//     · /api/platform-accounts POST (STEP 2)
 // ============================================================
 export const dynamic = 'force-dynamic'
 
@@ -21,49 +27,69 @@ type PlatformSlug = 'naver_place' | 'baemin' | 'yogiyo' | 'coupangeats'
 const VALID_PLATFORMS: PlatformSlug[] = ['naver_place', 'baemin', 'yogiyo', 'coupangeats']
 
 const PLATFORM_META: Record<PlatformSlug, {
-  label: string
-  brandColor: string
-  bgColor: string
+  label: string                // 전체 이름
+  shortLabel: string           // 타이틀용 짧은 이름 ("요기요" / "배민" / "쿠팡이츠" / "네이버")
+  brandColor: string           // 로고 배경
+  brandTextColor: string       // 로고 글자색 (대부분 white)
+  initial: string              // 로고 아이콘 안 문자
+  loginBg: string              // 로그인 버튼 배경 (파스텔 톤)
+  loginFg: string              // 로그인 버튼 글자 (대부분 white)
   loginUrl: string
-  idFieldLabel: string
-  idFieldPlaceholder: string
-  storeLabel: string
+  forgotIdUrl: string          // "아이디 찾기" 실제 이동 URL (플랫폼 공식)
+  forgotPwUrl: string          // "비밀번호 찾기" 실제 이동 URL
+  singleForgot: boolean        // 배민처럼 한 버튼으로 통합할지
 }> = {
   naver_place: {
     label: '네이버 플레이스',
+    shortLabel: '네이버',
     brandColor: '#03C75A',
-    bgColor: '#E6F7EF',
+    brandTextColor: '#FFFFFF',
+    initial: 'N',
+    loginBg: '#03C75A',
+    loginFg: '#FFFFFF',
     loginUrl: 'https://new.smartplace.naver.com/',
-    idFieldLabel: '네이버 ID',
-    idFieldPlaceholder: '네이버 로그인 ID',
-    storeLabel: '업체명',
+    forgotIdUrl: 'https://nid.naver.com/user2/helpmain.nhn',
+    forgotPwUrl: 'https://nid.naver.com/nidreminder/info',
+    singleForgot: false,
   },
   baemin: {
     label: '배달의민족',
+    shortLabel: '배민',
     brandColor: '#2AC1BC',
-    bgColor: '#E0F7F6',
+    brandTextColor: '#FFFFFF',
+    initial: '배',
+    loginBg: '#E8E0FF',        // 이미지처럼 파스텔 라벤더
+    loginFg: '#4C3D8F',
     loginUrl: 'https://ceo.baemin.com/',
-    idFieldLabel: '배민 사장님 ID',
-    idFieldPlaceholder: '배민 사장님 로그인 ID',
-    storeLabel: '매장명',
+    forgotIdUrl: 'https://ceo.baemin.com/',
+    forgotPwUrl: 'https://ceo.baemin.com/',
+    singleForgot: true,
   },
   yogiyo: {
     label: '요기요',
+    shortLabel: '요기요',
     brandColor: '#FA0050',
-    bgColor: '#FFE5ED',
+    brandTextColor: '#FFFFFF',
+    initial: '요',
+    loginBg: '#E8E0FF',
+    loginFg: '#4C3D8F',
     loginUrl: 'https://ceo.yogiyo.co.kr/',
-    idFieldLabel: '요기요 사장님 ID',
-    idFieldPlaceholder: '요기요 사장님 로그인 ID',
-    storeLabel: '매장명',
+    forgotIdUrl: 'https://ceo.yogiyo.co.kr/',
+    forgotPwUrl: 'https://ceo.yogiyo.co.kr/',
+    singleForgot: false,
   },
   coupangeats: {
     label: '쿠팡이츠',
+    shortLabel: '쿠팡이츠',
     brandColor: '#FF4B30',
-    bgColor: '#FFE7E3',
+    brandTextColor: '#FFFFFF',
+    initial: '쿠',
+    loginBg: '#E8E0FF',
+    loginFg: '#4C3D8F',
     loginUrl: 'https://store.coupangeats.com/',
-    idFieldLabel: '쿠팡이츠 ID',
-    idFieldPlaceholder: '쿠팡이츠 사장님 로그인 ID',
-    storeLabel: '매장명',
+    forgotIdUrl: 'https://store.coupangeats.com/',
+    forgotPwUrl: 'https://store.coupangeats.com/',
+    singleForgot: false,
   },
 }
 
@@ -82,14 +108,12 @@ export default function ConnectPlatformPage() {
 
   const [accountId, setAccountId] = useState('')
   const [password, setPassword] = useState('')
-  const [storeName, setStoreName] = useState('')
   const [showPw, setShowPw] = useState(false)
   const [saving, setSaving] = useState(false)
 
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
 
-  // platform 슬러그 검증
   useEffect(() => {
     if (platform && !VALID_PLATFORMS.includes(platform)) {
       router.replace('/my/platforms')
@@ -149,11 +173,11 @@ export default function ConnectPlatformPage() {
 
   async function submitCredentials() {
     if (!accountId.trim()) {
-      setError(meta.idFieldLabel + '을 입력해주세요.')
+      setError(meta.shortLabel + ' 아이디를 입력해주세요.')
       return
     }
     if (!password) {
-      setError('비밀번호를 입력해주세요.')
+      setError(meta.shortLabel + ' 비밀번호를 입력해주세요.')
       return
     }
     setError(null)
@@ -166,7 +190,6 @@ export default function ConnectPlatformPage() {
           platform,
           account_id: accountId.trim(),
           password,
-          platform_store_name: storeName.trim() || undefined,
         }),
       })
       const data = await res.json()
@@ -176,8 +199,7 @@ export default function ConnectPlatformPage() {
       }
       setSuccess(meta.label + ' 연결이 완료되었습니다.')
       setPassword('')
-      // 1초 후 허브로 복귀
-      setTimeout(() => router.push('/my/platforms'), 1200)
+      setTimeout(() => router.push('/my/platforms'), 1100)
     } catch (e) {
       setError(e instanceof Error ? e.message : String(e))
     } finally {
@@ -185,49 +207,50 @@ export default function ConnectPlatformPage() {
     }
   }
 
-  return (
-    <main className="min-h-screen bg-[#F9FAFB] py-10">
-      <div className="max-w-2xl mx-auto px-4">
-        {/* 브레드크럼 */}
-        <div className="flex items-center gap-2 text-sm text-[#6B7280] mb-6">
-          <Link href="/dashboard" className="hover:text-[#3182F6]">대시보드</Link>
-          <span>/</span>
-          <Link href="/my/platforms" className="hover:text-[#3182F6]">플랫폼 연결</Link>
-          <span>/</span>
-          <span className="text-[#191F28]">{meta.label}</span>
-        </div>
-
-        {/* 헤더 카드 */}
-        <div
-          className="rounded-xl p-6 mb-6 border"
-          style={{ background: meta.bgColor, borderColor: meta.brandColor + '40' }}
-        >
-          <div className="text-xs font-medium mb-1" style={{ color: meta.brandColor }}>
-            {step === 1 ? 'STEP 1 / 2' : 'STEP 2 / 2'}
+  // ── STEP 1: 법무 동의 (기존 디자인 유지) ─────────────
+  if (step === 1) {
+    return (
+      <main className="min-h-screen bg-[#F9FAFB] py-10">
+        <div className="max-w-2xl mx-auto px-4">
+          <div className="flex items-center gap-2 text-sm text-[#6B7280] mb-6">
+            <Link href="/dashboard" className="hover:text-[#3182F6]">대시보드</Link>
+            <span>/</span>
+            <Link href="/my/platforms" className="hover:text-[#3182F6]">플랫폼 연결</Link>
+            <span>/</span>
+            <span className="text-[#191F28]">{meta.label}</span>
           </div>
-          <h1 className="text-2xl font-bold text-[#191F28] mb-1">
-            {step === 1 ? `${meta.label} 대리권 위임 동의` : `${meta.label} 계정 정보 입력`}
-          </h1>
-          <p className="text-sm text-[#4E5968]">
-            {step === 1
-              ? '연결 전 아래 3가지 항목에 모두 동의해주세요. 동의 이력은 3년간 보관됩니다.'
-              : '사장님 계정의 ID/비밀번호를 입력해주세요. 비밀번호는 AES-256-GCM 방식으로 암호화되어 저장됩니다.'}
-          </p>
-        </div>
 
-        {error && (
-          <div className="mb-4 rounded-lg bg-[#FEF2F2] border border-[#FECACA] p-3 text-sm text-[#DC2626]">
-            {error}
+          <div
+            className="rounded-xl p-6 mb-6 border"
+            style={{ background: meta.brandColor + '15', borderColor: meta.brandColor + '40' }}
+          >
+            <div className="flex items-center gap-3 mb-2">
+              <div
+                className="w-12 h-12 rounded-2xl flex items-center justify-center text-2xl font-black"
+                style={{ background: meta.brandColor, color: meta.brandTextColor }}
+              >
+                {meta.initial}
+              </div>
+              <div>
+                <div className="text-[11px] font-bold mb-0.5" style={{ color: meta.brandColor }}>
+                  STEP 1 / 2
+                </div>
+                <h1 className="text-xl font-black text-[#191F28]">
+                  {meta.label} 대리권 위임 동의
+                </h1>
+              </div>
+            </div>
+            <p className="text-xs text-[#4E5968] leading-relaxed mt-2">
+              연결 전 아래 3가지 항목에 모두 동의해주세요. 동의 이력은 3년간 보관됩니다.
+            </p>
           </div>
-        )}
-        {success && (
-          <div className="mb-4 rounded-lg bg-[#ECFDF5] border border-[#A7F3D0] p-3 text-sm text-[#059669]">
-            ✓ {success}
-          </div>
-        )}
 
-        {/* STEP 1: 동의 */}
-        {step === 1 && (
+          {error && (
+            <div className="mb-4 rounded-lg bg-[#FEF2F2] border border-[#FECACA] p-3 text-sm text-[#DC2626]">
+              {error}
+            </div>
+          )}
+
           <div className="rounded-xl bg-white border border-[#E5E7EB] p-6">
             <div className="space-y-4 mb-6">
               <label className="flex gap-3 cursor-pointer">
@@ -242,7 +265,7 @@ export default function ConnectPlatformPage() {
                     ① 위임 범위에 동의합니다 <span className="text-[#DC2626]">*</span>
                   </div>
                   <div className="text-sm text-[#4E5968] leading-relaxed">
-                    하랑마케팅(이하 "회사")이 내 본인 {meta.label} 계정을 사용하여
+                    하랑마케팅(이하 "회사")이 본인 {meta.label} 계정을 사용하여
                     <strong className="text-[#191F28]"> (1) 리뷰 조회, (2) 리뷰에 답글 게시, (3) 매장 순위/통계 수집, (4) 로그인 상태 유지</strong>의
                     4개 업무만 대리 수행하는 것에 동의합니다. 그 외의 결제/정산/광고 집행/매장 정보 수정 등은 위임 범위에 포함되지 않습니다.
                   </div>
@@ -309,95 +332,148 @@ export default function ConnectPlatformPage() {
               </button>
             </div>
           </div>
+        </div>
+      </main>
+    )
+  }
+
+  // ── STEP 2: 미니멀 로그인 UI ─────────────────────────
+  return (
+    <main className="min-h-screen bg-white flex flex-col">
+      {/* 상단 바: X 버튼 */}
+      <div className="flex items-center justify-between px-5 pt-4 pb-2">
+        <div className="text-[11px] text-[#8B95A1]">
+          STEP 2 / 2
+        </div>
+        <Link
+          href="/my/platforms"
+          aria-label="닫기"
+          className="w-8 h-8 flex items-center justify-center text-[#191F28] text-2xl leading-none hover:bg-[#F2F4F6] rounded-lg"
+        >
+          ✕
+        </Link>
+      </div>
+
+      {/* 본문 */}
+      <div className="flex-1 max-w-sm w-full mx-auto px-6 pt-6 pb-8 flex flex-col">
+        {/* 컬러 로고 아이콘 */}
+        <div
+          className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl font-black mb-8 shadow-sm"
+          style={{ background: meta.brandColor, color: meta.brandTextColor }}
+        >
+          {meta.initial}
+        </div>
+
+        {/* 타이틀 */}
+        <h1 className="text-[22px] font-black text-[#191F28] leading-snug mb-10">
+          {meta.shortLabel} 리뷰 관리를 위해<br />로그인이 필요해요
+        </h1>
+
+        {/* 에러/성공 메시지 */}
+        {error && (
+          <div className="mb-4 rounded-lg bg-[#FEF2F2] border border-[#FECACA] p-3 text-[13px] text-[#DC2626]">
+            {error}
+          </div>
+        )}
+        {success && (
+          <div className="mb-4 rounded-lg bg-[#ECFDF5] border border-[#A7F3D0] p-3 text-[13px] text-[#059669]">
+            ✓ {success}
+          </div>
         )}
 
-        {/* STEP 2: 자격증명 */}
-        {step === 2 && (
-          <div className="rounded-xl bg-white border border-[#E5E7EB] p-6">
-            <div className="space-y-4 mb-6">
-              <div>
-                <label className="block text-sm font-medium text-[#191F28] mb-1.5">
-                  {meta.idFieldLabel} <span className="text-[#DC2626]">*</span>
-                </label>
-                <input
-                  type="text"
-                  autoComplete="off"
-                  value={accountId}
-                  onChange={(e) => setAccountId(e.target.value)}
-                  placeholder={meta.idFieldPlaceholder}
-                  className="w-full px-3 py-2.5 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:border-[#3182F6]"
-                />
-              </div>
+        {/* ID 입력 */}
+        <input
+          type="text"
+          autoComplete="off"
+          value={accountId}
+          onChange={(e) => setAccountId(e.target.value)}
+          placeholder={`${meta.shortLabel} 아이디`}
+          className="w-full px-4 py-4 rounded-2xl bg-[#F5F6F8] border border-transparent text-[15px] placeholder-[#B0B8C1] focus:outline-none focus:border-[#191F28] focus:bg-white mb-3"
+        />
 
-              <div>
-                <label className="block text-sm font-medium text-[#191F28] mb-1.5">
-                  비밀번호 <span className="text-[#DC2626]">*</span>
-                </label>
-                <div className="relative">
-                  <input
-                    type={showPw ? 'text' : 'password'}
-                    autoComplete="new-password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="비밀번호 입력"
-                    className="w-full px-3 py-2.5 pr-16 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:border-[#3182F6]"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPw(!showPw)}
-                    className="absolute right-2 top-1/2 -translate-y-1/2 text-xs text-[#6B7280] hover:text-[#191F28] px-2 py-1"
-                  >
-                    {showPw ? '숨기기' : '표시'}
-                  </button>
-                </div>
-                <div className="mt-1.5 text-xs text-[#6B7280]">
-                  저장 즉시 AES-256-GCM 으로 암호화됩니다. 운영자도 평문 조회 불가.
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-[#191F28] mb-1.5">
-                  {meta.storeLabel} <span className="text-[#9CA3AF]">(선택)</span>
-                </label>
-                <input
-                  type="text"
-                  value={storeName}
-                  onChange={(e) => setStoreName(e.target.value)}
-                  placeholder="예: 하랑마케팅 강남점"
-                  className="w-full px-3 py-2.5 rounded-lg border border-[#E5E7EB] text-sm focus:outline-none focus:border-[#3182F6]"
-                />
-              </div>
-            </div>
-
-            {/* 안내 */}
-            <div className="rounded-lg bg-[#F9FAFB] p-3 text-xs text-[#6B7280] mb-6 leading-relaxed space-y-1">
-              <div>· 본 화면에서 입력한 ID/비밀번호는 HTTPS 로만 전송됩니다</div>
-              <div>· 연결 후 <a href={meta.loginUrl} target="_blank" rel="noopener" className="text-[#3182F6] hover:underline">{meta.loginUrl}</a> 에서 비밀번호가 변경되면 재연결이 필요합니다</div>
-              <div>· 2단계 인증이 활성화되어 있으면 자동화가 중단됩니다 (연결 후 필요 시 해제 요청)</div>
-            </div>
-
-            <div className="flex gap-2">
-              <button
-                onClick={() => setStep(1)}
-                className="flex-1 py-3 rounded-lg border border-[#E5E7EB] text-sm font-medium text-[#4E5968] hover:bg-[#F9FAFB]"
-              >
-                뒤로
-              </button>
-              <button
-                onClick={submitCredentials}
-                disabled={saving}
-                className="flex-1 py-3 rounded-lg text-sm font-medium text-white disabled:opacity-50"
-                style={{ background: meta.brandColor }}
-              >
-                {saving ? '암호화 저장 중…' : '연결 완료'}
-              </button>
-            </div>
-
-            {consentId && (
-              <div className="mt-4 text-center text-xs text-[#9CA3AF]">
-                동의 기록 ID: {consentId.slice(0, 8)}…
-              </div>
+        {/* 비밀번호 입력 */}
+        <div className="relative mb-8">
+          <input
+            type={showPw ? 'text' : 'password'}
+            autoComplete="new-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder={`${meta.shortLabel} 비밀번호`}
+            className="w-full px-4 py-4 pr-12 rounded-2xl bg-[#F5F6F8] border border-transparent text-[15px] placeholder-[#B0B8C1] focus:outline-none focus:border-[#191F28] focus:bg-white"
+          />
+          <button
+            type="button"
+            onClick={() => setShowPw(!showPw)}
+            aria-label={showPw ? '비밀번호 숨기기' : '비밀번호 표시'}
+            className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center text-[#8B95A1] hover:text-[#191F28]"
+          >
+            {showPw ? (
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
+            ) : (
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
             )}
+          </button>
+        </div>
+
+        {/* 로그인 버튼 */}
+        <button
+          onClick={submitCredentials}
+          disabled={saving || !accountId || !password}
+          className="w-full py-4 rounded-2xl text-[15px] font-bold disabled:opacity-50 transition"
+          style={{ background: meta.loginBg, color: meta.loginFg }}
+        >
+          {saving ? '암호화 저장 중…' : '로그인'}
+        </button>
+
+        {/* 스페이서 */}
+        <div className="flex-1 min-h-[24px]" />
+
+        {/* 비밀번호/아이디 찾기 */}
+        <div className="mt-10">
+          <p className="text-[13px] text-[#4E5968] mb-3">
+            {meta.shortLabel} 아이디, 비밀번호를 까먹었다면?
+          </p>
+          <div className="flex gap-2">
+            {meta.singleForgot ? (
+              <a
+                href={meta.forgotIdUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex-1 py-3 rounded-xl border border-[#E5E8EB] text-[13px] font-semibold text-[#4E5968] text-center hover:bg-[#F9FAFB]"
+              >
+                아이디, 비밀번호 찾기 &nbsp;&gt;
+              </a>
+            ) : (
+              <>
+                <a
+                  href={meta.forgotIdUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 py-3 rounded-xl border border-[#E5E8EB] text-[13px] font-semibold text-[#4E5968] text-center hover:bg-[#F9FAFB]"
+                >
+                  아이디 찾기 &nbsp;&gt;
+                </a>
+                <a
+                  href={meta.forgotPwUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="flex-1 py-3 rounded-xl border border-[#E5E8EB] text-[13px] font-semibold text-[#4E5968] text-center hover:bg-[#F9FAFB]"
+                >
+                  비밀번호 찾기 &nbsp;&gt;
+                </a>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* 하단 안전 안내 */}
+        <div className="mt-6 text-[11px] text-[#8B95A1] leading-relaxed text-center">
+          입력한 비밀번호는 즉시 AES-256-GCM 으로 암호화되어 저장돼요. 운영자도 평문 조회 불가 🔐
+        </div>
+
+        {consentId && (
+          <div className="mt-3 text-center text-[10px] text-[#C3CAD1]">
+            동의 기록 ID: {consentId.slice(0, 8)}…
           </div>
         )}
       </div>
