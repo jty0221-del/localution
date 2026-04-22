@@ -18,7 +18,7 @@ import { useRouter } from 'next/navigation'
 import Sidebar from '../../components/Sidebar'
 import Footer from '../../components/Footer'
 
-type PlatformSlug = 'naver_place' | 'baemin' | 'yogiyo' | 'coupangeats'
+type PlatformSlug = 'naver_place' | 'baemin' | 'yogiyo' | 'coupangeats' | 'kakao_map'
 
 type AvailablePlatform = {
   platform: PlatformSlug
@@ -77,6 +77,13 @@ const PLATFORM_META: Record<PlatformSlug, {
     bgColor: '#FFE7E3',
     description: '쿠팡이츠 리뷰 자동 답글',
     initial: '쿠',
+  },
+  kakao_map: {
+    label: '카카오맵',
+    brandColor: '#FEE500',
+    bgColor: '#FFFBE5',
+    description: '카카오맵 리뷰 자동 수집·답글',
+    initial: '카',
   },
 }
 
