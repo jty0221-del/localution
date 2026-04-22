@@ -460,4 +460,61 @@ export default function ReviewAdminHub() {
         ) : loadingFeed ? (
           <div className="bg-white rounded-2xl border border-[#E5E8EB] p-12 text-center text-sm text-[#8B95A1]">
             리뷰 불러오는 중...
+          </div>
+        ) : filteredFeed.length === 0 ? (
+          <div className="bg-white rounded-2xl border border-[#E5E8EB] p-8 text-center">
+            <p className="text-sm text-[#8B95A1]">표시할 리뷰가 없습니다.</p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {filteredFeed.map(review => {
+              const meta = PLATFORM_META[review.platform as PlatformKey]
+              if (!meta) return null
+              const Logo = meta.Logo
+              return (
+                <div key={review.id} className="bg-white rounded-2xl border border-[#E5E8EB] p-4 md:p-5">
+                  <div className="flex items-start gap-3">
+                    <div className="w-8 h-8 rounded-xl flex items-center justify-center flex-shrink-0"
+                      style={{ background: meta.bg }}>
+                      {Logo ? <Logo size={20} /> : (
+                        <span className="text-xs font-bold" style={{ color: meta.textColor }}>{meta.icon}</span>
+                      )}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <div className="flex items-center gap-2">
+                          <span className="text-xs font-bold" style={{ color: meta.color }}>{meta.label}</span>
+                          <Stars n={review.rating} color={meta.color} />
+                        </div>
+                        <div className="flex items-center gap-2 flex-shrink-0">
+                          {!review.replied && (
+                            <span className="text-[10px] font-bold text-[#FF5A00] bg-[#FFF3F0] rounded-full px-2 py-0.5">미답변</span>
+                          )}
+                          <span className="text-[10px] text-[#8B95A1]">{timeAgo(review.date)}</span>
+                        </div>
+                      </div>
+                      <p className="text-xs font-semibold text-[#4E5968] mb-1">{review.author}</p>
+                      <p className="text-xs text-[#191F28] leading-relaxed line-clamp-3">{review.text}</p>
+                    </div>
+                  </div>
+                  <div className="mt-3 flex justify-end">
+                    <Link href={meta.detailPath}
+                      className="text-[11px] font-bold px-3 py-1.5 rounded-lg transition-colors"
+                      style={{ background: meta.bg, color: meta.textColor }}>
+                      상세 관리 →
+                    </Link>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+
+        </div>
+        </main>
+      </div>
+      <Footer />
+    </div>
+  )
+}
    

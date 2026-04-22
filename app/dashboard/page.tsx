@@ -6,6 +6,7 @@ import Link from 'next/link'
 import Sidebar from '../components/Sidebar'
 import Footer from '../components/Footer'
 import SlideAdBanner from '../components/SlideAdBanner'
+import PlatformLogo from '../components/PlatformLogo'
 import { useConnections, setConnection as libSetConnection, removeConnection as libRemoveConnection, PlatformId as CanonicalPlatformId } from '../lib/connections'
 import { toast, confirmDialog } from '../lib/toast'
 import { buildSettingsHref } from '../lib/settings-tabs'
@@ -18,17 +19,8 @@ import {
 } from 'lucide-react'
 
 // ═══════════════════════════════════════════════════════════
-//  플랫폼 로고 SVG
+//  플랫폼 로고 SVG (Google / Yeoshin / Hometax 는 PlatformLogo 미지원 → 인라인 유지)
 // ═══════════════════════════════════════════════════════════
-
-function NaverPlaceLogo({ size = 28 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
-      <rect width="48" height="48" rx="10" fill="#03C75A"/>
-      <path d="M9 39V9h8L31 27V9h8v30h-8L17 21v18H9Z" fill="white"/>
-    </svg>
-  )
-}
 
 function GoogleLogo({ size = 28 }: { size?: number }) {
   return (
@@ -38,56 +30,6 @@ function GoogleLogo({ size = 28 }: { size?: number }) {
       <path d="M24 44c5.4 0 9.92-1.8 13.24-4.86l-6.46-5c-1.8 1.2-4.1 1.92-6.78 1.92-5.22 0-9.64-3.52-11.22-8.26H6.12v5.14C9.42 40.02 16.28 44 24 44z" fill="#34A853"/>
       <path d="M12.78 27.8A11.94 11.94 0 0112.2 24c0-1.32.22-2.6.58-3.8v-5.14H6.12A20 20 0 004 24c0 3.22.78 6.28 2.12 9.14l6.66-5.34z" fill="#FBBC05"/>
       <path d="M24 12.08c2.94 0 5.58 1.02 7.66 3l5.74-5.74C33.9 6.06 29.38 4 24 4 16.28 4 9.42 7.98 6.12 14.86l6.66 5.14C14.36 15.6 18.78 12.08 24 12.08z" fill="#EA4335"/>
-    </svg>
-  )
-}
-
-function BaeminLogo({ size = 28 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
-      <rect width="48" height="48" rx="12" fill="#2AC1BC"/>
-      <text
-        x="24"
-        y="31"
-        fontSize="18"
-        fontWeight="900"
-        fill="#1A1A1A"
-        fontFamily="'Apple SD Gothic Neo','Noto Sans KR',sans-serif"
-        textAnchor="middle"
-        letterSpacing="-0.5"
-      >배민</text>
-    </svg>
-  )
-}
-
-function YogiyoLogo({ size = 28 }: { size?: number }) {
-  // 35차-4: 브랜드 로고 이미지 기준 재디자인 (핑크 배경 + 흰 "요기요" 단순 텍스트)
-  return (
-    <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
-      <rect width="48" height="48" rx="12" fill="#FA0050"/>
-      <text x="24" y="30" fontSize="12" fontWeight="900" fill="#FFFFFF" fontFamily="'Apple SD Gothic Neo','Noto Sans KR',sans-serif" textAnchor="middle" letterSpacing="-0.4">요기요</text>
-    </svg>
-  )
-}
-
-function CoupangEatsLogo({ size = 28 }: { size?: number }) {
-  // 35차-4: 브랜드 로고 이미지 기준 재디자인 (coupang 가운데 정렬 + eats 주황)
-  return (
-    <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
-      <rect width="48" height="48" rx="12" fill="#FFFFFF" stroke="#E5E7EB" strokeWidth="1"/>
-      <text x="24" y="21" fontSize="8" fontWeight="900" fontFamily="Arial,sans-serif" textAnchor="middle" letterSpacing="-0.1">
-        <tspan fill="#F2622B">c</tspan><tspan fill="#3BA94A">o</tspan><tspan fill="#F2C22B">u</tspan><tspan fill="#2E79D0">p</tspan><tspan fill="#F2622B">a</tspan><tspan fill="#F2C22B">n</tspan><tspan fill="#3BA94A">g</tspan>
-      </text>
-      <text x="24" y="38" fontSize="13" fontWeight="900" fill="#F2622B" fontFamily="Arial,sans-serif" textAnchor="middle" letterSpacing="-0.3">eats</text>
-    </svg>
-  )
-}
-
-function NaverSearchLogo({ size = 28 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
-      <rect width="48" height="48" rx="10" fill="#03C75A"/>
-      <path d="M9 39V9h8L31 27V9h8v30h-8L17 21v18H9Z" fill="white"/>
     </svg>
   )
 }
@@ -108,15 +50,6 @@ function HometaxLogo({ size = 28 }: { size?: number }) {
     <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
       <rect width="48" height="48" rx="10" fill="#006AB4"/>
       <path d="M24 9L7 22h5v17h10v-9h4v9h10V22h5L24 9z" fill="white"/>
-    </svg>
-  )
-}
-
-function KakaoMapLogo({ size = 28 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
-      <rect width="48" height="48" rx="12" fill="#FEE500"/>
-      <path d="M24 11c-7 0-12.5 4.4-12.5 10 0 3.7 2.5 7 6.3 8.9l-1.5 5.3c-.1.3.3.5.5.3l6.2-4.3c.3 0 .7.1 1 .1 7 0 12.5-4.4 12.5-10S31 11 24 11Z" fill="#191919"/>
     </svg>
   )
 }
@@ -155,14 +88,14 @@ const TO_CANONICAL: Record<PlatformId, CanonicalPlatformId> = {
   hometax: 'hometax',
 }
 const INITIAL_PLATFORMS: Platform[] = [
-  { id: 'naver_place',  name: '네이버 플레이스', shortName: '네이버',   logo: (s) => <NaverPlaceLogo size={s}/>,   category: '리뷰·검색', connected: false, rating: null, reviews: null, color: '#03C75A' },
-  { id: 'google',       name: '구글 비즈니스',   shortName: '구글',     logo: (s) => <GoogleLogo size={s}/>,       category: '리뷰·검색', connected: false, rating: null, reviews: null, color: '#4285F4' },
-  { id: 'kakao_map',    name: '카카오맵',          shortName: '카카오',   logo: (s) => <KakaoMapLogo size={s}/>,     category: '지도·리뷰', connected: false, rating: null, reviews: null, color: '#FEE500' },
-  { id: 'baemin',       name: '배달의민족',        shortName: '배민',     logo: (s) => <BaeminLogo size={s}/>,       category: '배달',      connected: false, rating: null, reviews: null, color: '#2AC1BC' },
-  { id: 'yogiyo',       name: '요기요',            shortName: '요기요',   logo: (s) => <YogiyoLogo size={s}/>,       category: '배달',      connected: false, rating: null, reviews: null, color: '#FA0050' },
-  { id: 'coupangeats',  name: '쿠팡이츠',          shortName: '쿠팡이츠', logo: (s) => <CoupangEatsLogo size={s}/>,  category: '배달',      connected: false, rating: null, reviews: null, color: '#F2622B' },
-  { id: 'yeoshin',      name: '여신금융',           shortName: '여신금융', logo: (s) => <YeoshinLogo size={s}/>,      category: '금융·세무', connected: false, rating: null, reviews: null, color: '#003087' },
-  { id: 'hometax',      name: '홈택스',            shortName: '홈택스',   logo: (s) => <HometaxLogo size={s}/>,      category: '금융·세무', connected: false, rating: null, reviews: null, color: '#006AB4' },
+  { id: 'naver_place',  name: '네이버 플레이스', shortName: '네이버',   logo: (s) => <PlatformLogo platform="naver_place" size={s ?? 28}/>,   category: '리뷰·검색', connected: false, rating: null, reviews: null, color: '#03C75A' },
+  { id: 'google',       name: '구글 비즈니스',   shortName: '구글',     logo: (s) => <GoogleLogo size={s}/>,                                   category: '리뷰·검색', connected: false, rating: null, reviews: null, color: '#4285F4' },
+  { id: 'kakao_map',    name: '카카오맵',        shortName: '카카오',   logo: (s) => <PlatformLogo platform="kakao_map" size={s ?? 28}/>,      category: '지도·리뷰', connected: false, rating: null, reviews: null, color: '#FEE500' },
+  { id: 'baemin',       name: '배달의민족',      shortName: '배민',     logo: (s) => <PlatformLogo platform="baemin" size={s ?? 28}/>,         category: '배달',      connected: false, rating: null, reviews: null, color: '#2AC1BC' },
+  { id: 'yogiyo',       name: '요기요',          shortName: '요기요',   logo: (s) => <PlatformLogo platform="yogiyo" size={s ?? 28}/>,         category: '배달',      connected: false, rating: null, reviews: null, color: '#FA0050' },
+  { id: 'coupangeats',  name: '쿠팡이츠',        shortName: '쿠팡이츠', logo: (s) => <PlatformLogo platform="coupangeats" size={s ?? 28}/>,    category: '배달',      connected: false, rating: null, reviews: null, color: '#F2622B' },
+  { id: 'yeoshin',      name: '여신금융',        shortName: '여신금융', logo: (s) => <YeoshinLogo size={s}/>,                                  category: '금융·세무', connected: false, rating: null, reviews: null, color: '#003087' },
+  { id: 'hometax',      name: '홈택스',          shortName: '홈택스',   logo: (s) => <HometaxLogo size={s}/>,                                  category: '금융·세무', connected: false, rating: null, reviews: null, color: '#006AB4' },
 ]
 
 interface KeywordRank {
