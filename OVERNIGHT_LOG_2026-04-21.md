@@ -15,6 +15,9 @@
 | 28차-4 | /settings Kakao Maps 위젯 추가 (SmartMapBox) | app/settings/page.tsx | ✅ 완료 |
 | 29차-1 | /marketing/card-news 레이아웃 통일 (Sidebar + PageHeader + Footer) | app/marketing/card-news/page.tsx | ✅ 완료 |
 | 23차-3 | Railway Worker 스캐폴딩 + Redis 서비스 생성 | worker/ (9 files) | ✅ 인프라 배포, ⏳ ENV 3개 수동 대기 |
+| 30차-18 | dashboard canonicalConnections 가 reviews/rating 덮어쓰지 않도록 보존 + /api/stores/me naver_place 연결 판정 확장 | app/dashboard/page.tsx, app/api/stores/me/route.ts | ✅ 완료 (0b2dbe8, 5af647f) |
+| 30차-19 | AI 답글 재작성 — review_id 로 stores+사진 자동 로드 + SEO 키워드 추론 + Claude Vision | app/api/ai-review-reply/route.ts | ✅ 완료 (8338c99) |
+| 30차-20 | 원클릭 자동 등록 버튼 (생성→복사→스마트플레이스 탭) + handleAiReply review_id 전환 | app/review-admin/naver/page.tsx | ✅ 완료 (782aeb0) |
 
 ---
 
@@ -203,4 +206,52 @@ Railway 대시보드 → `worker` 서비스 → Variables 에 아래 3개 추가
 
 ---
 
-*최종 업데이트: 2026-04-22 29차 + 23차-3 인프라 배포 완료*
+## 30차-18 — 대시보드 리뷰 미노출 재진단 + 수정 (2026-04-22)
+
+### 증상
+30차-17 배포 이후에도 "리뷰 20건 수집됐다는 알림은 오는데 대시보드 카드에는 안 보임" 재발.
+
+### 원인
+**원인 A — `app/dashboard/page.tsx`**
+- canonicalConnections useEffect 가 naver 미연결 판정시 `rating:null, reviews:null` 까지 함께 덮어씀.
+- `reloadStoresMe()` 가 막 set 한 `reviews:20` 집계를 다음 틱에 지워버림.
+
+**원인 B — `app/api/stores/me/route.ts`**
+- naver_place 를 `platform_credentials` 에만 있으면 "연결됨" 으로 간주.
+- 유저가 `/settings StoreTab` 에서 URL 만 붙여 넣어 등록한 경우 `stores.naver_place_id` 에는 있지만 platform_credentials 는 비어 있음 → server 가 `connected:false` 내려보냄 → useConnections 훅이 canonical 로 전파 → 대시보드 카드가 집계 지움.
+
+### 수정
+- **dashboard/page.tsx**: canonical effect 에서 `connected:false` 만 해제, rating/reviews 는 보존. 코멘트 30차-18 주석 박아둠.
+- **stores/me/route.ts**: naver_place 연결 판정을 `platform_credentials` + `place_targets`(naverLink) + `stores.naver_place_id` + `platform_reviews` 존재까지 확장. 어느 경로로 등록했든 "연결됨" 으로 판정.
+
+---
+
+## 30차-19 — AI 답글 재작성 (커뮤니케이션 전문가 + SEO + Vision) (2026-04-22)
+
+### 작업 배경
+> 사용자 요청: "리뷰 정말 좋은데 답글이 해당글과 사진을 분석하여 커뮤니케이션 전문가로써 우리 매장에 네이버 플레이스 SEO와 상위노출에 필요한 키워드를 합리적으로 추론하여 작성 바람"
+
+프롬프트 한 줄 수정이 아니라, 매장 컨텍스트(지역·업종·메인키워드·description) + 리뷰 사진 URL 까지 LLM 이 봐야 "정말 우리 매장 사람이 쓴 것" 같은 답글이 나옴.
+
+### 변경 내역 — `app/api/ai-review-reply/route.ts` 전면 재작성
+- **자동 로드**: `requireUser()` + `createServiceClient()` → stores(name/category/address/main_keyword/sub_keywords/description) + platform_reviews(content/photos/rating) 를 `review_id` 만으로 끌어옴. description 컬럼 없는 환경은 2단 select fallback.
+- **SEO 키워드 조합**: `extractRegionFromAddress()` 로 "○○시 ○○구 ○○동" 파싱 → `buildSeoKeywords()` 에서 지역+업종 / 지역+메인키워드 / 메인키워드 / 매장명 / sub_keywords dedupe 후 시스템 프롬프트에 주입.
+- **모델 분기**: 사진 있으면 `claude-sonnet-4-6` Vision (URL 참조), 없으면 `claude-haiku-4-5-20251001` 텍스트. Vision URL 거부 시 텍스트 전용 재시도 fallback.
+- **사진 전용 전략**: empty / photo_only / positive 분기 각각에 "사진에 보이는 메뉴·플레이팅·분위기 직접 언급" 가이드 포함.
+- **호환성**: 예전 프론트의 `review_text` / `store_name` / `tone` 플랫 파라미터도 받도록 하위 호환.
+
+---
+
+## 30차-20 — AI 답글 원클릭 자동 등록 (단기 UX) (2026-04-22)
+
+### 변경 내역 — `app/review-admin/naver/page.tsx`
+- **handleAiReply**: 기존 `review_text / reviewer_name / rating / store_name / tone` 플랫 바디 → `review_id + review + rating + aiSettings{tone,length}` 로 전환. 백엔드가 DB 에서 사진·매장 컨텍스트 자동 로드.
+- **⚡ 원클릭 자동 등록 버튼**: `handleOneClickReply()` 신설. 생성 완료 → 클립보드 자동 복사 → `https://new.smartplace.naver.com/` 새 탭 오픈까지 한 번에. 토스트로 "붙여넣기만 하면 돼요" 안내.
+- **✨ 먼저 미리보기 버튼**: 기존 "AI 답글 생성" 플로우 (생성만, 복사는 별도 버튼) 유지.
+
+### 장기 플랜
+- 23차-4 (NaverPlaceAdapter MVP) + Railway Worker Playwright 완성 시 실제 submit 까지 자동화. 현재는 복사+탭 오픈까지만 자동.
+
+---
+
+*최종 업데이트: 2026-04-22 30차-18/19/20 배포 완료 (dashboard 리뷰 wipe 방지 + AI 답글 SEO·Vision + 원클릭 등록)*
