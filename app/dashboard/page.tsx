@@ -1435,9 +1435,18 @@ export default function Dashboard() {
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center justify-between mb-1.5">
                         <span className="text-sm font-semibold text-[#191F28]">{p.name}</span>
-                        {p.rating !== null ? (
+                        {/* 30차-17: 리뷰 카운트 기준으로 분기. 네이버 공개 GraphQL 은 rating=null
+                            반환(키워드 리뷰 시스템) 이므로 rating 기준 분기는 수집 성공해도
+                            "아직 수집 전" 이 계속 노출되던 버그가 있었다. → reviews 개수 기준 */}
+                        {typeof p.reviews === 'number' && p.reviews > 0 ? (
                           <div className="flex items-center gap-3">
-                            <Stars rating={p.rating} />
+                            {p.rating !== null ? (
+                              <Stars rating={p.rating} />
+                            ) : (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#F2F4F6] text-[#8B95A1] font-semibold">
+                                키워드 리뷰
+                              </span>
+                            )}
                             <span className="text-xs text-[#8B95A1]">리뷰 <strong className="text-[#191F28]">{p.reviews}건</strong></span>
                           </div>
                         ) : isFetchingThis ? (
