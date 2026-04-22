@@ -19,7 +19,6 @@
 // ============================================================
 
 import { useState, useEffect, useCallback, useRef } from 'react'
-import type { ReactNode } from 'react'
 import Link from 'next/link'
 import Sidebar from '../../components/Sidebar'
 import Footer from '../../components/Footer'
@@ -74,9 +73,8 @@ export interface PlatformConfig {
   color: string                   // 브랜드 컬러 hex
   bg: string                      // 연한 배경 hex
   textColor: string               // 글자 컬러 hex
-  icon: string                    // "🟢" 헤더 이모지 (logoNode 없을 때 폴백)
+  icon: string                    // "🟢" 헤더 이모지
   iconLetter: string              // "N" 원형 아이콘 글자 (사용 안 해도 됨)
-  logoNode?: ReactNode             // SVG 로고 — 있으면 PageHeader icon 대신 사용
   supportsFetch: boolean          // "지금 수집" 버튼 노출 여부
   connectHref: string             // 미연결 시 이동 경로 (/dashboard or /my/platforms/xxx/connect)
   collectEndpoint?: string        // 31차-3: "지금 수집" 커스텀 엔드포인트 (기본 /api/place/reviews/fetch)
@@ -541,7 +539,6 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
         <main className="flex-1 ml-0 md:ml-[220px] pt-14 md:pt-0 min-w-0">
           <PageHeader
             icon={config.icon}
-            logoNode={config.logoNode}
             title={`${config.label} 리뷰 관리`}
             subtitle={
               connected
@@ -1028,4 +1025,13 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
           />
           <button
             onClick={() => setLightboxUrl(null)}
-            className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/90 tex
+            className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/90 text-[#191F28] font-bold text-lg flex items-center justify-center hover:bg-white"
+            aria-label="닫기"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
