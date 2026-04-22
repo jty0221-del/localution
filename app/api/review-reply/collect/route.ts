@@ -109,10 +109,11 @@ export async function POST(req: NextRequest) {
     )
 
     if (!result.ok) {
-      return NextResponse.json(
-        { ok: false, error: 'enqueue 실패: ' + result.error },
-        { status: 500 },
-      )
+      const isRedis = result.error?.includes('REDIS_URL')
+      const msg = isRedis
+        ? 'Worker 연결 미설정 — Vercel 환경변수에 REDIS_URL(Railway Redis Public URL)을 추가하세요'
+        : 'enqueue 실패: ' + result.error
+      return NextResponse.json({ ok: false, error: msg }, { status: isRedis ? 503 : 500 })
     }
 
     const note = `Worker 큐에 등록됐어요. 1~3분 뒤 "새로고침" 누르면 리뷰가 표시됩니다. (jobId: ${result.jobId})`
