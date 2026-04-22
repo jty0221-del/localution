@@ -19,7 +19,8 @@ const CONFIG: PlatformConfig = {
   textColor: '#0C6F6B',
   icon: '🍔',
   iconLetter: '배',
-  supportsFetch: false,              // 23차-5 BaeminAdapter 대기
+  supportsFetch: true,               // 32차-2 BaeminAdapter 완료
+  collectEndpoint: '/api/review-reply/collect?platform=baemin',
   connectHref: '/my/platforms/baemin/connect',
 }
 
