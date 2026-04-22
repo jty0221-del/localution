@@ -1,7 +1,5 @@
 'use client'
 
-export const dynamic = 'force-dynamic'
-
 import React, { useState, useEffect, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import Sidebar from '../components/Sidebar'
@@ -10,6 +8,8 @@ import PageHeader from '../components/PageHeader'
 import { useConnections, PlatformId } from '../lib/connections'
 import { toast, confirmDialog } from '../lib/toast'
 import { buildSettingsHref } from '../lib/settings-tabs'
+
+export const dynamic = 'force-dynamic'
 
 // ═══════════════════════════════════════════════════════════════
 //  플랫폼 로고 SVG 컴포넌트 (대시보드와 동일)
