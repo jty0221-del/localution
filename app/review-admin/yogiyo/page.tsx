@@ -2,28 +2,20 @@
 
 // ============================================================
 // 30차-22 · /review-admin/yogiyo — 공통 컴포넌트 사용 wrapper
-//   30차-21 초안→편집→등록 + 30차-22 일괄 초안 생성
-//   Worker 구현 전까지 "지금 수집" 은 비활성 (23차-5 대기)
 // ============================================================
 
 export const dynamic = 'force-dynamic'
 
 import PlatformReviewAdmin, { PlatformConfig } from '../components/PlatformReviewAdmin'
 
-const CONFIG: PlatformConfig = {
-  platform: 'yogiyo',
-  uiKey: 'yogiyo',
-  label: '요기요',
-  color: '#FA0050',
-  bg: '#FFE5ED',
-  textColor: '#A3003A',
-  icon: '🛵',
-  iconLetter: '요',
-  supportsFetch: true,               // 32차-2 YogiyoAdapter 완료
-  collectEndpoint: '/api/review-reply/collect?platform=yogiyo',
-  connectHref: '/my/platforms/yogiyo/connect',
-}
-
-export default function YogiyoReviewPage() {
-  return <PlatformReviewAdmin config={CONFIG} />
-}
+function YogiyoLogo() {
+  return (
+    <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+      <rect width="64" height="64" rx="16" fill="#E5007F"/>
+      <text x="32" y="30" fontSize="14" fontWeight="900" fill="white"
+        fontFamily="'Apple SD Gothic Neo','Noto Sans KR',sans-serif"
+        textAnchor="middle">요기요</text>
+      <circle cx="23" cy="42" r="6" fill="white"/>
+      <circle cx="41" cy="42" r="6" fill="white"/>
+      <path d="M17 54 Q23 50 29 54" stroke="white" strokeWidth="2.5" fill="none" strokeLinecap="round"/>
+      <path d="M35 54 Q41 50 47 54" stroke="white" strokeWidth="2.5" 
