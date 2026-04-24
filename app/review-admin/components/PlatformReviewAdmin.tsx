@@ -64,6 +64,8 @@ const AGE_OPTIONS: { value: PersonaAge; label: string }[] = [
   { value: '60s',  label: '60대+' },
 ]
 
+const PERSONA_KEY = 'localution:review_persona'
+
 interface Review {
   id: string
   platform_review_id: string
@@ -115,6 +117,7 @@ export interface PlatformConfig {
   supportsFetch: boolean          // "지금 수집" 버튼 노출 여부
   connectHref: string             // 미연결 시 이동 경로 (/dashboard or /my/platforms/xxx/connect)
   collectEndpoint?: string        // 31차-3: "지금 수집" 커스텀 엔드포인트 (기본 /api/place/reviews/fetch)
+  reviewAdminUrl?: string           // 41차-2: 플랫폼 리뷰 관리 URL (직접 발행 시 새 탭 오픈)
 }
 
 function Stars({ n, color }: { n: number; color: string }) {
@@ -193,7 +196,15 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
   const [draftText, setDraftText] = useState<string>('')
   const [generating, setGenerating] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  const [persona, setPersona] = useState<Persona>(DEFAULT_PERSONA)
+  const [persona, setPersona] = useState<Persona>(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        const saved = window.localStorage.getItem(PERSONA_KEY)
+        if (saved) return { ...DEFAULT_PERSONA, ...JSON.parse(saved) }
+      }
+    } catch {}
+    return DEFAULT_PERSONA
+  })
 
   // ── 일괄 초안 생성 상태 ───────────────────────
   const [bulkRunning, setBulkRunning] = useState(false)
@@ -421,16 +432,19 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
     }
   }
 
-  // ── 8) 이대로 등록 ─────
+  // ── 8) 직접 발행 ─────
   const handleSubmit = async (review: Review) => {
     if (!draftText || !draftText.trim()) {
-      toast.warn('먼저 답글 초안을 생성해주세요')
+      toast.warn('먼저 답글을 작성해주세요')
       return
     }
     setSubmitting(true)
     try {
-      const saved = await saveDraftEdit(review, draftText.trim())
+      const trimmed = draftText.trim()
+      const saved = await saveDraftEdit(review, trimmed)
       if (!saved) { setSubmitting(false); return }
+
+      // DB 상태 → submitted 직접 처리
       const res = await fetch('/api/review-reply/submit', {
         method: 'POST',
         credentials: 'include',
@@ -439,18 +453,31 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
       })
       const data = await res.json()
       if (!res.ok || !data?.ok) {
-        toast.error('등록 실패: ' + (data?.error || ''))
+        toast.error('발행 실패: ' + (data?.error || ''))
         return
       }
-      toast.success(data.note || '대기열에 등록됐어요 ✨')
+
+      // 클립보드 복사
+      try {
+        await navigator.clipboard.writeText(trimmed)
+        toast.success('답글이 클립보드에 복사됐어요! 새 탭에서 붙여넣기 해주세요 ✂️')
+      } catch {
+        toast.success('발행 처리됐어요 ✅')
+      }
+
+      // 플랫폼 리뷰 관리 페이지 새 탭
+      if (config.reviewAdminUrl) {
+        window.open(config.reviewAdminUrl, '_blank', 'noopener')
+      }
+
       setReviews((prev) =>
         prev.map((r) =>
           r.id === review.id
             ? {
                 ...r,
-                replyStatus: 'queued',
-                replyQueuedAt: data.reply_queued_at || new Date().toISOString(),
-                draftReply: draftText.trim(),
+                replyStatus: 'submitted',
+                replySubmittedAt: new Date().toISOString(),
+                draftReply: trimmed,
               }
             : r,
         ),
@@ -458,7 +485,7 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
       setEditingId(null)
       setDraftText('')
     } catch (e: any) {
-      toast.error('등록 오류: ' + (e?.message || e))
+      toast.error('발행 오류: ' + (e?.message || e))
     } finally {
       setSubmitting(false)
     }
@@ -849,6 +876,7 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
                     const isEditing = editingId === review.id
                     const hasDraft = !!(review.draftReply && review.draftReply.trim())
                     const isQueued = review.replyStatus === 'queued' || review.replyStatus === 'submitting'
+                    const isSubmitting = submitting && editingId === review.id
                     const isSubmitted = review.replyStatus === 'submitted'
                     const isBulkTarget = bulkRunning && bulkProgress.currentId === review.id
                     return (
@@ -986,6 +1014,17 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
                                       })}
                                     </div>
                                   </div>
+                                  <div className="flex justify-end pt-1">
+                                    <button
+                                      onClick={() => {
+                                        try { localStorage.setItem(PERSONA_KEY, JSON.stringify(persona)) } catch {}
+                                        toast.success('기본 페르소나 저장됨 💾')
+                                      }}
+                                      className="text-[10px] px-2.5 py-1 rounded-lg font-bold bg-[#F2F4F6] text-[#8B95A1] hover:bg-[#E5E8EB] hover:text-[#4E5968]"
+                                    >
+                                      💾 기본값으로 저장
+                                    </button>
+                                  </div>
                                 </div>
 
                                 <p className="text-[10px] text-[#8B95A1] mb-1 flex items-center gap-1">
@@ -1018,7 +1057,7 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
                                     className="px-4 py-1.5 rounded-lg text-xs font-bold text-white hover:opacity-90 disabled:opacity-50 shadow-sm"
                                     style={{ background: config.color }}
                                   >
-                                    {submitting ? '등록 중...' : isQueued ? '대기열 등록됨' : '✅ 이대로 등록하기'}
+                                    {submitting ? '발행 중...' : isQueued ? '발행됨 ✅' : '🚀 발행하기'}
                                   </button>
                  
                                   <button
@@ -1076,7 +1115,14 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
                                 style={{ background: config.color }}
                                 title="지역·업종·사진·키워드 자동 분석 → AI 답글 초안 생성"
                               >
-                                ✍️ 댓글 초안 생성
+                                ✍️ AI 초안 생성
+                              </button>
+                              <button
+                                onClick={() => { setEditingId(review.id); setDraftText('') }}
+                                disabled={bulkRunning}
+                                className="px-4 py-2 rounded-xl text-xs font-bold bg-white border border-[#E5E8EB] text-[#4E5968] hover:bg-[#F2F4F6] shadow-sm disabled:opacity-50"
+                              >
+                                ✏️ 직접 작성
                               </button>
                             )}
                           </div>
