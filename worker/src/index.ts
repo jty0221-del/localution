@@ -1,10 +1,9 @@
 // worker/src/index.ts
-// ============================================================
-// 23차-3: Railway Worker 엔트리포인트
-//   · BullMQ 기반 플랫폼 자동화 워커
-//   · 지원 플랫폼: naver_place / baemin / yogiyo / coupangeats
-//   · Redis 연결 → 잡 큐 구독 → 어댑터 라우팅 → Playwright 실행
-// ============================================================
+// ==================================================================
+// 42차-2: fly.io 재시작 루프 수정
+//   · ENCRYPTION_KEY_HEX → ENCRYPTION_KEK_HEX 이름 통일
+//   · 헬스서버 / 경로도 200 응답 추가
+// ==================================================================
 import { Worker, Queue, Job } from 'bullmq'
 import IORedis from 'ioredis'
 import pino from 'pino'
@@ -17,9 +16,6 @@ const log = pino({
   transport: process.env.NODE_ENV === 'production' ? undefined : { target: 'pino-pretty' },
 })
 
-// ─────────────────────────────────────────────
-// 환경 변수 검증
-// ─────────────────────────────────────────────
 const REDIS_URL = process.env.REDIS_URL
 const SUPABASE_URL = process.env.SUPABASE_URL
 const SUPABASE_SERVICE_ROLE_KEY = process.env.SUPABASE_SERVICE_ROLE_KEY
@@ -30,29 +26,22 @@ if (!REDIS_URL) {
   process.exit(1)
 }
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-  log.fatal('SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY missing')
+  log.fatal('SUPABASE_URL / SUPBASE_SERVICE_ROLE_KEY missing')
   process.exit(1)
 }
 if (!ENCRYPTION_KEK_HEX || ENCRYPTION_KEK_HEX.length !== 64) {
-  log.fatal('ENCRYPTION_KEK_HEX must be 64 hex chars (32 bytes)')
+  log.fatal({ val: ENCRYPTION_KEK_HEX?.length }, 'ENCRYPTION_KEK_HEX must be 64 hex chars')
   process.exit(1)
 }
 
-// ─────────────────────────────────────────────
-// Redis 연결
-// ─────────────────────────────────────────────
 const connection = new IORedis(REDIS_URL, {
-  maxRetriesPerRequest: null, // BullMQ 권장
+  maxRetriesPerRequest: null,
   enableReadyCheck: false,
 })
 
 connection.on('connect', () => log.info('redis connected'))
 connection.on('error', (err) => log.error({ err }, 'redis error'))
 
-// ─────────────────────────────────────────────
-// Playwright Browser 싱글턴
-//   · 컨테이너 기동 시 1회만 launch, 모든 잡이 newContext() 로 격리
-// ─────────────────────────────────────────────
 let browserSingleton: Browser | null = null
 async function getBrowser(): Promise<Browser> {
   if (browserSingleton && browserSingleton.isConnected()) return browserSingleton
@@ -70,9 +59,6 @@ async function getBrowser(): Promise<Browser> {
   return browserSingleton
 }
 
-// ─────────────────────────────────────────────
-// Worker 등록 — 큐 이름: 'platform-jobs'
-// ─────────────────────────────────────────────
 const QUEUE_NAME = 'platform-jobs'
 
 const worker = new Worker<PlatformJobData>(
@@ -104,12 +90,9 @@ worker.on('error', (err) => {
   log.error({ err: err.message }, 'worker error')
 })
 
-// ─────────────────────────────────────────────
-// 헬스체크 HTTP 서버 (Railway 가 healthcheck path 붙이는 경우 대비)
-// ─────────────────────────────────────────────
-const port = parseInt(process.env.PORT || '3000', 10)
+const port = parseInt(process.env.PORT || '8080', 10)
 const healthServer = http.createServer((req, res) => {
-  if (req.url === '/health') {
+  if (req.url === '/health' || req.url === '/') {
     res.writeHead(200, { 'Content-Type': 'application/json' })
     res.end(JSON.stringify({ status: 'ok', queue: QUEUE_NAME, ts: new Date().toISOString() }))
     return
@@ -122,9 +105,6 @@ healthServer.listen(port, () => {
   log.info({ port }, 'health server listening')
 })
 
-// ─────────────────────────────────────────────
-// Graceful shutdown
-// ─────────────────────────────────────────────
 async function shutdown(signal: string) {
   log.info({ signal }, 'shutting down')
   try {
@@ -145,4 +125,4 @@ async function shutdown(signal: string) {
 process.on('SIGTERM', () => shutdown('SIGTERM'))
 process.on('SIGINT', () => shutdown('SIGINT'))
 
-log.info({ queue: QUEUE_NAME, concurrency: worker.opts.concurrency }, 'worker ready')
+log.info({ queue: QUEUE_NAME, COncurrency: worker.opts.concurrency }, 'worker ready')
