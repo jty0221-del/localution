@@ -18,5 +18,6 @@ RUN echo "build-marker: 38cha-2 baemin-collect-fix" && npx tsc --showConfig | he
 
 ENV NODE_ENV=production
 ENV PORT=3000
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
 CMD ["node", "dist/index.js"]
