@@ -127,6 +127,7 @@ export default function ConnectPlatformPage() {
   const [saving, setSaving] = useState(false)
 
   const [kakaoPlaceUrl, setKakaoPlaceUrl] = useState('')
+  const [deliveryShopId, setDeliveryShopId] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
 
@@ -213,6 +214,9 @@ export default function ConnectPlatformPage() {
           account_id: accountId.trim(),
           password,
           ...(kakaoPlaceId ? { platform_store_id: kakaoPlaceId } : {}),
+          ...(['baemin', 'yogiyo', 'coupangeats'].includes(platform) && deliveryShopId.trim()
+            ? { platform_store_id: deliveryShopId.trim() }
+            : {}),
         }),
       })
       const data = await res.json()
@@ -445,6 +449,24 @@ export default function ConnectPlatformPage() {
               className="w-full border border-[#E5E8EB] rounded-xl px-4 py-3 text-[14px] focus:outline-none focus:ring-2 focus:ring-[#FEE500] bg-white"
             />
             <p className="text-[11px] text-[#8B95A1]">카카오맵에서 내 매장 페이지 URL을 붙여넣으세요</p>
+          </div>
+        )}
+
+        {/* 배민/요기요/쿠팡이츠: 가게 ID (선택) */}
+        {['baemin', 'yogiyo', 'coupangeats'].includes(platform) && (
+          <div className="flex flex-col gap-1.5 mb-6">
+            <label className="text-[12px] font-semibold text-[#4E5968]">
+              가게 ID <span className="text-[#8B95A1] font-normal">(선택 — URL의 숫자)</span>
+            </label>
+            <input
+              type="text"
+              inputMode="numeric"
+              value={deliveryShopId}
+              onChange={e => setDeliveryShopId(e.target.value.replace(/\D/g, ''))}
+              placeholder="예: 14637452"
+              className="w-full border border-[#E5E8EB] rounded-xl px-4 py-3 text-[14px] focus:outline-none focus:ring-2 focus:ring-[#3182F6] bg-white"
+            />
+            <p className="text-[11px] text-[#8B95A1]">{meta.shortLabel} 사장님 포털 URL의 숫자 ID</p>
           </div>
         )}
 
