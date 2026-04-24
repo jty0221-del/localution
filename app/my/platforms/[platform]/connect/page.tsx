@@ -17,12 +17,13 @@
 //     · /api/legal/platform-consent POST (STEP 1)
 //     · /api/platform-accounts POST (STEP 2)
 // ============================================================
-export const dynamic = 'force-dynamic'
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useParams } from 'next/navigation'
 import PlatformLogo from '../../../../components/PlatformLogo'
+
+export const dynamic = 'force-dynamic'
 
 type PlatformSlug = 'naver_place' | 'baemin' | 'yogiyo' | 'coupangeats' | 'kakao_map'
 const VALID_PLATFORMS: PlatformSlug[] = ['naver_place', 'baemin', 'yogiyo', 'coupangeats', 'kakao_map']
