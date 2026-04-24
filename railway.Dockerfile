@@ -1,6 +1,5 @@
 # Railway Worker Dockerfile
-# 38차-7: node:20 베이스로 전환 + npx playwright install chromium
-# → Playwright 이미지 버전 매칭 문제 근본 해결
+# 38차-9: 빌드 마커 업데이트 — baemin.ts 변경 (38차-8) Docker 캐시 강제 무효화
 
 FROM node:20-bookworm-slim
 
@@ -15,7 +14,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 WORKDIR /app
 
-# package.json 복사 (lockfile 제외 — 1.47.0 정확히 설치)
+# package.json 복사 (lockfile 제외)
 COPY worker/package.json ./
 RUN npm install --omit=optional --no-audit --no-fund \
     && npx playwright install chromium \
@@ -24,7 +23,8 @@ RUN npm install --omit=optional --no-audit --no-fund \
 COPY worker/tsconfig.json ./
 COPY worker/src ./src
 
-RUN echo "build-marker: 38cha-7 node20-chromium-install" && npx tsc
+# 38차-9: 마커 변경으로 src 변경 이후 tsc 강제 재실행
+RUN echo "build-marker: 38cha-9 baemin-login-fix-text-extract" && npx tsc
 
 ENV NODE_ENV=production
 ENV PORT=3000
