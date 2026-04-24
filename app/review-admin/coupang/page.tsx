@@ -30,8 +30,7 @@ const CONFIG: PlatformConfig = {
   icon: 'C',
   iconLetter: '쿠',
   logoNode: <CoupangEatsLogo />,
-  supportsFetch: true,
-  collectEndpoint: '/api/review-reply/collect?platform=coupangeats',
+  supportsFetch: false,   // Worker 준비 전까지 비활성
   connectHref: '/my/platforms/coupangeats/connect',
   reviewAdminUrl: 'https://store.coupangeats.com/',
 }
