@@ -5,13 +5,13 @@ FROM mcr.microsoft.com/playwright:v1.59.1-jammy
 
 WORKDIR /app
 
-COPY worker/package.json worker/package-lock.json* ./
+COPY package.json package-lock.json* ./
 RUN npm install --omit=optional --no-audit --no-fund \
     && npm cache clean --force
 
-COPY worker/tsconfig.json ./
+COPY tsconfig.json ./
 RUN echo "build-marker: 42cha-3-playwright-version-fix"
-COPY worker/src ./src
+COPY src ./src
 
 RUN npx tsc
 
