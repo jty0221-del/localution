@@ -876,7 +876,7 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
                     const isNegative = typeof review.rating === 'number' && review.rating <= 3
                     const isEditing = editingId === review.id
                     const hasDraft = !!(review.draftReply && review.draftReply.trim())
-                    const isQueued = review.replyStatus === 'queued' || review.replyStatus === 'submitting'
+                    const isQueued = review.replyStatus === 'submitting'  // 'queued'는 재편집 허용
                     const isSubmitting = submitting && editingId === review.id
                     const isSubmitted = review.replyStatus === 'submitted'
                     const isBulkTarget = bulkRunning && bulkProgress.currentId === review.id
@@ -1070,11 +1070,9 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
                                   </button>
                                 </div>
 
-                                {isQueued && (
-                                  <p className="text-[11px] mt-2 text-[#92400E] bg-[#FEF3C7] rounded-lg px-2 py-1.5">
-                                    ⏳ 등록 대기열에 올라와 있어요.{' '}
-                                    {review.replyQueuedAt && `(${timeAgo(review.replyQueuedAt)} 전 등록)`}{' '}
-                                    Worker 가 {config.label}에 올려드려요.
+                                {review.replyStatus === 'queued' && (
+                                  <p className="text-[11px] mt-2 text-[#4E5968] bg-[#F2F4F6] rounded-lg px-2 py-1.5">
+                                    💡 초안을 수정한 뒤 &ldquo;발행하기&rdquo;를 눌러 직접 등록해주세요.
                                   </p>
                                 )}
                                 {isSubmitted && (
