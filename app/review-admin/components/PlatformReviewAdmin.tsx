@@ -196,9 +196,6 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
   const [draftText, setDraftText] = useState<string>('')
   const [generating, setGenerating] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  // 41차-11: 수동 발행 대기 중인 review id (클립보드 복사 완료, 붙여넣기 대기)
-  const [manualPendingId, setManualPendingId] = useState<string | null>(null)
-  const [confirmingId, setConfirmingId] = useState<string | null>(null)
   const [persona, setPersona] = useState<Persona>(() => {
     try {
       if (typeof window !== 'undefined') {
@@ -216,6 +213,7 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
     done: 0, total: 0, currentId: null,
   })
   const bulkCancelRef = useRef(false)
+  const [noCredentialsHref, setNoCredentialsHref] = useState<string | null>(null)
 
   // ── 1) /api/stores/me ────────────────────────────
   const loadStoresMe = useCallback(async () => {
@@ -457,74 +455,31 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
       })
       const data = await res.json()
       if (!res.ok || !data?.ok) {
-        toast.error('발행 실패: ' + (data?.error || ''))
+        if (data?.code === 'NO_CREDENTIALS') {
+          setNoCredentialsHref(data?.connect_href || null)
+          toast.warn(data?.error || '계정을 연결해야 자동 발행이 가능해요')
+        } else {
+          toast.error('발행 실패: ' + (data?.error || ''))
+        }
         return
       }
 
-      if (data.mode === 'worker') {
-        // ── Worker 자동 발행 모드 ──
-        toast.success('⚡ Worker가 자동으로 답글을 등록해요! 1~2분 후 새로고침 해주세요.')
-        setReviews((prev) =>
-          prev.map((r) =>
-            r.id === review.id
-              ? { ...r, replyStatus: 'queued', replyQueuedAt: new Date().toISOString(), draftReply: trimmed }
-              : r,
-          ),
-        )
-        setEditingId(null)
-        setDraftText('')
-      } else {
-        // ── 수동 발행 모드 ──
-        // reply_status는 'draft' 유지 — 실제 붙여넣기 확인 후에만 submitted 처리
-        try {
-          await navigator.clipboard.writeText(trimmed)
-        } catch { /* clipboard not available */ }
-        // 플랫폼 리뷰 관리 페이지 새 탭
-        if (config.reviewAdminUrl) {
-          window.open(config.reviewAdminUrl, '_blank', 'noopener')
-        }
-        // 수동 발행 대기 상태로 전환 (편집 패널 닫기, "완료 확인" 버튼 표시)
-        setEditingId(null)
-        setDraftText('')
-        setManualPendingId(review.id)
-        toast.info('📋 답글이 클립보드에 복사됐어요. 플랫폼에 붙여넣기 후 "완료 확인" 버튼을 눌러주세요.')
-      }
+      // ── Worker 자동 발행 모드 ──
+      toast.success('⚡ Worker가 자동으로 답글을 등록해요! 1~2분 후 새로고침 해주세요.')
+      setReviews((prev) =>
+        prev.map((r) =>
+          r.id === review.id
+            ? { ...r, replyStatus: 'queued', replyQueuedAt: new Date().toISOString(), draftReply: trimmed }
+            : r,
+        ),
+      )
+
+      setEditingId(null)
+      setDraftText('')
     } catch (e: any) {
       toast.error('발행 오류: ' + (e?.message || e))
     } finally {
       setSubmitting(false)
-    }
-  }
-
-  // ── 8-B) 수동 발행 완료 확인 ─────────────────────────────────
-  // 사용자가 실제로 플랫폼에 붙여넣기를 완료했을 때 호출
-  const handleManualConfirm = async (review: Review) => {
-    setConfirmingId(review.id)
-    try {
-      const res = await fetch('/api/review-reply/submit', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ review_id: review.id }),
-      })
-      const data = await res.json()
-      if (!res.ok || !data?.ok) {
-        toast.error('완료 처리 실패: ' + (data?.error || ''))
-        return
-      }
-      setReviews((prev) =>
-        prev.map((r) =>
-          r.id === review.id
-            ? { ...r, replyStatus: 'submitted', replySubmittedAt: new Date().toISOString(), hasReply: true }
-            : r,
-        ),
-      )
-      setManualPendingId(null)
-      toast.success('✅ 발행 완료로 처리됐어요!')
-    } catch (e: any) {
-      toast.error('완료 처리 오류: ' + (e?.message || e))
-    } finally {
-      setConfirmingId(null)
     }
   }
 
@@ -1125,27 +1080,77 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
                                     )}
                                   </p>
                                 )}
+                                {noCredentialsHref && (
+                                  <div className="mt-2 flex items-center gap-2 bg-[#FFF7ED] border border-[#FED7AA] rounded-lg px-3 py-2">
+                                    <span className="text-xs text-[#92400E] flex-1">🔗 자동 발행하려면 {config.label} 계정을 연결해주세요</span>
+                                    <Link
+                                      href={noCredentialsHref}
+                                      className="px-3 py-1 rounded-lg text-xs font-bold text-white hover:opacity-90 whitespace-nowrap"
+                                      style={{ background: config.color }}
+                                    >
+                                      계정 연결하기
+                                    </Link>
+                                  </div>
+                                )}
                               </>
                             )}
                           </div>
                         )}
 
-                        {/* 수동 발행 대기 배너 (클립보드 복사 완료, 붙여넣기 대기) */}
-                        {!isEditing && !review.hasReply && manualPendingId === review.id && (
-                          <div className="rounded-xl border border-[#FCD34D] bg-[#FFFBEB] p-3 mb-2">
-                            <p className="text-[12px] font-semibold text-[#92400E] mb-2">
-                              📋 클립보드에 복사됐어요. {config.label}에서 붙여넣기 하셨나요?
-                            </p>
-                            <div className="flex gap-2 flex-wrap">
-                              {config.reviewAdminUrl && (
-                                <a
-                                  href={config.reviewAdminUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  className="px-3 py-1.5 rounded-lg text-xs font-bold bg-white border border-[#E5E8EB] text-[#4E5968] hover:bg-[#F2F4F6]"
+                        {/* 초기 진입 버튼 */}
+                        {!isEditing && !review.hasReply && (
+                          <div className="flex gap-2 flex-wrap items-center">
+                            {hasDraft ? (
+                              <>
+                                <button
+                                  onClick={() => openEditor(review)}
+                                  className="px-4 py-2 rounded-xl text-xs font-bold text-white hover:opacity-90 shadow-sm"
+                                  style={{ background: config.color }}
                                 >
-                                  {config.label} 열기 ↗
-                                </a>
-                              )}
-                              <button
-                    
+                                  📝 초안 이어서 편집
+                                </button>
+                                <span className="text-[11px] text-[#8B95A1] truncate max-w-[280px]">
+                                  {(review.draftReply || '').slice(0, 60)}{(review.draftReply || '').length > 60 ? '...' : ''}
+                                </span>
+                              </>
+                            ) : (
+                              <>
+                                <button
+                                  onClick={() => handleGenerateDraft(review)}
+                                  disabled={bulkRunning}
+                                  className="px-4 py-2 rounded-xl text-xs font-bold text-white hover:opacity-90 shadow-sm disabled:opacity-50"
+                                  style={{ background: config.color }}
+                                  title="지역·업종·사진·키워드 자동 분석 → AI 답글 초안 생성"
+                                >
+                                  ✍️ AI 초안 생성
+                                </button>
+                                <button
+                                  onClick={() => { setEditingId(review.id); setDraftText('') }}
+                                  disabled={bulkRunning}
+                                  className="px-4 py-2 rounded-xl text-xs font-bold bg-white border border-[#E5E8EB] text-[#4E5968] hover:bg-[#F2F4F6] shadow-sm disabled:opacity-50"
+                                >
+                                  ✏️ 직접 작성
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )
+            ) : null}
+
+            <div className="-mx-4 md:-mx-6 mt-10">
+              <Footer />
+            </div>
+          </div>
+        </main>
+      </div>
+
+      {/* 30차-23: 사진 라이트박스 */}
+      {lightboxUrl && (
+        <div
+          role="dialog"
+          aria-modal="tru
