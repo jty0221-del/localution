@@ -126,6 +126,7 @@ export default function ConnectPlatformPage() {
   const [showPw, setShowPw] = useState(false)
   const [saving, setSaving] = useState(false)
 
+  const [kakaoPlaceUrl, setKakaoPlaceUrl] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
 
@@ -198,6 +199,12 @@ export default function ConnectPlatformPage() {
     setError(null)
     setSaving(true)
     try {
+      // kakao_map: place URL에서 숫자 ID 추출
+      let kakaoPlaceId: string | undefined
+      if (platform === 'kakao_map' && kakaoPlaceUrl.trim()) {
+        const m = kakaoPlaceUrl.trim().match(/\/?(\d{6,})/)
+        if (m) kakaoPlaceId = m[1]
+      }
       const res = await fetch('/api/platform-accounts', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -205,6 +212,7 @@ export default function ConnectPlatformPage() {
           platform,
           account_id: accountId.trim(),
           password,
+          ...(kakaoPlaceId ? { platform_store_id: kakaoPlaceId } : {}),
         }),
       })
       const data = await res.json()
@@ -422,6 +430,23 @@ export default function ConnectPlatformPage() {
             )}
           </button>
         </div>
+
+        {/* 카카오맵 전용: 플레이스 URL 입력 */}
+        {platform === 'kakao_map' && (
+          <div className="flex flex-col gap-1.5">
+            <label className="text-[12px] font-semibold text-[#4E5968]">
+              카카오맵 플레이스 URL <span className="text-[#8B95A1] font-normal">(선택 — 리뷰 수집에 필요)</span>
+            </label>
+            <input
+              type="url"
+              value={kakaoPlaceUrl}
+              onChange={e => setKakaoPlaceUrl(e.target.value)}
+              placeholder="https://place.map.kakao.com/1234567890"
+              className="w-full border border-[#E5E8EB] rounded-xl px-4 py-3 text-[14px] focus:outline-none focus:ring-2 focus:ring-[#FEE500] bg-white"
+            />
+            <p className="text-[11px] text-[#8B95A1]">카카오맵에서 내 매장 페이지 URL을 붙여넣으세요</p>
+          </div>
+        )}
 
         {/* 로그인 버튼 */}
         <button
