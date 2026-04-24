@@ -9,4 +9,4 @@ const nextConfig = {
 };
 
 module.exports = nextConfig;
-// 38차-1: env update redeploy trigger
+// 38차-1: REDIS_URL + CRON_SECRET env redeploy trigger
