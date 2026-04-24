@@ -1,24 +1,21 @@
-# Railway Worker — Playwright + BullMQ
-# 23차-3: 플랫폼 자동화 워커 (naver_place / baemin / yogiyo / coupangeats)
+# fly.io Worker – Playwright + BullMQ
+# 42차-3: Playwright 1.47 → 1.59.1 버전 업 (chromium 경�� 불일치 수정)
 
-FROM mcr.microsoft.com/playwright:v1.47.0-jammy
+FROM mcr.microsoft.com/playwright:v1.59.1-jammy
 
 WORKDIR /app
 
-# 의존성 설치 (캐시 최적화)
-COPY package.json package-lock.json* ./
-RUN npm install --omit=optional && npm cache clean --force
+COPY worker/package.json worker/package-lock.json* ./
+RUN npm install --omit=optional --no-audit --no-fund \
+    && npm cache clean --force
 
-# 소스 복사
-COPY tsconfig.json ./
-COPY src ./src
+COPY worker/tsconfig.json ./
+RUN echo "build-marker: 42cha-3-playwright-version-fix"
+COPY worker/src ./src
 
-# TypeScript 빌드
 RUN npx tsc
 
-# 환경 변수는 Railway 에서 주입
 ENV NODE_ENV=production
-ENV PORT=3000
+ENV PORT=8080
 
-# BullMQ 워커 실행 (HTTP 서버 아님, 헬스체크용 포트는 선택)
-CMD ["node", "dist/index.js"]
+CMD [ "node", "dist/index.js" ]
