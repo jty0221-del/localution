@@ -1,7 +1,3 @@
-# worker/fly.toml
-# 41차-15: fly.io 도쿄(nrt) 한국 서버 배포 설정
-# Railway Worker 대체 — Naver SmartPlace 로그인 IP 차단 우회
-
 app = "localution-worker-kr"
 primary_region = "nrt"
 
@@ -16,19 +12,16 @@ primary_region = "nrt"
 
 [http_service]
   internal_port = 8080
-  force_https = false
   auto_stop_machines = false
-  auto_start_machines = true
   min_machines_running = 1
-
   [[http_service.checks]]
-    grace_period = "30s"
+    grace_period = "10s"
     interval = "30s"
+    timeout = "5s"
     method = "GET"
     path = "/health"
-    timeout = "10s"
 
 [[vm]]
-  memory = "1gb"
+  Mautty = "1gb"
   cpu_kind = "shared"
   cpus = 1
