@@ -60,8 +60,10 @@ export async function GET(req: NextRequest) {
       q = q.lte('rating', maxRating)
     }
     if (periodDays) {
+      // 38차-1: posted_at=NULL 인 키워드 리뷰가 period 필터에서 누락되는 문제 수정
+      // posted_at >= since  OR  (posted_at IS NULL AND collected_at >= since)
       const since = new Date(Date.now() - periodDays * 86400000).toISOString()
-      q = q.gte('posted_at', since)
+      q = q.or(`posted_at.gte.${since},and(posted_at.is.null,collected_at.gte.${since})`)
     }
     if (unrepliedOnly) {
       q = q.eq('has_reply', false)
