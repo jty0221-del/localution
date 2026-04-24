@@ -5,7 +5,8 @@
 //   사용 후 삭제 예정
 // ============================================================
 import { NextRequest, NextResponse } from 'next/server'
-import { requireAdmin, createServiceClient } from '@/app/lib/adminAuth'
+import { requireUser } from '@/app/lib/userAuth'
+import { createServiceClient } from '@/app/lib/adminAuth'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -29,7 +30,7 @@ const SEED_REVIEWS = [
 ]
 
 export async function GET(req: NextRequest) {
-  const auth = await requireAdmin()
+  const auth = await requireUser()
   if (!auth.ok) {
     return NextResponse.json({ ok: false, error: auth.message }, { status: auth.status })
   }
@@ -84,8 +85,7 @@ export async function GET(req: NextRequest) {
     admin: auth.email,
     userId,
     storeId,
+    email: auth.email,
     inserted: Array.isArray(data) ? data.length : 0,
     total: SEED_REVIEWS.length,
-    reviews: Array.isArray(data) ? data.map((d: any) => d.platform_review_id) : [],
-  })
-}
+    reviews: Array.isArray(data) ?
