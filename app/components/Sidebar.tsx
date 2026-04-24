@@ -60,6 +60,7 @@ const MID_FLAT = [
 
 const REVIEW_SUB = [
   { href: '/review-admin/naver',   label: '네이버',     color: '#03C75A' },
+  { href: '/review-admin/kakao',   label: '카카오맵',   color: '#FEE500' },
   { href: '/review-admin/google',  label: '구글',       color: '#4285F4' },
   { href: '/review-admin/baemin',  label: '배달의민족', color: '#2AC1BC' },
   { href: '/review-admin/yogiyo',  label: '요기요',     color: '#FA0050' },
