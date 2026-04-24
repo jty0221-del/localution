@@ -1,6 +1,7 @@
 // app/api/review-reply/auto-publish/route.ts
 // ============================================================
 // 41차-10 · 리뷰 자동 발행 (Worker 큐 연동)
+// 41차-11 fix: 수동 모드에서 reply_status 변경 금지 — draft 유지
 //
 //   POST /api/review-reply/auto-publish
 //     body: { review_id: string }
@@ -9,10 +10,11 @@
 //     1) 본인 소유 리뷰 + draft_reply 확인
 //     2) platform_credentials 조회 → 연동 자격증명 있으면 Worker 모드
 //     3) Worker 모드: BullMQ 'post_reply' 잡 enqueue → reply_status='queued'
-//     4) 수동 모드: reply_status='submitted' 직접 처리 (클립보드 복사 안내)
+//     4) 수동 모드: reply_status 변경 없음 (draft 유지) — 클립보드 복사 안내
+//                  사용자가 "붙여넣기 완료" 확인 버튼 클릭 시 /submit 으로 submitted 처리
 //
 //   응답:
-//     { ok: true, mode: 'worker'|'manual', reply_status, jobId?, note }
+//     { ok: true, mode: 'worker'|'manual', draft_reply, reply_status?, jobId?, note }
 // ============================================================
 import { NextRequest, NextResponse } from 'next/server'
 import { requireUser } from '@/app/lib/userAuth'
@@ -88,15 +90,12 @@ export async function POST(req: NextRequest) {
       })
 
       if (!jobResult.ok) {
-        // 큐 실패 → 수동 모드로 폴백
-        await svc.from('platform_reviews')
-          .update({ reply_status: 'submitted', reply_submitted_at: now, reply_error: null })
-          .eq('id', reviewId).eq('user_id', userId)
+        // 큐 실패 → 수동 모드로 폴백 (reply_status 변경 없음)
         return NextResponse.json({
           ok: true,
           mode: 'manual',
-          reply_status: 'submitted',
-          note: `큐 등록 실패(${jobResult.error}) — 클립보드에 복사된 답글을 플랫폼에 직접 붙여넣기 해주세요`,
+          draft_reply: draft,
+          note: `큐 등록 실패(${jobResult.error}) — 클립보드에 복사된 답글을 플랫폼에 직접 붙여넣기 해주세요. 붙여넣기 후 "완료 확인" 버튼을 눌러주세요.`,
         })
       }
 
@@ -114,21 +113,16 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    // ── 4) 수동 모드: DB 만 업데이트 ─────────────────────────────
-    const now = new Date().toISOString()
-    await svc.from('platform_reviews')
-      .update({ reply_status: 'submitted', reply_submitted_at: now, reply_error: null })
-      .eq('id', reviewId).eq('user_id', userId)
-
+    // ── 4) 수동 모드: reply_status 변경 없음 (draft 유지) ────────────
+    // 사용자가 플랫폼에서 직접 붙여넣기 후 "완료 확인" 버튼을 클릭하면
+    // /api/review-reply/submit 이 reply_status='submitted' 처리
     return NextResponse.json({
       ok: true,
       mode: 'manual',
-      reply_status: 'submitted',
+      draft_reply: draft,
       note: hasCredentials
-        ? '클립보드에 복사된 답글을 플랫폼에 직접 붙여넣기 해주세요'
-        : '계정 연동 후 자동 발행이 가능해요. 지금은 클립보드에 복사된 답글을 직접 붙여넣기 해주세요',
+        ? '클립보드에 복사됐어요. 플랫폼에 직접 붙여넣기 후 "완료 확인" 버튼을 눌러주세요.'
+        : '계정 연동 후 자동 발행이 가능해요. 지금은 클립보드에 복사됐어요. 플랫폼에 붙여넣기 후 "완료 확인" 버튼을 눌러주세요.',
     })
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: '예외: ' + (e?.message ?? String(e)) }, { status: 500 })
-  }
-}
+    return NextResponse.js
