@@ -732,11 +732,6 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
                   <span className="text-xl leading-none mt-0.5">🟢</span>
                   <div className="flex-1 min-w-[200px]">
                     <p className="text-sm font-bold text-[#191F28] mb-1">네이버 플레이스 리뷰 — 자동 수집 + 사장님 답글 작성</p>
-                    <p className="text-xs text-[#4E5968] leading-relaxed">
-                      네이버는 공개 리뷰 GraphQL 로 별점 없는 <b>키워드 리뷰</b> 도 함께 수집돼요.
-                      미답변 리뷰에 AI 초안을 만들어 수정 후 "이대로 등록" 하면,
-                      Worker 가 네이버 사장님 센터에 자동으로 답글을 올려드립니다. (현재 <b>Worker 어댑터 준비 중</b>)
-                    </p>
                   </div>
                   {placeId && (
                     <a
@@ -869,7 +864,7 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
                     const hasDraft = !!(review.draftReply && review.draftReply.trim())
                     const isQueued = review.replyStatus === 'submitting'  // 'queued'는 재편집 허용
                     const isSubmitting = submitting && editingId === review.id
-                    const isSubmitted = review.replyStatus === 'submitted'
+                    const isSubmitted = review.replyStatus === 'submitted' && !!review.hasReply
                     const isBulkTarget = bulkRunning && bulkProgress.currentId === review.id
                     return (
                       <div
@@ -1177,3 +1172,4 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
     </div>
   )
 }
+                                                                                                                                                                                                                                                                                                                                                                                                                                                                        
