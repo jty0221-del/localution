@@ -157,7 +157,6 @@ export async function runNaver(
           .from('platform_reviews')
           .update({
             has_reply: true,
-            reply_content: replyText,
             reply_status: 'submitted',
             reply_submitted_at: new Date().toISOString(),
             reply_error: null,
