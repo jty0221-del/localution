@@ -1153,4 +1153,27 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
       {lightboxUrl && (
         <div
           role="dialog"
-          aria-modal="tru
+          aria-modal="true"
+          className="fixed inset-0 bg-black/80 z-[9999] flex items-center justify-center p-4"
+          onClick={() => setLightboxUrl(null)}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={lightboxUrl}
+            alt="review-photo-large"
+            referrerPolicy="no-referrer"
+            className="max-w-full max-h-full rounded-lg shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+          <button
+            onClick={() => setLightboxUrl(null)}
+            className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/90 text-[#191F28] font-bold text-lg flex items-center justify-center hover:bg-white"
+            aria-label="닫기"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
