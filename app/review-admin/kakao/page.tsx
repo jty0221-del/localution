@@ -6,10 +6,9 @@
 //   공개 commentlist 수집 파이프 (31차-3) 연동
 // ============================================================
 
-import PlatformReviewAdmin from '../components/PlatformReviewAdmin'
-import type { PlatformConfig } from '../components/PlatformReviewAdmin'
-
 export const dynamic = 'force-dynamic'
+
+import PlatformReviewAdmin, { PlatformConfig } from '../components/PlatformReviewAdmin'
 
 const CONFIG: PlatformConfig = {
   platform: 'kakao_map',
@@ -22,6 +21,7 @@ const CONFIG: PlatformConfig = {
   iconLetter: '카',
   supportsFetch: true,                 // 31차-3: 공개 panel3 수집기 완료
   connectHref: '/my/platforms/kakao_map/connect',
+  reviewAdminUrl: 'https://business.kakao.com/',
   collectEndpoint: '/api/place/kakao/collect',
 }
 
