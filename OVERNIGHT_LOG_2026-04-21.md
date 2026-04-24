@@ -581,7 +581,6 @@ Railway 대시보드 → `worker` 서비스 → Variables 에 아래 3개 추가
 
 ---
 
-*최종 업데이트: 2026-04-22 31차 배포 완료 (Kakao Map 5번째 플랫폼 통합 + /settings/profile 서버 동기화 + panel3 공개 수집기)*
 
 ---
 
@@ -784,4 +783,42 @@ Vercel 빌드에서 `bullmq` / `ioredis` 관련 `Module not found` 에러 발생
 
 ---
 
-*최종 업데이트: 2026-04-22 36차 배포 완료 (submit BullMQ 전환 + KakaoMapAdapter 구현)*
+
+## 39차 (2026-04-24) — Baemin 인증 + XHR 캡처 완전 재작성
+
+| 차수 | 파일 | 내용 |
+|------|------|------|
+| 39-1 | worker/src/adapters/baemin.ts | 인증감지 방식 변경 + XHR 캡처 리뷰 추출 |
+| 39-1 | railway.Dockerfile | build-marker 39cha-1 캐시 무효화 |
+
+### 배경
+- 38차-8/9에서 CEO_HOME 방문 후 비밀번호 입력 폼 없으면 "이미 로그인"으로 잘못 판단
+- 비인증 랜딩 페이지(마케팅 페이지)에는 비밀번호 폼이 없어 매번 오탐 → ErrorLayout → 리뷰 0
+
+### 변경 내역
+
+#### 39차-1 — baemin.ts 완전 재작성
+**인증 감지 방식 변경:**
+- Before: `!passwordInput` → "로그인됨" (오탐)
+- After: 대시보드 키워드(`리뷰관리/가게관리/주문관리/정산관리`) 또는 `a[href*="/shops/"]` 존재 여부
+
+**로그인 흐름 개선:**
+- CEO_HOME 방문 → 대시보드 키워드 없으면 미인증
+- 랜딩 페이지에서 로그인 버튼 탐색 (`a:has-text("사장님 로그인")` 등)
+- 버튼 클릭 → 비밀번호 폼 대기(15초) → 크리덴셜 입력 → 로그인
+- 로그인 후에도 대시보드 키워드로 재확인 → 실패 시 `markLoginStatus('failed')`
+
+**리뷰 추출 방식 개선:**
+- XHR 자동 캡처: `page.on('response')` 리스너 등록 후 리뷰 페이지 이동
+  - `content-type: json` + URL에 `review/feedback/rating` 키워드 포함 응답 자동 저장
+  - `extractReviewsFromApiResponse()`: 10개 경로 탐색 (`data.reviews`, `result.items` 등)
+  - 배민 API 응답 필드 매핑: `starScore/reviewContent/nickname/createdDate` 등
+- DOM 텍스트 파싱 폴백: XHR 0건일 때
+  - `리뷰번호 XXXXXXXXXX` 패턴으로 블록 분할
+  - 한국 날짜(`YYYY년 M월 DD일`) 파싱
+  - 별점(`별점 N점`) 파싱
+
+**날짜 정규화 개선:**
+- Unix timestamp (13자리 ms) 지원 추가
+
+*최종 업데이트: 2026-04-24 39차 배포*
