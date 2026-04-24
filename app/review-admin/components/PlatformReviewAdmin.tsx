@@ -19,21 +19,50 @@
 // ============================================================
 
 import { useState, useEffect, useCallback, useRef } from 'react'
+import type { ReactNode } from 'react'
 import Link from 'next/link'
 import Sidebar from '../../components/Sidebar'
 import Footer from '../../components/Footer'
 import PageHeader from '../../components/PageHeader'
-import PlatformLogo from '../../components/PlatformLogo'
-import type { PlatformLogoSlug } from '../../components/PlatformLogo'
 import { toast } from '../../lib/toast'
-
-// 37차-6: 이모지 대신 PlatformLogo SVG 사용 (naver/baemin/yogiyo/coupangeats/kakao_map)
-const LOGO_PLATFORMS: ReadonlySet<string> = new Set<string>([
-  'naver_place', 'baemin', 'yogiyo', 'coupangeats', 'kakao_map',
-])
 
 type PlatformSlug = 'naver_place' | 'baemin' | 'yogiyo' | 'coupangeats' | 'kakao_map'
 type ReplyStatus = 'none' | 'draft' | 'queued' | 'submitting' | 'submitted' | 'failed'
+
+// ── 페르소나 타입 ──────────────────────────────────────────
+type PersonaTone   = 'friendly' | 'expert' | 'witty' | 'simple' | 'emo' | 'mz' | 'formal'
+type PersonaGender = 'none' | 'male' | 'female'
+type PersonaAge    = '' | 'teen' | '20s' | '30s' | '40s' | '50s' | '60s'
+interface Persona {
+  tone:   PersonaTone
+  gender: PersonaGender
+  age:    PersonaAge
+}
+const DEFAULT_PERSONA: Persona = { tone: 'friendly', gender: 'none', age: '' }
+
+const TONE_OPTIONS: { value: PersonaTone; label: string; emoji: string }[] = [
+  { value: 'friendly', label: '친근',   emoji: '😊' },
+  { value: 'expert',   label: '전문가', emoji: '🧑‍💼' },
+  { value: 'witty',    label: '유머',   emoji: '😄' },
+  { value: 'simple',   label: '심플',   emoji: '✏️' },
+  { value: 'emo',      label: '감성',   emoji: '💌' },
+  { value: 'mz',       label: 'MZ',     emoji: '🔥' },
+  { value: 'formal',   label: '공식',   emoji: '📋' },
+]
+const GENDER_OPTIONS: { value: PersonaGender; label: string }[] = [
+  { value: 'none',   label: '성별 무관' },
+  { value: 'male',   label: '남성' },
+  { value: 'female', label: '여성' },
+]
+const AGE_OPTIONS: { value: PersonaAge; label: string }[] = [
+  { value: '',    label: '연령 무관' },
+  { value: 'teen', label: '10대' },
+  { value: '20s',  label: '20대' },
+  { value: '30s',  label: '30대' },
+  { value: '40s',  label: '40대' },
+  { value: '50s',  label: '50대' },
+  { value: '60s',  label: '60대+' },
+]
 
 interface Review {
   id: string
@@ -80,8 +109,9 @@ export interface PlatformConfig {
   color: string                   // 브랜드 컬러 hex
   bg: string                      // 연한 배경 hex
   textColor: string               // 글자 컬러 hex
-  icon: string                    // "🟢" 헤더 이모지
+  icon: string                    // "🟢" 헤더 이모지 (logoNode 없을 때 폴백)
   iconLetter: string              // "N" 원형 아이콘 글자 (사용 안 해도 됨)
+  logoNode?: ReactNode             // SVG 로고 — 있으면 PageHeader icon 대신 사용
   supportsFetch: boolean          // "지금 수집" 버튼 노출 여부
   connectHref: string             // 미연결 시 이동 경로 (/dashboard or /my/platforms/xxx/connect)
   collectEndpoint?: string        // 31차-3: "지금 수집" 커스텀 엔드포인트 (기본 /api/place/reviews/fetch)
@@ -163,7 +193,7 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
   const [draftText, setDraftText] = useState<string>('')
   const [generating, setGenerating] = useState(false)
   const [submitting, setSubmitting] = useState(false)
-  const [tone, setTone] = useState<'warm' | 'polite' | 'formal'>('warm')
+  const [persona, setPersona] = useState<Persona>(DEFAULT_PERSONA)
 
   // ── 일괄 초안 생성 상태 ───────────────────────
   const [bulkRunning, setBulkRunning] = useState(false)
@@ -259,8 +289,6 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
     }
     if (!connected || fetching) return
     setFetching(true)
-    const ctrl = new AbortController()
-    const timer = setTimeout(() => ctrl.abort(), 20_000) // 20s hard timeout
     try {
       const endpoint = config.collectEndpoint || '/api/place/reviews/fetch'
       const res = await fetch(endpoint, {
@@ -268,7 +296,6 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(placeId ? { place_id: placeId } : {}),
-        signal: ctrl.signal,
       })
       const data = await res.json()
       if (!res.ok || !data?.ok) {
@@ -282,13 +309,8 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
       }
       await Promise.all([loadStoresMe(), loadReviews()])
     } catch (e: any) {
-      if (e?.name === 'AbortError') {
-        toast.error('수집 요청 20초 초과 — Worker/Redis 상태 확인')
-      } else {
-        toast.error('수집 중 오류: ' + (e?.message || e))
-      }
+      toast.error('수집 중 오류: ' + (e?.message || e))
     } finally {
-      clearTimeout(timer)
       setFetching(false)
     }
   }, [connected, fetching, placeId, loadStoresMe, loadReviews, config.supportsFetch, config.label])
@@ -305,8 +327,8 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
   }, [connected, autoFetchTried, loadingReviews, reviews.length, collectNow, config.supportsFetch])
 
   // ── 5) 단일 초안 생성 ───────────────────────
-  const handleGenerateDraft = async (review: Review, currentTone?: typeof tone) => {
-    const useTone = currentTone || tone
+  const handleGenerateDraft = async (review: Review, currentPersona?: Persona) => {
+    const usePersona = currentPersona || persona
     setEditingId(review.id)
     setGenerating(true)
     setDraftText('')
@@ -320,7 +342,8 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
           review: review.content,
           rating: review.rating,
           platform: config.platform,
-          aiSettings: { tone: useTone, length: 'medium' },
+          aiSettings: { tone: usePersona.tone, length: 'medium' },
+          customerProfile: { gender: usePersona.gender, age: usePersona.age },
         }),
       })
       const aiData = await aiRes.json()
@@ -337,7 +360,7 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
           method: 'POST',
           credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ review_id: review.id, draft: generated, tone: useTone }),
+          body: JSON.stringify({ review_id: review.id, draft: generated, tone: usePersona.tone }),
         })
         const saveData = await saveRes.json()
         if (!saveRes.ok || !saveData?.ok) {
@@ -346,7 +369,7 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
           setReviews((prev) =>
             prev.map((r) =>
               r.id === review.id
-                ? { ...r, draftReply: generated, replyStatus: 'draft', replyTone: useTone }
+                ? { ...r, draftReply: generated, replyStatus: 'draft', replyTone: usePersona.tone }
                 : r,
             ),
           )
@@ -365,8 +388,12 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
   const openEditor = (review: Review) => {
     setEditingId(review.id)
     setDraftText(review.draftReply || '')
-    if (review.replyTone === 'warm' || review.replyTone === 'polite' || review.replyTone === 'formal') {
-      setTone(review.replyTone)
+    if (review.replyTone) {
+      const savedTone = review.replyTone as PersonaTone
+      const validTones: PersonaTone[] = ['friendly', 'expert', 'witty', 'simple', 'emo', 'mz', 'formal']
+      if (validTones.includes(savedTone)) {
+        setPersona((prev) => ({ ...prev, tone: savedTone }))
+      }
     }
   }
 
@@ -377,7 +404,7 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ review_id: review.id, draft: text, tone }),
+        body: JSON.stringify({ review_id: review.id, draft: text, tone: persona.tone }),
       })
       const data = await res.json()
       if (!res.ok || !data?.ok) {
@@ -486,7 +513,8 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
               review: target.content,
               rating: target.rating,
               platform: config.platform,
-              aiSettings: { tone, length: 'medium' },
+              aiSettings: { tone: persona.tone, length: 'medium' },
+              customerProfile: { gender: persona.gender, age: persona.age },
             }),
           })
           const aiData = await aiRes.json()
@@ -497,13 +525,13 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
             method: 'POST',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ review_id: c.id, draft: generated, tone }),
+            body: JSON.stringify({ review_id: c.id, draft: generated, tone: persona.tone }),
           })
 
           setReviews((prev) =>
             prev.map((r) =>
               r.id === c.id
-                ? { ...r, draftReply: generated, replyStatus: 'draft', replyTone: tone }
+                ? { ...r, draftReply: generated, replyStatus: 'draft', replyTone: persona.tone }
                 : r,
             ),
           )
@@ -553,11 +581,8 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
         <Sidebar />
         <main className="flex-1 ml-0 md:ml-[220px] pt-14 md:pt-0 min-w-0">
           <PageHeader
-            icon={
-              LOGO_PLATFORMS.has(config.platform)
-                ? <PlatformLogo platform={config.platform as PlatformLogoSlug} size={56} rounded={14} />
-                : config.icon
-            }
+            icon={config.icon}
+            logoNode={config.logoNode}
             title={`${config.label} 리뷰 관리`}
             subtitle={
               connected
@@ -685,7 +710,7 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
             {connected && config.platform === 'naver_place' && (
               <div className="bg-white rounded-2xl border border-[#E5E8EB] p-4 mb-4">
                 <div className="flex items-start gap-3 flex-wrap">
-                  <PlatformLogo platform="naver_place" size={24} rounded={6} />
+                  <span className="text-xl leading-none mt-0.5">🟢</span>
                   <div className="flex-1 min-w-[200px]">
                     <p className="text-sm font-bold text-[#191F28] mb-1">네이버 플레이스 리뷰 — 자동 수집 + 사장님 답글 작성</p>
                     <p className="text-xs text-[#4E5968] leading-relaxed">
@@ -902,22 +927,65 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
                               </p>
                             ) : (
                               <>
-                                <div className="flex items-center gap-1.5 mb-2 flex-wrap">
-                                  <span className="text-[10px] text-[#8B95A1] font-semibold">톤</span>
-                                  {(['warm', 'polite', 'formal'] as const).map((t) => {
-                                    const label = t === 'warm' ? '😊 친근' : t === 'polite' ? '🙂 정중' : '🧑‍💼 공식'
-                                    const active = tone === t
-                                    return (
-                                      <button
-                                        key={t}
-                                        onClick={() => setTone(t)}
-                                        className={`px-2 py-1 rounded-lg text-[10px] font-bold transition ${active ? 'text-white' : 'bg-white text-[#4E5968] border border-[#E5E8EB]'}`}
-                                        style={active ? { background: config.color } : {}}
-                                      >
-                                        {label}
-                                      </button>
-                                    )
-                                  })}
+                                {/* ── 페르소나 패널 ── */}
+                                <div className="rounded-xl border border-[#E5E8EB] bg-white p-3 mb-3 space-y-2.5">
+                                  {/* 말투 */}
+                                  <div>
+                                    <p className="text-[10px] font-bold text-[#8B95A1] mb-1.5">말투</p>
+                                    <div className="flex flex-wrap gap-1">
+                                      {TONE_OPTIONS.map(({ value, label, emoji }) => {
+                                        const active = persona.tone === value
+                                        return (
+                                          <button
+                                            key={value}
+                                            onClick={() => setPersona((p) => ({ ...p, tone: value }))}
+                                            className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition ${active ? 'text-white' : 'bg-[#F2F4F6] text-[#4E5968]'}`}
+                                            style={active ? { background: config.color } : {}}
+                                          >
+                                            {emoji} {label}
+                                          </button>
+                                        )
+                                      })}
+                                    </div>
+                                  </div>
+                                  {/* 성별 */}
+                                  <div>
+                                    <p className="text-[10px] font-bold text-[#8B95A1] mb-1.5">고객 성별</p>
+                                    <div className="flex flex-wrap gap-1">
+                                      {GENDER_OPTIONS.map(({ value, label }) => {
+                                        const active = persona.gender === value
+                                        return (
+                                          <button
+                                            key={value}
+                                            onClick={() => setPersona((p) => ({ ...p, gender: value }))}
+                                            className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition ${active ? 'text-white' : 'bg-[#F2F4F6] text-[#4E5968]'}`}
+                                            style={active ? { background: config.color } : {}}
+                                          >
+                                            {label}
+                                          </button>
+                                        )
+                                      })}
+                                    </div>
+                                  </div>
+                                  {/* 연령 */}
+                                  <div>
+                                    <p className="text-[10px] font-bold text-[#8B95A1] mb-1.5">고객 연령대</p>
+                                    <div className="flex flex-wrap gap-1">
+                                      {AGE_OPTIONS.map(({ value, label }) => {
+                                        const active = persona.age === value
+                                        return (
+                                          <button
+                                            key={value}
+                                            onClick={() => setPersona((p) => ({ ...p, age: value }))}
+                                            className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition ${active ? 'text-white' : 'bg-[#F2F4F6] text-[#4E5968]'}`}
+                                            style={active ? { background: config.color } : {}}
+                                          >
+                                            {label}
+                                          </button>
+                                        )
+                                      })}
+                                    </div>
+                                  </div>
                                 </div>
 
                                 <p className="text-[10px] text-[#8B95A1] mb-1 flex items-center gap-1">
@@ -937,12 +1005,12 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
 
                                 <div className="flex gap-2 flex-wrap mt-2">
                                   <button
-                                    onClick={() => handleGenerateDraft(review)}
+                                    onClick={() => handleGenerateDraft(review, persona)}
                                     disabled={generating || submitting || isQueued || isSubmitted}
                                     className="px-3 py-1.5 rounded-lg text-xs font-bold bg-white border hover:bg-[#F9FAFB] disabled:opacity-50"
                                     style={{ borderColor: config.color + '60', color: config.textColor }}
                                   >
-                                    🔁 AI 초안 수정
+                                    🔁 AI 초안 재생성
                                   </button>
                                   <button
                                     onClick={() => handleSubmit(review)}
@@ -952,99 +1020,4 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
                                   >
                                     {submitting ? '등록 중...' : isQueued ? '대기열 등록됨' : '✅ 이대로 등록하기'}
                                   </button>
-                                  <button
-                                    onClick={() => { setEditingId(null); setDraftText('') }}
-                                    disabled={submitting}
-                                    className="px-3 py-1.5 rounded-lg text-xs font-bold text-[#8B95A1] hover:bg-[#F2F4F6] ml-auto"
-                                  >
-                                    닫기
-                                  </button>
-                                </div>
-
-                                {/* 37차-6: 등록 대기열 안내는 노출하지 않음 — 버튼 텍스트로 대체 */}
-                                {isSubmitted && (
-                                  <p className="text-[11px] mt-2 text-[#059669] bg-[#ECFDF5] rounded-lg px-2 py-1.5">
-                                    ✅ {config.label}에 등록 완료 ({timeAgo(review.replySubmittedAt)} 전)
-                                  </p>
-                                )}
-                                {review.replyStatus === 'failed' && review.replyError && (
-                                  <p className="text-[11px] mt-2 text-[#DC2626] bg-[#FEE2E2] rounded-lg px-2 py-1.5">
-                                    ❌ 등록 실패: {review.replyError}
-                                  </p>
-                                )}
-                              </>
-                            )}
-                          </div>
-                        )}
-
-                        {/* 초기 진입 버튼 */}
-                        {!isEditing && !review.hasReply && (
-                          <div className="flex gap-2 flex-wrap items-center">
-                            {hasDraft ? (
-                              <>
-                                <button
-                                  onClick={() => openEditor(review)}
-                                  className="px-4 py-2 rounded-xl text-xs font-bold text-white hover:opacity-90 shadow-sm"
-                                  style={{ background: config.color }}
-                                >
-                                  📝 초안 이어서 편집
-                                </button>
-                                <span className="text-[11px] text-[#8B95A1] truncate max-w-[280px]">
-                                  {(review.draftReply || '').slice(0, 60)}{(review.draftReply || '').length > 60 ? '...' : ''}
-                                </span>
-                              </>
-                            ) : (
-                              <button
-                                onClick={() => handleGenerateDraft(review)}
-                                disabled={bulkRunning}
-                                className="px-4 py-2 rounded-xl text-xs font-bold text-white hover:opacity-90 shadow-sm disabled:opacity-50"
-                                style={{ background: config.color }}
-                                title="지역·업종·사진·키워드 자동 분석 → AI 답글 초안 생성"
-                              >
-                                ✍️ 댓글 초안 생성
-                              </button>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
-              )
-            ) : null}
-
-            <div className="-mx-4 md:-mx-6 mt-10">
-              <Footer />
-            </div>
-          </div>
-        </main>
-      </div>
-
-      {/* 30차-23: 사진 라이트박스 */}
-      {lightboxUrl && (
-        <div
-          role="dialog"
-          aria-modal="true"
-          className="fixed inset-0 bg-black/80 z-[9999] flex items-center justify-center p-4"
-          onClick={() => setLightboxUrl(null)}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={lightboxUrl}
-            alt="review-photo-large"
-            referrerPolicy="no-referrer"
-            className="max-w-full max-h-full rounded-lg shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          />
-          <button
-            onClick={() => setLightboxUrl(null)}
-            className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/90 text-[#191F28] font-bold text-lg flex items-center justify-center hover:bg-white"
-            aria-label="닫기"
-          >
-            ✕
-          </button>
-        </div>
-      )}
-    </div>
-  )
-}
+                 
