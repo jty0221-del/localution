@@ -9,4 +9,4 @@ const nextConfig = {
 };
 
 module.exports = nextConfig;
-// 38차-1: REDIS_URL + CRON_SECRET env redeploy trigger
+// 38차-1: Kakao login env redeploy trigger
