@@ -150,7 +150,7 @@ function StatusBadge({ status }: { status: ReplyStatus }) {
   const map: Record<ReplyStatus, { label: string; bg: string; fg: string }> = {
     none: { label: '', bg: '', fg: '' },
     draft: { label: '📝 초안 저장됨', bg: '#EFF6FF', fg: '#1D4ED8' },
-    queued: { label: '⏳ 등록 대기열', bg: '#FEF3C7', fg: '#92400E' },
+    queued: { label: '⚡ 자동 발행 중', bg: '#E0F2FE', fg: '#075985' },
     submitting: { label: '🚀 등록 중...', bg: '#E0F2FE', fg: '#075985' },
     submitted: { label: '✅ 등록 완료', bg: '#ECFDF5', fg: '#059669' },
     failed: { label: '❌ 등록 실패', bg: '#FEE2E2', fg: '#DC2626' },
@@ -433,7 +433,7 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
     }
   }
 
-  // ── 8) 직접 발행 ─────
+  // ── 8) 자동 발행 (Worker 연동 / 수동 폴백) ─────────────────────
   const handleSubmit = async (review: Review) => {
     if (!draftText || !draftText.trim()) {
       toast.warn('먼저 답글을 작성해주세요')
@@ -445,8 +445,8 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
       const saved = await saveDraftEdit(review, trimmed)
       if (!saved) { setSubmitting(false); return }
 
-      // DB 상태 → submitted 직접 처리
-      const res = await fetch('/api/review-reply/submit', {
+      // auto-publish: Worker 연동 우선, 미연결 시 수동 폴백
+      const res = await fetch('/api/review-reply/auto-publish', {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -458,31 +458,36 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
         return
       }
 
-      // 클립보드 복사
-      try {
-        await navigator.clipboard.writeText(trimmed)
-        toast.success('답글이 클립보드에 복사됐어요! 새 탭에서 붙여넣기 해주세요 ✂️')
-      } catch {
-        toast.success('발행 처리됐어요 ✅')
+      if (data.mode === 'worker') {
+        // ── Worker 자동 발행 모드 ──
+        toast.success('⚡ Worker가 자동으로 답글을 등록해요! 1~2분 후 새로고침 해주세요.')
+        setReviews((prev) =>
+          prev.map((r) =>
+            r.id === review.id
+              ? { ...r, replyStatus: 'queued', replyQueuedAt: new Date().toISOString(), draftReply: trimmed }
+              : r,
+          ),
+        )
+      } else {
+        // ── 수동 발행 모드 (클립보드 복사) ──
+        try {
+          await navigator.clipboard.writeText(trimmed)
+          toast.success('✅ 답글이 클립보드에 복사됐어요! 플랫폼에서 붙여넣기 해주세요 ✂️')
+        } catch {
+          toast.success('✅ 발행 처리됐어요')
+        }
+        if (config.reviewAdminUrl) {
+          window.open(config.reviewAdminUrl, '_blank', 'noopener')
+        }
+        setReviews((prev) =>
+          prev.map((r) =>
+            r.id === review.id
+              ? { ...r, replyStatus: 'submitted', replySubmittedAt: new Date().toISOString(), draftReply: trimmed }
+              : r,
+          ),
+        )
       }
 
-      // 플랫폼 리뷰 관리 페이지 새 탭
-      if (config.reviewAdminUrl) {
-        window.open(config.reviewAdminUrl, '_blank', 'noopener')
-      }
-
-      setReviews((prev) =>
-        prev.map((r) =>
-          r.id === review.id
-            ? {
-                ...r,
-                replyStatus: 'submitted',
-                replySubmittedAt: new Date().toISOString(),
-                draftReply: trimmed,
-              }
-            : r,
-        ),
-      )
       setEditingId(null)
       setDraftText('')
     } catch (e: any) {
@@ -1050,7 +1055,7 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
                                     className="px-3 py-1.5 rounded-lg text-xs font-bold bg-white border hover:bg-[#F9FAFB] disabled:opacity-50"
                                     style={{ borderColor: config.color + '60', color: config.textColor }}
                                   >
-                                    🔁 AI 초안 재생성
+                                    🔁 AI 재생성
                                   </button>
                                   <button
                                     onClick={() => handleSubmit(review)}
@@ -1058,9 +1063,9 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
                                     className="px-4 py-1.5 rounded-lg text-xs font-bold text-white hover:opacity-90 disabled:opacity-50 shadow-sm"
                                     style={{ background: config.color }}
                                   >
-                                    {submitting ? '발행 중...' : isQueued ? '발행됨 ✅' : '🚀 발행하기'}
+                                    {submitting ? '처리 중...' : isQueued ? '⏳ Worker 처리 중' : '⚡ 자동 발행'}
                                   </button>
-                 
+
                                   <button
                                     onClick={() => { setEditingId(null); setDraftText('') }}
                                     disabled={submitting}
@@ -1071,8 +1076,8 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
                                 </div>
 
                                 {review.replyStatus === 'queued' && (
-                                  <p className="text-[11px] mt-2 text-[#4E5968] bg-[#F2F4F6] rounded-lg px-2 py-1.5">
-                                    💡 초안을 수정한 뒤 &ldquo;발행하기&rdquo;를 눌러 직접 등록해주세요.
+                                  <p className="text-[11px] mt-2 text-[#075985] bg-[#E0F2FE] rounded-lg px-2 py-1.5">
+                                    ⚡ Worker가 자동으로 플랫폼에 답글을 등록 중이에요. 1~2분 후 새로고침 해주세요.
                                   </p>
                                 )}
                                 {isSubmitted && (
@@ -1083,6 +1088,10 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
                                 {review.replyStatus === 'failed' && review.replyError && (
                                   <p className="text-[11px] mt-2 text-[#DC2626] bg-[#FEE2E2] rounded-lg px-2 py-1.5">
                                     ❌ 등록 실패: {review.replyError}
+                                    {config.reviewAdminUrl && (
+                                      <a href={config.reviewAdminUrl} target="_blank" rel="noopener noreferrer"
+                                        className="ml-2 underline">직접 등록 →</a>
+                                    )}
                                   </p>
                                 )}
                               </>
@@ -1146,27 +1155,4 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
       {lightboxUrl && (
         <div
           role="dialog"
-          aria-modal="true"
-          className="fixed inset-0 bg-black/80 z-[9999] flex items-center justify-center p-4"
-          onClick={() => setLightboxUrl(null)}
-        >
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src={lightboxUrl}
-            alt="review-photo-large"
-            referrerPolicy="no-referrer"
-            className="max-w-full max-h-full rounded-lg shadow-2xl"
-            onClick={(e) => e.stopPropagation()}
-          />
-          <button
-            onClick={() => setLightboxUrl(null)}
-            className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/90 text-[#191F28] font-bold text-lg flex items-center justify-center hover:bg-white"
-            aria-label="닫기"
-          >
-            ✕
-          </button>
-        </div>
-      )}
-    </div>
-  )
-}
+          aria-modal="tru
