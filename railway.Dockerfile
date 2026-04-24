@@ -1,23 +1,30 @@
-# Railway Worker Dockerfile (루트 배치 — Railway 전용, Vercel 은 무시)
-# 38차-6: package-lock.json 제외 → playwright 1.47.0 정확히 설치 (base image 일치)
+# Railway Worker Dockerfile
+# 38차-7: node:20 베이스로 전환 + npx playwright install chromium
+# → Playwright 이미지 버전 매칭 문제 근본 해결
 
-FROM mcr.microsoft.com/playwright:v1.47.0-jammy
+FROM node:20-bookworm-slim
+
+# Chromium 실행에 필요한 시스템 의존성
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libglib2.0-0 libnss3 libnspr4 libdbus-1-3 \
+    libatk1.0-0 libatk-bridge2.0-0 libcups2 libdrm2 \
+    libxkbcommon0 libxcomposite1 libxdamage1 libxfixes3 \
+    libxrandr2 libgbm1 libasound2 libpango-1.0-0 libcairo2 \
+    fonts-noto-cjk wget ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# ★ npm install 이전에 선언: 브라우저 재다운로드 차단 + base 이미지 경로 지정 ★
-ENV PLAYWRIGHT_SKIP_BROWSER_DOWNLOAD=1
-ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
-
-# package-lock.json 제외하고 package.json 만 복사 (lockfile 1.59.1 무시)
+# package.json 복사 (lockfile 제외 — 1.47.0 정확히 설치)
 COPY worker/package.json ./
-RUN npm install --omit=optional --no-audit --no-fund && npm cache clean --force
+RUN npm install --omit=optional --no-audit --no-fund \
+    && npx playwright install chromium \
+    && npm cache clean --force
 
 COPY worker/tsconfig.json ./
 COPY worker/src ./src
 
-# TypeScript 빌드 — 38차-6: cache 무효화 마커
-RUN echo "build-marker: 38cha-6 pin-playwright-1.47.0-no-lockfile" && npx tsc --showConfig | head -5 && npx tsc
+RUN echo "build-marker: 38cha-7 node20-chromium-install" && npx tsc
 
 ENV NODE_ENV=production
 ENV PORT=3000
