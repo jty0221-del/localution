@@ -10,6 +10,7 @@ import { runBaemin } from '../adapters/baemin'
 import { runYogiyo } from '../adapters/yogiyo'
 import { runCoupangEats } from '../adapters/coupangeats'
 import { runKakao } from '../adapters/kakao'
+import { runNaver } from '../adapters/naver'
 
 export type Platform = 'naver_place' | 'baemin' | 'yogiyo' | 'coupangeats' | 'kakao_map'
 export type Action =
@@ -48,10 +49,11 @@ export async function runJob(
     case 'coupangeats':
       return runCoupangEats(opts, action, payload)
     case 'naver_place':
-      // 네이버는 Vercel 쪽 /api/place/reviews/fetch 공개 GraphQL 으로 수집.
-      // Worker 에서 호출된 경우는 향후 답글 자동 등록용 예약.
-      log.warn({ platform, action }, 'naver_place handled by Vercel public collector')
-      return { status: 'skipped', message: 'naver_place: use /api/place/reviews/fetch on Vercel' }
+      // 37차-8: 네이버 어댑터 활성화
+      //   · fetch_reviews  → Vercel 공개 GraphQL 이 계속 담당 (adapter 내부에서 skip 반환)
+      //   · post_reply     → Playwright 로 nid.naver.com 로그인 후 스마트플레이스에서 답글 등록
+      //   · health_check   → 로그인만 검증
+      return runNaver(opts, action, payload)
     case 'kakao_map':
       return runKakao(opts, action, payload)
     default:

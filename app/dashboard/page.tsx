@@ -973,7 +973,13 @@ export default function Dashboard() {
       })
       const j = await res.json().catch(() => null)
       if (!res.ok || !j?.ok) {
-        toast.error(j?.error || `수집 실패 (${res.status})`)
+        const errMsg = String(j?.error || '')
+        // 37차-8: Redis/Worker 연결 이슈면 관리자용 가이드를 띄움
+        if (errMsg.includes('REDIS_URL') || errMsg.includes('ENOTFOUND') || errMsg.includes('railway.internal')) {
+          toast.error('Worker 연결 오류 — 관리자 점검 필요 (Vercel REDIS_URL)')
+        } else {
+          toast.error(errMsg || `수집 실패 (${res.status})`)
+        }
         return
       }
       if (typeof j.total === 'number' && j.total > 0) {
