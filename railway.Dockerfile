@@ -1,5 +1,5 @@
-# Railway Worker Dockerfile (루트 배치 — Railway 전용, Vercel 은 무시)
-# 39차-1: baemin auth fix + XHR capture
+# Railway Worker Dockerfile
+# 39차-2: build-marker를 COPY src 앞으로 이동 → 캐시 강제 무효화
 
 FROM node:20-bookworm-slim
 
@@ -19,8 +19,12 @@ RUN npm install --omit=optional --no-audit --no-fund \
     && npm cache clean --force
 
 COPY worker/tsconfig.json ./
+
+# build-marker: COPY src 앞에 위치 — 이 줄 변경 시 이후 레이어 전체 캐시 무효화
+RUN echo "build-marker: 39cha-2 baemin-auth-fix-cache-bust"
+
 COPY worker/src ./src
-RUN echo "build-marker: 39cha-1 baemin-auth-xhr-capture" && npx tsc
+RUN npx tsc
 
 ENV NODE_ENV=production
 ENV PORT=3000
