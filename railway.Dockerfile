@@ -14,7 +14,7 @@ COPY worker/tsconfig.json ./
 COPY worker/src ./src
 
 # TypeScript 빌드 — 35차-2: cache 무효화를 위한 echo 포함
-RUN echo "build-marker: 35cha-2 dom-lib-applied" && npx tsc --showConfig | head -20 && npx tsc
+RUN echo "build-marker: 38cha-2 baemin-collect-fix" && npx tsc --showConfig | head -5 && npx tsc
 
 ENV NODE_ENV=production
 ENV PORT=3000
