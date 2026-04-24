@@ -88,4 +88,6 @@ export async function GET(req: NextRequest) {
     email: auth.email,
     inserted: Array.isArray(data) ? data.length : 0,
     total: SEED_REVIEWS.length,
-    reviews: Array.isArray(data) ?
+    reviews: Array.isArray(data) ? data.map((d: any) => d.platform_review_id) : [],
+  })
+}
