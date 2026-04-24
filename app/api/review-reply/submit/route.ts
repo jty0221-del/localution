@@ -68,7 +68,7 @@ export async function POST(req: NextRequest) {
         { status: 400 },
       )
     }
-    if (!['none', 'draft', 'failed'].includes(String(row.reply_status ?? 'none'))) {
+    if (!['none', 'draft', 'failed', 'queued'].includes(String(row.reply_status ?? 'none'))) {
       return NextResponse.json(
         {
           ok: false,
