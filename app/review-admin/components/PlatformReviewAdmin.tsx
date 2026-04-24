@@ -242,7 +242,7 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
 
   // ── 2) 저장된 리뷰 로드 ──────────────────────────
   const loadReviews = useCallback(async () => {
-    if (!connected) return
+    // connected 여부 무관하게 로드 (시드 리뷰도 표시)
     setLoadingReviews(true)
     try {
       // 30차-23: limit=1000 + period 쿼리 → 서버에서 기간 필터 처리
@@ -286,11 +286,12 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
     finally {
       setLoadingReviews(false)
     }
-  }, [connected, config.platform, period])
+  }, [config.platform, period])
 
+  // loadingConn 완료 후 1회 로드 (connected 무관)
   useEffect(() => {
-    if (connected) loadReviews()
-  }, [connected, loadReviews])
+    if (!loadingConn) loadReviews()
+  }, [loadingConn, loadReviews])
 
   // ── 3) 지금 수집 (naver_place 만 동작) ─────
   const collectNow = useCallback(async () => {
@@ -847,8 +848,8 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
               </div>
             )}
 
-            {/* 리뷰 목록 */}
-            {connected ? (
+            {/* 리뷰 목록 — connected 무관, 로딩 완료 후 항상 표시 */}
+            {(!loadingConn || loadingReviews || reviews.length > 0) ? (
               loadingReviews ? (
                 <div className="bg-white rounded-2xl p-12 text-center text-sm text-[#8B95A1] border border-[#E5E8EB]">
                   리뷰 불러오는 중...
@@ -1161,13 +1162,4 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
           />
           <button
             onClick={() => setLightboxUrl(null)}
-            className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/90 text-[#191F28] font-bold text-lg flex items-center justify-center hover:bg-white"
-            aria-label="닫기"
-          >
-            ✕
-          </button>
-        </div>
-      )}
-    </div>
-  )
-}
+            className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/90 text-[#1
