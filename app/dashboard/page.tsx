@@ -997,19 +997,36 @@ export default function Dashboard() {
     }
   }
 
-  // 프로필(매장 주소/이름) → 지역 기반 키워드 자동 생성
+  // 프로필(매장 주소/이름/업종) → AI 자동 키워드 추론 (37차-7)
   useEffect(() => {
     function syncKeywordsFromProfile() {
       try {
         const raw = localStorage.getItem(LS_STORE)
         const profile = raw ? JSON.parse(raw) : null
         const region = extractRegion(profile?.address, profile?.storeName, profile?.branch)
-        if (region) {
-          setStoreRegion(region)
+        const industry = profile?.industry || profile?.category || ''
+        const storeName = profile?.storeName || ''
+        const address = profile?.address || ''
+
+        if (region) setStoreRegion(region)
+        else setStoreRegion(null)
+
+        // 업종이 있고 지역이 있으면 AI 키워드 구성 (inferKeywords 와 동일 규칙)
+        if (industry && (region || address)) {
+          const base = region || (address ? address.split(' ')[1] || '' : '')
+          const generated: KeywordRank[] = [
+            { keyword: `${base} ${industry}`, rank: 0, prevRank: null, area: base, updatedAt: '자동 생성' },
+            { keyword: `${base} ${industry} 맛집`, rank: 0, prevRank: null, area: base, updatedAt: '자동 생성' },
+            { keyword: `${base} 맛집`, rank: 0, prevRank: null, area: base, updatedAt: '자동 생성' },
+            storeName ? { keyword: storeName, rank: 0, prevRank: null, area: base, updatedAt: '자동 생성' } : null,
+          ].filter(Boolean) as KeywordRank[]
+          setKeywords(generated)
+          setMainKeyword(`${base} ${industry}`)
+        } else if (region) {
+          // fallback: 업종 없으면 지역만
           setKeywords(generateRegionKeywords(region))
           setMainKeyword(`${region} 맛집`)
         } else {
-          setStoreRegion(null)
           setKeywords([])
           setMainKeyword('')
         }
@@ -1182,13 +1199,13 @@ export default function Dashboard() {
   ]
   const totalWeekSale = weekSales.reduce((s, x) => s + x.v, 0)
 
-  // 오늘의 할 일 — 실데이터 있으면 실데이터 기준
+  // 오늘의 할 일 — 37차-7: 연동된 플랫폼의 실데이터만 카운팅 (연동 전에는 0)
   const unansweredCount = hasRealReviews
     ? mergedRealReviews.filter((r) => !r.has_reply).length
-    : RECENT_REVIEWS.filter((r) => !r.replied).length
+    : 0
   const negativeUnansweredCount = hasRealReviews
     ? mergedRealReviews.filter((r) => typeof r.rating === 'number' && r.rating <= 2 && !r.has_reply).length
-    : RECENT_REVIEWS.filter((r) => r.rating <= 2 && !r.replied).length
+    : 0
 
   useEffect(() => {
     try {
