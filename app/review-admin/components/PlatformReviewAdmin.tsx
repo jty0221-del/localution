@@ -1108,22 +1108,24 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
                                 </span>
                               </>
                             ) : (
-                              <button
-                                onClick={() => handleGenerateDraft(review)}
-                                disabled={bulkRunning}
-                                className="px-4 py-2 rounded-xl text-xs font-bold text-white hover:opacity-90 shadow-sm disabled:opacity-50"
-                                style={{ background: config.color }}
-                                title="지역·업종·사진·키워드 자동 분석 → AI 답글 초안 생성"
-                              >
-                                ✍️ AI 초안 생성
-                              </button>
-                              <button
-                                onClick={() => { setEditingId(review.id); setDraftText('') }}
-                                disabled={bulkRunning}
-                                className="px-4 py-2 rounded-xl text-xs font-bold bg-white border border-[#E5E8EB] text-[#4E5968] hover:bg-[#F2F4F6] shadow-sm disabled:opacity-50"
-                              >
-                                ✏️ 직접 작성
-                              </button>
+                              <>
+                                <button
+                                  onClick={() => handleGenerateDraft(review)}
+                                  disabled={bulkRunning}
+                                  className="px-4 py-2 rounded-xl text-xs font-bold text-white hover:opacity-90 shadow-sm disabled:opacity-50"
+                                  style={{ background: config.color }}
+                                  title="지역·업종·사진·키워드 자동 분석 → AI 답글 초안 생성"
+                                >
+                                  ✍️ AI 초안 생성
+                                </button>
+                                <button
+                                  onClick={() => { setEditingId(review.id); setDraftText('') }}
+                                  disabled={bulkRunning}
+                                  className="px-4 py-2 rounded-xl text-xs font-bold bg-white border border-[#E5E8EB] text-[#4E5968] hover:bg-[#F2F4F6] shadow-sm disabled:opacity-50"
+                                >
+                                  ✏️ 직접 작성
+                                </button>
+                              </>
                             )}
                           </div>
                         )}
