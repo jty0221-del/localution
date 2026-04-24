@@ -96,7 +96,7 @@ export async function POST(req: NextRequest) {
 
     // 중복 enqueue 방지를 위한 jobId (10분 단위 버킷)
     const bucket = Math.floor(Date.now() / (10 * 60 * 1000))
-    const jobId = `${userId}:${platform}:fetch:${bucket}`
+    const jobId = `${userId}-${platform}-fetch-${bucket}`
 
     const result = await enqueuePlatformJob(
       {
