@@ -6,10 +6,10 @@
 //   공개 commentlist 수집 파이프 (31차-3) 연동
 // ============================================================
 
-export const dynamic = 'force-dynamic'
-
 import PlatformReviewAdmin from '../components/PlatformReviewAdmin'
 import type { PlatformConfig } from '../components/PlatformReviewAdmin'
+
+export const dynamic = 'force-dynamic'
 
 const CONFIG: PlatformConfig = {
   platform: 'kakao_map',
