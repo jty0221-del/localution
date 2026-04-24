@@ -9,3 +9,4 @@ const nextConfig = {
 };
 
 module.exports = nextConfig;
+// 38차-1: env update redeploy trigger
