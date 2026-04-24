@@ -1021,3 +1021,105 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
                                     {submitting ? '등록 중...' : isQueued ? '대기열 등록됨' : '✅ 이대로 등록하기'}
                                   </button>
                  
+                                  <button
+                                    onClick={() => { setEditingId(null); setDraftText('') }}
+                                    disabled={submitting}
+                                    className="px-3 py-1.5 rounded-lg text-xs font-bold text-[#8B95A1] hover:bg-[#F2F4F6] ml-auto"
+                                  >
+                                    닫기
+                                  </button>
+                                </div>
+
+                                {isQueued && (
+                                  <p className="text-[11px] mt-2 text-[#92400E] bg-[#FEF3C7] rounded-lg px-2 py-1.5">
+                                    ⏳ 등록 대기열에 올라와 있어요.{' '}
+                                    {review.replyQueuedAt && `(${timeAgo(review.replyQueuedAt)} 전 등록)`}{' '}
+                                    Worker 가 {config.label}에 올려드려요.
+                                  </p>
+                                )}
+                                {isSubmitted && (
+                                  <p className="text-[11px] mt-2 text-[#059669] bg-[#ECFDF5] rounded-lg px-2 py-1.5">
+                                    ✅ {config.label}에 등록 완료 ({timeAgo(review.replySubmittedAt)} 전)
+                                  </p>
+                                )}
+                                {review.replyStatus === 'failed' && review.replyError && (
+                                  <p className="text-[11px] mt-2 text-[#DC2626] bg-[#FEE2E2] rounded-lg px-2 py-1.5">
+                                    ❌ 등록 실패: {review.replyError}
+                                  </p>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        )}
+
+                        {/* 초기 진입 버튼 */}
+                        {!isEditing && !review.hasReply && (
+                          <div className="flex gap-2 flex-wrap items-center">
+                            {hasDraft ? (
+                              <>
+                                <button
+                                  onClick={() => openEditor(review)}
+                                  className="px-4 py-2 rounded-xl text-xs font-bold text-white hover:opacity-90 shadow-sm"
+                                  style={{ background: config.color }}
+                                >
+                                  📝 초안 이어서 편집
+                                </button>
+                                <span className="text-[11px] text-[#8B95A1] truncate max-w-[280px]">
+                                  {(review.draftReply || '').slice(0, 60)}{(review.draftReply || '').length > 60 ? '...' : ''}
+                                </span>
+                              </>
+                            ) : (
+                              <button
+                                onClick={() => handleGenerateDraft(review)}
+                                disabled={bulkRunning}
+                                className="px-4 py-2 rounded-xl text-xs font-bold text-white hover:opacity-90 shadow-sm disabled:opacity-50"
+                                style={{ background: config.color }}
+                                title="지역·업종·사진·키워드 자동 분석 → AI 답글 초안 생성"
+                              >
+                                ✍️ 댓글 초안 생성
+                              </button>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )
+            ) : null}
+
+            <div className="-mx-4 md:-mx-6 mt-10">
+              <Footer />
+            </div>
+          </div>
+        </main>
+      </div>
+
+      {/* 30차-23: 사진 라이트박스 */}
+      {lightboxUrl && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 bg-black/80 z-[9999] flex items-center justify-center p-4"
+          onClick={() => setLightboxUrl(null)}
+        >
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={lightboxUrl}
+            alt="review-photo-large"
+            referrerPolicy="no-referrer"
+            className="max-w-full max-h-full rounded-lg shadow-2xl"
+            onClick={(e) => e.stopPropagation()}
+          />
+          <button
+            onClick={() => setLightboxUrl(null)}
+            className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/90 text-[#191F28] font-bold text-lg flex items-center justify-center hover:bg-white"
+            aria-label="닫기"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
