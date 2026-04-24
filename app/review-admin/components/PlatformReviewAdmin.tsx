@@ -196,6 +196,9 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
   const [draftText, setDraftText] = useState<string>('')
   const [generating, setGenerating] = useState(false)
   const [submitting, setSubmitting] = useState(false)
+  // 41차-11: 수동 발행 대기 중인 review id (클립보드 복사 완료, 붙여넣기 대기)
+  const [manualPendingId, setManualPendingId] = useState<string | null>(null)
+  const [confirmingId, setConfirmingId] = useState<string | null>(null)
   const [persona, setPersona] = useState<Persona>(() => {
     try {
       if (typeof window !== 'undefined') {
@@ -468,32 +471,60 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
               : r,
           ),
         )
+        setEditingId(null)
+        setDraftText('')
       } else {
-        // ── 수동 발행 모드 (클립보드 복사) ──
+        // ── 수동 발행 모드 ──
+        // reply_status는 'draft' 유지 — 실제 붙여넣기 확인 후에만 submitted 처리
         try {
           await navigator.clipboard.writeText(trimmed)
-          toast.success('✅ 답글이 클립보드에 복사됐어요! 플랫폼에서 붙여넣기 해주세요 ✂️')
-        } catch {
-          toast.success('✅ 발행 처리됐어요')
-        }
+        } catch { /* clipboard not available */ }
+        // 플랫폼 리뷰 관리 페이지 새 탭
         if (config.reviewAdminUrl) {
           window.open(config.reviewAdminUrl, '_blank', 'noopener')
         }
-        setReviews((prev) =>
-          prev.map((r) =>
-            r.id === review.id
-              ? { ...r, replyStatus: 'submitted', replySubmittedAt: new Date().toISOString(), draftReply: trimmed }
-              : r,
-          ),
-        )
+        // 수동 발행 대기 상태로 전환 (편집 패널 닫기, "완료 확인" 버튼 표시)
+        setEditingId(null)
+        setDraftText('')
+        setManualPendingId(review.id)
+        toast.info('📋 답글이 클립보드에 복사됐어요. 플랫폼에 붙여넣기 후 "완료 확인" 버튼을 눌러주세요.')
       }
-
-      setEditingId(null)
-      setDraftText('')
     } catch (e: any) {
       toast.error('발행 오류: ' + (e?.message || e))
     } finally {
       setSubmitting(false)
+    }
+  }
+
+  // ── 8-B) 수동 발행 완료 확인 ─────────────────────────────────
+  // 사용자가 실제로 플랫폼에 붙여넣기를 완료했을 때 호출
+  const handleManualConfirm = async (review: Review) => {
+    setConfirmingId(review.id)
+    try {
+      const res = await fetch('/api/review-reply/submit', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ review_id: review.id }),
+      })
+      const data = await res.json()
+      if (!res.ok || !data?.ok) {
+        toast.error('완료 처리 실패: ' + (data?.error || ''))
+        return
+      }
+      setReviews((prev) =>
+        prev.map((r) =>
+          r.id === review.id
+            ? { ...r, replyStatus: 'submitted', replySubmittedAt: new Date().toISOString(), hasReply: true }
+            : r,
+        ),
+      )
+      setManualPendingId(null)
+      toast.success('✅ 발행 완료로 처리됐어요!')
+    } catch (e: any) {
+      toast.error('완료 처리 오류: ' + (e?.message || e))
+    } finally {
+      setConfirmingId(null)
     }
   }
 
@@ -1099,60 +1130,22 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
                           </div>
                         )}
 
-                        {/* 초기 진입 버튼 */}
-                        {!isEditing && !review.hasReply && (
-                          <div className="flex gap-2 flex-wrap items-center">
-                            {hasDraft ? (
-                              <>
-                                <button
-                                  onClick={() => openEditor(review)}
-                                  className="px-4 py-2 rounded-xl text-xs font-bold text-white hover:opacity-90 shadow-sm"
-                                  style={{ background: config.color }}
+                        {/* 수동 발행 대기 배너 (클립보드 복사 완료, 붙여넣기 대기) */}
+                        {!isEditing && !review.hasReply && manualPendingId === review.id && (
+                          <div className="rounded-xl border border-[#FCD34D] bg-[#FFFBEB] p-3 mb-2">
+                            <p className="text-[12px] font-semibold text-[#92400E] mb-2">
+                              📋 클립보드에 복사됐어요. {config.label}에서 붙여넣기 하셨나요?
+                            </p>
+                            <div className="flex gap-2 flex-wrap">
+                              {config.reviewAdminUrl && (
+                                <a
+                                  href={config.reviewAdminUrl}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="px-3 py-1.5 rounded-lg text-xs font-bold bg-white border border-[#E5E8EB] text-[#4E5968] hover:bg-[#F2F4F6]"
                                 >
-                                  📝 초안 이어서 편집
-                                </button>
-                                <span className="text-[11px] text-[#8B95A1] truncate max-w-[280px]">
-                                  {(review.draftReply || '').slice(0, 60)}{(review.draftReply || '').length > 60 ? '...' : ''}
-                                </span>
-                              </>
-                            ) : (
-                              <>
-                                <button
-                                  onClick={() => handleGenerateDraft(review)}
-                                  disabled={bulkRunning}
-                                  className="px-4 py-2 rounded-xl text-xs font-bold text-white hover:opacity-90 shadow-sm disabled:opacity-50"
-                                  style={{ background: config.color }}
-                                  title="지역·업종·사진·키워드 자동 분석 → AI 답글 초안 생성"
-                                >
-                                  ✍️ AI 초안 생성
-                                </button>
-                                <button
-                                  onClick={() => { setEditingId(review.id); setDraftText('') }}
-                                  disabled={bulkRunning}
-                                  className="px-4 py-2 rounded-xl text-xs font-bold bg-white border border-[#E5E8EB] text-[#4E5968] hover:bg-[#F2F4F6] shadow-sm disabled:opacity-50"
-                                >
-                                  ✏️ 직접 작성
-                                </button>
-                              </>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    )
-                  })}
-                </div>
-              )
-            ) : null}
-
-            <div className="-mx-4 md:-mx-6 mt-10">
-              <Footer />
-            </div>
-          </div>
-        </main>
-      </div>
-
-      {/* 30차-23: 사진 라이트박스 */}
-      {lightboxUrl && (
-        <div
-          role="dialog"
-          aria-modal="tru
+                                  {config.label} 열기 ↗
+                                </a>
+                              )}
+                              <button
+                    
