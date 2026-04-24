@@ -38,7 +38,8 @@ export async function POST(req: NextRequest) {
   if (!draft) {
     return NextResponse.json({ ok: false, error: 'draft 비어있음' }, { status: 400 })
   }
-  if (tone && !['warm', 'polite', 'formal'].includes(tone)) {
+  const VALID_TONES = ['warm', 'polite', 'formal', 'friendly', 'expert', 'witty', 'simple', 'emo', 'mz']
+  if (tone && !VALID_TONES.includes(tone)) {
     return NextResponse.json({ ok: false, error: 'tone 값 오류' }, { status: 400 })
   }
 
@@ -61,12 +62,12 @@ export async function POST(req: NextRequest) {
     if (row.user_id !== userId) {
       return NextResponse.json({ ok: false, error: '권한 없음' }, { status: 403 })
     }
-    // 이미 submitted/submitting 인 경우 overwrite 금지
-    if (['queued', 'submitting', 'submitted'].includes(String(row.reply_status))) {
+    // submitting 중에만 block (queued/submitted는 재생성 허용 — 직접 발행 플로우)
+    if (['submitting'].includes(String(row.reply_status))) {
       return NextResponse.json(
         {
           ok: false,
-          error: `현재 상태(${row.reply_status})에서는 초안을 수정할 수 없어요`,
+          error: `현재 처리 중(${row.reply_status})이에요. 잠시 후 다시 시도해주세요`,
         },
         { status: 409 },
       )
