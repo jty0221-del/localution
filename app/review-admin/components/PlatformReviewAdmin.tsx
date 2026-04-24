@@ -1162,4 +1162,13 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
           />
           <button
             onClick={() => setLightboxUrl(null)}
-            className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/90 text-[#1
+            className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/90 text-[#191F28] font-bold text-lg flex items-center justify-center hover:bg-white"
+            aria-label="닫기"
+          >
+            ✕
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
