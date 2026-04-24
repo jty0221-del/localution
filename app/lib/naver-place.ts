@@ -684,7 +684,8 @@ type GraphQLReviewItem = {
 async function fetchVisitorReviewsGraphQL(
   placeId: string,
   businessType: string,
-  size: number = 20,
+  size: number = 50,
+  page: number = 1,
 ): Promise<VisitorReview[] | null> {
   const body = [
     {
@@ -694,7 +695,7 @@ async function fetchVisitorReviewsGraphQL(
           businessId: placeId,
           businessType,
           item: '0',
-          page: 1,
+          page,
           size,
           isPhotoUsed: false,
           includeContent: true,
@@ -774,11 +775,22 @@ export async function fetchVisitorReviews(
   if (hint && (PLACE_CATEGORIES as readonly string[]).includes(hint)) tryOrder.push(hint)
   for (const c of PLACE_CATEGORIES) if (!tryOrder.includes(c)) tryOrder.push(c)
 
-  // 1) GraphQL 우선 시도
+  // 1) GraphQL 우선 시도 — 37차-6: 페이지네이션으로 모든 리뷰 수집 (최대 500개)
+  const PAGE_SIZE = 50
+  const MAX_PAGES = 10
   for (const cat of tryOrder) {
-    const reviews = await fetchVisitorReviewsGraphQL(placeId, cat)
-    if (reviews && reviews.length > 0) return reviews
-    // null = 네트워크/스키마 오류, [] = 카테고리 미스매치 or 리뷰 없음 → 다음 카테고리 계속
+    const firstPage = await fetchVisitorReviewsGraphQL(placeId, cat, PAGE_SIZE, 1)
+    if (!firstPage) continue // 네트워크/스키마 오류 → 다음 카테고리
+    if (firstPage.length === 0) continue // 카테고리 미스매치 → 다음
+    const all: VisitorReview[] = [...firstPage]
+    // 첫 페이지가 가득 찼으면 더 불러오기
+    for (let p = 2; p <= MAX_PAGES && all.length >= (p - 1) * PAGE_SIZE; p++) {
+      const more = await fetchVisitorReviewsGraphQL(placeId, cat, PAGE_SIZE, p)
+      if (!more || more.length === 0) break
+      all.push(...more)
+      if (more.length < PAGE_SIZE) break
+    }
+    return all
   }
 
   // 2) Fallback — 구 SSR Apollo 파서 (네이버가 SSR 을 되돌릴 경우 대비)

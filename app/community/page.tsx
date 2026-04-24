@@ -602,17 +602,26 @@ export default function Community() {
     setBalance(getBalance(email))
   }, [])
 
-  // localStorage 에 저장된 내 글 로드
+  // 37차-6: 실제 사용자 글이 있으면 샘플은 밀어내기 (없으면 샘플만 유지)
   useEffect(() => {
     try {
       const raw = window.localStorage.getItem('localution.community_posts')
       if (!raw) return
       const myPosts = JSON.parse(raw)
       if (Array.isArray(myPosts) && myPosts.length > 0) {
+        const isSample = (p: any) =>
+          typeof p?.author_email === 'string' && p.author_email.startsWith('sample')
         setPosts(prev => {
           const existingIds = new Set(prev.map((p: any) => p.id))
           const fresh = myPosts.filter((p: any) => !existingIds.has(p.id))
-          return [...fresh, ...prev]
+          // 실제 사용자 글이 이미 3개 이상이면 샘플 제거, 그 전에는 뒤로 밀기
+          const realCount = fresh.length + prev.filter((p: any) => !isSample(p)).length
+          if (realCount >= 3) {
+            return [...fresh, ...prev.filter((p: any) => !isSample(p))]
+          }
+          const realPrev = prev.filter((p: any) => !isSample(p))
+          const samplePrev = prev.filter((p: any) => isSample(p))
+          return [...fresh, ...realPrev, ...samplePrev]
         })
       }
     } catch (_) {}

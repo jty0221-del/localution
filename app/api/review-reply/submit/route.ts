@@ -23,7 +23,8 @@ import { requireUser } from '@/app/lib/userAuth'
 import { createServiceClient } from '@/app/lib/adminAuth'
 import { enqueuePlatformJob, Platform } from '@/app/lib/queue'
 
-const WORKER_REPLY_PLATFORMS: Platform[] = ['baemin', 'yogiyo', 'coupangeats']
+// 37차-6: 네이버 / 카카오맵도 큐잉 — Worker 어댑터 확장 시 즉시 처리 가능
+const WORKER_REPLY_PLATFORMS: Platform[] = ['baemin', 'yogiyo', 'coupangeats', 'naver_place', 'kakao_map']
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'

@@ -23,7 +23,14 @@ import Link from 'next/link'
 import Sidebar from '../../components/Sidebar'
 import Footer from '../../components/Footer'
 import PageHeader from '../../components/PageHeader'
+import PlatformLogo from '../../components/PlatformLogo'
+import type { PlatformLogoSlug } from '../../components/PlatformLogo'
 import { toast } from '../../lib/toast'
+
+// 37차-6: 이모지 대신 PlatformLogo SVG 사용 (naver/baemin/yogiyo/coupangeats/kakao_map)
+const LOGO_PLATFORMS: ReadonlySet<string> = new Set<string>([
+  'naver_place', 'baemin', 'yogiyo', 'coupangeats', 'kakao_map',
+])
 
 type PlatformSlug = 'naver_place' | 'baemin' | 'yogiyo' | 'coupangeats' | 'kakao_map'
 type ReplyStatus = 'none' | 'draft' | 'queued' | 'submitting' | 'submitted' | 'failed'
@@ -546,7 +553,11 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
         <Sidebar />
         <main className="flex-1 ml-0 md:ml-[220px] pt-14 md:pt-0 min-w-0">
           <PageHeader
-            icon={config.icon}
+            icon={
+              LOGO_PLATFORMS.has(config.platform)
+                ? <PlatformLogo platform={config.platform as PlatformLogoSlug} size={56} rounded={14} />
+                : config.icon
+            }
             title={`${config.label} 리뷰 관리`}
             subtitle={
               connected
@@ -674,7 +685,7 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
             {connected && config.platform === 'naver_place' && (
               <div className="bg-white rounded-2xl border border-[#E5E8EB] p-4 mb-4">
                 <div className="flex items-start gap-3 flex-wrap">
-                  <span className="text-xl leading-none mt-0.5">🟢</span>
+                  <PlatformLogo platform="naver_place" size={24} rounded={6} />
                   <div className="flex-1 min-w-[200px]">
                     <p className="text-sm font-bold text-[#191F28] mb-1">네이버 플레이스 리뷰 — 자동 수집 + 사장님 답글 작성</p>
                     <p className="text-xs text-[#4E5968] leading-relaxed">
@@ -950,13 +961,7 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
                                   </button>
                                 </div>
 
-                                {isQueued && (
-                                  <p className="text-[11px] mt-2 text-[#92400E] bg-[#FEF3C7] rounded-lg px-2 py-1.5">
-                                    ⏳ 등록 대기열에 올라와 있어요.{' '}
-                                    {review.replyQueuedAt && `(${timeAgo(review.replyQueuedAt)} 전 등록)`}{' '}
-                                    Worker 가 {config.label}에 올려드려요.
-                                  </p>
-                                )}
+                                {/* 37차-6: 등록 대기열 안내는 노출하지 않음 — 버튼 텍스트로 대체 */}
                                 {isSubmitted && (
                                   <p className="text-[11px] mt-2 text-[#059669] bg-[#ECFDF5] rounded-lg px-2 py-1.5">
                                     ✅ {config.label}에 등록 완료 ({timeAgo(review.replySubmittedAt)} 전)

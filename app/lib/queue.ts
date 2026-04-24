@@ -27,7 +27,14 @@ let queueInstance: Queue<PlatformJobData> | null = null
 function getRedis(): IORedis {
   if (redisClient) return redisClient
   const url = process.env.REDIS_URL
-  if (!url) throw new Error('REDIS_URL missing — BullMQ enqueue 불가')
+  if (!url) throw new Error('REDIS_URL missing — Vercel 환경변수에 추가 필요')
+  // 37차-6: 내부망 URL 차단 — .railway.internal 은 Vercel 에서 DNS 실패
+  if (/\.railway\.internal/.test(url)) {
+    throw new Error(
+      'REDIS_URL 이 내부망 URL(.railway.internal) 입니다. ' +
+      'Railway Redis → Settings → TCP Proxy 의 PUBLIC URL(proxy.rlwy.net)로 교체하세요.'
+    )
+  }
   redisClient = new IORedis(url, {
     maxRetriesPerRequest: null,   // BullMQ requirement
     enableReadyCheck: false,

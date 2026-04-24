@@ -92,6 +92,22 @@ export async function POST(req: NextRequest) {
   }
 
   if (!placeId) {
+    // 37차-6: (c) place_targets.external_id (platform='kakao_map') — 신규 폴백
+    try {
+      const { data } = await svc
+        .from('place_targets')
+        .select('external_id')
+        .eq('user_id', userId)
+        .eq('platform', 'kakao_map')
+        .order('updated_at', { ascending: false })
+        .limit(1)
+      if (Array.isArray(data) && data[0]?.external_id && /^\d+$/.test(String(data[0].external_id))) {
+        placeId = String(data[0].external_id)
+      }
+    } catch (_) {}
+  }
+
+  if (!placeId) {
     return NextResponse.json(
       { ok: false, error: '연결된 카카오맵이 없어요. 먼저 /my/platforms 에서 연결해 주세요.' },
       { status: 400 },

@@ -180,15 +180,24 @@ export default function ServiceIntro() {
             </Link>
           </div>
           <div className="inline-block bg-white/15 border border-white/30 text-white/90 text-sm font-bold px-5 py-2 rounded-full mb-5">
-            서비스 소개 · 이용 흐름
+            ⚡ 사장님 하루 2시간 절약 · 리뷰 관리 자동화
           </div>
-          <h1 className="text-5xl font-black mb-5 leading-tight">AI 리뷰 답글 자동화 서비스</h1>
+          <h1 className="text-5xl font-black mb-5 leading-tight">
+            리뷰 답글 쓰는 시간,<br/>
+            <span className="text-[#FFE2A0]">이젠 AI가 대신합니다.</span>
+          </h1>
           <p className="text-white/85 text-xl leading-relaxed max-w-3xl">
-            네이버 플레이스, 구글, 쿠팡이츠, 배달의민족, 요기요 리뷰를<br/>
-            한 곳에서 확인하고 매장과 고객 프로필에 맞는 답글을 만들어 드립니다.
+            네이버 · 카카오맵 · 구글 · 배민 · 요기요 · 쿠팡이츠까지 —
+            흩어져 있던 리뷰를 <b className="text-white">한 화면</b>에서 보고,
+            매장 톤과 고객 성향에 맞춘 답글을 <b className="text-white">3초 안에</b> 만들어 드려요.
           </p>
-          <div className="flex gap-10 mt-8">
-            {[['5개+', '연동 플랫폼'], ['6종', '답글 톤'], ['Claude', 'AI 엔진']].map(([v, l]) => (
+          <div className="flex gap-10 mt-8 flex-wrap">
+            {[
+              ['6개', '연동 플랫폼'],
+              ['6종', '답글 톤 · 성별/연령대 반영'],
+              ['1분', '가입 → 첫 답글 생성'],
+              ['자동', '원클릭 게시'],
+            ].map(([v, l]) => (
               <div key={l}>
                 <div className="text-3xl font-black">{v}</div>
                 <div className="text-white/70 text-sm mt-1">{l}</div>

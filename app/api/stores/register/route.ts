@@ -80,6 +80,7 @@ export async function POST(req: NextRequest) {
       slug: slugIn,
       name,
       category,
+      industry,  // 37차-6: /settings/profile 에서 업종으로 전달
       location,
       address,
       phone,
@@ -116,7 +117,8 @@ export async function POST(req: NextRequest) {
     const payload: Record<string, any> = {
       slug,
       name,
-      category: category || null,
+      // 37차-6: industry → category 로 매핑 (stores.category 컬럼 활용)
+      category: category || industry || null,
       location: location || null,
       address: address || null,
       phone: phone || null,

@@ -52,17 +52,19 @@ type Feature = {
   popular?: boolean
 }
 
-// 중앙 SSOT 에서 자동 생성
-const features: Feature[] = MODULES.map(m => ({
-  id: m.id,
-  name: m.name,
-  desc: m.desc,
-  price: m.price,
-  Icon: ICON_MAP[m.icon] || Search,
-  iconColor: CATEGORY_ICON_COLOR[m.category],
-  category: m.category,
-  popular: m.popular,
-}))
+// 중앙 SSOT 에서 자동 생성 — 37차-6: 로컬루션에 실제로 구현된 모듈만 노출 (coming-soon 제외)
+const features: Feature[] = MODULES
+  .filter(m => m.status === 'live' || m.status === 'beta')
+  .map(m => ({
+    id: m.id,
+    name: m.name,
+    desc: m.desc,
+    price: m.price,
+    Icon: ICON_MAP[m.icon] || Search,
+    iconColor: CATEGORY_ICON_COLOR[m.category],
+    category: m.category,
+    popular: m.popular,
+  }))
 
 const categoryColor: Record<string, string> = {
   '사장님': 'bg-blue-100 text-blue-600',

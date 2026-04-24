@@ -445,7 +445,7 @@ export function getLiveModules(): Module[] {
   return MODULES.filter(m => m.status === 'live' || m.status === 'beta')
 }
 
-/** 페르소나별 추천 번들 */
+/** 페르소나별 추천 번들 — 37차-6: coming-soon 모듈 제외, 실제 구현된 것만 */
 export const PERSONA_BUNDLES = {
   'owner-solo': {
     name: '1인 자영업자',
@@ -460,12 +460,12 @@ export const PERSONA_BUNDLES = {
   'marketer': {
     name: '마케터·대행사',
     desc: '여러 업체 관리하는 마케터',
-    modules: ['keyword', 'blog-ai', 'competitor', 'report', 'sns-manage', 'card-news', 'blog-tracking'] as ModuleId[],
+    modules: ['keyword', 'blog-ai', 'report', 'sns-manage', 'card-news', 'blog-tracking'] as ModuleId[],
   },
   'sales': {
     name: '프랜차이즈·영업',
     desc: '다점포 브랜드',
-    modules: ['ai-review', 'qr-stamp', 'crm', 'keyword', 'report', 'competitor', 'platform-hub'] as ModuleId[],
+    modules: ['ai-review', 'qr-stamp', 'crm', 'keyword', 'report', 'platform-hub'] as ModuleId[],
   },
 } as const
 
