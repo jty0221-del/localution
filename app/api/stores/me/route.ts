@@ -223,6 +223,10 @@ export async function GET() {
         connected = true
       }
     }
+    // 41차-8: 모든 플랫폼 — 리뷰가 1건이라도 있으면 "연결됨" 표시 (시드 포함)
+    if (!connected && (agg?.review_count ?? 0) > 0) {
+      connected = true
+    }
     return {
       platform: p,
       label: (PLATFORM_LABELS as Record<string, string>)[p] ?? p,
