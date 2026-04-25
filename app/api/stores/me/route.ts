@@ -261,6 +261,15 @@ export async function GET() {
       }
     : null
 
+  // 플랫폼 레이블이 매장명으로 잘못 저장된 경우 null 처리
+  const PLATFORM_LABEL_SET = new Set(['네이버 플레이스', '배달의민족', '요기요', '쿠팡이츠', '카카오맵'])
+  if (store && PLATFORM_LABEL_SET.has(store.name)) {
+    store = { ...store, name: null }
+  }
+  if (naverLink && naverLink.external_name && PLATFORM_LABEL_SET.has(naverLink.external_name)) {
+    naverLink = { ...naverLink, external_name: null }
+  }
+
   return NextResponse.json({
     ok: true,
     user_id: userId,
