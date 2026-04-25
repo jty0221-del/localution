@@ -238,7 +238,7 @@ export default function LandingPage() {
                 "description": "네이버·구글·배민 리뷰 자동 답글, 블로그 포스팅, QR 리뷰 자동화, AI 매장 진단까지. 소상공인·자영업자를 위한 AI 마케팅 플랫폼.",
                 "offers": {
                   "@type": "Offer",
-                  "price": "990",
+                  "price": "6900",
                   "priceCurrency": "KRW",
                   "description": "커피 한 잔 값 월 6,900원으로 모든 플랫폼 리뷰답글 자동화"
                 },
