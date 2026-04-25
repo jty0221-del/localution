@@ -43,19 +43,26 @@ function formatYearMonth(dateStr: string) {
   return dateStr.slice(0, 7).replace('-', '.')
 }
 
-async function getBaseUrl(): Promise<string> {
-  if (process.env.NEXT_PUBLIC_SITE_URL) return process.env.NEXT_PUBLIC_SITE_URL
-  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`
-  return 'http://localhost:3000'
-}
-
 async function fetchUpdates(): Promise<UpdateRow[]> {
-  const base = await getBaseUrl()
+  // 서버 컴포넌트에서 HTTP 루프백 대신 Supabase 직접 조회.
+  //  · 빌드 환경(env 누락) / preview / 잘못된 baseUrl 폴백 이슈 회피
+  //  · /api/updates 는 외부(SDK·웹훅)에서 호출하는 케이스에 한해 유지
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!url || !serviceKey || url.includes('placeholder.supabase.co')) return []
   try {
-    const res = await fetch(`${base}/api/updates`, { next: { revalidate: 60 } })
-    if (!res.ok) return []
-    const json = await res.json()
-    return Array.isArray(json.updates) ? json.updates : []
+    const { createClient } = await import('@supabase/supabase-js')
+    const svc = createClient(url, serviceKey, {
+      auth: { persistSession: false, autoRefreshToken: false },
+    })
+    const { data, error } = await svc
+      .from('app_updates')
+      .select('id,title,summary,highlight,category,released_at,cover_url,link_url,sort_order')
+      .eq('active', true)
+      .order('released_at', { ascending: false })
+      .order('sort_order', { ascending: false })
+    if (error) return []
+    return (data ?? []) as UpdateRow[]
   } catch {
     return []
   }

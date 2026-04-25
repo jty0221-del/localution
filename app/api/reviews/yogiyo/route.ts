@@ -17,9 +17,11 @@ export async function GET() {
   }
 
   // TODO: 요기요 사장님 포털 로그인 → 리뷰 데이터 수집
+  // 현재 운영용 수집은 worker(yogiyo 어댑터)가 처리하며, 본 라우트는 레거시/개발용이다.
   return NextResponse.json({
     platform: 'yogiyo',
     status: 'demo',
+    isDemo: true,
     message: '요기요 파트너 API 연동을 위해 partner.yogiyo.co.kr에서 신청하세요.',
     reviews: getSampleReviews('yogiyo'),
   })

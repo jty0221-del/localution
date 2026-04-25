@@ -1,7 +1,11 @@
 import { createClient } from '@supabase/supabase-js';
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!;
+// 빌드 시(prerender) 환경변수가 없으면 placeholder 로 폴백.
+// 실제 런타임(서버/브라우저)에는 Vercel 환경변수가 주입됨.
+const supabaseUrl =
+  process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co';
+const supabaseKey =
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-anon-key';
 
 export const supabase = createClient(supabaseUrl, supabaseKey);
 

@@ -324,7 +324,7 @@ export default function PartnerPointsPage() {
           icon="🎁"
           title="파트너 리워드"
           subtitle="친구 초대하면 내 구독 기간이 늘어나요 · 현금 포인트 대신 실질 혜택"
-          variant="blue"
+          variant="primary"
         />
 
         <div className="max-w-5xl mx-auto pt-6 pb-20 px-4 md:px-8">

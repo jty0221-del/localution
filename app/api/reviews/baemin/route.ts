@@ -17,10 +17,11 @@ export async function GET() {
   }
 
   // TODO: 배민 사장님 포털 로그인 → 세션 토큰 획득 → 리뷰 API 호출
-  // 현재는 샘플 데이터 반환
+  // 현재 운영용 수집은 worker(baemin 어댑터)가 처리하며, 본 라우트는 레거시/개발용이다.
   return NextResponse.json({
     platform: 'baemin',
     status: 'demo',
+    isDemo: true,
     message: '배달의민족 공식 API가 없어 파트너 계약이 필요합니다.',
     reviews: getSampleReviews('baemin'),
   })

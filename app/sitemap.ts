@@ -33,7 +33,8 @@ export default function sitemap(): MetadataRoute.Sitemap {
     { path: 'qr',             priority: 0.7, freq: 'monthly' },
     { path: 'community',      priority: 0.6, freq: 'weekly'  },
     { path: 'updates',        priority: 0.7, freq: 'weekly'  },  // 23차-SEO
-    { path: 'partner-points', priority: 0.6, freq: 'monthly' },  // 23차-SEO
+    // partner-points 는 middleware 로 로그인 필수 → 크롤러가 /login 으로 리다이렉트 받아 인덱싱 불가.
+    // SEO 효용 0 이라 sitemap 에서 제외 (랜딩 페이지에서 직접 링크는 유지).
     { path: 'inquiry',        priority: 0.5, freq: 'monthly' },
     { path: 'login',          priority: 0.5, freq: 'yearly'  },
     { path: 'signup',         priority: 0.6, freq: 'yearly'  },

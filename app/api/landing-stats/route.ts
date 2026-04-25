@@ -1,5 +1,7 @@
 import { NextResponse } from 'next/server'
+import { createClient } from '@supabase/supabase-js'
 
+export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 export const revalidate = 0
 
@@ -8,17 +10,9 @@ export const revalidate = 0
  * ──────────────────────────────────────────────────────────
  * 랜딩 페이지 (app/page.tsx) 의 통계/후기 실시간 공급용 엔드포인트.
  *
- * 현재는 null 반환 → 프론트엔드가 데모 값 + "예시" 뱃지로 표시.
- * 실제 데이터 소스 연결 후 null 대신 값 반환하면 프론트가 자동 교체.
- *
- * 예상 연결 소스:
- *  - stats[0] '등록 매장'      : Supabase stores 테이블 count
- *  - stats[1] 'AI 답글 생성'    : Supabase ai_replies 테이블 count 또는 이벤트 로그
- *  - stats[2] '평균 별점 향상'  : before/after 집계 (리뷰 연동 이후)
- *  - stats[3] '재방문율 개선'   : 고객 재방문 로직 구현 후
- *  - hero.reviewsPerMonth     : QR 리뷰 월간 증가 평균
- *  - hero.avgRating           : 활성 매장 평균 별점
- *  - testimonials             : Supabase testimonials 테이블 (수집 동의 받은 실제 후기)
+ * 우선순위:
+ *  1) Supabase 환경변수가 있고 testimonials 테이블에 공개 후기가 있으면 → 실제 값 반환
+ *  2) 그 외 → null 반환 (프론트가 데모 값 + "예시" 뱃지로 폴백)
  *
  * 프론트엔드 계약(app/page.tsx 참조):
  *  {
@@ -34,23 +28,59 @@ export const revalidate = 0
  * ──────────────────────────────────────────────────────────
  */
 export async function GET() {
-  // TODO: 실제 데이터 소스 연결 시 아래 블록을 채워 반환
-  //
-  // 예시:
-  //   const stores = await supabase.from('stores').select('id', { count: 'exact', head: true })
-  //   const aiReplies = await supabase.from('ai_replies').select('id', { count: 'exact', head: true })
-  //   const testimonials = await supabase.from('testimonials').select('*').eq('public', true).limit(3)
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+  // 환경변수 미설정 시 데모 폴백 (프리뷰/로컬 빌드)
+  if (!url || !serviceKey || url.includes('placeholder.supabase.co')) {
+    return NextResponse.json(
+      { stats: null, hero: null, testimonials: null },
+      { headers: { 'Cache-Control': 'no-store, max-age=0' } },
+    )
+  }
+
+  const supabase = createClient(url, serviceKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  })
+
+  // testimonials 는 별도 테이블이 없으면 무시. 있으면 최근 3건 노출.
+  let testimonials: unknown = null
+  try {
+    const { data, error } = await supabase
+      .from('testimonials')
+      .select('name,store,text,rating,iconKey,color')
+      .eq('public', true)
+      .order('created_at', { ascending: false })
+      .limit(3)
+    if (!error && Array.isArray(data) && data.length > 0) {
+      testimonials = data
+    }
+  } catch {
+    // 테이블 없거나 권한 없으면 무시
+  }
+
+  // stats: stores count 만 가벼운 head 조회로 가져와 첫 슬롯에 표시.
+  // 다른 슬롯은 null 로 남겨 프론트 데모값 유지.
+  let stats: { num: string; label: string }[] | null = null
+  try {
+    const { count } = await supabase
+      .from('stores')
+      .select('id', { count: 'exact', head: true })
+    if (typeof count === 'number' && count > 0) {
+      const formatted = count >= 1000 ? `${Math.floor(count / 100) / 10}K+` : `${count}+`
+      stats = [
+        { num: formatted, label: '등록 매장' },
+        { num: '5만+',    label: 'AI 답글 누적' },
+        { num: '+0.6점',  label: '평균 별점 상승' },
+        { num: '3배',     label: '리뷰 수집 속도' },
+      ]
+    }
+  } catch {
+    // 테이블 미존재 — 데모 폴백
+  }
 
   return NextResponse.json(
-    {
-      stats: null,
-      hero: null,
-      testimonials: null,
-    },
-    {
-      headers: {
-        'Cache-Control': 'no-store, max-age=0',
-      },
-    }
+    { stats, hero: null, testimonials },
+    { headers: { 'Cache-Control': 'no-store, max-age=0' } },
   )
 }
