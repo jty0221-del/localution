@@ -17,6 +17,7 @@
 // ============================================================
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/app/lib/adminAuth'
+import { verifyCronAuth } from '@/app/lib/cron-auth'
 import { sendMemoForUser } from '@/app/lib/kakao-api'
 import { buildDigestMessage, shouldSend, DigestItem } from '@/app/lib/rank-events'
 
@@ -25,10 +26,8 @@ export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
 export async function GET(req: NextRequest) {
-  const auth = req.headers.get('authorization') || ''
-  const secret = process.env.CRON_SECRET || ''
-  if (!secret) return NextResponse.json({ error: 'CRON_SECRET 미설정' }, { status: 500 })
-  if (auth !== `Bearer ${secret}`) return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
+  const a = verifyCronAuth(req.headers.get('authorization'))
+  if (!a.ok) return NextResponse.json({ error: a.message }, { status: a.status })
 
   const startedAt = Date.now()
   const svc = createServiceClient()

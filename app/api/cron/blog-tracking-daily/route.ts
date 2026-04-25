@@ -15,6 +15,7 @@
 // ============================================================
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/app/lib/adminAuth'
+import { verifyCronAuth } from '@/app/lib/cron-auth'
 import { checkNaverBlogRank, RankResult } from '@/app/lib/naver-rank'
 import { deriveEvent, shouldSend } from '@/app/lib/rank-events'
 import { sendMemoForUser } from '@/app/lib/kakao-api'
@@ -65,17 +66,8 @@ function compactHits(r: RankResult) {
 }
 
 export async function GET(req: NextRequest) {
-  const auth = req.headers.get('authorization') || ''
-  const secret = process.env.CRON_SECRET || ''
-  if (!secret) {
-    return NextResponse.json(
-      { error: 'CRON_SECRET 미설정 (Vercel Dashboard)' },
-      { status: 500 },
-    )
-  }
-  if (auth !== `Bearer ${secret}`) {
-    return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
-  }
+  const a = verifyCronAuth(req.headers.get('authorization'))
+  if (!a.ok) return NextResponse.json({ error: a.message }, { status: a.status })
 
   const startedAt = Date.now()
   const svc = createServiceClient()

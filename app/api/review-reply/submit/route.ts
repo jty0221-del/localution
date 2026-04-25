@@ -30,8 +30,10 @@ export async function POST(req: NextRequest) {
   }
   const userId = auth.userId
 
-  let body: any = {}
-  try { body = await req.json() } catch {}
+  let body: any
+  try { body = await req.json() } catch {
+    return NextResponse.json({ ok: false, error: 'invalid_json' }, { status: 400 })
+  }
 
   const reviewId = String(body?.review_id || '').trim()
   if (!reviewId) {

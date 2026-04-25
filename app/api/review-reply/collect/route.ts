@@ -30,7 +30,8 @@ export async function POST(req: NextRequest) {
   const userId = auth.userId
 
   let body: any = {}
-  try { body = await req.json() } catch {}
+  // collect 는 query string 만으로도 동작하므로 body 누락은 허용
+  try { body = await req.json() } catch { body = {} }
   const { searchParams } = new URL(req.url)
   const platform = String(searchParams.get('platform') || body?.platform || '').trim() as Platform
 

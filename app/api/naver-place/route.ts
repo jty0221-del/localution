@@ -7,12 +7,35 @@ import { NextRequest, NextResponse } from 'next/server'
  * 반환:
  *   { name, category, address, phone, description, mainKeyword }
  */
+
+// 43차-3: 입력 검증 — 길이 상한 + URL 스킴/호스트 화이트리스트
+const MAX_QUERY_LEN = 80
+const MAX_URL_LEN = 2048
+const ALLOWED_HOSTS = new Set([
+  'place.naver.com',
+  'm.place.naver.com',
+  'map.naver.com',
+  'm.map.naver.com',
+])
+
+function isAllowedNaverUrl(raw: string): boolean {
+  if (raw.length > MAX_URL_LEN) return false
+  let u: URL
+  try { u = new URL(raw) } catch { return false }
+  if (u.protocol !== 'https:' && u.protocol !== 'http:') return false
+  return ALLOWED_HOSTS.has(u.hostname.toLowerCase())
+}
+
 export async function GET(req: NextRequest) {
   const url = req.nextUrl.searchParams.get('url') || ''
   const searchQuery = req.nextUrl.searchParams.get('q') || ''
 
   // ── 네이버 Local Search API 사용 (검색어 기반) ──
   if (searchQuery) {
+    if (searchQuery.length > MAX_QUERY_LEN) {
+      return NextResponse.json({ ok: false, error: `검색어가 너무 깁니다 (최대 ${MAX_QUERY_LEN}자)` }, { status: 400 })
+    }
+
     const clientId = process.env.NAVER_CLIENT_ID || ''
     const clientSecret = process.env.NAVER_CLIENT_SECRET || ''
 
@@ -55,6 +78,9 @@ export async function GET(req: NextRequest) {
   // ── URL 기반 scraping ──
   if (!url) {
     return NextResponse.json({ ok: false, error: 'url 또는 q 파라미터가 필요합니다' }, { status: 400 })
+  }
+  if (!isAllowedNaverUrl(url)) {
+    return NextResponse.json({ ok: false, error: '허용되지 않는 URL 입니다 (네이버 플레이스/지도만 가능)' }, { status: 400 })
   }
 
   try {

@@ -20,7 +20,10 @@ export type EncryptedPayload = {
   kek_version?: string
 }
 
+// 43차-3: 모듈 로드 시 1회만 파싱하고 캐시. 호출마다 재파싱하던 핫패스 제거.
+let _kekCache: Buffer | null = null
 function loadKek(): Buffer {
+  if (_kekCache) return _kekCache
   const raw = process.env.ENCRYPTION_KEK_HEX
   if (!raw) {
     throw new Error('ENCRYPTION_KEK_HEX missing')
@@ -34,7 +37,8 @@ function loadKek(): Buffer {
       throw new Error(`ENCRYPTION_KEK_HEX invalid — need 64 hex chars, got ${cleaned.length}`)
     }
   }
-  return Buffer.from(hex.toLowerCase(), 'hex')
+  _kekCache = Buffer.from(hex.toLowerCase(), 'hex')
+  return _kekCache
 }
 
 function aesEncrypt(plaintext: Buffer, key: Buffer): { ciphertext: Buffer; iv: Buffer; tag: Buffer } {

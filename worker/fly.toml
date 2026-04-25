@@ -22,6 +22,6 @@ primary_region = "nrt"
     path = "/health"
 
 [[vm]]
-  Mautty = "1gb"
+  memory = "1gb"
   cpu_kind = "shared"
   cpus = 1

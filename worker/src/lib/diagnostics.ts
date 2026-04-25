@@ -25,9 +25,9 @@ export async function trySelectors(
 }
 
 /**
- * 셀렉터 매칭 실패 시 현재 페이지 상태 덤프 (Railway 로그에서 확인)
+ * 셀렉터 매칭 실패 시 현재 페이지 상태 덤프 (로그에서 확인)
  *   - URL, title
- *   - body HTML 앞 3000자
+ *   - body HTML 앞 800자 (43차-3: 3000→800 축소, password input value 제거)
  *   - DOM 내 고유 className 목록 앞 100개 (셀렉터 튜닝 힌트)
  */
 export async function dumpPageDiagnostics(
@@ -39,7 +39,12 @@ export async function dumpPageDiagnostics(
     const url = page.url()
     const title = await page.title().catch(() => '')
     const snippet = await page
-      .evaluate(() => (document.body?.innerHTML || '').slice(0, 3000))
+      .evaluate(() => {
+        // password 등 민감 input 의 value 제거 후 슬라이스
+        document.querySelectorAll('input[type="password"], input[name*="pw" i], input[autocomplete="current-password"]')
+          .forEach((el) => { (el as HTMLInputElement).value = '' })
+        return (document.body?.innerHTML || '').slice(0, 800)
+      })
       .catch(() => '')
     const classes = await page
       .evaluate(() => {

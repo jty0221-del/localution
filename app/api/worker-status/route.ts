@@ -1,10 +1,17 @@
 // app/api/worker-status/route.ts — 37차-5 Worker 큐 상태 확인
+// 43차-3: 관리자 전용 (큐 깊이 노출이 DoS 타게팅·내부 정보 누출 위험)
 import { NextResponse } from 'next/server'
+import { requireAdmin } from '@/app/lib/adminAuth'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
+  const admin = await requireAdmin()
+  if (!admin.ok) {
+    return NextResponse.json({ ok: false, error: admin.message }, { status: admin.status })
+  }
+
   const url = process.env.REDIS_URL
   if (!url) {
     return NextResponse.json({ ok: false, error: 'REDIS_URL 환경변수 없음' }, { status: 503 })

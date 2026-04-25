@@ -22,11 +22,11 @@ export async function GET() {
 
   const result = selfTest()
 
-  // 환경변수 존재 여부만 별도 표시 (값은 절대 노출 안 함)
+  // 환경변수 존재 여부만 별도 표시 (값·길이 모두 절대 노출 안 함)
+  // 43차-3: kek_hex_length 응답 제거 (포맷 추론 단서)
   const envInfo = {
-    has_kek_hex:    !!process.env.ENCRYPTION_KEK_HEX,
-    kek_hex_length: process.env.ENCRYPTION_KEK_HEX?.length || 0,
-    kek_version:    process.env.ENCRYPTION_KEK_VERSION || '(unset)',
+    has_kek_hex: !!process.env.ENCRYPTION_KEK_HEX,
+    kek_version: process.env.ENCRYPTION_KEK_VERSION || '(unset)',
   }
 
   return NextResponse.json({
