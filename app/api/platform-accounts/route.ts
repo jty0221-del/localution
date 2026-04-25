@@ -297,7 +297,9 @@ export async function PATCH(req: NextRequest) {
     .from('platform_credentials')
     .update({
       platform_store_id: body.platform_store_id,
-      platform_store_name: body.platform_store_name ?? null,
+      platform_store_name: body.platform_store_name
+        ? String(body.platform_store_name).replace(/<[^>]*>/g, '').trim() || null
+        : null,
       updated_at: new Date().toISOString(),
     })
     .eq('user_id', auth.userId)
@@ -325,7 +327,12 @@ export async function PATCH(req: NextRequest) {
       storePayload.naver_url = body.store_naver_url || ('https://map.naver.com/p/entry/place/' + body.platform_store_id)
       storePayload.naver_place_url = storePayload.naver_url
     }
-    if (body.platform_store_name) storePayload.name = body.platform_store_name
+    if (body.platform_store_name) {
+      // HTML 태그 제거 (Naver API 반환값 정제)
+      const rawName = String(body.platform_store_name).replace(/<[^>]*>/g, '').trim()
+      const LABEL_SET = new Set(['네이버 플레이스', '배달의민족', '요기요', '쿠팡이츠', '카카오맵'])
+      if (rawName && !LABEL_SET.has(rawName)) storePayload.name = rawName
+    }
     if (body.store_address) storePayload.address = body.store_address
     if (body.store_category) storePayload.category = body.store_category
     if (body.store_phone) storePayload.phone = body.store_phone
