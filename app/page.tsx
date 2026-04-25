@@ -322,7 +322,7 @@ export default function LandingPage() {
         <div className="max-w-4xl mx-auto text-center">
           <div className="inline-flex items-center gap-2 bg-blue-100 text-blue-700 text-xs font-semibold px-3 py-1.5 rounded-full mb-6">
             <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" />
-            필요한 것만 · 월 990원부터 · 언제든 해지
+            ☕ 커피 한 잔 값 6,900원 · 모든 플랫폼 리뷰답글 자동
           </div>
           <h1 className="text-4xl md:text-6xl font-black text-[#191F28] leading-tight mb-6">
             필요한 것만 골라쓰는<br />
