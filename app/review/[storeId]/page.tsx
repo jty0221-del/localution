@@ -38,6 +38,28 @@ function sanitizeStoreId(raw: string | string[] | undefined): string {
   return s
 }
 
+// 네이버 플레이스 URL에서 Place ID를 추출해 리뷰 작성 페이지 URL 반환
+function getNaverReviewUrl(naverUrl: string): string {
+  if (!naverUrl) return ''
+  // https://m.place.naver.com/place/12345678
+  // https://map.naver.com/v5/entry/place/12345678
+  // https://m.place.naver.com/restaurant/12345678/home
+  const parts = naverUrl.split('/')
+  for (let i = 0; i < parts.length; i++) {
+    const seg = parts[i]
+    if (seg === 'place' || seg === 'restaurant' || seg === 'cafe' ||
+        seg === 'beauty' || seg === 'hospital' || seg === 'hotel' ||
+        seg === 'mart' || seg === 'pharmacy' || seg === 'accommodation') {
+      const next = parts[i + 1]
+      if (next && /^\d+$/.test(next)) {
+        return 'https://m.place.naver.com/place/' + next + '/review/visitor/write'
+      }
+    }
+  }
+  // place ID를 찾지 못한 경우 원래 URL 반환
+  return naverUrl
+}
+
 function toReadableName(storeId: string): string {
   if (!storeId || storeId === 'default') return '우리 매장'
   return storeId.replace(/-+/g, ' ').replace(/\s+/g, ' ').trim() || '우리 매장'
@@ -264,7 +286,8 @@ export default function ReviewPage() {
     }
     setCopied(true)
     setTimeout(() => setCopied(false), 2500)
-    setTimeout(() => window.open(store.naverUrl, '_blank'), 350)
+    const reviewUrl = getNaverReviewUrl(store.naverUrl)
+    setTimeout(() => window.open(reviewUrl, '_blank'), 350)
   }
 
   const reset = () => { setStep(0); setPhotos([]); setReceiptStatus('idle'); setDraft(''); setFinal('') }
@@ -611,9 +634,9 @@ export default function ReviewPage() {
             <div className="bg-white rounded-xl p-4" style={{ border: '1px solid ' + BORDER }}>
               <p className="text-xs font-bold mb-2" style={{ color: BLUE }}>사용 방법</p>
               <ol className="text-xs space-y-1 list-decimal pl-4" style={{ color: '#4E5968' }}>
-                <li>리뷰 복사 버튼 클릭</li>
-                <li>네이버 업체 확인 및 리뷰작성</li>
-                <li>네이버에서 영수증 인증 + 사진첨부 (필수)</li>
+                <li>아래 버튼 클릭 → 리뷰가 자동으로 복사돼요</li>
+                <li>네이버 리뷰 작성 페이지로 바로 이동해요</li>
+                <li>영수증 인증 + 사진 첨부 (필수)</li>
                 <li>빈 리뷰 칸에 붙여넣기 → 등록</li>
               </ol>
             </div>
