@@ -3,11 +3,10 @@
 // app/my/platforms/[platform]/connect/page.tsx
 // ============================================================
 // 30차-22-C: 미니멀 로그인 스타일 리디자인
-// 41차-15: naver_place 전용 세션 쿠키 등록 탭 추가
+// 43차-8: 네이버 세션 쿠키 등록 탭 제거 (모든 플랫폼 동일 ID/PW 흐름)
 //
 //   STEP 1: 대리권 위임 동의 (3 체크박스)
-//   STEP 2 (naver_place): 탭 → 쿠키 등록(권장) | 아이디/비밀번호
-//   STEP 2 (기타): 기존 아이디/비밀번호 로그인 UI
+//   STEP 2: 아이디/비밀번호 입력 (모든 플랫폼 공통)
 // ============================================================
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
@@ -105,7 +104,6 @@ export default function ConnectPlatformPage() {
   const meta = PLATFORM_META[platform]
 
   const [step, setStep] = useState<1 | 2>(1)
-  const [naverTab, setNaverTab] = useState<'cookies' | 'password'>('cookies')
 
   // STEP 1
   const [agreedScope, setAgreedScope] = useState(false)
@@ -119,10 +117,6 @@ export default function ConnectPlatformPage() {
   const [password, setPassword] = useState('')
   const [showPw, setShowPw] = useState(false)
   const [saving, setSaving] = useState(false)
-
-  // STEP 2 - 쿠키 등록 (naver_place)
-  const [cookieString, setCookieString] = useState('')
-  const [cookieSaving, setCookieSaving] = useState(false)
 
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
@@ -198,36 +192,6 @@ export default function ConnectPlatformPage() {
       setError(e instanceof Error ? e.message : String(e))
     } finally {
       setSaving(false)
-    }
-  }
-
-  async function submitCookies() {
-    if (!cookieString.trim()) { setError('쿠키 문자열을 붙여넣어 주세요.'); return }
-    setError(null)
-    setCookieSaving(true)
-    try {
-      const res = await fetch('/api/platform-accounts/cookies', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ platform, cookie_string: cookieString.trim() }),
-      })
-      const data = await res.json()
-      if (!data.ok) {
-        if (data.redirect) {
-          setError('먼저 아이디/비밀번호 탭에서 연결을 완료해주세요.')
-          setNaverTab('password')
-        } else {
-          setError(data.error || 'save_failed')
-        }
-        return
-      }
-      setSuccess(`세션 쿠키 ${data.saved_count}개 등록 완료! Worker가 자동으로 사용해요.`)
-      setCookieString('')
-      setTimeout(() => router.push('/my/platforms'), 1500)
-    } catch (e) {
-      setError(e instanceof Error ? e.message : String(e))
-    } finally {
-      setCookieSaving(false)
     }
   }
 
@@ -350,163 +314,57 @@ export default function ConnectPlatformPage() {
         {error && <div className="mb-4 rounded-lg bg-[#FEF2F2] border border-[#FECACA] p-3 text-[13px] text-[#DC2626]">{error}</div>}
         {success && <div className="mb-4 rounded-lg bg-[#ECFDF5] border border-[#A7F3D0] p-3 text-[13px] text-[#059669]">✓ {success}</div>}
 
-        {/* naver_place: 탭 선택 */}
-        {platform === 'naver_place' && (
-          <>
-            <div className="flex gap-1 mb-6 bg-[#F5F6F8] rounded-xl p-1">
-              <button
-                onClick={() => { setNaverTab('cookies'); setError(null) }}
-                className={`flex-1 py-2 rounded-lg text-[13px] font-semibold transition ${naverTab === 'cookies' ? 'bg-white shadow text-[#191F28]' : 'text-[#6B7280]'}`}
-              >
-                🍪 세션 쿠키 등록
-              </button>
-              <button
-                onClick={() => { setNaverTab('password'); setError(null) }}
-                className={`flex-1 py-2 rounded-lg text-[13px] font-semibold transition ${naverTab === 'password' ? 'bg-white shadow text-[#191F28]' : 'text-[#6B7280]'}`}
-              >
-                아이디/비밀번호
-              </button>
-            </div>
-
-            {naverTab === 'cookies' ? (
-              /* ── 쿠키 등록 탭 ── */
-              <div>
-                <div className="rounded-xl bg-[#F0FDF4] border border-[#A7F3D0] p-4 mb-5 text-[13px] text-[#065F46] leading-relaxed">
-                  <div className="font-bold mb-2">📋 쿠키 복사 방법</div>
-                  <ol className="space-y-1 list-decimal list-inside">
-                    <li>PC 브라우저에서 <strong>SmartPlace</strong>에 로그인</li>
-                    <li><strong>F12</strong> (개발자 도구) 열기</li>
-                    <li><strong>Network</strong> 탭 클릭</li>
-                    <li>페이지 새로고침 후 아무 요청 클릭</li>
-                    <li><strong>Headers</strong> → <strong>Request Headers</strong> → <strong>cookie</strong> 값 전체 복사</li>
-                  </ol>
-                </div>
-
-                <textarea
-                  value={cookieString}
-                  onChange={(e) => setCookieString(e.target.value)}
-                  placeholder="NID_AUT=xxx; NID_SES=yyy; nid_inf=zzz; ..."
-                  rows={5}
-                  className="w-full px-4 py-3 rounded-2xl bg-[#F5F6F8] border border-transparent text-[13px] font-mono placeholder-[#B0B8C1] focus:outline-none focus:border-[#03C75A] focus:bg-white mb-4 resize-none"
-                />
-
-                <button
-                  onClick={submitCookies}
-                  disabled={cookieSaving || !cookieString.trim()}
-                  className="w-full py-4 rounded-2xl text-[15px] font-bold disabled:opacity-50 transition"
-                  style={{ background: meta.loginBg, color: meta.loginFg }}
-                >
-                  {cookieSaving ? '저장 중…' : '쿠키 등록하기'}
-                </button>
-
-                <p className="mt-4 text-[11px] text-[#8B95A1] text-center leading-relaxed">
-                  쿠키는 암호화 저장되며, 네이버 세션 만료 시 재등록이 필요해요. 보통 1~4주 유효합니다.
-                </p>
-              </div>
+        {/* 아이디/비밀번호 입력 (모든 플랫폼 공통) */}
+        <input
+          type="text"
+          autoComplete="off"
+          value={accountId}
+          onChange={(e) => setAccountId(e.target.value)}
+          placeholder={`${meta.shortLabel} 아이디`}
+          className="w-full px-4 py-4 rounded-2xl bg-[#F5F6F8] border border-transparent text-[15px] placeholder-[#B0B8C1] focus:outline-none focus:border-[#191F28] focus:bg-white mb-3"
+        />
+        <div className="relative mb-8">
+          <input
+            type={showPw ? 'text' : 'password'}
+            autoComplete="new-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder={`${meta.shortLabel} 비밀번호`}
+            className="w-full px-4 py-4 pr-12 rounded-2xl bg-[#F5F6F8] border border-transparent text-[15px] placeholder-[#B0B8C1] focus:outline-none focus:border-[#191F28] focus:bg-white"
+          />
+          <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center text-[#8B95A1]">
+            {showPw ? (
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
             ) : (
-              /* ── 아이디/비밀번호 탭 ── */
-              <div>
-                <input
-                  type="text"
-                  autoComplete="off"
-                  value={accountId}
-                  onChange={(e) => setAccountId(e.target.value)}
-                  placeholder="네이버 아이디"
-                  className="w-full px-4 py-4 rounded-2xl bg-[#F5F6F8] border border-transparent text-[15px] placeholder-[#B0B8C1] focus:outline-none focus:border-[#191F28] focus:bg-white mb-3"
-                />
-                <div className="relative mb-8">
-                  <input
-                    type={showPw ? 'text' : 'password'}
-                    autoComplete="new-password"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    placeholder="네이버 비밀번호"
-                    className="w-full px-4 py-4 pr-12 rounded-2xl bg-[#F5F6F8] border border-transparent text-[15px] placeholder-[#B0B8C1] focus:outline-none focus:border-[#191F28] focus:bg-white"
-                  />
-                  <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center text-[#8B95A1]">
-                    {showPw ? (
-                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-                    ) : (
-                      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                    )}
-                  </button>
-                </div>
-                <button
-                  onClick={submitCredentials}
-                  disabled={saving || !accountId || !password}
-                  className="w-full py-4 rounded-2xl text-[15px] font-bold disabled:opacity-50 transition"
-                  style={{ background: meta.loginBg, color: meta.loginFg }}
-                >
-                  {saving ? '암호화 저장 중…' : '저장하기'}
-                </button>
-                <div className="flex-1 min-h-[24px]" />
-                <div className="mt-6">
-                  <p className="text-[13px] text-[#4E5968] mb-3">네이버 아이디, 비밀번호를 까먹었다면?</p>
-                  <div className="flex gap-2">
-                    <a href={meta.forgotIdUrl} target="_blank" rel="noopener noreferrer" className="flex-1 py-3 rounded-xl border border-[#E5E8EB] text-[13px] font-semibold text-[#4E5968] text-center hover:bg-[#F9FAFB]">아이디 찾기 &gt;</a>
-                    <a href={meta.forgotPwUrl} target="_blank" rel="noopener noreferrer" className="flex-1 py-3 rounded-xl border border-[#E5E8EB] text-[13px] font-semibold text-[#4E5968] text-center hover:bg-[#F9FAFB]">비밀번호 찾기 &gt;</a>
-                  </div>
-                </div>
-              </div>
+              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
             )}
-          </>
-        )}
-
-        {/* 기타 플랫폼: 기존 아이디/비밀번호 UI */}
-        {platform !== 'naver_place' && (
-          <>
-            <input
-              type="text"
-              autoComplete="off"
-              value={accountId}
-              onChange={(e) => setAccountId(e.target.value)}
-              placeholder={`${meta.shortLabel} 아이디`}
-              className="w-full px-4 py-4 rounded-2xl bg-[#F5F6F8] border border-transparent text-[15px] placeholder-[#B0B8C1] focus:outline-none focus:border-[#191F28] focus:bg-white mb-3"
-            />
-            <div className="relative mb-8">
-              <input
-                type={showPw ? 'text' : 'password'}
-                autoComplete="new-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder={`${meta.shortLabel} 비밀번호`}
-                className="w-full px-4 py-4 pr-12 rounded-2xl bg-[#F5F6F8] border border-transparent text-[15px] placeholder-[#B0B8C1] focus:outline-none focus:border-[#191F28] focus:bg-white"
-              />
-              <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center text-[#8B95A1]">
-                {showPw ? (
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-                ) : (
-                  <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                )}
-              </button>
-            </div>
-            <button
-              onClick={submitCredentials}
-              disabled={saving || !accountId || !password}
-              className="w-full py-4 rounded-2xl text-[15px] font-bold disabled:opacity-50 transition"
-              style={{ background: meta.loginBg, color: meta.loginFg }}
-            >
-              {saving ? '암호화 저장 중…' : '로그인'}
-            </button>
-            <div className="flex-1 min-h-[24px]" />
-            <div className="mt-10">
-              <p className="text-[13px] text-[#4E5968] mb-3">{meta.shortLabel} 아이디, 비밀번호를 까먹었다면?</p>
-              <div className="flex gap-2">
-                {meta.singleForgot ? (
-                  <a href={meta.forgotIdUrl} target="_blank" rel="noopener noreferrer" className="flex-1 py-3 rounded-xl border border-[#E5E8EB] text-[13px] font-semibold text-[#4E5968] text-center hover:bg-[#F9FAFB]">아이디, 비밀번호 찾기 &gt;</a>
-                ) : (
-                  <>
-                    <a href={meta.forgotIdUrl} target="_blank" rel="noopener noreferrer" className="flex-1 py-3 rounded-xl border border-[#E5E8EB] text-[13px] font-semibold text-[#4E5968] text-center hover:bg-[#F9FAFB]">아이디 찾기 &gt;</a>
-                    <a href={meta.forgotPwUrl} target="_blank" rel="noopener noreferrer" className="flex-1 py-3 rounded-xl border border-[#E5E8EB] text-[13px] font-semibold text-[#4E5968] text-center hover:bg-[#F9FAFB]">비밀번호 찾기 &gt;</a>
-                  </>
-                )}
-              </div>
-            </div>
-            <div className="mt-6 text-[11px] text-[#8B95A1] leading-relaxed text-center">
-              입력한 비밀번호는 즉시 AES-256-GCM 으로 암호화되어 저장돼요. 운영자도 평문 조회 불가 🔐
-            </div>
-          </>
-        )}
+          </button>
+        </div>
+        <button
+          onClick={submitCredentials}
+          disabled={saving || !accountId || !password}
+          className="w-full py-4 rounded-2xl text-[15px] font-bold disabled:opacity-50 transition"
+          style={{ background: meta.loginBg, color: meta.loginFg }}
+        >
+          {saving ? '암호화 저장 중…' : '로그인'}
+        </button>
+        <div className="flex-1 min-h-[24px]" />
+        <div className="mt-10">
+          <p className="text-[13px] text-[#4E5968] mb-3">{meta.shortLabel} 아이디, 비밀번호를 까먹었다면?</p>
+          <div className="flex gap-2">
+            {meta.singleForgot ? (
+              <a href={meta.forgotIdUrl} target="_blank" rel="noopener noreferrer" className="flex-1 py-3 rounded-xl border border-[#E5E8EB] text-[13px] font-semibold text-[#4E5968] text-center hover:bg-[#F9FAFB]">아이디, 비밀번호 찾기 &gt;</a>
+            ) : (
+              <>
+                <a href={meta.forgotIdUrl} target="_blank" rel="noopener noreferrer" className="flex-1 py-3 rounded-xl border border-[#E5E8EB] text-[13px] font-semibold text-[#4E5968] text-center hover:bg-[#F9FAFB]">아이디 찾기 &gt;</a>
+                <a href={meta.forgotPwUrl} target="_blank" rel="noopener noreferrer" className="flex-1 py-3 rounded-xl border border-[#E5E8EB] text-[13px] font-semibold text-[#4E5968] text-center hover:bg-[#F9FAFB]">비밀번호 찾기 &gt;</a>
+              </>
+            )}
+          </div>
+        </div>
+        <div className="mt-6 text-[11px] text-[#8B95A1] leading-relaxed text-center">
+          입력한 비밀번호는 즉시 AES-256-GCM 으로 암호화되어 저장돼요. 운영자도 평문 조회 불가 🔐
+        </div>
 
         {consentId && (
           <div className="mt-3 text-center text-[10px] text-[#C3CAD1]">동의 기록 ID: {consentId.slice(0, 8)}…</div>

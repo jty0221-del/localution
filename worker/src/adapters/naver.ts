@@ -90,7 +90,7 @@ export async function runNaver(
     // ── 2) \uD3FC \uB85C\uADF8\uC778 fallback ─────────────────────────────────────────────
     if (!loginOk) {
       if (!creds.account_id || !creds.password) {
-        return { status: 'failed', message: 'naver: \uC138\uC158 \uCFE0\uD0A4 \uB9CC\uB8CC. /naver-cookie-setup \uC5D0\uC11C \uC7AC\uB4F1\uB85D \uD544\uC694.' }
+        return { status: 'failed', message: 'naver: 세션 만료. /my/platforms/naver_place/connect 에서 아이디/비밀번호 재등록 필요.' }
       }
       log.info('naver: form login attempt')
       await page.goto(LOGIN_URL, { waitUntil: 'domcontentloaded', timeout: 30000 })
@@ -121,7 +121,7 @@ export async function runNaver(
         await markLoginStatus(svc, userId, 'naver_place', 'failed', result.reason || 'ip_blocked')
         return {
           status: 'failed',
-          message: `naver: \uB85C\uADF8\uC778 \uC2E4\uD328 (${result.reason || 'IP\uCC28\uB2E8'}). /naver-cookie-setup \uC5D0\uC11C \uC138\uC158 \uCFE0\uD0A4 \uB4F1\uB85D \uD544\uC694.`,
+          message: `naver: 로그인 실패 (${result.reason || 'IP차단'}). /my/platforms/naver_place/connect 에서 아이디/비밀번호 재등록 필요.`,
         }
       }
 
