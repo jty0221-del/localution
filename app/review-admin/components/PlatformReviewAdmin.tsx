@@ -204,6 +204,7 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
 
   // ── 리뷰 목록 ────────────────────────────
   const [reviews, setReviews] = useState<Review[]>([])
+  const pollingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const [loadingReviews, setLoadingReviews] = useState(false)
   const [fetching, setFetching] = useState(false)
   const [autoFetchTried, setAutoFetchTried] = useState(false)
@@ -501,7 +502,7 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
       }
 
       // ── Worker 자동 발행 모드 ──
-      toast.success('⚡ Worker가 자동으로 답글을 등록해요! 1~2분 후 새로고침 해주세요.')
+      toast.success('⚡ 답글 등록 중! 잠시 후 자동으로 리뷰완료로 바뀌어요.')
       setReviews((prev) =>
         prev.map((r) =>
           r.id === review.id
@@ -999,7 +1000,7 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
                           <div className="flex items-center gap-2">
                             <span className="text-[11px] text-[#8B95A1]">{timeAgo(review.postedAt || review.collectedAt)}</span>
                             {review.hasReply ? (
-                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#ECFDF5] text-[#059669] font-semibold">답변완료</span>
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#ECFDF5] text-[#059669] font-semibold">✅ 리뷰완료</span>
                             ) : (
                               <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#FEF3C7] text-[#92400E] font-semibold">미답변</span>
                             )}
@@ -1166,7 +1167,7 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
 
                                 {review.replyStatus === 'queued' && (
                                   <p className="text-[11px] mt-2 text-[#075985] bg-[#E0F2FE] rounded-lg px-2 py-1.5">
-                                    ⚡ Worker가 자동으로 플랫폼에 답글을 등록 중이에요. 1~2분 후 새로고침 해주세요.
+                                    ⚡ 답글 등록 중이에요. 완료되면 자동으로 리뷰완료로 바뀌어요.
                                   </p>
                                 )}
                                 {isSubmitted && (
