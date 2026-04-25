@@ -2,7 +2,7 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect } from 'react'
 import Sidebar from '../components/Sidebar'
 
 const LS_QR_SETTINGS = 'localution.qr_settings'
@@ -11,12 +11,8 @@ const LS_STORE_INFO  = 'localution.store_info'
 const BASE_URL       = 'https://www.localution.co.kr'
 
 interface QRSettings {
-  mainKeyword: string
-  subKeywords: string[]
-  subKwInput: string
   rewardType: string
   rewardValue: string
-  autoGenerate: boolean
 }
 
 interface StoreInfo {
@@ -35,17 +31,12 @@ interface QRCode {
   reviews: number
   createdAt: string
   active: boolean
-  keyword: string
   reviewUrl: string
 }
 
 const DEFAULT_SETTINGS: QRSettings = {
-  mainKeyword: '',
-  subKeywords: [],
-  subKwInput: '',
   rewardType: 'none',
   rewardValue: '',
-  autoGenerate: true,
 }
 
 const DEFAULT_STORE: StoreInfo = {
@@ -57,25 +48,23 @@ const DEFAULT_STORE: StoreInfo = {
 }
 
 const PURPOSE_OPTIONS = [
-  { value: 'review',   label: '리뷰 유도',   icon: '⭐', desc: '네이버·구글 리뷰 작성' },
-  { value: 'menu',     label: '디지털 메뉴', icon: '📋', desc: 'QR로 메뉴판 연결' },
-  { value: 'event',    label: '쿠폰·이벤트', icon: '🎁', desc: '할인 쿠폰 / 이벤트 페이지' },
-  { value: 'sns',      label: 'SNS 팔로우',  icon: '📸', desc: '인스타·카카오 연결' },
+  { value: 'review', label: '리뷰 유도',   icon: '⭐', desc: '네이버·구글 리뷰 작성' },
+  { value: 'menu',   label: '디지털 메뉴', icon: '📋', desc: 'QR로 메뉴판 연결' },
+  { value: 'event',  label: '쿠폰·이벤트', icon: '🎁', desc: '할인 쿠폰 / 이벤트 페이지' },
+  { value: 'sns',    label: 'SNS 팔로우',  icon: '📸', desc: '인스타·카카오 연결' },
 ]
 
 // ─── 리뷰 URL 생성 ────────────────────────────────────────────────
-// 기존 /review/[storeId] 페이지의 쿼리 파라미터 규격:
-//   n=상호명 / t=업종 / a=주소·지역 / naver=네이버URL / kw=키워드
-function generateReviewUrl(store: StoreInfo, keyword?: string): string {
+// /review/[storeId] 쿼리 파라미터 규격: n=상호명 / t=업종 / a=지역 / naver=URL
+function generateReviewUrl(store: StoreInfo): string {
   const name = store.name.trim()
   if (!name) return ''
   const slug = name.replace(/\s+/g, '-')
   const params = new URLSearchParams()
   params.set('n', name)
   if (store.category) params.set('t', store.category)
-  if (store.location) params.set('a', store.location)
-  if (store.naverUrl) params.set('naver', store.naverUrl.trim())
-  if (keyword) params.set('kw', keyword)
+  if (store.location)  params.set('a', store.location)
+  if (store.naverUrl)  params.set('naver', store.naverUrl.trim())
   return `${BASE_URL}/review/${encodeURIComponent(slug)}?${params.toString()}`
 }
 
@@ -87,7 +76,7 @@ function QRImage({ url, size = 120 }: { url: string; size?: number }) {
         style={{ width: size, height: size }}
         className="bg-[#F2F4F6] rounded-xl flex flex-col items-center justify-center gap-1 text-[#8B95A1]">
         <span className="text-2xl">📵</span>
-        <span className="text-[10px] font-medium text-center leading-tight px-1">업체 연동 후<br/>QR 생성됩니다</span>
+        <span className="text-[10px] font-medium text-center leading-tight px-1">업체 연동 후<br />QR 생성됩니다</span>
       </div>
     )
   }
@@ -134,25 +123,32 @@ async function copyToClipboard(text: string): Promise<boolean> {
 
 // ─── 메인 ─────────────────────────────────────────────────────────
 export default function QRAdmin() {
-  const [activeTab, setActiveTab] = useState<'settings' | 'list' | 'stats'>('settings')
-  const [settings, setSettings] = useState<QRSettings>(DEFAULT_SETTINGS)
-  const [storeInfo, setStoreInfo] = useState<StoreInfo>(DEFAULT_STORE)
-  const [storeEdit, setStoreEdit] = useState(false)
+  const [activeTab, setActiveTab]   = useState<'settings' | 'list' | 'stats'>('settings')
+  const [settings, setSettings]     = useState<QRSettings>(DEFAULT_SETTINGS)
+  const [storeInfo, setStoreInfo]   = useState<StoreInfo>(DEFAULT_STORE)
+  const [storeEdit, setStoreEdit]   = useState(false)
   const [storeDraft, setStoreDraft] = useState<StoreInfo>(DEFAULT_STORE)
-  const [qrList, setQrList] = useState<QRCode[]>([])
-  const [saved, setSaved] = useState(false)
+  const [qrList, setQrList]         = useState<QRCode[]>([])
+  const [saved, setSaved]           = useState(false)
   const [showCreate, setShowCreate] = useState(false)
-  const [newQR, setNewQR] = useState({ name: '', purpose: 'review', keyword: '' })
-  const [creating, setCreating] = useState(false)
-  const [created, setCreated] = useState(false)
-  const [previewQR, setPreviewQR] = useState<QRCode | null>(null)
-  const [copiedId, setCopiedId] = useState<string | null>(null)
+  const [newQR, setNewQR]           = useState({ name: '', purpose: 'review' })
+  const [creating, setCreating]     = useState(false)
+  const [created, setCreated]       = useState(false)
+  const [previewQR, setPreviewQR]   = useState<QRCode | null>(null)
+  const [copiedId, setCopiedId]     = useState<string | null>(null)
   const [downloading, setDownloading] = useState<string | null>(null)
 
   useEffect(() => {
     try {
       const raw = localStorage.getItem(LS_QR_SETTINGS)
-      if (raw) setSettings(JSON.parse(raw))
+      if (raw) {
+        const parsed = JSON.parse(raw)
+        // 구 버전 데이터에서 필요한 필드만 추출
+        setSettings({
+          rewardType:  parsed.rewardType  || 'none',
+          rewardValue: parsed.rewardValue || '',
+        })
+      }
       const rawList = localStorage.getItem(LS_QR_LIST)
       if (rawList) setQrList(JSON.parse(rawList))
       const rawStore = localStorage.getItem(LS_STORE_INFO)
@@ -165,39 +161,11 @@ export default function QRAdmin() {
     try { localStorage.setItem(LS_QR_SETTINGS, JSON.stringify(next)) } catch (_) {}
   }
 
-  function saveSetting<K extends keyof QRSettings>(key: K, value: QRSettings[K]) {
-    saveSettings({ ...settings, [key]: value })
-  }
-
-  const addSubKw = (raw: string) => {
-    const trimmed = raw.replace(/,/g, '').trim()
-    if (!trimmed || settings.subKeywords.includes(trimmed) || settings.subKeywords.length >= 5) return
-    saveSettings({ ...settings, subKeywords: [...settings.subKeywords, trimmed], subKwInput: '' })
-  }
-
-  const removeSubKw = (kw: string) => {
-    saveSettings({ ...settings, subKeywords: settings.subKeywords.filter(k => k !== kw) })
-  }
-
-  const handleSubKwKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === 'Enter' || e.key === ',') {
-      e.preventDefault()
-      addSubKw(settings.subKwInput)
-    }
-    if (e.key === 'Backspace' && !settings.subKwInput && settings.subKeywords.length > 0) {
-      saveSettings({ ...settings, subKeywords: settings.subKeywords.slice(0, -1) })
-    }
-  }
-
   const saveStoreInfo = () => {
     const next = { ...storeDraft, connected: !!(storeDraft.name && storeDraft.location) }
     setStoreInfo(next)
     try { localStorage.setItem(LS_STORE_INFO, JSON.stringify(next)) } catch (_) {}
     setStoreEdit(false)
-    if (storeDraft.name && !settings.mainKeyword) {
-      const suggested = storeDraft.location ? storeDraft.location + ' ' + storeDraft.category : storeDraft.category
-      if (suggested.trim()) saveSettings({ ...settings, mainKeyword: suggested.trim() })
-    }
   }
 
   const handleSaveSettings = () => {
@@ -210,10 +178,9 @@ export default function QRAdmin() {
     setCreating(true)
     await new Promise(r => setTimeout(r, 900))
 
-    // 리뷰 용도면 업체 연동 URL 자동 생성
     let reviewUrl = ''
     if (newQR.purpose === 'review' && storeInfo.connected) {
-      reviewUrl = generateReviewUrl(storeInfo, newQR.keyword || settings.mainKeyword || '')
+      reviewUrl = generateReviewUrl(storeInfo)
     }
 
     const newItem: QRCode = {
@@ -224,7 +191,6 @@ export default function QRAdmin() {
       reviews: 0,
       createdAt: new Date().toISOString().slice(0, 10),
       active: true,
-      keyword: newQR.keyword || settings.mainKeyword || '',
       reviewUrl,
     }
     const updated = [newItem, ...qrList]
@@ -235,7 +201,7 @@ export default function QRAdmin() {
     setTimeout(() => {
       setCreated(false)
       setShowCreate(false)
-      setNewQR({ name: '', purpose: 'review', keyword: '' })
+      setNewQR({ name: '', purpose: 'review' })
       setActiveTab('list')
     }, 1200)
   }
@@ -261,20 +227,7 @@ export default function QRAdmin() {
   }
 
   const activeCount = qrList.filter(q => q.active).length
-  const globalTone = typeof window !== 'undefined'
-    ? (localStorage.getItem('ai.tone') || 'friendly')
-    : 'friendly'
-
-  const toneLabel: Record<string, string> = {
-    friendly: '친근하게', formal: '정중하게', casual: '캐주얼하게',
-    bright: '밝고 유쾌하게', warm: '따뜻하게', pro: '전문적으로',
-    empathy: '공감하며', simple: '간결하게',
-  }
-
-  // 현재 연동된 업체 기준 미리보기 URL
-  const previewReviewUrl = storeInfo.connected
-    ? generateReviewUrl(storeInfo, settings.mainKeyword)
-    : ''
+  const previewReviewUrl = storeInfo.connected ? generateReviewUrl(storeInfo) : ''
 
   return (
     <div className="min-h-screen bg-[#F2F4F6] flex">
@@ -333,7 +286,7 @@ export default function QRAdmin() {
         {/* 탭 */}
         <div className="flex gap-1 bg-white rounded-2xl p-1.5 shadow-sm mb-6 w-fit">
           {[
-            { key: 'settings', label: 'AI 설정' },
+            { key: 'settings', label: '업체 설정' },
             { key: 'list',     label: 'QR 목록' },
             { key: 'stats',    label: '성과 리포트' },
           ].map(tab => (
@@ -349,13 +302,12 @@ export default function QRAdmin() {
           ))}
         </div>
 
-        {/* ── AI 설정 탭 ── */}
+        {/* ── 업체 설정 탭 ── */}
         {activeTab === 'settings' && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* 좌측 */}
-            <div className="space-y-5">
 
-              {/* 네이버 업체 연동 */}
+            {/* 좌측: 네이버 업체 연동 */}
+            <div>
               <div className="bg-white rounded-2xl p-6 shadow-sm">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
@@ -418,7 +370,7 @@ export default function QRAdmin() {
                     </div>
                     <div>
                       <label className="block text-xs font-semibold text-[#4E5968] mb-1">
-                        네이버 플레이스 URL <span className="font-normal">(선택 — 입력 시 QR에 직접 연결)</span>
+                        네이버 플레이스 URL <span className="font-normal text-[#C9CDD2]">(선택)</span>
                       </label>
                       <input
                         value={storeDraft.naverUrl}
@@ -471,7 +423,6 @@ export default function QRAdmin() {
                         </a>
                       )}
                     </div>
-                    {/* 현재 리뷰 링크 */}
                     <div className="p-3 bg-[#EFF6FF] rounded-xl border border-[#BFDBFE]">
                       <p className="text-[11px] text-[#3182F6] font-semibold mb-1.5">📎 QR이 연결되는 리뷰 링크</p>
                       <p className="text-[10px] text-[#4E5968] break-all font-mono leading-relaxed mb-2">
@@ -486,82 +437,12 @@ export default function QRAdmin() {
                   </div>
                 )}
               </div>
-
-              {/* SEO 키워드 */}
-              <div className="bg-white rounded-2xl p-6 shadow-sm">
-                <div className="flex items-center gap-2 mb-5">
-                  <div className="w-8 h-8 rounded-xl bg-[#EFF6FF] flex items-center justify-center text-base">🔑</div>
-                  <div>
-                    <h3 className="font-bold text-[#191F28]">SEO 키워드 세팅</h3>
-                    <p className="text-xs text-[#8B95A1]">AI가 리뷰 생성 시 자동으로 활용합니다</p>
-                  </div>
-                </div>
-
-                <div className="mb-4">
-                  <label className="block text-sm font-semibold text-[#191F28] mb-2">
-                    상위노출 키워드
-                    <span className="text-xs font-normal text-[#8B95A1] ml-2">가장 중요한 키워드 1개</span>
-                  </label>
-                  <input
-                    value={settings.mainKeyword}
-                    onChange={e => saveSetting('mainKeyword', e.target.value)}
-                    onKeyDown={e => { if (e.key === 'Enter') e.currentTarget.blur() }}
-                    placeholder="예: 강화맛집"
-                    className="w-full border-2 border-[#3182F6] rounded-xl px-4 py-3 text-sm focus:outline-none bg-[#F8FAFF] font-medium placeholder-[#C9CDD2]"
-                  />
-                </div>
-
-                <div>
-                  <div className="flex items-center justify-between mb-2">
-                    <label className="text-sm font-semibold text-[#191F28]">대표 키워드</label>
-                    <span className="text-xs text-[#8B95A1]">(최대 5개 · Enter 또는 쉼표로 추가)</span>
-                  </div>
-                  <div
-                    className={`flex flex-wrap gap-2 p-3 border-2 rounded-xl bg-white min-h-[52px] transition-colors cursor-text ${
-                      settings.subKeywords.length >= 5 ? 'border-[#E5E8EB] bg-[#F8F9FA]' : 'border-[#E5E8EB] focus-within:border-[#3182F6]'
-                    }`}>
-                    {settings.subKeywords.map(kw => (
-                      <span key={kw}
-                        className="flex items-center gap-1.5 px-3 py-1.5 bg-[#EFF6FF] text-[#3182F6] text-sm rounded-full font-medium flex-shrink-0 border border-[#BFDBFE]">
-                        #{kw}
-                        <button onClick={() => removeSubKw(kw)}
-                          className="text-[#3182F6]/60 hover:text-[#3182F6] font-black text-base leading-none">×</button>
-                      </span>
-                    ))}
-                    {settings.subKeywords.length < 5 && (
-                      <input
-                        value={settings.subKwInput}
-                        onChange={e => saveSetting('subKwInput', e.target.value)}
-                        onKeyDown={handleSubKwKeyDown}
-                        onBlur={() => { if (settings.subKwInput.trim()) addSubKw(settings.subKwInput) }}
-                        placeholder={settings.subKeywords.length === 0 ? "예: 강화카페, 디저트, 데이트코스" : "추가 입력..."}
-                        className="flex-1 min-w-[120px] outline-none text-sm py-1 bg-transparent placeholder-[#C9CDD2]"
-                      />
-                    )}
-                  </div>
-                  <p className="text-[11px] text-[#8B95A1] mt-1.5 pl-1">{settings.subKeywords.length}/5개 등록됨</p>
-                </div>
-
-                {(settings.mainKeyword || settings.subKeywords.length > 0) && (
-                  <div className="mt-4 p-3 bg-[#F8FAFF] rounded-xl border border-[#BFDBFE]">
-                    <p className="text-xs font-semibold text-[#3182F6] mb-2">리뷰 생성 시 활용될 키워드 미리보기</p>
-                    <div className="flex flex-wrap gap-1.5">
-                      {settings.mainKeyword && (
-                        <span className="text-xs px-2.5 py-1 bg-[#3182F6] text-white rounded-full font-semibold">#{settings.mainKeyword}</span>
-                      )}
-                      {settings.subKeywords.map(kw => (
-                        <span key={kw} className="text-xs px-2.5 py-1 bg-white text-[#3182F6] rounded-full font-medium border border-[#BFDBFE]">#{kw}</span>
-                      ))}
-                    </div>
-                  </div>
-                )}
-              </div>
             </div>
 
-            {/* 우측 */}
+            {/* 우측: QR 미리보기 + 보상 설정 + 저장 */}
             <div className="space-y-5">
 
-              {/* QR 미리보기 (연동된 경우) */}
+              {/* QR 미리보기 */}
               {storeInfo.connected && previewReviewUrl && (
                 <div className="bg-white rounded-2xl p-6 shadow-sm">
                   <div className="flex items-center gap-2 mb-4">
@@ -598,25 +479,7 @@ export default function QRAdmin() {
                 </div>
               )}
 
-              {/* AI 톤 안내 */}
-              <div className="bg-gradient-to-br from-[#EFF6FF] to-[#F8FBFF] rounded-2xl p-5 border border-[#BFDBFE]">
-                <div className="flex items-center gap-2 mb-2">
-                  <span className="text-xl">🤖</span>
-                  <h3 className="font-bold text-[#191F28]">AI 리뷰 생성 톤</h3>
-                </div>
-                <p className="text-sm text-[#4E5968] mb-3 leading-relaxed">
-                  현재 전역 설정: <span className="font-bold text-[#3182F6]">{toneLabel[globalTone] || '친근하게'}</span>
-                </p>
-                <p className="text-xs text-[#8B95A1] mb-3">
-                  AI 톤은 설정 페이지에서 통합 관리됩니다. 변경하면 모든 AI 기능에 동일하게 적용돼요.
-                </p>
-                <a href="/settings?tab=ai"
-                  className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#3182F6] bg-white px-4 py-2 rounded-xl border border-[#BFDBFE] hover:bg-[#EFF6FF] transition-colors">
-                  ⚙️ AI 설정 변경하기
-                </a>
-              </div>
-
-              {/* 보상 설정 */}
+              {/* 고객 보상 설정 */}
               <div className="bg-white rounded-2xl p-6 shadow-sm">
                 <div className="flex items-center gap-2 mb-4">
                   <div className="w-8 h-8 rounded-xl bg-[#FFF7ED] flex items-center justify-center text-base">🎁</div>
@@ -627,9 +490,9 @@ export default function QRAdmin() {
                 </div>
                 <div className="space-y-3">
                   {[
-                    { value: 'none',   label: '없음',       desc: '순수 리뷰 유도' },
-                    { value: 'coupon', label: '쿠폰 제공',  desc: '할인 쿠폰 증정' },
-                    { value: 'stamp',  label: '스탬프',     desc: '스탬프 적립' },
+                    { value: 'none',   label: '없음',        desc: '순수 리뷰 유도' },
+                    { value: 'coupon', label: '쿠폰 제공',   desc: '할인 쿠폰 증정' },
+                    { value: 'stamp',  label: '스탬프',      desc: '스탬프 적립' },
                     { value: 'free',   label: '서비스 제공', desc: '음료/디저트 서비스' },
                   ].map(opt => (
                     <label key={opt.value}
@@ -640,7 +503,7 @@ export default function QRAdmin() {
                       }`}>
                       <input type="radio" name="reward"
                         checked={settings.rewardType === opt.value}
-                        onChange={() => saveSetting('rewardType', opt.value)}
+                        onChange={() => saveSettings({ ...settings, rewardType: opt.value })}
                         className="accent-[#3182F6]"
                       />
                       <div>
@@ -654,7 +517,7 @@ export default function QRAdmin() {
                   <div className="mt-3">
                     <input
                       value={settings.rewardValue}
-                      onChange={e => saveSetting('rewardValue', e.target.value)}
+                      onChange={e => saveSettings({ ...settings, rewardValue: e.target.value })}
                       placeholder={
                         settings.rewardType === 'coupon' ? '예: 아메리카노 10% 할인'
                         : settings.rewardType === 'stamp' ? '예: 도장 1개 추가'
@@ -696,7 +559,6 @@ export default function QRAdmin() {
                 <div key={qr.id}
                   className={`bg-white rounded-2xl p-5 shadow-sm border-2 transition-colors ${qr.active ? 'border-transparent' : 'border-[#E5E8EB] opacity-70'}`}>
                   <div className="flex items-start gap-4">
-                    {/* QR 이미지 */}
                     <div
                       onClick={() => setPreviewQR(qr)}
                       className="w-16 h-16 bg-white rounded-xl shadow-sm flex items-center justify-center cursor-pointer flex-shrink-0 border border-[#E5E8EB] hover:border-[#3182F6] transition-colors p-1">
@@ -711,17 +573,11 @@ export default function QRAdmin() {
                         }`}>
                           {qr.active ? '활성' : '비활성'}
                         </span>
-                        {qr.keyword && (
-                          <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#EFF6FF] text-[#3182F6] font-medium">
-                            #{qr.keyword}
-                          </span>
-                        )}
                         <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#F2F4F6] text-[#4E5968] font-medium">
                           {purposeOpt?.icon} {purposeOpt?.label}
                         </span>
                       </div>
 
-                      {/* 리뷰 URL 표시 */}
                       {qr.reviewUrl ? (
                         <div className="flex items-center gap-1.5 mt-1">
                           <span className="text-[10px] text-[#4E5968] font-mono truncate max-w-[280px]">
@@ -790,7 +646,9 @@ export default function QRAdmin() {
             <div className="bg-white rounded-2xl p-6 shadow-sm">
               <h3 className="font-bold text-[#191F28] mb-5">📱 QR 코드 현황</h3>
               <div className="space-y-3">
-                {qrList.map((qr, i) => {
+                {qrList.length === 0 ? (
+                  <p className="text-sm text-[#8B95A1] text-center py-6">생성된 QR이 없어요</p>
+                ) : qrList.map((qr, i) => {
                   const purposeOpt = PURPOSE_OPTIONS.find(p => p.value === qr.purpose)
                   return (
                     <div key={qr.id} className="flex items-center justify-between p-3.5 rounded-xl bg-[#F8F9FA]">
@@ -820,13 +678,13 @@ export default function QRAdmin() {
             <div className="bg-gradient-to-br from-[#EFF6FF] to-[#F8FBFF] rounded-2xl p-6 border border-[#BFDBFE]">
               <div className="flex items-center gap-2 mb-4">
                 <span className="text-xl">✨</span>
-                <h3 className="font-bold text-[#191F28]">AI 인사이트</h3>
+                <h3 className="font-bold text-[#191F28]">다음 액션 가이드</h3>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {[
-                  { icon: '🔗', title: '리뷰 링크', desc: storeInfo.connected ? `'${storeInfo.name}'의 리뷰 링크가 생성됐어요. QR을 인쇄해 매장에 비치해보세요!` : '업체를 연동하면 자동으로 리뷰 링크가 만들어져요!' },
-                  { icon: '🏪', title: '업체 연동', desc: storeInfo.connected ? `'${storeInfo.name}' 업체가 연동됐어요. QR 만들기로 리뷰 유도를 시작하세요.` : '업체 정보를 연동하면 맞춤 리뷰 링크가 생성돼요!' },
-                  { icon: '🎯', title: '다음 액션', desc: !storeInfo.connected ? '먼저 AI 설정 탭에서 업체 정보를 입력해보세요.' : qrList.length === 0 ? '새 QR 만들기를 눌러 첫 QR을 생성해보세요!' : 'QR을 인쇄해서 매장 테이블·입구에 비치해보세요.' },
+                  { icon: '🏪', title: '업체 연동', desc: storeInfo.connected ? `'${storeInfo.name}' 연동 완료! QR을 만들어 매장에 비치해보세요.` : '업체 설정 탭에서 업체 정보를 먼저 입력해주세요.' },
+                  { icon: '📱', title: 'QR 생성',   desc: qrList.length > 0 ? `현재 ${qrList.length}개의 QR이 있어요. 활성 QR: ${activeCount}개` : '새 QR 만들기 버튼으로 첫 QR을 생성해보세요!' },
+                  { icon: '🖨️', title: '인쇄·비치', desc: 'QR을 PNG로 다운로드해 매장 테이블·입구·계산대에 비치하면 리뷰가 늘어나요.' },
                 ].map((item, i) => (
                   <div key={i} className="bg-white rounded-xl p-4">
                     <div className="flex items-center gap-2 mb-2">
@@ -878,24 +736,13 @@ export default function QRAdmin() {
                   ))}
                 </div>
               </div>
-              <div>
-                <label className="block text-sm font-semibold text-[#191F28] mb-2">
-                  키워드 <span className="text-xs font-normal text-[#8B95A1]">(SEO용)</span>
-                </label>
-                <input
-                  value={newQR.keyword}
-                  onChange={e => setNewQR(p => ({ ...p, keyword: e.target.value }))}
-                  placeholder={settings.mainKeyword ? `기본: ${settings.mainKeyword}` : '예: 강화맛집'}
-                  className="w-full border border-[#E5E8EB] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#3182F6] transition-colors placeholder-[#C9CDD2]"
-                />
-              </div>
 
               {/* 연결될 URL 미리보기 */}
               {newQR.purpose === 'review' && storeInfo.connected && (
                 <div className="p-3 bg-[#F0FDF4] rounded-xl border border-[#BBF7D0]">
                   <p className="text-[11px] text-[#059669] font-semibold mb-1">✅ 자동 연결될 리뷰 링크</p>
                   <p className="text-[10px] text-[#4E5968] break-all font-mono leading-relaxed">
-                    {generateReviewUrl(storeInfo, newQR.keyword || settings.mainKeyword)}
+                    {generateReviewUrl(storeInfo)}
                   </p>
                 </div>
               )}
@@ -921,7 +768,7 @@ export default function QRAdmin() {
         </div>
       )}
 
-      {/* ── QR 다운로드 미리보기 모달 ── */}
+      {/* ── QR 미리보기·다운로드 모달 ── */}
       {previewQR && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50">
           <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl">
@@ -933,10 +780,6 @@ export default function QRAdmin() {
               <div className="p-4 bg-white rounded-2xl border-2 border-[#E5E8EB] shadow-sm">
                 <QRImage url={previewQR.reviewUrl} size={200} />
               </div>
-
-              {previewQR.keyword && (
-                <span className="text-xs px-3 py-1.5 rounded-full bg-[#EFF6FF] text-[#3182F6] font-semibold">#{previewQR.keyword}</span>
-              )}
 
               {previewQR.reviewUrl ? (
                 <div className="w-full p-3 bg-[#F8FAFF] rounded-xl border border-[#BFDBFE]">
