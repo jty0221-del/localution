@@ -2,6 +2,7 @@
 // ============================================================
 // 32차-1 · platform_credentials 조회 + 복호화
 // 43차   · loadCookieData 추가 (naver_session_cookies 테이블)
+// 44차   · session_cookies 타입 필드 추가 (naver.ts 호환)
 // ============================================================
 import { createDecipheriv } from 'crypto'
 import type { SupabaseClient } from '@supabase/supabase-js'
@@ -13,6 +14,7 @@ export type PlainCredentials = {
   password: string
   platform_store_id: string | null
   platform_store_name: string | null
+  session_cookies?: unknown[] | null
 }
 
 export async function loadPlainCredentials(
@@ -46,6 +48,7 @@ export async function loadPlainCredentials(
     password,
     platform_store_id: data.platform_store_id ?? null,
     platform_store_name: data.platform_store_name ?? null,
+    session_cookies: null,
   }
 }
 
