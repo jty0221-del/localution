@@ -71,7 +71,7 @@ const FAQ = [
   },
   {
     q: '비용이 많이 드나요?',
-    a: '월 990원부터 시작 가능합니다. 필요 없는 기능은 끄고, 쓰는 기능만 과금되는 선택형 요금제입니다. 첫 14일은 무료로 전체 기능 체험 가능합니다.',
+    a: '커피 한 잔 값 월 6,900원으로 모든 플랫폼 리뷰답글 자동화부터 시작할 수 있어요. 필요 없는 기능은 끄고, 쓰는 기능만 과금되는 선택형 요금제입니다. 첫 14일은 무료로 전체 기능 체험 가능합니다.',
   },
   {
     q: '지금 쓰는 마케팅 대행사를 끊어야 하나요?',
@@ -119,7 +119,7 @@ export default function AboutPage() {
             </a>
           </div>
           <p className="mt-5 text-xs text-[#8B95A1]">
-            월 990원부터 · 신용카드 등록 없이 시작 · 언제든 해지
+            ☕ 월 6,900원 · 신용카드 등록 없이 시작 · 언제든 해지
           </p>
         </div>
       </section>
@@ -178,7 +178,7 @@ export default function AboutPage() {
               <div className="p-4 md:p-6 bg-[#F5F9FF]">
                 <div className="font-bold text-[#3182F6] mb-3">로컬루션</div>
                 <div className="space-y-3 text-[#191F28] font-semibold">
-                  <div>월 990원~</div>
+                  <div>월 6,900원~</div>
                   <div>10분</div>
                   <div>AI 24시간</div>
                   <div>실시간 대시보드</div>

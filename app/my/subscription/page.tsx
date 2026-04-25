@@ -210,7 +210,7 @@ export default function MySubscriptionPage() {
               아직 구독 중인 모듈이 없어요
             </div>
             <p style={{ color: '#6b7280', fontSize: 13, marginBottom: 16 }}>
-              필요한 기능만 선택해 시작하세요 (월 990원부터)
+              커피 한 잔 값 월 6,900원으로 모든 플랫폼 리뷰답글부터 시작해요
             </p>
             <Link
               href="/pricing"

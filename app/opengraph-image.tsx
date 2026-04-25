@@ -83,7 +83,7 @@ export default function Image() {
           display: 'flex',
           gap: 16,
         }}>
-          {['AI 자동화', '월 990원~', '12개 모듈'].map(tag => (
+          {['☕ 월 6,900원', '모든 플랫폼 리뷰답글', '12개 모듈'].map(tag => (
             <div key={tag} style={{
               color: '#ffffff',
               fontSize: 20,

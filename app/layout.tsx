@@ -13,7 +13,7 @@ const SITE_TITLE = '로컬루션 | 사장님의 네이버·구글·배민 마케
 // 🔎 네이버 서치어드바이저 80자 제한 대응 (2026-04-19)
 // 23차-SEO: og:image 추가 (opengraph-image.tsx 자동 생성) (2026-04-21)
 // 민감 표현(AI 블로그 생성) 제거 → 리뷰 관리·SNS 자동화·AI 진단 중심으로 재작성
-const SITE_DESC  = '네이버·구글·배민·요기요 리뷰 자동 답글, 인스타·유튜브 쇼츠 자동화, AI 매장 진단까지. 월 990원부터 체험.'
+const SITE_DESC  = '네이버·구글·배민·요기요 리뷰 자동 답글, 인스타·유튜브 쇼츠 자동화, AI 매장 진단까지. 커피 한 잔 값 월 6,900원으로 모든 플랫폼 리뷰답글 자동.'
 
 export const metadata: Metadata = {
   metadataBase: new URL(SITE_URL),

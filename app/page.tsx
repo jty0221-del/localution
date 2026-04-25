@@ -240,7 +240,7 @@ export default function LandingPage() {
                   "@type": "Offer",
                   "price": "990",
                   "priceCurrency": "KRW",
-                  "description": "월 990원부터 시작하는 구독 플랜"
+                  "description": "커피 한 잔 값 월 6,900원으로 모든 플랫폼 리뷰답글 자동화"
                 },
                 "publisher": {
                   "@type": "Organization",
@@ -289,7 +289,7 @@ export default function LandingPage() {
                     "name": "로컬루션은 무엇인가요?",
                     "acceptedAnswer": {
                       "@type": "Answer",
-                      "text": "로컬루션은 소상공인·자영업자를 위한 AI 마케팅 플랫폼입니다. 네이버·구글·배민 리뷰 자동 답글, 블로그 포스팅 자동화, QR 리뷰 수집, 플레이스 SEO 진단 등 12개 모듈을 월 990원부터 이용할 수 있습니다."
+                      "text": "로컬루션은 소상공인·자영업자를 위한 AI 마케팅 플랫폼입니다. 네이버·구글·배민·요기요·쿠팡이츠 리뷰 자동 답글, 블로그 포스팅 자동화, QR 리뷰 수집, 플레이스 SEO 진단 등 12개 모듈을 제공합니다. 커피 한 잔 값 월 6,900원으로 모든 플랫폼 리뷰답글을 자동으로 등록할 수 있습니다."
                     }
                   },
                   {
@@ -376,7 +376,7 @@ export default function LandingPage() {
               필요한 기능만 골라쓰는 모듈 방식
             </h2>
             <p className="text-[#4E5968] text-base md:text-lg">
-              월 990원부터 시작 · 3개 묶으면 10% · 5개 15% · 8개 20% 할인
+              ☕ 커피 한 잔 값 월 6,900원 · 3개 묶으면 10% · 5개 15% · 8개 20% 추가 할인
             </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -602,8 +602,8 @@ export default function LandingPage() {
             필요한 기능만, 합리적인 요금으로
           </h2>
           <p className="text-[#4E5968] mb-8">
-            기능별 개별 구독, 월 990원부터 시작해요.<br />
-            부담 없이 체험하고 필요한 것만 추가하세요.
+            ☕ 커피 한 잔 값 월 6,900원으로 모든 플랫폼 리뷰답글 자동.<br />
+            부담 없이 체험하고 필요한 모듈만 추가하세요.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Link href="/pricing"
