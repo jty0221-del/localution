@@ -1,9 +1,9 @@
 // app/api/platform-accounts/naver-cookie/route.ts
 // 43차: 네이버 세션 쿠키 저장/조회
-//   GET  -> 마지막 저장 시각 반환 (쿠키 값 자체는 반환 안 함)
-//   POST -> 쿠키 JSON 암호화 저장 (KEK 직접 사용 AES-256-GCM)
+//   GET  → 마지막 저장 시각 반환 (쿠키 값 자체는 반환 안 함)
+//   POST → 쿠키 JSON 암호화 저장
 import { NextRequest, NextResponse } from 'next/server'
-import { createCipheriv, randomBytes } from 'crypto'
+import { createCipheriv, createDecipheriv, randomBytes } from 'crypto'
 import { requireUser } from '@/app/lib/userAuth'
 import { createServiceClient } from '@/app/lib/adminAuth'
 
@@ -14,7 +14,7 @@ const ALGO = 'aes-256-gcm'
 
 function loadKek(): Buffer {
   const raw = process.env.ENCRYPTION_KEK_HEX || ''
-  const hex = raw.replace(/s+/g, '')
+  const hex = raw.replace(/\s+/g, '')
   if (!/^[0-9a-fA-F]{64}$/.test(hex)) throw new Error('ENCRYPTION_KEK_HEX 설정 필요')
   return Buffer.from(hex, 'hex')
 }
@@ -35,16 +35,12 @@ export async function GET() {
   const auth = await requireUser()
   if (!auth.ok) return NextResponse.json({ ok: false, error: auth.message }, { status: auth.status })
   const svc = createServiceClient()
-  try {
-    const { data } = await svc
-      .from('naver_session_cookies')
-      .select('updated_at')
-      .eq('user_id', auth.userId)
-      .maybeSingle()
-    return NextResponse.json({ ok: true, has_cookie: !!data, updated_at: data?.updated_at ?? null })
-  } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message }, { status: 500 })
-  }
+  const { data } = await svc
+    .from('naver_session_cookies')
+    .select('updated_at')
+    .eq('user_id', auth.userId)
+    .maybeSingle()
+  return NextResponse.json({ ok: true, has_cookie: !!data, updated_at: data?.updated_at ?? null })
 }
 
 export async function POST(req: NextRequest) {
@@ -52,9 +48,7 @@ export async function POST(req: NextRequest) {
   if (!auth.ok) return NextResponse.json({ ok: false, error: auth.message }, { status: auth.status })
 
   let body: { cookie_json?: string; nid_aut?: string; nid_ses?: string } = {}
-  try { body = await req.json() } catch {
-    return NextResponse.json({ ok: false, error: 'invalid_json' }, { status: 400 })
-  }
+  try { body = await req.json() } catch { return NextResponse.json({ ok: false, error: 'invalid_json' }, { status: 400 }) }
 
   let cookieJson: string
   if (body.cookie_json) {
