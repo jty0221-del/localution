@@ -96,12 +96,32 @@ interface StoreMeResponse {
     rating_avg: number | null
     unreplied_count: number
     latest_collected_at: string | null
+    // 43차-5: 워커 로그인 상태 (캡차/실패 배너용)
+    last_login_status: string | null
+    last_login_at: string | null
   }>
   naver_link?: {
     external_id: string | null
     external_name: string | null
     external_url: string | null
   } | null
+}
+
+// 43차-5: last_login_status 해석
+type LoginIssue =
+  | { kind: 'captcha'; detail: string | null }
+  | { kind: 'failed'; detail: string | null }
+  | null
+
+function parseLoginIssue(status: string | null | undefined): LoginIssue {
+  if (!status) return null
+  const s = String(status)
+  if (s.startsWith('success')) return null
+  const [head, ...rest] = s.split(':')
+  const detail = rest.length > 0 ? rest.join(':') : null
+  if (head === 'captcha') return { kind: 'captcha', detail }
+  if (head === 'failed') return { kind: 'failed', detail }
+  return null
 }
 
 export interface PlatformConfig {
@@ -178,12 +198,17 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
     unreplied_count: 0,
     latest_collected_at: null,
   })
+  // 43차-5: 워커 로그인 이슈 (캡차/실패) 배너 상태
+  const [loginIssue, setLoginIssue] = useState<LoginIssue>(null)
+  const [loginIssueAt, setLoginIssueAt] = useState<string | null>(null)
 
   // ── 리뷰 목록 ────────────────────────────
   const [reviews, setReviews] = useState<Review[]>([])
   const [loadingReviews, setLoadingReviews] = useState(false)
   const [fetching, setFetching] = useState(false)
   const [autoFetchTried, setAutoFetchTried] = useState(false)
+  // 43차-5: Worker 비동기 큐잉 시간 — 빈 상태 안내 카피에 사용
+  const [enqueuedAt, setEnqueuedAt] = useState<string | null>(null)
   const [filterRating, setFilterRating] = useState<number | null>(null)
   const [filterReplied, setFilterReplied] = useState<'all' | 'replied' | 'unreplied' | 'negative'>('all')
   // 30차-23: 기간 필터 (7일 / 30일 / 전체) — 서버 쿼리 파라미터로 넘겨서 re-fetch
@@ -233,6 +258,9 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
         unreplied_count: Number(row?.unreplied_count ?? 0),
         latest_collected_at: row?.latest_collected_at ?? null,
       })
+      // 43차-5: 캡차/실패 상태 해석
+      setLoginIssue(parseLoginIssue(row?.last_login_status))
+      setLoginIssueAt(row?.last_login_at ?? null)
     } catch (_) {}
     finally {
       setLoadingConn(false)
@@ -320,6 +348,11 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
       }
       if (data.total > 0) {
         toast.success(`${config.label} 리뷰 ${data.total}건 수집 완료`)
+        setEnqueuedAt(null)
+      } else if (data.jobId) {
+        // 43차-5: Worker 큐잉 (비동기)
+        setEnqueuedAt(new Date().toISOString())
+        toast.info(data.note || `${config.label} 리뷰 수집을 요청했어요. 1~3분 뒤 새로고침해 주세요`)
       } else {
         toast.info(data.note || '새로 수집된 리뷰가 없어요')
       }
@@ -603,8 +636,7 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
         <Sidebar />
         <main className="flex-1 ml-0 md:ml-[220px] pt-14 md:pt-0 min-w-0">
           <PageHeader
-            icon={config.icon}
-            logoNode={config.logoNode}
+            icon={config.logoNode || config.icon}
             title={`${config.label} 리뷰 관리`}
             subtitle={
               connected
@@ -657,6 +689,70 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
                         className="px-4 py-2 rounded-xl text-xs font-bold bg-[#F2F4F6] text-[#4E5968] hover:bg-[#E5E8EB]"
                       >
                         플랫폼 허브로
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 43차-5: 캡차/로그인 실패 배너 — connected 여도 워커가 막혀 있으면 표시 */}
+            {connected && loginIssue && (
+              <div
+                className="bg-white rounded-2xl border-2 p-4 mb-4"
+                style={{
+                  borderColor: loginIssue.kind === 'captcha' ? '#F59E0B' : '#DC2626',
+                  background: loginIssue.kind === 'captcha' ? '#FFFBEB' : '#FEF2F2',
+                }}
+              >
+                <div className="flex items-start gap-3 flex-wrap">
+                  <span className="text-2xl leading-none mt-0.5">
+                    {loginIssue.kind === 'captcha' ? '🛡️' : '⚠️'}
+                  </span>
+                  <div className="flex-1 min-w-[220px]">
+                    <p className="text-sm font-bold mb-1" style={{
+                      color: loginIssue.kind === 'captcha' ? '#92400E' : '#991B1B',
+                    }}>
+                      {loginIssue.kind === 'captcha'
+                        ? `${config.label} 캡차 인증이 필요해요`
+                        : `${config.label} 로그인 실패 — 재연결이 필요해요`}
+                    </p>
+                    <p className="text-xs leading-relaxed mb-2" style={{
+                      color: loginIssue.kind === 'captcha' ? '#78350F' : '#7F1D1D',
+                    }}>
+                      {loginIssue.kind === 'captcha'
+                        ? '자동 답글 등록이 잠시 멈춰 있어요. 직접 한 번 로그인해서 캡차/2단계 인증을 풀어주시면 그 다음부터 자동으로 다시 동작해요.'
+                        : (loginIssue.detail
+                            ? `사유: ${loginIssue.detail}. 비밀번호 변경, IP 차단, 또는 세션 만료 가능성이 있어요. 자격증명을 다시 등록해주세요.`
+                            : '비밀번호 변경 또는 IP 차단 가능성. 자격증명을 다시 등록해주세요.')}
+                    </p>
+                    {loginIssueAt && (
+                      <p className="text-[10px] text-[#8B95A1] mb-2">
+                        마지막 시도 · {timeAgo(loginIssueAt)}
+                      </p>
+                    )}
+                    <div className="flex gap-2 flex-wrap">
+                      {config.reviewAdminUrl && loginIssue.kind === 'captcha' && (
+                        <a
+                          href={config.reviewAdminUrl}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="px-3 py-1.5 rounded-lg text-xs font-bold text-white hover:opacity-90"
+                          style={{ background: config.color }}
+                        >
+                          {config.label} 직접 로그인 ↗
+                        </a>
+                      )}
+                      <Link
+                        href={config.connectHref}
+                        className="px-3 py-1.5 rounded-lg text-xs font-bold border hover:bg-white"
+                        style={{
+                          borderColor: loginIssue.kind === 'captcha' ? '#F59E0B' : '#DC2626',
+                          color: loginIssue.kind === 'captcha' ? '#92400E' : '#991B1B',
+                          background: 'white',
+                        }}
+                      >
+                        자격증명 재연결
                       </Link>
                     </div>
                   </div>
@@ -846,14 +942,22 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
                 </div>
               ) : reviews.length === 0 ? (
                 <div className="bg-white rounded-2xl p-8 text-center border border-[#E5E8EB]">
-                  <p className="text-4xl mb-2">📭</p>
+                  <p className="text-4xl mb-2">{enqueuedAt ? '⚡' : '📭'}</p>
                   <p className="text-sm font-bold text-[#191F28] mb-1">
-                    {fetching ? '수집 중입니다...' : '아직 수집된 리뷰가 없어요'}
+                    {fetching
+                      ? '수집 중입니다...'
+                      : enqueuedAt
+                        ? `Worker가 ${config.label} 리뷰를 가져오는 중이에요`
+                        : '아직 수집된 리뷰가 없어요'}
                   </p>
                   <p className="text-xs text-[#8B95A1]">
-                    {config.supportsFetch
-                      ? (fetching ? '잠시만 기다려 주세요' : '"↻ 지금 수집" 버튼을 누르면 공개 리뷰를 불러옵니다')
-                      : 'Worker 가 연결되면 자동 수집이 시작돼요 (23차-5)'}
+                    {fetching
+                      ? '잠시만 기다려 주세요'
+                      : enqueuedAt
+                        ? `요청 시간 · ${timeAgo(enqueuedAt)} · 1~3분 뒤 페이지를 새로고침하면 표시됩니다`
+                        : config.supportsFetch
+                          ? '"↻ 지금 수집" 버튼을 누르면 공개 리뷰를 불러옵니다'
+                          : 'Worker 가 연결되면 자동 수집이 시작돼요'}
                   </p>
                 </div>
               ) : filtered.length === 0 ? (
@@ -1071,13 +1175,26 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
                                   </p>
                                 )}
                                 {review.replyStatus === 'failed' && review.replyError && (
-                                  <p className="text-[11px] mt-2 text-[#DC2626] bg-[#FEE2E2] rounded-lg px-2 py-1.5">
-                                    ❌ 등록 실패: {review.replyError}
+                                  <div className="mt-2 text-[11px] text-[#DC2626] bg-[#FEE2E2] rounded-lg px-2.5 py-2 space-y-1.5">
+                                    <p>❌ 등록 실패: {review.replyError}</p>
                                     {config.reviewAdminUrl && (
-                                      <a href={config.reviewAdminUrl} target="_blank" rel="noopener noreferrer"
-                                        className="ml-2 underline">직접 등록 →</a>
+                                      <button
+                                        onClick={async () => {
+                                          // 43차-5: 답글 본문을 클립보드에 복사하고 플랫폼 탭 새로 열기
+                                          try {
+                                            await navigator.clipboard.writeText(draftText || review.draftReply || '')
+                                            toast.success('답글이 복사됐어요. 플랫폼 탭에서 붙여넣으세요')
+                                          } catch {
+                                            toast.info('자동 복사 실패 — 답글을 직접 선택해 복사해 주세요')
+                                          }
+                                          window.open(config.reviewAdminUrl, '_blank', 'noopener,noreferrer')
+                                        }}
+                                        className="px-2.5 py-1 rounded-md text-[11px] font-bold bg-white border border-[#DC2626] text-[#DC2626] hover:bg-[#FEF2F2]"
+                                      >
+                                        📋 답글 복사 후 {config.label} 직접 등록 ↗
+                                      </button>
                                     )}
-                                  </p>
+                                  </div>
                                 )}
                                 {noCredentialsHref && (
                                   <div className="mt-2 flex items-center gap-2 bg-[#FFF7ED] border border-[#FED7AA] rounded-lg px-3 py-2">

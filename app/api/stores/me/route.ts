@@ -50,13 +50,16 @@ export async function GET() {
     platform_store_id: string | null
     platform_store_name: string | null
     connected_at: string | null
+    last_login_status: string | null
+    last_login_at: string | null
   }> = []
   try {
     // 30차-14: platform_credentials 테이블엔 created_at 컬럼 없음 → updated_at 만 사용
     //          기존 select 에 created_at 있어서 쿼리 실패 → credentials = [] → 전부 미연결 표시되던 버그
+    // 43차-5: last_login_status / last_login_at 추가 노출 — 캡차/실패 배너용
     const { data, error } = await svc
       .from('platform_credentials')
-      .select('platform, account_id, platform_store_id, platform_store_name, updated_at')
+      .select('platform, account_id, platform_store_id, platform_store_name, updated_at, last_login_status, last_login_at')
       .eq('user_id', userId)
     if (error) {
       console.warn('[stores/me] platform_credentials select failed:', error.message)
@@ -68,6 +71,8 @@ export async function GET() {
         platform_store_id: r.platform_store_id ?? null,
         platform_store_name: r.platform_store_name ?? null,
         connected_at: r.updated_at ?? null,
+        last_login_status: r.last_login_status ?? null,
+        last_login_at: r.last_login_at ?? null,
       }))
     }
   } catch (e) {
@@ -240,6 +245,9 @@ export async function GET() {
       rating_avg: agg?.rating_avg ?? null,
       unreplied_count: agg?.unreplied_count ?? 0,
       latest_collected_at: agg?.latest_collected_at ?? null,
+      // 43차-5: 워커 로그인 상태 (캡차/실패 배너 표시용)
+      last_login_status: c?.last_login_status ?? null,
+      last_login_at: c?.last_login_at ?? null,
     }
   })
 

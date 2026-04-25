@@ -12,6 +12,7 @@ import { getServiceClient } from '../lib/supabase'
 import { loadPlainCredentials, markLoginStatus } from '../lib/credentials'
 import { upsertReviews, CollectedReview } from '../lib/reviews'
 import { dumpPageDiagnostics, detectLoginFailure } from '../lib/diagnostics'
+import { verifyReplySubmitted } from '../lib/post-reply-verify'
 import type { JobResult, Action } from '../jobs'
 
 const CEO_HOME = 'https://self.baemin.com/'
@@ -490,8 +491,16 @@ async function postBaeminReply(
     const submit = await page.$(LOGIN_SELECTORS.replySubmit)
     if (!submit) return { ok: false, reason: 'reply submit button not found' }
     await submit.click()
-    await page.waitForTimeout(2500)
 
+    // 43차-5: 클릭 후 실제 등록 신호 대기 (textarea 사라짐 / 에러 텍스트 검출)
+    const verify = await verifyReplySubmitted(page, {
+      textareaSelector: LOGIN_SELECTORS.replyTextarea,
+      timeoutMs: 8000,
+    }, log)
+    if (!verify.ok) {
+      await dumpPageDiagnostics(page, log, 'baemin-reply-verify-failed')
+      return verify
+    }
     return { ok: true }
   } catch (e: any) {
     log.error({ err: e?.message }, 'baemin reply error')

@@ -8,6 +8,7 @@ import { getServiceClient } from '../lib/supabase'
 import { loadPlainCredentials, markLoginStatus } from '../lib/credentials'
 import { upsertReviews, CollectedReview } from '../lib/reviews'
 import { dumpPageDiagnostics, startNetworkCapture, detectLoginFailure } from '../lib/diagnostics'
+import { verifyReplySubmitted } from '../lib/post-reply-verify'
 import type { JobResult, Action } from '../jobs'
 
 const LOGIN_URL = 'https://ceo.yogiyo.co.kr/login/'
@@ -215,8 +216,16 @@ async function postYogiyoReply(
     const submit = await page.$(DOM_SELECTORS.replySubmit)
     if (!submit) return { ok: false, reason: 'reply submit button not found' }
     await submit.click()
-    await page.waitForTimeout(2500)
 
+    // 43차-5: 등록 결과 검증
+    const verify = await verifyReplySubmitted(page, {
+      textareaSelector: DOM_SELECTORS.replyTextarea,
+      timeoutMs: 8000,
+    }, log)
+    if (!verify.ok) {
+      await dumpPageDiagnostics(page, log, 'yogiyo-reply-verify-failed')
+      return verify
+    }
     return { ok: true }
   } catch (e: any) {
     log.error({ err: e?.message }, 'yogiyo reply error')

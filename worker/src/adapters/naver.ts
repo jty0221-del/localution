@@ -11,6 +11,7 @@ import { getServiceClient } from '../lib/supabase'
 import { loadPlainCredentials, markLoginStatus } from '../lib/credentials'
 import { encryptSecret } from '../lib/crypto'
 import { dumpPageDiagnostics, startNetworkCapture, detectLoginFailure } from '../lib/diagnostics'
+import { verifyReplySubmitted } from '../lib/post-reply-verify'
 import type { JobResult, Action } from '../jobs'
 
 const LOGIN_URL = 'https://nid.naver.com/nidlogin.login'
@@ -199,10 +200,15 @@ export async function runNaver(
     const submitBtn = await page.$(DOM_SELECTORS.replySubmit)
     if (!submitBtn) return { status: 'failed', message: 'naver: \uB4F1\uB85D \uBC84\uD2BC \uC5C6\uC74C' }
     await submitBtn.click()
-    await page.waitForTimeout(2500)
 
-    const newReply = await foundReview.$(DOM_SELECTORS.ownerReply)
-    if (newReply) {
+    // 43차-5: 폴링 검증 (textarea 사라짐 + ownerReply 노드 등장)
+    const verify = await verifyReplySubmitted(page, {
+      textareaSelector: DOM_SELECTORS.replyTextarea,
+      successSelector: DOM_SELECTORS.ownerReply,
+      timeoutMs: 9000,
+    }, log)
+
+    if (verify.ok) {
       await svc.from('platform_reviews').update({
         has_reply: true, reply_text: replyText, reply_status: 'submitted',
         reply_submitted_at: new Date().toISOString(), reply_error: null,
@@ -211,7 +217,7 @@ export async function runNaver(
     }
 
     await dumpPageDiagnostics(page, log, 'naver-reply-unknown')
-    return { status: 'failed', message: 'naver: \uB4F1\uB85D \uD6C4 \uD655\uC778 \uBD88\uAC00' }
+    return { status: 'failed', message: `naver: 등록 후 확인 불가 (${verify.reason})` }
 
   } finally {
     await context.close()
