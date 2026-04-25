@@ -1,5 +1,5 @@
-# fly.io Worker – Playwright + BullMQ
-# 42차-3: Playwright 1.47 → 1.59.1 버전 업 (chromium 경�� 불일치 수정)
+# fly.io Worker â€“ Playwright + BullMQ
+# 42ì°¨-3: Playwright 1.47 â†’ 1.59.1 ë²„ì „ ì—… (chromium ê²½ë¡Ü ë¶ˆì¼ì¹˜ ìˆ˜ì •)
 
 FROM mcr.microsoft.com/playwright:v1.59.1-jammy
 
@@ -10,7 +10,7 @@ RUN npm install --omit=optional --no-audit --no-fund \
     && npm cache clean --force
 
 COPY tsconfig.json ./
-RUN echo "build-marker: 42cha-3-playwright-version-fix"
+RUN echo "build-marker: 43cha-cookie-auth"
 COPY src ./src
 
 RUN npx tsc
