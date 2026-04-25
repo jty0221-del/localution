@@ -33,6 +33,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireUser } from '@/app/lib/userAuth'
 import { createServiceClient } from '@/app/lib/adminAuth'
+import { rateLimit, getClientIp } from '@/app/lib/rate-limit'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -370,6 +371,18 @@ function sanitizePhotos(photos: unknown, limit: number = 4): string[] {
 
 export async function POST(req: NextRequest) {
   try {
+    // 인증 + 레이트 리밋 — 분당 10회/사용자 (비로그인은 IP)
+    //   아래 매장/리뷰 자동 로드 단계에서 동일한 auth 결과를 재사용한다.
+    const auth = await requireUser()
+    const limitId = auth.ok ? auth.userId : `ip:${getClientIp(req)}`
+    const rl = await rateLimit({ bucket: 'ai-review-reply', id: limitId, limit: 10, windowSec: 60 })
+    if (!rl.ok) {
+      return NextResponse.json(
+        { ok: false, error: '요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.', retryAfter: rl.retryAfter },
+        { status: 429, headers: { 'Retry-After': String(rl.retryAfter) } },
+      )
+    }
+
     const body = await req.json().catch(() => ({}))
 
     // 1) 입력 정규화 (구·신 파라미터 동시 지원)
@@ -395,8 +408,7 @@ export async function POST(req: NextRequest) {
       age: String(body?.customerProfile?.age ?? ''),
     }
 
-    // 2) 로그인 사용자의 매장/리뷰 자동 로드
-    const auth = await requireUser()
+    // 2) 로그인 사용자의 매장/리뷰 자동 로드 (auth 는 위에서 재사용)
     let storeName: string = String(body?.storeName ?? body?.store_name ?? '')
     let region: string = String(body?.region ?? '')
     let bizType: string = String(body?.bizType ?? body?.biz_type ?? '')

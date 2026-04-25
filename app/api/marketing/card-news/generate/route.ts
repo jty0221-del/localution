@@ -17,6 +17,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireUser } from '@/app/lib/userAuth'
 import { createServiceClient } from '@/app/lib/adminAuth'
+import { rateLimit, getClientIp } from '@/app/lib/rate-limit'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -130,6 +131,15 @@ export async function POST(req: NextRequest) {
     const auth = await requireUser()
     if (!auth.ok) {
       return NextResponse.json({ error: auth.message }, { status: auth.status })
+    }
+
+    // 카드뉴스 생성은 무거운 호출 — 분당 5회로 더 보수적으로
+    const rl = await rateLimit({ bucket: 'card-news', id: auth.userId, limit: 5, windowSec: 60 })
+    if (!rl.ok) {
+      return NextResponse.json(
+        { error: '요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.', retryAfter: rl.retryAfter },
+        { status: 429, headers: { 'Retry-After': String(rl.retryAfter) } },
+      )
     }
 
     let body: GenerateBody

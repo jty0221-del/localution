@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireUser } from '@/app/lib/userAuth'
+import { rateLimit, getClientIp } from '@/app/lib/rate-limit'
 
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
@@ -8,6 +10,16 @@ export const maxDuration = 60
 // 출력: { ok, post: string (markdown) }
 export async function POST(req: NextRequest) {
   try {
+    const auth = await requireUser()
+    const limitId = auth.ok ? auth.userId : `ip:${getClientIp(req)}`
+    const rl = await rateLimit({ bucket: 'naver-blog-post', id: limitId, limit: 10, windowSec: 60 })
+    if (!rl.ok) {
+      return NextResponse.json(
+        { ok: false, error: '요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.', retryAfter: rl.retryAfter },
+        { status: 429, headers: { 'Retry-After': String(rl.retryAfter) } },
+      )
+    }
+
     const body = await req.json()
     const {
       industry = '',

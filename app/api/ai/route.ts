@@ -1,7 +1,20 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { requireUser } from '@/app/lib/userAuth';
+import { rateLimit, getClientIp } from '@/app/lib/rate-limit';
 
 export async function POST(req: NextRequest) {
   try {
+    // 인증 + 레이트 리밋 (분당 10회/사용자, 비로그인은 IP 기반)
+    const auth = await requireUser();
+    const id = auth.ok ? auth.userId : `ip:${getClientIp(req)}`;
+    const rl = await rateLimit({ bucket: 'ai', id, limit: 10, windowSec: 60 });
+    if (!rl.ok) {
+      return NextResponse.json(
+        { error: '요청이 너무 많습니다. 잠시 후 다시 시도해 주세요.', retryAfter: rl.retryAfter },
+        { status: 429, headers: { 'Retry-After': String(rl.retryAfter) } },
+      );
+    }
+
     const body = await req.json();
 
     if (!process.env.ANTHROPIC_API_KEY) {

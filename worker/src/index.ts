@@ -26,7 +26,7 @@ if (!REDIS_URL) {
   process.exit(1)
 }
 if (!SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY) {
-  log.fatal('SUPABASE_URL / SUPBASE_SERVICE_ROLE_KEY missing')
+  log.fatal('SUPABASE_URL / SUPABASE_SERVICE_ROLE_KEY missing')
   process.exit(1)
 }
 if (!ENCRYPTION_KEK_HEX || ENCRYPTION_KEK_HEX.length !== 64) {
@@ -65,10 +65,17 @@ const worker = new Worker<PlatformJobData>(
   QUEUE_NAME,
   async (job: Job<PlatformJobData>) => {
     log.info({ jobId: job.id, name: job.name, data: { platform: job.data.platform, action: job.data.action } }, 'job start')
-    const browser = await getBrowser()
-    const result = await runJob(job.data, log, browser)
-    log.info({ jobId: job.id, result: result.status }, 'job done')
-    return result
+    try {
+      const browser = await getBrowser()
+      const result = await runJob(job.data, log, browser)
+      log.info({ jobId: job.id, result: result.status }, 'job done')
+      return result
+    } catch (err: any) {
+      // 43차-2: runJob 이 throw 하면 BullMQ 가 잡을 retry/fail 처리.
+      //         로깅은 여기서 한 번 명확하게 남긴다 (worker.on('failed') 도 트리거됨).
+      log.error({ jobId: job.id, err: err?.message, stack: err?.stack }, 'job exception')
+      throw err
+    }
   },
   {
     connection,
@@ -91,10 +98,24 @@ worker.on('error', (err) => {
 })
 
 const port = parseInt(process.env.PORT || '8080', 10)
-const healthServer = http.createServer((req, res) => {
+const healthServer = http.createServer(async (req, res) => {
   if (req.url === '/health' || req.url === '/') {
-    res.writeHead(200, { 'Content-Type': 'application/json' })
-    res.end(JSON.stringify({ status: 'ok', queue: QUEUE_NAME, ts: new Date().toISOString() }))
+    // 43차-2: Redis 연결 상태까지 점검해야 fly.io 헬스체크가 의미 있음
+    let redisOk = false
+    try {
+      const pong = await connection.ping()
+      redisOk = pong === 'PONG'
+    } catch {
+      redisOk = false
+    }
+    const status = redisOk ? 200 : 503
+    res.writeHead(status, { 'Content-Type': 'application/json' })
+    res.end(JSON.stringify({
+      status: redisOk ? 'ok' : 'degraded',
+      queue: QUEUE_NAME,
+      redis: redisOk ? 'connected' : 'disconnected',
+      ts: new Date().toISOString(),
+    }))
     return
   }
   res.writeHead(404)
@@ -105,14 +126,26 @@ healthServer.listen(port, () => {
   log.info({ port }, 'health server listening')
 })
 
+// 43차-2: 브라우저/Redis 종료가 행 걸리면 fly.io SIGKILL 까지 시간이 걸림.
+//         각 단계에 짧은 타임아웃을 둬서 빠르게 정리하고 빠져나간다.
+function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T | null> {
+  return Promise.race<T | null>([
+    p.catch(() => null) as Promise<T | null>,
+    new Promise<null>(resolve => setTimeout(() => {
+      log.warn({ label, ms }, 'shutdown step timed out')
+      resolve(null)
+    }, ms)),
+  ])
+}
+
 async function shutdown(signal: string) {
   log.info({ signal }, 'shutting down')
   try {
-    await worker.close()
-    await connection.quit()
+    await withTimeout(worker.close(), 8000, 'worker.close')
+    await withTimeout(connection.quit().then(() => undefined), 3000, 'redis.quit')
     healthServer.close()
     if (browserSingleton) {
-      await browserSingleton.close().catch(() => null)
+      await withTimeout(browserSingleton.close(), 5000, 'browser.close')
       browserSingleton = null
     }
   } catch (e) {
@@ -125,4 +158,4 @@ async function shutdown(signal: string) {
 process.on('SIGTERM', () => shutdown('SIGTERM'))
 process.on('SIGINT', () => shutdown('SIGINT'))
 
-log.info({ queue: QUEUE_NAME, COncurrency: worker.opts.concurrency }, 'worker ready')
+log.info({ queue: QUEUE_NAME, concurrency: worker.opts.concurrency }, 'worker ready')
