@@ -258,3 +258,67 @@ export async function DELETE(req: NextRequest) {
     platform,
   })
 }
+
+
+// ─────────────────────────────────────────────
+// PATCH — platform_store_id 업데이트 (매장 ID만 변경)
+// ─────────────────────────────────────────────
+export async function PATCH(req: NextRequest) {
+  const auth = await requireUser()
+  if (!auth.ok) {
+    return NextResponse.json({ ok: false, error: auth.message }, { status: auth.status })
+  }
+
+  let body: { platform?: string; platform_store_id?: string; platform_store_name?: string } = {}
+  try { body = await req.json() } catch {
+    return NextResponse.json({ ok: false, error: 'invalid_json' }, { status: 400 })
+  }
+
+  if (!isValidPlatform(body.platform)) {
+    return NextResponse.json({ ok: false, error: 'invalid_platform' }, { status: 400 })
+  }
+  if (!body.platform_store_id) {
+    return NextResponse.json({ ok: false, error: 'platform_store_id 필요' }, { status: 400 })
+  }
+
+  const svc = createServiceClient()
+
+  const { error } = await svc
+    .from('platform_credentials')
+    .update({
+      platform_store_id: body.platform_store_id,
+      platform_store_name: body.platform_store_name ?? null,
+      updated_at: new Date().toISOString(),
+    })
+    .eq('user_id', auth.userId)
+    .eq('platform', body.platform)
+
+  if (error) {
+    return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
+  }
+
+  // stores 테이블도 동기화
+  try {
+    if (body.platform === 'naver_place' && body.platform_store_id) {
+      const { data: existing } = await svc
+        .from('stores')
+        .select('id')
+        .eq('user_id', auth.userId)
+        .order('updated_at', { ascending: false })
+        .limit(1)
+        .maybeSingle()
+      if (existing?.id) {
+        await svc.from('stores').update({
+          naver_place_id: body.platform_store_id,
+          naver_url: `https://map.naver.com/p/entry/place/${body.platform_store_id}`,
+          naver_place_url: `https://map.naver.com/p/entry/place/${body.platform_store_id}`,
+          updated_at: new Date().toISOString(),
+        }).eq('id', existing.id)
+      }
+    }
+  } catch (e) {
+    console.warn('[platform-accounts PATCH] stores sync failed:', e)
+  }
+
+  return NextResponse.json({ ok: true, platform: body.platform, platform_store_id: body.platform_store_id })
+}
