@@ -7,22 +7,11 @@
 // ============================================================
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { cookies, headers } from 'next/headers'
+import { ADMIN_EMAILS, isAdminEmail } from './admin-emails'
 
-// 관리자 이메일 화이트리스트
-//   · OAuth provider(네이버/카카오/구글) 마다 다른 email 을 내려주므로 여러 개 등록
-//   · 배포 후 /whoami 에서 실제로 내려오는 email 을 확인하고 갱신
-//   · 프로덕션은 env ADMIN_EMAILS (쉼표 구분) 로도 추가 가능
-const STATIC_ADMIN_EMAILS = [
-  'jty0221@gmail.com',
-  'jty0221@naver.com',
-  'halang@localution.co.kr',
-  'admin@localution.co.kr',
-]
-const envList = (process.env.ADMIN_EMAILS || '')
-  .split(',')
-  .map(s => s.trim().toLowerCase())
-  .filter(Boolean)
-export const ADMIN_EMAILS = Array.from(new Set([...STATIC_ADMIN_EMAILS, ...envList]))
+// 관리자 이메일 화이트리스트는 admin-emails.ts 에서 관리.
+// 미들웨어/layout/서버 핸들러가 동일 source 를 import 한다.
+export { ADMIN_EMAILS }
 
 // ------------------------------------------------------------
 // Service role client (RLS 우회 — Node runtime 전용)
@@ -119,7 +108,7 @@ export async function requireAdmin(): Promise<AdminResult> {
   const lu = await readLocalutionUser()
   const luEmail = (lu?.email || '').toLowerCase().trim()
   if (luEmail) {
-    if (ADMIN_EMAILS.includes(luEmail)) {
+    if (isAdminEmail(luEmail)) {
       return { ok: true, email: luEmail, userId: lu?.id ?? null, source: 'localution' }
     }
     // OAuth 로 로그인했으나 관리자 화이트리스트 아님 → 거부 (Supabase 로 폴백하지 않음)
@@ -137,7 +126,7 @@ export async function requireAdmin(): Promise<AdminResult> {
       return { ok: false, status: 401, message: '토큰 검증 실패' }
     }
     const email = data.user.email.toLowerCase()
-    if (!ADMIN_EMAILS.includes(email)) {
+    if (!isAdminEmail(email)) {
       return { ok: false, status: 403, message: '관리자 권한이 없습니다.' }
     }
     return { ok: true, email, userId: data.user.id, source: 'supabase' }

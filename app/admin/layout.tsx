@@ -4,14 +4,7 @@ import { useEffect, useState } from 'react'
 import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/app/lib/supabase'
-
-// 관리자 이메일 화이트리스트 (adminAuth.ts STATIC_ADMIN_EMAILS 와 동기화)
-const ADMIN_EMAILS = [
-  'jty0221@gmail.com',
-  'jty0221@naver.com',
-  'halang@localution.co.kr',
-  'admin@localution.co.kr',
-]
+import { isAdminEmail } from '@/app/lib/admin-emails'
 
 const NAV = [
   { href: '/admin/dashboard',    label: '대시보드',  icon: '📊' },
@@ -60,7 +53,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       const luEmail = readLocalutionUserEmail()
       if (luEmail) {
         if (!mounted) return
-        if (ADMIN_EMAILS.includes(luEmail)) {
+        if (isAdminEmail(luEmail)) {
           setStatus('ok')
         } else {
           setReason(`${luEmail} 계정은 관리자 권한이 없습니다.`)
@@ -73,7 +66,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       // 2) Supabase 세션
       const sbEmail = await readSupabaseEmail()
       if (!mounted) return
-      if (sbEmail && ADMIN_EMAILS.includes(sbEmail)) {
+      if (sbEmail && isAdminEmail(sbEmail)) {
         setStatus('ok')
       } else if (sbEmail) {
         setReason(`${sbEmail} 계정은 관리자 권한이 없습니다.`)

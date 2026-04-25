@@ -9,6 +9,7 @@ import type { Browser } from 'playwright'
 import type { Logger } from 'pino'
 import { getServiceClient } from '../lib/supabase'
 import { loadPlainCredentials, markLoginStatus } from '../lib/credentials'
+import { encryptSecret } from '../lib/crypto'
 import { dumpPageDiagnostics, startNetworkCapture, detectLoginFailure } from '../lib/diagnostics'
 import type { JobResult, Action } from '../jobs'
 
@@ -133,10 +134,13 @@ export async function runNaver(
         if (naverCookies.length > 0) {
           const { data: ex } = await svc.from('platform_credentials').select('extra_data')
             .eq('user_id', userId).eq('platform', 'naver_place').maybeSingle()
+          const prevExtra = (ex?.extra_data as any) ?? {}
+          const enc = encryptSecret(JSON.stringify(naverCookies))
+          const { session_cookies: _drop, ...rest } = prevExtra
           await svc.from('platform_credentials')
-            .update({ extra_data: { ...(ex?.extra_data ?? {}), session_cookies: naverCookies } })
+            .update({ extra_data: { ...rest, session_cookies_encrypted: enc } })
             .eq('user_id', userId).eq('platform', 'naver_place')
-          log.info({ count: naverCookies.length }, 'naver: session cookies saved')
+          log.info({ count: naverCookies.length }, 'naver: session cookies saved (encrypted)')
         }
       } catch (e: any) {
         log.warn({ err: e?.message }, 'naver: cookie save failed (non-fatal)')

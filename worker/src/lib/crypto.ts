@@ -1,12 +1,14 @@
 // worker/src/lib/crypto.ts
 // ============================================================
-// 32차-1 · Worker 전용 AES-256-GCM 복호화
-//   · app/lib/crypto-utils.ts 의 decryptSecret 과 동일 알고리즘
-//   · Worker 는 복호화만 사용 (암호화는 Vercel 측에서)
+// 32차-1 · Worker 전용 AES-256-GCM
+//   · app/lib/crypto-utils.ts 와 동일한 KEK+DEK 2단 구조
+//   · 43차-1 · 폼 로그인 성공 후 세션 쿠키 저장에도 사용 → encryptSecret 추가
 // ============================================================
-import { createDecipheriv } from 'crypto'
+import { createCipheriv, createDecipheriv, randomBytes } from 'crypto'
 
 const ALGO = 'aes-256-gcm'
+const IV_LEN = 12
+const KEK_VERSION = process.env.ENCRYPTION_KEK_VERSION || 'v1'
 
 export type EncryptedPayload = {
   ciphertext: string
@@ -35,10 +37,36 @@ function loadKek(): Buffer {
   return Buffer.from(hex.toLowerCase(), 'hex')
 }
 
+function aesEncrypt(plaintext: Buffer, key: Buffer): { ciphertext: Buffer; iv: Buffer; tag: Buffer } {
+  const iv = randomBytes(IV_LEN)
+  const cipher = createCipheriv(ALGO, key, iv)
+  const ciphertext = Buffer.concat([cipher.update(plaintext), cipher.final()])
+  const tag = cipher.getAuthTag()
+  return { ciphertext, iv, tag }
+}
+
 function aesDecrypt(ciphertext: Buffer, key: Buffer, iv: Buffer, tag: Buffer): Buffer {
   const decipher = createDecipheriv(ALGO, key, iv)
   decipher.setAuthTag(tag)
   return Buffer.concat([decipher.update(ciphertext), decipher.final()])
+}
+
+export function encryptSecret(plaintext: string): EncryptedPayload {
+  if (!plaintext) throw new Error('encryptSecret: plaintext empty')
+  const kek = loadKek()
+  const dek = randomBytes(32)
+  const p = aesEncrypt(Buffer.from(plaintext, 'utf-8'), dek)
+  const d = aesEncrypt(dek, kek)
+  dek.fill(0)
+  return {
+    ciphertext:     p.ciphertext.toString('base64'),
+    iv:             p.iv.toString('base64'),
+    tag:            p.tag.toString('base64'),
+    dek_ciphertext: d.ciphertext.toString('base64'),
+    dek_iv:         d.iv.toString('base64'),
+    dek_tag:        d.tag.toString('base64'),
+    kek_version:    KEK_VERSION,
+  }
 }
 
 export function decryptSecret(payload: EncryptedPayload): string {

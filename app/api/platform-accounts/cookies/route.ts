@@ -14,6 +14,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireUser } from '@/app/lib/userAuth'
 import { createServiceClient } from '@/app/lib/adminAuth'
 import { VALID_PLATFORMS, type PlatformSlug } from '@/app/lib/platform-credentials'
+import { encryptSecret } from '@/app/lib/crypto-utils'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -96,7 +97,17 @@ export async function POST(req: NextRequest) {
     }, { status: 404 })
   }
 
-  const newExtra = { ...(existing.extra_data as any ?? {}), session_cookies: cookies }
+  // 쿠키는 KEK 로 암호화하여 extra_data.session_cookies_encrypted 에 저장
+  // 기존 평문(session_cookies) 필드는 동시에 제거하여 마이그레이션
+  let encrypted
+  try {
+    encrypted = encryptSecret(JSON.stringify(cookies))
+  } catch (e: any) {
+    return NextResponse.json({ ok: false, error: 'encrypt 실패: ' + (e?.message || 'unknown') }, { status: 500 })
+  }
+  const prevExtra = (existing.extra_data as any) ?? {}
+  const { session_cookies: _drop, ...rest } = prevExtra
+  const newExtra = { ...rest, session_cookies_encrypted: encrypted }
   const { error: updErr } = await svc
     .from('platform_credentials')
     .update({ extra_data: newExtra, updated_at: new Date().toISOString() })

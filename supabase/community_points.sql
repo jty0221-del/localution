@@ -117,11 +117,8 @@ insert into public.community_regions (id, label, parent_label, sort_order) value
 on conflict (id) do nothing;
 
 -- =====================================================================
--- RLS(선택 — 우선 공개 허용, 쓰기만 인증 유저로 제한)
+-- RLS — supabase/migrations/20260425_community_rls.sql 에서 활성화
 -- =====================================================================
--- alter table public.community_posts    enable row level security;
--- alter table public.community_comments enable row level security;
--- alter table public.community_post_likes enable row level security;
--- alter table public.point_ledger       enable row level security;
---
--- 필요 시 별도 마이그레이션에서 정책 추가
+-- 신규 배포 시 위 마이그레이션을 반드시 함께 실행할 것.
+--   · community_posts/comments/post_likes : 공개 SELECT, 쓰기는 service role 전용
+--   · point_ledger                        : 본인 row 만 SELECT
