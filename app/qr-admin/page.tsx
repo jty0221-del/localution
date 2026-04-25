@@ -64,15 +64,19 @@ const PURPOSE_OPTIONS = [
 ]
 
 // ─── 리뷰 URL 생성 ────────────────────────────────────────────────
-function generateReviewUrl(storeName: string, naverUrl?: string): string {
-  const trimmed = storeName.trim()
-  if (!trimmed) return ''
-  const slug = trimmed.replace(/\s+/g, '-')
-  let url = `${BASE_URL}/review/${encodeURIComponent(slug)}?n=${encodeURIComponent(trimmed)}`
-  if (naverUrl && naverUrl.trim()) {
-    url += `&naver=${encodeURIComponent(naverUrl.trim())}`
-  }
-  return url
+// 기존 /review/[storeId] 페이지의 쿼리 파라미터 규격:
+//   n=상호명 / t=업종 / a=주소·지역 / naver=네이버URL / kw=키워드
+function generateReviewUrl(store: StoreInfo, keyword?: string): string {
+  const name = store.name.trim()
+  if (!name) return ''
+  const slug = name.replace(/\s+/g, '-')
+  const params = new URLSearchParams()
+  params.set('n', name)
+  if (store.category) params.set('t', store.category)
+  if (store.location) params.set('a', store.location)
+  if (store.naverUrl) params.set('naver', store.naverUrl.trim())
+  if (keyword) params.set('kw', keyword)
+  return `${BASE_URL}/review/${encodeURIComponent(slug)}?${params.toString()}`
 }
 
 // ─── 실제 QR 이미지 (api.qrserver.com) ───────────────────────────
@@ -209,7 +213,7 @@ export default function QRAdmin() {
     // 리뷰 용도면 업체 연동 URL 자동 생성
     let reviewUrl = ''
     if (newQR.purpose === 'review' && storeInfo.connected) {
-      reviewUrl = generateReviewUrl(storeInfo.name, storeInfo.naverUrl)
+      reviewUrl = generateReviewUrl(storeInfo, newQR.keyword || settings.mainKeyword || '')
     }
 
     const newItem: QRCode = {
@@ -269,7 +273,7 @@ export default function QRAdmin() {
 
   // 현재 연동된 업체 기준 미리보기 URL
   const previewReviewUrl = storeInfo.connected
-    ? generateReviewUrl(storeInfo.name, storeInfo.naverUrl)
+    ? generateReviewUrl(storeInfo, settings.mainKeyword)
     : ''
 
   return (
@@ -428,7 +432,7 @@ export default function QRAdmin() {
                       <div className="p-3 bg-[#F8FAFF] rounded-xl border border-[#BFDBFE]">
                         <p className="text-[11px] text-[#3182F6] font-semibold mb-1">생성될 리뷰 링크 미리보기</p>
                         <p className="text-[10px] text-[#4E5968] break-all leading-relaxed font-mono">
-                          {generateReviewUrl(storeDraft.name, storeDraft.naverUrl)}
+                          {generateReviewUrl(storeDraft)}
                         </p>
                       </div>
                     )}
@@ -891,7 +895,7 @@ export default function QRAdmin() {
                 <div className="p-3 bg-[#F0FDF4] rounded-xl border border-[#BBF7D0]">
                   <p className="text-[11px] text-[#059669] font-semibold mb-1">✅ 자동 연결될 리뷰 링크</p>
                   <p className="text-[10px] text-[#4E5968] break-all font-mono leading-relaxed">
-                    {generateReviewUrl(storeInfo.name, storeInfo.naverUrl)}
+                    {generateReviewUrl(storeInfo, newQR.keyword || settings.mainKeyword)}
                   </p>
                 </div>
               )}
