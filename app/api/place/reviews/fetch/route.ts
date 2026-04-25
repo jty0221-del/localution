@@ -156,7 +156,7 @@ export async function POST(req: NextRequest) {
 
   // 3) platform_reviews UPSERT (platform + platform_review_id 유니크)
   const now = new Date().toISOString()
-  const rows: UpsertRow[] = reviews.map((r) => ({
+  const rowsRaw: UpsertRow[] = reviews.map((r) => ({
     user_id: userId,
     platform: 'naver_place' as const,
     platform_store_id: placeId!,
@@ -171,6 +171,10 @@ export async function POST(req: NextRequest) {
     has_reply: false,
     raw_snapshot: r,
   }))
+  // 중복 reviewId가 있으면 PostgreSQL upsert 오류 발생 → 마지막 항목만 유지
+  const seen = new Map<string, UpsertRow>()
+  for (const row of rowsRaw) seen.set(row.platform_review_id, row)
+  const rows = Array.from(seen.values())
 
   let inserted = 0
   let updated = 0
