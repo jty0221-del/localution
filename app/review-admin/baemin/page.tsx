@@ -35,7 +35,8 @@ const CONFIG: PlatformConfig = {
   icon: 'B',
   iconLetter: '배',
   logoNode: <BaeminLogo />,
-  supportsFetch: false,   // Worker 준비 전까지 비활성
+  supportsFetch: true,
+  collectEndpoint: '/api/review-reply/collect',
   connectHref: '/my/platforms/baemin/connect',
   reviewAdminUrl: 'https://self.baemin.com/',
 }

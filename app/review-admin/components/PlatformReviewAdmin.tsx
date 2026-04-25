@@ -294,7 +294,7 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
     if (!loadingConn) loadReviews()
   }, [loadingConn, loadReviews])
 
-  // ── 3) 지금 수집 (naver_place 만 동작) ─────
+  // ── 3) 지금 수집 (전 플랫폼 — naver_place: Vercel 직접 / 그 외: Worker 큐) ─────
   const collectNow = useCallback(async () => {
     if (!config.supportsFetch) {
       toast.info('이 플랫폼은 아직 자동 수집을 지원하지 않아요 (Worker 대기)')
@@ -304,11 +304,14 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
     setFetching(true)
     try {
       const endpoint = config.collectEndpoint || '/api/place/reviews/fetch'
+      // 43차-4: collect 엔드포인트는 platform 필수, 기존 naver fetch 는 무관 → 항상 동봉
+      const reqBody: Record<string, unknown> = { platform: config.platform }
+      if (placeId) reqBody.place_id = placeId
       const res = await fetch(endpoint, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(placeId ? { place_id: placeId } : {}),
+        body: JSON.stringify(reqBody),
       })
       const data = await res.json()
       if (!res.ok || !data?.ok) {
