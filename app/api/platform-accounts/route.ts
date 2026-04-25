@@ -260,8 +260,9 @@ export async function DELETE(req: NextRequest) {
 }
 
 
+
 // ─────────────────────────────────────────────
-// PATCH — platform_store_id 업데이트 (매장 ID만 변경)
+// PATCH — platform_store_id + 매장 정보 동기화
 // ─────────────────────────────────────────────
 export async function PATCH(req: NextRequest) {
   const auth = await requireUser()
@@ -269,7 +270,15 @@ export async function PATCH(req: NextRequest) {
     return NextResponse.json({ ok: false, error: auth.message }, { status: auth.status })
   }
 
-  let body: { platform?: string; platform_store_id?: string; platform_store_name?: string } = {}
+  let body: {
+    platform?: string
+    platform_store_id?: string
+    platform_store_name?: string
+    store_address?: string
+    store_category?: string
+    store_phone?: string
+    store_naver_url?: string
+  } = {}
   try { body = await req.json() } catch {
     return NextResponse.json({ ok: false, error: 'invalid_json' }, { status: 400 })
   }
@@ -283,7 +292,8 @@ export async function PATCH(req: NextRequest) {
 
   const svc = createServiceClient()
 
-  const { error } = await svc
+  // 1) platform_credentials 업데이트
+  const { error: credErr } = await svc
     .from('platform_credentials')
     .update({
       platform_store_id: body.platform_store_id,
@@ -293,31 +303,47 @@ export async function PATCH(req: NextRequest) {
     .eq('user_id', auth.userId)
     .eq('platform', body.platform)
 
-  if (error) {
-    return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
+  if (credErr) {
+    return NextResponse.json({ ok: false, error: credErr.message }, { status: 500 })
   }
 
-  // stores 테이블도 동기화
+  // 2) stores 테이블 풀 업데이트 (설정 페이지와 연동)
   try {
+    const { data: existing } = await svc
+      .from('stores')
+      .select('id, name')
+      .eq('user_id', auth.userId)
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    const storePayload: Record<string, string | null> = {
+      updated_at: new Date().toISOString(),
+    }
     if (body.platform === 'naver_place' && body.platform_store_id) {
-      const { data: existing } = await svc
-        .from('stores')
-        .select('id')
-        .eq('user_id', auth.userId)
-        .order('updated_at', { ascending: false })
-        .limit(1)
-        .maybeSingle()
-      if (existing?.id) {
-        await svc.from('stores').update({
-          naver_place_id: body.platform_store_id,
-          naver_url: `https://map.naver.com/p/entry/place/${body.platform_store_id}`,
-          naver_place_url: `https://map.naver.com/p/entry/place/${body.platform_store_id}`,
-          updated_at: new Date().toISOString(),
-        }).eq('id', existing.id)
-      }
+      storePayload.naver_place_id = body.platform_store_id
+      storePayload.naver_url = body.store_naver_url || ('https://map.naver.com/p/entry/place/' + body.platform_store_id)
+      storePayload.naver_place_url = storePayload.naver_url
+    }
+    if (body.platform_store_name) storePayload.name = body.platform_store_name
+    if (body.store_address) storePayload.address = body.store_address
+    if (body.store_category) storePayload.category = body.store_category
+    if (body.store_phone) storePayload.phone = body.store_phone
+
+    if (existing?.id) {
+      await svc.from('stores').update(storePayload).eq('id', existing.id)
+    } else if (body.platform_store_name) {
+      const slug = (body.platform_store_name || '')
+        .toLowerCase().replace(/[^a-z0-9가-힣]+/g, '-').replace(/^-+|-+$/g, '') || ('store-' + Date.now())
+      await svc.from('stores').insert({
+        ...storePayload,
+        user_id: auth.userId,
+        slug,
+        created_at: new Date().toISOString(),
+      })
     }
   } catch (e) {
-    console.warn('[platform-accounts PATCH] stores sync failed:', e)
+    console.warn('[platform-accounts PATCH] stores sync failed (non-fatal):', e)
   }
 
   return NextResponse.json({ ok: true, platform: body.platform, platform_store_id: body.platform_store_id })
