@@ -138,8 +138,30 @@ export async function runYogiyo(
     await markLoginStatus(svc, userId, 'yogiyo', 'success')
     if (action === 'health_check') return { status: 'ok', message: 'yogiyo login ok' }
 
-    // 2) 리뷰 페이지 이동 — 로그인 후 현재 도메인 기준으로 reviews URL 구성
-    // (ceo → owner 리다이렉트 발생 시 owner 도메인에서 reviews 열어야 세션 유지)
+    // 2) API 인터셉트로 리뷰 데이터 수집 (DOM 스크래핑 대신)
+    const capturedApiResponses: any[] = []
+    await page.route('**/*', async (route) => {
+      const request = route.request()
+      const url = request.url()
+      const isReviewApi = url.includes('review') || url.includes('feedback') || url.includes('rating')
+      if (isReviewApi && request.resourceType() === 'xhr' || request.resourceType() === 'fetch') {
+        try {
+          const response = await route.fetch()
+          const text = await response.text()
+          try {
+            const json = JSON.parse(text)
+            capturedApiResponses.push({ url, data: json })
+            log.info({ url, keys: Object.keys(json) }, 'yogiyo api captured')
+          } catch {}
+          await route.fulfill({ response })
+        } catch {
+          await route.continue()
+        }
+      } else {
+        await route.continue()
+      }
+    })
+
     const postLoginUrl = page.url()
     const postLoginOrigin = (() => { try { return new URL(postLoginUrl).origin } catch { return 'https://ceo.yogiyo.co.kr' } })()
     const reviewsUrl = creds.platform_store_id
@@ -147,63 +169,23 @@ export async function runYogiyo(
       : `${postLoginOrigin}/reviews`
     log.info({ reviewsUrl, postLoginOrigin }, 'yogiyo navigating to reviews')
     await page.goto(reviewsUrl, { waitUntil: 'load', timeout: 45000 })
-    await page.waitForTimeout(10000)
-    log.info({ url: page.url(), title: await page.title() }, 'yogiyo review page arrived')
+    await page.waitForTimeout(8000)
+    log.info({ url: page.url(), title: await page.title(), capturedCount: capturedApiResponses.length }, 'yogiyo review page arrived')
 
-    for (let i = 0; i < 8; i++) {
-      await page.evaluate(() => window.scrollBy(0, 1200))
-      await page.waitForTimeout(700)
+    // 3) 캡처된 API 응답에서 리뷰 추출
+    let reviews: any[] = []
+    for (const { url: apiUrl, data } of capturedApiResponses) {
+      const extracted = extractYogiyoReviews(data, apiUrl)
+      if (extracted.length > 0) {
+        log.info({ apiUrl, count: extracted.length }, 'yogiyo reviews from api')
+        reviews = reviews.concat(extracted)
+      }
     }
-
-    // 리뷰 페이지 HTML 진단 (셀렉터 확인용)
-    const reviewPageSnippet = await page.evaluate(() => document.body.innerHTML.slice(0, 8000))
-    log.info({ reviewPageSnippet }, 'yogiyo review page html')
-
-    // 3) 리뷰 파싱
-    const reviews = await page.evaluate((sel) => {
-      const cards = Array.from(document.querySelectorAll(sel.reviewCard))
-      return cards.slice(0, 200).map((c, idx) => {
-        const author = (c.querySelector(sel.reviewAuthor) as HTMLElement | null)?.innerText?.trim() ?? null
-        const filledStars = c.querySelectorAll(sel.starFilled).length
-        let rating: number | null = filledStars > 0 && filledStars <= 5 ? filledStars : null
-        if (rating === null) {
-          const lab = (c as HTMLElement).getAttribute('aria-label') || ''
-          const m = lab.match(/(\d)/)
-          if (m) rating = parseInt(m[1], 10)
-        }
-        const content = (c.querySelector(sel.reviewContent) as HTMLElement | null)?.innerText?.trim() ?? null
-        const dateEl = c.querySelector(sel.reviewDate) as HTMLElement | null
-        const posted = dateEl?.getAttribute('datetime') || dateEl?.innerText || null
-        const photos = Array.from(c.querySelectorAll(sel.reviewPhoto))
-          .map((img) => (img as HTMLImageElement).src)
-          .filter(Boolean)
-        const hasReply = !!c.querySelector(sel.ownerReply)
-        const replyContent = hasReply
-          ? (c.querySelector(sel.ownerReply) as HTMLElement | null)?.innerText?.trim() ?? null
-          : null
-        const idAttr =
-          (c as HTMLElement).getAttribute('data-review-id') ||
-          (c as HTMLElement).getAttribute('data-id') ||
-          null
-        return {
-          platform_review_id: idAttr || `yogiyo:${idx}:${(content || '').slice(0, 20)}:${posted || ''}`,
-          author_name: author,
-          rating,
-          content,
-          photos,
-          posted_at: posted,
-          has_reply: hasReply,
-          reply_content: replyContent,
-        }
-      })
-    }, DOM_SELECTORS)
-
-    if (!reviews || reviews.length === 0) {
-      await dumpPageDiagnostics(page, log, 'yogiyo-no-review-cards')
-    }
+    log.info({ apiCaptured: capturedApiResponses.length, reviewsFound: reviews.length }, 'yogiyo api intercept result')
 
     const normalized: CollectedReview[] = reviews
       .filter((r) => r.content || r.author_name)
+      .slice(0, 200)
       .map((r) => ({ ...r, posted_at: normalizeDate(r.posted_at) }))
 
     const shopId = creds.platform_store_id || 'unknown'
@@ -274,6 +256,36 @@ async function postYogiyoReply(
     log.error({ err: e?.message }, 'yogiyo reply error')
     return { ok: false, reason: e?.message || 'unknown' }
   }
+}
+
+function extractYogiyoReviews(data: any, apiUrl: string): any[] {
+  if (!data || typeof data !== 'object') return []
+  // 다양한 API 응답 구조 처리
+  const candidates = [
+    data?.reviews, data?.data?.reviews, data?.result?.reviews,
+    data?.items, data?.data?.items, data?.result?.items,
+    data?.list, data?.data?.list, data?.review_list,
+    Array.isArray(data) ? data : null,
+  ]
+  for (const list of candidates) {
+    if (!Array.isArray(list) || list.length === 0) continue
+    const first = list[0]
+    if (!first || typeof first !== 'object') continue
+    // 리뷰처럼 생겼는지 확인 (rating/score/content 필드 있어야)
+    const hasReviewFields = 'rating' in first || 'score' in first || 'content' in first || 'body' in first || 'review' in first
+    if (!hasReviewFields) continue
+    return list.map((r: any, idx: number) => ({
+      platform_review_id: String(r.id || r.review_id || r.reviewId || `yogiyo:api:${idx}:${(r.content || r.body || '').slice(0, 20)}`),
+      author_name: r.user_name || r.userName || r.nickname || r.author || null,
+      rating: r.rating ?? r.score ?? r.star ?? null,
+      content: r.content || r.body || r.review || null,
+      photos: Array.isArray(r.photos) ? r.photos.map((p: any) => p.url || p.image_url || p) : [],
+      posted_at: r.created_at || r.createdAt || r.date || r.reviewed_at || null,
+      has_reply: !!(r.comment || r.reply || r.owner_reply || r.store_reply),
+      reply_content: r.comment?.content || r.reply?.content || r.owner_reply || r.store_reply || null,
+    }))
+  }
+  return []
 }
 
 function normalizeDate(raw: string | null): string | null {
