@@ -1,17 +1,13 @@
 'use client'
 
 // ============================================================
-// 32차-1 · /settings/profile — 네이버 연동 자동채움 + 사이드바 동기화
-//
-//   - loadServer: 서버저장값 > 네이버연동값 > localStorage 순 우선순위
-//   - naverLink 상태 보관 → "네이버에서 가져오기" 버튼 제공
-//   - 저장 시 localution:user-change 이벤트 → 사이드바 즉시 반영
+// 32차-2 · /settings/profile — 카테고리/업종 필드 (네이버 연동)
 // ============================================================
 
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import Sidebar from '../../components/Sidebar'
-import { User, Store, MapPin, Save, Check, ArrowLeft, Mail, Phone, LogOut, Link2, RefreshCw } from 'lucide-react'
+import { User, Store, MapPin, Save, Check, ArrowLeft, Mail, Phone, LogOut, Link2, RefreshCw, Tag } from 'lucide-react'
 import Footer from '../../components/Footer'
 import { confirmDialog, toast } from '../../lib/toast'
 
@@ -19,7 +15,7 @@ type UserCookie = {
   id?: string; name?: string; email?: string; provider?: string; profile_image?: string;
 }
 type StoreInfo = {
-  storeName?: string; branch?: string; address?: string; phone?: string;
+  storeName?: string; category?: string; address?: string; phone?: string;
 }
 type NaverLink = {
   external_id?: string | null
@@ -61,7 +57,7 @@ const PLATFORM_COLOR: Record<string, { bg: string; fg: string }> = {
 
 export default function ProfileSettingsPage() {
   const [user, setUser] = useState<UserCookie | null>(null)
-  const [form, setForm] = useState<StoreInfo>({ storeName: '', branch: '', address: '', phone: '' })
+  const [form, setForm] = useState<StoreInfo>({ storeName: '', category: '', address: '', phone: '' })
   const [saved, setSaved] = useState(false)
   const [loaded, setLoaded] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -70,17 +66,16 @@ export default function ProfileSettingsPage() {
   const [naverAutoFilled, setNaverAutoFilled] = useState(false)
   const [naverLink, setNaverLink] = useState<NaverLink | null>(null)
 
-  // ── 서버 단일 진실원 로드 ─────────────────────────
   const loadServer = useCallback(async () => {
     try {
       const res = await fetch('/api/stores/me', { credentials: 'include', cache: 'no-store' })
       const data = await res.json()
       if (!res.ok || !data?.ok) return
 
-      const naverName    = data.naver_link?.external_name || ''
-      const naverAddress = data.naver_link?.address       || ''
+      const naverName     = data.naver_link?.external_name || ''
+      const naverAddress  = data.naver_link?.address       || ''
+      const naverCategory = data.naver_link?.category      || ''
 
-      // naverLink 상태 저장 (버튼 표시용)
       if (data.naver_link && data.naver_link.external_name) {
         setNaverLink(data.naver_link)
       }
@@ -88,10 +83,10 @@ export default function ProfileSettingsPage() {
       if (data.store || data.naver_link) {
         setForm((prev) => ({
           // 우선순위: 서버저장값 > 네이버연동값 > localStorage(prev)
-          storeName: data.store?.name    || naverName    || prev.storeName || '',
-          branch:    prev.branch || '',
-          address:   data.store?.address || naverAddress || prev.address   || '',
-          phone:     data.store?.phone   || prev.phone   || '',
+          storeName: data.store?.name     || naverName     || prev.storeName || '',
+          category:  data.store?.category || naverCategory || prev.category  || '',
+          address:   data.store?.address  || naverAddress  || prev.address   || '',
+          phone:     data.store?.phone    || prev.phone    || '',
         }))
       }
       if (naverName) setNaverAutoFilled(true)
@@ -109,21 +104,19 @@ export default function ProfileSettingsPage() {
 
   useEffect(() => {
     setUser(readCookieUser())
-    // localStorage 우선 (즉시 표시)
     try {
       const raw = localStorage.getItem('localution_store')
       if (raw) {
         const parsed = JSON.parse(raw)
         setForm({
           storeName: parsed.storeName || '',
-          branch:    parsed.branch    || '',
+          category:  parsed.category  || parsed.branch || '',
           address:   parsed.address   || '',
           phone:     parsed.phone     || '',
         })
       }
     } catch {}
     setLoaded(true)
-    // 서버 조회 → 네이버 연동 포함 최신값 보충
     loadServer()
   }, [loadServer])
 
@@ -132,6 +125,7 @@ export default function ProfileSettingsPage() {
     setForm(f => ({
       ...f,
       storeName: naverLink.external_name || f.storeName || '',
+      category:  naverLink.category      || f.category  || '',
       address:   naverLink.address       || f.address   || '',
     }))
     toast.info('네이버 플레이스 정보를 가져왔어요. 저장 버튼을 눌러 반영하세요.')
@@ -141,13 +135,11 @@ export default function ProfileSettingsPage() {
     e.preventDefault()
     if (!form.storeName) return
     setSaving(true)
-    // 1) localStorage (사이드바 즉시 반영)
     try {
       localStorage.setItem('localution_store', JSON.stringify(form))
       window.dispatchEvent(new CustomEvent('localution:user-change'))
     } catch {}
 
-    // 2) 서버 upsert — 로그인 상태일 때만
     try {
       if (user?.id) {
         const res = await fetch('/api/stores/register', {
@@ -155,9 +147,10 @@ export default function ProfileSettingsPage() {
           credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            name: form.storeName,
-            address: form.address || null,
-            phone: form.phone || null,
+            name:     form.storeName,
+            category: form.category  || null,
+            address:  form.address   || null,
+            phone:    form.phone     || null,
           }),
         })
         const data = await res.json().catch(() => ({}))
@@ -183,7 +176,6 @@ export default function ProfileSettingsPage() {
     <div className="flex min-h-screen bg-[#F2F4F6]">
       <Sidebar />
       <main className="flex-1 ml-0 md:ml-[220px] p-4 pt-20 md:p-6 md:pt-6 min-w-0 pb-24 md:pb-6">
-        {/* 헤더 배너 */}
         <section className="bg-gradient-to-r from-[#6366F1] to-[#4338CA] text-white px-4 py-10 sm:py-14">
           <div className="max-w-5xl mx-auto flex items-center gap-4">
             <div className="text-4xl sm:text-5xl drop-shadow-sm">👤</div>
@@ -356,18 +348,18 @@ export default function ProfileSettingsPage() {
 
               <div>
                 <label className="block text-xs font-semibold text-[#4E5968] mb-1.5">
-                  <MapPin size={12} strokeWidth={2.5} className="inline mr-1" />
-                  지점 / 구분
+                  <Tag size={12} strokeWidth={2.5} className="inline mr-1" />
+                  카테고리 / 업종
                 </label>
                 <input
                   type="text"
-                  value={form.branch || ''}
-                  onChange={e => setForm(f => ({ ...f, branch: e.target.value }))}
-                  placeholder="예) 강남점, 본점, 일산동구점 등"
-                  maxLength={24}
+                  value={form.category || ''}
+                  onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
+                  placeholder="예) 카페, 한식, 미용실, 네일샵 등"
+                  maxLength={30}
                   className="w-full px-4 py-2.5 rounded-xl border border-[#E5E8EB] focus:outline-none focus:border-[#3182F6] focus:ring-2 focus:ring-[#3182F6]/10 text-sm"
                 />
-                <p className="text-[10px] text-[#8B95A1] mt-1">사이드바 두 번째 줄로 표시됩니다</p>
+                <p className="text-[10px] text-[#8B95A1] mt-1">네이버 플레이스 연동 시 자동으로 채워집니다</p>
               </div>
 
               <div>
