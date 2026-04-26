@@ -97,7 +97,9 @@ export async function runCoupangEats(
         const loc = page.locator(sel).first()
         const visible = await loc.waitFor({ state: 'visible', timeout: 2000 }).then(() => true).catch(() => false)
         if (visible) {
-          await loc.fill(creds.account_id, { timeout: 5000 })
+          await loc.click()
+          await loc.fill('')
+          await loc.pressSequentially(creds.account_id, { delay: 60 })
           idFilled = true
           log.info({ sel }, 'coupangeats id input filled')
           break
@@ -109,11 +111,15 @@ export async function runCoupangEats(
       await markLoginStatus(svc, userId, 'coupangeats', 'failed', 'id input not found')
       return { status: 'failed', message: 'coupangeats ID 입력 필드를 찾지 못했습니다 — html_snippet 로그 확인 필요' }
     }
-    await pwLocator.fill(creds.password)
+    await pwLocator.click()
+    await pwLocator.fill('')
+    await pwLocator.pressSequentially(creds.password, { delay: 60 })
+    await page.waitForTimeout(500)
     await Promise.all([
-      page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => null),
+      page.waitForLoadState('load', { timeout: 15000 }).catch(() => null),
       page.locator(DOM_SELECTORS.loginBtn).first().click(),
     ])
+    await page.waitForTimeout(3000)
 
     const currentUrl = page.url()
     if (currentUrl.includes('captcha')) {
