@@ -27,23 +27,12 @@ let queueInstance: Queue<PlatformJobData> | null = null
 function getRedis(): IORedis {
   if (redisClient) return redisClient
   const url = process.env.REDIS_URL
-  if (!url) throw new Error('REDIS_URL missing — Vercel 환경변수에 추가 필요')
-  // 37차-6: 내부망 URL 차단 — .railway.internal 은 Vercel 에서 DNS 실패
-  if (/\.railway\.internal/.test(url)) {
-    throw new Error(
-      'REDIS_URL 이 내부망 URL(.railway.internal) 입니다. ' +
-      'Railway Redis → Settings → TCP Proxy 의 PUBLIC URL(proxy.rlwy.net)로 교체하세요.'
-    )
-  }
+  if (!url) throw new Error('REDIS_URL missing — BullMQ enqueue 불가')
   redisClient = new IORedis(url, {
-    maxRetriesPerRequest: null,   // BullMQ requirement
+    maxRetriesPerRequest: null,
     enableReadyCheck: false,
     lazyConnect: false,
-    connectTimeout: 5000,          // 5s 내 연결 못 하면 즉시 실패
-    commandTimeout: 8000,          // 개별 커맨드 8s timeout
-    retryStrategy: (times) => (times > 2 ? null : Math.min(times * 500, 2000)),
   })
-  redisClient.on('error', () => {/* swallow — throw는 enqueue 단에서 */})
   return redisClient
 }
 
@@ -69,15 +58,10 @@ export async function enqueuePlatformJob(
 ): Promise<{ ok: true; jobId: string } | { ok: false; error: string }> {
   try {
     const q = getPlatformQueue()
-    // 10s 이상 걸리면 강제 실패 — hang 방지
-    const addPromise = q.add(`${data.platform}:${data.action}`, data, {
+    const job = await q.add(`${data.platform}:${data.action}`, data, {
       jobId: opts.jobId,
       priority: opts.priority,
     })
-    const timeout = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error('enqueue timeout (10s) — Redis 연결 확인')), 10_000),
-    )
-    const job = await Promise.race([addPromise, timeout])
     return { ok: true, jobId: String(job.id) }
   } catch (e: any) {
     return { ok: false, error: e?.message || String(e) }
