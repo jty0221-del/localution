@@ -133,7 +133,10 @@ export async function runCoupangEats(
     }
     if (currentUrl.includes('/login')) {
       // 에러 텍스트 추출 (IP 차단 vs 잘못된 자격증명 구분)
-      const errorText = await page.locator('.login-error-text, [class*="login-error"]').first().innerText().catch(() => '')
+      const errorText = await page.evaluate(() => {
+        const el = document.querySelector('.login-error-text')
+        return el ? (el as HTMLElement).textContent || '' : ''
+      })
       log.warn({ errorText, currentUrl }, 'coupangeats login stayed on login page')
       await dumpPageDiagnostics(page, log, 'coupangeats-login-failed')
       const { failed, reason } = await detectLoginFailure(page)
