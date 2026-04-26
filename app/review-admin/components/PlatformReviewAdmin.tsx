@@ -192,6 +192,7 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
   const [connected, setConnected] = useState(false)
   const [storeName, setStoreName] = useState<string>('')
   const [placeId, setPlaceId] = useState<string | null>(null)
+  const [smartplaceBizId, setSmartplaceBizId] = useState<string | null>(null)
   const [agg, setAgg] = useState<{ review_count: number; rating_avg: number | null; unreplied_count: number; latest_collected_at: string | null }>({
     review_count: 0,
     rating_avg: null,
@@ -483,6 +484,36 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
       const saved = await saveDraftEdit(review, trimmed)
       if (!saved) { setSubmitting(false); return }
 
+
+      // ── 네이버 전용: IP 차단 우회 → SmartPlace 직접 연결 ────────────
+      if (config.platform === 'naver_place') {
+        // 클립보드 복사
+        try { await navigator.clipboard.writeText(trimmed) } catch {}
+        // SmartPlace 리뷰 URL 구성 (bizId 있으면 정확한 리뷰 페이지, 없으면 목록)
+        const hexId = review.platform_review_id
+        const bizId = smartplaceBizId
+        const spUrl = bizId && hexId
+          ? 'https://new.smartplace.naver.com/bizes/place/' + bizId + '/reviews/' + hexId
+          : 'https://new.smartplace.naver.com'
+        window.open(spUrl, '_blank')
+        // DB 상태만 submitted 로 업데이트
+        await fetch('/api/review-reply/submit', {
+          method: 'POST', credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ review_id: review.id }),
+        }).catch(() => null)
+        toast.success('📋 답글 복사 완료! 열린 SmartPlace 창에서 Ctrl+V 붙여넣기하세요.')
+        setReviews((prev) =>
+          prev.map((r) => r.id === review.id
+            ? { ...r, replyStatus: 'submitted', draftReply: trimmed }
+            : r,
+          ),
+        )
+        setEditingId(null)
+        setDraftText('')
+        setSubmitting(false)
+        return
+      }
       // auto-publish: Worker 연동 우선, 미연결 시 수동 폴백
       const res = await fetch('/api/review-reply/auto-publish', {
         method: 'POST',
