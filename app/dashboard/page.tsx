@@ -223,6 +223,8 @@ interface RealReview {
   posted_at: string | null
   collected_at?: string | null
   has_reply: boolean
+  reply_status?: string | null
+  draft_reply?: string | null
   sentiment?: 'positive' | 'neutral' | 'negative' | null
 }
 
@@ -1252,11 +1254,13 @@ export default function Dashboard() {
   const totalWeekSale = weekSales.reduce((s, x) => s + x.v, 0)
 
   // 오늘의 할 일 — 실데이터 있으면 실데이터 기준
+  // reply_status='submitted'이면 has_reply=false여도 답변완료로 처리
+  const isReplied = (r: RealReview) => r.has_reply || r.reply_status === 'submitted'
   const unansweredCount = hasRealReviews
-    ? mergedRealReviews.filter((r) => !r.has_reply).length
+    ? mergedRealReviews.filter((r) => !isReplied(r)).length
     : RECENT_REVIEWS.filter((r) => !r.replied).length
   const negativeUnansweredCount = hasRealReviews
-    ? mergedRealReviews.filter((r) => typeof r.rating === 'number' && r.rating <= 2 && !r.has_reply).length
+    ? mergedRealReviews.filter((r) => typeof r.rating === 'number' && r.rating <= 2 && !isReplied(r)).length
     : RECENT_REVIEWS.filter((r) => r.rating <= 2 && !r.replied).length
 
   useEffect(() => {
@@ -1701,7 +1705,7 @@ export default function Dashboard() {
                                 </span>
                                 {typeof r.rating === 'number' && <Stars rating={r.rating} />}
                                 <span className="text-[10px] text-[#8B95A1]">· {timeAgo(r.posted_at)}</span>
-                                {r.has_reply ? (
+                                {(r.has_reply || r.reply_status === 'submitted') ? (
                                   <span className="inline-flex items-center gap-0.5 text-[9px] bg-[#E8FFF0] text-[#12B76A] px-1.5 py-0.5 rounded-full font-semibold">
                                     <Check size={9} strokeWidth={3} /> 답변완료
                                   </span>
@@ -1715,7 +1719,7 @@ export default function Dashboard() {
                                 {r.content || '(내용 없음)'}
                               </p>
                             </div>
-                            {!r.has_reply && (
+                            {!r.has_reply && r.reply_status !== 'submitted' && (
                               <span className="text-[10px] text-[#3182F6] font-bold flex-shrink-0 pt-0.5 group-hover:underline">
                                 AI 답글 →
                               </span>
@@ -1869,7 +1873,7 @@ export default function Dashboard() {
                 <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-[#E8F4FD] text-[#3182F6] font-bold">전 플랫폼 통합</span>
               )}
               <span className="text-[11px] text-[#8B95A1]">
-                미답변 {hasRealReviews ? mergedRealReviews.filter((r) => !r.has_reply).length : RECENT_REVIEWS.filter(r => !r.replied).length}건
+                미답변 {hasRealReviews ? mergedRealReviews.filter((r) => !r.has_reply && r.reply_status !== 'submitted').length : RECENT_REVIEWS.filter(r => !r.replied).length}건
               </span>
               <span className="flex items-center gap-1 ml-2">
                 <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-[#ECFDF5] text-[10px] font-bold text-[#059669]" title={`긍정 ${sentimentCount.positive}건`}>
@@ -1928,7 +1932,7 @@ export default function Dashboard() {
           )}
           <div className="divide-y divide-[#F2F4F6]">
             {hasRealReviews ? (
-              mergedRealReviews.slice(0, 20).map((r) => {
+              mergedRealReviews.slice(0, 10).map((r) => {
                 const pf = platforms.find((x) => x.id === r._platformId)
                 const displayColor = pf?.color || '#03C75A'
                 const shortLabel = pf?.shortName || r._platformId
@@ -1946,7 +1950,7 @@ export default function Dashboard() {
                         <span className="text-xs font-bold text-[#4E5968]">{r.author_mask || r.author_name || '익명'}</span>
                         {typeof r.rating === 'number' && <Stars rating={r.rating} />}
                         <span className="text-[10px] text-[#8B95A1]">{timeAgo(r.posted_at)}</span>
-                        {r.has_reply && (
+                        {(r.has_reply || r.reply_status === 'submitted') && (
                           <span className="inline-flex items-center gap-1 text-[10px] bg-[#E8FFF0] text-[#12B76A] px-1.5 py-0.5 rounded-full font-semibold">
                             <Check size={10} strokeWidth={3} />
                             답변완료
@@ -1955,7 +1959,7 @@ export default function Dashboard() {
                       </div>
                       <p className="text-sm text-[#4E5968] line-clamp-1">{r.content || '(내용 없음)'}</p>
                     </div>
-                    {!r.has_reply && (
+                    {!r.has_reply && r.reply_status !== 'submitted' && (
                       <button
                         onClick={() => openAIReplyFromReal(r, r._platformId)}
                         className="flex-shrink-0 ml-4 text-xs bg-[#3182F6] text-white px-3 py-1.5 rounded-xl font-semibold hover:bg-[#1B64DA] transition-colors"
