@@ -19,10 +19,10 @@ const DOM_SELECTORS = {
   idInput:   'input#id, input[name="id"], input[placeholder*="아이디"]',
   pwInput:   'input#pw, input[name="pw"], input[type="password"]',
   loginBtn:  '#log\\.login, button[type="submit"], .btn_login',
-  // SmartPlace 실제 클래스 (2025-04 확인)
-  reviewCard:    '[class*="Review_single_review"], [class*="single_review"], [class*="ReviewItem"], [class*="review_item"], [data-review-id]',
+  // SmartPlace 실제 클래스 (2026-04 확인)
+  reviewCard:    '[class*="Review_single_review"], [class*="Review_container"], [class*="single_review"], [class*="ReviewItem"], [class*="review_item"], [data-review-id], [class*="Review_review"]',
   replyButton:   '[class*="Review_btn_write"], [class*="fn-write"], button:has-text("답글 달기"), button:has-text("답글"), [class*="btn_reply"]',
-  replyTextarea: 'textarea[placeholder*="답글"], textarea[placeholder*="답변"], textarea[class*="reply"], textarea[class*="write"]',
+  replyTextarea: 'textarea[placeholder*="답글"], textarea[placeholder*="답변"], textarea[class*="reply"], textarea[class*="write"], textarea',
   replySubmit:   'button:has-text("등록"), button:has-text("완료"), button:has-text("저장"), [class*="btn_submit"]',
   ownerReply:    '[class*="OwnerReply"], [class*="owner_reply"], [class*="StoreReply"], [class*="reply_owner"], [class*="Reply_owner"], [class*="owner_comment"]',
 }
@@ -373,10 +373,44 @@ async function postNaverReply(
       }
     }
 
-    // SmartPlace 내부 API 폴백
+    // ── 카드를 못 찾은 경우: 페이지에서 "답글 달기" 버튼 직접 탐색 ──────────
     if (!card) {
-      log.warn({ platformReviewId, url: page.url() }, 'naver: card not found, trying internal API')
-      // 실제 place ID로 API 시도
+      log.warn({ totalCards: (await page.$$(DOM_SELECTORS.reviewCard)).length, url: page.url() }, 'naver: card not found by selector, trying direct button search')
+
+      // 페이지 전체에서 "답글 달기" 버튼 찾기 (카드 특정 불필요)
+      const directBtn = await page.$('button:has-text("답글 달기"), button:has-text("답글쓰기"), [class*="btn_write"]:visible')
+        ?? await page.evaluateHandle(() => {
+          const btns = Array.from(document.querySelectorAll('button, a'))
+          return btns.find(b => b.textContent?.includes('답글')) || null
+        }).then(h => h?.asElement?.() ?? null).catch(() => null)
+
+      if (directBtn) {
+        log.info('naver: found reply button directly on page — using it')
+        await (directBtn as any).scrollIntoViewIfNeeded?.()
+        await page.waitForTimeout(300)
+        await (directBtn as any).click()
+        await page.waitForTimeout(1500)
+
+        const textarea = await page.$(DOM_SELECTORS.replyTextarea)
+        if (textarea) {
+          await textarea.scrollIntoViewIfNeeded()
+          await textarea.click({ clickCount: 3 })
+          await textarea.fill(replyText)
+          await page.waitForTimeout(600)
+          const submitBtn = await page.$('button:has-text("등록"), button:has-text("완료"), button:has-text("저장")')
+          if (submitBtn) {
+            await submitBtn.click()
+            await page.waitForTimeout(3000)
+            log.info({ platformReviewId }, 'naver: reply submitted via direct button')
+            return { ok: true }
+          }
+          return { ok: false, reason: '등록 버튼 없음 (직접 버튼 방식)' }
+        }
+        return { ok: false, reason: 'textarea 없음 (직접 버튼 방식)' }
+      }
+
+      // 최후: SmartPlace 내부 API 폴백
+      log.warn({ platformReviewId, url: page.url() }, 'naver: no reply button found, trying internal API')
       const apiResult = await tryNaverReplyAPI(page, actualPlaceId, platformReviewId, replyText, log)
       if (apiResult.ok) return apiResult
       await dumpPageDiagnostics(page, log, `naver-no-card-${platformReviewId}`)
@@ -392,6 +426,7 @@ async function postNaverReply(
 
     // 답글 달기 버튼
     const replyBtn = await card.$(DOM_SELECTORS.replyButton)
+      ?? await page.$('button:has-text("답글 달기"), button:has-text("답글")')
     if (!replyBtn) return { ok: false, reason: '답글 버튼 없음 (SmartPlace DOM 변경 가능)' }
     await replyBtn.scrollIntoViewIfNeeded()
     await page.waitForTimeout(300)
@@ -409,7 +444,7 @@ async function postNaverReply(
 
     // 등록 버튼
     let submitBtn = await card.$(DOM_SELECTORS.replySubmit)
-    if (!submitBtn) submitBtn = await page.$(DOM_SELECTORS.replySubmit)
+    if (!submitBtn) submitBtn = await page.$('button:has-text("등록"), button:has-text("완료"), button:has-text("저장")')
     if (!submitBtn) return { ok: false, reason: '등록 버튼 없음' }
     await submitBtn.click()
     await page.waitForTimeout(3000)
