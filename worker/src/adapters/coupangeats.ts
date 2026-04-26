@@ -115,6 +115,12 @@ export async function runCoupangEats(
     await pwLocator.fill('')
     await pwLocator.pressSequentially(creds.password, { delay: 80 })
     await page.waitForTimeout(800)
+    // 제출 직전 폼 값 확인 (디버깅)
+    const formValues = await page.evaluate(() => {
+      const inputs = Array.from(document.querySelectorAll('input'))
+      return inputs.map(i => ({ type: i.type, name: i.name, placeholder: i.placeholder, valueLen: i.value.length }))
+    })
+    log.info({ formValues }, 'coupangeats pre-submit form values')
     await page.locator(DOM_SELECTORS.loginBtn).first().click()
     // 로그인 후 URL이 /login 에서 벗어날 때까지 대기
     await page.waitForURL((url) => !url.href.includes('/login'), { timeout: 20000 }).catch(() => null)
