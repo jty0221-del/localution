@@ -126,8 +126,9 @@ healthServer.listen(port, () => {
   log.info({ port }, 'health server listening')
 })
 
-// 43차-2: 브라우저/Redis 종료가 행 걸리면 fly.io SIGKILL 까지 시간이 걸림.
-//         각 단계에 짧은 타임아웃을 둬서 빠르게 정리하고 빠져나간다.
+// 43차-6: Cloud Run 의 SIGTERM → SIGKILL 그레이스 기간은 기본 10초.
+//   합산 타임아웃이 10초를 넘으면 강제 종료되어 큐가 깨질 수 있으므로
+//   각 단계 타임아웃을 압축 (worker 5s + redis 1.5s + browser 2s = 8.5s).
 function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T | null> {
   return Promise.race<T | null>([
     p.catch(() => null) as Promise<T | null>,
@@ -141,11 +142,11 @@ function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T | n
 async function shutdown(signal: string) {
   log.info({ signal }, 'shutting down')
   try {
-    await withTimeout(worker.close(), 8000, 'worker.close')
-    await withTimeout(connection.quit().then(() => undefined), 3000, 'redis.quit')
+    await withTimeout(worker.close(), 5000, 'worker.close')
+    await withTimeout(connection.quit().then(() => undefined), 1500, 'redis.quit')
     healthServer.close()
     if (browserSingleton) {
-      await withTimeout(browserSingleton.close(), 5000, 'browser.close')
+      await withTimeout(browserSingleton.close(), 2000, 'browser.close')
       browserSingleton = null
     }
   } catch (e) {

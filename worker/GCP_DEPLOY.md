@@ -92,6 +92,23 @@ gcloud secrets list
 
 ---
 
+## 4-1. 런타임 SA 에 Secret Accessor 권한 부여 (1분, 자동)
+
+Cloud Run 런타임 SA(`<PROJECT_NUMBER>-compute@developer.gserviceaccount.com`) 가
+시크릿을 읽으려면 `roles/secretmanager.secretAccessor` 가 필요합니다.
+
+`deploy-gcp.sh` 가 자동으로 부여하지만, 미리 직접 실행하려면:
+```
+PROJECT_ID="$(gcloud config get-value project)"
+PROJECT_NUMBER="$(gcloud projects describe "$PROJECT_ID" --format='value(projectNumber)')"
+gcloud projects add-iam-policy-binding "$PROJECT_ID" \
+  --member="serviceAccount:${PROJECT_NUMBER}-compute@developer.gserviceaccount.com" \
+  --role='roles/secretmanager.secretAccessor' \
+  --condition=None
+```
+
+---
+
 ## 5. 첫 배포 (10분)
 
 리포지토리 루트에서:
@@ -101,9 +118,10 @@ bash deploy-gcp.sh
 ```
 
 `deploy-gcp.sh` 는 다음을 수행:
-1. `gcloud run deploy` 로 현재 디렉터리 Dockerfile 을 Cloud Build 에 업로드 → 컨테이너 빌드 → 서울 리전 Cloud Run 에 배포
-2. min instances 1 + 항상 켜진 CPU + 메모리 2Gi + 시크릿 4개 마운트
-3. 헬스체크는 워커가 8080 포트에서 자동으로 들고 있는 `/health`
+1. **Preflight**: gcloud 로그인 / 프로젝트 / 4개 API 활성화 / 4개 시크릿 / 런타임 SA IAM 점검
+2. `gcloud run deploy` 로 현재 디렉터리 Dockerfile 을 Cloud Build 에 업로드 → 컨테이너 빌드 → 서울 리전 Cloud Run 에 배포
+3. min instances 1 + 항상 켜진 CPU + 메모리 2Gi + 시크릿 4개 마운트
+4. 헬스체크는 워커가 8080 포트에서 자동으로 들고 있는 `/health` (배포 후 자동 polling 30초)
 
 성공 시 출력 마지막에 서비스 URL 이 표시됩니다 (예: `https://localution-worker-xxx-an.a.run.app`).
 
@@ -201,6 +219,7 @@ gcloud run services update-traffic localution-worker \
 - [ ] gcloud CLI 설치 + `gcloud auth login` + `gcloud config set project ...`
 - [ ] Upstash Seoul Redis 생성, REDIS_URL 메모
 - [ ] Secret Manager 에 4개 시크릿 등록 (encryption-kek-hex / supabase-service-role-key / supabase-url / redis-url)
+- [ ] 런타임 SA 에 `roles/secretmanager.secretAccessor` (deploy-gcp.sh 자동 부여)
 - [ ] `bash worker/deploy-gcp.sh` 첫 배포
 - [ ] `/health` 응답 확인 (`redis: connected`)
 - [ ] Vercel `REDIS_URL` 을 Upstash Seoul 로 변경

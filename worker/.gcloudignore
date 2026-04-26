@@ -7,6 +7,19 @@ dist/
 *.log
 .env
 .env.*
+
+# 문서 / 로컬 메타 (배포 산출물 아님)
+*.md
+*.tsbuildinfo
+coverage/
+tests/
+__tests__/
+
+# 다른 클라우드 설정 (Cloud Run 빌드에 불필요)
+fly.toml
+railway.json
+
+# 자기 자신 / 가이드
 GCP_DEPLOY.md
 deploy-gcp.sh
-fly.toml
+.gcloudignore
