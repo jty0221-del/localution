@@ -1,9 +1,8 @@
 // app/api/stores/me/route.ts
 // ============================================================
-// 28차-1: 매장 정보 통합 GET
-// 32차-4: naverLink.category 자동 보충 — Naver Local Search API
-//   naver_link.category 가 null 이고 external_name 이 있으면
-//   서버에서 직접 Naver API 호출하여 업종 카테고리를 채워 반환
+// 32차-5: 카테고리 자동채움 수정
+//   - platform_store_name 이 "네이버 플레이스" 등 플랫폼명인 경우 무효 처리
+//   - fetchNaverCategory: stores.name 우선 → naver_link.external_name 순
 // ============================================================
 import { NextResponse } from 'next/server'
 import { requireUser } from '@/app/lib/userAuth'
@@ -31,32 +30,41 @@ function stripHtml(str: string): string {
   return result.trim()
 }
 
+// "네이버 플레이스", "스마트플레이스" 등 실제 매장명이 아닌 값을 필터링
+const GENERIC_NAMES = [
+  '네이버 플레이스', '네이버플레이스', 'naver place', 'naverplace',
+  '스마트플레이스', 'smartplace', 'smart place',
+  '배달의민족', '요기요', '쿠팡이츠', '카카오맵', '구글',
+]
+function isValidStoreName(name: string | null | undefined): boolean {
+  if (!name) return false
+  const trimmed = name.trim()
+  if (trimmed.length < 2) return false
+  const lower = trimmed.toLowerCase()
+  return !GENERIC_NAMES.some(g => lower === g.toLowerCase())
+}
+
 async function fetchNaverCategory(storeName: string): Promise<string> {
   const clientId     = process.env.NAVER_CLIENT_ID
   const clientSecret = process.env.NAVER_CLIENT_SECRET
   if (!clientId || !clientSecret || !storeName) return ''
   try {
     const url = 'https://openapi.naver.com/v1/search/local.json?query=' +
-      encodeURIComponent(storeName) + '&display=3&sort=random'
+      encodeURIComponent(storeName) + '&display=5&sort=random'
     const res = await fetch(url, {
-      headers: {
-        'X-Naver-Client-Id': clientId,
-        'X-Naver-Client-Secret': clientSecret,
-      },
+      headers: { 'X-Naver-Client-Id': clientId, 'X-Naver-Client-Secret': clientSecret },
       cache: 'no-store',
     })
     if (!res.ok) return ''
     const data = await res.json()
     if (!Array.isArray(data.items) || data.items.length === 0) return ''
-    // 이름이 가장 유사한 항목 선택
-    const stripped = stripHtml(storeName).toLowerCase()
+    const target = storeName.toLowerCase()
     for (const item of data.items) {
       const title = stripHtml(item.title || '').toLowerCase()
-      if (title.includes(stripped) || stripped.includes(title)) {
+      if (title.includes(target) || target.includes(title)) {
         return stripHtml(item.category || '')
       }
     }
-    // 유사 항목 없으면 첫 번째 결과 사용
     return stripHtml(data.items[0].category || '')
   } catch (_) {
     return ''
@@ -85,15 +93,14 @@ export async function GET() {
       .from('platform_credentials')
       .select('platform, account_id, platform_store_id, platform_store_name, updated_at')
       .eq('user_id', userId)
-    if (error) {
-      console.warn('[stores/me] platform_credentials select failed:', error.message)
-    }
+    if (error) console.warn('[stores/me] platform_credentials select failed:', error.message)
     if (!error && Array.isArray(data)) {
       credentials = data.map((r: any) => ({
         platform: r.platform,
         account_id: r.account_id ?? null,
         platform_store_id: r.platform_store_id ?? null,
-        platform_store_name: r.platform_store_name ?? null,
+        // 무효 이름(네이버 플레이스 등) null 처리
+        platform_store_name: isValidStoreName(r.platform_store_name) ? r.platform_store_name : null,
         connected_at: r.updated_at ?? null,
       }))
     }
@@ -120,9 +127,8 @@ export async function GET() {
       const t: any = data[0]
       naverLink = {
         external_id: t.place_id ?? null,
-        external_name: t.name ?? null,
-        external_url:
-          t.url || (t.place_id ? 'https://map.naver.com/p/entry/place/' + t.place_id : null),
+        external_name: isValidStoreName(t.name) ? t.name : null,
+        external_url: t.url || (t.place_id ? 'https://map.naver.com/p/entry/place/' + t.place_id : null),
         address: t.address ?? null,
         category: t.category ?? null,
       }
@@ -135,7 +141,7 @@ export async function GET() {
     if (np && (np.platform_store_id || np.platform_store_name)) {
       naverLink = {
         external_id: np.platform_store_id ?? null,
-        external_name: np.platform_store_name ?? null,
+        external_name: np.platform_store_name ?? null, // 이미 위에서 무효 필터링됨
         external_url: np.platform_store_id
           ? 'https://map.naver.com/p/entry/place/' + np.platform_store_id
           : null,
@@ -143,13 +149,6 @@ export async function GET() {
         category: null,
       }
     }
-  }
-
-  // ── 2-B) category 자동 보충 ───────────────────────────────────
-  // naverLink 는 있지만 category 가 null 이면 Naver Local Search API 로 보충
-  if (naverLink && !naverLink.category && naverLink.external_name) {
-    const fetched = await fetchNaverCategory(naverLink.external_name)
-    if (fetched) naverLink.category = fetched
   }
 
   // ── 3) stores 테이블 ──────────────────────────────────────────
@@ -166,19 +165,25 @@ export async function GET() {
       .order('updated_at', { ascending: false })
       .limit(1)
     if (error && /description/i.test(error.message || '')) {
-      const retry = await svc
-        .from('stores')
-        .select(liteSel)
-        .eq('user_id', userId)
-        .order('updated_at', { ascending: false })
-        .limit(1)
+      const retry = await svc.from('stores').select(liteSel)
+        .eq('user_id', userId).order('updated_at', { ascending: false }).limit(1)
       data = retry.data as any
       error = retry.error
     }
-    if (!error && Array.isArray(data) && data.length > 0) {
-      store = data[0]
-    }
+    if (!error && Array.isArray(data) && data.length > 0) store = data[0]
   } catch (_) {}
+
+  // ── 3-B) category 자동 보충 ───────────────────────────────────
+  // 카테고리가 없으면: stores.name → naverLink.external_name 순으로 검색
+  if (naverLink && !naverLink.category && !store?.category) {
+    const searchName = (store && isValidStoreName(store.name))
+      ? store.name
+      : (naverLink.external_name || '')
+    if (searchName) {
+      const fetched = await fetchNaverCategory(searchName)
+      if (fetched) naverLink.category = fetched
+    }
+  }
 
   // ── 3.5) platform_reviews 집계 ────────────────────────────────
   const reviewAgg: Record<
@@ -195,9 +200,7 @@ export async function GET() {
     } else if (Array.isArray(rv)) {
       for (const r of rv as Array<{ platform: string; rating: number | null; has_reply: boolean; collected_at: string | null }>) {
         const key = r.platform
-        if (!reviewAgg[key]) {
-          reviewAgg[key] = { review_count: 0, rating_avg: null, unreplied_count: 0, latest_collected_at: null }
-        }
+        if (!reviewAgg[key]) reviewAgg[key] = { review_count: 0, rating_avg: null, unreplied_count: 0, latest_collected_at: null }
         const slot = reviewAgg[key]
         slot.review_count += 1
         if (!r.has_reply) slot.unreplied_count += 1
@@ -241,9 +244,7 @@ export async function GET() {
         connected = true
       }
     }
-    if (!connected && (agg?.review_count ?? 0) > 0) {
-      connected = true
-    }
+    if (!connected && (agg?.review_count ?? 0) > 0) connected = true
     return {
       platform: p,
       label: (PLATFORM_LABELS as Record<string, string>)[p] ?? p,
@@ -263,12 +264,5 @@ export async function GET() {
   const mapAddress = store?.address || naverLink?.address || null
   const map = mapAddress ? { address: mapAddress, lat: null as number | null, lng: null as number | null } : null
 
-  return NextResponse.json({
-    ok: true,
-    user_id: userId,
-    store,
-    platforms,
-    naver_link: naverLink,
-    map,
-  })
+  return NextResponse.json({ ok: true, user_id: userId, store, platforms, naver_link: naverLink, map })
 }
