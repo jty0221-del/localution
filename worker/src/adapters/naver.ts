@@ -1,9 +1,9 @@
 // worker/src/adapters/naver.ts
 // ============================================================
 // NaverAdapter — SmartPlace 사장님 답글 자동 등록
-//   · 로그인 우선순위: 세션쿠키 > 아이디/비밀번호 폼 로그인
-//   · 세션쿠키 있으면 IP 차단 우회 (캡차/보안인증 불필요)
-//   · bizId 있으면 정확한 리뷰 URL 직접 이동
+//   · 로그인: 세션쿠키 우선, 실패 시 폼 로그인 폴백
+//   · 쿠키 체크: SmartPlace 직접 이동으로 확인 (naver.com 우회)
+//   · 모든 실패 경로에서 platform_reviews DB 업데이트
 // ============================================================
 import type { Browser } from 'playwright'
 import type { Logger } from 'pino'
@@ -33,6 +33,35 @@ export type NaverOptions = {
   log: Logger
 }
 
+// platform_reviews 상태 업데이트 헬퍼
+async function updateReviewStatus(
+  svc: ReturnType<typeof getServiceClient>,
+  userId: string,
+  platformReviewId: string,
+  status: 'submitted' | 'failed',
+  extra: { replyContent?: string; error?: string },
+) {
+  const now = new Date().toISOString()
+  const update: Record<string, unknown> = { reply_status: status, reply_error: null }
+  if (status === 'submitted') {
+    update.has_reply = true
+    update.reply_content = extra.replyContent
+    update.reply_submitted_at = now
+  } else {
+    update.reply_error = (extra.error || 'unknown error').slice(0, 200)
+  }
+  const { error } = await svc
+    .from('platform_reviews')
+    .update(update)
+    .eq('user_id', userId)
+    .eq('platform', 'naver_place')
+    .eq('platform_review_id', platformReviewId)
+  if (error) {
+    // DB 업데이트 실패 자체를 로그 (throw 안 함)
+    console.error('[naver] platform_reviews update failed:', error.message, { userId, platformReviewId, status })
+  }
+}
+
 export async function runNaver(
   opts: NaverOptions,
   action: Action,
@@ -46,12 +75,26 @@ export async function runNaver(
 
   const svc = getServiceClient()
 
+  // post_reply 필수 파라미터 먼저 검증
+  const platformReviewId = action === 'post_reply' ? String(payload?.platform_review_id || '') : ''
+  const replyText = action === 'post_reply' ? String(payload?.reply_text || '') : ''
+  if (action === 'post_reply' && (!platformReviewId || !replyText)) {
+    return { status: 'failed', message: 'naver post_reply: platform_review_id / reply_text 누락' }
+  }
+
   let creds: Awaited<ReturnType<typeof loadPlainCredentials>>
   try {
     creds = await loadPlainCredentials(svc, userId, 'naver_place')
   } catch (e: any) {
+    if (platformReviewId) {
+      await updateReviewStatus(svc, userId, platformReviewId, 'failed', { error: `credentials: ${e?.message}` })
+    }
     return { status: 'failed', message: `naver credentials: ${e?.message}` }
   }
+
+  const bizId = payload?.biz_id
+    ? String(payload.biz_id)
+    : (creds.platform_store_id || opts.storeId)
 
   const context = await browser.newContext({
     userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36',
@@ -63,7 +106,7 @@ export async function runNaver(
   startNetworkCapture(page, log, ['review', 'reply', 'smartplace'])
 
   try {
-    // ── 1) 로그인: 세션쿠키 우선, 없으면 폼 로그인 ─────────────────
+    // ── 1) 로그인: 세션쿠키 우선 ─────────────────────────────────
     let loggedIn = false
 
     const cookieJson = await loadCookieData(svc, userId)
@@ -76,49 +119,56 @@ export async function runNaver(
         if (Array.isArray(parsed)) {
           cookieList.push(...parsed)
         } else if (parsed && (parsed.NID_AUT || parsed.NID_SES)) {
-          if (parsed.NID_AUT) {
-            cookieList.push({ name: 'NID_AUT', value: parsed.NID_AUT, domain: '.naver.com', path: '/', secure: true, httpOnly: true, sameSite: 'Lax', expires: nowSec })
-          }
-          if (parsed.NID_SES) {
-            cookieList.push({ name: 'NID_SES', value: parsed.NID_SES, domain: '.naver.com', path: '/', secure: true, httpOnly: true, sameSite: 'Lax', expires: nowSec })
-          }
+          if (parsed.NID_AUT) cookieList.push({ name: 'NID_AUT', value: parsed.NID_AUT, domain: '.naver.com', path: '/', secure: true, httpOnly: true, expires: nowSec })
+          if (parsed.NID_SES) cookieList.push({ name: 'NID_SES', value: parsed.NID_SES, domain: '.naver.com', path: '/', secure: true, httpOnly: true, expires: nowSec })
         }
 
         if (cookieList.length > 0) {
           await context.addCookies(cookieList)
-          await page.goto('https://www.naver.com', { waitUntil: 'domcontentloaded', timeout: 20000 })
-          await page.waitForTimeout(1500)
+          // SmartPlace 로 바로 이동해서 로그인 상태 확인 (naver.com은 비로그인도 접근 가능)
+          const testUrl = bizId && bizId !== 'unknown'
+            ? `${NEW_SMARTPLACE_BASE}/bizes/place/${bizId}`
+            : `${NEW_SMARTPLACE_BASE}/bizes`
+          await page.goto(testUrl, { waitUntil: 'domcontentloaded', timeout: 25000 })
+          await page.waitForTimeout(2000)
           const checkUrl = page.url()
-          if (!checkUrl.includes('nid.naver.com') && !checkUrl.includes('login')) {
+          log.info({ checkUrl, cookieCount: cookieList.length }, 'naver: cookie login check')
+          if (!checkUrl.includes('nid.naver.com') && !checkUrl.includes('login') && !checkUrl.includes('signin')) {
             loggedIn = true
-            log.info({ cookieCount: cookieList.length }, 'naver: session cookie login OK')
+            log.info('naver: session cookie login OK')
             await markLoginStatus(svc, userId, 'naver_place', 'success')
           } else {
-            log.warn({ checkUrl }, 'naver: session cookies expired or invalid')
+            log.warn({ checkUrl }, 'naver: session cookies invalid/expired — falling back to form login')
           }
         }
       } catch (e: any) {
-        log.warn({ err: e?.message }, 'naver: cookie parse error')
+        log.warn({ err: e?.message }, 'naver: cookie handling error')
       }
     }
 
-    // 폼 로그인 폴백
+    // ── 2) 폼 로그인 폴백 ─────────────────────────────────────────
     if (!loggedIn) {
-      log.info('naver: falling back to form login')
+      log.info('naver: trying form login')
       await page.goto(LOGIN_URL, { waitUntil: 'domcontentloaded', timeout: 30000 })
       await page.waitForTimeout(1200)
 
       const idEl = await page.$(DOM_SELECTORS.idInput)
       if (!idEl) {
         await dumpPageDiagnostics(page, log, 'naver-no-id-input')
-        return { status: 'failed', message: 'naver: 로그인 폼 id 입력란을 찾을 수 없음' }
+        const msg = 'naver: 로그인 폼 id 입력란 없음'
+        if (platformReviewId) await updateReviewStatus(svc, userId, platformReviewId, 'failed', { error: msg })
+        return { status: 'failed', message: msg }
       }
       await idEl.click({ clickCount: 3 })
       await idEl.type(creds.account_id, { delay: 80 })
       await page.waitForTimeout(400)
 
       const pwEl = await page.$(DOM_SELECTORS.pwInput)
-      if (!pwEl) return { status: 'failed', message: 'naver: 로그인 폼 pw 입력란을 찾을 수 없음' }
+      if (!pwEl) {
+        const msg = 'naver: 로그인 폼 pw 입력란 없음'
+        if (platformReviewId) await updateReviewStatus(svc, userId, platformReviewId, 'failed', { error: msg })
+        return { status: 'failed', message: msg }
+      }
       await pwEl.click({ clickCount: 3 })
       await pwEl.type(creds.password, { delay: 80 })
       await page.waitForTimeout(400)
@@ -135,20 +185,26 @@ export async function runNaver(
       if (urlAfterLogin.includes('captcha') || urlAfterLogin.includes('challenge')) {
         await dumpPageDiagnostics(page, log, 'naver-captcha')
         await markLoginStatus(svc, userId, 'naver_place', 'captcha', urlAfterLogin)
-        return { status: 'failed', message: 'naver: 캡차 발생 — /my/platforms/naver_place/session 에서 세션쿠키를 저장하면 자동 해결됩니다' }
+        const msg = 'naver: 캡차 발생 — /my/platforms/naver_place/session 에서 세션쿠키를 저장하면 자동 해결됩니다'
+        if (platformReviewId) await updateReviewStatus(svc, userId, platformReviewId, 'failed', { error: msg })
+        return { status: 'failed', message: msg }
       }
 
       if (urlAfterLogin.includes('user2/help') || urlAfterLogin.includes('security') || urlAfterLogin.includes('verify')) {
         await dumpPageDiagnostics(page, log, 'naver-security')
         await markLoginStatus(svc, userId, 'naver_place', 'captcha', urlAfterLogin)
-        return { status: 'failed', message: 'naver: 보안인증 요구 — /my/platforms/naver_place/session 에서 세션쿠키를 저장해주세요' }
+        const msg = `naver: 보안인증 요구 (${urlAfterLogin}) — 세션쿠키를 갱신해주세요`
+        if (platformReviewId) await updateReviewStatus(svc, userId, platformReviewId, 'failed', { error: msg })
+        return { status: 'failed', message: msg }
       }
 
       if (urlAfterLogin.includes('nid.naver.com') || urlAfterLogin.includes('login') || urlAfterLogin.includes('signin')) {
         const { reason } = await detectLoginFailure(page)
         await dumpPageDiagnostics(page, log, 'naver-login-failed')
         await markLoginStatus(svc, userId, 'naver_place', 'failed', reason || urlAfterLogin)
-        return { status: 'failed', message: `naver login failed — ${reason || '아이디/비밀번호 오류 또는 세션쿠키 설정 필요'}` }
+        const msg = `naver login failed — ${reason || '아이디/비밀번호 오류 또는 세션쿠키 설정 필요'}`
+        if (platformReviewId) await updateReviewStatus(svc, userId, platformReviewId, 'failed', { error: msg })
+        return { status: 'failed', message: msg }
       }
 
       await markLoginStatus(svc, userId, 'naver_place', 'success')
@@ -157,45 +213,21 @@ export async function runNaver(
 
     if (action === 'health_check') return { status: 'ok', message: 'naver login ok' }
 
-    // ── 2) post_reply: SmartPlace 답글 등록 ──────────────────────
-    if (!payload?.platform_review_id || !payload?.reply_text) {
-      return { status: 'failed', message: 'naver post_reply: platform_review_id / reply_text 누락' }
-    }
-
-    const platformReviewId = String(payload.platform_review_id)
-    const replyText = String(payload.reply_text)
-    // bizId 우선순위: payload.biz_id > platform_store_id > storeId
-    const bizId = payload.biz_id
-      ? String(payload.biz_id)
-      : (creds.platform_store_id || opts.storeId)
-
+    // ── 3) SmartPlace 답글 등록 ───────────────────────────────────
     const result = await postNaverReply(page, bizId, platformReviewId, replyText, log)
     if (result.ok) {
-      await svc
-        .from('platform_reviews')
-        .update({
-          has_reply: true,
-          reply_content: replyText,
-          reply_status: 'submitted',
-          reply_submitted_at: new Date().toISOString(),
-          reply_error: null,
-        })
-        .eq('user_id', userId)
-        .eq('platform', 'naver_place')
-        .eq('platform_review_id', platformReviewId)
+      await updateReviewStatus(svc, userId, platformReviewId, 'submitted', { replyContent: replyText })
       return { status: 'ok', message: `naver: reply posted for ${platformReviewId}` }
     }
 
-    await svc
-      .from('platform_reviews')
-      .update({ reply_status: 'failed', reply_error: result.reason.slice(0, 200) })
-      .eq('user_id', userId)
-      .eq('platform', 'naver_place')
-      .eq('platform_review_id', platformReviewId)
-
+    await updateReviewStatus(svc, userId, platformReviewId, 'failed', { error: result.reason })
     return { status: 'failed', message: `naver reply 실패: ${result.reason}` }
+
   } catch (e: any) {
-    log.error({ err: e?.message }, 'naver error')
+    log.error({ err: e?.message }, 'naver unhandled error')
+    if (platformReviewId) {
+      await updateReviewStatus(svc, userId, platformReviewId, 'failed', { error: `unhandled: ${e?.message}` }).catch(() => null)
+    }
     return { status: 'failed', message: `naver: ${e?.message || e}` }
   } finally {
     await context.close().catch(() => null)
@@ -211,7 +243,6 @@ async function postNaverReply(
   log: Logger,
 ): Promise<{ ok: true } | { ok: false; reason: string }> {
   try {
-    // bizId가 있으면 정확한 리뷰 URL로 바로 이동
     const reviewUrl = storeId && storeId !== 'unknown'
       ? `${NEW_SMARTPLACE_BASE}/bizes/place/${storeId}/reviews/${platformReviewId}`
       : `${NEW_SMARTPLACE_BASE}/bizes`
@@ -223,9 +254,8 @@ async function postNaverReply(
     const currentUrl = page.url()
     log.info({ url: currentUrl }, 'naver: review page loaded')
 
-    // 로그인 리다이렉트 체크
     if (currentUrl.includes('nid.naver.com') || currentUrl.includes('login')) {
-      return { ok: false, reason: '세션 만료 — 세션쿠키를 다시 저장해주세요 (/my/platforms/naver_place/session)' }
+      return { ok: false, reason: '세션 만료 — /my/platforms/naver_place/session 에서 쿠키를 갱신해주세요' }
     }
 
     // 스크롤로 리뷰 로딩
@@ -236,10 +266,8 @@ async function postNaverReply(
     await page.evaluate(() => window.scrollTo(0, 0))
     await page.waitForTimeout(500)
 
-    // 리뷰 카드 찾기: data-review-id 속성
+    // 리뷰 카드 찾기
     let card = await page.$(`[data-review-id="${platformReviewId}"]`)
-
-    // 모든 카드 탐색
     if (!card) {
       const allCards = await page.$$(DOM_SELECTORS.reviewCard)
       for (const c of allCards) {
@@ -249,8 +277,6 @@ async function postNaverReply(
         if (attrId && attrId.includes(platformReviewId)) { card = c; break }
       }
     }
-
-    // 단일 리뷰 페이지(직접 URL 이동 시) — 첫 번째 카드 사용
     if (!card) {
       const allCards = await page.$$(DOM_SELECTORS.reviewCard)
       if (allCards.length === 1) {
@@ -261,7 +287,7 @@ async function postNaverReply(
 
     // SmartPlace 내부 API 폴백
     if (!card) {
-      log.warn({ platformReviewId }, 'naver: card not found, trying internal API')
+      log.warn({ platformReviewId, url: page.url() }, 'naver: card not found, trying internal API')
       const apiResult = await tryNaverReplyAPI(page, storeId, platformReviewId, replyText, log)
       if (apiResult.ok) return apiResult
       await dumpPageDiagnostics(page, log, `naver-no-card-${platformReviewId}`)
@@ -307,7 +333,7 @@ async function postNaverReply(
   }
 }
 
-// ── SmartPlace 내부 API 직접 호출 (DOM 폴백) ─────────────────────
+// ── SmartPlace 내부 API 직접 호출 폴백 ───────────────────────────
 async function tryNaverReplyAPI(
   page: any,
   storeId: string,
