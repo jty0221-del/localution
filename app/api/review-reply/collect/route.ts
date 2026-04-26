@@ -57,10 +57,10 @@ export async function POST(req: NextRequest) {
   try {
     const svc = createServiceClient()
 
-    // 해당 user 의 platform_credentials 존재 + active 확인
+    // 해당 user 의 platform_credentials 존재 확인
     const { data: cred, error: credErr } = await svc
       .from('platform_credentials')
-      .select('id, platform, platform_store_id, is_active, login_status')
+      .select('id, platform, platform_store_id')
       .eq('user_id', userId)
       .eq('platform', platform)
       .maybeSingle()
@@ -71,12 +71,6 @@ export async function POST(req: NextRequest) {
     if (!cred) {
       return NextResponse.json(
         { ok: false, error: `${platform} 로그인 정보가 없습니다. 먼저 /my/platforms 에서 연결하세요.` },
-        { status: 400 },
-      )
-    }
-    if (cred.is_active === false) {
-      return NextResponse.json(
-        { ok: false, error: `${platform} 연결이 비활성화 상태입니다.` },
         { status: 400 },
       )
     }
