@@ -1,15 +1,9 @@
 // app/api/stores/register/route.ts
 // ============================================================
 // 30차-10: /settings "저장하기" 에서 RLS policy violation 핫픽스
-//   - 기존: @/utils/supabase/server 의 createClient() (anon 기반) + auth.getUser()
-//     → localution_user 쿠키 기반 커스텀 auth 와 Supabase auth 연동 없음
-//     → user_id=null 로 insert 시도 → stores RLS 차단
-//   - 수정: requireUser() + createServiceClient() 로 통일
-//     (/api/stores/me 와 동일한 인증 패턴)
-// 30차-11: `desc` 컬럼명 → `description` 통일
-//   - desc 는 SQL 예약어라 Supabase schema cache 반영 불안정
-//   - description 컬럼 없는 DB 대비 graceful retry — 에러 패턴 확장
-//     ("schema cache", "does not exist", "could not find" 전부 catch)
+// 30차-11: description 컬럼명 통일
+// 33차-1:  user_id 단독으로 기존 레코드 조회 (slug 변경 시 새 레코드 INSERT 방지)
+//          undefined 필드는 payload 제외 (프로필 저장 시 키워드 덮어쓰기 방지)
 // ============================================================
 import { NextRequest, NextResponse } from 'next/server'
 import { requireUser } from '@/app/lib/userAuth'
@@ -18,7 +12,6 @@ import { createServiceClient } from '@/app/lib/adminAuth'
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-// slug 생성 (한글/영문/숫자만 남기고 나머지는 '-')
 function makeSlug(name: string): string {
   if (!name) return ''
   let result = ''
@@ -36,35 +29,41 @@ function makeSlug(name: string): string {
   return result || 'store-' + Date.now()
 }
 
-// placeId 추출 (URL 이면 URL 에서, 숫자만이면 그대로)
 function extractPlaceIdFromUrl(url: string | null | undefined): string | null {
   if (!url) return null
   const s = String(url).trim()
   if (!s) return null
-  if (/^\d+$/.test(s)) return s
-  const m1 = s.match(/m\.place\.naver\.com\/[a-z]+\/(\d+)/i)
-  if (m1) return m1[1]
-  const m2 = s.match(/map\.naver\.com\/[^\s]*place\/(\d+)/i)
-  if (m2) return m2[1]
-  const m3 = s.match(/place\.naver\.com\/[a-z]+\/(\d+)/i)
-  if (m3) return m3[1]
+  // 순수 숫자 ID
+  let allDigits = true
+  for (let i = 0; i < s.length; i++) {
+    if (s.charCodeAt(i) < 48 || s.charCodeAt(i) > 57) { allDigits = false; break }
+  }
+  if (allDigits && s.length >= 6) return s
+  // m.place.naver.com/{cat}/{id}
+  const p1 = 'm.place.naver.com/'
+  const idx1 = s.toLowerCase().indexOf(p1)
+  if (idx1 >= 0) {
+    const after = s.slice(idx1 + p1.length)
+    const parts = after.split('/')
+    if (parts.length >= 2) { const id = parts[1].split('?')[0]; if (id && id.length >= 6) return id }
+  }
+  // map.naver.com/.../place/{id}
+  const p2 = '/place/'
+  const idx2 = s.toLowerCase().indexOf(p2)
+  if (idx2 >= 0) {
+    const after = s.slice(idx2 + p2.length)
+    const id = after.split('/')[0].split('?')[0]
+    if (id && id.length >= 6) return id
+  }
   return null
 }
 
-// description 컬럼 미존재 에러 패턴 — Supabase 는 상황에 따라 다음 4가지 중 하나로 반환
-//   1) column "description" of relation "stores" does not exist   (실제 insert 시)
-//   2) column stores.description does not exist                   (PostgREST)
-//   3) Could not find the 'description' column of 'stores' in the schema cache   (캐시 미반영)
-//   4) column "desc" ...                                          (legacy)
 function isDescriptionColumnMissing(msg: string): boolean {
   const m = String(msg || '').toLowerCase()
   if (!m) return false
   const mentionsDescription = m.includes('description') || m.includes('"desc"') || m.includes(' desc ')
   if (!mentionsDescription) return false
-  return m.includes('does not exist') ||
-         m.includes('schema cache') ||
-         m.includes('could not find') ||
-         m.includes('not found')
+  return m.includes('does not exist') || m.includes('schema cache') || m.includes('could not find') || m.includes('not found')
 }
 
 export async function POST(req: NextRequest) {
@@ -80,7 +79,6 @@ export async function POST(req: NextRequest) {
       slug: slugIn,
       name,
       category,
-      industry,  // 37차-6: /settings/profile 에서 업종으로 전달
       location,
       address,
       phone,
@@ -89,7 +87,7 @@ export async function POST(req: NextRequest) {
       main_keyword,
       sub_keywords,
       description,
-      desc, // 구형 페이로드 호환
+      desc,
       reward_type,
       reward_value,
     } = body || {}
@@ -106,30 +104,27 @@ export async function POST(req: NextRequest) {
 
     const svc = createServiceClient()
 
-    // user_id + slug 기준 upsert — user_id 는 requireUser() 결과 신뢰
+    // ── 기존 레코드 조회: user_id 단독 조회 (slug 변경 시에도 기존 레코드 갱신)
     const { data: existing } = await svc
       .from('stores')
       .select('id, slug')
       .eq('user_id', userId)
-      .eq('slug', slug)
+      .order('updated_at', { ascending: false })
+      .limit(1)
       .maybeSingle()
 
-    const payload: Record<string, any> = {
-      slug,
-      name,
-      // 37차-6: industry → category 로 매핑 (stores.category 컬럼 활용)
-      category: category || industry || null,
-      location: location || null,
-      address: address || null,
-      phone: phone || null,
-      naver_place_id: placeId || null,
-      naver_url: naver_url || null,
-      main_keyword: main_keyword || null,
-      sub_keywords: Array.isArray(sub_keywords) ? sub_keywords : [],
-      reward_type: reward_type || null,
-      reward_value: reward_value || null,
-      user_id: userId,
-    }
+    // ── payload: undefined 필드는 포함하지 않음 (키워드 등 미전송 필드 보존)
+    const payload: Record<string, any> = { slug, name, user_id: userId }
+    if (category  !== undefined) payload.category        = category  || null
+    if (location  !== undefined) payload.location        = location  || null
+    if (address   !== undefined) payload.address         = address   || null
+    if (phone     !== undefined) payload.phone           = phone     || null
+    if (naver_place_id !== undefined || naver_url !== undefined) payload.naver_place_id = placeId || null
+    if (naver_url !== undefined) payload.naver_url       = naver_url || null
+    if (main_keyword  !== undefined) payload.main_keyword  = main_keyword  || null
+    if (sub_keywords  !== undefined) payload.sub_keywords  = Array.isArray(sub_keywords) ? sub_keywords : []
+    if (reward_type   !== undefined) payload.reward_type   = reward_type   || null
+    if (reward_value  !== undefined) payload.reward_value  = reward_value  || null
     if (descText) payload.description = descText
 
     let result: any
@@ -142,7 +137,7 @@ export async function POST(req: NextRequest) {
           .update(p)
           .eq('id', existing.id)
           .eq('user_id', userId)
-          .select('id, slug, name, description, updated_at')
+          .select('id, slug, name, updated_at')
           .single()
       }
       let { data, error } = await tryUpdate(true)
@@ -150,9 +145,8 @@ export async function POST(req: NextRequest) {
         const retry = await tryUpdate(false)
         if (retry.error) {
           return NextResponse.json({
-            ok: false,
-            error: retry.error.message,
-            hint: 'stores.description 컬럼이 없습니다. supabase/migrations/30cha11_stores_description.sql 을 Supabase SQL Editor 에서 실행하세요.',
+            ok: false, error: retry.error.message,
+            hint: 'stores.description 컬럼이 없습니다.',
           }, { status: 500 })
         }
         data = retry.data
@@ -161,13 +155,27 @@ export async function POST(req: NextRequest) {
       }
       result = data
     } else {
+      // INSERT: 미전송 필드에 기본값 설정
+      const insertPayload = {
+        category: category || null,
+        location: location || null,
+        address: address || null,
+        phone: phone || null,
+        naver_place_id: placeId || null,
+        naver_url: naver_url || null,
+        main_keyword: main_keyword || null,
+        sub_keywords: Array.isArray(sub_keywords) ? sub_keywords : [],
+        reward_type: reward_type || null,
+        reward_value: reward_value || null,
+        ...payload,
+      }
       const tryInsert = async (withDesc: boolean) => {
-        const p = { ...payload }
+        const p = { ...insertPayload }
         if (!withDesc) delete p.description
         return svc
           .from('stores')
           .insert(p)
-          .select('id, slug, name, description, updated_at')
+          .select('id, slug, name, updated_at')
           .single()
       }
       let { data, error } = await tryInsert(true)
@@ -175,9 +183,8 @@ export async function POST(req: NextRequest) {
         const retry = await tryInsert(false)
         if (retry.error) {
           return NextResponse.json({
-            ok: false,
-            error: retry.error.message,
-            hint: 'stores.description 컬럼이 없습니다. supabase/migrations/30cha11_stores_description.sql 을 Supabase SQL Editor 에서 실행하세요.',
+            ok: false, error: retry.error.message,
+            hint: 'stores.description 컬럼이 없습니다.',
           }, { status: 500 })
         }
         data = retry.data
