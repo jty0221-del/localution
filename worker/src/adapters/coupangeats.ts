@@ -67,9 +67,9 @@ export async function runCoupangEats(
   startNetworkCapture(page, log, ['review', 'feedback', 'rating', 'merchant'])
 
   try {
-    // 1) 로그인 — networkidle로 SPA 완전 렌더링 대기
-    await page.goto(LOGIN_URL, { waitUntil: 'networkidle', timeout: 45000 })
-    await page.waitForTimeout(4000)
+    // 1) 로그인 — load 이후 SPA 렌더링 대기 (networkidle은 WebSocket으로 인해 타임아웃)
+    await page.goto(LOGIN_URL, { waitUntil: 'load', timeout: 45000 })
+    await page.waitForTimeout(6000)
 
     // 비밀번호 입력창 대기
     const pwLocator = page.locator(DOM_SELECTORS.pwInput).first()
