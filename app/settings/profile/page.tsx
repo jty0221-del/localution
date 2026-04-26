@@ -1,12 +1,7 @@
 'use client'
 
 // ============================================================
-// 32차-3 · /settings/profile — 카테고리 자동채움 (네이버 검색 API 보충)
-//
-//   loadServer 흐름:
-//     1) /api/stores/me → store.category or naver_link.category
-//     2) 카테고리 없고 매장명 있으면 /api/naver-place/search 로 자동 보충
-//     3) 결과를 form 에 즉시 반영 (버튼 클릭 불필요)
+// 32차-5 · /settings/profile — 무효 naver 이름 필터링
 // ============================================================
 
 import { useState, useEffect, useCallback } from 'react'
@@ -48,10 +43,17 @@ function readCookieUser(): UserCookie | null {
   } catch { return null }
 }
 
+const GENERIC_NAMES = ['네이버 플레이스', '네이버플레이스', 'naver place', '스마트플레이스']
+function isValidStoreName(name: string | null | undefined): boolean {
+  if (!name) return false
+  const lower = name.trim().toLowerCase()
+  if (lower.length < 2) return false
+  return !GENERIC_NAMES.some(g => lower === g.toLowerCase())
+}
+
 const PROVIDER_LABEL: Record<string, string> = {
   kakao: '카카오', naver: '네이버', google: '구글',
 }
-
 const PLATFORM_COLOR: Record<string, { bg: string; fg: string }> = {
   naver_place: { bg: '#EDF7ED', fg: '#03C75A' },
   baemin:      { bg: '#E6FAF9', fg: '#00A4A6' },
@@ -77,38 +79,25 @@ export default function ProfileSettingsPage() {
       const data = await res.json()
       if (!res.ok || !data?.ok) return
 
-      const naverName    = data.naver_link?.external_name || ''
-      const naverAddress = data.naver_link?.address       || ''
-      let   naverCategory = data.naver_link?.category     || ''
+      const rawNaverName  = data.naver_link?.external_name || ''
+      const naverName     = isValidStoreName(rawNaverName) ? rawNaverName : ''
+      const naverAddress  = data.naver_link?.address   || ''
+      const naverCategory = data.naver_link?.category  || ''  // 서버에서 이미 보충됨
 
-      if (data.naver_link && data.naver_link.external_name) {
+      if (data.naver_link && (naverName || data.naver_link.external_id)) {
         setNaverLink(data.naver_link)
-      }
-
-      // 카테고리 없고 네이버 매장명 있으면 검색 API로 자동 보충
-      if (naverName && !naverCategory && !data.store?.category) {
-        try {
-          const sr = await fetch(
-            '/api/naver-place/search?query=' + encodeURIComponent(naverName),
-            { credentials: 'include', cache: 'no-store' }
-          )
-          const sd = await sr.json()
-          if (sd.items && sd.items.length > 0 && sd.items[0].category) {
-            naverCategory = sd.items[0].category
-          }
-        } catch (_) {}
       }
 
       if (data.store || data.naver_link) {
         setForm((prev) => ({
-          // 우선순위: 서버저장값 > 네이버연동값(검색보충 포함) > localStorage
+          // 서버저장값 > 네이버연동값 > localStorage
           storeName: data.store?.name     || naverName     || prev.storeName || '',
           category:  data.store?.category || naverCategory || prev.category  || '',
           address:   data.store?.address  || naverAddress  || prev.address   || '',
           phone:     data.store?.phone    || prev.phone    || '',
         }))
       }
-      if (naverName) setNaverAutoFilled(true)
+      if (naverName || data.naver_link?.external_id) setNaverAutoFilled(true)
 
       if (Array.isArray(data.platforms)) {
         setPlatforms(
@@ -141,11 +130,14 @@ export default function ProfileSettingsPage() {
 
   function applyNaverData() {
     if (!naverLink) return
+    const rawName = naverLink.external_name || ''
+    // 무효 이름("네이버 플레이스" 등)으로 매장명 덮어쓰기 방지
+    const validName = isValidStoreName(rawName) ? rawName : ''
     setForm(f => ({
       ...f,
-      storeName: naverLink.external_name || f.storeName || '',
-      category:  naverLink.category      || f.category  || '',
-      address:   naverLink.address       || f.address   || '',
+      storeName: validName  || f.storeName || '',
+      category:  naverLink.category || f.category  || '',
+      address:   naverLink.address  || f.address   || '',
     }))
     toast.info('네이버 플레이스 정보를 다시 가져왔어요.')
   }
@@ -158,26 +150,19 @@ export default function ProfileSettingsPage() {
       localStorage.setItem('localution_store', JSON.stringify(form))
       window.dispatchEvent(new CustomEvent('localution:user-change'))
     } catch {}
-
     try {
       if (user?.id) {
         const res = await fetch('/api/stores/register', {
-          method: 'POST',
-          credentials: 'include',
+          method: 'POST', credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            name:     form.storeName,
-            category: form.category  || null,
-            address:  form.address   || null,
-            phone:    form.phone     || null,
+            name: form.storeName, category: form.category || null,
+            address: form.address || null, phone: form.phone || null,
           }),
         })
         const data = await res.json().catch(() => ({}))
-        if (!res.ok || !data?.ok) {
-          toast.error(data?.error || '서버 저장 실패 (로컬은 저장됨)')
-        } else {
-          toast.success('저장 완료 — 사이드바에 즉시 반영됩니다')
-        }
+        if (!res.ok || !data?.ok) toast.error(data?.error || '서버 저장 실패 (로컬은 저장됨)')
+        else toast.success('저장 완료 — 사이드바에 즉시 반영됩니다')
       } else {
         toast.info('로컬 저장됨 (로그인하면 서버에도 자동 동기화돼요)')
       }
@@ -233,8 +218,7 @@ export default function ProfileSettingsPage() {
                     if (ok) window.location.href = '/api/auth/logout'
                   }}
                   className="hidden md:inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1.5 rounded-lg bg-[#FEF2F2] text-[#DC2626] hover:bg-[#FEE2E2] transition-all">
-                  <LogOut size={12} strokeWidth={2.5} />
-                  로그아웃
+                  <LogOut size={12} strokeWidth={2.5} /> 로그아웃
                 </a>
               )}
             </div>
@@ -266,8 +250,7 @@ export default function ProfileSettingsPage() {
                     if (ok) window.location.href = '/api/auth/logout'
                   }}
                   className="md:hidden mt-3 flex items-center justify-center gap-2 w-full px-3 py-3 rounded-xl bg-[#FEF2F2] text-[#DC2626] hover:bg-[#FEE2E2] active:bg-[#FECACA] transition-all text-sm font-bold">
-                  <LogOut size={15} strokeWidth={2.5} />
-                  <span>로그아웃</span>
+                  <LogOut size={15} strokeWidth={2.5} /> <span>로그아웃</span>
                 </a>
               </>
             ) : (
@@ -284,9 +267,7 @@ export default function ProfileSettingsPage() {
                 <Link2 size={14} strokeWidth={2.5} className="text-[#3182F6]" />
                 <h2 className="text-sm font-bold text-[#191F28]">연결된 플랫폼</h2>
               </div>
-              <Link href="/my/platforms" className="text-[11px] font-bold text-[#3182F6] hover:underline">
-                관리 →
-              </Link>
+              <Link href="/my/platforms" className="text-[11px] font-bold text-[#3182F6] hover:underline">관리 →</Link>
             </div>
             {!serverReady ? (
               <p className="text-xs text-[#8B95A1]">서버에서 조회 중...</p>
@@ -304,8 +285,7 @@ export default function ProfileSettingsPage() {
                       <span>{p.label}</span>
                       {p.review_count > 0 && (
                         <span className="text-[10px] opacity-80">
-                          리뷰 {p.review_count}
-                          {p.rating_avg != null ? ' · ' + p.rating_avg.toFixed(1) + '★' : ''}
+                          리뷰 {p.review_count}{p.rating_avg != null ? ' · ' + p.rating_avg.toFixed(1) + '★' : ''}
                         </span>
                       )}
                     </div>
@@ -328,11 +308,10 @@ export default function ProfileSettingsPage() {
                 )}
               </div>
               <div className="flex items-center gap-2">
-                {naverLink && naverLink.external_name && (
+                {naverLink && (
                   <button type="button" onClick={applyNaverData}
                     className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1.5 rounded-lg bg-[#EDF7ED] text-[#03C75A] hover:bg-[#D1F0D9] transition-all">
-                    <RefreshCw size={11} strokeWidth={2.5} />
-                    다시 가져오기
+                    <RefreshCw size={11} strokeWidth={2.5} /> 다시 가져오기
                   </button>
                 )}
                 {saved && (
@@ -351,8 +330,7 @@ export default function ProfileSettingsPage() {
                 </label>
                 <input type="text" value={form.storeName || ''}
                   onChange={e => setForm(f => ({ ...f, storeName: e.target.value }))}
-                  placeholder="예) 하랑마케팅, 강남치과, 라떼커피 등"
-                  maxLength={24}
+                  placeholder="예) 하랑마케팅, 강남치과, 라떼커피 등" maxLength={24}
                   className="w-full px-4 py-2.5 rounded-xl border border-[#E5E8EB] focus:outline-none focus:border-[#3182F6] focus:ring-2 focus:ring-[#3182F6]/10 text-sm" />
                 <p className="text-[10px] text-[#8B95A1] mt-1">사이드바 타이틀로 표시됩니다</p>
               </div>
@@ -364,8 +342,7 @@ export default function ProfileSettingsPage() {
                 </label>
                 <input type="text" value={form.category || ''}
                   onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
-                  placeholder="예) 카페, 한식, 미용실, 네일샵 등"
-                  maxLength={30}
+                  placeholder="예) 카페, 한식, 미용실, 네일샵 등" maxLength={30}
                   className="w-full px-4 py-2.5 rounded-xl border border-[#E5E8EB] focus:outline-none focus:border-[#3182F6] focus:ring-2 focus:ring-[#3182F6]/10 text-sm" />
                 <p className="text-[10px] text-[#8B95A1] mt-1">네이버 플레이스 연동 시 자동으로 채워집니다</p>
               </div>
