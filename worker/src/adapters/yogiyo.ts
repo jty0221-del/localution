@@ -144,7 +144,8 @@ export async function runYogiyo(
       : REVIEWS_BASE_URL
     log.info({ reviewsUrl }, 'yogiyo navigating to reviews')
     await page.goto(reviewsUrl, { waitUntil: 'load', timeout: 45000 })
-    await page.waitForTimeout(7000)
+    await page.waitForTimeout(10000)
+    log.info({ url: page.url(), title: await page.title() }, 'yogiyo review page arrived')
 
     for (let i = 0; i < 8; i++) {
       await page.evaluate(() => window.scrollBy(0, 1200))
