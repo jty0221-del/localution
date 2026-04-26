@@ -14,7 +14,7 @@
 //     - POST /api/place/reviews/fetch      (수집)  — naver_place 만 지원
 //     - POST /api/ai-review-reply          (AI 초안 생성)
 //     - POST /api/review-reply/draft       (초안 저장)
-//     - POST /api/review-reply/submit      (Worker 큐 등록)
+//     - POST /api/review-reply/auto-publish (Worker 큐 등록 — 단일 진실원)
 //     - POST /api/review-reply/bulk-draft  (일괄 생성 후보 조회)
 // ============================================================
 

@@ -70,12 +70,22 @@ export async function POST(req: NextRequest) {
       .maybeSingle()
 
     const hasCredentials = !!cred
-    const storeId = row.platform_store_id || cred?.platform_store_id || 'unknown'
+    const storeId = row.platform_store_id || cred?.platform_store_id || null
 
     // REDIS_URL 없으면 항상 수동 모드
     const redisAvailable = !!process.env.REDIS_URL
 
     if (hasCredentials && redisAvailable) {
+      // 43차-6: storeId 누락 시 enqueue 거부 — 워커가 /place/unknown/review 로 가는 걸 차단
+      if (!storeId) {
+        return NextResponse.json({
+          ok: false,
+          code: 'NO_STORE_ID',
+          error: `${row.platform} 매장 ID가 등록되지 않았어요. 계정 연결 단계에서 매장을 선택해주세요.`,
+          connect_href: `/my/platforms/${row.platform}/connect`,
+        }, { status: 422 })
+      }
+
       // ── 3) Worker 모드: BullMQ enqueue ─────────────────────
       const now = new Date().toISOString()
       const jobResult = await enqueuePlatformJob({
