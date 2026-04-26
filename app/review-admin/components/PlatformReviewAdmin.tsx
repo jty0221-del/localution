@@ -763,7 +763,7 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
 
             {/* 통계 카드 */}
             {connected && (
-              <div className="grid grid-cols-4 gap-3 mb-5">
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
                 <div className="bg-white rounded-2xl p-4 border border-[#E5E8EB]">
                   <p className="text-[11px] text-[#8B95A1] font-medium mb-1">총 리뷰</p>
                   <p className="text-xl font-black text-[#191F28]">{agg.review_count}건</p>
@@ -850,7 +850,7 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
 
             {/* 필터 + 액션 바 */}
             {connected && (
-              <div className="bg-white rounded-2xl border border-[#E5E8EB] p-3 mb-4 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
+              <div className="bg-white rounded-2xl border border-[#E5E8EB] p-3 mb-4 flex flex-col gap-2 sm:gap-4">
                 {/* 30차-23: 기간 필터 */}
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <span className="text-[11px] text-[#8B95A1] font-semibold mr-1">기간</span>
