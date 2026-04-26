@@ -6,7 +6,6 @@ import Link from 'next/link'
 import Sidebar from '../components/Sidebar'
 import Footer from '../components/Footer'
 import SlideAdBanner from '../components/SlideAdBanner'
-import PlatformLogo from '../components/PlatformLogo'
 import { useConnections, setConnection as libSetConnection, removeConnection as libRemoveConnection, PlatformId as CanonicalPlatformId } from '../lib/connections'
 import { toast, confirmDialog } from '../lib/toast'
 import { buildSettingsHref } from '../lib/settings-tabs'
@@ -19,8 +18,17 @@ import {
 } from 'lucide-react'
 
 // ═══════════════════════════════════════════════════════════
-//  플랫폼 로고 SVG (Google / Yeoshin / Hometax 는 PlatformLogo 미지원 → 인라인 유지)
+//  플랫폼 로고 SVG
 // ═══════════════════════════════════════════════════════════
+
+function NaverPlaceLogo({ size = 28 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
+      <rect width="48" height="48" rx="10" fill="#03C75A"/>
+      <path d="M9 39V9h8L31 27V9h8v30h-8L17 21v18H9Z" fill="white"/>
+    </svg>
+  )
+}
 
 function GoogleLogo({ size = 28 }: { size?: number }) {
   return (
@@ -30,6 +38,56 @@ function GoogleLogo({ size = 28 }: { size?: number }) {
       <path d="M24 44c5.4 0 9.92-1.8 13.24-4.86l-6.46-5c-1.8 1.2-4.1 1.92-6.78 1.92-5.22 0-9.64-3.52-11.22-8.26H6.12v5.14C9.42 40.02 16.28 44 24 44z" fill="#34A853"/>
       <path d="M12.78 27.8A11.94 11.94 0 0112.2 24c0-1.32.22-2.6.58-3.8v-5.14H6.12A20 20 0 004 24c0 3.22.78 6.28 2.12 9.14l6.66-5.34z" fill="#FBBC05"/>
       <path d="M24 12.08c2.94 0 5.58 1.02 7.66 3l5.74-5.74C33.9 6.06 29.38 4 24 4 16.28 4 9.42 7.98 6.12 14.86l6.66 5.14C14.36 15.6 18.78 12.08 24 12.08z" fill="#EA4335"/>
+    </svg>
+  )
+}
+
+function BaeminLogo({ size = 28 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
+      <rect width="48" height="48" rx="12" fill="#2AC1BC"/>
+      <text
+        x="24"
+        y="31"
+        fontSize="18"
+        fontWeight="900"
+        fill="#1A1A1A"
+        fontFamily="'Apple SD Gothic Neo','Noto Sans KR',sans-serif"
+        textAnchor="middle"
+        letterSpacing="-0.5"
+      >배민</text>
+    </svg>
+  )
+}
+
+function YogiyoLogo({ size = 28 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
+      <rect width="48" height="48" rx="12" fill="#E5007F"/>
+      <text x="24" y="23" fontSize="11" fontWeight="900" fill="white" fontFamily="'Apple SD Gothic Neo','Noto Sans KR',sans-serif" textAnchor="middle">요기요</text>
+      <circle cx="24" cy="33" r="4" fill="white"/>
+      <path d="M16 43 Q24 39 32 43" stroke="white" strokeWidth="2.2" fill="none" strokeLinecap="round"/>
+    </svg>
+  )
+}
+
+function CoupangEatsLogo({ size = 28 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
+      <rect width="48" height="48" rx="12" fill="white" stroke="#E5E7EB" strokeWidth="1.5"/>
+      <text x="5" y="25" fontSize="9.5" fontWeight="800" fontFamily="Arial,sans-serif" letterSpacing="0.2">
+        <tspan fill="#E31837">c</tspan><tspan fill="#F4A900">o</tspan><tspan fill="#E31837">u</tspan><tspan fill="#5BAD48">p</tspan><tspan fill="#3B79BE">a</tspan><tspan fill="#E31837">n</tspan><tspan fill="#F4A900">g</tspan>
+      </text>
+      <text x="5" y="39" fontSize="13" fontWeight="900" fill="#4A2C0A" fontFamily="Arial,sans-serif">eats</text>
+    </svg>
+  )
+}
+
+function NaverSearchLogo({ size = 28 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
+      <rect width="48" height="48" rx="10" fill="#03C75A"/>
+      <path d="M9 39V9h8L31 27V9h8v30h-8L17 21v18H9Z" fill="white"/>
     </svg>
   )
 }
@@ -50,6 +108,15 @@ function HometaxLogo({ size = 28 }: { size?: number }) {
     <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
       <rect width="48" height="48" rx="10" fill="#006AB4"/>
       <path d="M24 9L7 22h5v17h10v-9h4v9h10V22h5L24 9z" fill="white"/>
+    </svg>
+  )
+}
+
+function KakaoMapLogo({ size = 28 }: { size?: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
+      <rect width="48" height="48" rx="12" fill="#FEE500"/>
+      <path d="M24 11c-7 0-12.5 4.4-12.5 10 0 3.7 2.5 7 6.3 8.9l-1.5 5.3c-.1.3.3.5.5.3l6.2-4.3c.3 0 .7.1 1 .1 7 0 12.5-4.4 12.5-10S31 11 24 11Z" fill="#191919"/>
     </svg>
   )
 }
@@ -88,14 +155,14 @@ const TO_CANONICAL: Record<PlatformId, CanonicalPlatformId> = {
   hometax: 'hometax',
 }
 const INITIAL_PLATFORMS: Platform[] = [
-  { id: 'naver_place',  name: '네이버 플레이스', shortName: '네이버',   logo: (s) => <PlatformLogo platform="naver_place" size={s ?? 28}/>,   category: '리뷰·검색', connected: false, rating: null, reviews: null, color: '#03C75A' },
-  { id: 'google',       name: '구글 비즈니스',   shortName: '구글',     logo: (s) => <GoogleLogo size={s}/>,                                   category: '리뷰·검색', connected: false, rating: null, reviews: null, color: '#4285F4' },
-  { id: 'kakao_map',    name: '카카오맵',        shortName: '카카오',   logo: (s) => <PlatformLogo platform="kakao_map" size={s ?? 28}/>,      category: '지도·리뷰', connected: false, rating: null, reviews: null, color: '#FEE500' },
-  { id: 'baemin',       name: '배달의민족',      shortName: '배민',     logo: (s) => <PlatformLogo platform="baemin" size={s ?? 28}/>,         category: '배달',      connected: false, rating: null, reviews: null, color: '#2AC1BC' },
-  { id: 'yogiyo',       name: '요기요',          shortName: '요기요',   logo: (s) => <PlatformLogo platform="yogiyo" size={s ?? 28}/>,         category: '배달',      connected: false, rating: null, reviews: null, color: '#FA0050' },
-  { id: 'coupangeats',  name: '쿠팡이츠',        shortName: '쿠팡이츠', logo: (s) => <PlatformLogo platform="coupangeats" size={s ?? 28}/>,    category: '배달',      connected: false, rating: null, reviews: null, color: '#F2622B' },
-  { id: 'yeoshin',      name: '여신금융',        shortName: '여신금융', logo: (s) => <YeoshinLogo size={s}/>,                                  category: '금융·세무', connected: false, rating: null, reviews: null, color: '#003087' },
-  { id: 'hometax',      name: '홈택스',          shortName: '홈택스',   logo: (s) => <HometaxLogo size={s}/>,                                  category: '금융·세무', connected: false, rating: null, reviews: null, color: '#006AB4' },
+  { id: 'naver_place',  name: '네이버 플레이스', shortName: '네이버',   logo: (s) => <NaverPlaceLogo size={s}/>,   category: '리뷰·검색', connected: false, rating: null, reviews: null, color: '#03C75A' },
+  { id: 'google',       name: '구글 비즈니스',   shortName: '구글',     logo: (s) => <GoogleLogo size={s}/>,       category: '리뷰·검색', connected: false, rating: null, reviews: null, color: '#4285F4' },
+  { id: 'kakao_map',    name: '카카오맵',          shortName: '카카오',   logo: (s) => <KakaoMapLogo size={s}/>,     category: '지도·리뷰', connected: false, rating: null, reviews: null, color: '#FEE500' },
+  { id: 'baemin',       name: '배달의민족',        shortName: '배민',     logo: (s) => <BaeminLogo size={s}/>,       category: '배달',      connected: false, rating: null, reviews: null, color: '#2AC1BC' },
+  { id: 'yogiyo',       name: '요기요',            shortName: '요기요',   logo: (s) => <YogiyoLogo size={s}/>,       category: '배달',      connected: false, rating: null, reviews: null, color: '#FA1A32' },
+  { id: 'coupangeats',  name: '쿠팡이츠',          shortName: '쿠팡이츠', logo: (s) => <CoupangEatsLogo size={s}/>,  category: '배달',      connected: false, rating: null, reviews: null, color: '#FF5A00' },
+  { id: 'yeoshin',      name: '여신금융',           shortName: '여신금융', logo: (s) => <YeoshinLogo size={s}/>,      category: '금융·세무', connected: false, rating: null, reviews: null, color: '#003087' },
+  { id: 'hometax',      name: '홈택스',            shortName: '홈택스',   logo: (s) => <HometaxLogo size={s}/>,      category: '금융·세무', connected: false, rating: null, reviews: null, color: '#006AB4' },
 ]
 
 interface KeywordRank {
@@ -946,93 +1013,19 @@ export default function Dashboard() {
     }
   }
 
-  // 37차-3 · 배민/요기요/쿠팡이츠/카카오맵 플랫폼별 수집 트리거
-  //   · 배민/요기요/쿠팡이츠 → /api/review-reply/collect (BullMQ enqueue, Worker 비동기 실행)
-  //   · kakao_map 은 공개 수집기 /api/place/kakao/collect 바로 호출
-  //   · naver_place 는 handleCollectNaverReviews() 따로 씀
-  const [collectingPlatform, setCollectingPlatform] = useState<string | null>(null)
-  const handleCollectPlatform = async (pid: string) => {
-    setCollectingPlatform(pid)
-    const ctrl = new AbortController()
-    const timer = setTimeout(() => ctrl.abort(), 20_000)
-    try {
-      let endpoint = ''
-      if (pid === 'kakao_map') endpoint = '/api/place/kakao/collect'
-      else if (['baemin', 'yogiyo', 'coupangeats'].includes(pid)) {
-        endpoint = `/api/review-reply/collect?platform=${pid}`
-      } else {
-        toast.warn('지원하지 않는 플랫폼입니다')
-        return
-      }
-      const res = await fetch(endpoint, {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({}),
-        signal: ctrl.signal,
-      })
-      const j = await res.json().catch(() => null)
-      if (!res.ok || !j?.ok) {
-        const errMsg = String(j?.error || '')
-        // 37차-8: Redis/Worker 연결 이슈면 관리자용 가이드를 띄움
-        if (errMsg.includes('REDIS_URL') || errMsg.includes('ENOTFOUND') || errMsg.includes('railway.internal')) {
-          toast.error('Worker 연결 오류 — 관리자 점검 필요 (Vercel REDIS_URL)')
-        } else {
-          toast.error(errMsg || `수집 실패 (${res.status})`)
-        }
-        return
-      }
-      if (typeof j.total === 'number' && j.total > 0) {
-        await reloadStoresMe()
-        await loadPlatformReviews([pid as PlatformId])
-        toast.success(`리뷰 ${j.total}건 수집 완료`)
-      } else if (j.note || j.message) {
-        toast.info(j.note || j.message)
-      } else {
-        toast.info('수집 요청을 보냈습니다. 1~3분 뒤 새로고침 해주세요.')
-      }
-    } catch (e: any) {
-      if (e?.name === 'AbortError') {
-        toast.error('수집 요청 20초 초과 — Worker/Redis 상태 확인')
-      } else {
-        toast.error(`수집 오류: ${e?.message || e}`)
-      }
-    } finally {
-      clearTimeout(timer)
-      setCollectingPlatform(null)
-    }
-  }
-
-  // 프로필(매장 주소/이름/업종) → AI 자동 키워드 추론 (37차-7)
+  // 프로필(매장 주소/이름) → 지역 기반 키워드 자동 생성
   useEffect(() => {
     function syncKeywordsFromProfile() {
       try {
         const raw = localStorage.getItem(LS_STORE)
         const profile = raw ? JSON.parse(raw) : null
         const region = extractRegion(profile?.address, profile?.storeName, profile?.branch)
-        const industry = profile?.industry || profile?.category || ''
-        const storeName = profile?.storeName || ''
-        const address = profile?.address || ''
-
-        if (region) setStoreRegion(region)
-        else setStoreRegion(null)
-
-        // 업종이 있고 지역이 있으면 AI 키워드 구성 (inferKeywords 와 동일 규칙)
-        if (industry && (region || address)) {
-          const base = region || (address ? address.split(' ')[1] || '' : '')
-          const generated: KeywordRank[] = [
-            { keyword: `${base} ${industry}`, rank: 0, prevRank: null, area: base, updatedAt: '자동 생성' },
-            { keyword: `${base} ${industry} 맛집`, rank: 0, prevRank: null, area: base, updatedAt: '자동 생성' },
-            { keyword: `${base} 맛집`, rank: 0, prevRank: null, area: base, updatedAt: '자동 생성' },
-            storeName ? { keyword: storeName, rank: 0, prevRank: null, area: base, updatedAt: '자동 생성' } : null,
-          ].filter(Boolean) as KeywordRank[]
-          setKeywords(generated)
-          setMainKeyword(`${base} ${industry}`)
-        } else if (region) {
-          // fallback: 업종 없으면 지역만
+        if (region) {
+          setStoreRegion(region)
           setKeywords(generateRegionKeywords(region))
           setMainKeyword(`${region} 맛집`)
         } else {
+          setStoreRegion(null)
           setKeywords([])
           setMainKeyword('')
         }
@@ -1070,6 +1063,10 @@ export default function Dashboard() {
     }
     if (p.id === 'yeoshin' || p.id === 'hometax') {
       toast.info(`${p.name} 연동은 /settings 페이지에서 설정하세요.`)
+      return
+    }
+    if (p.id === 'yogiyo' || p.id === 'coupangeats') {
+      window.location.href = `/my/platforms/${p.id}/connect`
       return
     }
     setConnectPlatform(p)
@@ -1205,13 +1202,13 @@ export default function Dashboard() {
   ]
   const totalWeekSale = weekSales.reduce((s, x) => s + x.v, 0)
 
-  // 오늘의 할 일 — 37차-7: 연동된 플랫폼의 실데이터만 카운팅 (연동 전에는 0)
+  // 오늘의 할 일 — 실데이터 있으면 실데이터 기준
   const unansweredCount = hasRealReviews
     ? mergedRealReviews.filter((r) => !r.has_reply).length
-    : 0
+    : RECENT_REVIEWS.filter((r) => !r.replied).length
   const negativeUnansweredCount = hasRealReviews
     ? mergedRealReviews.filter((r) => typeof r.rating === 'number' && r.rating <= 2 && !r.has_reply).length
-    : 0
+    : RECENT_REVIEWS.filter((r) => r.rating <= 2 && !r.replied).length
 
   useEffect(() => {
     try {
@@ -1619,18 +1616,8 @@ export default function Dashboard() {
                               <span className="w-1.5 h-1.5 rounded-full bg-[#F59E0B]" />
                               아직 수집 전 — 상단 "지금 수집" 클릭
                             </span>
-                          ) : ['baemin', 'yogiyo', 'coupangeats', 'kakao_map'].includes(p.id) ? (
-                            <button
-                              onClick={() => handleCollectPlatform(p.id)}
-                              disabled={collectingPlatform === p.id}
-                              className="text-[11px] px-2 py-1 rounded-lg font-bold text-white transition-colors disabled:opacity-50 hover:brightness-95"
-                              style={{ background: p.color }}
-                              title={`${p.name} 리뷰를 지금 수집합니다`}
-                            >
-                              {collectingPlatform === p.id ? '수집 중...' : '↻ 지금 수집'}
-                            </button>
                           ) : (
-                            <span className="text-xs text-[#8B95A1]">준비 중</span>
+                            <span className="text-xs text-[#8B95A1]">Worker 자동수집 대기</span>
                           )}
                         </div>
                         {p.rating !== null && (
