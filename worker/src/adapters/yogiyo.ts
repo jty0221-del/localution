@@ -11,7 +11,7 @@ import { dumpPageDiagnostics, startNetworkCapture, detectLoginFailure } from '..
 import type { JobResult, Action } from '../jobs'
 
 const LOGIN_URL = 'https://ceo.yogiyo.co.kr/login/'
-const REVIEWS_URL = 'https://ceo.yogiyo.co.kr/reviews/'
+const REVIEWS_BASE_URL = 'https://ceo.yogiyo.co.kr/reviews'
 
 const DOM_SELECTORS = {
   idInput: 'input[name="username"], input[name="loginId"], input[name="email"], input[type="email"], input[type="text"]',
@@ -100,8 +100,12 @@ export async function runYogiyo(
     await markLoginStatus(svc, userId, 'yogiyo', 'success')
     if (action === 'health_check') return { status: 'ok', message: 'yogiyo login ok' }
 
-    // 2) 리뷰 페이지 이동
-    await page.goto(REVIEWS_URL, { waitUntil: 'networkidle', timeout: 45000 })
+    // 2) 리뷰 페이지 이동 — store_id 있으면 직접 접속
+    const reviewsUrl = creds.platform_store_id
+      ? `${REVIEWS_BASE_URL}/${creds.platform_store_id}`
+      : REVIEWS_BASE_URL
+    log.info({ reviewsUrl }, 'yogiyo navigating to reviews')
+    await page.goto(reviewsUrl, { waitUntil: 'networkidle', timeout: 45000 })
     await page.waitForTimeout(2500)
 
     for (let i = 0; i < 8; i++) {
