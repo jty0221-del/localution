@@ -1,20 +1,9 @@
 // app/api/review-reply/auto-publish/route.ts
 // ============================================================
-// 41차-10 · 리뷰 자동 발행 (Worker 큐 연동)
-// 41차-12 fix: 자격증명 없으면 NO_CREDENTIALS 에러 반환 (수동 모드 제거)
-//
+// 리뷰 자동 발행 (Worker 큐 연동)
 //   POST /api/review-reply/auto-publish
 //     body: { review_id: string }
-//
-//   로직:
-//     1) 본인 소유 리뷰 + draft_reply 확인
-//     2) platform_credentials 조회 → 연동 자격증명 있으면 Worker 모드
-//     3) Worker 모드: BullMQ 'post_reply' 잡 enqueue → reply_status='queued'
-//     4) 자격증명 없음: 422 NO_CREDENTIALS 반환 → UI에서 계정 연결 안내
-//
-//   응답:
-//     { ok: true, mode: 'worker', reply_status, jobId, note }
-//     { ok: false, code: 'NO_CREDENTIALS', error, connect_href }
+//   네이버: extra_data.smartplace_biz_id 도 payload 에 포함
 // ============================================================
 import { NextRequest, NextResponse } from 'next/server'
 import { requireUser } from '@/app/lib/userAuth'
@@ -61,10 +50,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: `현재 처리 중(${row.reply_status})이에요. 잠시 후 다시 시도해주세요` }, { status: 409 })
     }
 
-    // 2) 자격증명 확인 (Worker 자동 발행 가능 여부)
+    // 2) 자격증명 + extra_data 조회
     const { data: cred } = await svc
       .from('platform_credentials')
-      .select('platform_store_id')
+      .select('platform_store_id, extra_data')
       .eq('user_id', userId)
       .eq('platform', row.platform)
       .maybeSingle()
@@ -72,25 +61,31 @@ export async function POST(req: NextRequest) {
     const hasCredentials = !!cred
     const storeId = row.platform_store_id || cred?.platform_store_id || 'unknown'
 
-    // REDIS_URL 없으면 항상 수동 모드
+    // 네이버: SmartPlace bizId 추출
+    const bizId: string | undefined = row.platform === 'naver_place'
+      ? ((cred?.extra_data as any)?.smartplace_biz_id || undefined)
+      : undefined
+
     const redisAvailable = !!process.env.REDIS_URL
 
     if (hasCredentials && redisAvailable) {
-      // ── 3) Worker 모드: BullMQ enqueue ─────────────────────
+      // ── Worker 모드: BullMQ enqueue ─────────────────────────
       const now = new Date().toISOString()
+      const jobPayload: Record<string, string> = {
+        platform_review_id: row.platform_review_id,
+        reply_text: draft,
+      }
+      if (bizId) jobPayload.biz_id = bizId
+
       const jobResult = await enqueuePlatformJob({
         platform: row.platform as any,
         action: 'post_reply',
         userId,
         storeId,
-        payload: {
-          platform_review_id: row.platform_review_id,
-          reply_text: draft,
-        },
+        payload: jobPayload,
       })
 
       if (!jobResult.ok) {
-        // 큐 실패 → NO_CREDENTIALS 에러 반환 (수동 모드 없음)
         return NextResponse.json({
           ok: false,
           code: 'QUEUE_FAILED',
@@ -98,7 +93,6 @@ export async function POST(req: NextRequest) {
         }, { status: 500 })
       }
 
-      // 큐 등록 성공 → reply_status='queued'
       await svc.from('platform_reviews')
         .update({ reply_status: 'queued', reply_queued_at: now, reply_error: null })
         .eq('id', reviewId).eq('user_id', userId)
@@ -112,7 +106,7 @@ export async function POST(req: NextRequest) {
       })
     }
 
-    // ── 4) 자격증명 없음 → 연결 필요 에러 반환 ───────────────────────
+    // ── 자격증명 없음 ─────────────────────────────────────────────
     return NextResponse.json({
       ok: false,
       code: 'NO_CREDENTIALS',
