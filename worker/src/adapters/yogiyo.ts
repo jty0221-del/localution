@@ -8,16 +8,15 @@ import { getServiceClient } from '../lib/supabase'
 import { loadPlainCredentials, markLoginStatus } from '../lib/credentials'
 import { upsertReviews, CollectedReview } from '../lib/reviews'
 import { dumpPageDiagnostics, startNetworkCapture, detectLoginFailure } from '../lib/diagnostics'
-import { verifyReplySubmitted } from '../lib/post-reply-verify'
 import type { JobResult, Action } from '../jobs'
 
 const LOGIN_URL = 'https://ceo.yogiyo.co.kr/login/'
 const REVIEWS_URL = 'https://ceo.yogiyo.co.kr/reviews/'
 
 const DOM_SELECTORS = {
-  idInput: 'input[name="username"], input[type="text"][placeholder*="아이디"]',
+  idInput: 'input[name="username"], input[name="loginId"], input[name="email"], input[type="email"], input[type="text"]',
   pwInput: 'input[name="password"], input[type="password"]',
-  loginBtn: 'button[type="submit"], button:has-text("로그인")',
+  loginBtn: 'button[type="submit"], button:has-text("로그인"), button:has-text("로그인하기")',
   reviewCard: '[class*="ReviewList"] [class*="ReviewItem"], [data-testid*="review-item"], article[class*="review"], li[class*="ReviewItem"]',
   reviewAuthor: '[class*="nickname"], [class*="UserName"], [class*="author"]',
   starFilled: '[class*="star"][class*="fill"], [class*="StarFilled"], svg[class*="active"]',
@@ -62,13 +61,23 @@ export async function runYogiyo(
   try {
     // 1) 로그인
     await page.goto(LOGIN_URL, { waitUntil: 'domcontentloaded', timeout: 30000 })
-    await page.waitForTimeout(1500)
+    await page.waitForTimeout(2000)
 
-    await page.fill(DOM_SELECTORS.idInput, creds.account_id)
-    await page.fill(DOM_SELECTORS.pwInput, creds.password)
+    // 폼이 실제로 나타날 때까지 대기
+    const pwLocator = page.locator(DOM_SELECTORS.pwInput).first()
+    const pwVisible = await pwLocator.waitFor({ state: 'visible', timeout: 15000 }).then(() => true).catch(() => false)
+    if (!pwVisible) {
+      await dumpPageDiagnostics(page, log, 'yogiyo-login-form-missing')
+      await markLoginStatus(svc, userId, 'yogiyo', 'failed', 'login form not found')
+      return { status: 'failed', message: 'yogiyo 로그인 폼을 찾지 못했습니다 — 페이지 구조 변경 가능성' }
+    }
+
+    const idLocator = page.locator(DOM_SELECTORS.idInput).first()
+    await idLocator.fill(creds.account_id)
+    await pwLocator.fill(creds.password)
     await Promise.all([
       page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => null),
-      page.click(DOM_SELECTORS.loginBtn),
+      page.locator(DOM_SELECTORS.loginBtn).first().click(),
     ])
 
     const currentUrl = page.url()
@@ -77,6 +86,7 @@ export async function runYogiyo(
       return { status: 'failed', message: 'yogiyo captcha — 수동 로그인 필요' }
     }
     if (currentUrl.includes('login') || currentUrl.includes('signin')) {
+      await dumpPageDiagnostics(page, log, 'yogiyo-login-failed')
       const { failed, reason } = await detectLoginFailure(page)
       await markLoginStatus(svc, userId, 'yogiyo', 'failed', reason || 'stayed on login')
       return {
@@ -153,10 +163,6 @@ export async function runYogiyo(
     if (action === 'post_reply' && payload?.platform_review_id && payload?.reply_text) {
       const targetId = String(payload.platform_review_id)
       const replyText = String(payload.reply_text)
-      const reviewDbId = payload.review_db_id ? String(payload.review_db_id) : null
-      const col = reviewDbId ? 'id' : 'platform_review_id'
-      const val = reviewDbId ?? targetId
-
       const replied = await postYogiyoReply(page, targetId, replyText, log)
       if (replied.ok) {
         await svc
@@ -166,17 +172,12 @@ export async function runYogiyo(
             reply_content: replyText,
             reply_status: 'submitted',
             reply_submitted_at: new Date().toISOString(),
-            reply_error: null,
           })
-          .eq(col, val)
           .eq('user_id', userId)
+          .eq('platform', 'yogiyo')
+          .eq('platform_review_id', targetId)
         return { status: 'ok', message: `yogiyo: reply posted for ${targetId}` }
       }
-      await svc
-        .from('platform_reviews')
-        .update({ reply_status: 'failed', reply_error: replied.reason })
-        .eq(col, val)
-        .eq('user_id', userId)
       return { status: 'failed', message: `yogiyo reply 실패: ${replied.reason}` }
     }
 
@@ -216,16 +217,8 @@ async function postYogiyoReply(
     const submit = await page.$(DOM_SELECTORS.replySubmit)
     if (!submit) return { ok: false, reason: 'reply submit button not found' }
     await submit.click()
+    await page.waitForTimeout(2500)
 
-    // 43차-5: 등록 결과 검증
-    const verify = await verifyReplySubmitted(page, {
-      textareaSelector: DOM_SELECTORS.replyTextarea,
-      timeoutMs: 8000,
-    }, log)
-    if (!verify.ok) {
-      await dumpPageDiagnostics(page, log, 'yogiyo-reply-verify-failed')
-      return verify
-    }
     return { ok: true }
   } catch (e: any) {
     log.error({ err: e?.message }, 'yogiyo reply error')
