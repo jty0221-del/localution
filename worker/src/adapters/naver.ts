@@ -289,59 +289,54 @@ async function postNaverReply(
   log: Logger,
 ): Promise<{ ok: true } | { ok: false; reason: string }> {
   try {
-    // 직접 리뷰 URL로 이동 — SmartPlace가 리다이렉트해도 리뷰 카드가 렌더됨
-    const reviewUrl = storeId && storeId !== 'unknown'
-      ? `${NEW_SMARTPLACE_BASE}/bizes/place/${storeId}/reviews/${platformReviewId}`
+    // 1) 먼저 스토어 대시보드로 이동해서 실제 place ID 확인
+    const dashUrl = storeId && storeId !== 'unknown'
+      ? `${NEW_SMARTPLACE_BASE}/bizes/place/${storeId}`
       : `${NEW_SMARTPLACE_BASE}/bizes`
 
-    log.info({ reviewUrl, storeId, platformReviewId }, 'naver: navigating to review')
-    await page.goto(reviewUrl, { waitUntil: 'networkidle', timeout: 50000 })
+    log.info({ dashUrl, storeId, platformReviewId }, 'naver: navigating to store dashboard first')
+    await page.goto(dashUrl, { waitUntil: 'domcontentloaded', timeout: 30000 })
+    await page.waitForTimeout(2000)
+
+    let currentUrl = page.url()
+    log.info({ url: currentUrl }, 'naver: dashboard loaded')
+
+    if (currentUrl.includes('nid.naver.com') || currentUrl.includes('login')) {
+      return { ok: false, reason: '세션 만료 — /my/platforms/naver_place/session 에서 쿠키를 갱신해주세요' }
+    }
+
+    // 리다이렉트된 실제 place ID 추출
+    const placeIdMatch = currentUrl.match(/\/bizes\/place\/(\d+)/)
+    const actualPlaceId = placeIdMatch?.[1] || storeId
+    log.info({ actualPlaceId, storeId }, 'naver: actual place ID from redirect')
+
+    // 2) 리뷰 페이지로 명시적 이동
+    const reviewsPageUrl = `${NEW_SMARTPLACE_BASE}/bizes/place/${actualPlaceId}/reviews`
+    log.info({ reviewsPageUrl }, 'naver: navigating to reviews page')
+    await page.goto(reviewsPageUrl, { waitUntil: 'networkidle', timeout: 40000 })
     await page.waitForTimeout(3000)
 
-    const currentUrl = page.url()
+    currentUrl = page.url()
     log.info({ url: currentUrl }, 'naver: reviews page loaded')
 
     if (currentUrl.includes('nid.naver.com') || currentUrl.includes('login')) {
       return { ok: false, reason: '세션 만료 — /my/platforms/naver_place/session 에서 쿠키를 갱신해주세요' }
     }
 
-    // 리다이렉트된 실제 place ID 추출 (SmartPlace가 다른 ID로 리다이렉트할 수 있음)
-    const placeIdMatch = currentUrl.match(/\/bizes\/place\/(\d+)/)
-    const actualPlaceId = placeIdMatch?.[1] || storeId
-    log.info({ actualPlaceId, storeId }, 'naver: actual place ID')
-
-    // 리뷰 탭 클릭 (현재 페이지가 리뷰 탭이 아닐 수 있음)
+    // 3) 리뷰 카드 로딩 대기 (최대 15초)
     try {
-      const reviewTabSelectors = [
-        'a[href*="/reviews"]:visible',
-        '[class*="LocalNavigationBar_link"]:has-text("리뷰")',
-        '[class*="nav"]:has-text("리뷰")',
-        'a:has-text("리뷰"):visible',
-      ]
-      for (const sel of reviewTabSelectors) {
-        const tab = await page.$(sel)
-        if (tab) {
-          await tab.click()
-          await page.waitForTimeout(2000)
-          log.info({ sel }, 'naver: clicked reviews tab')
-          break
-        }
-      }
-    } catch (e: any) {
-      log.warn({ err: e?.message }, 'naver: could not click reviews tab')
-    }
-
-    // 리뷰 카드 로딩 대기
-    try {
-      await page.waitForSelector('[class*="Review_single_review"], [class*="single_review"], [class*="ReviewItem"]', { timeout: 8000 })
+      await page.waitForSelector('[class*="Review_single_review"], [class*="single_review"], [class*="ReviewItem"], [class*="review_item"]', { timeout: 15000 })
+      log.info('naver: review cards appeared')
     } catch {
-      log.warn('naver: review card selector timeout — proceeding anyway')
+      // 페이지 HTML 일부 로깅 (디버그)
+      const bodyHtml = await page.evaluate(() => document.body?.innerHTML?.slice(0, 2000) || '')
+      log.warn({ bodyHtml: bodyHtml.slice(0, 500) }, 'naver: review card selector timeout')
     }
 
-    // 스크롤로 리뷰 로딩 (lazy load 대응)
+    // 스크롤로 lazy load 유발
     for (let i = 0; i < 5; i++) {
       await page.evaluate(() => window.scrollBy(0, 600))
-      await page.waitForTimeout(500)
+      await page.waitForTimeout(400)
     }
     await page.evaluate(() => window.scrollTo(0, 0))
     await page.waitForTimeout(800)
