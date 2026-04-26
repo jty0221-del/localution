@@ -10,6 +10,7 @@ export const dynamic = 'force-dynamic'
 
 const ALGO = 'aes-256-gcm'
 const BAEMIN_API = 'https://self-api.baemin.com'
+const BAEMIN_API2 = 'https://ceo-api.baemin.com'
 
 function loadKek(): Buffer {
   const raw = process.env.ENCRYPTION_KEK_HEX || ''
@@ -117,8 +118,8 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // ── 3) 배민 API 호출 ──
-    const apiUrl = BAEMIN_API + '/v1/review/shops/' + shopNo + '/reviews?pageNumber=1&pageSize=20'
+    // ── 3) 배민 API 호출 (두 엔드포인트 시도) ──
+    const path = '/v1/review/shops/' + shopNo + '/reviews?pageNumber=1&pageSize=20'
     const reqHeaders: Record<string, string> = {
       'Cookie': cookieStr,
       'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
@@ -132,18 +133,21 @@ export async function POST(req: NextRequest) {
     }
     if (xsrfToken) reqHeaders['X-XSRF-TOKEN'] = xsrfToken
 
-    const baeminRes = await fetch(apiUrl, { headers: reqHeaders, cache: 'no-store' })
+    let baeminRes = await fetch(BAEMIN_API + path, { headers: reqHeaders, cache: 'no-store' })
+    let usedBase = BAEMIN_API
+    if (!baeminRes.ok && baeminRes.status !== 404) {
+      const r2 = await fetch(BAEMIN_API2 + path, { headers: reqHeaders, cache: 'no-store' })
+      if (r2.ok || r2.status === 404) { baeminRes = r2; usedBase = BAEMIN_API2 }
+    }
 
     if (!baeminRes.ok) {
       const errText = await baeminRes.text().catch(() => '')
       return NextResponse.json({
         ok: false,
         error: 'Baemin API 오류 (HTTP ' + baeminRes.status + ')',
+        tried: usedBase + path,
         debug: errText.slice(0, 800),
-        status_code: baeminRes.status,
-        hint: (baeminRes.status === 401 || baeminRes.status === 403)
-          ? 'self.baemin.com 에서 Network 탭 → self-api.baemin.com 요청의 Cookie 헤더를 복사해주세요.'
-          : '배민 API가 오류를 반환했어요. debug 필드를 확인해주세요.',
+        hint: '위 tried URL과 debug 내용을 개발자에게 알려주세요.',
       }, { status: 502 })
     }
 
