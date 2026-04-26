@@ -51,18 +51,25 @@ export async function runCoupangEats(
   const svc = getServiceClient()
   const creds = await loadPlainCredentials(svc, userId, 'coupangeats')
   const context = await browser.newContext({
-    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36',
-    viewport: { width: 1366, height: 900 },
+    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    viewport: { width: 1920, height: 1080 },
     locale: 'ko-KR',
     timezoneId: 'Asia/Seoul',
+    extraHTTPHeaders: {
+      'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+      'sec-ch-ua': '"Google Chrome";v="124", "Chromium";v="124", "Not-A.Brand";v="99"',
+      'sec-ch-ua-mobile': '?0',
+      'sec-ch-ua-platform': '"Windows"',
+    },
   })
   const page = await context.newPage()
   startNetworkCapture(page, log, ['review', 'feedback', 'rating', 'merchant'])
 
   try {
-    // 1) 로그인
-    await page.goto(LOGIN_URL, { waitUntil: 'domcontentloaded', timeout: 30000 })
-    await page.waitForTimeout(2000)
+    // 1) 로그인 — networkidle로 SPA 완전 렌더링 대기
+    await page.goto(LOGIN_URL, { waitUntil: 'networkidle', timeout: 45000 })
+    await page.waitForTimeout(4000)
 
     // 비밀번호 입력창 대기
     const pwLocator = page.locator(DOM_SELECTORS.pwInput).first()
