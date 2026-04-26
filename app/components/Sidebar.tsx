@@ -48,7 +48,7 @@ const REGIONS = [
 
 interface StoreInfo {
   storeName: string
-  branch: string
+  category: string
   address: string
 }
 
@@ -79,50 +79,54 @@ export default function Sidebar() {
   const [communityOpen, setCommunityOpen] = useState(isCommunitySection)
   const [openRegion, setOpenRegion] = useState<string>(currentRegion)
 
-  function applyStoreData(serverName: string, serverAddr: string, serverBranch: string) {
+  function applyStoreData(serverName: string, serverAddr: string, serverCategory: string) {
     setStoreInfo(prev => ({
       storeName: serverName || (prev ? prev.storeName : ''),
-      branch:    serverBranch || (prev ? prev.branch : ''),
+      category:  serverCategory || (prev ? prev.category : ''),
       address:   serverAddr || (prev ? prev.address : ''),
     }))
   }
 
   function loadStore() {
-    // 1) localStorage 즉시 반영
+    // 1) localStorage 즉시 반영 (branch 구형 키도 호환)
     try {
       const raw = localStorage.getItem('localution_store')
       if (raw) {
         const p = JSON.parse(raw)
-        setStoreInfo({ storeName: p.storeName || '', branch: p.branch || '', address: p.address || '' })
+        setStoreInfo({
+          storeName: p.storeName || '',
+          category:  p.category  || p.branch || '',
+          address:   p.address   || '',
+        })
       }
     } catch (_) {}
 
-    // 2) 서버에서 보충 (네이버 연동 포함)
+    // 2) 서버에서 보충 (네이버 연동 category 포함)
     fetch('/api/stores/me', { credentials: 'include', cache: 'no-store' })
       .then(r => r.json())
       .then(data => {
         if (!data || !data.ok) return
-        const naverName = (data.naver_link && data.naver_link.external_name) ? data.naver_link.external_name : ''
-        const naverAddr = (data.naver_link && data.naver_link.address) ? data.naver_link.address : ''
-        const sName = (data.store && data.store.name) ? data.store.name : naverName
-        const sAddr = (data.store && data.store.address) ? data.store.address : naverAddr
-        if (sName) {
-          applyStoreData(sName, sAddr, '')
-          // localStorage 동기화 (매장명만 — branch/phone 등은 덮어쓰지 않음)
+        const naverName     = (data.naver_link && data.naver_link.external_name) ? data.naver_link.external_name : ''
+        const naverAddr     = (data.naver_link && data.naver_link.address)       ? data.naver_link.address       : ''
+        const naverCategory = (data.naver_link && data.naver_link.category)      ? data.naver_link.category      : ''
+        const sName     = (data.store && data.store.name)     ? data.store.name     : naverName
+        const sAddr     = (data.store && data.store.address)  ? data.store.address  : naverAddr
+        const sCategory = (data.store && data.store.category) ? data.store.category : naverCategory
+        if (sName || sCategory) {
+          applyStoreData(sName, sAddr, sCategory)
           try {
             const curr = JSON.parse(localStorage.getItem('localution_store') || '{}')
-            if (!curr.storeName) {
-              curr.storeName = sName
-              if (!curr.address && sAddr) curr.address = sAddr
-              localStorage.setItem('localution_store', JSON.stringify(curr))
-            }
+            let changed = false
+            if (!curr.storeName && sName)     { curr.storeName = sName;     changed = true }
+            if (!curr.address   && sAddr)     { curr.address   = sAddr;     changed = true }
+            if (!curr.category  && sCategory) { curr.category  = sCategory; changed = true }
+            if (changed) localStorage.setItem('localution_store', JSON.stringify(curr))
           } catch (_) {}
         }
       })
       .catch(() => {})
   }
 
-  // 사용자 로그인 정보 (매장명 없을 때 폴백용)
   useEffect(() => {
     fetch('/api/me').then(r => r.json()).then(data => {
       if (data && data.user && data.user.name) setUser(data.user)
@@ -130,13 +134,11 @@ export default function Sidebar() {
 
     loadStore()
 
-    // 프로필 저장 이벤트 수신
     function onUserChange() { loadStore() }
     window.addEventListener('localution:user-change', onUserChange)
     return () => window.removeEventListener('localution:user-change', onUserChange)
   }, [])
 
-  // 외부 클릭 시 팝업 닫기
   useEffect(() => {
     function handleClick(e: MouseEvent) {
       if (profileRef.current && !profileRef.current.contains(e.target as Node)) {
@@ -157,16 +159,16 @@ export default function Sidebar() {
 
   const toggleRegion = (key: string) => setOpenRegion(prev => prev === key ? '' : key)
 
-  const storeName   = (storeInfo && storeInfo.storeName) ? storeInfo.storeName : ''
-  const storeBranch = (storeInfo && storeInfo.branch)    ? storeInfo.branch    : ''
-  const storeAddr   = (storeInfo && storeInfo.address)   ? storeInfo.address   : ''
-  const userEmail   = (user && user.email)  ? user.email  : ''
-  const userName    = (user && user.name)   ? user.name   : ''
+  const storeName    = (storeInfo && storeInfo.storeName) ? storeInfo.storeName : ''
+  const storeCategory = (storeInfo && storeInfo.category)  ? storeInfo.category  : ''
+  const storeAddr    = (storeInfo && storeInfo.address)   ? storeInfo.address   : ''
+  const userEmail    = (user && user.email) ? user.email : ''
+  const userName     = (user && user.name)  ? user.name  : ''
 
   const avatarChar  = storeName ? storeName.charAt(0) : (userName ? userName.charAt(0) : '?')
   const displayName = storeName || userName || '매장 설정 필요'
-  const displaySub  = storeBranch
-    ? storeBranch
+  const displaySub  = storeCategory
+    ? storeCategory
     : (storeAddr ? storeAddr.slice(0, 18) : (userEmail || ''))
 
   const NavItems = () => (
@@ -296,7 +298,6 @@ export default function Sidebar() {
 
   return (
     <>
-      {/* 모바일 상단 바 */}
       <div className="md:hidden fixed top-0 left-0 right-0 h-14 bg-white border-b border-[#E5E8EB] z-30 flex items-center justify-between px-4">
         <div>
           <span className="font-black text-[#191F28] text-lg tracking-tight">Localution</span>
@@ -312,7 +313,6 @@ export default function Sidebar() {
       {mobileOpen && <div className="md:hidden fixed inset-0 bg-black/30 z-30" onClick={() => setMobileOpen(false)} />}
 
       <aside className={"fixed top-0 left-0 h-screen w-[220px] bg-white border-r border-[#E5E8EB] z-40 flex flex-col transition-transform duration-300 " + (mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0')}>
-        {/* 로고 */}
         <div className="px-5 py-5 border-b border-[#F2F4F6]">
           <Link href="/" className="block">
             <div className="flex items-center gap-2.5">
@@ -329,10 +329,7 @@ export default function Sidebar() {
 
         <NavItems />
 
-        {/* 하단 매장 프로필 영역 */}
         <div className="px-4 py-4 border-t border-[#F2F4F6] relative" ref={profileRef}>
-
-          {/* 팝업 메뉴 (위쪽으로 열림) */}
           {profileOpen && (
             <div className="absolute bottom-[72px] left-4 right-4 bg-white rounded-xl shadow-lg border border-[#E5E8EB] overflow-hidden z-50">
               <Link href="/settings/profile"
@@ -365,7 +362,6 @@ export default function Sidebar() {
             </div>
           )}
 
-          {/* 클릭 가능한 매장 카드 */}
           <button
             onClick={() => setProfileOpen(v => !v)}
             className={"w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all " + (profileOpen ? 'bg-[#EFF6FF]' : 'bg-[#F8F9FA] hover:bg-[#F2F4F6]')}>
