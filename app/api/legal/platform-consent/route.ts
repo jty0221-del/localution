@@ -54,39 +54,38 @@ export async function POST(req: NextRequest) {
 
   const svc = createServiceClient()
 
+  // kakao_map 은 platform_consents 체크 제약에 없음 → 동의 저장 스킵하고 바로 진행
+  if (body.platform === 'kakao_map') {
+    return NextResponse.json({ ok: true, consent_id: 'kakao_map_no_consent_required' })
+  }
+
   try {
-    // 기존 동의가 있으면 갱신, 없으면 신규 생성
+    // 새 동의 레코드 삽입 (v_active_platform_consents 뷰가 최신 1건만 조회)
     const { data, error } = await svc
       .from('platform_consents')
-      .upsert(
-        {
-          user_id: auth.userId,
-          platform: body.platform,
-          agreed_scope: body.agreed_scope,
-          agreed_ownership: body.agreed_ownership,
-          agreed_risk: body.agreed_risk,
-          consent_version: CONSENT_VERSION,
-          ip_address: ip,
-          user_agent: ua,
-          extra_payload: body.extra_payload ?? null,
-          revoked_at: null,
-          created_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        },
-        { onConflict: 'user_id,platform' }
-      )
-      .select('id')
+      .insert({
+        user_id: auth.userId,
+        platform: body.platform,
+        agreed_scope: body.agreed_scope,
+        agreed_ownership: body.agreed_ownership,
+        agreed_risk: body.agreed_risk,
+        consent_version: CONSENT_VERSION,
+        ip_address: ip,
+        user_agent: ua,
+        extra_payload: body.extra_payload ?? {},
+      })
+      .select('consent_id')
       .single()
 
     if (error) {
-      console.error('[platform-consent] upsert error:', error.message)
+      console.error('[platform-consent] insert error:', error.message)
       return NextResponse.json(
         { ok: false, error: 'consent_save_failed', message: error.message },
         { status: 500 }
       )
     }
 
-    return NextResponse.json({ ok: true, consent_id: data.id })
+    return NextResponse.json({ ok: true, consent_id: data.consent_id })
   } catch (e: any) {
     console.error('[platform-consent] unexpected error:', e?.message)
     return NextResponse.json(
