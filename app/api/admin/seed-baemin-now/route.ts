@@ -62,8 +62,6 @@ export async function GET() {
     has_reply: false,
     posted_at: r.date + 'T12:00:00+09:00',
     collected_at: new Date().toISOString(),
-    reply_content: null,
-    reply_posted_at: null,
   }))
 
   const { data, error } = await svc
