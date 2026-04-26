@@ -13,7 +13,8 @@ const BAEMIN_API = 'https://self-api.baemin.com'
 
 function loadKek(): Buffer {
   const raw = process.env.ENCRYPTION_KEK_HEX || ''
-  const hex = raw.replace(/\s+/g, '')
+  let hex = ''
+  for (const c of raw) { if (c !== ' ' && c !== '\t' && c !== '\n' && c !== '\r') hex += c }
   if (hex.length !== 64) throw new Error('ENCRYPTION_KEK_HEX 설정 필요')
   return Buffer.from(hex, 'hex')
 }
