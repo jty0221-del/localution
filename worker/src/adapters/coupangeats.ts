@@ -113,13 +113,12 @@ export async function runCoupangEats(
     }
     await pwLocator.click()
     await pwLocator.fill('')
-    await pwLocator.pressSequentially(creds.password, { delay: 60 })
-    await page.waitForTimeout(500)
-    await Promise.all([
-      page.waitForLoadState('load', { timeout: 15000 }).catch(() => null),
-      page.locator(DOM_SELECTORS.loginBtn).first().click(),
-    ])
-    await page.waitForTimeout(3000)
+    await pwLocator.pressSequentially(creds.password, { delay: 80 })
+    await page.waitForTimeout(800)
+    await page.locator(DOM_SELECTORS.loginBtn).first().click()
+    // 로그인 후 URL이 /login 에서 벗어날 때까지 대기
+    await page.waitForURL((url) => !url.includes('/login'), { timeout: 20000 }).catch(() => null)
+    await page.waitForTimeout(2000)
 
     const currentUrl = page.url()
     if (currentUrl.includes('captcha')) {
@@ -127,9 +126,12 @@ export async function runCoupangEats(
       return { status: 'failed', message: 'coupangeats captcha — 수동 로그인 필요' }
     }
     if (currentUrl.includes('/login')) {
+      // 에러 텍스트 추출 (IP 차단 vs 잘못된 자격증명 구분)
+      const errorText = await page.locator('.login-error-text, [class*="login-error"]').first().innerText().catch(() => '')
+      log.warn({ errorText, currentUrl }, 'coupangeats login stayed on login page')
       await dumpPageDiagnostics(page, log, 'coupangeats-login-failed')
       const { failed, reason } = await detectLoginFailure(page)
-      await markLoginStatus(svc, userId, 'coupangeats', 'failed', reason || 'stayed on login')
+      await markLoginStatus(svc, userId, 'coupangeats', 'failed', reason || errorText || 'stayed on login')
       return {
         status: 'failed',
         message: failed
