@@ -1,7 +1,12 @@
 'use client'
 
 // ============================================================
-// 32차-2 · /settings/profile — 카테고리/업종 필드 (네이버 연동)
+// 32차-3 · /settings/profile — 카테고리 자동채움 (네이버 검색 API 보충)
+//
+//   loadServer 흐름:
+//     1) /api/stores/me → store.category or naver_link.category
+//     2) 카테고리 없고 매장명 있으면 /api/naver-place/search 로 자동 보충
+//     3) 결과를 form 에 즉시 반영 (버튼 클릭 불필요)
 // ============================================================
 
 import { useState, useEffect, useCallback } from 'react'
@@ -72,17 +77,31 @@ export default function ProfileSettingsPage() {
       const data = await res.json()
       if (!res.ok || !data?.ok) return
 
-      const naverName     = data.naver_link?.external_name || ''
-      const naverAddress  = data.naver_link?.address       || ''
-      const naverCategory = data.naver_link?.category      || ''
+      const naverName    = data.naver_link?.external_name || ''
+      const naverAddress = data.naver_link?.address       || ''
+      let   naverCategory = data.naver_link?.category     || ''
 
       if (data.naver_link && data.naver_link.external_name) {
         setNaverLink(data.naver_link)
       }
 
+      // 카테고리 없고 네이버 매장명 있으면 검색 API로 자동 보충
+      if (naverName && !naverCategory && !data.store?.category) {
+        try {
+          const sr = await fetch(
+            '/api/naver-place/search?query=' + encodeURIComponent(naverName),
+            { credentials: 'include', cache: 'no-store' }
+          )
+          const sd = await sr.json()
+          if (sd.items && sd.items.length > 0 && sd.items[0].category) {
+            naverCategory = sd.items[0].category
+          }
+        } catch (_) {}
+      }
+
       if (data.store || data.naver_link) {
         setForm((prev) => ({
-          // 우선순위: 서버저장값 > 네이버연동값 > localStorage(prev)
+          // 우선순위: 서버저장값 > 네이버연동값(검색보충 포함) > localStorage
           storeName: data.store?.name     || naverName     || prev.storeName || '',
           category:  data.store?.category || naverCategory || prev.category  || '',
           address:   data.store?.address  || naverAddress  || prev.address   || '',
@@ -128,7 +147,7 @@ export default function ProfileSettingsPage() {
       category:  naverLink.category      || f.category  || '',
       address:   naverLink.address       || f.address   || '',
     }))
-    toast.info('네이버 플레이스 정보를 가져왔어요. 저장 버튼을 눌러 반영하세요.')
+    toast.info('네이버 플레이스 정보를 다시 가져왔어요.')
   }
 
   async function handleSave(e: React.FormEvent) {
@@ -280,11 +299,8 @@ export default function ProfileSettingsPage() {
                 {platforms.map((p) => {
                   const color = PLATFORM_COLOR[p.platform] ?? { bg: '#F2F4F6', fg: '#4E5968' }
                   return (
-                    <div
-                      key={p.platform}
-                      className="px-3 py-2 rounded-xl text-[11px] font-bold flex items-center gap-2"
-                      style={{ background: color.bg, color: color.fg }}
-                    >
+                    <div key={p.platform} className="px-3 py-2 rounded-xl text-[11px] font-bold flex items-center gap-2"
+                      style={{ background: color.bg, color: color.fg }}>
                       <span>{p.label}</span>
                       {p.review_count > 0 && (
                         <span className="text-[10px] opacity-80">
@@ -313,12 +329,10 @@ export default function ProfileSettingsPage() {
               </div>
               <div className="flex items-center gap-2">
                 {naverLink && naverLink.external_name && (
-                  <button
-                    type="button"
-                    onClick={applyNaverData}
+                  <button type="button" onClick={applyNaverData}
                     className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1.5 rounded-lg bg-[#EDF7ED] text-[#03C75A] hover:bg-[#D1F0D9] transition-all">
                     <RefreshCw size={11} strokeWidth={2.5} />
-                    네이버서 가져오기
+                    다시 가져오기
                   </button>
                 )}
                 {saved && (
@@ -335,14 +349,11 @@ export default function ProfileSettingsPage() {
                   <Store size={12} strokeWidth={2.5} className="inline mr-1" />
                   매장명 <span className="text-[#F04452]">*</span>
                 </label>
-                <input
-                  type="text"
-                  value={form.storeName || ''}
+                <input type="text" value={form.storeName || ''}
                   onChange={e => setForm(f => ({ ...f, storeName: e.target.value }))}
                   placeholder="예) 하랑마케팅, 강남치과, 라떼커피 등"
                   maxLength={24}
-                  className="w-full px-4 py-2.5 rounded-xl border border-[#E5E8EB] focus:outline-none focus:border-[#3182F6] focus:ring-2 focus:ring-[#3182F6]/10 text-sm"
-                />
+                  className="w-full px-4 py-2.5 rounded-xl border border-[#E5E8EB] focus:outline-none focus:border-[#3182F6] focus:ring-2 focus:ring-[#3182F6]/10 text-sm" />
                 <p className="text-[10px] text-[#8B95A1] mt-1">사이드바 타이틀로 표시됩니다</p>
               </div>
 
@@ -351,26 +362,20 @@ export default function ProfileSettingsPage() {
                   <Tag size={12} strokeWidth={2.5} className="inline mr-1" />
                   카테고리 / 업종
                 </label>
-                <input
-                  type="text"
-                  value={form.category || ''}
+                <input type="text" value={form.category || ''}
                   onChange={e => setForm(f => ({ ...f, category: e.target.value }))}
                   placeholder="예) 카페, 한식, 미용실, 네일샵 등"
                   maxLength={30}
-                  className="w-full px-4 py-2.5 rounded-xl border border-[#E5E8EB] focus:outline-none focus:border-[#3182F6] focus:ring-2 focus:ring-[#3182F6]/10 text-sm"
-                />
+                  className="w-full px-4 py-2.5 rounded-xl border border-[#E5E8EB] focus:outline-none focus:border-[#3182F6] focus:ring-2 focus:ring-[#3182F6]/10 text-sm" />
                 <p className="text-[10px] text-[#8B95A1] mt-1">네이버 플레이스 연동 시 자동으로 채워집니다</p>
               </div>
 
               <div>
                 <label className="block text-xs font-semibold text-[#4E5968] mb-1.5">주소</label>
-                <input
-                  type="text"
-                  value={form.address || ''}
+                <input type="text" value={form.address || ''}
                   onChange={e => setForm(f => ({ ...f, address: e.target.value }))}
                   placeholder="예) 서울시 강남구 테헤란로 123"
-                  className="w-full px-4 py-2.5 rounded-xl border border-[#E5E8EB] focus:outline-none focus:border-[#3182F6] focus:ring-2 focus:ring-[#3182F6]/10 text-sm"
-                />
+                  className="w-full px-4 py-2.5 rounded-xl border border-[#E5E8EB] focus:outline-none focus:border-[#3182F6] focus:ring-2 focus:ring-[#3182F6]/10 text-sm" />
               </div>
 
               <div>
@@ -378,19 +383,14 @@ export default function ProfileSettingsPage() {
                   <Phone size={12} strokeWidth={2.5} className="inline mr-1" />
                   대표 전화
                 </label>
-                <input
-                  type="tel"
-                  value={form.phone || ''}
+                <input type="tel" value={form.phone || ''}
                   onChange={e => setForm(f => ({ ...f, phone: e.target.value }))}
                   placeholder="예) 02-1234-5678"
-                  className="w-full px-4 py-2.5 rounded-xl border border-[#E5E8EB] focus:outline-none focus:border-[#3182F6] focus:ring-2 focus:ring-[#3182F6]/10 text-sm"
-                />
+                  className="w-full px-4 py-2.5 rounded-xl border border-[#E5E8EB] focus:outline-none focus:border-[#3182F6] focus:ring-2 focus:ring-[#3182F6]/10 text-sm" />
               </div>
             </div>
 
-            <button
-              type="submit"
-              disabled={!loaded || !form.storeName || saving}
+            <button type="submit" disabled={!loaded || !form.storeName || saving}
               className="mt-5 w-full inline-flex items-center justify-center gap-2 py-3 rounded-xl bg-[#3182F6] text-white font-bold text-sm hover:bg-[#1B64DA] transition-all disabled:opacity-50 disabled:cursor-not-allowed">
               <Save size={15} strokeWidth={2.5} />
               {saving ? '저장 중…' : '저장하기'}
