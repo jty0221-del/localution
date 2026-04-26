@@ -57,11 +57,14 @@ export async function loadCookieData(
   userId: string,
 ): Promise<string | null> {
   try {
-    const { data } = await svc
+    const supabaseUrl = (process.env.SUPABASE_URL || '').slice(0, 40)
+    const { data, error } = await svc
       .from('naver_session_cookies')
       .select('cookie_enc, cookie_iv, cookie_tag')
       .eq('user_id', userId)
       .maybeSingle()
+
+    console.log('[loadCookieData]', { supabaseUrl, userId: userId.slice(0, 12), hasData: !!data, error: error?.message })
 
     if (!data?.cookie_enc) return null
 
