@@ -143,13 +143,17 @@ export async function runYogiyo(
       ? `${REVIEWS_BASE_URL}/${creds.platform_store_id}`
       : REVIEWS_BASE_URL
     log.info({ reviewsUrl }, 'yogiyo navigating to reviews')
-    await page.goto(reviewsUrl, { waitUntil: 'networkidle', timeout: 45000 })
-    await page.waitForTimeout(2500)
+    await page.goto(reviewsUrl, { waitUntil: 'load', timeout: 45000 })
+    await page.waitForTimeout(4000)
 
     for (let i = 0; i < 8; i++) {
       await page.evaluate(() => window.scrollBy(0, 1200))
       await page.waitForTimeout(700)
     }
+
+    // 리뷰 페이지 HTML 진단 (셀렉터 확인용)
+    const reviewPageSnippet = await page.evaluate(() => document.body.innerHTML.slice(0, 3000))
+    log.info({ reviewPageSnippet }, 'yogiyo review page html')
 
     // 3) 리뷰 파싱
     const reviews = await page.evaluate((sel) => {
