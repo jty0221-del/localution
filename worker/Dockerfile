@@ -10,7 +10,7 @@ RUN npm install --omit=optional --no-audit --no-fund \
     && npm cache clean --force
 
 COPY tsconfig.json ./
-RUN echo "build-marker: 43cha-cookie-auth"
+RUN echo "build-marker: 43cha-cookie-auth-fix"
 COPY src ./src
 
 RUN npx tsc
