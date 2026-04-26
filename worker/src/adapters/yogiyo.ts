@@ -113,11 +113,10 @@ export async function runYogiyo(
     await pwLocator.fill('')
     await pwLocator.pressSequentially(creds.password, { delay: 60 })
     await page.waitForTimeout(500)
-    await Promise.all([
-      page.waitForLoadState('load', { timeout: 15000 }).catch(() => null),
-      page.locator(DOM_SELECTORS.loginBtn).first().click(),
-    ])
-    await page.waitForTimeout(3000)
+    await page.locator(DOM_SELECTORS.loginBtn).first().click()
+    // 로그인 후 URL이 /login 에서 벗어날 때까지 대기 (리다이렉트 완료 보장)
+    await page.waitForURL((url) => !url.includes('/login'), { timeout: 20000 }).catch(() => null)
+    await page.waitForTimeout(2000)
 
     const currentUrl = page.url()
     if (currentUrl.includes('captcha')) {
