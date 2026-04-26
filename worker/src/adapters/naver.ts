@@ -66,7 +66,12 @@ export async function runNaver(
     let loginOk = false
 
     // ── 1) \uC138\uC158 \uCFE0\uD0A4 \uC8FC\uC785 ─────────────────────────────────────────
-    const savedCookies = creds.session_cookies
+    // naver_session_cookies 테이블 우선, 없으면 extra_data fallback
+    const _naverCookieJson = await loadCookieData(svc, userId)
+    const savedCookies: Array<{ name: string; value: string; domain?: string; path?: string }> | null =
+      _naverCookieJson
+        ? (() => { try { return JSON.parse(_naverCookieJson) } catch { return null } })()
+        : ((creds as any).session_cookies ?? null)
     if (savedCookies && Array.isArray(savedCookies) && savedCookies.length > 0) {
       log.info({ count: savedCookies.length }, 'naver: cookie injection attempt')
       try {
