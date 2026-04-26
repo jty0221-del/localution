@@ -1928,7 +1928,7 @@ export default function Dashboard() {
           )}
           <div className="divide-y divide-[#F2F4F6]">
             {hasRealReviews ? (
-              mergedRealReviews.slice(0, 10).map((r) => {
+              mergedRealReviews.slice(0, 20).map((r) => {
                 const pf = platforms.find((x) => x.id === r._platformId)
                 const displayColor = pf?.color || '#03C75A'
                 const shortLabel = pf?.shortName || r._platformId
