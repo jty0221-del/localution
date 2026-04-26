@@ -56,6 +56,33 @@ export async function loadCookieData(
   svc: SupabaseClient,
   userId: string,
 ): Promise<string | null> {
+  // ── 1순위: platform_credentials.extra_data.naver_session_cookie ──
+  // Worker가 확실히 접근 가능한 테이블 (platform_reviews 업데이트 성공으로 확인)
+  try {
+    const { data: cred, error: credErr } = await svc
+      .from('platform_credentials')
+      .select('extra_data')
+      .eq('user_id', userId)
+      .eq('platform', 'naver_place')
+      .maybeSingle()
+
+    const cookieJson = (cred?.extra_data as any)?.naver_session_cookie
+    console.log('[loadCookieData] platform_credentials check', {
+      userId: userId.slice(0, 12),
+      hasCred: !!cred,
+      hasCookieInExtra: !!cookieJson,
+      credErr: credErr?.message,
+    })
+
+    if (cookieJson && typeof cookieJson === 'string') {
+      console.log('[loadCookieData] using cookie from platform_credentials.extra_data')
+      return cookieJson
+    }
+  } catch (e: any) {
+    console.warn('[loadCookieData] platform_credentials check failed:', e?.message)
+  }
+
+  // ── 2순위: naver_session_cookies 테이블 (구버전 호환) ──
   try {
     const supabaseUrl = (process.env.SUPABASE_URL || '').slice(0, 40)
     const { data, error } = await svc
@@ -64,7 +91,9 @@ export async function loadCookieData(
       .eq('user_id', userId)
       .maybeSingle()
 
-    console.log('[loadCookieData]', { supabaseUrl, userId: userId.slice(0, 12), hasData: !!data, error: error?.message })
+    console.log('[loadCookieData] naver_session_cookies check', {
+      supabaseUrl, userId: userId.slice(0, 12), hasData: !!data, error: error?.message,
+    })
 
     if (!data?.cookie_enc) return null
 
