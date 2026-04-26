@@ -98,15 +98,14 @@ export default function BaeminSessionPage() {
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-4">
           <h2 className="font-bold text-gray-900 mb-3">1단계. 배민 쿠키 복사하기</h2>
           <ol className="text-sm text-gray-600 space-y-2 list-decimal list-inside">
-            <li>Chrome에서 <a href="https://self.baemin.com/shops/14637452/reviews" target="_blank" rel="noreferrer" className="text-[#2AC1BC] underline">self.baemin.com/shops/14637452/reviews</a>에 접속하세요 (로그인 필요)</li>
-            <li><strong>F12</strong> → <strong>Network</strong> 탭 클릭</li>
-            <li>상단 필터창에 <code className="bg-gray-100 px-1 rounded">self-api</code> 입력 후 <strong>F5</strong> 새로고침</li>
-            <li>목록에 나타나는 <strong>self-api.baemin.com</strong> 요청 중 하나 클릭</li>
-            <li>오른쪽 <strong>Headers → Request Headers → cookie</strong> 값 전체 복사</li>
-            <li>아래에 붙여넣기 후 저장</li>
+            <li>Chrome에서 <a href="https://self.baemin.com/shops/14637452/reviews" target="_blank" rel="noreferrer" className="text-[#2AC1BC] underline">self.baemin.com 리뷰 페이지</a>에 접속하세요 (로그인 필요)</li>
+            <li><strong>F12</strong> → <strong>Network</strong> 탭 클릭 → <strong>F5</strong> 새로고침</li>
+            <li>Network 목록 맨 위 첫 번째 요청 클릭</li>
+            <li>오른쪽 <strong>Headers → Request Headers</strong> 에서 <strong>cookie</strong> 항목 찾기</li>
+            <li>cookie 값 전체를 복사해서 아래에 붙여넣기</li>
           </ol>
-          <div className="mt-3 p-3 bg-amber-50 rounded-lg text-xs text-amber-700">
-            <strong>⚠️ 중요:</strong> &quot;self-api&quot; 요청의 cookie를 복사해야 해요. 일반 self.baemin.com 페이지 요청이 아닌 <strong>API 요청</strong>이어야 합니다.
+          <div className="mt-3 p-3 bg-blue-50 rounded-lg text-xs text-blue-700">
+            <strong>TIP:</strong> 필터 없이 목록 맨 위 첫 번째 항목을 클릭하면 돼요. cookie 값이 매우 길어도 전체를 복사해주세요.
           </div>
         </div>
 
