@@ -305,10 +305,43 @@ async function postNaverReply(
       return { ok: false, reason: '세션 만료 — /my/platforms/naver_place/session 에서 쿠키를 갱신해주세요' }
     }
 
+    // 리다이렉트된 실제 place ID 추출 (SmartPlace가 다른 ID로 리다이렉트할 수 있음)
+    const placeIdMatch = currentUrl.match(/\/bizes\/place\/(\d+)/)
+    const actualPlaceId = placeIdMatch?.[1] || storeId
+    log.info({ actualPlaceId, storeId }, 'naver: actual place ID')
+
+    // 리뷰 탭 클릭 (현재 페이지가 리뷰 탭이 아닐 수 있음)
+    try {
+      const reviewTabSelectors = [
+        'a[href*="/reviews"]:visible',
+        '[class*="LocalNavigationBar_link"]:has-text("리뷰")',
+        '[class*="nav"]:has-text("리뷰")',
+        'a:has-text("리뷰"):visible',
+      ]
+      for (const sel of reviewTabSelectors) {
+        const tab = await page.$(sel)
+        if (tab) {
+          await tab.click()
+          await page.waitForTimeout(2000)
+          log.info({ sel }, 'naver: clicked reviews tab')
+          break
+        }
+      }
+    } catch (e: any) {
+      log.warn({ err: e?.message }, 'naver: could not click reviews tab')
+    }
+
+    // 리뷰 카드 로딩 대기
+    try {
+      await page.waitForSelector('[class*="Review_single_review"], [class*="single_review"], [class*="ReviewItem"]', { timeout: 8000 })
+    } catch {
+      log.warn('naver: review card selector timeout — proceeding anyway')
+    }
+
     // 스크롤로 리뷰 로딩 (lazy load 대응)
     for (let i = 0; i < 5; i++) {
       await page.evaluate(() => window.scrollBy(0, 600))
-      await page.waitForTimeout(600)
+      await page.waitForTimeout(500)
     }
     await page.evaluate(() => window.scrollTo(0, 0))
     await page.waitForTimeout(800)
@@ -348,7 +381,8 @@ async function postNaverReply(
     // SmartPlace 내부 API 폴백
     if (!card) {
       log.warn({ platformReviewId, url: page.url() }, 'naver: card not found, trying internal API')
-      const apiResult = await tryNaverReplyAPI(page, storeId, platformReviewId, replyText, log)
+      // 실제 place ID로 API 시도
+      const apiResult = await tryNaverReplyAPI(page, actualPlaceId, platformReviewId, replyText, log)
       if (apiResult.ok) return apiResult
       await dumpPageDiagnostics(page, log, `naver-no-card-${platformReviewId}`)
       return { ok: false, reason: `review card not found (url: ${page.url()})` }
@@ -408,7 +442,9 @@ async function tryNaverReplyAPI(
         const endpoints = [
           { url: `https://new.smartplace.naver.com/api/bizes/${storeId}/reviews/${reviewId}/reply`, body: { content: text } },
           { url: `https://new.smartplace.naver.com/api/bizes/${storeId}/reviews/${reviewId}/comment`, body: { content: text } },
+          { url: `https://new.smartplace.naver.com/api/v1/bizes/${storeId}/reviews/${reviewId}/reply`, body: { content: text } },
         ]
+        const results: string[] = []
         for (const ep of endpoints) {
           try {
             const res = await fetch(ep.url, {
@@ -417,10 +453,14 @@ async function tryNaverReplyAPI(
               credentials: 'include',
               body: JSON.stringify(ep.body),
             })
+            const bodyText = await res.text().catch(() => '')
+            results.push(`${ep.url} → ${res.status}: ${bodyText.slice(0, 100)}`)
             if (res.ok) return { ok: true, endpoint: ep.url }
-          } catch {}
+          } catch (err: any) {
+            results.push(`${ep.url} → error: ${err?.message}`)
+          }
         }
-        return { ok: false, reason: 'all SmartPlace API endpoints failed' }
+        return { ok: false, reason: 'all SmartPlace API endpoints failed: ' + results.join(' | ') }
       },
       { storeId, reviewId: platformReviewId, text: replyText },
     )
