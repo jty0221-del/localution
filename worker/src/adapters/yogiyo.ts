@@ -50,30 +50,63 @@ export async function runYogiyo(
   const svc = getServiceClient()
   const creds = await loadPlainCredentials(svc, userId, 'yogiyo')
   const context = await browser.newContext({
-    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36',
-    viewport: { width: 1366, height: 900 },
+    userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+    viewport: { width: 1920, height: 1080 },
     locale: 'ko-KR',
     timezoneId: 'Asia/Seoul',
+    extraHTTPHeaders: {
+      'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8',
+      'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8',
+      'sec-ch-ua': '"Google Chrome";v="124", "Chromium";v="124", "Not-A.Brand";v="99"',
+      'sec-ch-ua-mobile': '?0',
+      'sec-ch-ua-platform': '"Windows"',
+    },
   })
   const page = await context.newPage()
   startNetworkCapture(page, log, ['review', 'feedback', 'rating'])
 
   try {
-    // 1) 로그인
-    await page.goto(LOGIN_URL, { waitUntil: 'domcontentloaded', timeout: 30000 })
-    await page.waitForTimeout(2000)
+    // 1) 로그인 — networkidle로 SPA 완전 렌더링 대기
+    await page.goto(LOGIN_URL, { waitUntil: 'networkidle', timeout: 45000 })
+    await page.waitForTimeout(3000)
 
     // 폼이 실제로 나타날 때까지 대기
     const pwLocator = page.locator(DOM_SELECTORS.pwInput).first()
-    const pwVisible = await pwLocator.waitFor({ state: 'visible', timeout: 15000 }).then(() => true).catch(() => false)
+    const pwVisible = await pwLocator.waitFor({ state: 'visible', timeout: 25000 }).then(() => true).catch(() => false)
     if (!pwVisible) {
       await dumpPageDiagnostics(page, log, 'yogiyo-login-form-missing')
       await markLoginStatus(svc, userId, 'yogiyo', 'failed', 'login form not found')
       return { status: 'failed', message: 'yogiyo 로그인 폼을 찾지 못했습니다 — 페이지 구조 변경 가능성' }
     }
 
-    const idLocator = page.locator(DOM_SELECTORS.idInput).first()
-    await idLocator.fill(creds.account_id)
+    // ID 입력창 — 셀렉터 후보 순차 시도
+    const idCandidates = [
+      'input[name="username"]',
+      'input[name="loginId"]',
+      'input[name="email"]',
+      'input[type="email"]',
+      'input[placeholder*="아이디"]',
+      'input[placeholder*="이메일"]',
+      'input[placeholder*="ID"]',
+    ]
+    let idFilled = false
+    for (const sel of idCandidates) {
+      try {
+        const loc = page.locator(sel).first()
+        const visible = await loc.waitFor({ state: 'visible', timeout: 2000 }).then(() => true).catch(() => false)
+        if (visible) {
+          await loc.fill(creds.account_id, { timeout: 5000 })
+          idFilled = true
+          log.info({ sel }, 'yogiyo id input filled')
+          break
+        }
+      } catch { continue }
+    }
+    if (!idFilled) {
+      await dumpPageDiagnostics(page, log, 'yogiyo-id-input-not-found')
+      await markLoginStatus(svc, userId, 'yogiyo', 'failed', 'id input not found')
+      return { status: 'failed', message: 'yogiyo ID 입력 필드를 찾지 못했습니다 — html_snippet 로그 확인 필요' }
+    }
     await pwLocator.fill(creds.password)
     await Promise.all([
       page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => null),
