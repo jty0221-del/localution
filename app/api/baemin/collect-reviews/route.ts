@@ -104,26 +104,47 @@ export async function POST(req: NextRequest) {
     const cookieStr = decryptStr(extra.baemin_cookie_enc, extra.baemin_cookie_iv, extra.baemin_cookie_tag)
     const shopNo = String(body.shop_no || cred?.platform_store_id || '14637452')
 
-    // ── 2) 배민 API 호출 ──
+    // ── 2) 쿠키에서 XSRF 토큰 추출 ──
+    let xsrfToken = ''
+    for (const part of cookieStr.split(';')) {
+      const kv = part.trim()
+      const eqIdx = kv.indexOf('=')
+      if (eqIdx === -1) continue
+      const name = kv.slice(0, eqIdx).trim().toLowerCase()
+      if (name === 'xsrf-token' || name === '_xsrf' || name === 'csrf_token' || name === 'csrftoken') {
+        xsrfToken = kv.slice(eqIdx + 1).trim()
+        break
+      }
+    }
+
+    // ── 3) 배민 API 호출 ──
     const apiUrl = BAEMIN_API + '/v1/review/shops/' + shopNo + '/reviews?pageNumber=1&pageSize=20'
-    const baeminRes = await fetch(apiUrl, {
-      headers: {
-        'Cookie': cookieStr,
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0.0.0 Safari/537.36',
-        'Referer': 'https://self.baemin.com/',
-        'Origin': 'https://self.baemin.com',
-        'Accept': 'application/json, text/plain, */*',
-        'Accept-Language': 'ko-KR,ko;q=0.9',
-      },
-      cache: 'no-store',
-    })
+    const reqHeaders: Record<string, string> = {
+      'Cookie': cookieStr,
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+      'Referer': 'https://self.baemin.com/shops/' + shopNo + '/reviews',
+      'Origin': 'https://self.baemin.com',
+      'Accept': 'application/json, text/plain, */*',
+      'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8',
+      'sec-fetch-dest': 'empty',
+      'sec-fetch-mode': 'cors',
+      'sec-fetch-site': 'same-site',
+    }
+    if (xsrfToken) reqHeaders['X-XSRF-TOKEN'] = xsrfToken
+
+    const baeminRes = await fetch(apiUrl, { headers: reqHeaders, cache: 'no-store' })
 
     if (!baeminRes.ok) {
       const errText = await baeminRes.text().catch(() => '')
-      if (baeminRes.status === 401 || baeminRes.status === 403) {
-        return NextResponse.json({ ok: false, error: '쿠키가 만료됐어요. 배민 셀프서비스에서 쿠키를 다시 복사해주세요.' }, { status: 401 })
-      }
-      return NextResponse.json({ ok: false, error: 'Baemin API 오류 (' + baeminRes.status + '): ' + errText.slice(0, 200) }, { status: 500 })
+      return NextResponse.json({
+        ok: false,
+        error: 'Baemin API 오류 (HTTP ' + baeminRes.status + ')',
+        debug: errText.slice(0, 800),
+        status_code: baeminRes.status,
+        hint: (baeminRes.status === 401 || baeminRes.status === 403)
+          ? 'self.baemin.com 에서 Network 탭 → self-api.baemin.com 요청의 Cookie 헤더를 복사해주세요.'
+          : '배민 API가 오류를 반환했어요. debug 필드를 확인해주세요.',
+      }, { status: 502 })
     }
 
     const json = await baeminRes.json()
