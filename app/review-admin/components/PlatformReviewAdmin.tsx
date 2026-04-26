@@ -304,21 +304,27 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
     setFetching(true)
     try {
       const endpoint = config.collectEndpoint || '/api/place/reviews/fetch'
+      const isWorkerEndpoint = endpoint.includes('/collect')
+      const body = isWorkerEndpoint
+        ? { platform: config.platform }
+        : (placeId ? { place_id: placeId } : {})
       const res = await fetch(endpoint, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(placeId ? { place_id: placeId } : {}),
+        body: JSON.stringify(body),
       })
       const data = await res.json()
       if (!res.ok || !data?.ok) {
         toast.error(data?.error || '리뷰 수집 실패')
         return
       }
-      if (data.total > 0) {
+      if (data.note || data.message) {
+        toast.info(data.note || data.message)
+      } else if (data.total > 0) {
         toast.success(`${config.label} 리뷰 ${data.total}건 수집 완료`)
       } else {
-        toast.info(data.note || '새로 수집된 리뷰가 없어요')
+        toast.info('새로 수집된 리뷰가 없어요')
       }
       await Promise.all([loadStoresMe(), loadReviews()])
     } catch (e: any) {
