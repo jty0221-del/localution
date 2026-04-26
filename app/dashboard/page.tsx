@@ -1026,13 +1026,38 @@ export default function Dashboard() {
       const j = await res.json().catch(() => null)
       if (!res.ok || !j?.ok) {
         toast.error(j?.error || j?.message || `수집 요청 실패 (${res.status})`)
+        setWorkerCollecting(prev => ({ ...prev, [platformId]: false }))
         return
       }
-      toast.success(`${platformId} 수집 요청 완료 — 1~3분 후 새로고침하세요`)
-      setTimeout(() => loadPlatformReviews([platformId as PlatformId]), 90000)
+      toast.info('워커에 수집 요청 완료 — 리뷰가 들어오면 자동으로 업데이트됩니다')
+
+      // 20초 간격으로 최대 9회(3분) 폴링 — 리뷰 생기면 즉시 반영
+      let tries = 0
+      const prevCount = (platformReviews[platformId] || []).length
+      const timer = setInterval(async () => {
+        tries++
+        try {
+          await loadPlatformReviews([platformId as PlatformId])
+          await reloadStoresMe()
+          const newCount = (platformReviews[platformId] || []).length
+          if (newCount > prevCount || tries >= 9) {
+            clearInterval(timer)
+            setWorkerCollecting(prev => ({ ...prev, [platformId]: false }))
+            if (newCount > prevCount) {
+              toast.success(`${platformId} 리뷰 ${newCount}건 수집 완료!`)
+            } else {
+              toast.info('수집 완료 — 리뷰 관리 페이지에서 확인하세요')
+            }
+          }
+        } catch {
+          if (tries >= 9) {
+            clearInterval(timer)
+            setWorkerCollecting(prev => ({ ...prev, [platformId]: false }))
+          }
+        }
+      }, 20000)
     } catch (e: any) {
       toast.error(`수집 오류: ${e?.message || e}`)
-    } finally {
       setWorkerCollecting(prev => ({ ...prev, [platformId]: false }))
     }
   }
