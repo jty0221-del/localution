@@ -289,14 +289,14 @@ async function postNaverReply(
   log: Logger,
 ): Promise<{ ok: true } | { ok: false; reason: string }> {
   try {
-    // 리뷰 목록 페이지로 이동 (직접 리뷰 URL은 SmartPlace가 리다이렉트함)
-    const reviewsListUrl = storeId && storeId !== 'unknown'
-      ? `${NEW_SMARTPLACE_BASE}/bizes/place/${storeId}/reviews`
+    // 직접 리뷰 URL로 이동 — SmartPlace가 리다이렉트해도 리뷰 카드가 렌더됨
+    const reviewUrl = storeId && storeId !== 'unknown'
+      ? `${NEW_SMARTPLACE_BASE}/bizes/place/${storeId}/reviews/${platformReviewId}`
       : `${NEW_SMARTPLACE_BASE}/bizes`
 
-    log.info({ reviewsListUrl, storeId, platformReviewId }, 'naver: navigating to reviews list')
-    await page.goto(reviewsListUrl, { waitUntil: 'domcontentloaded', timeout: 40000 })
-    await page.waitForTimeout(4000)
+    log.info({ reviewUrl, storeId, platformReviewId }, 'naver: navigating to review')
+    await page.goto(reviewUrl, { waitUntil: 'networkidle', timeout: 50000 })
+    await page.waitForTimeout(3000)
 
     const currentUrl = page.url()
     log.info({ url: currentUrl }, 'naver: reviews page loaded')
