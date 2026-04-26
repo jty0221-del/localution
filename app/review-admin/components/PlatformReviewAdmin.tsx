@@ -96,32 +96,12 @@ interface StoreMeResponse {
     rating_avg: number | null
     unreplied_count: number
     latest_collected_at: string | null
-    // 43차-5: 워커 로그인 상태 (캡차/실패 배너용)
-    last_login_status: string | null
-    last_login_at: string | null
   }>
   naver_link?: {
     external_id: string | null
     external_name: string | null
     external_url: string | null
   } | null
-}
-
-// 43차-5: last_login_status 해석
-type LoginIssue =
-  | { kind: 'captcha'; detail: string | null }
-  | { kind: 'failed'; detail: string | null }
-  | null
-
-function parseLoginIssue(status: string | null | undefined): LoginIssue {
-  if (!status) return null
-  const s = String(status)
-  if (s.startsWith('success')) return null
-  const [head, ...rest] = s.split(':')
-  const detail = rest.length > 0 ? rest.join(':') : null
-  if (head === 'captcha') return { kind: 'captcha', detail }
-  if (head === 'failed') return { kind: 'failed', detail }
-  return null
 }
 
 export interface PlatformConfig {
@@ -192,25 +172,18 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
   const [connected, setConnected] = useState(false)
   const [storeName, setStoreName] = useState<string>('')
   const [placeId, setPlaceId] = useState<string | null>(null)
-  const [smartplaceBizId, setSmartplaceBizId] = useState<string | null>(null)
   const [agg, setAgg] = useState<{ review_count: number; rating_avg: number | null; unreplied_count: number; latest_collected_at: string | null }>({
     review_count: 0,
     rating_avg: null,
     unreplied_count: 0,
     latest_collected_at: null,
   })
-  // 43차-5: 워커 로그인 이슈 (캡차/실패) 배너 상태
-  const [loginIssue, setLoginIssue] = useState<LoginIssue>(null)
-  const [loginIssueAt, setLoginIssueAt] = useState<string | null>(null)
 
   // ── 리뷰 목록 ────────────────────────────
   const [reviews, setReviews] = useState<Review[]>([])
-  const pollingTimerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const [loadingReviews, setLoadingReviews] = useState(false)
   const [fetching, setFetching] = useState(false)
   const [autoFetchTried, setAutoFetchTried] = useState(false)
-  // 43차-5: Worker 비동기 큐잉 시간 — 빈 상태 안내 카피에 사용
-  const [enqueuedAt, setEnqueuedAt] = useState<string | null>(null)
   const [filterRating, setFilterRating] = useState<number | null>(null)
   const [filterReplied, setFilterReplied] = useState<'all' | 'replied' | 'unreplied' | 'negative'>('all')
   // 30차-23: 기간 필터 (7일 / 30일 / 전체) — 서버 쿼리 파라미터로 넘겨서 re-fetch
@@ -260,9 +233,6 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
         unreplied_count: Number(row?.unreplied_count ?? 0),
         latest_collected_at: row?.latest_collected_at ?? null,
       })
-      // 43차-5: 캡차/실패 상태 해석
-      setLoginIssue(parseLoginIssue(row?.last_login_status))
-      setLoginIssueAt(row?.last_login_at ?? null)
     } catch (_) {}
     finally {
       setLoadingConn(false)
@@ -324,7 +294,7 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
     if (!loadingConn) loadReviews()
   }, [loadingConn, loadReviews])
 
-  // ── 3) 지금 수집 (전 플랫폼 — naver_place: Vercel 직접 / 그 외: Worker 큐) ─────
+  // ── 3) 지금 수집 (naver_place 만 동작) ─────
   const collectNow = useCallback(async () => {
     if (!config.supportsFetch) {
       toast.info('이 플랫폼은 아직 자동 수집을 지원하지 않아요 (Worker 대기)')
@@ -334,14 +304,11 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
     setFetching(true)
     try {
       const endpoint = config.collectEndpoint || '/api/place/reviews/fetch'
-      // 43차-4: collect 엔드포인트는 platform 필수, 기존 naver fetch 는 무관 → 항상 동봉
-      const reqBody: Record<string, unknown> = { platform: config.platform }
-      if (placeId) reqBody.place_id = placeId
       const res = await fetch(endpoint, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(reqBody),
+        body: JSON.stringify(placeId ? { place_id: placeId } : {}),
       })
       const data = await res.json()
       if (!res.ok || !data?.ok) {
@@ -350,11 +317,6 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
       }
       if (data.total > 0) {
         toast.success(`${config.label} 리뷰 ${data.total}건 수집 완료`)
-        setEnqueuedAt(null)
-      } else if (data.jobId) {
-        // 43차-5: Worker 큐잉 (비동기)
-        setEnqueuedAt(new Date().toISOString())
-        toast.info(data.note || `${config.label} 리뷰 수집을 요청했어요. 1~3분 뒤 새로고침해 주세요`)
       } else {
         toast.info(data.note || '새로 수집된 리뷰가 없어요')
       }
@@ -484,7 +446,6 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
       const saved = await saveDraftEdit(review, trimmed)
       if (!saved) { setSubmitting(false); return }
 
-
       // auto-publish: Worker 연동 우선, 미연결 시 수동 폴백
       const res = await fetch('/api/review-reply/auto-publish', {
         method: 'POST',
@@ -504,7 +465,7 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
       }
 
       // ── Worker 자동 발행 모드 ──
-      toast.success('⚡ 답글 등록 중! 잠시 후 자동으로 리뷰완료로 바뀌어요.')
+      toast.success('⚡ Worker가 자동으로 답글을 등록해요! 1~2분 후 새로고침 해주세요.')
       setReviews((prev) =>
         prev.map((r) =>
           r.id === review.id
@@ -639,7 +600,8 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
         <Sidebar />
         <main className="flex-1 ml-0 md:ml-[220px] pt-14 md:pt-0 min-w-0">
           <PageHeader
-            icon={config.logoNode || config.icon}
+            icon={config.icon}
+            logoNode={config.logoNode}
             title={`${config.label} 리뷰 관리`}
             subtitle={
               connected
@@ -699,73 +661,9 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
               </div>
             )}
 
-            {/* 43차-5: 캡차/로그인 실패 배너 — connected 여도 워커가 막혀 있으면 표시 */}
-            {connected && loginIssue && (
-              <div
-                className="bg-white rounded-2xl border-2 p-4 mb-4"
-                style={{
-                  borderColor: loginIssue.kind === 'captcha' ? '#F59E0B' : '#DC2626',
-                  background: loginIssue.kind === 'captcha' ? '#FFFBEB' : '#FEF2F2',
-                }}
-              >
-                <div className="flex items-start gap-3 flex-wrap">
-                  <span className="text-2xl leading-none mt-0.5">
-                    {loginIssue.kind === 'captcha' ? '🛡️' : '⚠️'}
-                  </span>
-                  <div className="flex-1 min-w-[220px]">
-                    <p className="text-sm font-bold mb-1" style={{
-                      color: loginIssue.kind === 'captcha' ? '#92400E' : '#991B1B',
-                    }}>
-                      {loginIssue.kind === 'captcha'
-                        ? `${config.label} 캡차 인증이 필요해요`
-                        : `${config.label} 로그인 실패 — 재연결이 필요해요`}
-                    </p>
-                    <p className="text-xs leading-relaxed mb-2" style={{
-                      color: loginIssue.kind === 'captcha' ? '#78350F' : '#7F1D1D',
-                    }}>
-                      {loginIssue.kind === 'captcha'
-                        ? '자동 답글 등록이 잠시 멈춰 있어요. 직접 한 번 로그인해서 캡차/2단계 인증을 풀어주시면 그 다음부터 자동으로 다시 동작해요.'
-                        : (loginIssue.detail
-                            ? `사유: ${loginIssue.detail}. 비밀번호 변경, IP 차단, 또는 세션 만료 가능성이 있어요. 자격증명을 다시 등록해주세요.`
-                            : '비밀번호 변경 또는 IP 차단 가능성. 자격증명을 다시 등록해주세요.')}
-                    </p>
-                    {loginIssueAt && (
-                      <p className="text-[10px] text-[#8B95A1] mb-2">
-                        마지막 시도 · {timeAgo(loginIssueAt)}
-                      </p>
-                    )}
-                    <div className="flex gap-2 flex-wrap">
-                      {config.reviewAdminUrl && loginIssue.kind === 'captcha' && (
-                        <a
-                          href={config.reviewAdminUrl}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="px-3 py-1.5 rounded-lg text-xs font-bold text-white hover:opacity-90"
-                          style={{ background: config.color }}
-                        >
-                          {config.label} 직접 로그인 ↗
-                        </a>
-                      )}
-                      <Link
-                        href={config.connectHref}
-                        className="px-3 py-1.5 rounded-lg text-xs font-bold border hover:bg-white"
-                        style={{
-                          borderColor: loginIssue.kind === 'captcha' ? '#F59E0B' : '#DC2626',
-                          color: loginIssue.kind === 'captcha' ? '#92400E' : '#991B1B',
-                          background: 'white',
-                        }}
-                      >
-                        자격증명 재연결
-                      </Link>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            )}
-
             {/* 통계 카드 */}
             {connected && (
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-5">
+              <div className="grid grid-cols-4 gap-3 mb-5">
                 <div className="bg-white rounded-2xl p-4 border border-[#E5E8EB]">
                   <p className="text-[11px] text-[#8B95A1] font-medium mb-1">총 리뷰</p>
                   <p className="text-xl font-black text-[#191F28]">{agg.review_count}건</p>
@@ -834,7 +732,6 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
                   <span className="text-xl leading-none mt-0.5">🟢</span>
                   <div className="flex-1 min-w-[200px]">
                     <p className="text-sm font-bold text-[#191F28] mb-1">네이버 플레이스 리뷰 — 자동 수집 + 사장님 답글 작성</p>
-
                   </div>
                   {placeId && (
                     <a
@@ -852,7 +749,7 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
 
             {/* 필터 + 액션 바 */}
             {connected && (
-              <div className="bg-white rounded-2xl border border-[#E5E8EB] p-3 mb-4 flex flex-col gap-2 sm:gap-4">
+              <div className="bg-white rounded-2xl border border-[#E5E8EB] p-3 mb-4 flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
                 {/* 30차-23: 기간 필터 */}
                 <div className="flex items-center gap-1.5 flex-wrap">
                   <span className="text-[11px] text-[#8B95A1] font-semibold mr-1">기간</span>
@@ -945,22 +842,14 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
                 </div>
               ) : reviews.length === 0 ? (
                 <div className="bg-white rounded-2xl p-8 text-center border border-[#E5E8EB]">
-                  <p className="text-4xl mb-2">{enqueuedAt ? '⚡' : '📭'}</p>
+                  <p className="text-4xl mb-2">📭</p>
                   <p className="text-sm font-bold text-[#191F28] mb-1">
-                    {fetching
-                      ? '수집 중입니다...'
-                      : enqueuedAt
-                        ? `Worker가 ${config.label} 리뷰를 가져오는 중이에요`
-                        : '아직 수집된 리뷰가 없어요'}
+                    {fetching ? '수집 중입니다...' : '아직 수집된 리뷰가 없어요'}
                   </p>
                   <p className="text-xs text-[#8B95A1]">
-                    {fetching
-                      ? '잠시만 기다려 주세요'
-                      : enqueuedAt
-                        ? `요청 시간 · ${timeAgo(enqueuedAt)} · 1~3분 뒤 페이지를 새로고침하면 표시됩니다`
-                        : config.supportsFetch
-                          ? '"↻ 지금 수집" 버튼을 누르면 공개 리뷰를 불러옵니다'
-                          : 'Worker 가 연결되면 자동 수집이 시작돼요'}
+                    {config.supportsFetch
+                      ? (fetching ? '잠시만 기다려 주세요' : '"↻ 지금 수집" 버튼을 누르면 공개 리뷰를 불러옵니다')
+                      : 'Worker 가 연결되면 자동 수집이 시작돼요 (23차-5)'}
                   </p>
                 </div>
               ) : filtered.length === 0 ? (
@@ -975,7 +864,8 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
                     const hasDraft = !!(review.draftReply && review.draftReply.trim())
                     const isQueued = review.replyStatus === 'submitting'  // 'queued'는 재편집 허용
                     const isSubmitting = submitting && editingId === review.id
-                    const isSubmitted = review.replyStatus === 'submitted' && !!review.hasReply
+                    // reply_status='submitted' 이면 has_reply 여부와 무관하게 등록 완료로 처리
+                    const isSubmitted = review.replyStatus === 'submitted'
                     const isBulkTarget = bulkRunning && bulkProgress.currentId === review.id
                     return (
                       <div
@@ -1002,7 +892,7 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
                           <div className="flex items-center gap-2">
                             <span className="text-[11px] text-[#8B95A1]">{timeAgo(review.postedAt || review.collectedAt)}</span>
                             {review.hasReply ? (
-                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#ECFDF5] text-[#059669] font-semibold">✅ 리뷰완료</span>
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#ECFDF5] text-[#059669] font-semibold">답변완료</span>
                             ) : (
                               <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#FEF3C7] text-[#92400E] font-semibold">미답변</span>
                             )}
@@ -1169,7 +1059,7 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
 
                                 {review.replyStatus === 'queued' && (
                                   <p className="text-[11px] mt-2 text-[#075985] bg-[#E0F2FE] rounded-lg px-2 py-1.5">
-                                    ⚡ 답글 등록 중이에요. 완료되면 자동으로 리뷰완료로 바뀌어요.
+                                    ⚡ Worker가 자동으로 플랫폼에 답글을 등록 중이에요. 1~2분 후 새로고침 해주세요.
                                   </p>
                                 )}
                                 {isSubmitted && (
@@ -1178,26 +1068,13 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
                                   </p>
                                 )}
                                 {review.replyStatus === 'failed' && review.replyError && (
-                                  <div className="mt-2 text-[11px] text-[#DC2626] bg-[#FEE2E2] rounded-lg px-2.5 py-2 space-y-1.5">
-                                    <p>❌ 등록 실패: {review.replyError}</p>
+                                  <p className="text-[11px] mt-2 text-[#DC2626] bg-[#FEE2E2] rounded-lg px-2 py-1.5">
+                                    ❌ 등록 실패: {review.replyError}
                                     {config.reviewAdminUrl && (
-                                      <button
-                                        onClick={async () => {
-                                          // 43차-5: 답글 본문을 클립보드에 복사하고 플랫폼 탭 새로 열기
-                                          try {
-                                            await navigator.clipboard.writeText(draftText || review.draftReply || '')
-                                            toast.success('답글이 복사됐어요. 플랫폼 탭에서 붙여넣으세요')
-                                          } catch {
-                                            toast.info('자동 복사 실패 — 답글을 직접 선택해 복사해 주세요')
-                                          }
-                                          window.open(config.reviewAdminUrl, '_blank', 'noopener,noreferrer')
-                                        }}
-                                        className="px-2.5 py-1 rounded-md text-[11px] font-bold bg-white border border-[#DC2626] text-[#DC2626] hover:bg-[#FEF2F2]"
-                                      >
-                                        📋 답글 복사 후 {config.label} 직접 등록 ↗
-                                      </button>
+                                      <a href={config.reviewAdminUrl} target="_blank" rel="noopener noreferrer"
+                                        className="ml-2 underline">직접 등록 →</a>
                                     )}
-                                  </div>
+                                  </p>
                                 )}
                                 {noCredentialsHref && (
                                   <div className="mt-2 flex items-center gap-2 bg-[#FFF7ED] border border-[#FED7AA] rounded-lg px-3 py-2">
@@ -1216,8 +1093,18 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
                           </div>
                         )}
 
-                        {/* 초기 진입 버튼 */}
-                        {!isEditing && !review.hasReply && (
+                        {/* 등록 완료 — 답글 내용 표시 */}
+                        {!isEditing && isSubmitted && (
+                          <div className="rounded-xl p-3 mb-2 border border-[#ECFDF5] bg-[#F0FDF4]">
+                            <p className="text-[10px] font-bold text-[#059669] mb-1">✅ 사장님 답글 (등록 완료)</p>
+                            <p className="text-sm text-[#374151] leading-relaxed whitespace-pre-wrap break-words">
+                              {review.draftReply || '(답글 내용 없음)'}
+                            </p>
+                          </div>
+                        )}
+
+                        {/* 초기 진입 버튼 — 미등록 상태에서만 표시 */}
+                        {!isEditing && !isSubmitted && !review.hasReply && (
                           <div className="flex gap-2 flex-wrap items-center">
                             {hasDraft ? (
                               <>
