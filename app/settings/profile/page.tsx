@@ -1,17 +1,17 @@
 'use client'
 
 // ============================================================
-// 31차-2 · /settings/profile — 서버 단일 진실원 동기화
+// 32차-1 · /settings/profile — 네이버 연동 자동채움 + 사이드바 동기화
 //
-//   - /api/stores/me GET: 매장 + 연결된 플랫폼 한방 조회
-//   - 저장시 /api/stores/register POST 로 서버 + localStorage 동시 반영
-//   - 연결된 플랫폼 뱃지 자동 표시 (연동 상태 한눈에)
+//   - loadServer: 서버저장값 > 네이버연동값 > localStorage 순 우선순위
+//   - naverLink 상태 보관 → "네이버에서 가져오기" 버튼 제공
+//   - 저장 시 localution:user-change 이벤트 → 사이드바 즉시 반영
 // ============================================================
 
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import Sidebar from '../../components/Sidebar'
-import { User, Store, MapPin, Save, Check, ArrowLeft, Mail, Phone, LogOut, Link2 } from 'lucide-react'
+import { User, Store, MapPin, Save, Check, ArrowLeft, Mail, Phone, LogOut, Link2, RefreshCw } from 'lucide-react'
 import Footer from '../../components/Footer'
 import { confirmDialog, toast } from '../../lib/toast'
 
@@ -21,7 +21,13 @@ type UserCookie = {
 type StoreInfo = {
   storeName?: string; branch?: string; address?: string; phone?: string;
 }
-
+type NaverLink = {
+  external_id?: string | null
+  external_name?: string | null
+  external_url?: string | null
+  address?: string | null
+  category?: string | null
+}
 type PlatformRow = {
   platform: string
   label: string
@@ -62,6 +68,7 @@ export default function ProfileSettingsPage() {
   const [platforms, setPlatforms] = useState<PlatformRow[]>([])
   const [serverReady, setServerReady] = useState(false)
   const [naverAutoFilled, setNaverAutoFilled] = useState(false)
+  const [naverLink, setNaverLink] = useState<NaverLink | null>(null)
 
   // ── 서버 단일 진실원 로드 ─────────────────────────
   const loadServer = useCallback(async () => {
@@ -69,20 +76,26 @@ export default function ProfileSettingsPage() {
       const res = await fetch('/api/stores/me', { credentials: 'include', cache: 'no-store' })
       const data = await res.json()
       if (!res.ok || !data?.ok) return
-      // naver_link 자동 연동 — 네이버 플레이스 연결 시 매장명·주소 자동 채움
+
       const naverName    = data.naver_link?.external_name || ''
       const naverAddress = data.naver_link?.address       || ''
-      // store + naver_link 통합 (store 우선, 빈 경우 naver_link 보충)
+
+      // naverLink 상태 저장 (버튼 표시용)
+      if (data.naver_link && data.naver_link.external_name) {
+        setNaverLink(data.naver_link)
+      }
+
       if (data.store || data.naver_link) {
         setForm((prev) => ({
-          storeName: prev.storeName || data.store?.name    || naverName    || '',
-          branch:    prev.branch   || '',
-          address:   prev.address  || data.store?.address || naverAddress || '',
-          phone:     prev.phone    || data.store?.phone   || '',
+          // 우선순위: 서버저장값 > 네이버연동값 > localStorage(prev)
+          storeName: data.store?.name    || naverName    || prev.storeName || '',
+          branch:    prev.branch || '',
+          address:   data.store?.address || naverAddress || prev.address   || '',
+          phone:     data.store?.phone   || prev.phone   || '',
         }))
       }
       if (naverName) setNaverAutoFilled(true)
-      // platforms
+
       if (Array.isArray(data.platforms)) {
         setPlatforms(
           (data.platforms as PlatformRow[]).filter((p) => p.connected || p.review_count > 0),
@@ -110,9 +123,19 @@ export default function ProfileSettingsPage() {
       }
     } catch {}
     setLoaded(true)
-    // 서버 조회 → 누락된 필드 보충
+    // 서버 조회 → 네이버 연동 포함 최신값 보충
     loadServer()
   }, [loadServer])
+
+  function applyNaverData() {
+    if (!naverLink) return
+    setForm(f => ({
+      ...f,
+      storeName: naverLink.external_name || f.storeName || '',
+      address:   naverLink.address       || f.address   || '',
+    }))
+    toast.info('네이버 플레이스 정보를 가져왔어요. 저장 버튼을 눌러 반영하세요.')
+  }
 
   async function handleSave(e: React.FormEvent) {
     e.preventDefault()
@@ -141,14 +164,13 @@ export default function ProfileSettingsPage() {
         if (!res.ok || !data?.ok) {
           toast.error(data?.error || '서버 저장 실패 (로컬은 저장됨)')
         } else {
-          toast.success('저장 완료 (서버 + 브라우저)')
+          toast.success('저장 완료 — 사이드바에 즉시 반영됩니다')
         }
       } else {
         toast.info('로컬 저장됨 (로그인하면 서버에도 자동 동기화돼요)')
       }
       setSaved(true)
       setTimeout(() => setSaved(false), 2000)
-      // 저장 후 재조회 → platforms 갱신
       loadServer()
     } catch (err: any) {
       toast.error('저장 중 오류: ' + (err?.message || err))
@@ -161,7 +183,7 @@ export default function ProfileSettingsPage() {
     <div className="flex min-h-screen bg-[#F2F4F6]">
       <Sidebar />
       <main className="flex-1 ml-0 md:ml-[220px] p-4 pt-20 md:p-6 md:pt-6 min-w-0 pb-24 md:pb-6">
-        {/* LOCALUTION_HERO_BANNER */}
+        {/* 헤더 배너 */}
         <section className="bg-gradient-to-r from-[#6366F1] to-[#4338CA] text-white px-4 py-10 sm:py-14">
           <div className="max-w-5xl mx-auto flex items-center gap-4">
             <div className="text-4xl sm:text-5xl drop-shadow-sm">👤</div>
@@ -188,7 +210,7 @@ export default function ProfileSettingsPage() {
             <p className="text-xs text-[#8B95A1]">사이드바·대시보드에 표시되는 매장 정보를 설정합니다</p>
           </div>
 
-          {/* 로그인 계정 정보 (읽기 전용) */}
+          {/* 로그인 계정 정보 */}
           <div className="bg-white rounded-2xl shadow-sm p-6 mb-4">
             <div className="flex items-center justify-between mb-4">
               <h2 className="text-sm font-bold text-[#191F28]">로그인 계정</h2>
@@ -226,7 +248,6 @@ export default function ProfileSettingsPage() {
                     {PROVIDER_LABEL[user.provider || ''] || 'OAuth'} 로그인
                   </span>
                 </div>
-                {/* 모바일 전용 로그아웃 버튼 */}
                 <a href="/api/auth/logout"
                   onClick={async (e) => {
                     e.preventDefault()
@@ -245,17 +266,14 @@ export default function ProfileSettingsPage() {
             )}
           </div>
 
-          {/* 연결된 플랫폼 (31차-2) */}
+          {/* 연결된 플랫폼 */}
           <div className="bg-white rounded-2xl shadow-sm p-6 mb-4">
             <div className="flex items-center justify-between mb-3">
               <div className="flex items-center gap-2">
                 <Link2 size={14} strokeWidth={2.5} className="text-[#3182F6]" />
                 <h2 className="text-sm font-bold text-[#191F28]">연결된 플랫폼</h2>
               </div>
-              <Link
-                href="/my/platforms"
-                className="text-[11px] font-bold text-[#3182F6] hover:underline"
-              >
+              <Link href="/my/platforms" className="text-[11px] font-bold text-[#3182F6] hover:underline">
                 관리 →
               </Link>
             </div>
@@ -279,7 +297,7 @@ export default function ProfileSettingsPage() {
                       {p.review_count > 0 && (
                         <span className="text-[10px] opacity-80">
                           리뷰 {p.review_count}
-                          {p.rating_avg != null ? ` · ${p.rating_avg.toFixed(1)}★` : ''}
+                          {p.rating_avg != null ? ' · ' + p.rating_avg.toFixed(1) + '★' : ''}
                         </span>
                       )}
                     </div>
@@ -292,20 +310,31 @@ export default function ProfileSettingsPage() {
           {/* 매장 정보 폼 */}
           <form onSubmit={handleSave} className="bg-white rounded-2xl shadow-sm p-6">
             <div className="flex items-center justify-between mb-4">
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-2 flex-wrap">
                 <h2 className="text-sm font-bold text-[#191F28]">매장 정보</h2>
                 {naverAutoFilled && (
                   <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#EDF7ED] text-[#03C75A]">
                     <svg width="10" height="10" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="10" fill="#03C75A"/><path d="M9 39V9h8L31 27V9h8v30h-8L17 21v18H9Z" fill="white"/></svg>
-                    네이버 플레이스 자동 연동
+                    네이버 연동
                   </span>
                 )}
               </div>
-              {saved && (
-                <span className="inline-flex items-center gap-1 text-[11px] text-[#12B76A] font-bold">
-                  <Check size={12} strokeWidth={3} /> 저장됨
-                </span>
-              )}
+              <div className="flex items-center gap-2">
+                {naverLink && naverLink.external_name && (
+                  <button
+                    type="button"
+                    onClick={applyNaverData}
+                    className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1.5 rounded-lg bg-[#EDF7ED] text-[#03C75A] hover:bg-[#D1F0D9] transition-all">
+                    <RefreshCw size={11} strokeWidth={2.5} />
+                    네이버서 가져오기
+                  </button>
+                )}
+                {saved && (
+                  <span className="inline-flex items-center gap-1 text-[11px] text-[#12B76A] font-bold">
+                    <Check size={12} strokeWidth={3} /> 저장됨
+                  </span>
+                )}
+              </div>
             </div>
 
             <div className="space-y-4">
@@ -322,7 +351,7 @@ export default function ProfileSettingsPage() {
                   maxLength={24}
                   className="w-full px-4 py-2.5 rounded-xl border border-[#E5E8EB] focus:outline-none focus:border-[#3182F6] focus:ring-2 focus:ring-[#3182F6]/10 text-sm"
                 />
-                <p className="text-[10px] text-[#8B95A1] mt-1">사이드바 메인 타이틀로 표시됩니다</p>
+                <p className="text-[10px] text-[#8B95A1] mt-1">사이드바 타이틀로 표시됩니다</p>
               </div>
 
               <div>
@@ -338,6 +367,7 @@ export default function ProfileSettingsPage() {
                   maxLength={24}
                   className="w-full px-4 py-2.5 rounded-xl border border-[#E5E8EB] focus:outline-none focus:border-[#3182F6] focus:ring-2 focus:ring-[#3182F6]/10 text-sm"
                 />
+                <p className="text-[10px] text-[#8B95A1] mt-1">사이드바 두 번째 줄로 표시됩니다</p>
               </div>
 
               <div>
@@ -375,7 +405,7 @@ export default function ProfileSettingsPage() {
             </button>
 
             <p className="text-[10px] text-[#8B95A1] text-center mt-3">
-              서버 + 브라우저 양쪽에 저장됩니다. 플랫폼 연결은 <Link href="/my/platforms" className="text-[#3182F6] underline">플랫폼 관리</Link> 에서.
+              저장하면 사이드바에 즉시 반영됩니다. 플랫폼 연결은 <Link href="/my/platforms" className="text-[#3182F6] underline">플랫폼 관리</Link>에서.
             </p>
           </form>
         </div>
