@@ -46,7 +46,6 @@ async function updateReviewStatus(
   const update: Record<string, unknown> = { reply_status: status, reply_error: null }
   if (status === 'submitted') {
     update.has_reply = true
-    update.reply_content = extra.replyContent
     update.reply_submitted_at = now
   } else {
     update.reply_error = (extra.error || 'unknown error').slice(0, 200)
