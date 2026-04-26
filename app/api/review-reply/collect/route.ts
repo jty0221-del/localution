@@ -30,8 +30,7 @@ export async function POST(req: NextRequest) {
   const userId = auth.userId
 
   let body: any = {}
-  // collect 는 query string 만으로도 동작하므로 body 누락은 허용
-  try { body = await req.json() } catch { body = {} }
+  try { body = await req.json() } catch {}
   const { searchParams } = new URL(req.url)
   const platform = String(searchParams.get('platform') || body?.platform || '').trim() as Platform
 
@@ -58,11 +57,10 @@ export async function POST(req: NextRequest) {
   try {
     const svc = createServiceClient()
 
-    // 해당 user 의 platform_credentials 존재 + last_login_status 확인 (is_active 컬럼 미도입)
-    // 37차-3 hotfix: 컬럼명은 last_login_status — Worker 가 upsert 하는 실제 스키마와 일치
+    // 해당 user 의 platform_credentials 존재 + active 확인
     const { data: cred, error: credErr } = await svc
       .from('platform_credentials')
-      .select('id, platform, platform_store_id, last_login_status')
+      .select('id, platform, platform_store_id, is_active, login_status')
       .eq('user_id', userId)
       .eq('platform', platform)
       .maybeSingle()
@@ -76,7 +74,7 @@ export async function POST(req: NextRequest) {
         { status: 400 },
       )
     }
-    if (cred.last_login_status === 'disabled') {
+    if (cred.is_active === false) {
       return NextResponse.json(
         { ok: false, error: `${platform} 연결이 비활성화 상태입니다.` },
         { status: 400 },
@@ -97,7 +95,7 @@ export async function POST(req: NextRequest) {
 
     // 중복 enqueue 방지를 위한 jobId (10분 단위 버킷)
     const bucket = Math.floor(Date.now() / (10 * 60 * 1000))
-    const jobId = `${userId}-${platform}-fetch-${bucket}`
+    const jobId = `${userId}:${platform}:fetch:${bucket}`
 
     const result = await enqueuePlatformJob(
       {
@@ -110,11 +108,10 @@ export async function POST(req: NextRequest) {
     )
 
     if (!result.ok) {
-      const isRedis = result.error?.includes('REDIS_URL')
-      const msg = isRedis
-        ? 'Worker 연결 미설정 — Vercel 환경변수에 REDIS_URL(Railway Redis Public URL)을 추가하세요'
-        : 'enqueue 실패: ' + result.error
-      return NextResponse.json({ ok: false, error: msg }, { status: isRedis ? 503 : 500 })
+      return NextResponse.json(
+        { ok: false, error: 'enqueue 실패: ' + result.error },
+        { status: 500 },
+      )
     }
 
     const note = `Worker 큐에 등록됐어요. 1~3분 뒤 "새로고침" 누르면 리뷰가 표시됩니다. (jobId: ${result.jobId})`
