@@ -19,11 +19,12 @@ const DOM_SELECTORS = {
   idInput:   'input#id, input[name="id"], input[placeholder*="아이디"]',
   pwInput:   'input#pw, input[name="pw"], input[type="password"]',
   loginBtn:  '#log\\.login, button[type="submit"], .btn_login',
-  reviewCard:    '[class*="ReviewItem"], [class*="review_item"], .review-item, [data-review-id]',
-  replyButton:   'button:has-text("답글 달기"), button:has-text("답글"), button[class*="reply"], [class*="btn_reply"]',
-  replyTextarea: 'textarea[placeholder*="답글"], textarea[class*="reply"], .reply_write textarea',
-  replySubmit:   'button:has-text("등록"), button:has-text("완료"), [class*="btn_submit"]',
-  ownerReply:    '[class*="OwnerReply"], [class*="owner_reply"], [class*="StoreReply"], [class*="reply_owner"]',
+  // SmartPlace 실제 클래스 (2025-04 확인)
+  reviewCard:    '[class*="Review_single_review"], [class*="single_review"], [class*="ReviewItem"], [class*="review_item"], [data-review-id]',
+  replyButton:   '[class*="Review_btn_write"], [class*="fn-write"], button:has-text("답글 달기"), button:has-text("답글"), [class*="btn_reply"]',
+  replyTextarea: 'textarea[placeholder*="답글"], textarea[placeholder*="답변"], textarea[class*="reply"], textarea[class*="write"]',
+  replySubmit:   'button:has-text("등록"), button:has-text("완료"), button:has-text("저장"), [class*="btn_submit"]',
+  ownerReply:    '[class*="OwnerReply"], [class*="owner_reply"], [class*="StoreReply"], [class*="reply_owner"], [class*="Reply_owner"], [class*="owner_comment"]',
 }
 
 export type NaverOptions = {
@@ -288,45 +289,59 @@ async function postNaverReply(
   log: Logger,
 ): Promise<{ ok: true } | { ok: false; reason: string }> {
   try {
-    const reviewUrl = storeId && storeId !== 'unknown'
-      ? `${NEW_SMARTPLACE_BASE}/bizes/place/${storeId}/reviews/${platformReviewId}`
+    // 리뷰 목록 페이지로 이동 (직접 리뷰 URL은 SmartPlace가 리다이렉트함)
+    const reviewsListUrl = storeId && storeId !== 'unknown'
+      ? `${NEW_SMARTPLACE_BASE}/bizes/place/${storeId}/reviews`
       : `${NEW_SMARTPLACE_BASE}/bizes`
 
-    log.info({ reviewUrl, storeId, platformReviewId }, 'naver: navigating to review')
-    await page.goto(reviewUrl, { waitUntil: 'networkidle', timeout: 40000 })
-    await page.waitForTimeout(3000)
+    log.info({ reviewsListUrl, storeId, platformReviewId }, 'naver: navigating to reviews list')
+    await page.goto(reviewsListUrl, { waitUntil: 'domcontentloaded', timeout: 40000 })
+    await page.waitForTimeout(4000)
 
     const currentUrl = page.url()
-    log.info({ url: currentUrl }, 'naver: review page loaded')
+    log.info({ url: currentUrl }, 'naver: reviews page loaded')
 
     if (currentUrl.includes('nid.naver.com') || currentUrl.includes('login')) {
       return { ok: false, reason: '세션 만료 — /my/platforms/naver_place/session 에서 쿠키를 갱신해주세요' }
     }
 
-    // 스크롤로 리뷰 로딩
-    for (let i = 0; i < 4; i++) {
-      await page.evaluate(() => window.scrollBy(0, 800))
-      await page.waitForTimeout(500)
+    // 스크롤로 리뷰 로딩 (lazy load 대응)
+    for (let i = 0; i < 5; i++) {
+      await page.evaluate(() => window.scrollBy(0, 600))
+      await page.waitForTimeout(600)
     }
     await page.evaluate(() => window.scrollTo(0, 0))
-    await page.waitForTimeout(500)
+    await page.waitForTimeout(800)
 
-    // 리뷰 카드 찾기
+    // 리뷰 카드 찾기: data-review-id 속성 우선
     let card = await page.$(`[data-review-id="${platformReviewId}"]`)
+    log.info({ foundByAttr: !!card }, 'naver: data-review-id search')
+
     if (!card) {
+      // 모든 카드에서 data-id / data-review-id 속성으로 찾기
       const allCards = await page.$$(DOM_SELECTORS.reviewCard)
+      log.info({ totalCards: allCards.length }, 'naver: total review cards found')
       for (const c of allCards) {
         const attrId = await c.evaluate((el: Element) =>
-          el.getAttribute('data-id') || el.getAttribute('data-review-id') || ''
+          el.getAttribute('data-id') || el.getAttribute('data-review-id') || el.getAttribute('data-key') || ''
         )
         if (attrId && attrId.includes(platformReviewId)) { card = c; break }
       }
     }
+
+    // 카드가 1개뿐이면 그걸 사용 (리뷰 목록에 하나만 보이는 경우)
     if (!card) {
       const allCards = await page.$$(DOM_SELECTORS.reviewCard)
       if (allCards.length === 1) {
         card = allCards[0]
-        log.info('naver: using single card on direct review URL')
+        log.info('naver: using single card (only one visible)')
+      } else if (allCards.length > 1) {
+        // 여러 카드: 첫 번째 미답변 카드 사용
+        for (const c of allCards) {
+          const hasReply = await c.$(DOM_SELECTORS.ownerReply)
+          if (!hasReply) { card = c; break }
+        }
+        if (card) log.info('naver: using first unanswered card')
       }
     }
 
