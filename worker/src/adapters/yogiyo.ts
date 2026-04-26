@@ -138,11 +138,14 @@ export async function runYogiyo(
     await markLoginStatus(svc, userId, 'yogiyo', 'success')
     if (action === 'health_check') return { status: 'ok', message: 'yogiyo login ok' }
 
-    // 2) 리뷰 페이지 이동 — store_id 있으면 직접 접속
+    // 2) 리뷰 페이지 이동 — 로그인 후 현재 도메인 기준으로 reviews URL 구성
+    // (ceo → owner 리다이렉트 발생 시 owner 도메인에서 reviews 열어야 세션 유지)
+    const postLoginUrl = page.url()
+    const postLoginOrigin = (() => { try { return new URL(postLoginUrl).origin } catch { return 'https://ceo.yogiyo.co.kr' } })()
     const reviewsUrl = creds.platform_store_id
-      ? `${REVIEWS_BASE_URL}/${creds.platform_store_id}`
-      : REVIEWS_BASE_URL
-    log.info({ reviewsUrl }, 'yogiyo navigating to reviews')
+      ? `${postLoginOrigin}/reviews/${creds.platform_store_id}`
+      : `${postLoginOrigin}/reviews`
+    log.info({ reviewsUrl, postLoginOrigin }, 'yogiyo navigating to reviews')
     await page.goto(reviewsUrl, { waitUntil: 'load', timeout: 45000 })
     await page.waitForTimeout(10000)
     log.info({ url: page.url(), title: await page.title() }, 'yogiyo review page arrived')
