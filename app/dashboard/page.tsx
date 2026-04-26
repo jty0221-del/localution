@@ -843,6 +843,7 @@ export default function Dashboard() {
   // 30차-15-B: 서버 응답의 review_count/rating_avg 도 대시보드 state 로 반영.
   //   → "데이터 수집 중..." → 실제 별점/리뷰 수로 자동 전환
   const [reviewsFetchState, setReviewsFetchState] = useState<'idle' | 'fetching' | 'done' | 'error'>('idle')
+  const [workerCollecting, setWorkerCollecting] = useState<Record<string, boolean>>({})
 
   // 30차-23: 연결된 플랫폼별 실제 리뷰 (키: PlatformId, 값: RealReview[])
   //   · 좌측 "플랫폼별 별점·리뷰 현황" 카드의 플랫폼 행 아래 최신 2건 미니 렌더
@@ -1010,6 +1011,29 @@ export default function Dashboard() {
     } catch (e: any) {
       toast.error(`수집 오류: ${e?.message || e}`)
       setReviewsFetchState('error')
+    }
+  }
+
+  const handleCollectWorkerPlatform = async (platformId: string) => {
+    setWorkerCollecting(prev => ({ ...prev, [platformId]: true }))
+    try {
+      const res = await fetch('/api/review-reply/collect', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ platform: platformId }),
+      })
+      const j = await res.json().catch(() => null)
+      if (!res.ok || !j?.ok) {
+        toast.error(j?.error || j?.message || `수집 요청 실패 (${res.status})`)
+        return
+      }
+      toast.success(`${platformId} 수집 요청 완료 — 1~3분 후 새로고침하세요`)
+      setTimeout(() => loadPlatformReviews([platformId as PlatformId]), 90000)
+    } catch (e: any) {
+      toast.error(`수집 오류: ${e?.message || e}`)
+    } finally {
+      setWorkerCollecting(prev => ({ ...prev, [platformId]: false }))
     }
   }
 
@@ -1617,7 +1641,13 @@ export default function Dashboard() {
                               아직 수집 전 — 상단 "지금 수집" 클릭
                             </span>
                           ) : (
-                            <span className="text-xs text-[#8B95A1]">Worker 자동수집 대기</span>
+                            <button
+                              onClick={() => handleCollectWorkerPlatform(p.id)}
+                              disabled={workerCollecting[p.id]}
+                              className="text-[11px] px-2 py-1 rounded-lg bg-[#F0F4FF] text-[#3182F6] font-bold hover:bg-[#DBEAFE] disabled:opacity-50 transition-colors"
+                            >
+                              {workerCollecting[p.id] ? '요청 중…' : '↻ 지금 수집'}
+                            </button>
                           )}
                         </div>
                         {p.rating !== null && (
