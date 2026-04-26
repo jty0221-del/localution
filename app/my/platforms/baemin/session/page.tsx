@@ -11,7 +11,8 @@ export default function BaeminSessionPage() {
   const [msg, setMsg] = useState('')
 
   async function handleSave() {
-    const cookie = cookieStr.replace(/^cookie:\s*/i, '').trim()
+    let cookie = cookieStr.trim()
+    if (cookie.toLowerCase().startsWith('cookie:')) cookie = cookie.slice(7).trim()
     if (!cookie || cookie.length < 10) {
       setStatus('error')
       setMsg('쿠키 값을 입력해주세요.')
