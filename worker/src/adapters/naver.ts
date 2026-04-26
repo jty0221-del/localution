@@ -129,6 +129,8 @@ export async function runNaver(
     let loggedIn = false
 
     const cookieJson = await loadCookieData(svc, userId)
+    log.info({ hasCookieData: !!cookieJson, cookieDataLen: cookieJson?.length ?? 0 }, 'naver: cookie data from DB')
+
     if (cookieJson) {
       try {
         const parsed = JSON.parse(cookieJson)
@@ -136,11 +138,27 @@ export async function runNaver(
         const nowSec = Math.floor(Date.now() / 1000) + 86400 * 30
 
         if (Array.isArray(parsed)) {
-          cookieList.push(...parsed)
-        } else if (parsed && (parsed.NID_AUT || parsed.NID_SES)) {
+          // 배열 형태: [{name,value,domain,...}]
+          for (const c of parsed) {
+            if (c.name && c.value) {
+              cookieList.push({
+                name: c.name,
+                value: c.value,
+                domain: c.domain || '.naver.com',
+                path: c.path || '/',
+                secure: c.secure !== false,
+                httpOnly: c.httpOnly !== false,
+                expires: c.expires || nowSec,
+              })
+            }
+          }
+        } else if (parsed && typeof parsed === 'object') {
+          // 단순 객체: {NID_AUT: '...', NID_SES: '...'}
           if (parsed.NID_AUT) cookieList.push({ name: 'NID_AUT', value: parsed.NID_AUT, domain: '.naver.com', path: '/', secure: true, httpOnly: true, expires: nowSec })
           if (parsed.NID_SES) cookieList.push({ name: 'NID_SES', value: parsed.NID_SES, domain: '.naver.com', path: '/', secure: true, httpOnly: true, expires: nowSec })
         }
+
+        log.info({ cookieCount: cookieList.length, cookieNames: cookieList.map(c => c.name) }, 'naver: cookies prepared')
 
         if (cookieList.length > 0) {
           await context.addCookies(cookieList)
@@ -148,21 +166,26 @@ export async function runNaver(
           const testUrl = bizId && bizId !== 'unknown'
             ? `${NEW_SMARTPLACE_BASE}/bizes/place/${bizId}`
             : `${NEW_SMARTPLACE_BASE}/bizes`
+          log.info({ testUrl }, 'naver: navigating for cookie check')
           await page.goto(testUrl, { waitUntil: 'domcontentloaded', timeout: 25000 })
           await page.waitForTimeout(2000)
           const checkUrl = page.url()
-          log.info({ checkUrl, cookieCount: cookieList.length }, 'naver: cookie login check')
+          log.info({ checkUrl, cookieCount: cookieList.length }, 'naver: cookie login check result')
           if (!checkUrl.includes('nid.naver.com') && !checkUrl.includes('login') && !checkUrl.includes('signin')) {
             loggedIn = true
             log.info('naver: session cookie login OK')
             await markLoginStatus(svc, userId, 'naver_place', 'success')
           } else {
-            log.warn({ checkUrl }, 'naver: session cookies invalid/expired — falling back to form login')
+            log.warn({ checkUrl }, 'naver: session cookies INVALID/EXPIRED — SmartPlace redirected to login')
           }
+        } else {
+          log.warn({ parsedType: typeof parsed }, 'naver: cookie list empty after parsing')
         }
       } catch (e: any) {
         log.warn({ err: e?.message }, 'naver: cookie handling error')
       }
+    } else {
+      log.warn('naver: NO cookie data in DB — must save session cookies at /my/platforms/naver_place/session')
     }
 
     // ── 2) 폼 로그인 폴백 ─────────────────────────────────────────
@@ -218,10 +241,13 @@ export async function runNaver(
       }
 
       if (urlAfterLogin.includes('nid.naver.com') || urlAfterLogin.includes('login') || urlAfterLogin.includes('signin')) {
-        const { reason } = await detectLoginFailure(page)
+        // detectLoginFailure: 실제 에러 텍스트만 감지 (폼 라벨 '비밀번호','아이디'는 제외)
+        const { reason } = await detectLoginFailure(page, ['일치하지', '잘못된', '실패', '오류', 'incorrect', 'invalid', '차단', '해외'])
         await dumpPageDiagnostics(page, log, 'naver-login-failed')
         await markLoginStatus(svc, userId, 'naver_place', 'failed', reason || urlAfterLogin)
-        const msg = `naver login failed — ${reason || '아이디/비밀번호 오류 또는 세션쿠키 설정 필요'}`
+        const msg = reason
+          ? `naver login failed — ${reason}`
+          : 'naver login failed — Railway Tokyo IP 차단 또는 아이디/비밀번호 오류. 세션쿠키를 /my/platforms/naver_place/session 에서 저장하면 자동 해결됩니다'
         if (platformReviewId) await updateReviewStatus(svc, userId, platformReviewId, 'failed', { error: msg })
         return { status: 'failed', message: msg }
       }
