@@ -164,7 +164,7 @@ export default function NaverSessionPage() {
 
         <div className="mt-4 flex gap-3">
           <Link href="/my/platforms" className="flex-1 text-center py-3 rounded-xl border border-[#E5E8EB] text-sm text-[#4E5968] hover:bg-[#F9FAFB]">← 플랫폼 허브</Link>
-          <Link href="/review-admin/naver-place" className="flex-1 text-center py-3 rounded-xl border border-[#E5E8EB] text-sm text-[#4E5968] hover:bg-[#F9FAFB]">리뷰 관리 →</Link>
+          <Link href="/review-admin/naver" className="flex-1 text-center py-3 rounded-xl border border-[#E5E8EB] text-sm text-[#4E5968] hover:bg-[#F9FAFB]">리뷰 관리 →</Link>
         </div>
       </div>
     </main>
