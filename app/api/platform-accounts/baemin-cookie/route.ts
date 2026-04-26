@@ -12,7 +12,8 @@ const ALGO = 'aes-256-gcm'
 
 function loadKek(): Buffer {
   const raw = process.env.ENCRYPTION_KEK_HEX || ''
-  const hex = raw.replace(/\s+/g, '')
+  let hex = ''
+  for (const c of raw) { if (c !== ' ' && c !== '\t' && c !== '\n' && c !== '\r') hex += c }
   if (hex.length !== 64) throw new Error('ENCRYPTION_KEK_HEX 설정 필요')
   return Buffer.from(hex, 'hex')
 }
@@ -44,7 +45,8 @@ export async function POST(req: NextRequest) {
   if (!auth.ok) return NextResponse.json({ ok: false, error: auth.message }, { status: auth.status })
   try {
     const body = await req.json()
-    const cookieStr = String(body.cookie_str || '').replace(/^cookie:\s*/i, '').trim()
+    let cookieStr = String(body.cookie_str || '').trim()
+    if (cookieStr.toLowerCase().startsWith('cookie:')) cookieStr = cookieStr.slice(7).trim()
     const shopNo = String(body.shop_no || '').trim()
     if (!cookieStr || cookieStr.length < 10) {
       return NextResponse.json({ ok: false, error: '쿠키 값이 비어있어요.' }, { status: 400 })
