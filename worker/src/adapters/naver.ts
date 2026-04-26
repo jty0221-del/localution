@@ -375,20 +375,19 @@ async function postNaverReply(
 
     // ── 카드를 못 찾은 경우: 페이지에서 "답글 달기" 버튼 직접 탐색 ──────────
     if (!card) {
-      log.warn({ totalCards: (await page.$$(DOM_SELECTORS.reviewCard)).length, url: page.url() }, 'naver: card not found by selector, trying direct button search')
+      log.warn({ url: page.url() }, 'naver: card not found by selector, trying direct button search')
 
       // 페이지 전체에서 "답글 달기" 버튼 찾기 (카드 특정 불필요)
-      const directBtn = await page.$('button:has-text("답글 달기"), button:has-text("답글쓰기"), [class*="btn_write"]:visible')
-        ?? await page.evaluateHandle(() => {
-          const btns = Array.from(document.querySelectorAll('button, a'))
-          return btns.find(b => b.textContent?.includes('답글')) || null
-        }).then(h => h?.asElement?.() ?? null).catch(() => null)
+      const directBtn = await page.$('button:has-text("답글 달기")')
+        ?? await page.$('button:has-text("답글쓰기")')
+        ?? await page.$('button:has-text("답글")')
+        ?? await page.$('[class*="btn_write"]')
 
       if (directBtn) {
         log.info('naver: found reply button directly on page — using it')
-        await (directBtn as any).scrollIntoViewIfNeeded?.()
+        await directBtn.scrollIntoViewIfNeeded()
         await page.waitForTimeout(300)
-        await (directBtn as any).click()
+        await directBtn.click()
         await page.waitForTimeout(1500)
 
         const textarea = await page.$(DOM_SELECTORS.replyTextarea)
@@ -397,7 +396,9 @@ async function postNaverReply(
           await textarea.click({ clickCount: 3 })
           await textarea.fill(replyText)
           await page.waitForTimeout(600)
-          const submitBtn = await page.$('button:has-text("등록"), button:has-text("완료"), button:has-text("저장")')
+          const submitBtn = await page.$('button:has-text("등록")')
+            ?? await page.$('button:has-text("완료")')
+            ?? await page.$('button:has-text("저장")')
           if (submitBtn) {
             await submitBtn.click()
             await page.waitForTimeout(3000)
