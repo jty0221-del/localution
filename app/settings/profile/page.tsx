@@ -20,18 +20,7 @@ type UserCookie = {
 }
 type StoreInfo = {
   storeName?: string; branch?: string; address?: string; phone?: string;
-  industry?: string;  // 37차-6: 업종 (지점 대체)
 }
-
-// 37차-6: 업종 표준 옵션
-const INDUSTRY_OPTIONS = [
-  '한식', '중식', '일식', '양식', '분식', '치킨', '피자', '버거', '아시안',
-  '카페', '베이커리', '디저트', '주점', '야식',
-  '미용실', '네일샵', '피부관리', '네일아트',
-  '병원', '치과', '한의원', '피트니스', '요가',
-  '학원', '유치원', '공방',
-  '기타',
-]
 
 type PlatformRow = {
   platform: string
@@ -66,12 +55,13 @@ const PLATFORM_COLOR: Record<string, { bg: string; fg: string }> = {
 
 export default function ProfileSettingsPage() {
   const [user, setUser] = useState<UserCookie | null>(null)
-  const [form, setForm] = useState<StoreInfo>({ storeName: '', branch: '', address: '', phone: '', industry: '' })
+  const [form, setForm] = useState<StoreInfo>({ storeName: '', branch: '', address: '', phone: '' })
   const [saved, setSaved] = useState(false)
   const [loaded, setLoaded] = useState(false)
   const [saving, setSaving] = useState(false)
   const [platforms, setPlatforms] = useState<PlatformRow[]>([])
   const [serverReady, setServerReady] = useState(false)
+  const [naverAutoFilled, setNaverAutoFilled] = useState(false)
 
   // ── 서버 단일 진실원 로드 ─────────────────────────
   const loadServer = useCallback(async () => {
@@ -79,16 +69,19 @@ export default function ProfileSettingsPage() {
       const res = await fetch('/api/stores/me', { credentials: 'include', cache: 'no-store' })
       const data = await res.json()
       if (!res.ok || !data?.ok) return
-      // store
-      if (data.store) {
+      // naver_link 자동 연동 — 네이버 플레이스 연결 시 매장명·주소 자동 채움
+      const naverName    = data.naver_link?.external_name || ''
+      const naverAddress = data.naver_link?.address       || ''
+      // store + naver_link 통합 (store 우선, 빈 경우 naver_link 보충)
+      if (data.store || data.naver_link) {
         setForm((prev) => ({
-          storeName: prev.storeName || data.store.name || '',
-          branch: prev.branch || '',
-          address: prev.address || data.store.address || '',
-          phone: prev.phone || data.store.phone || '',
-          industry: prev.industry || data.store.industry || data.store.category || '',
+          storeName: prev.storeName || data.store?.name    || naverName    || '',
+          branch:    prev.branch   || '',
+          address:   prev.address  || data.store?.address || naverAddress || '',
+          phone:     prev.phone    || data.store?.phone   || '',
         }))
       }
+      if (naverName) setNaverAutoFilled(true)
       // platforms
       if (Array.isArray(data.platforms)) {
         setPlatforms(
@@ -113,7 +106,6 @@ export default function ProfileSettingsPage() {
           branch:    parsed.branch    || '',
           address:   parsed.address   || '',
           phone:     parsed.phone     || '',
-          industry:  parsed.industry  || parsed.category || '',
         })
       }
     } catch {}
@@ -143,7 +135,6 @@ export default function ProfileSettingsPage() {
             name: form.storeName,
             address: form.address || null,
             phone: form.phone || null,
-            industry: form.industry || null,  // 37차-6
           }),
         })
         const data = await res.json().catch(() => ({}))
@@ -301,7 +292,15 @@ export default function ProfileSettingsPage() {
           {/* 매장 정보 폼 */}
           <form onSubmit={handleSave} className="bg-white rounded-2xl shadow-sm p-6">
             <div className="flex items-center justify-between mb-4">
-              <h2 className="text-sm font-bold text-[#191F28]">매장 정보</h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-sm font-bold text-[#191F28]">매장 정보</h2>
+                {naverAutoFilled && (
+                  <span className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#EDF7ED] text-[#03C75A]">
+                    <svg width="10" height="10" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="10" fill="#03C75A"/><path d="M9 39V9h8L31 27V9h8v30h-8L17 21v18H9Z" fill="white"/></svg>
+                    네이버 플레이스 자동 연동
+                  </span>
+                )}
+              </div>
               {saved && (
                 <span className="inline-flex items-center gap-1 text-[11px] text-[#12B76A] font-bold">
                   <Check size={12} strokeWidth={3} /> 저장됨
@@ -319,29 +318,26 @@ export default function ProfileSettingsPage() {
                   type="text"
                   value={form.storeName || ''}
                   onChange={e => setForm(f => ({ ...f, storeName: e.target.value }))}
-                  placeholder="예) 일산닭칼국수 부천점, 라떼커피 강남점"
-                  maxLength={40}
+                  placeholder="예) 하랑마케팅, 강남치과, 라떼커피 등"
+                  maxLength={24}
                   className="w-full px-4 py-2.5 rounded-xl border border-[#E5E8EB] focus:outline-none focus:border-[#3182F6] focus:ring-2 focus:ring-[#3182F6]/10 text-sm"
                 />
-                <p className="text-[10px] text-[#8B95A1] mt-1">지점/분점까지 포함해서 입력해 주세요. 사이드바 메인 타이틀로 표시됩니다.</p>
+                <p className="text-[10px] text-[#8B95A1] mt-1">사이드바 메인 타이틀로 표시됩니다</p>
               </div>
 
               <div>
                 <label className="block text-xs font-semibold text-[#4E5968] mb-1.5">
-                  <Store size={12} strokeWidth={2.5} className="inline mr-1" />
-                  업종
+                  <MapPin size={12} strokeWidth={2.5} className="inline mr-1" />
+                  지점 / 구분
                 </label>
-                <select
-                  value={form.industry || ''}
-                  onChange={e => setForm(f => ({ ...f, industry: e.target.value }))}
-                  className="w-full px-4 py-2.5 rounded-xl border border-[#E5E8EB] focus:outline-none focus:border-[#3182F6] focus:ring-2 focus:ring-[#3182F6]/10 text-sm bg-white"
-                >
-                  <option value="">업종을 선택하세요</option>
-                  {INDUSTRY_OPTIONS.map((opt) => (
-                    <option key={opt} value={opt}>{opt}</option>
-                  ))}
-                </select>
-                <p className="text-[10px] text-[#8B95A1] mt-1">AI 답글 톤과 키워드 추천에 사용됩니다.</p>
+                <input
+                  type="text"
+                  value={form.branch || ''}
+                  onChange={e => setForm(f => ({ ...f, branch: e.target.value }))}
+                  placeholder="예) 강남점, 본점, 일산동구점 등"
+                  maxLength={24}
+                  className="w-full px-4 py-2.5 rounded-xl border border-[#E5E8EB] focus:outline-none focus:border-[#3182F6] focus:ring-2 focus:ring-[#3182F6]/10 text-sm"
+                />
               </div>
 
               <div>
