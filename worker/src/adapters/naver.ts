@@ -53,58 +53,6 @@ export async function runNaver(
     return { status: 'failed', message: `naver credentials: ${e?.message}` }
   }
 
-  // ── 43차: 쿠키 인증 우선 시도 ──────────────────────────────────────
-  const cookieJson = await loadCookieData(svc, userId)
-  if (cookieJson && action === 'post_reply') {
-    log.info({}, 'naver: cookie auth 시도')
-    const cookieCtx = await browser.newContext({
-      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36',
-      viewport: { width: 1280, height: 900 },
-      locale: 'ko-KR',
-      timezoneId: 'Asia/Seoul',
-    })
-    const cookiePage = await cookieCtx.newPage()
-    try {
-      const cookies = JSON.parse(cookieJson)
-      await cookieCtx.addCookies(
-        (cookies as Array<{ name: string; value: string; domain?: string; path?: string; httpOnly?: boolean; secure?: boolean }>)
-          .map(c => ({ name: c.name, value: c.value, domain: c.domain || '.naver.com', path: c.path || '/', httpOnly: !!c.httpOnly, secure: !!c.secure }))
-      )
-      await cookiePage.goto('https://new.smartplace.naver.com/', { waitUntil: 'domcontentloaded', timeout: 20000 })
-      await cookiePage.waitForTimeout(1500)
-      const afterUrl = cookiePage.url()
-      if (!afterUrl.includes('nid.naver.com') && !afterUrl.includes('login')) {
-        log.info({ url: afterUrl }, 'naver: cookie auth 성공 — 로그인 생략')
-        await markLoginStatus(svc, userId, 'naver_place', 'success')
-        const storeId = creds.platform_store_id || opts.storeId
-        const platformReviewId = String(payload?.platform_review_id ?? '')
-        const replyText = String(payload?.reply_text ?? '')
-        if (!platformReviewId || !replyText) {
-          await cookieCtx.close().catch(() => null)
-          return { status: 'failed', message: 'naver post_reply: platform_review_id / reply_text 누락' }
-        }
-        const result = await postNaverReply(cookiePage, storeId, platformReviewId, replyText, log)
-        if (result.ok) {
-          await svc.from('platform_reviews').update({
-            has_reply: true, reply_content: replyText,
-            reply_status: 'submitted', reply_submitted_at: new Date().toISOString(), reply_error: null,
-          }).eq('user_id', userId).eq('platform', 'naver_place').eq('platform_review_id', platformReviewId)
-          await cookieCtx.close().catch(() => null)
-          return { status: 'ok', message: `naver cookie-auth: reply posted for ${platformReviewId}` }
-        }
-        log.warn({ reason: result.reason }, 'naver: cookie auth 답글 등록 실패 — ID/PW 로그인으로 폴백')
-      } else {
-        log.warn({ url: afterUrl }, 'naver: cookie 만료 또는 무효 — ID/PW 로그인으로 폴백')
-        await svc.from('platform_reviews').update({ reply_error: '쿠키 만료됨. /my/platforms/naver_place/session 에서 갱신 필요' })
-          .eq('user_id', userId).eq('platform', 'naver_place').eq('platform_review_id', String(payload?.platform_review_id ?? ''))
-      }
-    } catch (e: any) {
-      log.warn({ err: e?.message }, 'naver: cookie 파싱/주입 오류 — ID/PW 로그인으로 폴백')
-    } finally {
-      await cookieCtx.close().catch(() => null)
-    }
-  }
-
   const context = await browser.newContext({
     userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36',
     viewport: { width: 1280, height: 900 },
