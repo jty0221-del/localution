@@ -64,7 +64,7 @@ export async function runCoupangEats(
     await page.goto(LOGIN_URL, { waitUntil: 'domcontentloaded', timeout: 30000 })
     await page.waitForTimeout(2000)
 
-    // 폼이 실제로 나타날 때까지 대기
+    // 비밀번호 입력창 대기
     const pwLocator = page.locator(DOM_SELECTORS.pwInput).first()
     const pwVisible = await pwLocator.waitFor({ state: 'visible', timeout: 15000 }).then(() => true).catch(() => false)
     if (!pwVisible) {
@@ -73,8 +73,35 @@ export async function runCoupangEats(
       return { status: 'failed', message: 'coupangeats 로그인 폼을 찾지 못했습니다 — 페이지 구조 변경 가능성' }
     }
 
-    const idLocator = page.locator(DOM_SELECTORS.idInput).first()
-    await idLocator.fill(creds.account_id)
+    // ID 입력창 — 셀렉터 후보 순차 시도 (generic input[type=text] 제외)
+    const idCandidates = [
+      'input[name="loginId"]',
+      'input[name="username"]',
+      'input[name="email"]',
+      'input[type="email"]',
+      'input[placeholder*="아이디"]',
+      'input[placeholder*="이메일"]',
+      'input[placeholder*="ID"]',
+      'input[placeholder*="id"]',
+    ]
+    let idFilled = false
+    for (const sel of idCandidates) {
+      try {
+        const loc = page.locator(sel).first()
+        const visible = await loc.waitFor({ state: 'visible', timeout: 2000 }).then(() => true).catch(() => false)
+        if (visible) {
+          await loc.fill(creds.account_id, { timeout: 5000 })
+          idFilled = true
+          log.info({ sel }, 'coupangeats id input filled')
+          break
+        }
+      } catch { continue }
+    }
+    if (!idFilled) {
+      await dumpPageDiagnostics(page, log, 'coupangeats-id-input-not-found')
+      await markLoginStatus(svc, userId, 'coupangeats', 'failed', 'id input not found')
+      return { status: 'failed', message: 'coupangeats ID 입력 필드를 찾지 못했습니다 — html_snippet 로그 확인 필요' }
+    }
     await pwLocator.fill(creds.password)
     await Promise.all([
       page.waitForLoadState('networkidle', { timeout: 30000 }).catch(() => null),
