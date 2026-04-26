@@ -117,7 +117,7 @@ export async function runCoupangEats(
     await page.waitForTimeout(800)
     await page.locator(DOM_SELECTORS.loginBtn).first().click()
     // 로그인 후 URL이 /login 에서 벗어날 때까지 대기
-    await page.waitForURL((url) => !url.includes('/login'), { timeout: 20000 }).catch(() => null)
+    await page.waitForURL((url) => !url.href.includes('/login'), { timeout: 20000 }).catch(() => null)
     await page.waitForTimeout(2000)
 
     const currentUrl = page.url()
