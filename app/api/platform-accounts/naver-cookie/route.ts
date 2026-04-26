@@ -36,24 +36,47 @@ function encryptCookie(plain: string): { enc: string; iv: string; tag: string } 
 }
 
 async function saveCookieJson(userId: string, cookieJson: string): Promise<string> {
-  const { enc, iv, tag } = encryptCookie(cookieJson)
   const svc = createServiceClient()
   const now = new Date().toISOString()
-  const { data: existing } = await svc
-    .from('naver_session_cookies')
-    .select('id')
+
+  // ── 1) platform_credentials.extra_data 에 저장 (Worker가 확실히 읽는 테이블) ──
+  const { data: cred, error: credErr } = await svc
+    .from('platform_credentials')
+    .select('extra_data')
     .eq('user_id', userId)
+    .eq('platform', 'naver_place')
     .maybeSingle()
-  if (existing?.id) {
-    await svc
+
+  if (credErr) throw new Error(`platform_credentials 조회 실패: ${credErr.message}`)
+  if (!cred) throw new Error('네이버 플랫폼 계정이 연결되지 않았어요. 먼저 네이버 계정을 연결해주세요.')
+
+  const prevExtra = (cred.extra_data as Record<string, unknown>) ?? {}
+  const { error: updateErr } = await svc
+    .from('platform_credentials')
+    .update({ extra_data: { ...prevExtra, naver_session_cookie: cookieJson, naver_cookie_updated_at: now } })
+    .eq('user_id', userId)
+    .eq('platform', 'naver_place')
+
+  if (updateErr) throw new Error(`쿠키 저장 실패: ${updateErr.message}`)
+
+  // ── 2) naver_session_cookies 테이블에도 병행 저장 (구버전 호환) ──
+  try {
+    const { enc, iv, tag } = encryptCookie(cookieJson)
+    const { data: existing } = await svc
       .from('naver_session_cookies')
-      .update({ cookie_enc: enc, cookie_iv: iv, cookie_tag: tag, updated_at: now })
+      .select('id')
       .eq('user_id', userId)
-  } else {
-    await svc
-      .from('naver_session_cookies')
-      .insert({ user_id: userId, cookie_enc: enc, cookie_iv: iv, cookie_tag: tag, updated_at: now })
-  }
+      .maybeSingle()
+    if (existing?.id) {
+      await svc.from('naver_session_cookies')
+        .update({ cookie_enc: enc, cookie_iv: iv, cookie_tag: tag, updated_at: now })
+        .eq('user_id', userId)
+    } else {
+      await svc.from('naver_session_cookies')
+        .insert({ user_id: userId, cookie_enc: enc, cookie_iv: iv, cookie_tag: tag, updated_at: now })
+    }
+  } catch { /* 구버전 테이블 없어도 무시 */ }
+
   return now
 }
 
