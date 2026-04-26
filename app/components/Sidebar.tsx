@@ -12,12 +12,12 @@ const FLAT_NAV = [
 ]
 
 const REVIEW_SUB = [
-  { href: '/review-admin/naver',   label: '네이버',     icon: '🟢', color: '#03C75A' },
-  { href: '/review-admin/google',  label: '구글',       icon: '🔵', color: '#4285F4' },
-  { href: '/review-admin/kakao',   label: '카카오',     icon: '🟡', color: '#F59E0B' },
-  { href: '/review-admin/baemin',  label: '배달의민족', icon: '🩵', color: '#2AC1BC' },
-  { href: '/review-admin/yogiyo',  label: '요기요',     icon: '🔴', color: '#FA0050' },
-  { href: '/review-admin/coupang', label: '쿠팡이츠',   icon: '🟠', color: '#FF4B30' },
+  { href: '/review-admin/naver',   label: '네이버',     platform: 'naver',   color: '#03C75A' },
+  { href: '/review-admin/google',  label: '구글',       platform: 'google',  color: '#4285F4' },
+  { href: '/review-admin/kakao',   label: '카카오',     platform: 'kakao',   color: '#FEE500' },
+  { href: '/review-admin/baemin',  label: '배달의민족', platform: 'baemin',  color: '#2AC1BC' },
+  { href: '/review-admin/yogiyo',  label: '요기요',     platform: 'yogiyo',  color: '#E5007F' },
+  { href: '/review-admin/coupang', label: '쿠팡이츠',   platform: 'coupang', color: '#FF4B30' },
 ]
 
 const MARKETING_SUB = [
@@ -46,9 +46,53 @@ const REGIONS = [
   { key: 'jeju',     label: '제주', icon: '🍊', sub: ['제주시','서귀포시'] },
 ]
 
+// 플랫폼 SVG 로고 (18×18, 대시보드와 동일한 path 재사용)
+function PlatformLogoSmall({ platform }: { platform: string }) {
+  if (platform === 'naver') return (
+    <svg width="18" height="18" viewBox="0 0 48 48" fill="none" style={{flexShrink:0}}>
+      <rect width="48" height="48" rx="10" fill="#03C75A"/>
+      <path d="M9 39V9h8L31 27V9h8v30h-8L17 21v18H9Z" fill="white"/>
+    </svg>
+  )
+  if (platform === 'google') return (
+    <svg width="18" height="18" viewBox="0 0 48 48" style={{flexShrink:0}}>
+      <rect width="48" height="48" rx="10" fill="white" stroke="#E5E8EB" strokeWidth="1.5"/>
+      <path d="M43.6 24.5c0-1.5-.14-3-.38-4.5H24v8.5h10.94c-.5 2.5-1.96 4.6-4.16 6v5h6.74c3.94-3.62 6.08-9 6.08-15z" fill="#4285F4"/>
+      <path d="M24 44c5.4 0 9.92-1.8 13.24-4.86l-6.46-5c-1.8 1.2-4.1 1.92-6.78 1.92-5.22 0-9.64-3.52-11.22-8.26H6.12v5.14C9.42 40.02 16.28 44 24 44z" fill="#34A853"/>
+      <path d="M12.78 27.8A11.94 11.94 0 0112.2 24c0-1.32.22-2.6.58-3.8v-5.14H6.12A20 20 0 004 24c0 3.22.78 6.28 2.12 9.14l6.66-5.34z" fill="#FBBC05"/>
+      <path d="M24 12.08c2.94 0 5.58 1.02 7.66 3l5.74-5.74C33.9 6.06 29.38 4 24 4 16.28 4 9.42 7.98 6.12 14.86l6.66 5.14C14.36 15.6 18.78 12.08 24 12.08z" fill="#EA4335"/>
+    </svg>
+  )
+  if (platform === 'kakao') return (
+    <svg width="18" height="18" viewBox="0 0 48 48" fill="none" style={{flexShrink:0}}>
+      <rect width="48" height="48" rx="12" fill="#FEE500"/>
+      <path d="M24 11c-7 0-12.5 4.4-12.5 10 0 3.7 2.5 7 6.3 8.9l-1.5 5.3c-.1.3.3.5.5.3l6.2-4.3c.3 0 .7.1 1 .1 7 0 12.5-4.4 12.5-10S31 11 24 11Z" fill="#191919"/>
+    </svg>
+  )
+  if (platform === 'baemin') return (
+    <svg width="18" height="18" viewBox="0 0 48 48" fill="none" style={{flexShrink:0}}>
+      <rect width="48" height="48" rx="12" fill="#2AC1BC"/>
+      <path d="M14 34V14h11c3 0 6 1.8 6 5 0 2-.9 3.5-2.4 4.4 2.2.9 3.7 2.7 3.7 5C32.3 32 29 34 25.5 34H14zm5-12h5c1.3 0 2.2-.8 2.2-2s-.9-2-2.2-2h-5v4zm0 8.5h5.5c1.7 0 2.7-1 2.7-2.2s-1-2.2-2.7-2.2H19v4.4z" fill="white"/>
+    </svg>
+  )
+  if (platform === 'yogiyo') return (
+    <svg width="18" height="18" viewBox="0 0 48 48" fill="none" style={{flexShrink:0}}>
+      <rect width="48" height="48" rx="12" fill="#E5007F"/>
+      <path d="M10 12L24 30V44h5V30L43 12H36L24 26 12 12H10Z" fill="white"/>
+    </svg>
+  )
+  if (platform === 'coupang') return (
+    <svg width="18" height="18" viewBox="0 0 48 48" fill="none" style={{flexShrink:0}}>
+      <rect width="48" height="48" rx="12" fill="#FF4B30"/>
+      <path d="M27 8L12 26h10L19 40l21-18H29L34 8H27Z" fill="white"/>
+    </svg>
+  )
+  return null
+}
+
 interface StoreInfo {
   storeName: string
-  category: string
+  branch: string
   address: string
 }
 
@@ -79,48 +123,40 @@ export default function Sidebar() {
   const [communityOpen, setCommunityOpen] = useState(isCommunitySection)
   const [openRegion, setOpenRegion] = useState<string>(currentRegion)
 
-  function applyStoreData(serverName: string, serverAddr: string, serverCategory: string) {
+  function applyStoreData(serverName: string, serverAddr: string, serverBranch: string) {
     setStoreInfo(prev => ({
       storeName: serverName || (prev ? prev.storeName : ''),
-      category:  serverCategory || (prev ? prev.category : ''),
+      branch:    serverBranch || (prev ? prev.branch : ''),
       address:   serverAddr || (prev ? prev.address : ''),
     }))
   }
 
   function loadStore() {
-    // 1) localStorage 즉시 반영 (branch 구형 키도 호환)
     try {
       const raw = localStorage.getItem('localution_store')
       if (raw) {
         const p = JSON.parse(raw)
-        setStoreInfo({
-          storeName: p.storeName || '',
-          category:  p.category  || p.branch || '',
-          address:   p.address   || '',
-        })
+        setStoreInfo({ storeName: p.storeName || '', branch: p.branch || '', address: p.address || '' })
       }
     } catch (_) {}
 
-    // 2) 서버에서 보충 (네이버 연동 category 포함)
     fetch('/api/stores/me', { credentials: 'include', cache: 'no-store' })
       .then(r => r.json())
       .then(data => {
         if (!data || !data.ok) return
-        const naverName     = (data.naver_link && data.naver_link.external_name) ? data.naver_link.external_name : ''
-        const naverAddr     = (data.naver_link && data.naver_link.address)       ? data.naver_link.address       : ''
-        const naverCategory = (data.naver_link && data.naver_link.category)      ? data.naver_link.category      : ''
-        const sName     = (data.store && data.store.name)     ? data.store.name     : naverName
-        const sAddr     = (data.store && data.store.address)  ? data.store.address  : naverAddr
-        const sCategory = (data.store && data.store.category) ? data.store.category : naverCategory
-        if (sName || sCategory) {
-          applyStoreData(sName, sAddr, sCategory)
+        const naverName = (data.naver_link && data.naver_link.external_name) ? data.naver_link.external_name : ''
+        const naverAddr = (data.naver_link && data.naver_link.address) ? data.naver_link.address : ''
+        const sName = (data.store && data.store.name) ? data.store.name : naverName
+        const sAddr = (data.store && data.store.address) ? data.store.address : naverAddr
+        if (sName) {
+          applyStoreData(sName, sAddr, '')
           try {
             const curr = JSON.parse(localStorage.getItem('localution_store') || '{}')
-            let changed = false
-            if (!curr.storeName && sName)     { curr.storeName = sName;     changed = true }
-            if (!curr.address   && sAddr)     { curr.address   = sAddr;     changed = true }
-            if (!curr.category  && sCategory) { curr.category  = sCategory; changed = true }
-            if (changed) localStorage.setItem('localution_store', JSON.stringify(curr))
+            if (!curr.storeName) {
+              curr.storeName = sName
+              if (!curr.address && sAddr) curr.address = sAddr
+              localStorage.setItem('localution_store', JSON.stringify(curr))
+            }
           } catch (_) {}
         }
       })
@@ -159,16 +195,16 @@ export default function Sidebar() {
 
   const toggleRegion = (key: string) => setOpenRegion(prev => prev === key ? '' : key)
 
-  const storeName    = (storeInfo && storeInfo.storeName) ? storeInfo.storeName : ''
-  const storeCategory = (storeInfo && storeInfo.category)  ? storeInfo.category  : ''
-  const storeAddr    = (storeInfo && storeInfo.address)   ? storeInfo.address   : ''
-  const userEmail    = (user && user.email) ? user.email : ''
-  const userName     = (user && user.name)  ? user.name  : ''
+  const storeName   = (storeInfo && storeInfo.storeName) ? storeInfo.storeName : ''
+  const storeBranch = (storeInfo && storeInfo.branch)    ? storeInfo.branch    : ''
+  const storeAddr   = (storeInfo && storeInfo.address)   ? storeInfo.address   : ''
+  const userEmail   = (user && user.email)  ? user.email  : ''
+  const userName    = (user && user.name)   ? user.name   : ''
 
   const avatarChar  = storeName ? storeName.charAt(0) : (userName ? userName.charAt(0) : '?')
   const displayName = storeName || userName || '매장 설정 필요'
-  const displaySub  = storeCategory
-    ? storeCategory
+  const displaySub  = storeBranch
+    ? storeBranch
     : (storeAddr ? storeAddr.slice(0, 18) : (userEmail || ''))
 
   const NavItems = () => (
@@ -209,7 +245,7 @@ export default function Sidebar() {
               return (
                 <Link key={sub.href} href={sub.href} onClick={() => setMobileOpen(false)}
                   className={"flex items-center gap-2.5 px-3 py-1.5 rounded-xl " + (active ? 'bg-[#FFFBEB] text-[#F59E0B] font-semibold' : 'text-[#4E5968] hover:bg-[#F8F9FA] font-medium')}>
-                  <span className="text-sm">{sub.icon}</span>
+                  <PlatformLogoSmall platform={sub.platform} />
                   <span className="text-xs">{sub.label}</span>
                 </Link>
               )
@@ -298,6 +334,7 @@ export default function Sidebar() {
 
   return (
     <>
+      {/* 모바일 상단 바 */}
       <div className="md:hidden fixed top-0 left-0 right-0 h-14 bg-white border-b border-[#E5E8EB] z-30 flex items-center justify-between px-4">
         <div>
           <span className="font-black text-[#191F28] text-lg tracking-tight">Localution</span>
@@ -313,6 +350,7 @@ export default function Sidebar() {
       {mobileOpen && <div className="md:hidden fixed inset-0 bg-black/30 z-30" onClick={() => setMobileOpen(false)} />}
 
       <aside className={"fixed top-0 left-0 h-screen w-[220px] bg-white border-r border-[#E5E8EB] z-40 flex flex-col transition-transform duration-300 " + (mobileOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0')}>
+        {/* 로고 */}
         <div className="px-5 py-5 border-b border-[#F2F4F6]">
           <Link href="/" className="block">
             <div className="flex items-center gap-2.5">
@@ -329,7 +367,9 @@ export default function Sidebar() {
 
         <NavItems />
 
+        {/* 하단 매장 프로필 영역 */}
         <div className="px-4 py-4 border-t border-[#F2F4F6] relative" ref={profileRef}>
+
           {profileOpen && (
             <div className="absolute bottom-[72px] left-4 right-4 bg-white rounded-xl shadow-lg border border-[#E5E8EB] overflow-hidden z-50">
               <Link href="/settings/profile"
