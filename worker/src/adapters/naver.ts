@@ -50,15 +50,22 @@ async function updateReviewStatus(
   } else {
     update.reply_error = (extra.error || 'unknown error').slice(0, 200)
   }
-  const { error } = await svc
-    .from('platform_reviews')
-    .update(update)
-    .eq('user_id', userId)
-    .eq('platform', 'naver_place')
-    .eq('platform_review_id', platformReviewId)
-  if (error) {
-    // DB 업데이트 실패 자체를 로그 (throw 안 함)
-    console.error('[naver] platform_reviews update failed:', error.message, { userId, platformReviewId, status })
+  console.log('[naver][updateReviewStatus] START', { userId: userId.slice(0, 12), platformReviewId, status, error: (extra.error || '').slice(0, 80) })
+  try {
+    const { data, error, count } = await svc
+      .from('platform_reviews')
+      .update(update)
+      .eq('user_id', userId)
+      .eq('platform', 'naver_place')
+      .eq('platform_review_id', platformReviewId)
+      .select('id, reply_status')
+    if (error) {
+      console.error('[naver][updateReviewStatus] SUPABASE ERROR:', error.message, error.code, error.details)
+    } else {
+      console.log('[naver][updateReviewStatus] SUCCESS rows:', JSON.stringify(data), 'count:', count)
+    }
+  } catch (e: any) {
+    console.error('[naver][updateReviewStatus] EXCEPTION:', e?.message)
   }
 }
 
@@ -78,7 +85,19 @@ export async function runNaver(
   // post_reply 필수 파라미터 먼저 검증
   const platformReviewId = action === 'post_reply' ? String(payload?.platform_review_id || '') : ''
   const replyText = action === 'post_reply' ? String(payload?.reply_text || '') : ''
+
+  // ── 디버그 로그: 받은 payload 확인 ──────────────────────────────
+  log.info({
+    action,
+    userId: opts.userId.slice(0, 12) + '...',
+    platformReviewId: platformReviewId || '(empty)',
+    replyTextLen: replyText.length,
+    bizIdRaw: payload?.biz_id || '(none)',
+    payloadKeys: payload ? Object.keys(payload) : [],
+  }, 'naver: runNaver start')
+
   if (action === 'post_reply' && (!platformReviewId || !replyText)) {
+    log.error({ platformReviewId, replyTextLen: replyText.length }, 'naver: MISSING REQUIRED PARAMS — no DB update possible')
     return { status: 'failed', message: 'naver post_reply: platform_review_id / reply_text 누락' }
   }
 
