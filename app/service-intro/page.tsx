@@ -7,7 +7,7 @@ import Link from 'next/link'
 import Footer from '../components/Footer'
 import {
   ArrowLeft, ArrowRight, Star, RefreshCw, CheckCircle2,
-  Loader2, Send, MessageSquare,
+  Loader2, Send, QrCode, MessageSquare,
   TrendingUp, Users, BarChart3, PenLine, Zap, Shield,
 } from 'lucide-react'
 
