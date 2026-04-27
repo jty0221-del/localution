@@ -69,7 +69,7 @@ const FEATURES = [
     color: 'from-purple-500 to-violet-600',
     bg: 'bg-purple-50',
     tags: ['자동 분류', '알림톡', '재방문 유도'],
-    href: '/service-intro',
+    href: '/pricing',
   },
   {
     Icon: Layers,
@@ -88,7 +88,7 @@ const FEATURES = [
     color: 'from-indigo-500 to-purple-600',
     bg: 'bg-indigo-50',
     tags: ['4대 플랫폼', '대리 게시', 'AES-256'],
-    href: '/my/platforms',
+    href: '/pricing',
     badge: 'NEW',
   },
   {
@@ -318,7 +318,7 @@ export default function LandingPage() {
             <TopNav />
 
       {/* ── 히어로 ── */}
-      <section className="pt-32 pb-20 px-4 bg-gradient-to-b from-[#EFF6FF] to-white">
+      <section className="pt-24 md:pt-32 pb-16 md:pb-20 px-4 bg-gradient-to-b from-[#EFF6FF] to-white">
         <div className="max-w-4xl mx-auto text-center">
           <div className="inline-flex items-center gap-2 bg-blue-100 text-blue-700 text-xs font-semibold px-3 py-1.5 rounded-full mb-6">
             <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" />
@@ -328,10 +328,59 @@ export default function LandingPage() {
             필요한 것만 골라쓰는<br />
             <span className="text-[#3182F6]">사장님 마케팅 플랫폼</span>
           </h1>
-          <p className="text-lg md:text-xl text-[#4E5968] mb-10 max-w-2xl mx-auto leading-relaxed">
+          <p className="text-lg md:text-xl text-[#4E5968] mb-8 max-w-2xl mx-auto leading-relaxed">
             리뷰·QR·블로그·플레이스·CRM — 12개 모듈 중<br className="hidden md:block" />
             내 매장에 필요한 것만 선택. 3개 묶으면 10% 할인.
           </p>
+
+          {/* ── 히어로 공감 카드 (Before / After) ── */}
+          <div className="flex flex-col sm:flex-row items-stretch gap-3 max-w-2xl mx-auto mb-10">
+            <div className="flex-1 bg-white border border-red-100 rounded-2xl p-5 text-left shadow-sm">
+              <p className="text-xs font-bold text-red-400 mb-3 flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-red-400 inline-block" />
+                지금 사장님 상황
+              </p>
+              <ul className="space-y-2">
+                {([
+                  ['😩', '리뷰 답글 10개 쌓였어요'],
+                  ['📱', '플랫폼 탭 5개 열어놓음'],
+                  ['⏰', '새벽에 혼자 정산 중…'],
+                  ['😤', '나쁜 리뷰 답글 뭐라 해야 하지?'],
+                ] as [string, string][]).map(([emoji, text]) => (
+                  <li key={text} className="flex items-center gap-2 text-sm text-gray-600">
+                    <span>{emoji}</span><span>{text}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+
+            <div className="flex sm:flex-col items-center justify-center gap-1 py-1">
+              <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
+                <ArrowRight size={15} className="text-blue-500 rotate-90 sm:rotate-0" />
+              </div>
+              <span className="text-[10px] font-bold text-blue-400">AI 자동화</span>
+            </div>
+
+            <div className="flex-1 bg-blue-50 border border-blue-100 rounded-2xl p-5 text-left shadow-sm">
+              <p className="text-xs font-bold text-blue-500 mb-3 flex items-center gap-1.5">
+                <Sparkles size={11} strokeWidth={2.5} />
+                로컬루션 도입 후
+              </p>
+              <ul className="space-y-2">
+                {([
+                  ['✅', 'AI가 30초 만에 답글 완성'],
+                  ['🎯', '6개 플랫폼 한 화면에서'],
+                  ['💡', '매출 자동 정산, 일찍 퇴근'],
+                  ['🏆', '맞춤 AI 답글로 별점 UP'],
+                ] as [string, string][]).map(([emoji, text]) => (
+                  <li key={text} className="flex items-center gap-2 text-sm text-gray-700">
+                    <span>{emoji}</span><span>{text}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          </div>
+
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Link href="/pricing"
               className="inline-flex items-center justify-center gap-2 bg-[#3182F6] text-white font-bold text-base px-8 py-4 rounded-2xl hover:bg-[#1B64DA] transition-all shadow-lg shadow-blue-200 hover:shadow-blue-300 hover:-translate-y-0.5">
@@ -364,6 +413,68 @@ export default function LandingPage() {
                 <div className="text-sm text-[#8B95A1] font-medium">{s.label}</div>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Before → After 비교 섹션 ── */}
+      <section className="py-16 px-4 bg-white">
+        <div className="max-w-4xl mx-auto">
+          <div className="text-center mb-10">
+            <h2 className="text-2xl md:text-3xl font-black text-[#191F28] mb-2">
+              혼자 다 하려면 하루가 모자라요
+            </h2>
+            <p className="text-[#8B95A1] text-sm">로컬루션 하나로 마케팅·정산·고객관리 전부 해결</p>
+          </div>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
+            {/* Before */}
+            <div className="bg-[#FFF5F5] border border-red-100 rounded-2xl p-6">
+              <div className="flex items-center gap-2 mb-5">
+                <div className="w-9 h-9 rounded-full bg-red-100 flex items-center justify-center text-lg">😩</div>
+                <span className="font-black text-[#191F28] text-base">로컬루션 전</span>
+              </div>
+              <ul className="space-y-3.5">
+                {([
+                  ['리뷰 답글 1개', '10분 소요, 말투 고민'],
+                  ['플랫폼 관리', '탭 5개 열어두고 왔다갔다'],
+                  ['키워드 순위', '눈으로 직접 검색해서 확인'],
+                  ['정산·급여', '엑셀에 하나씩 손으로 입력'],
+                  ['고객 재방문 유도', '기억으로 연락, 자주 놓침'],
+                ] as [string, string][]).map(([title, desc]) => (
+                  <li key={title} className="flex items-start gap-3">
+                    <span className="text-red-400 mt-0.5 shrink-0 font-bold">✗</span>
+                    <div>
+                      <span className="text-sm font-bold text-[#191F28]">{title}</span>
+                      <span className="text-xs text-[#8B95A1] ml-1.5">{desc}</span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+            {/* After */}
+            <div className="bg-[#EFF6FF] border border-blue-100 rounded-2xl p-6">
+              <div className="flex items-center gap-2 mb-5">
+                <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-lg">🤖</div>
+                <span className="font-black text-[#191F28] text-base">로컬루션 후</span>
+              </div>
+              <ul className="space-y-3.5">
+                {([
+                  ['AI 답글 자동 생성', '30초, 말투 6종 선택'],
+                  ['6개 플랫폼 통합', '한 화면에서 전부 처리'],
+                  ['키워드 순위 자동 추적', '매일 카톡으로 리포트'],
+                  ['정산 자동화', '매출·급여 한 번에 계산'],
+                  ['CRM 재방문 유도', '방문 2주 후 자동 알림톡'],
+                ] as [string, string][]).map(([title, desc]) => (
+                  <li key={title} className="flex items-start gap-3">
+                    <span className="text-blue-500 mt-0.5 shrink-0 font-bold">✓</span>
+                    <div>
+                      <span className="text-sm font-bold text-[#191F28]">{title}</span>
+                      <span className="text-xs text-[#8B95A1] ml-1.5">{desc}</span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
           </div>
         </div>
       </section>
