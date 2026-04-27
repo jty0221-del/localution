@@ -418,16 +418,33 @@ async function postNaverReply(
       return { ok: false, reason: `review card not found (url: ${page.url()})` }
     }
 
-    // 이미 답글 있으면 스킵
+    // 카드 내 버튼 목록 디버그 로깅
+    try {
+      const cardBtns = await card.$$('button')
+      const btnTexts = await Promise.all(cardBtns.map(b => b.innerText().catch(() => '')))
+      log.info({ btnTexts: btnTexts.slice(0, 10) }, 'naver: buttons in card')
+    } catch {}
+
+    // 이미 답글 있으면 스킵 (선택자 넓힘)
     const alreadyReplied = await card.$(DOM_SELECTORS.ownerReply)
+      ?? await card.$('[class*="reply"]:not(button), [class*="Reply"]:not(button), [class*="owner"]:not(button)')
     if (alreadyReplied) {
       log.info({ platformReviewId }, 'naver: already replied — skip')
       return { ok: true }
     }
 
-    // 답글 달기 버튼
-    const replyBtn = await card.$(DOM_SELECTORS.replyButton)
-      ?? await page.$('button:has-text("답글 달기"), button:has-text("답글")')
+    // 답글 달기 버튼 (달기/쓰기/작성/수정 등 모든 변형 포함)
+    const replyBtn = await card.$('button:has-text("답글 달기")')
+      ?? await card.$('button:has-text("답글 쓰기")')
+      ?? await card.$('button:has-text("답글쓰기")')
+      ?? await card.$('button:has-text("답글 작성")')
+      ?? await card.$('button:has-text("답글 수정")')
+      ?? await card.$('button:has-text("답글")')
+      ?? await card.$(DOM_SELECTORS.replyButton)
+      ?? await page.$('button:has-text("답글 달기")')
+      ?? await page.$('button:has-text("답글 쓰기")')
+      ?? await page.$('button:has-text("답글")')
+    log.info({ foundReplyBtn: !!replyBtn }, 'naver: reply button search result')
     if (!replyBtn) return { ok: false, reason: '답글 버튼 없음 (SmartPlace DOM 변경 가능)' }
     await replyBtn.scrollIntoViewIfNeeded()
     await page.waitForTimeout(300)
