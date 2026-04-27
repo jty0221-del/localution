@@ -202,23 +202,30 @@ export default function AboutPage() {
           </div>
 
           <article className="bg-white rounded-3xl p-7 md:p-12 shadow-[0_4px_30px_rgba(0,0,0,0.04)] border border-gray-100">
-            <div className="space-y-5 text-[#191F28] text-[15px] md:text-base leading-[1.9]">
+            <div className="space-y-6 text-[#191F28] text-[15px] md:text-base leading-[1.9]">
               <p className="font-semibold text-lg md:text-xl text-[#191F28]">
                 자영업자 편에서 10년을 일했습니다.
               </p>
               <p className="text-[#4E5968]">
-                카페를 직접 열었다가 망해봤습니다. 그때 깨달았습니다.
-                <br />
+                군대 전역하고 카페를 직접 열었다가 코로나 때 망해봤습니다.
+                너무 힘든 시기였습니다. 새벽 쪽잠, 3잡…
+              </p>
+              <p className="font-semibold text-[#191F28]">
+                그때 깨달았습니다.
+              </p>
+              <p className="text-[#4E5968]">
                 사장님들에게 필요한 건 <strong className="text-[#191F28]">비싼 대행</strong>이 아니라,
-                {' '}<strong className="text-[#191F28]">언제든 옆에 있는 도구</strong>라는 것.
+                {' '}<strong className="text-[#191F28]">언제든 옆에서 도움 줄 수 있는 사람과 도구</strong>라는 것을요.
               </p>
               <p className="text-[#4E5968]">
                 로컬루션은 그 경험을 제품으로 옮긴 결과입니다.
-                10년의 판단, 500곳의 데이터, 수백 번의 실패를 <strong className="text-[#191F28]">AI가 24시간 대신</strong>합니다.
+                자영업자+마케팅 대행사 등 10년 이상의 경험과 판단으로
+                500곳 이상의 데이터, 수백 번의 실패를{' '}
+                <strong className="text-[#191F28]">AI가 대표님, 사장님 대신 24시간 일합니다.</strong>{' '}
                 사장님은 결과만 확인하면 됩니다.
               </p>
               <p className="text-[#191F28] font-semibold">
-                "사장님이 원하는 마케팅"을 사장님이 직접 돌릴 수 있게,<br />
+                "사장님이 원하는 마케팅"을 사장님이 직접 돌릴 수 있게,<br className="hidden sm:block" />
                 그게 로컬루션이 존재하는 이유입니다.
               </p>
             </div>
