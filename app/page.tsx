@@ -344,7 +344,7 @@ export default function LandingPage() {
             필요한 것만 골라쓰는<br />
             <span className="text-[#3182F6]">사장님 마케팅 플랫폼</span>
           </h1>
-          <p className="text-lg md:text-xl text-[#4E5968] mb-8 max-w-2xl mx-auto leading-relaxed">
+          <p className="text-base md:text-xl text-[#4E5968] mb-8 max-w-2xl mx-auto leading-relaxed text-left sm:text-center">
             리뷰·QR·블로그·플레이스·CRM — 12개 모듈 중<br className="hidden md:block" />
             내 매장에 필요한 것만 선택. 3개 묶으면 10% 할인.
           </p>
@@ -577,7 +577,7 @@ export default function LandingPage() {
             <h2 className="text-3xl md:text-4xl font-black text-[#191F28] mb-4">
               필요한 기능만 골라쓰는 모듈 방식
             </h2>
-            <p className="text-[#4E5968] text-base md:text-lg">
+            <p className="text-[#4E5968] text-sm md:text-base text-left sm:text-center">
               ☕ 커피 한 잔 값 월 6,900원 · 3개 묶으면 10% · 5개 15% · 8개 20% 추가 할인
             </p>
           </div>
@@ -676,11 +676,11 @@ export default function LandingPage() {
             <h2 className="text-2xl md:text-3xl font-black text-[#191F28] mb-2">
               이런 사장님들이 쓰고 있어요
             </h2>
-            <p className="text-[#8B95A1] text-sm">
+            <p className="text-[#8B95A1] text-sm text-left sm:text-center">
               1인 운영부터 체인점까지 · 업종 상관없이 네이버·구글·배민이 핵심이라면 전부
             </p>
           </div>
-          <div className="grid grid-cols-4 md:grid-cols-8 gap-4">
+          <div className="grid grid-cols-4 md:grid-cols-8 gap-2 md:gap-4">
             {[
               { Icon: Coffee, label: '카페' },
               { Icon: UtensilsCrossed, label: '음식점' },
@@ -691,15 +691,16 @@ export default function LandingPage() {
               { Icon: PenLine, label: '학원' },
               { Icon: Wine, label: '술집·바' },
             ].map(({ Icon, label }) => (
-              <div key={label} className="flex flex-col items-center gap-2 p-3 rounded-xl hover:bg-[#F8FAFC] transition-colors">
-                <div className="w-12 h-12 rounded-2xl bg-[#EFF6FF] flex items-center justify-center">
-                  <Icon size={22} strokeWidth={2} className="text-[#3182F6]" />
+              <div key={label} className="flex flex-col items-center gap-1.5 p-2 md:p-3 rounded-xl hover:bg-[#F8FAFC] transition-colors">
+                <div className="w-10 h-10 md:w-12 md:h-12 rounded-2xl bg-[#EFF6FF] flex items-center justify-center">
+                  <Icon size={18} strokeWidth={2} className="text-[#3182F6] md:hidden" />
+                  <Icon size={22} strokeWidth={2} className="text-[#3182F6] hidden md:block" />
                 </div>
-                <span className="text-xs font-semibold text-[#4E5968]">{label}</span>
+                <span className="text-[10px] md:text-xs font-semibold text-[#4E5968] text-center leading-tight">{label}</span>
               </div>
             ))}
           </div>
-          <p className="text-center text-[11px] text-[#8B95A1] mt-6">
+          <p className="text-left sm:text-center text-[11px] text-[#8B95A1] mt-6">
             이외에도 네이버 플레이스·블로그·리뷰 관리가 필요한 모든 자영업자 · 소상공인 · 마케터 · 프리랜서에게 맞춰져 있어요
           </p>
         </div>
@@ -712,7 +713,7 @@ export default function LandingPage() {
             <h2 className="text-3xl font-black text-[#191F28] mb-3">
               {isDemo ? '사용 사례 예시' : '사장님들의 실제 후기'}
             </h2>
-            <p className="text-[#8B95A1] text-sm">
+            <p className="text-[#8B95A1] text-sm text-left sm:text-center">
               {isDemo
                 ? '실제 사용 후기 수집 중 · 아래는 예시 콘텐츠입니다'
                 : '로컬루션을 사용 중인 매장 사장님들의 이야기'}
@@ -758,7 +759,7 @@ export default function LandingPage() {
             <h2 className="text-2xl md:text-3xl font-black text-[#191F28] mb-2">
               사장님들이 많이 물어보시는 것
             </h2>
-            <p className="text-[#8B95A1] text-sm">가입 전 궁금증부터 풀고 가세요</p>
+            <p className="text-[#8B95A1] text-sm text-left sm:text-center">가입 전 궁금증부터 풀고 가세요</p>
           </div>
           <div className="space-y-3">
             {[
@@ -803,7 +804,7 @@ export default function LandingPage() {
           <h2 className="text-3xl md:text-4xl font-black text-[#191F28] mb-4">
             필요한 기능만, 합리적인 요금으로
           </h2>
-          <p className="text-[#4E5968] mb-8">
+          <p className="text-[#4E5968] mb-8 text-left sm:text-center">
             ☕ 커피 한 잔 값 월 6,900원으로 모든 플랫폼 리뷰답글 자동.<br />
             부담 없이 체험하고 필요한 모듈만 추가하세요.
           </p>

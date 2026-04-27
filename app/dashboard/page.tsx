@@ -1451,7 +1451,7 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {todayTasks.map(t => {
               const ready = t.ready
               const href = ready ? t.href : (t.connectHref || '/settings')
@@ -1496,7 +1496,7 @@ export default function Dashboard() {
         </div>
 
         {/* ── 25차-4: 신규 모듈 프로모 스트립 ── */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
           <Link
             href="/marketing/card-news"
             className="group relative overflow-hidden rounded-2xl p-5 bg-gradient-to-br from-[#EC4899] via-[#F43F5E] to-[#F97316] text-white shadow-sm hover:shadow-lg transition-all"
@@ -1555,26 +1555,27 @@ export default function Dashboard() {
               {isLoggedIn ? <>연동 관리 <ArrowRight size={11} strokeWidth={2.5} /></> : '로그인 후 연동 가능'}
             </a>
           </div>
-          <div className="grid grid-cols-4 sm:grid-cols-4 md:grid-cols-8 gap-2">
+          <div className="grid grid-cols-4 md:grid-cols-8 gap-1.5 md:gap-2">
             {platforms.map(p => (
               <button
                 key={p.id}
                 onClick={() => handlePlatformClick(p)}
                 className={[
-                  'flex flex-col items-center gap-1.5 p-2.5 rounded-xl transition-all cursor-pointer',
+                  'flex flex-col items-center gap-1 p-2 md:p-2.5 rounded-xl transition-all cursor-pointer',
                   p.connected
                     ? 'bg-white border border-[#E5E8EB] hover:border-[#3182F6] hover:shadow-md'
                     : 'bg-[#F8F9FA] border border-dashed border-[#E0E0E0] hover:border-[#3182F6] hover:bg-white',
                 ].join(' ')}
                 title={p.connected ? '클릭하여 연동 정보 수정' : '클릭하여 연동하기'}
               >
-                {p.logo(32)}
-                <span className="text-[10px] font-semibold text-[#4E5968] text-center leading-tight">{p.shortName}</span>
+                <span className="block md:hidden">{p.logo(26)}</span>
+                <span className="hidden md:block">{p.logo(32)}</span>
+                <span className="text-[9px] md:text-[10px] font-semibold text-[#4E5968] text-center leading-tight">{p.shortName}</span>
                 <span className={[
-                  'text-[9px] font-bold px-1.5 py-0.5 rounded-full',
+                  'text-[8px] md:text-[9px] font-bold px-1 md:px-1.5 py-0.5 rounded-full',
                   p.connected ? 'bg-[#E8FFF0] text-[#12B76A]' : 'bg-[#F2F4F6] text-[#8B95A1]',
                 ].join(' ')}>
-                  {p.connected ? '연동됨' : '연동하기'}
+                  {p.connected ? '연동됨' : '연동'}
                 </span>
               </button>
             ))}
@@ -1588,19 +1589,19 @@ export default function Dashboard() {
             <span className="text-xs text-[#8B95A1]">리뷰 플랫폼(네이버·구글·배민·요기요·쿠팡)을 연동하면 실데이터로 자동 교체됩니다</span>
           </div>
         )}
-        <div className="grid grid-cols-2 md:grid-cols-6 gap-3 mb-5">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 md:gap-3 mb-5">
           {stats.map((s, i) => (
-            <div key={i} className={`bg-white rounded-2xl shadow-sm p-4 ${!reviewPlatformConnected ? 'opacity-75' : ''}`}>
-              <div className="flex items-center gap-2 mb-2">
-                <span className="w-1 h-6 rounded-full" style={{ background: s.color }}/>
-                <span className="text-[11px] text-[#8B95A1] font-medium">{s.label}</span>
+            <div key={i} className={`bg-white rounded-2xl shadow-sm p-3 md:p-4 min-w-0 ${!reviewPlatformConnected ? 'opacity-75' : ''}`}>
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <span className="w-1 h-5 rounded-full shrink-0" style={{ background: s.color }}/>
+                <span className="text-[10px] md:text-[11px] text-[#8B95A1] font-medium truncate">{s.label}</span>
               </div>
-              <p className="text-lg font-black text-[#191F28]">{s.value}</p>
-              <p className={`inline-flex items-center gap-0.5 text-[11px] font-bold mt-0.5 ${s.up ? 'text-[#12B76A]' : 'text-[#F04452]'}`}>
+              <p className="text-base md:text-lg font-black text-[#191F28] truncate">{s.value}</p>
+              <p className={`inline-flex items-center gap-0.5 text-[10px] font-bold mt-0.5 ${s.up ? 'text-[#12B76A]' : 'text-[#F04452]'}`}>
                 {s.up
-                  ? <ArrowUp size={11} strokeWidth={2.75} />
-                  : <ArrowDown size={11} strokeWidth={2.75} />}
-                <span>{s.sub}</span>
+                  ? <ArrowUp size={10} strokeWidth={2.75} />
+                  : <ArrowDown size={10} strokeWidth={2.75} />}
+                <span className="truncate">{s.sub}</span>
               </p>
             </div>
           ))}
@@ -1863,9 +1864,9 @@ export default function Dashboard() {
 
         {/* ── 최근 리뷰 ── */}
         <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-[#F2F4F6] flex items-center justify-between">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-sm font-bold text-[#191F28]">최근 리뷰</span>
+          <div className="px-4 md:px-5 py-4 border-b border-[#F2F4F6] flex items-start md:items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5 md:gap-2 flex-wrap min-w-0">
+              <span className="text-sm font-bold text-[#191F28] shrink-0">최근 리뷰</span>
               {!hasRealReviews && (
                 <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-[#FEF3C7] text-[#92400E] font-bold">데모</span>
               )}
