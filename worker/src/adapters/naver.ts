@@ -310,11 +310,44 @@ async function postNaverReply(
     const actualPlaceId = placeIdMatch?.[1] || storeId
     log.info({ actualPlaceId, storeId }, 'naver: actual place ID from redirect')
 
-    // 2) 리뷰 페이지로 명시적 이동
-    const reviewsPageUrl = `${NEW_SMARTPLACE_BASE}/bizes/place/${actualPlaceId}/reviews`
-    log.info({ reviewsPageUrl }, 'naver: navigating to reviews page')
-    await page.goto(reviewsPageUrl, { waitUntil: 'networkidle', timeout: 40000 })
-    await page.waitForTimeout(3000)
+    // 2) SmartPlace 내부 API로 답글 직접 등록 시도 (DOM 탐색보다 안정적)
+    log.info({ actualPlaceId, platformReviewId }, 'naver: trying internal API first')
+    const apiResult = await tryNaverReplyAPI(page, actualPlaceId, platformReviewId, replyText, log)
+    if (apiResult.ok) {
+      log.info('naver: reply posted via internal API')
+      return apiResult
+    }
+    log.warn({ reason: (apiResult as any).reason }, 'naver: internal API failed, falling back to DOM')
+
+    // 3) DOM 폴백 — 리뷰 탭 클릭으로 이동 (직접 URL 이동보다 렌더링 안정)
+    try {
+      const reviewTabSelectors = [
+        'a[href*="/reviews"]:visible',
+        '[class*="LocalNavigationBar"]:has-text("리뷰")',
+        '[class*="nav"]:has-text("리뷰"):visible',
+        'a:has-text("리뷰"):visible',
+      ]
+      let tabClicked = false
+      for (const sel of reviewTabSelectors) {
+        const tab = await page.$(sel)
+        if (tab) {
+          await tab.click()
+          await page.waitForTimeout(3000)
+          log.info({ sel }, 'naver: clicked reviews nav tab')
+          tabClicked = true
+          break
+        }
+      }
+      if (!tabClicked) {
+        // 탭 클릭 실패 시 URL 직접 이동
+        const reviewsPageUrl = `${NEW_SMARTPLACE_BASE}/bizes/place/${actualPlaceId}/reviews`
+        await page.goto(reviewsPageUrl, { waitUntil: 'domcontentloaded', timeout: 30000 })
+        await page.waitForTimeout(3000)
+        log.info({ reviewsPageUrl }, 'naver: navigated to reviews page via URL')
+      }
+    } catch (e: any) {
+      log.warn({ err: e?.message }, 'naver: reviews navigation failed')
+    }
 
     currentUrl = page.url()
     log.info({ url: currentUrl }, 'naver: reviews page loaded')
@@ -323,42 +356,21 @@ async function postNaverReply(
       return { ok: false, reason: '세션 만료 — /my/platforms/naver_place/session 에서 쿠키를 갱신해주세요' }
     }
 
-    // 3) 모달/오버레이 닫기 (dimmed 클래스 감지)
+    // 4) 모달/오버레이 닫기
     try {
-      const hasDimmed = await page.$('.dimmed, [class*="dimmed"], [class*="modal_wrap"], [class*="layer_wrap"]')
-      if (hasDimmed) {
-        log.warn('naver: dimmed overlay detected — trying to dismiss')
-        // ESC 키로 닫기
-        await page.keyboard.press('Escape')
-        await page.waitForTimeout(800)
-        // 닫기 버튼 클릭 시도
-        const closeBtn = await page.$('button:has-text("닫기")')
-          ?? await page.$('button:has-text("확인")')
-          ?? await page.$('[class*="btn_close"], [class*="close_btn"], [class*="ico_close"]')
-        if (closeBtn) {
-          await closeBtn.click()
-          await page.waitForTimeout(800)
-          log.info('naver: modal closed via button')
-        }
-        // dimmed 영역 자체 클릭 (배경 클릭으로 닫히는 모달)
-        const dimmedEl = await page.$('.dimmed, [class*="dimmed"]')
-        if (dimmedEl) {
-          await dimmedEl.click()
-          await page.waitForTimeout(500)
-        }
-      }
-    } catch (e: any) {
-      log.warn({ err: e?.message }, 'naver: modal dismiss failed')
-    }
+      await page.keyboard.press('Escape')
+      await page.waitForTimeout(500)
+      const closeBtn = await page.$('button:has-text("닫기")') ?? await page.$('button:has-text("확인")')
+      if (closeBtn) { await closeBtn.click(); await page.waitForTimeout(500) }
+    } catch {}
 
-    // 4) 리뷰 카드 로딩 대기 (최대 15초)
+    // 5) 리뷰 카드 로딩 대기 + 스크롤
     try {
-      await page.waitForSelector('[class*="Review_single_review"], [class*="single_review"], [class*="ReviewItem"], [class*="review_item"]', { timeout: 15000 })
+      await page.waitForSelector('[class*="Review_single_review"], [class*="single_review"], [class*="ReviewItem"]', { timeout: 12000 })
       log.info('naver: review cards appeared')
     } catch {
-      // 페이지 HTML 일부 로깅 (디버그)
-      const bodyHtml = await page.evaluate(() => document.body?.innerHTML?.slice(0, 2000) || '')
-      log.warn({ bodyHtml: bodyHtml.slice(0, 500) }, 'naver: review card selector timeout')
+      const bodyHtml = await page.evaluate(() => document.body?.innerHTML?.slice(0, 500) || '')
+      log.warn({ bodyHtml }, 'naver: review card selector timeout')
     }
 
     // 스크롤로 lazy load 유발
@@ -519,6 +531,9 @@ async function tryNaverReplyAPI(
           { url: `https://new.smartplace.naver.com/api/bizes/${storeId}/reviews/${reviewId}/reply`, body: { content: text } },
           { url: `https://new.smartplace.naver.com/api/bizes/${storeId}/reviews/${reviewId}/comment`, body: { content: text } },
           { url: `https://new.smartplace.naver.com/api/v1/bizes/${storeId}/reviews/${reviewId}/reply`, body: { content: text } },
+          { url: `https://new.smartplace.naver.com/api/v2/bizes/${storeId}/reviews/${reviewId}/reply`, body: { content: text } },
+          { url: `https://smartplace.naver.com/api/bizes/${storeId}/reviews/${reviewId}/reply`, body: { content: text } },
+          { url: `https://new.smartplace.naver.com/api/bizes/${storeId}/reviews/${reviewId}/owner-reply`, body: { content: text } },
         ]
         const results: string[] = []
         for (const ep of endpoints) {
