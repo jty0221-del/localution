@@ -233,6 +233,9 @@ interface PlaceGroup {
   placeId?: string | null
 }
 
+type SortKey = 'default' | 'rank' | 'totalQcCnt' | 'pcQcCnt' | 'mobileQcCnt' | 'blogCnt' | 'visitorCnt' | 'score'
+type SortDir = 'asc' | 'desc'
+
 function rankColor(r: number | null, mode: 'text' | 'bg' = 'text') {
   if (r === null) return mode === 'text' ? 'text-[#C9D0D8]' : ''
   if (mode === 'text') {
@@ -278,13 +281,37 @@ function todayStr() {
   return String(d.getFullYear()).slice(2) + '.' + String(d.getMonth()+1).padStart(2,'0') + '.' + String(d.getDate()).padStart(2,'0')
 }
 
+// ─── 정렬 헤더 버튼 ────────────────────────────────────────────────
+function SortTh({ label, sortKey, current, dir, onSort, align = 'right' }: {
+  label: string; sortKey: SortKey; current: SortKey; dir: SortDir
+  onSort: (k: SortKey) => void; align?: 'left' | 'center' | 'right'
+}) {
+  const active = current === sortKey
+  return (
+    <th className={`px-2 py-1.5 font-medium whitespace-nowrap ${align === 'left' ? 'text-left' : align === 'center' ? 'text-center' : 'text-right'}`}>
+      <button onClick={() => onSort(sortKey)}
+        className={`inline-flex items-center gap-0.5 ${active ? 'text-[#3182F6]' : 'text-[#8B95A1] hover:text-[#4E5968]'} transition-colors`}>
+        {label}
+        <span className="flex flex-col leading-none">
+          <svg width="7" height="5" viewBox="0 0 7 5" fill={active && dir === 'asc' ? '#3182F6' : '#C9D0D8'}>
+            <path d="M3.5 0L7 5H0L3.5 0Z"/>
+          </svg>
+          <svg width="7" height="5" viewBox="0 0 7 5" fill={active && dir === 'desc' ? '#3182F6' : '#C9D0D8'} style={{ marginTop: '1px' }}>
+            <path d="M3.5 5L0 0H7L3.5 5Z"/>
+          </svg>
+        </span>
+      </button>
+    </th>
+  )
+}
+
 // ─── 해시태그 모달 ──────────────────────────────────────────────────
 function HashtagModal({ keywords, onClose }: { keywords: string[]; onClose: () => void }) {
   const [copied, setCopied] = useState<number | null>(null)
   const formats = [
-    { label: '형식1', value: keywords.join(' '), desc: 'A B C D' },
-    { label: '형식2', value: keywords.join(','), desc: 'A,B,C,D' },
-    { label: '형식3', value: keywords.map(k => '#' + k).join(' '), desc: '#A #B #C #D' },
+    { label: '형식1', value: keywords.join(' '),           desc: 'A B C D' },
+    { label: '형식2', value: keywords.join(','),            desc: 'A,B,C,D' },
+    { label: '형식3', value: keywords.map(k => '#' + k).join(' '),  desc: '#A #B #C #D' },
     { label: '형식4', value: keywords.map(k => '#' + k).join(','), desc: '#A,#B,#C,#D' },
   ]
   const copy = async (text: string, idx: number) => {
@@ -307,12 +334,14 @@ function HashtagModal({ keywords, onClose }: { keywords: string[]; onClose: () =
         </div>
         <div className="p-4 flex flex-col gap-2.5">
           {formats.map((f, i) => (
-            <div key={i} className="flex items-center gap-2 bg-[#F8F9FA] rounded-xl px-3 py-2.5 group">
+            <div key={i} className="flex items-center gap-2 bg-[#F8F9FA] rounded-xl px-3 py-2.5">
               <span className="text-xs font-semibold text-[#8B95A1] w-12 shrink-0">{f.label}</span>
-              <span className="flex-1 text-sm text-[#191F28] truncate font-medium">{f.desc.replace(/A/g, keywords[0] || 'A').replace(/B/g, keywords[1] || 'B').replace(/C/g, keywords[2] || 'C').replace(/D/g, keywords[3] || 'D')}</span>
+              <span className="flex-1 text-sm text-[#191F28] truncate font-medium"
+                title={f.value}>
+                {f.value.length > 30 ? f.value.slice(0, 30) + '...' : f.value}
+              </span>
               <button onClick={() => copy(f.value, i)}
-                className={`shrink-0 p-1.5 rounded-lg transition-colors ${copied === i ? 'bg-[#ECFDF5] text-[#12B76A]' : 'hover:bg-[#E5E8EB] text-[#8B95A1]'}`}
-                title="복사">
+                className={`shrink-0 p-1.5 rounded-lg transition-colors ${copied === i ? 'bg-[#ECFDF5] text-[#12B76A]' : 'hover:bg-[#E5E8EB] text-[#8B95A1]'}`}>
                 {copied === i
                   ? <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><polyline points="20 6 9 17 4 12"/></svg>
                   : <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
@@ -333,35 +362,29 @@ function HashtagModal({ keywords, onClose }: { keywords: string[]; onClose: () =
 }
 
 // ─── PlaceCard ──────────────────────────────────────────────────────
-function PlaceCard({ group, onRefresh, onPin, onDelete, onCheck, viewMode }: {
+function PlaceCard({ group, onRefresh, onPin, onDelete, onCheck, viewMode, sortKey, sortDir, onSort }: {
   group: PlaceGroup; onRefresh: () => void; onPin: () => void; onDelete: () => void
   onCheck: () => void; viewMode: 'table' | 'chart'
+  sortKey: SortKey; sortDir: SortDir; onSort: (k: SortKey) => void
 }) {
   const latest = group.history[0]
   const prev   = group.history[1]
-  const diff   = (latest != null && latest.rank !== null && prev != null && prev.rank !== null) ? prev.rank - latest.rank : null
-  const vol    = latest?.totalQcCnt !== null && latest?.totalQcCnt !== undefined
-    ? fmtNum(latest.totalQcCnt) + '건'
-    : null
+  const diff   = latest?.rank !== null && prev?.rank !== null ? prev.rank - (latest?.rank ?? 0) : null
+  const vol    = latest?.totalQcCnt != null ? fmtNum(latest.totalQcCnt) + '건' : null
 
   return (
-    <div className={`bg-white rounded-2xl shadow-sm border transition-all ${group.pinned ? 'border-[#3182F6] ring-1 ring-[#3182F6]/20' : group.checked ? 'border-[#3182F6]/50 bg-[#FAFCFF]' : 'border-[#F2F4F6] hover:border-[#C5D8FF]'}`}>
+    <div className={`bg-white rounded-2xl shadow-sm border transition-all ${group.pinned ? 'border-[#3182F6] ring-1 ring-[#3182F6]/20' : group.checked ? 'border-[#3182F6]/40 bg-[#FAFCFF]' : 'border-[#F2F4F6] hover:border-[#C5D8FF]'}`}>
       <div className="px-3 py-2.5 border-b border-[#F2F4F6] flex items-center gap-2">
-        {/* 체크박스 */}
         <button onClick={onCheck}
           className={`shrink-0 w-4 h-4 rounded border-2 flex items-center justify-center transition-all ${group.checked ? 'bg-[#3182F6] border-[#3182F6]' : 'border-[#D1D6DB] hover:border-[#3182F6]'}`}>
-          {group.checked && <svg width="9" height="9" viewBox="0 0 10 10" fill="none">
-            <polyline points="2 5 4.5 7.5 8.5 2.5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-          </svg>}
+          {group.checked && <svg width="9" height="9" viewBox="0 0 10 10" fill="none"><polyline points="2 5 4.5 7.5 8.5 2.5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
         </button>
-
         <div className="flex items-center gap-1.5 flex-1 min-w-0">
           {group.pinned && <span className="text-[10px] px-1 py-0.5 rounded bg-[#EFF6FF] text-[#3182F6] font-bold shrink-0">고정</span>}
           <span className="text-[11px] px-1.5 py-0.5 rounded-full bg-[#F2F4F6] text-[#4E5968] font-medium shrink-0">{group.label}</span>
           <span className="text-sm font-bold text-[#191F28] truncate">📍 {group.keyword}</span>
           {vol && <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#F0F9FF] text-[#0369A1] font-medium shrink-0">🔍 {vol}</span>}
         </div>
-
         <div className="flex items-center gap-0.5 shrink-0">
           {group.loading ? (
             <span className="w-4 h-4 border-2 border-[#3182F6] border-t-transparent rounded-full animate-spin" />
@@ -377,8 +400,7 @@ function PlaceCard({ group, onRefresh, onPin, onDelete, onCheck, viewMode }: {
               )}
             </div>
           ) : null}
-          <button onClick={onRefresh} title="새로고침"
-            className="p-1 rounded text-[#8B95A1] hover:text-[#3182F6] hover:bg-[#F2F4F6] transition-colors">
+          <button onClick={onRefresh} title="새로고침" className="p-1 rounded text-[#8B95A1] hover:text-[#3182F6] hover:bg-[#F2F4F6] transition-colors">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
               <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>
             </svg>
@@ -389,8 +411,7 @@ function PlaceCard({ group, onRefresh, onPin, onDelete, onCheck, viewMode }: {
               <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
             </svg>
           </button>
-          <button onClick={onDelete} title="삭제"
-            className="p-1 rounded text-[#8B95A1] hover:text-[#F04452] hover:bg-[#FFF1F2] transition-colors">
+          <button onClick={onDelete} title="삭제" className="p-1 rounded text-[#8B95A1] hover:text-[#F04452] hover:bg-[#FFF1F2] transition-colors">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
               <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
             </svg>
@@ -402,23 +423,25 @@ function PlaceCard({ group, onRefresh, onPin, onDelete, onCheck, viewMode }: {
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
-              <tr className="bg-[#F8F9FA] text-[#8B95A1]">
-                <th className="text-left px-3 py-1.5 font-medium whitespace-nowrap">날짜</th>
-                <th className="text-center px-2 py-1.5 font-medium">순위</th>
-                <th className="text-right px-2 py-1.5 font-medium whitespace-nowrap">검색량</th>
-                <th className="text-right px-2 py-1.5 font-medium whitespace-nowrap">블로그</th>
-                <th className="text-right px-2 py-1.5 font-medium whitespace-nowrap">방문자</th>
-                <th className="text-right px-3 py-1.5 font-medium whitespace-nowrap">점수</th>
+              <tr className="bg-[#F8F9FA]">
+                <th className="text-left px-3 py-1.5 font-medium text-[#8B95A1] whitespace-nowrap">날짜</th>
+                <SortTh label="순위"   sortKey="rank"        current={sortKey} dir={sortDir} onSort={onSort} align="center" />
+                <SortTh label="검색량"  sortKey="totalQcCnt"  current={sortKey} dir={sortDir} onSort={onSort} />
+                <SortTh label="PC"     sortKey="pcQcCnt"     current={sortKey} dir={sortDir} onSort={onSort} />
+                <SortTh label="모바일"  sortKey="mobileQcCnt" current={sortKey} dir={sortDir} onSort={onSort} />
+                <SortTh label="블로그"  sortKey="blogCnt"     current={sortKey} dir={sortDir} onSort={onSort} />
+                <SortTh label="방문자"  sortKey="visitorCnt"  current={sortKey} dir={sortDir} onSort={onSort} />
+                <SortTh label="점수"   sortKey="score"       current={sortKey} dir={sortDir} onSort={onSort} />
               </tr>
             </thead>
             <tbody className="divide-y divide-[#F8F9FA]">
               {group.loading ? (
-                <tr><td colSpan={6} className="px-3 py-4 text-center text-[#8B95A1] animate-pulse">조회 중...</td></tr>
+                <tr><td colSpan={8} className="px-3 py-4 text-center text-[#8B95A1] animate-pulse">조회 중...</td></tr>
               ) : group.history.length === 0 ? (
-                <tr><td colSpan={6} className="px-3 py-4 text-center text-[#C9D0D8] text-[11px]">조회 버튼을 눌러 순위를 확인하세요</td></tr>
+                <tr><td colSpan={8} className="px-3 py-4 text-center text-[#C9D0D8] text-[11px]">조회 버튼을 눌러 순위를 확인하세요</td></tr>
               ) : group.history.map((row, i) => {
                 const prevRow = group.history[i + 1]
-                const d = (row.rank !== null && prevRow != null && prevRow.rank !== null) ? prevRow.rank - row.rank : null
+                const d = row.rank !== null && prevRow?.rank !== null ? prevRow.rank - row.rank : null
                 return (
                   <tr key={i} className={`transition-colors ${i === 0 ? 'bg-[#FAFBFF]' : 'hover:bg-[#FAFBFF]'}`}>
                     <td className="px-3 py-1.5 text-[#8B95A1] whitespace-nowrap">{row.date}</td>
@@ -426,14 +449,20 @@ function PlaceCard({ group, onRefresh, onPin, onDelete, onCheck, viewMode }: {
                       <span className={`font-bold ${rankColor(row.rank)}`}>{row.rank ?? '—'}</span>
                       {d !== null && <span className={`ml-1 text-[10px] font-bold ${d > 0 ? 'text-[#12B76A]' : d < 0 ? 'text-[#F04452]' : 'text-[#C9D0D8]'}`}>{d > 0 ? '▲' + d : d < 0 ? '▼' + Math.abs(d) : ''}</span>}
                     </td>
-                    <td className="px-2 py-1.5 text-right text-[#4E5968] whitespace-nowrap">
-                      {row.totalQcCnt !== null ? <span className="font-medium">{fmtNum(row.totalQcCnt)}</span> : <span className="text-[#C9D0D8]">—</span>}
+                    <td className="px-2 py-1.5 text-right text-[#4E5968]">
+                      {row.totalQcCnt != null ? <span className="font-medium">{fmtNum(row.totalQcCnt)}</span> : <span className="text-[#C9D0D8]">—</span>}
                     </td>
                     <td className="px-2 py-1.5 text-right text-[#4E5968]">
-                      {row.blogCnt !== null ? row.blogCnt.toLocaleString() : <span className="text-[#C9D0D8]">—</span>}
+                      {row.pcQcCnt != null ? fmtNum(row.pcQcCnt) : <span className="text-[#C9D0D8]">—</span>}
                     </td>
                     <td className="px-2 py-1.5 text-right text-[#4E5968]">
-                      {row.visitorCnt !== null ? row.visitorCnt.toLocaleString() : <span className="text-[#C9D0D8]">—</span>}
+                      {row.mobileQcCnt != null ? fmtNum(row.mobileQcCnt) : <span className="text-[#C9D0D8]">—</span>}
+                    </td>
+                    <td className="px-2 py-1.5 text-right text-[#4E5968]">
+                      {row.blogCnt != null ? row.blogCnt.toLocaleString() : <span className="text-[#C9D0D8]">—</span>}
+                    </td>
+                    <td className="px-2 py-1.5 text-right text-[#4E5968]">
+                      {row.visitorCnt != null ? row.visitorCnt.toLocaleString() : <span className="text-[#C9D0D8]">—</span>}
                     </td>
                     <td className={`px-3 py-1.5 text-right ${scoreColor(row.score)}`}>{row.score}</td>
                   </tr>
@@ -459,9 +488,7 @@ function PlaceCard({ group, onRefresh, onPin, onDelete, onCheck, viewMode }: {
                   )
                 })}
               </div>
-              <div className="flex justify-between text-[10px] text-[#C9D0D8]">
-                <span>{group.history.slice(0, 14).at(-1)?.date}</span><span>오늘</span>
-              </div>
+              <div className="flex justify-between text-[10px] text-[#C9D0D8]"><span>{group.history.slice(0, 14).at(-1)?.date}</span><span>오늘</span></div>
             </div>
           )}
         </div>
@@ -551,6 +578,8 @@ export default function PlaceRealtimePage() {
   const [search, setSearch]     = useState('')
   const [lastUpdated, setLastUpdated] = useState('')
   const [showHashModal, setShowHashModal] = useState(false)
+  const [sortKey, setSortKey]   = useState<SortKey>('default')
+  const [sortDir, setSortDir]   = useState<SortDir>('desc')
 
   const handleTop = useCallback((v: string) => {
     setTopCat(v)
@@ -563,6 +592,14 @@ export default function PlaceRealtimePage() {
     const mid = TREE.find(t => t.name === topCat)?.mids.find(m => m.name === v)
     setSubCat(mid?.subs?.[0]?.name || '')
   }, [topCat])
+
+  const handleSort = useCallback((key: SortKey) => {
+    setSortKey(prev => {
+      if (prev === key) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
+      else { setSortDir('desc') }
+      return key
+    })
+  }, [])
 
   const { activeLabel, activeSuffixes } = useMemo(() => {
     if (topCat === '직접입력') {
@@ -658,7 +695,6 @@ export default function PlaceRealtimePage() {
     setGroups(prev => prev.map(g => ({ ...g, checked: !allChecked })))
   }, [groups])
 
-  // 엑셀(CSV) 다운로드
   const downloadExcel = useCallback(() => {
     const targets = groups.filter(g => g.checked)
     if (!targets.length) return
@@ -687,14 +723,29 @@ export default function PlaceRealtimePage() {
 
   const checkedKeywords = useMemo(() => groups.filter(g => g.checked).map(g => g.keyword), [groups])
   const checkedCount    = checkedKeywords.length
+  const allChecked      = groups.length > 0 && groups.every(g => g.checked)
 
+  // 정렬 + 필터 + 핀
   const sorted = useMemo(() => {
-    const f = groups.filter(g => search === '' || g.keyword.includes(search) || g.relatedKw.includes(search))
+    let f = groups.filter(g => search === '' || g.keyword.includes(search) || g.relatedKw.includes(search))
+    if (sortKey !== 'default') {
+      f = [...f].sort((a, b) => {
+        const getVal = (g: PlaceGroup): number => {
+          const h = g.history[0]
+          if (!h) return sortDir === 'desc' ? -Infinity : Infinity
+          const v = h[sortKey as keyof RankEntry] as number | null
+          if (v == null) return sortDir === 'desc' ? -Infinity : Infinity
+          // 순위는 낮을수록 좋음 → desc 기준 반전
+          if (sortKey === 'rank') return sortDir === 'desc' ? -v : v
+          return sortDir === 'desc' ? v : -v
+        }
+        return getVal(b) - getVal(a)
+      })
+    }
     return [...f.filter(g => g.pinned), ...f.filter(g => !g.pinned)]
-  }, [groups, search])
+  }, [groups, search, sortKey, sortDir])
 
   const ranked10   = groups.filter(g => (g.history[0]?.rank ?? 999) <= 10).length
-  const allChecked = groups.length > 0 && groups.every(g => g.checked)
   const breadcrumb = topCat === '직접입력' ? (customCat || '직접입력')
     : (() => {
         const mid = TREE.find(t => t.name === topCat)?.mids.find(m => m.name === midCat)
@@ -710,7 +761,6 @@ export default function PlaceRealtimePage() {
           subtitle="네이버 플레이스 키워드 순위 · 검색량 · 리뷰 실시간 추적"
           variant="sky" />
 
-        {/* 필터 바 */}
         <div className="bg-white border-b border-[#E5E8EB] px-4 py-2.5 sticky top-0 z-20">
           <div className="flex items-center gap-2 flex-wrap">
             <div className="flex items-center gap-1.5 shrink-0">
@@ -739,22 +789,16 @@ export default function PlaceRealtimePage() {
                 </button>
               ))}
             </div>
-
-            {/* 재수집(새로고침) 버튼 */}
             <button onClick={handleScan} disabled={scanning} title="전체 재수집"
               className="p-1.5 rounded-lg border border-[#E5E8EB] text-[#4E5968] hover:border-[#3182F6] hover:text-[#3182F6] hover:bg-[#EFF6FF] transition-colors disabled:opacity-50 shrink-0">
               <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
                 <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>
               </svg>
             </button>
-
-            {/* 전체 조회 버튼 */}
             <button onClick={handleScan} disabled={scanning}
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#3182F6] text-white text-sm font-semibold hover:bg-[#1B64DA] transition-colors disabled:opacity-60 shrink-0">
               {scanning ? <><span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />조회 중...</> : '🔍 전체 조회'}
             </button>
-
-            {/* 선택 복사 버튼 */}
             {checkedCount > 0 && (
               <div className="flex items-center gap-1 shrink-0">
                 <button onClick={() => setShowHashModal(true)}
@@ -776,13 +820,11 @@ export default function PlaceRealtimePage() {
           {geoStatus === 'denied' && <p className="text-[11px] text-[#F04452] mt-1">위치 권한이 차단됐어요. 브라우저 설정에서 허용해 주세요.</p>}
         </div>
 
-        {/* 현황 배너 */}
         <div className="bg-[#EFF6FF] border-b border-[#BFDBFE] px-5 py-1.5 flex items-center justify-between flex-wrap gap-2">
           <p className="text-[11px] text-[#1D4ED8]">
             🏪 <strong>{ctx.businessName}</strong> &nbsp;·&nbsp; <strong>{region}</strong> &nbsp;·&nbsp; {breadcrumb}
           </p>
           <div className="flex items-center gap-3 text-xs">
-            {/* 전체선택 */}
             <button onClick={toggleAll} className="flex items-center gap-1 text-[11px] text-[#4E5968] hover:text-[#3182F6] transition-colors">
               <span className={`w-3.5 h-3.5 rounded border-2 flex items-center justify-center ${allChecked ? 'bg-[#3182F6] border-[#3182F6]' : 'border-[#D1D6DB]'}`}>
                 {allChecked && <svg width="8" height="8" viewBox="0 0 10 10" fill="none"><polyline points="2 5 4.5 7.5 8.5 2.5" stroke="white" strokeWidth="2" strokeLinecap="round"/></svg>}
@@ -792,6 +834,11 @@ export default function PlaceRealtimePage() {
             <span className="text-[#8B95A1]">총 <strong className="text-[#191F28]">{groups.length}개</strong></span>
             {groups.some(g => g.history[0]) && <span className="text-[#8B95A1]">10위내 <strong className="text-[#3182F6]">{ranked10}개</strong></span>}
             {checkedCount > 0 && <span className="text-[#3182F6] font-semibold">✓ {checkedCount}개 선택됨</span>}
+            {sortKey !== 'default' && (
+              <button onClick={() => setSortKey('default')} className="text-[11px] text-[#8B95A1] hover:text-[#F04452] transition-colors">
+                정렬 초기화 ✕
+              </button>
+            )}
             <div className="hidden md:flex items-center gap-1.5">
               {[['#EFF6FF','#3182F6','1~3위'],['#ECFDF5','#12B76A','4~5위'],['#FFFBEB','#F59E0B','6~10위'],['#FFF1F2','#F04452','11~20위']].map(([bg, c, label]) => (
                 <span key={label} className="flex items-center gap-0.5">
@@ -803,7 +850,6 @@ export default function PlaceRealtimePage() {
           </div>
         </div>
 
-        {/* 카드 그리드 */}
         <div className="flex-1 p-4 md:p-6">
           {sorted.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-64 text-[#8B95A1]">
@@ -819,6 +865,7 @@ export default function PlaceRealtimePage() {
                   onDelete={() => deleteGroup(group.id)}
                   onCheck={() => toggleCheck(group.id)}
                   viewMode={viewMode}
+                  sortKey={sortKey} sortDir={sortDir} onSort={handleSort}
                 />
               ))}
             </div>
@@ -835,7 +882,6 @@ export default function PlaceRealtimePage() {
         <Footer />
       </main>
 
-      {/* 해시태그 모달 */}
       {showHashModal && (
         <HashtagModal keywords={checkedKeywords} onClose={() => setShowHashModal(false)} />
       )}
