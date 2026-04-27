@@ -10,12 +10,10 @@ export const dynamic = 'force-dynamic'
 
 function CoupangEatsLogo() {
   return (
-    <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
-      <rect width="64" height="64" rx="16" fill="white" stroke="#E5E7EB" strokeWidth="1"/>
-      <text x="8" y="32" fontSize="12" fontWeight="800" fontFamily="Arial,sans-serif" letterSpacing="0.3">
-        <tspan fill="#E31837">c</tspan><tspan fill="#F4A900">o</tspan><tspan fill="#E31837">u</tspan><tspan fill="#5BAD48">p</tspan><tspan fill="#3B79BE">a</tspan><tspan fill="#E31837">n</tspan><tspan fill="#F4A900">g</tspan>
-      </text>
-      <text x="8" y="50" fontSize="17" fontWeight="900" fill="#4A2C0A" fontFamily="Arial,sans-serif">eats</text>
+    <svg width="64" height="64" viewBox="0 0 48 48" fill="none">
+      <rect width="48" height="48" rx="12" fill="#FF5A00"/>
+      <path d="M32 14H16a6 6 0 00-6 6v8a6 6 0 006 6h4l4 4 4-4h4a6 6 0 006-6v-8a6 6 0 00-6-6z" fill="white"/>
+      <path d="M19 22h10M19 27h7" stroke="#FF5A00" strokeWidth="2.5" strokeLinecap="round"/>
     </svg>
   )
 }
