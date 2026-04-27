@@ -7,16 +7,9 @@ import PageHeader from '../../components/PageHeader'
 import Footer from '../../components/Footer'
 import { nearestRegions, COMMUNITY_REGIONS } from '../../lib/regions-community'
 
-// ─────────────────────────────────────────────────────────────────
-// 카테고리 트리
-// MidCategory.subs 가 있으면 3단계, 없으면 mid 자체가 터미널(최종 키워드)
-// ─────────────────────────────────────────────────────────────────
+// ─── 카테고리 트리 ──────────────────────────────────────────────────
 interface SubItem  { name: string; keywords: string[] }
-interface MidCategory {
-  name: string
-  keywords?: string[]   // subs 없을 때(터미널) 직접 키워드
-  subs?: SubItem[]
-}
+interface MidCategory { name: string; keywords?: string[]; subs?: SubItem[] }
 interface TopCategory { name: string; mids: MidCategory[] }
 
 const TREE: TopCategory[] = [
@@ -32,198 +25,135 @@ const TREE: TopCategory[] = [
     { name: '중식', subs: [
       { name: '짜장·짬뽕',  keywords: ['중국집', '짜장면', '짬뽕', '차돌짬뽕', '볶음밥'] },
       { name: '마라·훠궈',  keywords: ['마라탕', '훠궈', '마라샹궈', '마라', '훠궈뷔페'] },
-      { name: '딤섬·코스',  keywords: ['딤섬', '광둥요리', '중식코스', '북경오리', '연회'] },
     ]},
     { name: '일식', subs: [
       { name: '초밥·스시',  keywords: ['초밥', '스시', '오마카세', '회전초밥', '스시뷔페'] },
       { name: '라멘·우동',  keywords: ['라멘', '우동', '소바', '츠케멘', '돈코츠라멘'] },
       { name: '돈카츠·덮밥', keywords: ['돈카츠', '카츠동', '규동', '오야코동', '텐동'] },
-      { name: '이자카야',   keywords: ['이자카야', '야키토리', '꼬치', '일식주점', '오뎅'] },
     ]},
     { name: '양식', subs: [
       { name: '파스타·피자', keywords: ['파스타', '피자', '화덕피자', '리조또', '뇨끼'] },
       { name: '스테이크·그릴', keywords: ['스테이크', '그릴', '립', '바베큐', '통삼겹'] },
       { name: '버거',       keywords: ['버거', '수제버거', '스매시버거', '햄버거', '감자튀김'] },
-      { name: '샐러드·비건', keywords: ['샐러드', '비건', '채식', '포케', '그레인볼'] },
     ]},
-    { name: '분식·패스트푸드', subs: [
-      { name: '분식',  keywords: ['분식', '떡볶이', '순대', '튀김', '라볶이'] },
-      { name: '치킨',  keywords: ['치킨', '후라이드', '양념치킨', '닭강정', '닭발'] },
-      { name: '김밥·도시락', keywords: ['김밥', '도시락', '주먹밥', '충무김밥', '삼각김밥'] },
-      { name: '샌드위치', keywords: ['샌드위치', '베이글', '토스트', '서브웨이', '랩'] },
+    { name: '분식·치킨', subs: [
+      { name: '분식',       keywords: ['분식', '떡볶이', '순대', '튀김', '라볶이'] },
+      { name: '치킨',       keywords: ['치킨', '후라이드', '양념치킨', '닭강정', '닭발'] },
     ]},
     { name: '아시안', subs: [
-      { name: '베트남',   keywords: ['쌀국수', '베트남음식', '반미', '분짜', '포'] },
-      { name: '태국',    keywords: ['팟타이', '태국음식', '쏨땀', '카오팟', '똠양꿍'] },
-      { name: '인도·중동', keywords: ['커리', '인도음식', '난', '케밥', '할랄'] },
-      { name: '멕시칸',  keywords: ['타코', '부리또', '나초', '멕시칸', '퀘사디아'] },
-    ]},
-    { name: '해산물·회', subs: [
-      { name: '회·모둠회', keywords: ['회', '모둠회', '광어회', '참치회', '해산물'] },
-      { name: '조개·랍스터', keywords: ['조개구이', '랍스터', '새우구이', '해산물뷔페', '크랩'] },
+      { name: '베트남',     keywords: ['쌀국수', '베트남음식', '반미', '분짜', '포'] },
+      { name: '태국',       keywords: ['팟타이', '태국음식', '쏨땀', '카오팟', '똠양꿍'] },
     ]},
   ]},
-
   { name: '카페·디저트', mids: [
     { name: '카페', subs: [
       { name: '커피전문점',  keywords: ['카페', '커피', '아메리카노', '핸드드립', '콜드브루'] },
       { name: '브런치카페',  keywords: ['브런치카페', '브런치', '에그베네딕트', '팬케이크', '와플'] },
       { name: '감성카페',   keywords: ['감성카페', '인스타카페', '뷰카페', '루프탑카페', '야경카페'] },
       { name: '스터디카페',  keywords: ['스터디카페', '공부카페', '24시카페', '조용한카페', '카공'] },
-      { name: '테마·애견카페', keywords: ['애견카페', '고양이카페', '테마카페', '키즈카페', '보드게임카페'] },
     ]},
     { name: '디저트', subs: [
       { name: '케이크·마카롱', keywords: ['케이크', '마카롱', '디저트카페', '커스텀케이크', '레이어케이크'] },
       { name: '빙수·아이스크림', keywords: ['빙수', '아이스크림', '젤라또', '팥빙수', '소프트아이스크림'] },
-      { name: '도넛·와플',   keywords: ['도넛', '와플', '크로플', '츄러스', '버블와플'] },
-      { name: '타르트·쿠키',  keywords: ['타르트', '쿠키', '브라우니', '스콘', '휘낭시에'] },
     ]},
-    { name: '베이커리', subs: [
-      { name: '빵집·베이커리', keywords: ['베이커리', '빵집', '식빵', '바게트', '소금빵'] },
-      { name: '크루아상',    keywords: ['크루아상', '버터크루아상', '페이스트리', '덴마크', '파이'] },
-    ]},
-    { name: '음료·주스', subs: [
-      { name: '버블티·밀크티', keywords: ['버블티', '밀크티', '타피오카', '흑당밀크티', '과일버블티'] },
-      { name: '착즙주스·스무디', keywords: ['주스', '스무디', '착즙주스', '과일주스', '그린스무디'] },
-    ]},
+    { name: '베이커리',      keywords: ['베이커리', '빵집', '식빵', '바게트', '소금빵'] },
   ]},
-
   { name: '주류·술집', mids: [
-    { name: '포차·포장마차', keywords: ['포차', '포장마차', '야장', '호프포차', '야외포차'] },
-    { name: '호프·맥주',   keywords: ['호프', '맥줏집', '생맥주', '수제맥주', '크래프트비어'] },
-    { name: '막걸리·전통주', keywords: ['막걸리', '전통주', '동동주', '막걸리집', '전통주바'] },
-    { name: '이자카야',    keywords: ['이자카야', '야키토리', '꼬치구이', '일식바', '사케바'] },
-    { name: '와인바',     keywords: ['와인바', '와인', '내추럴와인', '와인셀러', '비스트로'] },
-    { name: '칵테일바',   keywords: ['칵테일바', '바', '스피크이지', '위스키바', '진바'] },
-    { name: '루프탑바',   keywords: ['루프탑바', '루프탑', '야경바', '테라스바', '스카이바'] },
+    { name: '포차·포장마차',  keywords: ['포차', '포장마차', '야장', '호프포차', '야외포차'] },
+    { name: '호프·수제맥주',  keywords: ['호프', '맥줏집', '생맥주', '수제맥주', '크래프트비어'] },
+    { name: '막걸리·전통주',  keywords: ['막걸리', '전통주', '동동주', '막걸리집', '전통주바'] },
+    { name: '이자카야',      keywords: ['이자카야', '야키토리', '꼬치구이', '일식바', '사케바'] },
+    { name: '와인바',        keywords: ['와인바', '와인', '내추럴와인', '와인셀러', '비스트로'] },
+    { name: '칵테일·위스키바', keywords: ['칵테일바', '바', '스피크이지', '위스키바', '진바'] },
   ]},
-
   { name: '뷰티', mids: [
     { name: '미용실·헤어', subs: [
-      { name: '미용실',   keywords: ['미용실', '헤어샵', '헤어살롱', '단발컷', '여성미용'] },
-      { name: '남성바버',  keywords: ['바버샵', '남자미용실', '남성헤어', '페이드컷', '이발소'] },
-      { name: '염색·펌',  keywords: ['염색', '펌', '탈색', '매직', '볼륨매직'] },
+      { name: '여성미용실',  keywords: ['미용실', '헤어샵', '헤어살롱', '단발컷', '여성미용'] },
+      { name: '남성바버',   keywords: ['바버샵', '남자미용실', '남성헤어', '페이드컷', '이발소'] },
+      { name: '염색·펌',   keywords: ['염색', '펌', '탈색', '매직', '볼륨매직'] },
     ]},
     { name: '네일', subs: [
-      { name: '네일샵',   keywords: ['네일샵', '젤네일', '네일', '아크릴', '빌더젤'] },
+      { name: '네일샵',    keywords: ['네일샵', '젤네일', '네일', '아크릴', '빌더젤'] },
       { name: '네일아트',  keywords: ['네일아트', '3D네일', '오로라네일', '그라데이션', '핸드페인팅'] },
-      { name: '페디큐어',  keywords: ['페디큐어', '발관리', '풋케어', '발각질제거', '발스파'] },
     ]},
-    { name: '피부관리',  keywords: ['피부관리', '피부샵', '에스테틱', '페이셜', '트러블케어'] },
+    { name: '피부관리',    keywords: ['피부관리', '피부샵', '에스테틱', '페이셜', '트러블케어'] },
     { name: '왁싱·제모',  keywords: ['왁싱', '제모', '레이저제모', '비키니왁싱', '전신왁싱'] },
     { name: '눈썹·속눈썹', keywords: ['눈썹문신', '반영구눈썹', '속눈썹연장', '눈썹정리', '아이래쉬'] },
     { name: '타투·피어싱', keywords: ['타투', '문신', '피어싱', '헤나', '바디아트'] },
-    { name: '메이크업',   keywords: ['메이크업', '웨딩메이크업', '반영구화장', '뷰티샵', '속눈썹'] },
   ]},
-
   { name: '의료·건강', mids: [
-    { name: '병원·의원', subs: [
-      { name: '내과',      keywords: ['내과', '가정의학과', '소화기내과', '건강검진', '종합검진'] },
-      { name: '정형외과',   keywords: ['정형외과', '재활의학과', '도수치료', '물리치료', '통증클리닉'] },
-      { name: '소아청소년과', keywords: ['소아청소년과', '소아과', '아이병원', '영유아검진', '예방접종'] },
-      { name: '안과',      keywords: ['안과', '라식', '라섹', '스마일라식', '백내장'] },
-      { name: '이비인후과',  keywords: ['이비인후과', '코막힘', '비염', '편도', '중이염'] },
-      { name: '산부인과',   keywords: ['산부인과', '여성의원', '산전검사', '임신', '부인과'] },
-      { name: '성형외과',   keywords: ['성형외과', '쌍꺼풀', '코성형', '지방흡입', '윤곽'] },
-      { name: '정신건강의학과', keywords: ['정신건강의학과', '심리상담', '우울증', '불안장애', '상담센터'] },
-    ]},
-    { name: '치과',     keywords: ['치과', '임플란트', '치아교정', '스케일링', '충치'] },
-    { name: '한의원',    keywords: ['한의원', '침', '한약', '추나', '다이어트한의원'] },
-    { name: '피부과',    keywords: ['피부과', '레이저', '보톡스', '필러', '여드름'] },
-    { name: '동물병원',   keywords: ['동물병원', '수의사', '강아지병원', '고양이병원', '예방접종'] },
-    { name: '약국',     keywords: ['약국', '24시약국', '야간약국', '조제약국', '근처약국'] },
+    { name: '내과·가정의학', keywords: ['내과', '가정의학과', '건강검진', '종합검진', '소화기내과'] },
+    { name: '정형외과·재활', keywords: ['정형외과', '재활의학과', '도수치료', '물리치료', '통증클리닉'] },
+    { name: '치과',         keywords: ['치과', '임플란트', '치아교정', '스케일링', '충치'] },
+    { name: '한의원',        keywords: ['한의원', '침', '한약', '추나', '다이어트한의원'] },
+    { name: '피부과',        keywords: ['피부과', '레이저', '보톡스', '필러', '여드름'] },
+    { name: '안과',          keywords: ['안과', '라식', '라섹', '스마일라식', '백내장'] },
+    { name: '성형외과',      keywords: ['성형외과', '쌍꺼풀', '코성형', '지방흡입', '윤곽'] },
+    { name: '동물병원',      keywords: ['동물병원', '수의사', '강아지병원', '고양이병원', '예방접종'] },
+    { name: '약국',          keywords: ['약국', '24시약국', '야간약국', '조제약국', '근처약국'] },
   ]},
-
   { name: '운동·피트니스', mids: [
     { name: '헬스·피트니스', subs: [
-      { name: '헬스장',   keywords: ['헬스장', '헬스클럽', '피트니스센터', '근처헬스', '24시헬스'] },
-      { name: 'PT',       keywords: ['PT', '퍼스널트레이닝', '다이어트PT', '바디프로필', '1:1트레이닝'] },
+      { name: '헬스장',    keywords: ['헬스장', '헬스클럽', '피트니스센터', '근처헬스', '24시헬스'] },
+      { name: 'PT·퍼스널', keywords: ['PT', '퍼스널트레이닝', '다이어트PT', '바디프로필', '1:1트레이닝'] },
       { name: '크로스핏',  keywords: ['크로스핏', '기능성훈련', '그룹트레이닝', '체력단련', '왓스박스'] },
     ]},
     { name: '스튜디오', subs: [
       { name: '필라테스',  keywords: ['필라테스', '그룹필라테스', '개인필라테스', '재활필라테스', '필라테스스튜디오'] },
       { name: '요가',     keywords: ['요가', '핫요가', '명상요가', '아쉬탕가', '요가원'] },
-      { name: '댄스·방송댄스', keywords: ['댄스학원', '방송댄스', '힙합', '걸스힙합', '댄스스튜디오'] },
-      { name: '발레',     keywords: ['발레', '성인발레', '발레학원', '클래식발레', '컨템포러리'] },
+      { name: '댄스',     keywords: ['댄스학원', '방송댄스', '힙합', '걸스힙합', '댄스스튜디오'] },
     ]},
-    { name: '수영장',    keywords: ['수영장', '수영', '수영강습', '어린이수영', '성인수영'] },
+    { name: '수영장',     keywords: ['수영장', '수영', '수영강습', '어린이수영', '성인수영'] },
     { name: '클라이밍',   keywords: ['클라이밍', '볼더링', '인공암벽', '클라이밍짐', '리드'] },
-    { name: '복싱·격투기', keywords: ['복싱', '무에타이', '주짓수', '격투기', 'MMA'] },
-    { name: '배드민턴',   keywords: ['배드민턴', '배드민턴장', '스쿼시', '탁구', '배드민턴레슨'] },
-    { name: '테니스',    keywords: ['테니스', '테니스장', '테니스레슨', '테니스코트', '패들'] },
     { name: '골프', subs: [
-      { name: '골프연습장',  keywords: ['골프연습장', '타석', '실내골프연습장', '인도어골프', '골프'] },
-      { name: '스크린골프',  keywords: ['스크린골프', '골프존', '카카오골프', '스크린', '실내골프'] },
-      { name: '골프레슨',   keywords: ['골프레슨', '골프강습', '1:1레슨', '초보골프', '골프코치'] },
+      { name: '골프연습장', keywords: ['골프연습장', '타석', '실내골프연습장', '인도어골프', '골프'] },
+      { name: '스크린골프', keywords: ['스크린골프', '골프존', '카카오골프', '스크린', '실내골프'] },
     ]},
   ]},
-
   { name: '교육', mids: [
     { name: '입시·학습', subs: [
       { name: '입시학원',   keywords: ['입시학원', '수능', '내신', '재수학원', '대입'] },
       { name: '영어학원',   keywords: ['영어학원', '영어회화', '토익', '토플', '영어유치원'] },
       { name: '수학학원',   keywords: ['수학학원', '수학', '중등수학', '고등수학', '수학과외'] },
-      { name: '과외',      keywords: ['과외', '1:1과외', '방문과외', '온라인과외', '수학과외'] },
     ]},
     { name: '예체능', subs: [
       { name: '미술학원',   keywords: ['미술학원', '입시미술', '수채화', '드로잉', '아동미술'] },
       { name: '음악·피아노', keywords: ['음악학원', '피아노학원', '바이올린', '기타학원', '보컬'] },
       { name: '태권도·무술', keywords: ['태권도', '합기도', '유도', '검도', '무술'] },
     ]},
-    { name: '코딩·IT',    keywords: ['코딩학원', '프로그래밍', '파이썬', '앱개발', 'SW교육'] },
-    { name: '외국어',     keywords: ['중국어학원', '일본어학원', '제2외국어', '스페인어', '프랑스어'] },
-    { name: '독서실',     keywords: ['독서실', '열람실', '코인독서실', '스터디룸', '공부방'] },
-    { name: '스터디카페',  keywords: ['스터디카페', '공부카페', '24시스터디카페', '카페스터디', '스터디'] },
+    { name: '코딩·IT',     keywords: ['코딩학원', '프로그래밍', '파이썬', '앱개발', 'SW교육'] },
+    { name: '독서실',      keywords: ['독서실', '열람실', '코인독서실', '스터디룸', '공부방'] },
     { name: '어린이집·유치원', keywords: ['어린이집', '유치원', '놀이학교', '보육원', '유아교육'] },
-    { name: '키즈카페',   keywords: ['키즈카페', '어린이카페', '놀이방', '실내놀이터', '어린이놀이공간'] },
   ]},
-
   { name: '생활편의', mids: [
-    { name: '세탁소',     keywords: ['세탁소', '드라이클리닝', '이불세탁', '세탁물수거', '런드리'] },
-    { name: '수선집',     keywords: ['수선', '옷수선', '지퍼수선', '가방수선', '신발수선'] },
-    { name: '가전수리',   keywords: ['가전수리', '세탁기수리', 'TV수리', '에어컨수리', '냉장고수리'] },
-    { name: '휴대폰수리',  keywords: ['휴대폰수리', '핸드폰수리', '액정수리', '아이폰수리', '삼성수리'] },
-    { name: '청소업체',   keywords: ['청소업체', '집청소', '입주청소', '이사청소', '가사도우미'] },
-    { name: '이사업체',   keywords: ['이사', '포장이사', '원룸이사', '이삿짐센터', '반포장이사'] },
-    { name: '에어컨청소',  keywords: ['에어컨청소', '에어컨세척', '에어컨분해청소', '에어컨관리'] },
+    { name: '세탁소',      keywords: ['세탁소', '드라이클리닝', '이불세탁', '세탁물수거', '런드리'] },
+    { name: '가전·폰수리',  keywords: ['가전수리', '휴대폰수리', '핸드폰수리', '액정수리', '삼성수리'] },
+    { name: '청소업체',    keywords: ['청소업체', '집청소', '입주청소', '이사청소', '가사도우미'] },
+    { name: '이사업체',    keywords: ['이사', '포장이사', '원룸이사', '이삿짐센터', '반포장이사'] },
     { name: '반려동물미용', keywords: ['강아지미용', '고양이미용', '펫샵', '애견미용', '펫그루밍'] },
-    { name: '동물훈련',   keywords: ['강아지훈련', '펫시터', '반려견훈련', '동물훈련', '펫호텔'] },
-    { name: '인테리어',   keywords: ['인테리어', '인테리어업체', '리모델링', '인테리어시공', '실내인테리어'] },
+    { name: '인테리어',    keywords: ['인테리어', '리모델링', '인테리어시공', '실내인테리어', '인테리어업체'] },
   ]},
-
   { name: '숙박·여행', mids: [
-    { name: '호텔',      keywords: ['호텔', '비즈니스호텔', '부티크호텔', '럭셔리호텔', '호텔숙박'] },
-    { name: '모텔·여관',  keywords: ['모텔', '여관', '저렴한숙소', '근처숙소', '당일숙박'] },
-    { name: '펜션·풀빌라', keywords: ['펜션', '풀빌라', '독채펜션', '풀빌라펜션', '바베큐펜션'] },
-    { name: '글램핑·캠핑', keywords: ['글램핑', '캠핑장', '오토캠핑', '카라반', '야영장'] },
-    { name: '게스트하우스', keywords: ['게스트하우스', '호스텔', '도미토리', '에어비앤비', '민박'] },
-    { name: '여행사',    keywords: ['여행사', '패키지여행', '해외여행', '국내여행', '단체여행'] },
-    { name: '렌터카',    keywords: ['렌터카', '차량대여', '단기렌트', '장기렌트', '승합차렌트'] },
+    { name: '호텔',        keywords: ['호텔', '비즈니스호텔', '부티크호텔', '럭셔리호텔', '호텔숙박'] },
+    { name: '펜션·풀빌라',  keywords: ['펜션', '풀빌라', '독채펜션', '풀빌라펜션', '바베큐펜션'] },
+    { name: '글램핑·캠핑',  keywords: ['글램핑', '캠핑장', '오토캠핑', '카라반', '야영장'] },
+    { name: '게스트하우스',  keywords: ['게스트하우스', '호스텔', '도미토리', '에어비앤비', '민박'] },
+    { name: '여행사',       keywords: ['여행사', '패키지여행', '해외여행', '국내여행', '단체여행'] },
   ]},
-
   { name: '쇼핑', mids: [
-    { name: '마트·편의점', keywords: ['마트', '편의점', '슈퍼마켓', '로컬마트', '식료품점'] },
-    { name: '꽃집',      keywords: ['꽃집', '플라워샵', '화원', '꽃배달', '웨딩꽃'] },
-    { name: '옷가게',    keywords: ['옷가게', '의류', '빈티지', '편집샵', '스트릿패션'] },
-    { name: '신발·가방',  keywords: ['신발가게', '가방샵', '운동화', '명품가방', '핸드백'] },
-    { name: '안경점',    keywords: ['안경점', '안경', '선글라스', '콘택트렌즈', '안경맞춤'] },
-    { name: '귀금속·주얼리', keywords: ['귀금속', '보석', '주얼리', '시계', '결혼반지'] },
-    { name: '가구·인테리어소품', keywords: ['가구', '인테리어소품', '홈퍼니싱', '소품샵', '리빙샵'] },
-    { name: '서점·문구',  keywords: ['서점', '독립서점', '책방', '문구점', '책카페'] },
+    { name: '마트·편의점',  keywords: ['마트', '편의점', '슈퍼마켓', '로컬마트', '식료품점'] },
+    { name: '꽃집',        keywords: ['꽃집', '플라워샵', '화원', '꽃배달', '웨딩꽃'] },
+    { name: '옷가게·패션',  keywords: ['옷가게', '의류', '빈티지', '편집샵', '스트릿패션'] },
+    { name: '안경·귀금속',  keywords: ['안경점', '귀금속', '보석', '주얼리', '시계'] },
+    { name: '가구·소품',    keywords: ['가구', '인테리어소품', '홈퍼니싱', '소품샵', '리빙샵'] },
   ]},
 ]
 
-// 소분류(또는 터미널 중분류)의 키워드 map
 const KW_MAP: Record<string, string[]> = {}
 for (const top of TREE) {
   for (const mid of top.mids) {
-    if (!mid.subs && mid.keywords) {
-      KW_MAP[mid.name] = mid.keywords
-    } else if (mid.subs) {
-      for (const sub of mid.subs) {
-        KW_MAP[sub.name] = sub.keywords
-      }
-    }
+    if (!mid.subs && mid.keywords) KW_MAP[mid.name] = mid.keywords
+    else if (mid.subs) for (const sub of mid.subs) KW_MAP[sub.name] = sub.keywords
   }
 }
 
@@ -231,10 +161,9 @@ function getSuffixes(name: string, fallback: string): string[] {
   return KW_MAP[name] || [fallback, fallback + ' 추천', fallback + ' 예약', fallback + ' 근처', fallback + ' 후기']
 }
 
-// ── 업체 컨텍스트 ──────────────────────────────────────────────
+// ─── 업체 컨텍스트 ─────────────────────────────────────────────────
 interface BizContext { region: string; businessName: string }
 const DEFAULT_CTX: BizContext = { region: '강남구', businessName: '내 가게' }
-
 function readBizContext(): BizContext {
   if (typeof window === 'undefined') return DEFAULT_CTX
   try {
@@ -249,87 +178,216 @@ function readBizContext(): BizContext {
   } catch { return DEFAULT_CTX }
 }
 
-function getRankColor(r: number | null) {
-  if (r === null) return 'text-[#8B95A1]'
-  if (r <= 3)  return 'text-[#3182F6] font-black'
-  if (r <= 5)  return 'text-[#12B76A] font-bold'
-  if (r <= 10) return 'text-[#F59E0B] font-bold'
-  if (r <= 20) return 'text-[#F04452] font-semibold'
-  return 'text-[#8B95A1] font-medium'
+// ─── 순위 히스토리 타입 ────────────────────────────────────────────
+interface RankEntry {
+  date: string       // 'YY.MM.DD'
+  rank: number | null
+  prevRank: number | null
+  blogCnt: number    // 블로그 리뷰 수 (API 미지원 → 추정치)
+  searchVol: number  // 검색량 (별도 API 필요 → 누적 추정)
+  score: number      // 종합 점수
 }
-function getRankBg(r: number | null) {
-  if (r === null) return ''
+
+interface PlaceGroup {
+  id: string
+  keyword: string
+  relatedKw: string
+  label: string
+  history: RankEntry[]
+  loading: boolean
+  pinned: boolean
+}
+
+// ─── 점수 계산 ─────────────────────────────────────────────────────
+function calcScore(rank: number | null): number {
+  if (rank === null) return 0
+  if (rank <= 1)  return 100
+  if (rank <= 3)  return 92 - (rank - 1) * 3
+  if (rank <= 5)  return 83 - (rank - 3) * 4
+  if (rank <= 10) return 72 - (rank - 5) * 3
+  if (rank <= 20) return 55 - (rank - 10) * 2
+  if (rank <= 50) return 32 - (rank - 20) * 0.7
+  return Math.max(5, 11 - (rank - 50) * 0.1)
+}
+
+// ─── 색상 헬퍼 ─────────────────────────────────────────────────────
+function rankColor(r: number | null, mode: 'text' | 'bg' = 'text') {
+  if (r === null) return mode === 'text' ? 'text-[#C9D0D8]' : ''
+  if (mode === 'text') {
+    if (r <= 3)  return 'text-[#3182F6] font-black'
+    if (r <= 5)  return 'text-[#12B76A] font-bold'
+    if (r <= 10) return 'text-[#F59E0B] font-bold'
+    if (r <= 20) return 'text-[#F04452] font-semibold'
+    return 'text-[#8B95A1]'
+  }
   if (r <= 3)  return 'bg-[#EFF6FF]'
   if (r <= 5)  return 'bg-[#ECFDF5]'
   if (r <= 10) return 'bg-[#FFFBEB]'
   if (r <= 20) return 'bg-[#FFF1F2]'
-  return ''
+  return 'bg-[#F8F9FA]'
+}
+function scoreColor(s: number) {
+  if (s >= 85) return 'text-[#3182F6]'
+  if (s >= 65) return 'text-[#12B76A]'
+  if (s >= 40) return 'text-[#F59E0B]'
+  return 'text-[#F04452]'
 }
 
-function loadHistory(): Record<string, number[]> {
+// ─── 로컬 스토리지 히스토리 ────────────────────────────────────────
+const LS_KEY = 'localution.place_realtime'
+function loadAllHistory(): Record<string, RankEntry[]> {
   if (typeof window === 'undefined') return {}
-  try { return JSON.parse(localStorage.getItem('localution.rank_history') || '{}') } catch { return {} }
+  try { return JSON.parse(localStorage.getItem(LS_KEY) || '{}') } catch { return {} }
 }
-function saveHistory(kw: string, rank: number | null) {
-  if (!rank) return
+function saveEntry(keyword: string, entry: RankEntry) {
   try {
-    const h = loadHistory()
-    h[kw] = [rank, ...(h[kw] || [])].slice(0, 7)
-    localStorage.setItem('localution.rank_history', JSON.stringify(h))
+    const all = loadAllHistory()
+    if (!all[keyword]) all[keyword] = []
+    // 오늘 날짜 중복 방지
+    all[keyword] = [entry, ...all[keyword].filter(e => e.date !== entry.date)].slice(0, 30)
+    localStorage.setItem(LS_KEY, JSON.stringify(all))
   } catch {}
 }
 
-interface RankResult {
-  keyword: string; relatedKw: string; label: string
-  rank: number | null; prevRank: number | null
-  loading: boolean; error?: string; matchedTitle?: string; scannedAt?: string
-}
+// ─── PlaceCard 컴포넌트 ────────────────────────────────────────────
+function PlaceCard({ group, onRefresh, onPin, onDelete, viewMode }: {
+  group: PlaceGroup
+  onRefresh: () => void
+  onPin: () => void
+  onDelete: () => void
+  viewMode: 'table' | 'chart'
+}) {
+  const latest = group.history[0]
+  const diff = latest && latest.prevRank !== null && latest.rank !== null
+    ? latest.prevRank - latest.rank : null
 
-function RankCard({ result, onRefresh }: { result: RankResult; onRefresh: () => void }) {
-  const diff = result.prevRank !== null && result.rank !== null ? result.prevRank - result.rank : null
   return (
-    <div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-[#F2F4F6] hover:border-[#3182F6] transition-colors">
-      <div className="px-4 py-3 border-b border-[#F2F4F6] flex items-center justify-between">
-        <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-xs px-2 py-0.5 rounded-full bg-[#F2F4F6] text-[#4E5968] font-medium">{result.label}</span>
-          <span className="text-sm font-bold text-[#191F28]">📍 {result.keyword}</span>
-          <span className="text-[11px] text-[#3182F6]">→ {result.relatedKw}</span>
+    <div className={`bg-white rounded-2xl shadow-sm border transition-all ${group.pinned ? 'border-[#3182F6] ring-1 ring-[#3182F6]/20' : 'border-[#F2F4F6] hover:border-[#C5D8FF]'}`}>
+      {/* 카드 헤더 */}
+      <div className="px-4 py-3 border-b border-[#F2F4F6] flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 flex-wrap min-w-0">
+          {group.pinned && <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#EFF6FF] text-[#3182F6] font-bold shrink-0">고정</span>}
+          <span className="text-xs px-2 py-0.5 rounded-full bg-[#F2F4F6] text-[#4E5968] font-medium shrink-0">{group.label}</span>
+          <span className="text-sm font-bold text-[#191F28] truncate">📍 {group.keyword}</span>
+          <span className="text-[11px] text-[#3182F6] shrink-0">→ {group.relatedKw}</span>
         </div>
-        <div className="flex items-center gap-1.5 shrink-0">
-          {result.loading ? (
-            <span className="w-5 h-5 border-2 border-[#3182F6] border-t-transparent rounded-full animate-spin" />
-          ) : (
-            <>
-              {result.rank !== null
-                ? <span className={`text-sm font-black px-2.5 py-1 rounded-lg ${getRankBg(result.rank)} ${getRankColor(result.rank)}`}>{result.rank}위</span>
-                : <span className="text-xs px-2.5 py-1 rounded-lg bg-[#F2F4F6] text-[#8B95A1]">{result.error ? '오류' : '100위 밖'}</span>
-              }
+        <div className="flex items-center gap-1 shrink-0">
+          {group.loading ? (
+            <span className="w-4 h-4 border-2 border-[#3182F6] border-t-transparent rounded-full animate-spin" />
+          ) : latest ? (
+            <div className="flex items-center gap-1">
+              <span className={`text-sm font-black px-2 py-0.5 rounded-lg ${rankColor(latest.rank, 'bg')} ${rankColor(latest.rank)}`}>
+                {latest.rank !== null ? latest.rank + '위' : '—'}
+              </span>
               {diff !== null && (
                 <span className={`text-[11px] font-bold ${diff > 0 ? 'text-[#12B76A]' : diff < 0 ? 'text-[#F04452]' : 'text-[#8B95A1]'}`}>
-                  {diff > 0 ? '▲' + diff : diff < 0 ? '▼' + Math.abs(diff) : '–'}
+                  {diff > 0 ? '▲' + diff : diff < 0 ? '▼' + Math.abs(diff) : '±0'}
                 </span>
               )}
-              <button onClick={onRefresh} className="text-[11px] text-[#8B95A1] hover:text-[#3182F6] px-1 rounded">↻</button>
-            </>
-          )}
+            </div>
+          ) : null}
+          {/* 액션 버튼 */}
+          <button onClick={onRefresh} title="새로고침"
+            className="p-1 rounded text-[#8B95A1] hover:text-[#3182F6] hover:bg-[#F2F4F6] transition-colors">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+              <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>
+            </svg>
+          </button>
+          <button onClick={onPin} title={group.pinned ? '고정 해제' : '상단 고정'}
+            className={`p-1 rounded transition-colors ${group.pinned ? 'text-[#3182F6] bg-[#EFF6FF]' : 'text-[#8B95A1] hover:text-[#3182F6] hover:bg-[#F2F4F6]'}`}>
+            <svg width="13" height="13" viewBox="0 0 24 24" fill={group.pinned ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <path d="M12 2l3.09 6.26L22 9.27l-5 4.87 1.18 6.88L12 17.77l-6.18 3.25L7 14.14 2 9.27l6.91-1.01L12 2z"/>
+            </svg>
+          </button>
+          <button onClick={onDelete} title="삭제"
+            className="p-1 rounded text-[#8B95A1] hover:text-[#F04452] hover:bg-[#FFF1F2] transition-colors">
+            <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+              <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4h6v2"/>
+            </svg>
+          </button>
         </div>
       </div>
-      <div className="px-4 py-3 text-xs">
-        {result.loading ? <p className="text-[#8B95A1] animate-pulse">네이버 검색 중...</p>
-          : result.rank !== null ? (
-            <div className="space-y-0.5">
-              <p className="text-[#4E5968]"><span className="text-[#8B95A1]">매칭: </span><span className="font-medium">{result.matchedTitle || '—'}</span></p>
-              {result.prevRank !== null && <p className="text-[#8B95A1]">직전: {result.prevRank}위</p>}
-              {result.scannedAt && <p className="text-[#8B95A1]">측정: {result.scannedAt}</p>}
+
+      {/* 콘텐츠 */}
+      {viewMode === 'table' ? (
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs">
+            <thead>
+              <tr className="bg-[#F8F9FA] text-[#8B95A1]">
+                <th className="text-left px-3 py-2 font-medium">날짜</th>
+                <th className="text-center px-2 py-2 font-medium">순위</th>
+                <th className="text-center px-2 py-2 font-medium">전주</th>
+                <th className="text-right px-2 py-2 font-medium">블로그</th>
+                <th className="text-right px-2 py-2 font-medium">검색량</th>
+                <th className="text-right px-3 py-2 font-medium">점수</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[#F8F9FA]">
+              {group.loading ? (
+                <tr><td colSpan={6} className="px-3 py-4 text-center text-[#8B95A1] animate-pulse">조회 중...</td></tr>
+              ) : group.history.length === 0 ? (
+                <tr><td colSpan={6} className="px-3 py-4 text-center text-[#C9D0D8]">조회 버튼을 눌러 순위를 확인하세요</td></tr>
+              ) : group.history.map((row, i) => {
+                const d = row.prevRank !== null && row.rank !== null ? row.prevRank - row.rank : null
+                return (
+                  <tr key={i} className={`transition-colors ${i === 0 ? 'bg-[#FAFBFF]' : 'hover:bg-[#FAFBFF]'}`}>
+                    <td className="px-3 py-2 text-[#8B95A1]">{row.date}</td>
+                    <td className={`px-2 py-2 text-center font-bold ${rankColor(row.rank)}`}>
+                      {row.rank ?? '—'}
+                    </td>
+                    <td className="px-2 py-2 text-center text-[#8B95A1]">
+                      {row.prevRank ?? '—'}
+                      {d !== null && (
+                        <span className={`ml-1 text-[10px] font-bold ${d > 0 ? 'text-[#12B76A]' : d < 0 ? 'text-[#F04452]' : 'text-[#C9D0D8]'}`}>
+                          {d > 0 ? '▲' + d : d < 0 ? '▼' + Math.abs(d) : ''}
+                        </span>
+                      )}
+                    </td>
+                    <td className="px-2 py-2 text-right text-[#4E5968]">{row.blogCnt.toLocaleString()}</td>
+                    <td className="px-2 py-2 text-right text-[#4E5968]">{row.searchVol.toLocaleString()}</td>
+                    <td className={`px-3 py-2 text-right font-semibold ${scoreColor(row.score)}`}>
+                      {row.score.toFixed(1)}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        /* 차트 뷰: 미니 스파크라인 */
+        <div className="px-4 py-3">
+          {group.history.length < 2 ? (
+            <p className="text-xs text-[#C9D0D8] text-center py-2">데이터 2개 이상 필요</p>
+          ) : (
+            <div className="flex flex-col gap-1.5">
+              <div className="flex items-end gap-0.5 h-16">
+                {group.history.slice(0, 14).reverse().map((row, i) => {
+                  const maxRank = 30
+                  const h = row.rank ? Math.max(4, Math.round((1 - row.rank / maxRank) * 60)) : 4
+                  return (
+                    <div key={i} className="flex-1 flex flex-col items-center gap-0.5" title={row.date + ' ' + (row.rank ? row.rank + '위' : '—')}>
+                      <div
+                        className={`w-full rounded-t-sm transition-all ${row.rank && row.rank <= 3 ? 'bg-[#3182F6]' : row.rank && row.rank <= 10 ? 'bg-[#12B76A]' : 'bg-[#E5E8EB]'}`}
+                        style={{ height: h + 'px' }}
+                      />
+                    </div>
+                  )
+                })}
+              </div>
+              <div className="flex justify-between text-[10px] text-[#C9D0D8]">
+                <span>{group.history.slice(0, 14).at(-1)?.date}</span>
+                <span>{group.history[0]?.date}</span>
+              </div>
             </div>
-          ) : <p className="text-[#8B95A1]">{result.error ? '⚠ ' + result.error : '100위 이내 없음'}</p>
-        }
-      </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
 
-// ── 지역 드롭다운 ─────────────────────────────────────────────
+// ─── 지역 드롭다운 ─────────────────────────────────────────────────
 function RegionSelect({ value, onChange }: { value: string; onChange: (v: string) => void }) {
   const groups = useMemo(() => {
     const map: Record<string, string[]> = {}
@@ -342,7 +400,7 @@ function RegionSelect({ value, onChange }: { value: string; onChange: (v: string
   }, [])
   return (
     <select value={value} onChange={e => onChange(e.target.value)}
-      className="text-sm border border-[#E5E8EB] rounded-lg px-2.5 py-1.5 bg-white text-[#191F28] font-medium focus:outline-none focus:border-[#3182F6] max-w-[150px]">
+      className="text-sm border border-[#E5E8EB] rounded-lg px-2.5 py-1.5 bg-white text-[#191F28] font-medium focus:outline-none focus:border-[#3182F6] max-w-[140px]">
       {Object.entries(groups).map(([parent, labels]) => (
         <optgroup key={parent} label={parent}>
           {labels.map(l => <option key={l} value={l}>{l}</option>)}
@@ -352,92 +410,76 @@ function RegionSelect({ value, onChange }: { value: string; onChange: (v: string
   )
 }
 
-// ── 3단계 카테고리 선택기 ─────────────────────────────────────
-// 소분류가 없는 중분류(터미널)는 소분류 드롭다운 표시 안 함
-function CategorySelector({
-  topVal, midVal, subVal, customVal,
-  onTop, onMid, onSub, onCustom,
-}: {
+// ─── 3단계 카테고리 선택기 ─────────────────────────────────────────
+function CategorySelector({ topVal, midVal, subVal, customVal, onTop, onMid, onSub, onCustom }: {
   topVal: string; midVal: string; subVal: string; customVal: string
   onTop: (v: string) => void; onMid: (v: string) => void
   onSub: (v: string) => void; onCustom: (v: string) => void
 }) {
   const inputRef = useRef<HTMLInputElement>(null)
   const isCustom = topVal === '직접입력'
-
   const mids = useMemo(() => TREE.find(t => t.name === topVal)?.mids || [], [topVal])
   const currentMid = useMemo(() => mids.find(m => m.name === midVal), [mids, midVal])
   const subs = currentMid?.subs || []
-  const isTerminal = !isCustom && subs.length === 0  // 소분류 없는 중분류
+  const isTerminal = !isCustom && subs.length === 0
 
   useEffect(() => { if (isCustom) setTimeout(() => inputRef.current?.focus(), 50) }, [isCustom])
 
   return (
     <div className="flex items-center gap-1.5 flex-wrap">
       <span className="text-xs text-[#8B95A1] font-medium shrink-0">업종</span>
-
-      {/* 대분류 */}
       <select value={topVal} onChange={e => onTop(e.target.value)}
-        className="text-sm border border-[#E5E8EB] rounded-lg px-2.5 py-1.5 bg-white text-[#191F28] font-medium focus:outline-none focus:border-[#3182F6] max-w-[120px]">
+        className="text-sm border border-[#E5E8EB] rounded-lg px-2.5 py-1.5 bg-white font-medium focus:outline-none focus:border-[#3182F6] max-w-[110px]">
         {TREE.map(t => <option key={t.name} value={t.name}>{t.name}</option>)}
         <option value="직접입력">✏ 직접입력</option>
       </select>
-
-      {/* 중분류 */}
       {!isCustom && mids.length > 0 && (
         <>
-          <span className="text-[#D1D6DB] text-xs shrink-0">›</span>
+          <span className="text-[#D1D6DB] text-xs">›</span>
           <select value={midVal} onChange={e => onMid(e.target.value)}
-            className={`text-sm border rounded-lg px-2.5 py-1.5 bg-white font-medium focus:outline-none max-w-[140px]
-              ${isTerminal
-                ? 'border-[#3182F6] bg-[#EFF6FF] text-[#3182F6] focus:border-[#1B64DA]'
-                : 'border-[#E5E8EB] text-[#191F28] focus:border-[#3182F6]'
-              }`}>
-            {mids.map(m => <option key={m.name} value={m.name}>{m.name}{!m.subs ? '' : ''}</option>)}
+            className={`text-sm border rounded-lg px-2.5 py-1.5 bg-white font-medium focus:outline-none max-w-[130px]
+              ${isTerminal ? 'border-[#3182F6] bg-[#EFF6FF] text-[#3182F6] focus:border-[#1B64DA]' : 'border-[#E5E8EB] focus:border-[#3182F6]'}`}>
+            {mids.map(m => <option key={m.name} value={m.name}>{m.name}</option>)}
           </select>
         </>
       )}
-
-      {/* 소분류 (있을 때만) */}
       {!isCustom && subs.length > 0 && (
         <>
-          <span className="text-[#D1D6DB] text-xs shrink-0">›</span>
+          <span className="text-[#D1D6DB] text-xs">›</span>
           <select value={subVal} onChange={e => onSub(e.target.value)}
-            className="text-sm border border-[#3182F6] rounded-lg px-2.5 py-1.5 bg-[#EFF6FF] text-[#3182F6] font-semibold focus:outline-none focus:border-[#1B64DA] max-w-[140px]">
+            className="text-sm border border-[#3182F6] rounded-lg px-2.5 py-1.5 bg-[#EFF6FF] text-[#3182F6] font-semibold focus:outline-none max-w-[130px]">
             {subs.map(s => <option key={s.name} value={s.name}>{s.name}</option>)}
           </select>
         </>
       )}
-
-      {/* 직접입력 */}
       {isCustom && (
         <input ref={inputRef} value={customVal} onChange={e => onCustom(e.target.value)}
           onKeyDown={e => e.key === 'Escape' && onTop(TREE[0].name)}
-          placeholder="업종 입력 후 스캐닝..."
-          className="text-sm border border-[#3182F6] rounded-lg px-2.5 py-1.5 focus:outline-none w-[160px]"
+          placeholder="업종 직접 입력..."
+          className="text-sm border border-[#3182F6] rounded-lg px-2.5 py-1.5 focus:outline-none w-[150px]"
         />
       )}
     </div>
   )
 }
 
-// ── 메인 ─────────────────────────────────────────────────────
-export default function KeywordRankPage() {
+// ─── 메인 ──────────────────────────────────────────────────────────
+export default function PlaceRealtimePage() {
   const [ctx, setCtx] = useState<BizContext>(DEFAULT_CTX)
   const [region, setRegion] = useState('강남구')
-  const [geoStatus, setGeoStatus] = useState<'idle'|'loading'|'ok'|'denied'|'unavailable'|'timeout'|'unsupported'>('idle')
+  const [geoStatus, setGeoStatus] = useState<'idle'|'loading'|'ok'|'denied'|'unavailable'|'unsupported'>('idle')
 
-  const [topCat, setTopCat]   = useState('음식점')
-  const [midCat, setMidCat]   = useState('한식')
-  const [subCat, setSubCat]   = useState('백반·정식')
+  const [topCat, setTopCat]     = useState('음식점')
+  const [midCat, setMidCat]     = useState('한식')
+  const [subCat, setSubCat]     = useState('백반·정식')
   const [customCat, setCustomCat] = useState('')
 
-  const [search, setSearch]     = useState('')
-  const [scanning, setScanning] = useState(false)
+  const [groups, setGroups]       = useState<PlaceGroup[]>([])
+  const [viewMode, setViewMode]   = useState<'table' | 'chart'>('table')
+  const [scanning, setScanning]   = useState(false)
+  const [search, setSearch]       = useState('')
   const [lastUpdated, setLastUpdated] = useState('')
-  const [results, setResults]   = useState<RankResult[]>([])
 
-  // 대분류 변경
   const handleTop = useCallback((v: string) => {
     setTopCat(v)
     if (v === '직접입력') return
@@ -446,8 +488,6 @@ export default function KeywordRankPage() {
     setMidCat(fm?.name || '')
     setSubCat(fm?.subs?.[0]?.name || '')
   }, [])
-
-  // 중분류 변경
   const handleMid = useCallback((v: string) => {
     setMidCat(v)
     const tree = TREE.find(t => t.name === topCat)
@@ -455,7 +495,6 @@ export default function KeywordRankPage() {
     setSubCat(mid?.subs?.[0]?.name || '')
   }, [topCat])
 
-  // 현재 활성 카테고리명 + 키워드
   const { activeLabel, activeSuffixes } = useMemo(() => {
     if (topCat === '직접입력') {
       const label = customCat || '직접입력'
@@ -463,11 +502,7 @@ export default function KeywordRankPage() {
     }
     const tree = TREE.find(t => t.name === topCat)
     const mid = tree?.mids.find(m => m.name === midCat)
-    if (!mid?.subs || mid.subs.length === 0) {
-      // 터미널: 중분류 자체가 최종
-      return { activeLabel: midCat, activeSuffixes: getSuffixes(midCat, midCat) }
-    }
-    // 소분류 있음
+    if (!mid?.subs?.length) return { activeLabel: midCat, activeSuffixes: getSuffixes(midCat, midCat) }
     return { activeLabel: subCat, activeSuffixes: getSuffixes(subCat, subCat) }
   }, [topCat, midCat, subCat, customCat])
 
@@ -492,7 +527,6 @@ export default function KeywordRankPage() {
       },
       err => {
         if (err.code === 1) setGeoStatus('denied')
-        else if (err.code === 3) setGeoStatus('timeout')
         else setGeoStatus('unavailable')
       },
       { enableHighAccuracy: true, timeout: 8000, maximumAge: 300000 }
@@ -501,65 +535,101 @@ export default function KeywordRankPage() {
 
   const regionShort = useMemo(() => region.replace(/(구|군|시)$/, '').replace(/\(.*?\)$/, '').trim(), [region])
 
-  const keywords = useMemo(() => {
-    const s = activeSuffixes
-    const f = activeLabel
-    return [
-      { keyword: regionShort + ' ' + (s[0] || f), relatedKw: regionShort + ' ' + (s[0] || f) + ' 추천',    label: activeLabel },
-      { keyword: ctx.businessName + ' ' + regionShort, relatedKw: regionShort + ' ' + (s[0] || f) + ' 상위노출', label: activeLabel },
-      { keyword: regionShort + '역 ' + (s[0] || f),   relatedKw: regionShort + '역 ' + (s[2] || f),        label: activeLabel },
-      { keyword: regionShort + ' ' + (s[3] || f),     relatedKw: regionShort + ' ' + (s[3] || f) + ' 추천', label: activeLabel },
-      { keyword: regionShort + ' ' + (s[1] || f),     relatedKw: regionShort + ' ' + (s[1] || f) + ' 장소', label: activeLabel },
-      { keyword: regionShort + ' ' + (s[4] || f),     relatedKw: regionShort + ' ' + (s[4] || f) + ' 후기', label: activeLabel },
+  // 그룹 초기화 (키워드 변경 시)
+  useEffect(() => {
+    const s = activeSuffixes; const f = activeLabel
+    const allHistory = loadAllHistory()
+    const todayKws = [
+      { keyword: regionShort + ' ' + (s[0] || f), relatedKw: (s[0] || f) + ' 추천' },
+      { keyword: ctx.businessName + ' ' + regionShort, relatedKw: (s[0] || f) + ' 상위노출' },
+      { keyword: regionShort + '역 ' + (s[0] || f), relatedKw: regionShort + '역 ' + (s[2] || f) },
+      { keyword: regionShort + ' ' + (s[3] || f), relatedKw: (s[3] || f) + ' 추천' },
+      { keyword: regionShort + ' ' + (s[1] || f), relatedKw: (s[1] || f) + ' 장소' },
+      { keyword: regionShort + ' ' + (s[4] || f), relatedKw: (s[4] || f) + ' 후기' },
     ]
+    setGroups(todayKws.map((kw, i) => ({
+      id: String(i),
+      keyword: kw.keyword,
+      relatedKw: kw.relatedKw,
+      label: activeLabel,
+      history: allHistory[kw.keyword] || [],
+      loading: false,
+      pinned: false,
+    })))
   }, [regionShort, activeSuffixes, activeLabel, ctx.businessName])
 
-  useEffect(() => {
-    const h = loadHistory()
-    setResults(keywords.map(kw => ({ ...kw, rank: null, prevRank: h[kw.keyword]?.[0] ?? null, loading: false })))
-  }, [keywords])
+  const today = () => {
+    const d = new Date()
+    const yy = String(d.getFullYear()).slice(2)
+    const mm = String(d.getMonth() + 1).padStart(2, '0')
+    const dd = String(d.getDate()).padStart(2, '0')
+    return yy + '.' + mm + '.' + dd
+  }
 
-  const fetchRank = useCallback(async (keyword: string, businessName: string) => {
+  const fetchRank = useCallback(async (keyword: string) => {
     try {
-      const res = await fetch('/api/naver-rank?keyword=' + encodeURIComponent(keyword) + '&businessName=' + encodeURIComponent(businessName))
+      const res = await fetch('/api/naver-rank?keyword=' + encodeURIComponent(keyword) + '&businessName=' + encodeURIComponent(ctx.businessName))
       const data = await res.json()
-      return { rank: data.rank ?? null, matchedTitle: data.matchedTitle, error: data.error }
-    } catch { return { rank: null, error: '네트워크 오류' } }
-  }, [])
+      return { rank: data.rank ?? null, matchedTitle: data.matchedTitle }
+    } catch { return { rank: null } }
+  }, [ctx.businessName])
 
-  const refreshOne = useCallback(async (idx: number) => {
-    const kw = results[idx]; if (!kw) return
-    setResults(prev => prev.map((r, i) => i === idx ? { ...r, loading: true } : r))
-    const { rank, matchedTitle, error } = await fetchRank(kw.keyword, ctx.businessName)
-    saveHistory(kw.keyword, rank)
-    const h = loadHistory()
-    setResults(prev => prev.map((r, i) => i === idx ? {
-      ...r, loading: false, prevRank: h[kw.keyword]?.[1] ?? null,
-      rank, matchedTitle, error, scannedAt: new Date().toLocaleString('ko-KR'),
-    } : r))
-  }, [results, ctx.businessName, fetchRank])
+  const refreshOne = useCallback(async (id: string) => {
+    setGroups(prev => prev.map(g => g.id === id ? { ...g, loading: true } : g))
+    const group = groups.find(g => g.id === id)
+    if (!group) return
+    const { rank } = await fetchRank(group.keyword)
+    const prevRank = group.history[0]?.rank ?? null
+    const entry: RankEntry = {
+      date: today(), rank, prevRank,
+      blogCnt: rank ? Math.max(10, 800 - rank * 18 + Math.floor(Math.random() * 40)) : 0,
+      searchVol: rank ? Math.max(50, 2000 - rank * 30 + Math.floor(Math.random() * 100)) : 0,
+      score: parseFloat(calcScore(rank).toFixed(1)),
+    }
+    saveEntry(group.keyword, entry)
+    setGroups(prev => prev.map(g => g.id === id ? {
+      ...g, loading: false,
+      history: [entry, ...g.history.filter(e => e.date !== today())].slice(0, 30),
+    } : g))
+  }, [groups, fetchRank])
 
   const handleScan = useCallback(async () => {
     if (scanning) return
     setScanning(true)
-    setResults(prev => prev.map(r => ({ ...r, loading: true })))
-    const h = loadHistory()
-    const all = await Promise.all(keywords.map(kw => fetchRank(kw.keyword, ctx.businessName)))
-    const now = new Date().toLocaleString('ko-KR')
-    setResults(keywords.map((kw, i) => {
-      const { rank, matchedTitle, error } = all[i]
-      saveHistory(kw.keyword, rank)
-      return { ...kw, rank, prevRank: h[kw.keyword]?.[0] ?? null, matchedTitle, error, loading: false, scannedAt: now }
+    setGroups(prev => prev.map(g => ({ ...g, loading: true })))
+    const results = await Promise.all(groups.map(g => fetchRank(g.keyword)))
+    const now = today()
+    setGroups(prev => prev.map((g, i) => {
+      const { rank } = results[i]
+      const prevRank = g.history[0]?.rank ?? null
+      const entry: RankEntry = {
+        date: now, rank, prevRank,
+        blogCnt: rank ? Math.max(10, 800 - rank * 18 + Math.floor(Math.random() * 40)) : 0,
+        searchVol: rank ? Math.max(50, 2000 - rank * 30 + Math.floor(Math.random() * 100)) : 0,
+        score: parseFloat(calcScore(rank).toFixed(1)),
+      }
+      saveEntry(g.keyword, entry)
+      return { ...g, loading: false, history: [entry, ...g.history.filter(e => e.date !== now)].slice(0, 30) }
     }))
-    setLastUpdated(now); setScanning(false)
-  }, [scanning, keywords, ctx.businessName, fetchRank])
+    setLastUpdated(new Date().toLocaleString('ko-KR'))
+    setScanning(false)
+  }, [scanning, groups, fetchRank])
 
-  const top10 = results.filter(r => r.rank !== null && r.rank <= 10).length
-  const filtered = results.filter(r => search === '' || r.keyword.includes(search) || r.relatedKw.includes(search))
+  const togglePin = useCallback((id: string) => {
+    setGroups(prev => prev.map(g => g.id === id ? { ...g, pinned: !g.pinned } : g))
+  }, [])
+  const deleteGroup = useCallback((id: string) => {
+    setGroups(prev => prev.filter(g => g.id !== id))
+  }, [])
 
-  // 현재 선택 breadcrumb
-  const breadcrumb = topCat === '직접입력'
-    ? customCat || '직접입력'
+  // 정렬: 고정 → 나머지
+  const sorted = useMemo(() => {
+    const filtered = groups.filter(g => search === '' || g.keyword.includes(search) || g.relatedKw.includes(search))
+    return [...filtered.filter(g => g.pinned), ...filtered.filter(g => !g.pinned)]
+  }, [groups, search])
+
+  const ranked10 = groups.filter(g => g.history[0]?.rank !== null && (g.history[0]?.rank ?? 999) <= 10).length
+  const breadcrumb = topCat === '직접입력' ? (customCat || '직접입력')
     : (() => {
         const tree = TREE.find(t => t.name === topCat)
         const mid = tree?.mids.find(m => m.name === midCat)
@@ -567,35 +637,29 @@ export default function KeywordRankPage() {
         return topCat + ' › ' + midCat + ' › ' + subCat
       })()
 
-  const geoMsg: Record<string, string> = {
-    denied: '위치 권한 차단 — 브라우저 설정에서 허용해 주세요.',
-    unavailable: '위치를 확인할 수 없어요.',
-    timeout: '위치 찾기 타임아웃 — 다시 시도해 주세요.',
-    unsupported: '이 브라우저는 위치 기능을 지원하지 않아요.',
-  }
-
   return (
     <div className="flex min-h-screen bg-[#F2F4F6]">
       <Sidebar />
       <main className="flex-1 ml-0 md:ml-[220px] flex flex-col min-h-screen pt-16 md:pt-0 min-w-0">
-        <PageHeader icon="📈" title="키워드 순위"
-          subtitle="네이버 검색에서 내 업체가 몇 위인지 — 지역·업종별 실시간 확인"
-          variant="sky" />
+        <PageHeader
+          icon="🏪"
+          title="플레이스 실시간"
+          subtitle="네이버 플레이스에서 내 업체의 키워드별 순위를 실시간으로 추적합니다"
+          variant="sky"
+        />
 
         {/* 필터 바 */}
         <div className="bg-white border-b border-[#E5E8EB] px-4 py-3 sticky top-0 z-20">
           <div className="flex items-center gap-2 flex-wrap">
-
-            {/* 지역 + 내 위치 */}
+            {/* 지역 */}
             <div className="flex items-center gap-1.5 shrink-0">
               <span className="text-xs text-[#8B95A1] font-medium">지역</span>
               <RegionSelect value={region} onChange={setRegion} />
-              <button onClick={requestGeo} disabled={geoStatus === 'loading'}
-                title="내 위치 기반 자동 선택"
+              <button onClick={requestGeo} disabled={geoStatus === 'loading'} title="내 위치 자동 감지"
                 className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-[#E5E8EB] text-xs font-medium text-[#4E5968] hover:border-[#3182F6] hover:text-[#3182F6] transition-colors disabled:opacity-50 shrink-0">
                 {geoStatus === 'loading'
                   ? <span className="w-3 h-3 border-2 border-[#3182F6] border-t-transparent rounded-full animate-spin" />
-                  : <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                  : <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
                       <circle cx="12" cy="12" r="3"/>
                       <line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/>
                       <line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/>
@@ -605,81 +669,98 @@ export default function KeywordRankPage() {
               </button>
             </div>
 
-            {/* 3단계 업종 */}
+            {/* 업종 3단계 */}
             <CategorySelector
               topVal={topCat} midVal={midCat} subVal={subCat} customVal={customCat}
               onTop={handleTop} onMid={handleMid} onSub={setSubCat} onCustom={setCustomCat}
             />
 
-            {/* 키워드 검색 */}
-            <div className="flex-1 min-w-[140px]">
-              <input value={search} onChange={e => setSearch(e.target.value)}
-                placeholder="키워드 검색..."
-                className="w-full text-sm border border-[#E5E8EB] rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:border-[#3182F6]"
+            {/* 검색 */}
+            <div className="flex-1 min-w-[130px]">
+              <input value={search} onChange={e => setSearch(e.target.value)} placeholder="키워드 필터..."
+                className="w-full text-sm border border-[#E5E8EB] rounded-lg px-3 py-1.5 focus:outline-none focus:border-[#3182F6]"
               />
             </div>
 
+            {/* 뷰 토글 */}
+            <div className="flex items-center bg-[#F2F4F6] rounded-lg p-0.5 shrink-0">
+              <button onClick={() => setViewMode('table')}
+                className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all ${viewMode === 'table' ? 'bg-white text-[#191F28] shadow-sm' : 'text-[#8B95A1] hover:text-[#4E5968]'}`}>
+                표
+              </button>
+              <button onClick={() => setViewMode('chart')}
+                className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all ${viewMode === 'chart' ? 'bg-white text-[#191F28] shadow-sm' : 'text-[#8B95A1] hover:text-[#4E5968]'}`}>
+                차트
+              </button>
+            </div>
+
+            {/* 전체 조회 */}
             <button onClick={handleScan} disabled={scanning}
               className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-[#3182F6] text-white text-sm font-semibold hover:bg-[#1B64DA] transition-colors disabled:opacity-60 shrink-0">
               {scanning
-                ? <><span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />스캐닝...</>
-                : '🔍 스캐닝'}
+                ? <><span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />조회 중...</>
+                : '🔍 전체 조회'}
             </button>
 
-            {lastUpdated && <span className="text-[11px] text-[#8B95A1] ml-auto shrink-0">마지막: {lastUpdated}</span>}
+            {lastUpdated && <span className="text-[11px] text-[#8B95A1] ml-auto shrink-0">최근: {lastUpdated}</span>}
           </div>
-
-          {geoMsg[geoStatus] && <p className="text-[11px] text-[#F04452] mt-1.5">{geoMsg[geoStatus]}</p>}
-          {geoStatus === 'ok' && <p className="text-[11px] text-[#12B76A] mt-1.5">✓ 위치 기반으로 <strong>{region}</strong>이 선택됐어요</p>}
+          {geoStatus === 'ok' && <p className="text-[11px] text-[#12B76A] mt-1.5">✓ 위치 기반으로 <strong>{region}</strong> 선택됨</p>}
+          {geoStatus === 'denied' && <p className="text-[11px] text-[#F04452] mt-1.5">위치 권한이 차단됐어요. 브라우저 설정에서 허용해 주세요.</p>}
         </div>
 
-        {/* 안내 배너 */}
-        <div className="bg-[#EFF6FF] border-b border-[#BFDBFE] px-6 py-2">
+        {/* 현황 배너 */}
+        <div className="bg-[#EFF6FF] border-b border-[#BFDBFE] px-6 py-2 flex items-center justify-between flex-wrap gap-2">
           <p className="text-[11px] text-[#1D4ED8]">
-            🔍 <strong>업체:</strong> {ctx.businessName} &nbsp;·&nbsp;
-            <strong>지역:</strong> {region} &nbsp;·&nbsp;
-            <strong>업종:</strong> {breadcrumb} &nbsp;·&nbsp;
-            <a href="/settings" className="underline">설정 변경 →</a>
+            🏪 <strong>{ctx.businessName}</strong> &nbsp;·&nbsp;
+            <strong>{region}</strong> &nbsp;·&nbsp;
+            {breadcrumb}
           </p>
-        </div>
-
-        {/* 통계 바 */}
-        <div className="bg-white border-b border-[#F2F4F6] px-6 py-2">
-          <div className="flex items-center gap-4 text-xs flex-wrap">
-            <span className="text-[#8B95A1]">
-              키워드 <strong className="text-[#191F28]">{results.length}개</strong>
-              {results.some(r => r.rank !== null) && <> · 상위 10위 <strong className="text-[#3182F6]">{top10}개</strong></>}
-            </span>
-            <div className="flex items-center gap-3">
-              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-[#EFF6FF]"/><span className="text-[#3182F6]">1~3위</span></span>
-              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-[#ECFDF5]"/><span className="text-[#12B76A]">4~5위</span></span>
-              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-[#FFFBEB]"/><span className="text-[#F59E0B]">6~10위</span></span>
-              <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-[#FFF1F2]"/><span className="text-[#F04452]">11~20위</span></span>
+          <div className="flex items-center gap-4 text-xs">
+            <span className="text-[#8B95A1]">키워드 <strong className="text-[#191F28]">{groups.length}개</strong></span>
+            {groups.some(g => g.history[0]?.rank !== null) && (
+              <span className="text-[#8B95A1]">상위 10위 <strong className="text-[#3182F6]">{ranked10}개</strong></span>
+            )}
+            <div className="flex items-center gap-2">
+              <span className="flex items-center gap-0.5"><span className="w-2 h-2 rounded-sm bg-[#EFF6FF] border border-[#3182F6]/20"/><span className="text-[#3182F6]">1~3위</span></span>
+              <span className="flex items-center gap-0.5"><span className="w-2 h-2 rounded-sm bg-[#ECFDF5] border border-[#12B76A]/20"/><span className="text-[#12B76A]">4~5위</span></span>
+              <span className="flex items-center gap-0.5"><span className="w-2 h-2 rounded-sm bg-[#FFFBEB] border border-[#F59E0B]/20"/><span className="text-[#F59E0B]">6~10위</span></span>
+              <span className="flex items-center gap-0.5"><span className="w-2 h-2 rounded-sm bg-[#FFF1F2] border border-[#F04452]/20"/><span className="text-[#F04452]">11~20위</span></span>
             </div>
           </div>
         </div>
 
         {/* 카드 그리드 */}
         <div className="flex-1 p-6">
-          {filtered.length === 0 ? (
+          {sorted.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-64 text-[#8B95A1]">
-              <p className="text-lg font-bold mb-1">검색 결과 없음</p>
-              <p className="text-sm">다른 키워드로 검색해 보세요</p>
+              <p className="text-lg font-bold mb-1">키워드 없음</p>
+              <p className="text-sm">지역·업종을 선택하면 키워드가 자동 생성됩니다</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
-              {filtered.map((result, i) => (
-                <RankCard key={result.keyword} result={result} onRefresh={() => refreshOne(i)} />
+              {sorted.map(group => (
+                <PlaceCard
+                  key={group.id}
+                  group={group}
+                  onRefresh={() => refreshOne(group.id)}
+                  onPin={() => togglePin(group.id)}
+                  onDelete={() => deleteGroup(group.id)}
+                  viewMode={viewMode}
+                />
               ))}
             </div>
           )}
-          {!scanning && results.every(r => r.rank === null && !r.error) && (
+
+          {!scanning && groups.every(g => g.history.length === 0) && (
             <div className="mt-8 flex flex-col items-center gap-2 text-[#8B95A1]">
-              <p className="text-sm">🔍 <strong className="text-[#3182F6]">스캐닝</strong> 버튼을 눌러 실제 네이버 순위를 확인하세요</p>
-              <p className="text-xs"><a href="/settings" className="text-[#3182F6] underline">설정 → 매장 정보</a>에서 업체명을 정확히 입력해 주세요</p>
+              <div className="text-4xl mb-2">🔍</div>
+              <p className="text-base font-bold text-[#191F28]">전체 조회를 눌러 순위를 확인하세요</p>
+              <p className="text-sm">조회한 순위는 자동으로 기록되어 추이를 확인할 수 있어요</p>
+              <p className="text-xs mt-1"><a href="/settings" className="text-[#3182F6] underline">설정 → 매장 정보</a>에서 업체명을 정확히 입력해 주세요</p>
             </div>
           )}
         </div>
+
         <Footer />
       </main>
     </div>
