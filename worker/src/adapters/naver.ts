@@ -20,7 +20,8 @@ const DOM_SELECTORS = {
   pwInput:   'input#pw, input[name="pw"], input[type="password"]',
   loginBtn:  '#log\\.login, button[type="submit"], .btn_login',
   // SmartPlace 실제 클래스 (2026-04 확인)
-  reviewCard:    '[class*="Review_single_review"], [class*="Review_container"], [class*="single_review"], [class*="ReviewItem"], [class*="review_item"], [data-review-id], [class*="Review_review"]',
+  // Review_container 는 전체 목록 컨테이너 → 개별 카드 선택자에서 제외
+  reviewCard:    '[class*="Review_single_review"], [class*="single_review"], [class*="ReviewItem"], [class*="review_item"], [data-review-id], [class*="Review_review"], [class*="Review_item"]',
   replyButton:   '[class*="Review_btn_write"], [class*="fn-write"], button:has-text("답글 달기"), button:has-text("답글"), [class*="btn_reply"]',
   replyTextarea: 'textarea[placeholder*="답글"], textarea[placeholder*="답변"], textarea[class*="reply"], textarea[class*="write"], textarea',
   replySubmit:   'button:has-text("등록"), button:has-text("완료"), button:has-text("저장"), [class*="btn_submit"]',
