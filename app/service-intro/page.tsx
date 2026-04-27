@@ -9,6 +9,7 @@ import {
   ArrowLeft, ArrowRight, Star, RefreshCw, CheckCircle2,
   Loader2, Send,
   TrendingUp, Users, BarChart3, PenLine, Zap, Shield,
+  MapPin, BookOpen, Video, LayoutGrid, Gift, MessageSquare,
 } from 'lucide-react'
 
 // ── 전역 keyframe 스타일 ─────────────────────────────────────
@@ -198,13 +199,55 @@ const AGES = ['10대','20대','30대','40대','50대','60대+']
 const QR_KEYWORDS = ['맛있어요 😋', '친절해요 😊', '뷰가 예뻐요 🌊', '가성비 최고 💰', '재방문 할게요 🔄', '주차 편해요 🚗']
 const QR_AI_REVIEW = '해운대에서 정말 기분 좋은 식사를 했습니다. 음식이 맛있고 직원분들도 친절하셔서 기분이 좋았어요. 창가 자리에서 바다 뷰를 보며 먹으니 더욱 특별했습니다. 가격 대비 퀄리티가 훌륭해서 다음에도 꼭 다시 오고 싶습니다!'
 
-const MORE_FEATURES = [
-  { icon: <TrendingUp size={20} strokeWidth={2} />, color: '#3182F6', bg: '#EFF6FF', tag: '마케팅', title: '플레이스 키워드 순위', desc: '내 가게가 네이버에서 몇 위인지 실시간 확인.' },
-  { icon: <PenLine size={20} strokeWidth={2} />,    color: '#8B5CF6', bg: '#F5F3FF', tag: '콘텐츠', title: 'AI 블로그 포스팅', desc: '매장 정보만 입력하면 SEO 최적화 블로그 초안 자동 생성.' },
-  { icon: <Users size={20} strokeWidth={2} />,      color: '#059669', bg: '#ECFDF5', tag: '고객', title: 'CRM 고객 관리', desc: 'VIP·단골·신규 고객 자동 분류. 세그먼트별 메시지 발송.' },
-  { icon: <BarChart3 size={20} strokeWidth={2} />,  color: '#E1306C', bg: '#FDF2F8', tag: 'SNS', title: '인스타 릴스·카드뉴스', desc: '숏폼 대본 AI 작성 + 카드뉴스 10장 자동 제작.' },
-  { icon: <Zap size={20} strokeWidth={2} />,        color: '#F59E0B', bg: '#FFFBEB', tag: '정산', title: '매출·정산 자동화', desc: '배달앱·카드 매출 자동 집계. 월별 리포트.', badge: '준비중' },
-  { icon: <Shield size={20} strokeWidth={2} />,     color: '#EA580C', bg: '#FFF7ED', tag: '지역', title: '로컬 시너지', desc: '인근 매장과 교차 쿠폰·이벤트로 고객 상호 유치.', badge: '준비중' },
+const MORE_FEATURE_GROUPS = [
+  {
+    category: '네이버 마케팅',
+    color: '#03C75A',
+    bg: '#F0FDF4',
+    items: [
+      { icon: <MapPin size={20} strokeWidth={2} />,     title: '플레이스 진단',       desc: '매장 플레이스 건강 점수와 개선 포인트를 한 번에 진단해 드려요.' },
+      { icon: <TrendingUp size={20} strokeWidth={2} />, title: '플레이스 실시간 순위', desc: '내 키워드가 네이버 지도에서 몇 위인지 실시간으로 확인하세요.' },
+      { icon: <BarChart3 size={20} strokeWidth={2} />,  title: '플레이스 점수 분석',  desc: 'SEO 키워드 점수 분석과 상위 노출을 위한 최적화 인사이트 제공.' },
+      { icon: <PenLine size={20} strokeWidth={2} />,    title: 'AI 블로그 포스팅',    desc: '매장 정보만 입력하면 SEO 최적화 블로그 초안을 자동으로 생성해요.' },
+      { icon: <BookOpen size={20} strokeWidth={2} />,   title: '블로그 순위 추적',    desc: '작성한 블로그 게시글의 키워드 순위를 지속적으로 모니터링.' },
+    ],
+  },
+  {
+    category: 'SNS · 콘텐츠',
+    color: '#E1306C',
+    bg: '#FDF2F8',
+    items: [
+      { icon: <Video size={20} strokeWidth={2} />,      title: '릴스·숏폼 대본 생성', desc: '인스타·틱톡·쇼츠용 영상 대본과 장면 구성을 AI가 자동 작성.' },
+      { icon: <LayoutGrid size={20} strokeWidth={2} />, title: '카드뉴스 자동 제작',  desc: '매장 정보 입력만으로 인스타용 카드뉴스 10장 자동 제작.' },
+    ],
+  },
+  {
+    category: '고객 관리',
+    color: '#059669',
+    bg: '#ECFDF5',
+    items: [
+      { icon: <Users size={20} strokeWidth={2} />, title: 'CRM 고객 관리', desc: 'VIP·단골·신규·휴면 고객 자동 분류. 세그먼트별 맞춤 메시지 발송.' },
+    ],
+  },
+  {
+    category: '커뮤니티',
+    color: '#F59E0B',
+    bg: '#FFFBEB',
+    items: [
+      { icon: <MessageSquare size={20} strokeWidth={2} />, title: '사장님 커뮤니티',  desc: '지역별·업종별 사장님들과 노하우 공유, 공동구매, 상권 정보 교류.' },
+      { icon: <Gift size={20} strokeWidth={2} />,          title: '파트너 포인트',    desc: '지인 추천 시 포인트 적립. 구독료 할인·무료 이용 기간으로 전환 가능.' },
+    ],
+  },
+  {
+    category: '준비중',
+    color: '#B0B8C1',
+    bg: '#F8F9FA',
+    badge: true,
+    items: [
+      { icon: <Zap size={20} strokeWidth={2} />,    title: '매출·정산 자동화', desc: '배달앱·카드 매출 자동 집계. 월별 정산 리포트 자동 생성.' },
+      { icon: <Shield size={20} strokeWidth={2} />, title: '로컬 시너지',      desc: '인근 매장과 교차 쿠폰·이벤트로 고객 상호 유치 및 상권 활성화.' },
+    ],
+  },
 ]
 
 // ── 공통 유틸 ─────────────────────────────────────────────
@@ -670,24 +713,32 @@ export default function ServiceIntro() {
             </p>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4 mb-6 sm:mb-8">
-            {MORE_FEATURES.map(f => (
-              <div key={f.title} className="bg-white rounded-2xl p-4 sm:p-5 border border-[#F2F4F6] hover:border-[#E5E8EB] hover:shadow-sm transition-all">
-                <div className="flex items-center gap-2.5 mb-3">
-                  <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
-                    style={{ background: f.bg, color: f.color }}>
-                    {f.icon}
-                  </div>
-                  <div className="flex items-center gap-1.5 flex-wrap">
-                    <span className="text-[10px] font-black px-1.5 py-0.5 rounded-full"
-                      style={{ background: f.bg, color: f.color }}>{f.tag}</span>
-                    {f.badge && (
-                      <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-[#F2F4F6] text-[#8B95A1]">{f.badge}</span>
-                    )}
-                  </div>
+          <div className="space-y-6 sm:space-y-8 mb-6 sm:mb-8">
+            {MORE_FEATURE_GROUPS.map(group => (
+              <div key={group.category}>
+                {/* 카테고리 헤더 */}
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="w-1 h-4 rounded-full shrink-0" style={{ background: group.color }} />
+                  <span className="text-[11px] font-black tracking-wide" style={{ color: group.color }}>{group.category}</span>
+                  <div className="flex-1 h-px bg-[#F2F4F6]" />
                 </div>
-                <p className="text-sm font-black text-[#191F28] mb-1 break-keep">{f.title}</p>
-                <p className="text-xs text-[#8B95A1] leading-relaxed break-keep">{f.desc}</p>
+                <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 sm:gap-4">
+                  {group.items.map(f => (
+                    <div key={f.title} className="bg-white rounded-2xl p-4 sm:p-5 border border-[#F2F4F6] hover:border-[#E5E8EB] hover:shadow-sm transition-all">
+                      <div className="flex items-center gap-2.5 mb-3">
+                        <div className="w-9 h-9 rounded-xl flex items-center justify-center shrink-0"
+                          style={{ background: group.bg, color: group.color }}>
+                          {f.icon}
+                        </div>
+                        {group.badge && (
+                          <span className="text-[9px] font-black px-1.5 py-0.5 rounded-full bg-[#F2F4F6] text-[#8B95A1]">준비중</span>
+                        )}
+                      </div>
+                      <p className="text-sm font-black text-[#191F28] mb-1 break-keep">{f.title}</p>
+                      <p className="text-xs text-[#8B95A1] leading-relaxed break-keep">{f.desc}</p>
+                    </div>
+                  ))}
+                </div>
               </div>
             ))}
           </div>
