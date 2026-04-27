@@ -133,8 +133,9 @@ export default function NaverAdsPage() {
       <Sidebar />
       <div className="md:ml-[220px] flex flex-col min-h-screen">
         <PageHeader
+          icon="📊"
           title="네이버 광고 분석"
-          description="파워링크 입찰가·검색량·키워드 확장을 한 곳에서 조회하세요"
+          subtitle="파워링크 입찰가·검색량·키워드 확장을 한 곳에서 조회하세요"
         />
 
         <main className="flex-1 px-4 md:px-6 py-6 max-w-5xl mx-auto w-full space-y-6">
