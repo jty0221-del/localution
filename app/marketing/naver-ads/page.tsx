@@ -14,7 +14,7 @@ type VolumeKeyword = {
   compIdx: string
 }
 
-type BidRow = { rank: number; pc: number | null; mobile: number | null }
+type BidRow = { rank: number; pc: number | null; mobile: number | null; estimated?: boolean; compIdx?: string }
 
 type TrendPoint = { period: string; ratio: number }
 
@@ -197,6 +197,9 @@ export default function NaverAdsPage() {
   const [bidInput, setBidInput]     = useState('')
   const [bidKeyword, setBidKeyword] = useState('')
   const [bidRows, setBidRows]       = useState<BidRow[]>([])
+  const [bidEstimated, setBidEstimated] = useState(false)
+  const [bidCompIdx, setBidCompIdx]     = useState('')
+  const [bidVol, setBidVol]             = useState({ pc: 0, mobile: 0 })
   const [bidLoading, setBidLoading] = useState(false)
   const [bidError, setBidError]     = useState<string | null>(null)
 
@@ -238,6 +241,9 @@ export default function NaverAdsPage() {
       if (!r.ok || j.error) throw new Error(j.error || 'HTTP ' + r.status)
       setBidRows(j.rows || [])
       setBidKeyword(j.keyword || kw)
+      setBidEstimated(j.estimated === true)
+      setBidCompIdx(j.compIdx || '')
+      setBidVol({ pc: j.pcVol || 0, mobile: j.mobileVol || 0 })
     } catch (e) {
       setBidError(e instanceof Error ? e.message : '오류 발생')
     } finally {
@@ -584,7 +590,7 @@ export default function NaverAdsPage() {
 
               {bidRows.length > 0 && (
                 <div>
-                  <p className="text-sm font-bold text-[#191F28] mb-3"><span className="text-[#3182F6]">[{bidKeyword}]</span> 파워링크 입찰가</p>
+                  <div className="flex items-center gap-2 mb-3 flex-wrap"><p className="text-sm font-bold text-[#191F28]"><span className="text-[#3182F6]">[{bidKeyword}]</span> 파워링크 입찰가</p>{bidEstimated && <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#FEF3C7] text-[#D97706] font-semibold border border-[#FDE68A]">경쟁도 기반 추정</span>}{bidCompIdx && <span className={'text-[10px] px-2 py-0.5 rounded-full font-semibold ' + (bidCompIdx==='높음' ? 'bg-[#FFF1F2] text-[#F04452]' : bidCompIdx==='중간' ? 'bg-[#EFF6FF] text-[#3182F6]' : 'bg-[#ECFDF5] text-[#059669]')}>경쟁도 {bidCompIdx}</span>}{(bidVol.pc > 0 || bidVol.mobile > 0) && <span className="text-[10px] text-[#8B95A1]">월검색 PC {bidVol.pc.toLocaleString()} · 모바일 {bidVol.mobile.toLocaleString()}</span>}</div>
                   <div className="space-y-2.5">
                     {bidRows.map(row => (
                       <div key={row.rank} className={'rounded-xl border p-4 flex items-center gap-4 ' + (row.rank === 1 ? 'border-[#FFD700] bg-[#FFFBEB]' : row.rank <= 3 ? 'border-[#E5E8EB] bg-[#FAFBFF]' : 'border-[#E5E8EB] bg-white')}>
@@ -604,7 +610,7 @@ export default function NaverAdsPage() {
                       </div>
                     ))}
                   </div>
-                  <p className="text-[11px] text-[#B0B8C1] mt-2 px-1">* 현재 시점 기준 예상 최소 입찰가 · 실제 낙찰가는 경쟁에 따라 다를 수 있음</p>
+{bidEstimated ? <p className="text-[11px] text-[#B0B8C1] mt-2 px-1">* 경쟁도({bidCompIdx}) 기반 시장 평균 추정가 · 실제 입찰가는 광고 경쟁 상황에 따라 다를 수 있음</p> : <p className="text-[11px] text-[#B0B8C1] mt-2 px-1">* 현재 시점 기준 예상 최소 입찰가 · 실제 낙찰가는 경쟁에 따라 다를 수 있음</p>}
                 </div>
               )}
 
