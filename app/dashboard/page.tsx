@@ -526,7 +526,7 @@ function CommunityWidget({ storeRegion }: { storeRegion: string | null }) {
       </div>
     </div>
   )
-
+}
 
 function RankBadge({ current, prev }: { current: number; prev: number | null }) {
   if (prev === null) return <span className="text-[10px] text-[#8B95A1] font-medium">신규</span>
