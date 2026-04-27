@@ -323,7 +323,35 @@ async function postNaverReply(
       return { ok: false, reason: '세션 만료 — /my/platforms/naver_place/session 에서 쿠키를 갱신해주세요' }
     }
 
-    // 3) 리뷰 카드 로딩 대기 (최대 15초)
+    // 3) 모달/오버레이 닫기 (dimmed 클래스 감지)
+    try {
+      const hasDimmed = await page.$('.dimmed, [class*="dimmed"], [class*="modal_wrap"], [class*="layer_wrap"]')
+      if (hasDimmed) {
+        log.warn('naver: dimmed overlay detected — trying to dismiss')
+        // ESC 키로 닫기
+        await page.keyboard.press('Escape')
+        await page.waitForTimeout(800)
+        // 닫기 버튼 클릭 시도
+        const closeBtn = await page.$('button:has-text("닫기")')
+          ?? await page.$('button:has-text("확인")')
+          ?? await page.$('[class*="btn_close"], [class*="close_btn"], [class*="ico_close"]')
+        if (closeBtn) {
+          await closeBtn.click()
+          await page.waitForTimeout(800)
+          log.info('naver: modal closed via button')
+        }
+        // dimmed 영역 자체 클릭 (배경 클릭으로 닫히는 모달)
+        const dimmedEl = await page.$('.dimmed, [class*="dimmed"]')
+        if (dimmedEl) {
+          await dimmedEl.click()
+          await page.waitForTimeout(500)
+        }
+      }
+    } catch (e: any) {
+      log.warn({ err: e?.message }, 'naver: modal dismiss failed')
+    }
+
+    // 4) 리뷰 카드 로딩 대기 (최대 15초)
     try {
       await page.waitForSelector('[class*="Review_single_review"], [class*="single_review"], [class*="ReviewItem"], [class*="review_item"]', { timeout: 15000 })
       log.info('naver: review cards appeared')
