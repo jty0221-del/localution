@@ -866,7 +866,8 @@ export default function LandingPage() {
       <section className="py-20 px-4 bg-[#F8FAFC]">
         <div className="max-w-3xl mx-auto text-center">
           <h2 className="text-3xl md:text-4xl font-black text-[#191F28] mb-4">
-            필요한 기능만, 합리적인 요금으로
+            필요한 기능만!<br />
+            <span className="text-[#3182F6]">합리적인 요금으로</span>
           </h2>
           <p className="text-[#4E5968] mb-8 text-left sm:text-center">
             ☕ 커피 한 잔 값 월 6,900원으로 모든 플랫폼 리뷰답글 자동.<br />
