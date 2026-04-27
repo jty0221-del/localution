@@ -7,9 +7,141 @@ import Link from 'next/link'
 import Footer from '../components/Footer'
 import {
   ArrowLeft, ArrowRight, Star, RefreshCw, CheckCircle2,
-  Loader2, Send, QrCode, MessageSquare,
+  Loader2, Send, MessageSquare,
   TrendingUp, Users, BarChart3, PenLine, Zap, Shield,
 } from 'lucide-react'
+
+// ── 전역 keyframe 스타일 ─────────────────────────────────────
+const GLOBAL_STYLES = `
+  @keyframes qrscan {
+    0%   { top: 6px; opacity: 1; }
+    46%  { top: 86px; opacity: 1; }
+    48%  { top: 86px; opacity: 0; }
+    50%  { top: 6px; opacity: 0; }
+    52%  { top: 6px; opacity: 1; }
+    100% { top: 6px; opacity: 1; }
+  }
+  @keyframes float0 {
+    0%,100% { transform: translateY(0px) rotate(-2deg); }
+    50%     { transform: translateY(-12px) rotate(1deg); }
+  }
+  @keyframes float1 {
+    0%,100% { transform: translateY(0px) rotate(2deg); }
+    50%     { transform: translateY(-16px) rotate(-1deg); }
+  }
+  @keyframes float2 {
+    0%,100% { transform: translateY(0px) rotate(-1deg); }
+    50%     { transform: translateY(-10px) rotate(2deg); }
+  }
+  @keyframes riseFade {
+    0%   { opacity: 0; transform: translateY(30px); }
+    15%  { opacity: 1; transform: translateY(0); }
+    75%  { opacity: 1; transform: translateY(-20px); }
+    100% { opacity: 0; transform: translateY(-40px); }
+  }
+  @keyframes drawCircle {
+    from { stroke-dashoffset: 170; }
+    to   { stroke-dashoffset: 0; }
+  }
+  @keyframes drawCheck {
+    from { stroke-dashoffset: 42; }
+    to   { stroke-dashoffset: 0; }
+  }
+  @keyframes popIn {
+    0%   { transform: scale(0.3); opacity: 0; }
+    60%  { transform: scale(1.1); opacity: 1; }
+    100% { transform: scale(1); opacity: 1; }
+  }
+  @keyframes sparkle {
+    0%,100% { transform: scale(0) rotate(0deg); opacity: 0; }
+    50%      { transform: scale(1) rotate(180deg); opacity: 1; }
+  }
+`
+
+// ── SVG: QR 스캔 애니메이션 ──────────────────────────────────
+function QrScanSvg() {
+  return (
+    <div className="relative w-24 h-24 flex-shrink-0">
+      <svg width="96" height="96" viewBox="0 0 96 96" fill="none">
+        {/* 좌상 코너 박스 */}
+        <rect x="6" y="6" width="30" height="30" rx="4" stroke="#191F28" strokeWidth="3.5" fill="none"/>
+        <rect x="13" y="13" width="16" height="16" rx="2" fill="#191F28"/>
+        {/* 우상 코너 박스 */}
+        <rect x="60" y="6" width="30" height="30" rx="4" stroke="#191F28" strokeWidth="3.5" fill="none"/>
+        <rect x="67" y="13" width="16" height="16" rx="2" fill="#191F28"/>
+        {/* 좌하 코너 박스 */}
+        <rect x="6" y="60" width="30" height="30" rx="4" stroke="#191F28" strokeWidth="3.5" fill="none"/>
+        <rect x="13" y="67" width="16" height="16" rx="2" fill="#191F28"/>
+        {/* 데이터 셀들 */}
+        <rect x="44" y="6"  width="8" height="8" rx="1.5" fill="#191F28"/>
+        <rect x="44" y="18" width="8" height="8" rx="1.5" fill="#191F28"/>
+        <rect x="6"  y="44" width="8" height="8" rx="1.5" fill="#191F28"/>
+        <rect x="18" y="44" width="8" height="8" rx="1.5" fill="#191F28"/>
+        <rect x="44" y="44" width="8" height="8" rx="1.5" fill="#191F28"/>
+        <rect x="56" y="44" width="8" height="8" rx="1.5" fill="#191F28"/>
+        <rect x="68" y="44" width="8" height="8" rx="1.5" fill="#191F28"/>
+        <rect x="82" y="6"  width="8" height="8" rx="1.5" fill="#191F28"/>
+        <rect x="82" y="18" width="8" height="8" rx="1.5" fill="#191F28"/>
+        <rect x="82" y="30" width="8" height="8" rx="1.5" fill="#191F28"/>
+        <rect x="44" y="56" width="8" height="8" rx="1.5" fill="#191F28"/>
+        <rect x="68" y="56" width="8" height="8" rx="1.5" fill="#191F28"/>
+        <rect x="56" y="68" width="8" height="8" rx="1.5" fill="#191F28"/>
+        <rect x="44" y="80" width="8" height="8" rx="1.5" fill="#191F28"/>
+        <rect x="68" y="80" width="8" height="8" rx="1.5" fill="#191F28"/>
+        <rect x="82" y="68" width="8" height="8" rx="1.5" fill="#191F28"/>
+        <rect x="82" y="80" width="8" height="8" rx="1.5" fill="#191F28"/>
+      </svg>
+      {/* 스캔 레이저 빔 */}
+      <div
+        className="absolute left-1 right-1 rounded-full"
+        style={{
+          height: '2px',
+          background: 'linear-gradient(90deg, transparent 0%, #059669 20%, #34D399 50%, #059669 80%, transparent 100%)',
+          boxShadow: '0 0 8px 2px rgba(5,150,105,0.7)',
+          animation: 'qrscan 2.2s ease-in-out infinite',
+          top: '6px',
+        }}
+      />
+      {/* 스캔 영역 글로우 오버레이 */}
+      <div className="absolute inset-0 rounded-lg pointer-events-none"
+        style={{ boxShadow: 'inset 0 0 12px rgba(5,150,105,0.08)' }} />
+    </div>
+  )
+}
+
+// ── SVG: 완료 체크마크 ────────────────────────────────────────
+function AnimatedCheck() {
+  return (
+    <div style={{ animation: 'popIn 0.5s cubic-bezier(0.34,1.56,0.64,1) forwards' }}>
+      <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
+        <circle cx="32" cy="32" r="28" fill="#ECFDF5" />
+        <circle cx="32" cy="32" r="27" fill="none" stroke="#059669" strokeWidth="3"
+          strokeDasharray="170" strokeDashoffset="170"
+          style={{ animation: 'drawCircle 0.55s ease-out 0.1s forwards' }} />
+        <polyline points="19,33 28,42 46,24" fill="none" stroke="#059669" strokeWidth="4"
+          strokeLinecap="round" strokeLinejoin="round"
+          strokeDasharray="42" strokeDashoffset="42"
+          style={{ animation: 'drawCheck 0.35s ease-out 0.55s forwards' }} />
+        {/* 반짝이 파티클 */}
+        {[
+          { x: 52, y: 14, delay: '0.8s', size: 8 },
+          { x: 14, y: 20, delay: '0.95s', size: 6 },
+          { x: 52, y: 50, delay: '0.9s', size: 7 },
+        ].map((s, i) => (
+          <text key={i} x={s.x} y={s.y} fontSize={s.size} textAnchor="middle"
+            style={{ animation: `sparkle 0.6s ease-out ${s.delay} forwards`, opacity: 0 }}>✦</text>
+        ))}
+      </svg>
+    </div>
+  )
+}
+
+// ── 히어로 플로팅 카드 ────────────────────────────────────────
+const FLOAT_CARDS = [
+  { bg: '#03C75A', letter: 'N', label: '네이버', stars: 5, text: '정말 맛있었어요!', delay: '0s',   dur: '4.5s', anim: 'float0' },
+  { bg: '#4285F4', letter: 'G', label: '구글',   stars: 4, text: 'Great experience!', delay: '1.5s', dur: '5s',   anim: 'float1' },
+  { bg: '#2AC1BC', letter: 'B', label: '배민',   stars: 5, text: '재주문 했어요 😋',  delay: '0.8s', dur: '4s',   anim: 'float2' },
+]
 
 // ── 상수 ───────────────────────────────────────────────────
 const SAMPLE_STORE = {
@@ -155,8 +287,8 @@ function QrDemo() {
       {/* Step 0 — QR 스캔 */}
       {step === 0 && (
         <div className="bg-white rounded-2xl border border-[#E5E8EB] p-6 flex flex-col items-center text-center">
-          <div className="w-20 h-20 bg-[#F2F4F6] rounded-2xl flex items-center justify-center mb-4">
-            <QrCode size={44} strokeWidth={1.5} className="text-[#191F28]" />
+          <div className="mb-4">
+            <QrScanSvg />
           </div>
           <p className="text-base font-black text-[#191F28] mb-1 break-keep">테이블 위 QR 코드 한 번이면</p>
           <p className="text-sm text-[#8B95A1] mb-5 break-keep leading-relaxed">
@@ -246,8 +378,8 @@ function QrDemo() {
       {/* Step 3 — 게시 완료 */}
       {step === 3 && (
         <div className="bg-white rounded-2xl border border-[#E5E8EB] p-6 flex flex-col items-center text-center">
-          <div className="w-14 h-14 rounded-full bg-[#ECFDF5] flex items-center justify-center mb-3">
-            <CheckCircle2 size={32} strokeWidth={2} className="text-[#059669]" />
+          <div className="mb-3">
+            <AnimatedCheck />
           </div>
           <p className="text-base font-black text-[#191F28] mb-1">리뷰 등록 완료!</p>
           <p className="text-xs text-[#8B95A1] mb-5 break-keep leading-relaxed">
@@ -433,10 +565,32 @@ export default function ServiceIntro() {
 
   return (
     <div className="min-h-screen bg-[#F2F4F6]">
+      <style>{GLOBAL_STYLES}</style>
 
       {/* ── 히어로 ─────────────────────────────────────── */}
-      <div style={{ background: 'linear-gradient(135deg,#1B3FD8 0%,#3182F6 100%)' }} className="text-white">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-10 pb-12 sm:pt-14 sm:pb-16">
+      <div style={{ background: 'linear-gradient(135deg,#1B3FD8 0%,#3182F6 100%)' }} className="text-white relative overflow-hidden">
+        {/* 플로팅 리뷰 카드 (데스크탑 우측) */}
+        <div className="hidden lg:block absolute right-8 top-0 bottom-0 w-64 pointer-events-none">
+          {FLOAT_CARDS.map((c, i) => (
+            <div key={i}
+              className="absolute bg-white/15 backdrop-blur-sm border border-white/25 rounded-2xl p-3 w-52"
+              style={{
+                top: `${18 + i * 30}%`,
+                right: `${i * 12}px`,
+                animation: `${c.anim} ${c.dur} ease-in-out ${c.delay} infinite`,
+              }}>
+              <div className="flex items-center gap-2 mb-2">
+                <span className="inline-flex items-center justify-center w-6 h-6 rounded-lg text-[11px] font-black shrink-0"
+                  style={{ background: c.bg, color: '#fff' }}>{c.letter}</span>
+                <span className="text-white/90 text-[11px] font-bold">{c.label}</span>
+                <span className="ml-auto text-yellow-300 text-[10px]">{'★'.repeat(c.stars)}</span>
+              </div>
+              <p className="text-white/80 text-[11px] leading-snug break-keep">{c.text}</p>
+            </div>
+          ))}
+        </div>
+
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-10 pb-12 sm:pt-14 sm:pb-16 relative">
           <Link href="/" className="inline-flex items-center gap-1.5 text-white/65 text-xs sm:text-sm hover:text-white transition-colors mb-5 sm:mb-7">
             <ArrowLeft size={14} strokeWidth={2.25} /> 대시보드로
           </Link>
@@ -445,12 +599,12 @@ export default function ServiceIntro() {
             ⚡ 리뷰 관리 완전 자동화 — 답글 + 리뷰 수집
           </div>
 
-          <h1 className="text-2xl sm:text-4xl md:text-5xl font-black mb-3 sm:mb-4 leading-tight break-keep">
+          <h1 className="text-2xl sm:text-4xl md:text-5xl font-black mb-3 sm:mb-4 leading-tight break-keep lg:max-w-xl">
             리뷰는 AI가 모으고,<br/>
             <span className="text-[#FFE2A0]">답글도 AI가 달아드려요.</span>
           </h1>
 
-          <p className="text-white/80 text-sm sm:text-base leading-relaxed max-w-2xl break-keep mb-6 sm:mb-8">
+          <p className="text-white/80 text-sm sm:text-base leading-relaxed max-w-xl break-keep mb-6 sm:mb-8">
             QR 코드 하나로 고객 리뷰를 유도하고 — 쌓인 리뷰엔 AI가 매장 톤에 맞춘 답글을 3초 만에 만들어 원클릭으로 게시합니다.
           </p>
 
