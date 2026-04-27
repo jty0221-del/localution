@@ -104,7 +104,7 @@ export default function AboutPage() {
             사장님의 마케팅을<br className="md:hidden" />
             {' '}AI가 대신합니다.
           </h1>
-          <p className="text-base md:text-lg text-[#4E5968] leading-relaxed">
+          <p className="text-sm md:text-lg text-[#4E5968] leading-relaxed text-left sm:text-center">
             리뷰 답글, SNS 운영, 광고 집행 — <strong className="text-[#191F28]">하루 10분</strong>이면 충분합니다.
             <br className="hidden md:block" />
             {' '}500곳 매장 데이터를 학습한 로컬루션이, <strong className="text-[#191F28]">24시간 자동</strong>으로 돌립니다.
@@ -135,7 +135,7 @@ export default function AboutPage() {
               대행사처럼 맡기고,<br className="md:hidden" />
               {' '}도구처럼 쓰세요.
             </h2>
-            <p className="text-[#4E5968] text-sm md:text-base">
+            <p className="text-[#4E5968] text-sm md:text-base text-left sm:text-center">
               로컬루션이 기존 마케팅 대행·툴과 다른 3가지.
             </p>
           </div>
@@ -155,33 +155,35 @@ export default function AboutPage() {
           </div>
 
           {/* 비교 테이블 */}
-          <div className="mt-10 bg-white border border-gray-100 rounded-3xl overflow-hidden shadow-sm">
-            <div className="grid grid-cols-3 text-xs md:text-sm">
-              <div className="p-4 md:p-6 bg-[#FAFBFC] border-r border-gray-100">
-                <div className="font-bold text-[#8B95A1] mb-3">&nbsp;</div>
-                <div className="space-y-3 text-[#4E5968]">
-                  <div>월 비용</div>
-                  <div>세팅 기간</div>
-                  <div>실행 속도</div>
-                  <div>결과 투명성</div>
+          <div className="mt-10 overflow-x-auto rounded-3xl shadow-sm border border-gray-100">
+            <div className="bg-white min-w-[320px]">
+              <div className="grid grid-cols-3 text-[11px] sm:text-xs md:text-sm">
+                <div className="p-3 sm:p-4 md:p-6 bg-[#FAFBFC] border-r border-gray-100">
+                  <div className="font-bold text-[#8B95A1] mb-3">&nbsp;</div>
+                  <div className="space-y-3 text-[#4E5968]">
+                    <div>월 비용</div>
+                    <div>세팅 기간</div>
+                    <div>실행 속도</div>
+                    <div>결과 투명성</div>
+                  </div>
                 </div>
-              </div>
-              <div className="p-4 md:p-6 border-r border-gray-100">
-                <div className="font-bold text-[#8B95A1] mb-3">기존 대행사</div>
-                <div className="space-y-3 text-[#4E5968]">
-                  <div>30~300만 원</div>
-                  <div>1~2주</div>
-                  <div>사람 리드타임</div>
-                  <div>월 1회 리포트</div>
+                <div className="p-3 sm:p-4 md:p-6 border-r border-gray-100">
+                  <div className="font-bold text-[#8B95A1] mb-3">기존 대행사</div>
+                  <div className="space-y-3 text-[#4E5968]">
+                    <div>30~300만원</div>
+                    <div>1~2주</div>
+                    <div>사람 리드타임</div>
+                    <div>월1회 리포트</div>
+                  </div>
                 </div>
-              </div>
-              <div className="p-4 md:p-6 bg-[#F5F9FF]">
-                <div className="font-bold text-[#3182F6] mb-3">로컬루션</div>
-                <div className="space-y-3 text-[#191F28] font-semibold">
-                  <div>월 6,900원~</div>
-                  <div>10분</div>
-                  <div>AI 24시간</div>
-                  <div>실시간 대시보드</div>
+                <div className="p-3 sm:p-4 md:p-6 bg-[#F5F9FF]">
+                  <div className="font-bold text-[#3182F6] mb-3">로컬루션</div>
+                  <div className="space-y-3 text-[#191F28] font-semibold">
+                    <div>월 6,900원~</div>
+                    <div>10분</div>
+                    <div>AI 24시간</div>
+                    <div>실시간 대시보드</div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -201,9 +203,9 @@ export default function AboutPage() {
             </h2>
           </div>
 
-          <article className="bg-white rounded-3xl p-7 md:p-12 shadow-[0_4px_30px_rgba(0,0,0,0.04)] border border-gray-100">
-            <div className="space-y-6 text-[#191F28] text-[15px] md:text-base leading-[1.9]">
-              <p className="font-semibold text-lg md:text-xl text-[#191F28]">
+          <article className="bg-white rounded-3xl p-5 sm:p-7 md:p-12 shadow-[0_4px_30px_rgba(0,0,0,0.04)] border border-gray-100">
+            <div className="space-y-5 text-[#191F28] text-sm md:text-base leading-[1.75] md:leading-[1.9]">
+              <p className="font-semibold text-base md:text-xl text-[#191F28]">
                 자영업자 편에서 10년을 일했습니다.
               </p>
               <p className="text-[#4E5968]">
@@ -250,7 +252,7 @@ export default function AboutPage() {
             <h2 className="text-2xl md:text-4xl font-black tracking-tight mb-4">
               로컬루션이 지키는 5가지 원칙
             </h2>
-            <p className="text-[#4E5968] text-sm md:text-base">
+            <p className="text-[#4E5968] text-sm md:text-base text-left sm:text-center">
               제품은 말이 아니라 운영 원칙으로 증명합니다.
             </p>
           </div>
@@ -277,7 +279,7 @@ export default function AboutPage() {
             <h2 className="text-2xl md:text-4xl font-black tracking-tight mb-4">
               로컬루션이 대신 처리하는 것
             </h2>
-            <p className="text-[#4E5968] text-sm md:text-base">
+            <p className="text-[#4E5968] text-sm md:text-base text-left sm:text-center">
               사장님이 손댈 필요 없습니다. 결과만 확인하세요.
             </p>
           </div>
@@ -356,11 +358,11 @@ export default function AboutPage() {
           <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-white/15 backdrop-blur-sm rounded-full text-xs font-semibold mb-6 border border-white/20">
             <span>14일 무료 체험 진행 중</span>
           </div>
-          <h2 className="text-2xl md:text-4xl font-black tracking-tight mb-4">
-            지금 쓰는 마케팅,<br />
-            로컬루션이 더 싸고 빠르게 대신합니다.
+          <h2 className="text-xl sm:text-2xl md:text-4xl font-black tracking-tight mb-4 break-keep">
+            지금 쓰는 마케팅,<br className="hidden sm:block" />
+            {' '}로컬루션이 더 싸고 빠르게 대신합니다.
           </h2>
-          <p className="text-white/85 text-sm md:text-base mb-10">
+          <p className="text-white/85 text-sm md:text-base mb-10 text-left sm:text-center">
             신용카드 등록 없이 14일 무료 체험. 언제든 해지.
           </p>
 
@@ -376,19 +378,19 @@ export default function AboutPage() {
           {/* 4단계 온보딩 */}
           <div className="mt-12 pt-10 border-t border-white/15">
             <div className="text-xs font-bold text-white/75 tracking-widest mb-5">온보딩 4단계 · 10분 소요</div>
-            <div className="grid grid-cols-4 gap-2 md:gap-3 max-w-2xl mx-auto">
+            <div className="grid grid-cols-4 gap-1.5 sm:gap-3 md:gap-3 max-w-2xl mx-auto">
               {[
-                { step: '가입', desc: '네이버·카카오 1초' },
-                { step: '매장 연결', desc: '플레이스·배민' },
-                { step: '세팅', desc: 'AI 자동 튜닝' },
-                { step: '완료', desc: '24h 자동 운영' },
+                { step: '가입', desc: '카카오 1초' },
+                { step: '매장연결', desc: '플레이스·배민' },
+                { step: 'AI세팅', desc: '자동 튜닝' },
+                { step: '완료', desc: '24h 자동' },
               ].map((item, i) => (
                 <div key={i} className="flex flex-col items-center">
-                  <div className="w-9 h-9 md:w-11 md:h-11 rounded-full bg-white/15 backdrop-blur-sm border border-white/30 flex items-center justify-center text-xs md:text-sm font-black">
+                  <div className="w-8 h-8 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded-full bg-white/15 backdrop-blur-sm border border-white/30 flex items-center justify-center text-xs md:text-sm font-black">
                     {i + 1}
                   </div>
-                  <div className="mt-2 text-[11px] md:text-xs font-semibold text-white/90">{item.step}</div>
-                  <div className="text-[10px] text-white/70">{item.desc}</div>
+                  <div className="mt-1.5 text-[10px] sm:text-[11px] md:text-xs font-semibold text-white/90 whitespace-nowrap">{item.step}</div>
+                  <div className="text-[9px] sm:text-[10px] text-white/60 whitespace-nowrap">{item.desc}</div>
                 </div>
               ))}
             </div>
