@@ -23,27 +23,22 @@ import { useState } from 'react'
 /* ─────────── 5가지 제품 원칙 ─────────── */
 const PRINCIPLES = [
   {
-    icon: '📊',
     title: '결과는 대시보드로',
     desc: 'AI가 무엇을 실행했는지 로그·지표 전부 실시간 공개. 숨기는 값 없습니다.',
   },
   {
-    icon: '🎯',
     title: '내 매장만의 세팅',
     desc: '업종·지역·경쟁 구도를 분석해 공식대로 찍지 않습니다. 매장별 자동 튜닝.',
   },
   {
-    icon: '📈',
     title: '장기 매출 관점',
     desc: '단기 순위가 아니라 6개월·12개월 리텐션 지표까지 추적합니다.',
   },
   {
-    icon: '⚡',
     title: '10분 세팅, 24시간 작동',
     desc: '매장 정보만 입력하면 AI가 알아서. 사장님은 결과만 확인.',
   },
   {
-    icon: '💬',
     title: '초기 고객은 창업자 직접 응대',
     desc: '세팅·운영·개선 요청 모두 창업자가 카톡으로 24시간 내 회신.',
   },
@@ -259,10 +254,15 @@ export default function AboutPage() {
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
             {PRINCIPLES.map((p, i) => (
-              <div key={i} className="bg-white border border-gray-100 rounded-3xl p-6 md:p-7 hover:shadow-[0_6px_24px_rgba(49,130,246,0.1)] hover:border-[#D1E5FF] transition-all">
-                <div className="text-3xl mb-3" aria-hidden="true">{p.icon}</div>
-                <h3 className="text-base md:text-lg font-black text-[#191F28] mb-2">{p.title}</h3>
-                <p className="text-sm text-[#4E5968] leading-relaxed">{p.desc}</p>
+              <div key={i} className="group bg-white border border-gray-100 rounded-3xl p-5 md:p-7 hover:shadow-[0_6px_24px_rgba(49,130,246,0.1)] hover:border-[#D1E5FF] transition-all">
+                <div className="flex items-center gap-3 mb-3">
+                  <span className="inline-flex items-center justify-center w-8 h-8 rounded-xl bg-[#EFF6FF] text-[#3182F6] text-xs font-black tracking-tight shrink-0 group-hover:bg-[#3182F6] group-hover:text-white transition-colors">
+                    {String(i + 1).padStart(2, '0')}
+                  </span>
+                  <div className="h-px flex-1 bg-gray-100 group-hover:bg-[#D1E5FF] transition-colors" />
+                </div>
+                <h3 className="text-sm md:text-base font-black text-[#191F28] mb-2 tracking-tight">{p.title}</h3>
+                <p className="text-xs md:text-sm text-[#4E5968] leading-relaxed">{p.desc}</p>
               </div>
             ))}
           </div>
