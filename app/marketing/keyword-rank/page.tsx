@@ -239,16 +239,16 @@ type SortDir = 'asc' | 'desc'
 function rankColor(r: number | null, mode: 'text' | 'bg' = 'text') {
   if (r === null) return mode === 'text' ? 'text-[#C9D0D8]' : ''
   if (mode === 'text') {
-    if (r <= 3)  return 'text-[#3182F6] font-black'
-    if (r <= 5)  return 'text-[#12B76A] font-bold'
-    if (r <= 10) return 'text-[#F59E0B] font-bold'
-    if (r <= 20) return 'text-[#F04452] font-semibold'
+    if (r <= 5)  return 'text-[#F04452] font-black'
+    if (r <= 10) return 'text-[#3182F6] font-bold'
+    if (r <= 20) return 'text-[#12B76A] font-semibold'
+    if (r <= 50) return 'text-[#F59E0B] font-semibold'
     return 'text-[#8B95A1]'
   }
-  if (r <= 3)  return 'bg-[#EFF6FF]'
-  if (r <= 5)  return 'bg-[#ECFDF5]'
-  if (r <= 10) return 'bg-[#FFFBEB]'
-  if (r <= 20) return 'bg-[#FFF1F2]'
+  if (r <= 5)  return 'bg-[#FFF1F2]'
+  if (r <= 10) return 'bg-[#EFF6FF]'
+  if (r <= 20) return 'bg-[#ECFDF5]'
+  if (r <= 50) return 'bg-[#FFFBEB]'
   return 'bg-[#F8F9FA]'
 }
 function scoreColor(s: number) {
@@ -264,6 +264,17 @@ function fmtNum(n: number | null) {
 }
 
 const LS_KEY = 'localution.place_realtime_v2'
+const SAVE_KEY = 'localution.krank_saved_v1'
+interface SavedGroup { keyword: string; relatedKw: string; label: string; history: RankEntry[]; pinned: boolean }
+interface SavedSet   { id: string; name: string; savedAt: string; region: string; topCat: string; midCat: string; subCat: string; customCat: string; groups: SavedGroup[] }
+function loadSavedSets(): SavedSet[] {
+  if (typeof window === 'undefined') return []
+  try { return JSON.parse(localStorage.getItem(SAVE_KEY) || '[]') } catch { return [] }
+}
+function writeSavedSets(sets: SavedSet[]) {
+  try { localStorage.setItem(SAVE_KEY, JSON.stringify(sets)) } catch {}
+}
+
 function loadAllHistory(): Record<string, RankEntry[]> {
   if (typeof window === 'undefined') return {}
   try { return JSON.parse(localStorage.getItem(LS_KEY) || '{}') } catch { return {} }
@@ -480,7 +491,7 @@ function PlaceCard({ group, onRefresh, onPin, onDelete, onCheck, viewMode, sortK
               <div className="flex items-end gap-0.5 h-12">
                 {group.history.slice(0, 14).reverse().map((row, i) => {
                   const h = row.rank ? Math.max(3, Math.round((1 - Math.min(row.rank, 30) / 30) * 44)) : 3
-                  const bg = row.rank && row.rank <= 3 ? 'bg-[#3182F6]' : row.rank && row.rank <= 10 ? 'bg-[#12B76A]' : row.rank && row.rank <= 20 ? 'bg-[#F59E0B]' : 'bg-[#E5E8EB]'
+                  const bg = row.rank && row.rank <= 5 ? 'bg-[#F04452]' : row.rank && row.rank <= 10 ? 'bg-[#3182F6]' : row.rank && row.rank <= 20 ? 'bg-[#12B76A]' : row.rank && row.rank <= 50 ? 'bg-[#F59E0B]' : 'bg-[#E5E8EB]'
                   return (
                     <div key={i} className="flex-1" title={row.date + (row.rank ? ' ' + row.rank + '위' : '')}>
                       <div className={`w-full rounded-t-sm ${bg}`} style={{ height: h + 'px' }} />
@@ -493,6 +504,79 @@ function PlaceCard({ group, onRefresh, onPin, onDelete, onCheck, viewMode, sortK
           )}
         </div>
       )}
+    </div>
+  )
+}
+
+// ─── 저장 모달 ────────────────────────────────────────────────────
+function SaveModal({ defaultName, onSave, onClose }: { defaultName: string; onSave: (name: string) => void; onClose: () => void }) {
+  const [name, setName] = useState(defaultName)
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl w-full max-w-xs shadow-2xl" onClick={e => e.stopPropagation()}>
+        <div className="px-5 pt-5 pb-3 flex items-center justify-between border-b border-[#F2F4F6]">
+          <p className="font-bold text-[#191F28]">키워드셋 저장</p>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-[#F2F4F6] text-[#8B95A1]">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <div className="p-4 flex flex-col gap-3">
+          <div>
+            <label className="text-xs text-[#4E5968] font-medium mb-1 block">저장 이름</label>
+            <input autoFocus value={name} onChange={e => setName(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && name.trim() && onSave(name.trim())}
+              placeholder="예: 강남 카페 키워드셋"
+              className="w-full text-sm border border-[#E5E8EB] rounded-xl px-3 py-2 focus:outline-none focus:border-[#3182F6]" />
+          </div>
+          <button onClick={() => name.trim() && onSave(name.trim())} disabled={!name.trim()}
+            className="w-full py-2.5 rounded-xl bg-[#3182F6] text-white text-sm font-semibold hover:bg-[#1B64DA] disabled:opacity-40 transition-colors">
+            저장하기
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ─── 불러오기 모달 ──────────────────────────────────────────────────
+function LoadModal({ sets, onLoad, onDelete, onClose }: {
+  sets: SavedSet[]; onLoad: (s: SavedSet) => void; onDelete: (id: string) => void; onClose: () => void
+}) {
+  return (
+    <div className="fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="bg-white rounded-2xl w-full max-w-sm shadow-2xl" onClick={e => e.stopPropagation()}>
+        <div className="px-5 pt-5 pb-3 flex items-center justify-between border-b border-[#F2F4F6]">
+          <div>
+            <p className="font-bold text-[#191F28]">저장된 키워드셋</p>
+            <p className="text-xs text-[#8B95A1] mt-0.5">{sets.length}개 저장됨</p>
+          </div>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-[#F2F4F6] text-[#8B95A1]">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+          </button>
+        </div>
+        <div className="p-3 flex flex-col gap-2 max-h-80 overflow-y-auto">
+          {sets.length === 0 ? (
+            <p className="text-sm text-[#C9D0D8] text-center py-6">저장된 키워드셋이 없어요</p>
+          ) : sets.map(s => (
+            <div key={s.id} className="flex items-center gap-2 p-3 rounded-xl bg-[#F8F9FA] hover:bg-[#EFF6FF] transition-colors group">
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-bold text-[#191F28] truncate">{s.name}</p>
+                <p className="text-[11px] text-[#8B95A1] mt-0.5">{s.region} · {s.topCat} · {s.groups.length}개 키워드 · {s.savedAt}</p>
+              </div>
+              <button onClick={() => onLoad(s)}
+                className="shrink-0 px-2.5 py-1 rounded-lg bg-[#3182F6] text-white text-xs font-semibold hover:bg-[#1B64DA] transition-colors">
+                불러오기
+              </button>
+              <button onClick={() => onDelete(s.id)}
+                className="shrink-0 p-1.5 rounded-lg text-[#C9D0D8] hover:text-[#F04452] hover:bg-[#FFF1F2] transition-colors">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+                  <polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/>
+                </svg>
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
     </div>
   )
 }
@@ -578,6 +662,9 @@ export default function PlaceRealtimePage() {
   const [search, setSearch]     = useState('')
   const [lastUpdated, setLastUpdated] = useState('')
   const [showHashModal, setShowHashModal] = useState(false)
+  const [showSaveModal, setShowSaveModal] = useState(false)
+  const [showLoadModal, setShowLoadModal] = useState(false)
+  const [savedSets, setSavedSets] = useState<SavedSet[]>([])
   const [sortKey, setSortKey]   = useState<SortKey>('default')
   const [sortDir, setSortDir]   = useState<SortDir>('desc')
 
@@ -610,6 +697,10 @@ export default function PlaceRealtimePage() {
     if (!mid?.subs?.length) return { activeLabel: midCat, activeSuffixes: getSuffixes(midCat, midCat) }
     return { activeLabel: subCat, activeSuffixes: getSuffixes(subCat, subCat) }
   }, [topCat, midCat, subCat, customCat])
+
+  useEffect(() => {
+    setSavedSets(loadSavedSets())
+  }, [])
 
   useEffect(() => {
     const c = readBizContext(); setCtx(c); setRegion(c.region)
@@ -686,6 +777,37 @@ export default function PlaceRealtimePage() {
     setLastUpdated(new Date().toLocaleString('ko-KR'))
     setScanning(false)
   }, [scanning, groups, fetchOne])
+
+  const handleSaveSet = useCallback((name: string) => {
+    const set: SavedSet = {
+      id: Date.now().toString(),
+      name,
+      savedAt: new Date().toLocaleDateString('ko-KR'),
+      region,
+      topCat, midCat, subCat, customCat,
+      groups: groups.map(g => ({ keyword: g.keyword, relatedKw: g.relatedKw, label: g.label, history: g.history, pinned: g.pinned })),
+    }
+    const updated = [set, ...loadSavedSets()].slice(0, 50)
+    writeSavedSets(updated); setSavedSets(updated); setShowSaveModal(false)
+  }, [region, topCat, midCat, subCat, customCat, groups])
+
+  const handleLoadSet = useCallback((s: SavedSet) => {
+    setRegion(s.region); setTopCat(s.topCat); setMidCat(s.midCat); setSubCat(s.subCat); setCustomCat(s.customCat)
+    const allHist = loadAllHistory()
+    setGroups(s.groups.map((g, i) => ({
+      ...g,
+      id: String(i),
+      checked: false,
+      loading: false,
+      history: allHist[g.keyword] || g.history,
+    })))
+    setShowLoadModal(false)
+  }, [])
+
+  const handleDeleteSaved = useCallback((id: string) => {
+    const updated = loadSavedSets().filter(s => s.id !== id)
+    writeSavedSets(updated); setSavedSets(updated)
+  }, [])
 
   const togglePin   = useCallback((id: string) => setGroups(prev => prev.map(g => g.id === id ? { ...g, pinned: !g.pinned } : g)), [])
   const deleteGroup = useCallback((id: string) => setGroups(prev => prev.filter(g => g.id !== id)), [])
@@ -799,6 +921,21 @@ export default function PlaceRealtimePage() {
               className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#3182F6] text-white text-sm font-semibold hover:bg-[#1B64DA] transition-colors disabled:opacity-60 shrink-0">
               {scanning ? <><span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />조회 중...</> : '🔍 전체 조회'}
             </button>
+            <button onClick={() => setShowSaveModal(true)} title="현재 키워드셋 저장"
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-[#E5E8EB] text-xs font-semibold text-[#4E5968] hover:border-[#3182F6] hover:text-[#3182F6] hover:bg-[#EFF6FF] transition-colors shrink-0">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+                <path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/>
+              </svg>
+              저장
+            </button>
+            <button onClick={() => setShowLoadModal(true)} title="저장된 키워드셋 불러오기"
+              className="relative flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-[#E5E8EB] text-xs font-semibold text-[#4E5968] hover:border-[#9B6EF3] hover:text-[#9B6EF3] hover:bg-[#F5F0FF] transition-colors shrink-0">
+              <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+                <path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>
+              </svg>
+              불러오기
+              {savedSets.length > 0 && <span className="bg-[#9B6EF3] text-white text-[9px] rounded-full px-1 font-bold">{savedSets.length}</span>}
+            </button>
             {checkedCount > 0 && (
               <div className="flex items-center gap-1 shrink-0">
                 <button onClick={() => setShowHashModal(true)}
@@ -840,7 +977,7 @@ export default function PlaceRealtimePage() {
               </button>
             )}
             <div className="hidden md:flex items-center gap-1.5">
-              {[['#EFF6FF','#3182F6','1~3위'],['#ECFDF5','#12B76A','4~5위'],['#FFFBEB','#F59E0B','6~10위'],['#FFF1F2','#F04452','11~20위']].map(([bg, c, label]) => (
+              {[['#FFF1F2','#F04452','1~5위'],['#EFF6FF','#3182F6','6~10위'],['#ECFDF5','#12B76A','11~20위'],['#FFFBEB','#F59E0B','21~50위']].map(([bg, c, label]) => (
                 <span key={label} className="flex items-center gap-0.5">
                   <span className="w-2 h-2 rounded-sm" style={{ background: bg, border: '1px solid ' + c + '40' }}/>
                   <span style={{ color: c }}>{label}</span>
@@ -884,6 +1021,21 @@ export default function PlaceRealtimePage() {
 
       {showHashModal && (
         <HashtagModal keywords={checkedKeywords} onClose={() => setShowHashModal(false)} />
+      )}
+      {showSaveModal && (
+        <SaveModal
+          defaultName={region + ' ' + (topCat === '직접입력' ? customCat : activeLabel)}
+          onSave={handleSaveSet}
+          onClose={() => setShowSaveModal(false)}
+        />
+      )}
+      {showLoadModal && (
+        <LoadModal
+          sets={savedSets}
+          onLoad={handleLoadSet}
+          onDelete={handleDeleteSaved}
+          onClose={() => setShowLoadModal(false)}
+        />
       )}
     </div>
   )
