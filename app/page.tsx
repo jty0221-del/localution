@@ -172,6 +172,86 @@ const QR_TONES = [
   { Icon: Camera,    label: '인스타감성' },
 ]
 
+function FaqSlider({ faqs }: { faqs: { q: string; a: string }[] }) {
+  const [cur, setCur] = useState(0)
+  const prev = () => setCur(c => (c - 1 + faqs.length) % faqs.length)
+  const next = () => setCur(c => (c + 1) % faqs.length)
+
+  useEffect(() => {
+    const t = setInterval(next, 5000)
+    return () => clearInterval(t)
+  }, [])
+
+  return (
+    <section className="py-20 px-4 bg-white">
+      <div className="max-w-3xl mx-auto">
+        <div className="text-center mb-10">
+          <h2 className="text-2xl md:text-3xl font-black text-[#191F28] mb-2">
+            사장님들이 많이 물어보시는 것
+          </h2>
+          <p className="text-[#8B95A1] text-sm text-left sm:text-center">가입 전 궁금증부터 풀고 가세요</p>
+        </div>
+
+        {/* 슬라이드 영역 */}
+        <div className="relative">
+          {/* 카드 */}
+          <div className="overflow-hidden rounded-2xl">
+            <div
+              className="flex transition-transform duration-500 ease-in-out"
+              style={{ transform: `translateX(-${cur * 100}%)` }}
+            >
+              {faqs.map((item, i) => (
+                <div key={i} className="w-full shrink-0 bg-[#F8FAFC] border border-gray-100 rounded-2xl p-8 md:p-10">
+                  <div className="text-xs font-bold text-[#3182F6] mb-4 tracking-widest uppercase">
+                    Q&A {i + 1} / {faqs.length}
+                  </div>
+                  <p className="text-lg md:text-xl font-black text-[#191F28] mb-5 leading-snug">
+                    {item.q}
+                  </p>
+                  <div className="w-8 h-0.5 bg-[#3182F6] mb-5 rounded-full" />
+                  <p className="text-sm md:text-base text-[#4E5968] leading-relaxed">
+                    {item.a}
+                  </p>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* 좌우 버튼 */}
+          <button
+            onClick={prev}
+            className="absolute left-0 top-1/2 -translate-y-1/2 -translate-x-4 md:-translate-x-6 w-10 h-10 rounded-full bg-white border border-gray-200 shadow-md flex items-center justify-center hover:border-[#3182F6] hover:text-[#3182F6] transition-all text-[#4E5968]"
+            aria-label="이전"
+          >
+            <ArrowRight size={16} strokeWidth={2.5} className="rotate-180" />
+          </button>
+          <button
+            onClick={next}
+            className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-4 md:translate-x-6 w-10 h-10 rounded-full bg-white border border-gray-200 shadow-md flex items-center justify-center hover:border-[#3182F6] hover:text-[#3182F6] transition-all text-[#4E5968]"
+            aria-label="다음"
+          >
+            <ArrowRight size={16} strokeWidth={2.5} />
+          </button>
+        </div>
+
+        {/* 진행 점 */}
+        <div className="flex justify-center gap-2 mt-6">
+          {faqs.map((_, i) => (
+            <button
+              key={i}
+              onClick={() => setCur(i)}
+              className={`rounded-full transition-all duration-300 ${
+                i === cur ? 'w-6 h-2 bg-[#3182F6]' : 'w-2 h-2 bg-gray-200 hover:bg-gray-300'
+              }`}
+              aria-label={`${i + 1}번 질문`}
+            />
+          ))}
+        </div>
+      </div>
+    </section>
+  )
+}
+
 export default function LandingPage() {
   // 루트 `/` 는 공개 랜딩 페이지 — 자동 리다이렉트 없음
   // 로그인 상태는 TopNav 가 쿠키 기반으로 '대시보드 바로가기' 로 표시
@@ -753,51 +833,34 @@ export default function LandingPage() {
         </div>
       </section>
 
-      {/* ── 자주 묻는 질문 (자영업자 의구심 해소) ── */}
-      <section className="py-20 px-4 bg-white">
-        <div className="max-w-3xl mx-auto">
-          <div className="text-center mb-10">
-            <h2 className="text-2xl md:text-3xl font-black text-[#191F28] mb-2">
-              사장님들이 많이 물어보시는 것
-            </h2>
-            <p className="text-[#8B95A1] text-sm text-left sm:text-center">가입 전 궁금증부터 풀고 가세요</p>
-          </div>
-          <div className="space-y-3">
-            {[
-              {
-                q: '진짜 무료로 쓸 수 있나요?',
-                a: '네, 플레이스 진단·키워드 순위 확인 등 기본 기능은 전부 무료예요. 블로그 초안·릴스 대본 같은 AI 생성 기능은 월 무료 횟수가 있고, 그 이상 쓸 때만 요금이 붙어요. 신용카드 없이 가입 가능해요.',
-              },
-              {
-                q: '네이버 계정 연동이 걱정돼요. 비밀번호가 저장되나요?',
-                a: '네이버 공식 OAuth를 사용해서 비밀번호는 절대 저장되지 않아요. 리뷰·플레이스 정보 조회 권한만 받고, 언제든 네이버 설정에서 연동 해제 가능해요.',
-              },
-              {
-                q: '매장이 여러 개인데 한 계정에서 관리되나요?',
-                a: '네, 여러 매장을 하나의 로컬루션 계정에서 관리할 수 있어요. 1인 마케팅 대행사나 프랜차이즈 본부 사장님들이 특히 많이 쓰시고, Pro 플랜에서는 매장별 권한 분리도 됩니다.',
-              },
-              {
-                q: '해지가 어렵거나 자동결제 무서워요',
-                a: '언제든 설정에서 1클릭으로 해지 가능하고, 당월 남은 일수만큼 일할 계산해서 환불해드려요. 자동결제 알림도 결제 3일 전·당일에 카톡으로 보내드립니다.',
-              },
-              {
-                q: '리뷰 답글을 AI가 달면 고객이 티 나게 느끼지 않을까요?',
-                a: '로컬루션 AI는 매장 말투·시그니처 메뉴·사장님 이름까지 학습해서 답글을 생성해요. 게다가 최종 발행 전에 사장님이 검토·수정할 수 있어서 "기계 답글"처럼 느껴지지 않아요.',
-              },
-            ].map((item, i) => (
-              <details key={i} className="bg-[#F8FAFC] rounded-2xl border border-gray-100 group">
-                <summary className="cursor-pointer list-none px-5 py-4 flex items-center justify-between gap-3 hover:bg-[#F2F4F6] rounded-2xl transition-colors">
-                  <span className="text-sm font-bold text-[#191F28]">Q. {item.q}</span>
-                  <span className="text-[#3182F6] text-lg font-black group-open:rotate-45 transition-transform shrink-0">+</span>
-                </summary>
-                <div className="px-5 pb-4 pt-1 text-sm text-[#4E5968] leading-relaxed">
-                  {item.a}
-                </div>
-              </details>
-            ))}
-          </div>
-        </div>
-      </section>
+      {/* ── 자주 묻는 질문 — 좌우 슬라이드 카드 ── */}
+      {(() => {
+        const FAQS = [
+          {
+            q: '진짜 무료로 쓸 수 있나요?',
+            a: '플레이스 진단·키워드 순위 확인 등 기본 기능은 전부 무료예요. 블로그 초안·릴스 대본 같은 AI 생성 기능은 월 무료 횟수가 있고, 그 이상 쓸 때만 요금이 붙어요. 신용카드 없이 가입 가능해요.',
+          },
+          {
+            q: '네이버 계정 연동이 걱정돼요. 비밀번호가 저장되나요?',
+            a: '네이버 공식 OAuth를 사용해서 비밀번호는 절대 저장되지 않아요. 리뷰·플레이스 정보 조회 권한만 받고, 언제든 네이버 설정에서 연동 해제 가능해요.',
+          },
+          {
+            q: '매장이 여러 개인데 한 계정에서 관리되나요?',
+            a: '여러 매장을 하나의 로컬루션 계정에서 관리할 수 있어요. 1인 마케팅 대행사나 프랜차이즈 본부 사장님들이 특히 많이 쓰시고, Pro 플랜에서는 매장별 권한 분리도 됩니다.',
+          },
+          {
+            q: '해지가 어렵거나 자동결제가 무서워요',
+            a: '언제든 설정에서 1클릭으로 해지 가능하고, 당월 남은 일수만큼 일할 계산해서 환불해드려요. 자동결제 알림도 결제 3일 전·당일에 카톡으로 보내드립니다.',
+          },
+          {
+            q: '리뷰 답글을 AI가 달면 고객이 티 나게 느끼지 않을까요?',
+            a: '로컬루션 AI는 매장 말투·시그니처 메뉴·사장님 이름까지 학습해서 답글을 생성해요. 최종 발행 전에 사장님이 검토·수정할 수 있어서 기계 답글처럼 느껴지지 않아요.',
+          },
+        ]
+        return (
+          <FaqSlider faqs={FAQS} />
+        )
+      })()}
 
       {/* ── 요금 CTA ── */}
       <section className="py-20 px-4 bg-[#F8FAFC]">
