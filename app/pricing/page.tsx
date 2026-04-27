@@ -288,12 +288,9 @@ export default function PricingPage() {
             {PERSONAS.map(p => (
               <button key={p.key} onClick={() => applyPersona(p.features)}
                 className="bg-white rounded-2xl p-3.5 sm:p-4 border border-[#E5E8EB] hover:border-[#3182F6] hover:shadow-md transition-all text-left group active:scale-95">
-                <div className="flex items-center gap-2 mb-2.5">
-                  <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center shrink-0"
-                    style={{ background: p.color + '18' }}>
-                    <p.Icon size={18} strokeWidth={2} style={{ color: p.color }} />
-                  </div>
-                  <span className="text-lg">{p.emoji}</span>
+                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center mb-2.5"
+                  style={{ background: p.color + '18' }}>
+                  <p.Icon size={18} strokeWidth={2} style={{ color: p.color }} />
                 </div>
                 <div className="font-black text-[#191F28] text-xs sm:text-sm mb-1 break-keep group-hover:text-[#3182F6] transition-colors leading-snug">{p.title}</div>
                 <div className="text-[10px] sm:text-[11px] text-[#8B95A1] leading-relaxed mb-2.5 break-keep hidden sm:block">{p.desc}</div>
