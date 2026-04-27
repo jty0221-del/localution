@@ -190,7 +190,7 @@ export default function AboutPage() {
           3. 창업자 노트 (짧게)
          ═══════════════════════════════════════════════════════ */}
       <section className="px-5 py-16 md:py-24 bg-[#FAFBFC]">
-        <div className="max-w-3xl mx-auto">
+        <div className="max-w-4xl mx-auto">
           <div className="text-center mb-10">
             <div className="text-xs font-bold text-[#3182F6] tracking-widest mb-3">FOUNDER'S NOTE</div>
             <h2 className="text-2xl md:text-4xl font-black tracking-tight">
@@ -198,7 +198,7 @@ export default function AboutPage() {
             </h2>
           </div>
 
-          <article className="bg-white rounded-3xl p-5 sm:p-7 md:p-12 shadow-[0_4px_30px_rgba(0,0,0,0.04)] border border-gray-100">
+          <article className="bg-white rounded-3xl p-6 sm:p-8 md:p-14 shadow-[0_4px_30px_rgba(0,0,0,0.04)] border border-gray-100">
             <div className="space-y-5 text-[#191F28] text-sm md:text-base leading-[1.75] md:leading-[1.9]">
               <p className="font-semibold text-base md:text-xl text-[#191F28]">
                 자영업자 편에서 10년을 일했습니다.
@@ -221,9 +221,10 @@ export default function AboutPage() {
                 <strong className="text-[#191F28]">AI가 대표님, 사장님 대신 24시간 일합니다.</strong>{' '}
                 사장님은 결과만 확인하면 됩니다.
               </p>
-              <p className="text-[#191F28] font-semibold">
-                "사장님이 원하는 마케팅"을 사장님이 직접 돌릴 수 있게,<br className="hidden sm:block" />
-                그게 로컬루션이 존재하는 이유입니다.
+              <p className="text-lg sm:text-xl md:text-2xl font-black text-[#191F28] leading-snug tracking-tight border-l-4 border-[#3182F6] pl-4 md:pl-5 py-1">
+                "사장님이 원하는 마케팅"을<br />
+                사장님이 직접 돌릴 수 있게,<br />
+                <span className="text-[#3182F6]">그게 로컬루션이 존재하는 이유입니다.</span>
               </p>
             </div>
             <div className="mt-8 pt-6 border-t border-gray-100 flex items-center gap-3">
