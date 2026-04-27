@@ -1,7 +1,7 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import Sidebar from '../../components/Sidebar'
 import PageHeader from '../../components/PageHeader'
 import Footer from '../../components/Footer'
@@ -43,6 +43,23 @@ function compColor(c: string) {
   return 'text-[#059669] bg-[#ECFDF5]'
 }
 
+// ─── 정렬 ──────────────────────────────────────────────────────
+type SortCol = 'none' | 'pc' | 'mobile' | 'total' | 'comp'
+type SortDir = 'asc' | 'desc'
+
+function SortBtn({ col, active, dir, onClick }: { col: SortCol; active: boolean; dir: SortDir; onClick: () => void }) {
+  return (
+    <button onClick={onClick} className="inline-flex flex-col ml-1 leading-none">
+      <svg width="7" height="5" viewBox="0 0 7 5" fill={active && dir === 'asc' ? '#3182F6' : '#C9D0D8'}>
+        <path d="M3.5 0L7 5H0L3.5 0Z"/>
+      </svg>
+      <svg width="7" height="5" viewBox="0 0 7 5" fill={active && dir === 'desc' ? '#3182F6' : '#C9D0D8'} style={{ marginTop: 1 }}>
+        <path d="M3.5 5L0 0H7L3.5 5Z"/>
+      </svg>
+    </button>
+  )
+}
+
 // ─── 탭 ────────────────────────────────────────────────────────
 type Tab = 'volume' | 'bid' | 'suggest'
 
@@ -54,6 +71,9 @@ export default function NaverAdsPage() {
   const [volData, setVolData]     = useState<VolumeKeyword[]>([])
   const [volLoading, setVolLoading] = useState(false)
   const [volError, setVolError]   = useState<string | null>(null)
+  const [volChecked, setVolChecked] = useState<Set<number>>(new Set())
+  const [volSort, setVolSort]     = useState<SortCol>('none')
+  const [volSortDir, setVolSortDir] = useState<SortDir>('desc')
 
   // bid
   const [bidInput, setBidInput]   = useState('')
@@ -67,6 +87,9 @@ export default function NaverAdsPage() {
   const [sugData, setSugData]     = useState<VolumeKeyword[]>([])
   const [sugLoading, setSugLoading] = useState(false)
   const [sugError, setSugError]   = useState<string | null>(null)
+  const [sugChecked, setSugChecked] = useState<Set<number>>(new Set())
+  const [sugSort, setSugSort]     = useState<SortCol>('none')
+  const [sugSortDir, setSugSortDir] = useState<SortDir>('desc')
 
   // ── 검색량 조회 ──────────────────────────────────────────────
   async function fetchVolume() {
@@ -140,21 +163,6 @@ export default function NaverAdsPage() {
 
         <main className="flex-1 px-4 md:px-6 py-6 max-w-5xl mx-auto w-full space-y-6">
 
-          {/* API 키 안내 배너 */}
-          <div className="bg-[#FFFBEB] border border-[#FDE68A] rounded-2xl p-4 flex gap-3">
-            <span className="text-xl flex-shrink-0">⚠️</span>
-            <div className="text-sm text-[#92400E]">
-              <p className="font-semibold mb-1">네이버 검색광고 API 키 필요</p>
-              <p>
-                <strong>.env.local</strong>에 아래 3개를 추가해야 작동합니다.<br/>
-                <code className="bg-[#FEF3C7] px-1 rounded text-xs">NAVER_AD_API_KEY</code>{' '}
-                <code className="bg-[#FEF3C7] px-1 rounded text-xs">NAVER_AD_SECRET_KEY</code>{' '}
-                <code className="bg-[#FEF3C7] px-1 rounded text-xs">NAVER_AD_CUSTOMER_ID</code><br/>
-                발급: 네이버 검색광고 → 도구 → API 사용 설정
-              </p>
-            </div>
-          </div>
-
           {/* 탭 */}
           <div className="grid grid-cols-3 gap-3">
             {TAB_LIST.map(t => (
@@ -193,42 +201,108 @@ export default function NaverAdsPage() {
                 <div className="bg-[#FFF1F2] border border-[#FECDD3] rounded-xl p-3 text-sm text-[#E11D48]">{volError}</div>
               )}
 
-              {volData.length > 0 && (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-[#F2F4F6]">
-                        <th className="text-left py-2.5 px-3 text-[11px] font-bold text-[#8B95A1] w-[180px]">키워드</th>
-                        <th className="text-right py-2.5 px-3 text-[11px] font-bold text-[#8B95A1]">PC 검색량</th>
-                        <th className="text-right py-2.5 px-3 text-[11px] font-bold text-[#8B95A1]">모바일 검색량</th>
-                        <th className="text-right py-2.5 px-3 text-[11px] font-bold text-[#8B95A1]">총 검색량</th>
-                        <th className="text-center py-2.5 px-3 text-[11px] font-bold text-[#8B95A1]">경쟁도</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {volData.map((row, i) => {
-                        const pc = Number(row.monthlyPcQcCnt) || 0
-                        const mb = Number(row.monthlyMobileQcCnt) || 0
-                        const total = pc + mb
-                        return (
-                          <tr key={i} className="border-b border-[#F8F9FA] hover:bg-[#F8F9FA] transition-colors">
-                            <td className="py-2.5 px-3 font-semibold text-[#191F28]">{row.relKeyword}</td>
-                            <td className="py-2.5 px-3 text-right text-[#4E5968]">{fmt(pc)}</td>
-                            <td className="py-2.5 px-3 text-right text-[#4E5968]">{fmt(mb)}</td>
-                            <td className="py-2.5 px-3 text-right font-semibold text-[#3182F6]">{fmt(total)}</td>
-                            <td className="py-2.5 px-3 text-center">
-                              <span className={"text-[11px] font-bold px-2 py-0.5 rounded-full " + compColor(row.compIdx)}>
-                                {row.compIdx || '-'}
-                              </span>
-                            </td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                  <p className="text-[11px] text-[#B0B8C1] mt-2 px-1">* 최근 1개월 기준 · 10 미만은 '10 미만'으로 표시</p>
-                </div>
-              )}
+              {volData.length > 0 && (() => {
+                const compRank: Record<string, number> = { '높음': 3, '중간': 2, '낮음': 1, '': 0 }
+                const sorted = [...volData].sort((a, b) => {
+                  if (volSort === 'none') return 0
+                  const av = volSort === 'pc' ? Number(a.monthlyPcQcCnt) || 0
+                    : volSort === 'mobile' ? Number(a.monthlyMobileQcCnt) || 0
+                    : volSort === 'total' ? (Number(a.monthlyPcQcCnt) || 0) + (Number(a.monthlyMobileQcCnt) || 0)
+                    : compRank[a.compIdx] ?? 0
+                  const bv = volSort === 'pc' ? Number(b.monthlyPcQcCnt) || 0
+                    : volSort === 'mobile' ? Number(b.monthlyMobileQcCnt) || 0
+                    : volSort === 'total' ? (Number(b.monthlyPcQcCnt) || 0) + (Number(b.monthlyMobileQcCnt) || 0)
+                    : compRank[b.compIdx] ?? 0
+                  return volSortDir === 'desc' ? bv - av : av - bv
+                })
+                const allChecked = sorted.length > 0 && sorted.every((_, i) => volChecked.has(i))
+                const toggleSort = (col: SortCol) => {
+                  if (volSort === col) setVolSortDir(d => d === 'desc' ? 'asc' : 'desc')
+                  else { setVolSort(col); setVolSortDir('desc') }
+                }
+                return (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b-2 border-[#E5E8EB] bg-[#F8F9FA]">
+                          <th className="py-2.5 px-3 w-10">
+                            <button onClick={() => {
+                              if (allChecked) setVolChecked(new Set())
+                              else setVolChecked(new Set(sorted.map((_, i) => i)))
+                            }} className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-all ${allChecked ? 'bg-[#3182F6] border-[#3182F6]' : 'border-[#D1D6DB] hover:border-[#3182F6]'}`}>
+                              {allChecked && <svg width="9" height="9" viewBox="0 0 10 10" fill="none"><polyline points="2 5 4.5 7.5 8.5 2.5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                            </button>
+                          </th>
+                          <th className="text-center py-2.5 px-2 text-[11px] font-bold text-[#8B95A1] w-10">#</th>
+                          <th className="text-left py-2.5 px-3 text-[11px] font-bold text-[#8B95A1]">키워드</th>
+                          <th className="text-right py-2.5 px-3 text-[11px] font-bold text-[#8B95A1] whitespace-nowrap">
+                            PC 검색량
+                            <SortBtn col="pc" active={volSort === 'pc'} dir={volSortDir} onClick={() => toggleSort('pc')} />
+                          </th>
+                          <th className="text-right py-2.5 px-3 text-[11px] font-bold text-[#8B95A1] whitespace-nowrap">
+                            모바일 검색량
+                            <SortBtn col="mobile" active={volSort === 'mobile'} dir={volSortDir} onClick={() => toggleSort('mobile')} />
+                          </th>
+                          <th className="text-right py-2.5 px-3 text-[11px] font-bold text-[#8B95A1] whitespace-nowrap">
+                            총 검색량
+                            <SortBtn col="total" active={volSort === 'total'} dir={volSortDir} onClick={() => toggleSort('total')} />
+                          </th>
+                          <th className="text-center py-2.5 px-3 text-[11px] font-bold text-[#8B95A1] whitespace-nowrap">
+                            경쟁도
+                            <SortBtn col="comp" active={volSort === 'comp'} dir={volSortDir} onClick={() => toggleSort('comp')} />
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {sorted.map((row, i) => {
+                          const pc = Number(row.monthlyPcQcCnt) || 0
+                          const mb = Number(row.monthlyMobileQcCnt) || 0
+                          const total = pc + mb
+                          const checked = volChecked.has(i)
+                          return (
+                            <tr key={i} className={`border-b border-[#F2F4F6] transition-colors ${checked ? 'bg-[#EFF6FF]' : 'hover:bg-[#F8F9FA]'}`}>
+                              <td className="py-2.5 px-3">
+                                <button onClick={() => setVolChecked(prev => { const n = new Set(prev); n.has(i) ? n.delete(i) : n.add(i); return n })}
+                                  className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-all ${checked ? 'bg-[#3182F6] border-[#3182F6]' : 'border-[#D1D6DB] hover:border-[#3182F6]'}`}>
+                                  {checked && <svg width="9" height="9" viewBox="0 0 10 10" fill="none"><polyline points="2 5 4.5 7.5 8.5 2.5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                                </button>
+                              </td>
+                              <td className="py-2.5 px-2 text-center text-xs text-[#B0B8C1] font-medium">{i + 1}</td>
+                              <td className="py-2.5 px-3 font-semibold text-[#191F28]">{row.relKeyword}</td>
+                              <td className="py-2.5 px-3 text-right text-[#4E5968]">{fmt(pc)}</td>
+                              <td className="py-2.5 px-3 text-right text-[#4E5968]">{fmt(mb)}</td>
+                              <td className="py-2.5 px-3 text-right font-semibold text-[#3182F6]">{fmt(total)}</td>
+                              <td className="py-2.5 px-3 text-center">
+                                <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full ${compColor(row.compIdx)}`}>
+                                  {row.compIdx || '-'}
+                                </span>
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                    {volChecked.size > 0 && (
+                      <div className="mt-3 flex items-center gap-2">
+                        <span className="text-xs text-[#4E5968]"><strong className="text-[#3182F6]">{volChecked.size}개</strong> 선택됨</span>
+                        <button onClick={() => {
+                          const kws = [...volChecked].map(i => sorted[i]?.relKeyword).filter(Boolean)
+                          navigator.clipboard.writeText(kws.join(', '))
+                        }} className="px-2.5 py-1 rounded-lg border border-[#3182F6] text-[#3182F6] text-xs font-semibold hover:bg-[#EFF6FF] transition-colors">
+                          키워드 복사
+                        </button>
+                        <button onClick={() => {
+                          const kws = [...volChecked].map(i => sorted[i]?.relKeyword).filter(Boolean)
+                          navigator.clipboard.writeText(kws.map(k => '#' + k).join(' '))
+                        }} className="px-2.5 py-1 rounded-lg border border-[#8B95A1] text-[#8B95A1] text-xs font-semibold hover:bg-[#F2F4F6] transition-colors">
+                          # 해시태그 복사
+                        </button>
+                      </div>
+                    )}
+                    <p className="text-[11px] text-[#B0B8C1] mt-2 px-1">* 최근 1개월 기준 · 10 미만은 '10 미만'으로 표시</p>
+                  </div>
+                )
+              })()}
 
               {!volLoading && volData.length === 0 && !volError && (
                 <div className="text-center py-10 text-[#B0B8C1] text-sm">키워드를 입력하고 조회하세요</div>
@@ -319,45 +393,107 @@ export default function NaverAdsPage() {
                 <div className="bg-[#FFF1F2] border border-[#FECDD3] rounded-xl p-3 text-sm text-[#E11D48]">{sugError}</div>
               )}
 
-              {sugData.length > 0 && (
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b border-[#F2F4F6]">
-                        <th className="text-left py-2.5 px-3 text-[11px] font-bold text-[#8B95A1]">#</th>
-                        <th className="text-left py-2.5 px-3 text-[11px] font-bold text-[#8B95A1]">파생 키워드</th>
-                        <th className="text-right py-2.5 px-3 text-[11px] font-bold text-[#8B95A1]">PC</th>
-                        <th className="text-right py-2.5 px-3 text-[11px] font-bold text-[#8B95A1]">모바일</th>
-                        <th className="text-right py-2.5 px-3 text-[11px] font-bold text-[#8B95A1]">합계</th>
-                        <th className="text-center py-2.5 px-3 text-[11px] font-bold text-[#8B95A1]">경쟁도</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {sugData
-                        .sort((a, b) => (Number(b.monthlyMobileQcCnt) + Number(b.monthlyPcQcCnt)) - (Number(a.monthlyMobileQcCnt) + Number(a.monthlyPcQcCnt)))
-                        .map((row, i) => {
+              {sugData.length > 0 && (() => {
+                const compRank: Record<string, number> = { '높음': 3, '중간': 2, '낮음': 1, '': 0 }
+                const sorted = [...sugData].sort((a, b) => {
+                  const col = sugSort === 'none' ? 'total' : sugSort
+                  const av = col === 'pc' ? Number(a.monthlyPcQcCnt) || 0
+                    : col === 'mobile' ? Number(a.monthlyMobileQcCnt) || 0
+                    : col === 'total' ? (Number(a.monthlyPcQcCnt) || 0) + (Number(a.monthlyMobileQcCnt) || 0)
+                    : compRank[a.compIdx] ?? 0
+                  const bv = col === 'pc' ? Number(b.monthlyPcQcCnt) || 0
+                    : col === 'mobile' ? Number(b.monthlyMobileQcCnt) || 0
+                    : col === 'total' ? (Number(b.monthlyPcQcCnt) || 0) + (Number(b.monthlyMobileQcCnt) || 0)
+                    : compRank[b.compIdx] ?? 0
+                  return sugSortDir === 'desc' ? bv - av : av - bv
+                })
+                const allChecked = sorted.length > 0 && sorted.every((_, i) => sugChecked.has(i))
+                const toggleSort = (col: SortCol) => {
+                  if (sugSort === col) setSugSortDir(d => d === 'desc' ? 'asc' : 'desc')
+                  else { setSugSort(col); setSugSortDir('desc') }
+                }
+                return (
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm">
+                      <thead>
+                        <tr className="border-b-2 border-[#E5E8EB] bg-[#F8F9FA]">
+                          <th className="py-2.5 px-3 w-10">
+                            <button onClick={() => {
+                              if (allChecked) setSugChecked(new Set())
+                              else setSugChecked(new Set(sorted.map((_, i) => i)))
+                            }} className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-all ${allChecked ? 'bg-[#3182F6] border-[#3182F6]' : 'border-[#D1D6DB] hover:border-[#3182F6]'}`}>
+                              {allChecked && <svg width="9" height="9" viewBox="0 0 10 10" fill="none"><polyline points="2 5 4.5 7.5 8.5 2.5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                            </button>
+                          </th>
+                          <th className="text-center py-2.5 px-2 text-[11px] font-bold text-[#8B95A1] w-10">#</th>
+                          <th className="text-left py-2.5 px-3 text-[11px] font-bold text-[#8B95A1]">파생 키워드</th>
+                          <th className="text-right py-2.5 px-3 text-[11px] font-bold text-[#8B95A1] whitespace-nowrap">
+                            PC 검색량
+                            <SortBtn col="pc" active={sugSort === 'pc'} dir={sugSortDir} onClick={() => toggleSort('pc')} />
+                          </th>
+                          <th className="text-right py-2.5 px-3 text-[11px] font-bold text-[#8B95A1] whitespace-nowrap">
+                            모바일 검색량
+                            <SortBtn col="mobile" active={sugSort === 'mobile'} dir={sugSortDir} onClick={() => toggleSort('mobile')} />
+                          </th>
+                          <th className="text-right py-2.5 px-3 text-[11px] font-bold text-[#8B95A1] whitespace-nowrap">
+                            총 검색량
+                            <SortBtn col="total" active={sugSort === 'total' || sugSort === 'none'} dir={sugSortDir} onClick={() => toggleSort('total')} />
+                          </th>
+                          <th className="text-center py-2.5 px-3 text-[11px] font-bold text-[#8B95A1] whitespace-nowrap">
+                            경쟁도
+                            <SortBtn col="comp" active={sugSort === 'comp'} dir={sugSortDir} onClick={() => toggleSort('comp')} />
+                          </th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        {sorted.map((row, i) => {
                           const pc = Number(row.monthlyPcQcCnt) || 0
                           const mb = Number(row.monthlyMobileQcCnt) || 0
+                          const checked = sugChecked.has(i)
                           return (
-                            <tr key={i} className="border-b border-[#F8F9FA] hover:bg-[#F8F9FA] transition-colors">
-                              <td className="py-2 px-3 text-[#8B95A1] text-xs">{i + 1}</td>
+                            <tr key={i} className={`border-b border-[#F2F4F6] transition-colors ${checked ? 'bg-[#EFF6FF]' : 'hover:bg-[#F8F9FA]'}`}>
+                              <td className="py-2 px-3">
+                                <button onClick={() => setSugChecked(prev => { const n = new Set(prev); n.has(i) ? n.delete(i) : n.add(i); return n })}
+                                  className={`w-4 h-4 rounded border-2 flex items-center justify-center transition-all ${checked ? 'bg-[#3182F6] border-[#3182F6]' : 'border-[#D1D6DB] hover:border-[#3182F6]'}`}>
+                                  {checked && <svg width="9" height="9" viewBox="0 0 10 10" fill="none"><polyline points="2 5 4.5 7.5 8.5 2.5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                                </button>
+                              </td>
+                              <td className="py-2 px-2 text-center text-xs text-[#B0B8C1] font-medium">{i + 1}</td>
                               <td className="py-2 px-3 font-semibold text-[#191F28]">{row.relKeyword}</td>
                               <td className="py-2 px-3 text-right text-[#4E5968] text-xs">{fmt(pc)}</td>
                               <td className="py-2 px-3 text-right text-[#4E5968] text-xs">{fmt(mb)}</td>
                               <td className="py-2 px-3 text-right font-semibold text-[#3182F6] text-xs">{fmt(pc + mb)}</td>
                               <td className="py-2 px-3 text-center">
-                                <span className={"text-[10px] font-bold px-2 py-0.5 rounded-full " + compColor(row.compIdx)}>
+                                <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${compColor(row.compIdx)}`}>
                                   {row.compIdx || '-'}
                                 </span>
                               </td>
                             </tr>
                           )
                         })}
-                    </tbody>
-                  </table>
-                  <p className="text-[11px] text-[#B0B8C1] mt-2 px-1">* 검색량 높은 순 정렬 · 블로그·플레이스 콘텐츠 기획 시 활용</p>
-                </div>
-              )}
+                      </tbody>
+                    </table>
+                    {sugChecked.size > 0 && (
+                      <div className="mt-3 flex items-center gap-2">
+                        <span className="text-xs text-[#4E5968]"><strong className="text-[#3182F6]">{sugChecked.size}개</strong> 선택됨</span>
+                        <button onClick={() => {
+                          const kws = [...sugChecked].map(i => sorted[i]?.relKeyword).filter(Boolean)
+                          navigator.clipboard.writeText(kws.join(', '))
+                        }} className="px-2.5 py-1 rounded-lg border border-[#3182F6] text-[#3182F6] text-xs font-semibold hover:bg-[#EFF6FF] transition-colors">
+                          키워드 복사
+                        </button>
+                        <button onClick={() => {
+                          const kws = [...sugChecked].map(i => sorted[i]?.relKeyword).filter(Boolean)
+                          navigator.clipboard.writeText(kws.map(k => '#' + k).join(' '))
+                        }} className="px-2.5 py-1 rounded-lg border border-[#8B95A1] text-[#8B95A1] text-xs font-semibold hover:bg-[#F2F4F6] transition-colors">
+                          # 해시태그 복사
+                        </button>
+                      </div>
+                    )}
+                    <p className="text-[11px] text-[#B0B8C1] mt-2 px-1">* 총 검색량 높은 순 기본 정렬 · 블로그·플레이스 콘텐츠 기획 시 활용</p>
+                  </div>
+                )
+              })()}
 
               {sugData.length === 0 && !sugLoading && !sugError && (
                 <div className="text-center py-10 text-[#B0B8C1] text-sm">주키워드를 입력하면 파생 키워드를 보여줍니다</div>
