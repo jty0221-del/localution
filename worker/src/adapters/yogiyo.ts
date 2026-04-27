@@ -138,21 +138,23 @@ export async function runYogiyo(
     await markLoginStatus(svc, userId, 'yogiyo', 'success')
     if (action === 'health_check') return { status: 'ok', message: 'yogiyo login ok' }
 
-    // 2) API 인터셉트로 리뷰 데이터 수집 (DOM 스크래핑 대신)
+    // 2) API 인터셉트로 리뷰 데이터 수집 — 모든 JSON API 응답 캡처
     const capturedApiResponses: any[] = []
     await page.route('**/*', async (route) => {
       const request = route.request()
-      const url = request.url()
-      const isReviewApi = url.includes('review') || url.includes('feedback') || url.includes('rating')
-      if (isReviewApi && request.resourceType() === 'xhr' || request.resourceType() === 'fetch') {
+      const resType = request.resourceType()
+      if (resType === 'xhr' || resType === 'fetch') {
         try {
           const response = await route.fetch()
-          const text = await response.text()
-          try {
-            const json = JSON.parse(text)
-            capturedApiResponses.push({ url, data: json })
-            log.info({ url, keys: Object.keys(json) }, 'yogiyo api captured')
-          } catch {}
+          const ct = response.headers()['content-type'] || ''
+          if (ct.includes('json')) {
+            const text = await response.text()
+            try {
+              const json = JSON.parse(text)
+              capturedApiResponses.push({ url: request.url(), data: json })
+              log.info({ url: request.url() }, 'yogiyo api captured')
+            } catch {}
+          }
           await route.fulfill({ response })
         } catch {
           await route.continue()
