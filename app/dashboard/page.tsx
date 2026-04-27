@@ -9,12 +9,13 @@ import SlideAdBanner from '../components/SlideAdBanner'
 import { useConnections, setConnection as libSetConnection, removeConnection as libRemoveConnection, PlatformId as CanonicalPlatformId } from '../lib/connections'
 import { toast, confirmDialog } from '../lib/toast'
 import { buildSettingsHref } from '../lib/settings-tabs'
+import { COMMUNITY_REGIONS, haversineKm } from '../lib/regions-community'
 import {
   Star, ArrowRight, ArrowUp, ArrowDown, Minus, X, Check, CheckCircle2,
   AlertTriangle, Rocket, TrendingUp,
   Smile, Meh, Frown,
   Link2, Lock, MapPin,
-  Layers, Zap, MessageSquare, ThumbsUp, Flame, Users, RefreshCw, ChevronDown,
+  Layers, Zap, MessageSquare, ThumbsUp, Flame, Users, RefreshCw,
 } from 'lucide-react'
 
 // ═══════════════════════════════════════════════════════════
@@ -369,6 +370,163 @@ function mapRegionToId(region: string | null): string {
 }
 
 function CommunityWidget({ storeRegion }: { storeRegion: string | null }) {
+  // 기본 지역: 전국
+  const [regionId,    setRegionId]    = useState<string>('nationwide')
+  const [regionName,  setRegionName]  = useState<string | null>(null)
+  const [locating,    setLocating]    = useState(false)
+  const [locError,    setLocError]    = useState<string | null>(null)
+  const [spinning,    setSpinning]    = useState(false)
+  const [seed,        setSeed]        = useState(0)
+
+  // 매장 프로필 주소 기반 초기값 세팅 (한 번만)
+  useEffect(() => {
+    const id = mapRegionToId(storeRegion)
+    if (id !== 'nationwide') {
+      setRegionId(id)
+      const label = Object.entries(REGION_ID_MAP).find(([k]) => (storeRegion || '').includes(k))?.[0] || null
+      setRegionName(label)
+    }
+  }, [storeRegion])
+
+  function handleGeolocate() {
+    if (!navigator.geolocation) {
+      setLocError('이 브라우저는 위치를 지원하지 않아요')
+      return
+    }
+    setLocating(true)
+    setLocError(null)
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        const { latitude: lat, longitude: lng } = pos.coords
+        // 가장 가까운 지역 찾기
+        const nearest = COMMUNITY_REGIONS
+          .filter(r => r.lat != null && r.lng != null)
+          .map(r => ({ ...r, dist: haversineKm(lat, lng, r.lat!, r.lng!) }))
+          .sort((a, b) => a.dist - b.dist)[0]
+        if (nearest) {
+          setRegionId(nearest.id)
+          setRegionName(nearest.label)
+          setSeed(s => s + 1)
+        }
+        setLocating(false)
+      },
+      () => {
+        setLocError('위치 권한을 허용해 주세요')
+        setLocating(false)
+      },
+      { timeout: 8000 }
+    )
+  }
+
+  function handleRefresh() {
+    setSpinning(true)
+    setSeed(s => s + 1)
+    setTimeout(() => setSpinning(false), 600)
+  }
+
+  function handleReset() {
+    setRegionId('nationwide')
+    setRegionName(null)
+    setLocError(null)
+    setSeed(s => s + 1)
+  }
+
+  const posts = COMMUNITY_SAMPLE
+    .filter(p => p.region_id === regionId || p.region_id === 'nationwide')
+    .slice(seed % 2 === 0 ? 0 : 1, (seed % 2 === 0 ? 0 : 1) + 4)
+
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-[#F2F4F6] overflow-hidden">
+      <div className="px-4 md:px-5 py-3.5 border-b border-[#F2F4F6] flex items-center justify-between gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <Users size={15} className="text-[#3182F6] flex-shrink-0" strokeWidth={2.5} />
+          <span className="text-sm font-bold text-[#191F28] truncate">
+            {regionName ? `${regionName} 커뮤니티` : '전국 커뮤니티'}
+          </span>
+          {regionName && (
+            <button onClick={handleReset}
+              className="text-[9px] px-1.5 py-0.5 rounded-full bg-[#F2F4F6] text-[#8B95A1] hover:bg-[#E5E8EB] transition-colors">
+              전국
+            </button>
+          )}
+        </div>
+        <div className="flex items-center gap-1.5 flex-shrink-0">
+          {/* 내 위치로 설정 */}
+          <button
+            onClick={handleGeolocate}
+            disabled={locating}
+            className="flex items-center gap-1 text-[11px] px-2 py-1 rounded-lg bg-[#EFF6FF] hover:bg-[#DBEAFE] text-[#3182F6] font-medium transition-colors disabled:opacity-50"
+            title="내 위치로 지역 자동 설정"
+          >
+            {locating
+              ? <RefreshCw size={10} strokeWidth={2.5} className="animate-spin" />
+              : <MapPin size={10} strokeWidth={2.5} />
+            }
+            {locating ? '위치 감지 중…' : '내 위치'}
+          </button>
+          {/* 새로고침 */}
+          <button
+            onClick={handleRefresh}
+            className="p-1.5 rounded-lg hover:bg-[#F2F4F6] text-[#8B95A1] hover:text-[#3182F6] transition-colors"
+            title="새로고침"
+          >
+            <RefreshCw size={13} strokeWidth={2.5} className={spinning ? 'animate-spin' : ''} />
+          </button>
+          <Link href="/community" className="flex items-center gap-0.5 text-[11px] text-[#8B95A1] hover:text-[#3182F6] transition-colors">
+            전체보기 <ArrowRight size={11} />
+          </Link>
+        </div>
+      </div>
+      {locError && (
+        <div className="px-4 py-2 bg-[#FFF7ED] text-[#C2410C] text-[11px] flex items-center gap-1.5">
+          <span>⚠️</span> {locError}
+        </div>
+      )}
+      <div className="divide-y divide-[#F8F9FA]">
+        {posts.map(post => {
+          const cat = CAT_STYLE[post.category] || CAT_STYLE.free
+          return (
+            <Link key={post.id + '-' + seed} href="/community"
+              className="flex items-start gap-3 px-4 py-3 hover:bg-[#FAFBFC] transition-colors group">
+              <div className="w-7 h-7 rounded-full bg-[#3182F6] text-white text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">
+                {post.avatar}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5 mb-0.5">
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+                    style={{ background: cat.bg, color: cat.text }}>{cat.label}</span>
+                  {post.region_id !== 'nationwide' && (
+                    <span className="text-[9px] text-[#8B95A1]">📍 내 지역</span>
+                  )}
+                </div>
+                <p className="text-[13px] font-medium text-[#191F28] truncate group-hover:text-[#3182F6] transition-colors">
+                  {post.title}
+                </p>
+                <div className="flex items-center gap-2 mt-1 text-[10px] text-[#8B95A1]">
+                  <span>{post.author}</span>
+                  <span>·</span>
+                  <span>{post.time}</span>
+                  <span className="flex items-center gap-0.5 ml-auto">
+                    <ThumbsUp size={9} /> {post.likes}
+                  </span>
+                  <span className="flex items-center gap-0.5">
+                    <MessageSquare size={9} /> {post.comments}
+                  </span>
+                </div>
+              </div>
+            </Link>
+          )
+        })}
+      </div>
+      <div className="px-4 py-3 bg-[#FAFBFC] border-t border-[#F2F4F6]">
+        <Link href="/community"
+          className="flex items-center justify-center gap-1.5 text-[12px] text-[#3182F6] font-bold hover:underline">
+          <Flame size={12} /> {regionName ? `${regionName} 커뮤니티 더 보기` : '전국 커뮤니티 더 보기'}
+        </Link>
+      </div>
+    </div>
+  )
+}: { storeRegion: string | null }) {
   const defaultRegionId = mapRegionToId(storeRegion)
   const defaultLabel = storeRegion
     ? Object.entries(REGION_ID_MAP).find(([k]) => storeRegion.includes(k))?.[0] || storeRegion
