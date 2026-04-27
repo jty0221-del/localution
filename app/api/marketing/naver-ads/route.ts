@@ -121,7 +121,7 @@ export async function GET(req: NextRequest) {
     // ── 파워링크 입찰가 (실제 응답 캡처 포함) ──────────────────────────
     if (type === 'bid') {
       const kw   = kwList[0]
-      const path = '/estimate/performance/bid/keyword'
+      const path = '/ncc/estimate/performance/bid/keyword'
 
       // 1위 응답 먼저 raw 캡처
       const debugQs = '?keyword=' + encodeURIComponent(kw) + '&device=PC&keywordPlusYn=N&bidrankYn=Y&rank=1'
