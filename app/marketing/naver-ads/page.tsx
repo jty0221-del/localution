@@ -350,7 +350,7 @@ export default function NaverAdsPage() {
                               {allChecked && <svg width="9" height="9" viewBox="0 0 10 10" fill="none"><polyline points="2 5 4.5 7.5 8.5 2.5" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                             </button>
                           </th>
-                          <th className="text-center py-2.5 px-2 text-[11px] font-bold text-[#8B95A1] w-10">#</th>
+                          <th className="text-center py-2.5 px-2 text-[11px] font-bold text-[#8B95A1] w-10">번호</th>
                           <th className="text-left py-2.5 px-3 text-[11px] font-bold text-[#8B95A1]">키워드</th>
                           <th className="text-right py-2.5 px-3 text-[11px] font-bold text-[#8B95A1] whitespace-nowrap">
                             PC 검색량
