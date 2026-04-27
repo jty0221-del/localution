@@ -9,7 +9,7 @@ import { usePathname } from 'next/navigation'
 const LINKS = [
   { href: '/dashboard',           label: '대시보드',   short: 'DB',   bg: '#EFF6FF', color: '#3182F6' },
   { href: '/review-admin',        label: '리뷰 관리',  short: '리뷰', bg: '#FFFBEB', color: '#F59E0B' },
-  { href: '/marketing/keyword-rank', label: '마케팅 관리', short: '마케팅', bg: '#F0FDF4', color: '#03C75A' },
+  { href: '/marketing',           label: '마케팅 관리', short: '마케팅', bg: '#F0FDF4', color: '#03C75A' },
   { href: '/qr-admin',            label: 'QR 관리',   short: 'QR',   bg: '#F5F3FF', color: '#8B5CF6' },
   { href: '/customers',           label: '고객 관리',  short: '고객', bg: '#ECFDF5', color: '#059669' },
   { href: '/community',           label: '커뮤니티',   short: '커뮤', bg: '#FDF2F8', color: '#EC4899' },
