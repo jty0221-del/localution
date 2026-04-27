@@ -14,7 +14,7 @@ import {
   AlertTriangle, Rocket, TrendingUp,
   Smile, Meh, Frown,
   Link2, Lock, MapPin,
-  Layers, Zap,
+  Layers, Zap, MessageSquare, ThumbsUp, Flame, Users,
 } from 'lucide-react'
 
 // ═══════════════════════════════════════════════════════════
@@ -311,6 +311,132 @@ function Stars({ rating, size = 'sm' }: { rating: number; size?: 'sm' | 'md' }) 
       ))}
       <span className={(size === 'md' ? 'text-sm' : 'text-[11px]') + ' ml-1 text-[#4E5968] font-bold'}>{rating}</span>
     </span>
+  )
+}
+
+// ─── 지역 커뮤니티 위젯 ────────────────────────────────────────────
+const REGION_ID_MAP: Record<string, string> = {
+  '부천': 'gyeonggi-bucheon', '수원': 'gyeonggi-suwon', '성남': 'gyeonggi-seongnam',
+  '고양': 'gyeonggi-goyang', '일산': 'gyeonggi-goyang', '용인': 'gyeonggi-yongin',
+  '안양': 'gyeonggi-anyang', '의정부': 'gyeonggi-uijeongbu', '안산': 'gyeonggi-ansan',
+  '화성': 'gyeonggi-hwaseong', '파주': 'gyeonggi-paju', '남양주': 'gyeonggi-namyangju',
+  '강남': 'seoul-gangnam', '마포': 'seoul-mapo', '홍대': 'seoul-mapo',
+  '송파': 'seoul-songpa', '강동': 'seoul-gangdong', '강서': 'seoul-gangseo',
+  '종로': 'seoul-jongno', '중구': 'seoul-junggu', '영등포': 'seoul-yeongdeungpo',
+  '해운대': 'busan-haeundae', '부산': 'busan-haeundae', '대구': 'daegu-suseong',
+  '인천': 'incheon-namdong', '대전': 'daejeon-yuseong', '광주': 'gwangju-seo',
+  '분당': 'gyeonggi-bundang', '판교': 'gyeonggi-bundang',
+}
+
+const COMMUNITY_SAMPLE: Array<{
+  id: number; category: string; region_id: string; title: string;
+  author: string; avatar: string; time: string; likes: number; comments: number
+}> = [
+  { id: 1, category: 'success', region_id: 'gyeonggi-bucheon', title: '부천 소사동 카페 플레이스 1위 달성 후기', author: '소사카페', avatar: '소', time: '1시간 전', likes: 34, comments: 8 },
+  { id: 2, category: 'tip',     region_id: 'gyeonggi-bucheon', title: '부천 상동 맛집 키워드 공략법 공유해요', author: '상동식당', avatar: '상', time: '3시간 전', likes: 52, comments: 14 },
+  { id: 3, category: 'qna',     region_id: 'gyeonggi-bucheon', title: '부천 역곡에서 배달 시작하려는데 추천 플랫폼은?', author: '역곡분식', avatar: '역', time: '5시간 전', likes: 11, comments: 6 },
+  { id: 4, category: 'free',    region_id: 'gyeonggi-bucheon', title: '부천 중동 상권 요즘 어떤가요?', author: '중동피부샵', avatar: '중', time: '어제', likes: 28, comments: 19 },
+  { id: 5, category: 'success', region_id: 'gyeonggi-bucheon', title: '네이버 리뷰 답변 꾸준히 했더니 별점 0.4 올랐어요', author: '부천헤어', avatar: '부', time: '2일 전', likes: 47, comments: 11 },
+  { id: 6, category: 'tip',     region_id: 'nationwide', title: 'AI 리뷰 답글로 응답률 100% 달성 팁', author: '마케팅고수', avatar: '마', time: '4시간 전', likes: 89, comments: 22 },
+  { id: 7, category: 'success', region_id: 'nationwide', title: '인스타 릴스 + 네이버 플레이스 시너지 효과', author: '로컬루션팀', avatar: '로', time: '1일 전', likes: 63, comments: 17 },
+  { id: 8, category: 'qna',     region_id: 'nationwide', title: '스마트플레이스 사진 업로드 순서도 순위에 영향 있나요?', author: '초보사장님', avatar: '초', time: '2일 전', likes: 19, comments: 9 },
+  // 수원
+  { id: 9,  category: 'tip',     region_id: 'gyeonggi-suwon', title: '수원 행궁동 골목상권 SNS 마케팅 후기', author: '행궁카페', avatar: '행', time: '2시간 전', likes: 41, comments: 7 },
+  { id: 10, category: 'success', region_id: 'gyeonggi-suwon', title: '수원 인계동 네일샵 플레이스 별점 관리법', author: '인계네일', avatar: '인', time: '1일 전', likes: 33, comments: 5 },
+  // 성남/분당
+  { id: 11, category: 'tip',     region_id: 'gyeonggi-bundang', title: '분당 정자동 카페 키워드 전략 공유', author: '정자카페', avatar: '정', time: '3시간 전', likes: 55, comments: 12 },
+  // 강남
+  { id: 12, category: 'success', region_id: 'seoul-gangnam', title: '강남 청담 헤어샵 예약률 2배 만든 방법', author: '청담헤어', avatar: '청', time: '6시간 전', likes: 78, comments: 25 },
+  // 마포/홍대
+  { id: 13, category: 'free',    region_id: 'seoul-mapo', title: '홍대 상권 요즘 트렌드 어떤가요', author: '홍대식당', avatar: '홍', time: '어제', likes: 22, comments: 8 },
+  // 해운대
+  { id: 14, category: 'tip',     region_id: 'busan-haeundae', title: '해운대 여름 성수기 마케팅 준비 팁', author: '해운대카페', avatar: '해', time: '1일 전', likes: 44, comments: 6 },
+]
+
+const CAT_STYLE: Record<string, { label: string; bg: string; text: string }> = {
+  success: { label: '성공사례', bg: '#ECFDF5', text: '#059669' },
+  tip:     { label: '마케팅 팁', bg: '#FFFBEB', text: '#D97706' },
+  qna:     { label: '질문/답변', bg: '#EFF6FF', text: '#3182F6' },
+  free:    { label: '자유게시판', bg: '#F5F3FF', text: '#7C3AED' },
+}
+
+function mapRegionToId(region: string | null): string {
+  if (!region) return 'nationwide'
+  for (const [key, id] of Object.entries(REGION_ID_MAP)) {
+    if (region.includes(key)) return id
+  }
+  return 'nationwide'
+}
+
+function CommunityWidget({ storeRegion }: { storeRegion: string | null }) {
+  const regionId = mapRegionToId(storeRegion)
+  const regionLabel = storeRegion
+    ? Object.entries(REGION_ID_MAP).find(([k]) => storeRegion.includes(k))?.[0] || storeRegion
+    : null
+
+  const posts = COMMUNITY_SAMPLE
+    .filter(p => p.region_id === regionId || p.region_id === 'nationwide')
+    .slice(0, 4)
+
+  return (
+    <div className="bg-white rounded-2xl shadow-sm border border-[#F2F4F6] overflow-hidden">
+      <div className="px-4 md:px-5 py-4 border-b border-[#F2F4F6] flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <Users size={15} className="text-[#3182F6]" strokeWidth={2.5} />
+          <span className="text-sm font-bold text-[#191F28]">
+            {regionLabel ? `${regionLabel} 커뮤니티` : '로컬 커뮤니티'}
+          </span>
+          {regionLabel && (
+            <span className="text-[10px] px-1.5 py-0.5 rounded-full bg-[#EFF6FF] text-[#3182F6] font-bold">{regionLabel}</span>
+          )}
+        </div>
+        <Link href="/community" className="flex items-center gap-0.5 text-[11px] text-[#8B95A1] hover:text-[#3182F6] transition-colors">
+          전체보기 <ArrowRight size={11} />
+        </Link>
+      </div>
+      <div className="divide-y divide-[#F8F9FA]">
+        {posts.map(post => {
+          const cat = CAT_STYLE[post.category] || CAT_STYLE.free
+          return (
+            <Link key={post.id} href="/community"
+              className="flex items-start gap-3 px-4 py-3 hover:bg-[#FAFBFC] transition-colors group">
+              <div className="w-7 h-7 rounded-full bg-[#3182F6] text-white text-xs font-bold flex items-center justify-center flex-shrink-0 mt-0.5">
+                {post.avatar}
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-1.5 mb-0.5">
+                  <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full"
+                    style={{ background: cat.bg, color: cat.text }}>{cat.label}</span>
+                  {post.region_id !== 'nationwide' && (
+                    <span className="text-[9px] text-[#8B95A1]">📍 내 지역</span>
+                  )}
+                </div>
+                <p className="text-[13px] font-medium text-[#191F28] truncate group-hover:text-[#3182F6] transition-colors">
+                  {post.title}
+                </p>
+                <div className="flex items-center gap-2 mt-1 text-[10px] text-[#8B95A1]">
+                  <span>{post.author}</span>
+                  <span>·</span>
+                  <span>{post.time}</span>
+                  <span className="flex items-center gap-0.5 ml-auto">
+                    <ThumbsUp size={9} /> {post.likes}
+                  </span>
+                  <span className="flex items-center gap-0.5">
+                    <MessageSquare size={9} /> {post.comments}
+                  </span>
+                </div>
+              </div>
+            </Link>
+          )
+        })}
+      </div>
+      <div className="px-4 py-3 bg-[#FAFBFC] border-t border-[#F2F4F6]">
+        <Link href="/community"
+          className="flex items-center justify-center gap-1.5 text-[12px] text-[#3182F6] font-bold hover:underline">
+          <Flame size={12} /> {regionLabel ? `${regionLabel} 커뮤니티 더 보기` : '커뮤니티 더 보기'}
+        </Link>
+      </div>
+    </div>
   )
 }
 
@@ -1950,8 +2076,9 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* 우측: 인기 서비스 랭킹 */}
+          {/* 우측: 지역 커뮤니티 + 인기 서비스 랭킹 */}
           <div className="flex flex-col gap-4">
+            <CommunityWidget storeRegion={storeRegion} />
             <ServiceRanking />
           </div>
         </div>
