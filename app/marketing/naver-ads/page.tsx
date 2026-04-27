@@ -14,7 +14,6 @@ type VolumeKeyword = {
   compIdx: string
 }
 
-type BidRow = { rank: number; pc: number | null; mobile: number | null; estimated?: boolean; compIdx?: string }
 
 type TrendPoint = { period: string; ratio: number }
 
@@ -182,7 +181,7 @@ function TrendChart({ data }: { data: TrendPoint[] }) {
 }
 
 // ─── 탭 타입 ───────────────────────────────────────────────────
-type Tab = 'volume' | 'bid' | 'suggest'
+type Tab = 'volume' | 'suggest'
 
 export default function NaverAdsPage() {
   const [tab, setTab] = useState<Tab>('volume')
@@ -192,16 +191,6 @@ export default function NaverAdsPage() {
   const [detailData, setDetailData] = useState<DetailData | null>(null)
   const [volLoading, setVolLoading] = useState(false)
   const [volError, setVolError]     = useState<string | null>(null)
-
-  // 입찰가
-  const [bidInput, setBidInput]     = useState('')
-  const [bidKeyword, setBidKeyword] = useState('')
-  const [bidRows, setBidRows]       = useState<BidRow[]>([])
-  const [bidEstimated, setBidEstimated] = useState(false)
-  const [bidCompIdx, setBidCompIdx]     = useState('')
-  const [bidVol, setBidVol]             = useState({ pc: 0, mobile: 0 })
-  const [bidLoading, setBidLoading] = useState(false)
-  const [bidError, setBidError]     = useState<string | null>(null)
 
   // 키워드 확장
   const [sugInput, setSugInput]         = useState('')
@@ -229,29 +218,7 @@ export default function NaverAdsPage() {
       setVolLoading(false)
     }
   }
-
-  // ── 입찰가 조회 ──────────────────────────────────────────────
-  async function fetchBid() {
-    const kw = bidInput.trim()
-    if (!kw) return
-    setBidLoading(true); setBidError(null); setBidRows([]); setBidKeyword('')
-    try {
-      const r = await fetch('/api/marketing/naver-ads?type=bid&keyword=' + encodeURIComponent(kw))
-      const j = await r.json()
-      if (!r.ok || j.error) throw new Error(j.error || 'HTTP ' + r.status)
-      setBidRows(j.rows || [])
-      setBidKeyword(j.keyword || kw)
-      setBidEstimated(j.estimated === true)
-      setBidCompIdx(j.compIdx || '')
-      setBidVol({ pc: j.pcVol || 0, mobile: j.mobileVol || 0 })
-    } catch (e) {
-      setBidError(e instanceof Error ? e.message : '오류 발생')
-    } finally {
-      setBidLoading(false)
-    }
-  }
-
-  // ── 키워드 확장 ──────────────────────────────────────────────
+    // ── 키워드 확장 ──────────────────────────────────────────────
   async function fetchSuggest() {
     const kw = sugInput.trim()
     if (!kw) return
@@ -300,7 +267,6 @@ export default function NaverAdsPage() {
   const TAB_LIST = [
     { key: 'volume'  as Tab, label: '검색량 조회',     icon: '📊', desc: '키워드별 PC·모바일 월간 검색량' },
     { key: 'suggest' as Tab, label: '키워드 확장',     icon: '🔍', desc: '주키워드에서 파생되는 추천 키워드' },
-    { key: 'bid'     as Tab, label: '파워링크 입찰가', icon: '💰', desc: '순위별 PC·모바일 예상 입찰 단가' },
   ]
 
   return (
@@ -310,7 +276,7 @@ export default function NaverAdsPage() {
         <PageHeader
           icon="📊"
           title="네이버 광고 분석"
-          subtitle="파워링크 입찰가·검색량·키워드 확장을 한 곳에서 조회하세요"
+          subtitle="키워드 검색량 조회 · 파생 키워드 확장을 한 곳에서"
         />
 
         <main className="flex-1 px-4 md:px-6 py-6 max-w-5xl mx-auto w-full space-y-6">
@@ -560,62 +526,6 @@ export default function NaverAdsPage() {
 
               {sugData.length === 0 && !sugLoading && !sugError && (
                 <div className="text-center py-10 text-[#B0B8C1] text-sm">주키워드를 입력하면 파생 키워드를 보여줍니다</div>
-              )}
-            </div>
-          )}
-
-          {/* ── 파워링크 입찰가 ─────────────────────────────────── */}
-          {tab === 'bid' && (
-            <div className="bg-white rounded-2xl shadow-sm border border-[#E5E8EB] p-5 space-y-5">
-              <div>
-                <p className="text-sm font-bold text-[#191F28] mb-2">키워드 입력 <span className="text-[#8B95A1] font-normal">(1개)</span></p>
-                <div className="flex gap-2">
-                  <input
-                    className="flex-1 border border-[#E5E8EB] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#3182F6]"
-                    placeholder="예: 부천맛집"
-                    value={bidInput}
-                    onChange={e => setBidInput(e.target.value)}
-                    onKeyDown={e => e.key === 'Enter' && fetchBid()}
-                  />
-                  <button onClick={fetchBid} disabled={bidLoading || !bidInput.trim()}
-                    className="px-5 py-2.5 bg-[#3182F6] text-white rounded-xl text-sm font-semibold disabled:opacity-40 hover:bg-[#1D6EF5] transition-colors">
-                    {bidLoading ? '조회 중…' : '조회'}
-                  </button>
-                </div>
-              </div>
-
-              {bidError && (
-                <div className="bg-[#FFF1F2] border border-[#FECDD3] rounded-xl p-3 text-sm text-[#E11D48]">{bidError}</div>
-              )}
-
-              {bidRows.length > 0 && (
-                <div>
-                  <div className="flex items-center gap-2 mb-3 flex-wrap"><p className="text-sm font-bold text-[#191F28]"><span className="text-[#3182F6]">[{bidKeyword}]</span> 파워링크 입찰가</p>{bidEstimated && <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#FEF3C7] text-[#D97706] font-semibold border border-[#FDE68A]">경쟁도 기반 추정</span>}{bidCompIdx && <span className={'text-[10px] px-2 py-0.5 rounded-full font-semibold ' + (bidCompIdx==='높음' ? 'bg-[#FFF1F2] text-[#F04452]' : bidCompIdx==='중간' ? 'bg-[#EFF6FF] text-[#3182F6]' : 'bg-[#ECFDF5] text-[#059669]')}>경쟁도 {bidCompIdx}</span>}{(bidVol.pc > 0 || bidVol.mobile > 0) && <span className="text-[10px] text-[#8B95A1]">월검색 PC {bidVol.pc.toLocaleString()} · 모바일 {bidVol.mobile.toLocaleString()}</span>}</div>
-                  <div className="space-y-2.5">
-                    {bidRows.map(row => (
-                      <div key={row.rank} className={'rounded-xl border p-4 flex items-center gap-4 ' + (row.rank === 1 ? 'border-[#FFD700] bg-[#FFFBEB]' : row.rank <= 3 ? 'border-[#E5E8EB] bg-[#FAFBFF]' : 'border-[#E5E8EB] bg-white')}>
-                        <div className={'w-8 h-8 rounded-full flex items-center justify-center text-sm font-black flex-shrink-0 ' + (row.rank === 1 ? 'bg-[#FFD700] text-white' : row.rank <= 3 ? 'bg-[#3182F6] text-white' : 'bg-[#F2F4F6] text-[#8B95A1]')}>
-                          {row.rank}
-                        </div>
-                        <div className="flex-1 grid grid-cols-2 gap-2">
-                          <div className="bg-[#EFF6FF] rounded-lg px-3 py-2">
-                            <p className="text-[10px] text-[#8B95A1] font-semibold mb-0.5">PC</p>
-                            <p className="text-sm font-bold text-[#3182F6]">{fmtWon(row.pc)}</p>
-                          </div>
-                          <div className="bg-[#F0FDF4] rounded-lg px-3 py-2">
-                            <p className="text-[10px] text-[#8B95A1] font-semibold mb-0.5">MOBILE</p>
-                            <p className="text-sm font-bold text-[#059669]">{fmtWon(row.mobile)}</p>
-                          </div>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-{bidEstimated ? <p className="text-[11px] text-[#B0B8C1] mt-2 px-1">* 경쟁도({bidCompIdx}) 기반 시장 평균 추정가 · 실제 입찰가는 광고 경쟁 상황에 따라 다를 수 있음</p> : <p className="text-[11px] text-[#B0B8C1] mt-2 px-1">* 현재 시점 기준 예상 최소 입찰가 · 실제 낙찰가는 경쟁에 따라 다를 수 있음</p>}
-                </div>
-              )}
-
-              {!bidLoading && bidRows.length === 0 && !bidError && (
-                <div className="text-center py-10 text-[#B0B8C1] text-sm">키워드를 입력하고 조회하세요</div>
               )}
             </div>
           )}
