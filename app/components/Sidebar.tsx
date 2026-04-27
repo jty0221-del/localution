@@ -274,7 +274,7 @@ export default function Sidebar() {
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-xs font-bold leading-none">플랫폼 연결</p>
-          <p className="text-[10px] text-[#059669] font-normal leading-none mt-0.5">리뷰·마케팅 시작 전 필수</p>
+          <p className="text-[10px] text-[#059669] font-normal leading-none mt-0.5">리뷰·마케팅</p><p className="text-[10px] text-[#059669] font-normal leading-none mt-0.5">시작 전 필수</p>
         </div>
         {pathname !== '/my/platforms' && (
           <span className="flex-shrink-0 text-[9px] font-black px-1.5 py-0.5 rounded-full bg-[#059669] text-white">STEP 1</span>
