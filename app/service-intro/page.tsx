@@ -7,7 +7,7 @@ import Link from 'next/link'
 import Footer from '../components/Footer'
 import {
   ArrowLeft, ArrowRight, Star, RefreshCw, CheckCircle2,
-  Loader2, Send, ScanLine, MessageSquare,
+  Loader2, Send,
   TrendingUp, Users, BarChart3, PenLine, Zap, Shield,
 } from 'lucide-react'
 
@@ -561,8 +561,6 @@ function ReviewDemo() {
 
 // ── 메인 페이지 ───────────────────────────────────────────
 export default function ServiceIntro() {
-  const [tab, setTab] = useState<'reply' | 'qr'>('qr')
-
   return (
     <div className="min-h-screen bg-[#F2F4F6]">
       <style>{GLOBAL_STYLES}</style>
@@ -599,7 +597,7 @@ export default function ServiceIntro() {
             ⚡ 리뷰 관리 완전 자동화 — 답글 + 리뷰 수집
           </div>
 
-          <h1 className="text-2xl sm:text-4xl md:text-5xl font-black mb-3 sm:mb-4 leading-tight break-keep lg:max-w-xl">
+          <h1 className="text-2xl sm:text-4xl md:text-5xl font-black mb-3 sm:mb-4 leading-normal break-keep lg:max-w-xl">
             리뷰는 AI가 모으고,<br/>
             <span className="text-[#FFE2A0]">답글도 AI가 달아드려요.</span>
           </h1>
@@ -627,56 +625,35 @@ export default function ServiceIntro() {
       {/* ── 본문 ───────────────────────────────────────── */}
       <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 sm:py-12">
 
-        {/* 탭 */}
-        <div className="flex gap-2 sm:gap-3 mb-6 sm:mb-8">
-          <button onClick={() => setTab('reply')}
-            className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 sm:gap-2 px-4 sm:px-8 py-3 sm:py-3.5 rounded-xl sm:rounded-2xl border-2 font-bold text-xs sm:text-sm transition-all ${
-              tab === 'reply'
-                ? 'border-[#3182F6] bg-[#3182F6] text-white shadow-[0_4px_16px_rgba(49,130,246,0.3)]'
-                : 'border-[#E5E8EB] bg-white text-[#4E5968] hover:border-[#3182F6]'
-            }`}>
-            <MessageSquare size={14} strokeWidth={2.25} />
-            AI 리뷰 답글
-          </button>
-          <button onClick={() => setTab('qr')}
-            className={`flex-1 sm:flex-none flex items-center justify-center gap-1.5 sm:gap-2 px-4 sm:px-8 py-3 sm:py-3.5 rounded-xl sm:rounded-2xl border-2 font-bold text-xs sm:text-sm transition-all ${
-              tab === 'qr'
-                ? 'border-[#059669] bg-[#059669] text-white shadow-[0_4px_16px_rgba(5,150,105,0.3)]'
-                : 'border-[#E5E8EB] bg-white text-[#4E5968] hover:border-[#059669]'
-            }`}>
-            <ScanLine size={14} strokeWidth={2.25} />
-            QR 리뷰 수집
-          </button>
-        </div>
-
-        {/* 탭 헤더 설명 */}
-        <div className="bg-white rounded-2xl p-4 sm:p-6 shadow-sm border border-[#E5E8EB] mb-5">
-          {tab === 'reply' ? (
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#EFF6FF] flex items-center justify-center shrink-0">
-                <MessageSquare size={18} strokeWidth={2} className="text-[#3182F6]" />
-              </div>
-              <div>
-                <p className="text-sm sm:text-base font-black text-[#191F28] break-keep">AI 리뷰 답글 자동 생성</p>
-                <p className="text-xs text-[#8B95A1] break-keep mt-0.5">아래 리뷰 중 하나를 골라 [AI 답글 생성]을 눌러보세요. 3초 안에 답글이 완성됩니다.</p>
-              </div>
-            </div>
-          ) : (
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#ECFDF5] flex items-center justify-center shrink-0">
-                <ScanLine size={18} strokeWidth={2} className="text-[#059669]" />
-              </div>
-              <div>
-                <p className="text-sm sm:text-base font-black text-[#191F28] break-keep">QR 리뷰 수집 자동화</p>
-                <p className="text-xs text-[#8B95A1] break-keep mt-0.5">고객 입장에서 QR 체험 흐름을 직접 눌러보세요. 키워드 선택 → AI 리뷰 생성 → 플랫폼 등록까지 1분.</p>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* 데모 */}
+        {/* ── STEP 1: QR 리뷰 수집 ───────────────────── */}
         <div className="mb-10 sm:mb-14">
-          {tab === 'reply' ? <ReviewDemo /> : <QrDemo />}
+          <div className="flex items-center gap-3 mb-5">
+            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-[#059669] text-white text-xs font-black shrink-0">1</div>
+            <div>
+              <p className="text-sm sm:text-base font-black text-[#191F28] break-keep">QR 리뷰 수집 자동화</p>
+              <p className="text-xs text-[#8B95A1] break-keep mt-0.5">고객 입장에서 QR 체험 흐름을 직접 눌러보세요. 키워드 선택 → AI 생성 → 플랫폼 등록까지 1분.</p>
+            </div>
+          </div>
+          <QrDemo />
+        </div>
+
+        {/* ── 섹션 연결 화살표 ─────────────────────── */}
+        <div className="flex flex-col items-center gap-1 mb-10 sm:mb-14 text-[#8B95A1]">
+          <div className="w-px h-8 bg-gradient-to-b from-[#059669] to-[#3182F6]" />
+          <div className="text-[10px] font-bold tracking-widest uppercase px-3 py-1 rounded-full bg-white border border-[#E5E8EB] text-[#8B95A1]">수집된 리뷰에</div>
+          <div className="w-px h-8 bg-gradient-to-b from-[#3182F6] to-[#1B3FD8]" />
+        </div>
+
+        {/* ── STEP 2: AI 리뷰 답글 ────────────────── */}
+        <div className="mb-10 sm:mb-14">
+          <div className="flex items-center gap-3 mb-5">
+            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-[#3182F6] text-white text-xs font-black shrink-0">2</div>
+            <div>
+              <p className="text-sm sm:text-base font-black text-[#191F28] break-keep">AI 리뷰 답글 자동 생성</p>
+              <p className="text-xs text-[#8B95A1] break-keep mt-0.5">아래 리뷰 중 하나를 골라 [AI 답글 생성]을 눌러보세요. 3초 안에 답글이 완성됩니다.</p>
+            </div>
+          </div>
+          <ReviewDemo />
         </div>
 
         {/* ── 더 많은 기능 ────────────────────────────── */}
