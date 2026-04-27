@@ -561,7 +561,7 @@ function ReviewDemo() {
 
 // ── 메인 페이지 ───────────────────────────────────────────
 export default function ServiceIntro() {
-  const [tab, setTab] = useState<'reply' | 'qr'>('reply')
+  const [tab, setTab] = useState<'reply' | 'qr'>('qr')
 
   return (
     <div className="min-h-screen bg-[#F2F4F6]">
