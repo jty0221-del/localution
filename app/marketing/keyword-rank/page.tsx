@@ -8,7 +8,7 @@ import Footer from '../../components/Footer'
 import { nearestRegions, COMMUNITY_REGIONS } from '../../lib/regions-community'
 
 // ─── 카테고리 트리 ──────────────────────────────────────────────────
-interface SubItem  { name: string; keywords: string[] }
+interface SubItem     { name: string; keywords: string[] }
 interface MidCategory { name: string; keywords?: string[]; subs?: SubItem[] }
 interface TopCategory { name: string; mids: MidCategory[] }
 
@@ -37,12 +37,12 @@ const TREE: TopCategory[] = [
       { name: '버거',       keywords: ['버거', '수제버거', '스매시버거', '햄버거', '감자튀김'] },
     ]},
     { name: '분식·치킨', subs: [
-      { name: '분식',       keywords: ['분식', '떡볶이', '순대', '튀김', '라볶이'] },
-      { name: '치킨',       keywords: ['치킨', '후라이드', '양념치킨', '닭강정', '닭발'] },
+      { name: '분식',  keywords: ['분식', '떡볶이', '순대', '튀김', '라볶이'] },
+      { name: '치킨',  keywords: ['치킨', '후라이드', '양념치킨', '닭강정', '닭발'] },
     ]},
     { name: '아시안', subs: [
-      { name: '베트남',     keywords: ['쌀국수', '베트남음식', '반미', '분짜', '포'] },
-      { name: '태국',       keywords: ['팟타이', '태국음식', '쏨땀', '카오팟', '똠양꿍'] },
+      { name: '베트남', keywords: ['쌀국수', '베트남음식', '반미', '분짜', '포'] },
+      { name: '태국',  keywords: ['팟타이', '태국음식', '쏨땀', '카오팟', '똠양꿍'] },
     ]},
   ]},
   { name: '카페·디저트', mids: [
@@ -53,10 +53,10 @@ const TREE: TopCategory[] = [
       { name: '스터디카페',  keywords: ['스터디카페', '공부카페', '24시카페', '조용한카페', '카공'] },
     ]},
     { name: '디저트', subs: [
-      { name: '케이크·마카롱', keywords: ['케이크', '마카롱', '디저트카페', '커스텀케이크', '레이어케이크'] },
+      { name: '케이크·마카롱',   keywords: ['케이크', '마카롱', '디저트카페', '커스텀케이크', '레이어케이크'] },
       { name: '빙수·아이스크림', keywords: ['빙수', '아이스크림', '젤라또', '팥빙수', '소프트아이스크림'] },
     ]},
-    { name: '베이커리',      keywords: ['베이커리', '빵집', '식빵', '바게트', '소금빵'] },
+    { name: '베이커리', keywords: ['베이커리', '빵집', '식빵', '바게트', '소금빵'] },
   ]},
   { name: '주류·술집', mids: [
     { name: '포차·포장마차',  keywords: ['포차', '포장마차', '야장', '호프포차', '야외포차'] },
@@ -68,13 +68,13 @@ const TREE: TopCategory[] = [
   ]},
   { name: '뷰티', mids: [
     { name: '미용실·헤어', subs: [
-      { name: '여성미용실',  keywords: ['미용실', '헤어샵', '헤어살롱', '단발컷', '여성미용'] },
-      { name: '남성바버',   keywords: ['바버샵', '남자미용실', '남성헤어', '페이드컷', '이발소'] },
-      { name: '염색·펌',   keywords: ['염색', '펌', '탈색', '매직', '볼륨매직'] },
+      { name: '여성미용실', keywords: ['미용실', '헤어샵', '헤어살롱', '단발컷', '여성미용'] },
+      { name: '남성바버',  keywords: ['바버샵', '남자미용실', '남성헤어', '페이드컷', '이발소'] },
+      { name: '염색·펌',  keywords: ['염색', '펌', '탈색', '매직', '볼륨매직'] },
     ]},
     { name: '네일', subs: [
-      { name: '네일샵',    keywords: ['네일샵', '젤네일', '네일', '아크릴', '빌더젤'] },
-      { name: '네일아트',  keywords: ['네일아트', '3D네일', '오로라네일', '그라데이션', '핸드페인팅'] },
+      { name: '네일샵',  keywords: ['네일샵', '젤네일', '네일', '아크릴', '빌더젤'] },
+      { name: '네일아트', keywords: ['네일아트', '3D네일', '오로라네일', '그라데이션', '핸드페인팅'] },
     ]},
     { name: '피부관리',    keywords: ['피부관리', '피부샵', '에스테틱', '페이셜', '트러블케어'] },
     { name: '왁싱·제모',  keywords: ['왁싱', '제모', '레이저제모', '비키니왁싱', '전신왁싱'] },
@@ -99,12 +99,12 @@ const TREE: TopCategory[] = [
       { name: '크로스핏',  keywords: ['크로스핏', '기능성훈련', '그룹트레이닝', '체력단련', '왓스박스'] },
     ]},
     { name: '스튜디오', subs: [
-      { name: '필라테스',  keywords: ['필라테스', '그룹필라테스', '개인필라테스', '재활필라테스', '필라테스스튜디오'] },
-      { name: '요가',     keywords: ['요가', '핫요가', '명상요가', '아쉬탕가', '요가원'] },
-      { name: '댄스',     keywords: ['댄스학원', '방송댄스', '힙합', '걸스힙합', '댄스스튜디오'] },
+      { name: '필라테스', keywords: ['필라테스', '그룹필라테스', '개인필라테스', '재활필라테스', '필라테스스튜디오'] },
+      { name: '요가',    keywords: ['요가', '핫요가', '명상요가', '아쉬탕가', '요가원'] },
+      { name: '댄스',    keywords: ['댄스학원', '방송댄스', '힙합', '걸스힙합', '댄스스튜디오'] },
     ]},
-    { name: '수영장',     keywords: ['수영장', '수영', '수영강습', '어린이수영', '성인수영'] },
-    { name: '클라이밍',   keywords: ['클라이밍', '볼더링', '인공암벽', '클라이밍짐', '리드'] },
+    { name: '수영장',    keywords: ['수영장', '수영', '수영강습', '어린이수영', '성인수영'] },
+    { name: '클라이밍',  keywords: ['클라이밍', '볼더링', '인공암벽', '클라이밍짐', '리드'] },
     { name: '골프', subs: [
       { name: '골프연습장', keywords: ['골프연습장', '타석', '실내골프연습장', '인도어골프', '골프'] },
       { name: '스크린골프', keywords: ['스크린골프', '골프존', '카카오골프', '스크린', '실내골프'] },
@@ -112,17 +112,17 @@ const TREE: TopCategory[] = [
   ]},
   { name: '교육', mids: [
     { name: '입시·학습', subs: [
-      { name: '입시학원',   keywords: ['입시학원', '수능', '내신', '재수학원', '대입'] },
-      { name: '영어학원',   keywords: ['영어학원', '영어회화', '토익', '토플', '영어유치원'] },
-      { name: '수학학원',   keywords: ['수학학원', '수학', '중등수학', '고등수학', '수학과외'] },
+      { name: '입시학원', keywords: ['입시학원', '수능', '내신', '재수학원', '대입'] },
+      { name: '영어학원', keywords: ['영어학원', '영어회화', '토익', '토플', '영어유치원'] },
+      { name: '수학학원', keywords: ['수학학원', '수학', '중등수학', '고등수학', '수학과외'] },
     ]},
     { name: '예체능', subs: [
       { name: '미술학원',   keywords: ['미술학원', '입시미술', '수채화', '드로잉', '아동미술'] },
       { name: '음악·피아노', keywords: ['음악학원', '피아노학원', '바이올린', '기타학원', '보컬'] },
       { name: '태권도·무술', keywords: ['태권도', '합기도', '유도', '검도', '무술'] },
     ]},
-    { name: '코딩·IT',     keywords: ['코딩학원', '프로그래밍', '파이썬', '앱개발', 'SW교육'] },
-    { name: '독서실',      keywords: ['독서실', '열람실', '코인독서실', '스터디룸', '공부방'] },
+    { name: '코딩·IT',       keywords: ['코딩학원', '프로그래밍', '파이썬', '앱개발', 'SW교육'] },
+    { name: '독서실',        keywords: ['독서실', '열람실', '코인독서실', '스터디룸', '공부방'] },
     { name: '어린이집·유치원', keywords: ['어린이집', '유치원', '놀이학교', '보육원', '유아교육'] },
   ]},
   { name: '생활편의', mids: [
@@ -141,7 +141,7 @@ const TREE: TopCategory[] = [
     { name: '여행사',       keywords: ['여행사', '패키지여행', '해외여행', '국내여행', '단체여행'] },
   ]},
   { name: '쇼핑', mids: [
-    { name: '마트·편의점',  keywords: ['마트', '편의점', '슈퍼마켓', '로컬마트', '식료품점'] },
+    { name: '마트·편의점', keywords: ['마트', '편의점', '슈퍼마켓', '로컬마트', '식료품점'] },
     { name: '꽃집',        keywords: ['꽃집', '플라워샵', '화원', '꽃배달', '웨딩꽃'] },
     { name: '옷가게·패션',  keywords: ['옷가게', '의류', '빈티지', '편집샵', '스트릿패션'] },
     { name: '안경·귀금속',  keywords: ['안경점', '귀금속', '보석', '주얼리', '시계'] },
@@ -156,12 +156,89 @@ for (const top of TREE) {
     else if (mid.subs) for (const sub of mid.subs) KW_MAP[sub.name] = sub.keywords
   }
 }
-
 function getSuffixes(name: string, fallback: string): string[] {
   return KW_MAP[name] || [fallback, fallback + ' 추천', fallback + ' 예약', fallback + ' 근처', fallback + ' 후기']
 }
 
-// ─── 업체 컨텍스트 ─────────────────────────────────────────────────
+// ─── 20개 키워드 생성 ──────────────────────────────────────────────
+// 구조: A(기본5) + B(역세권5) + C(수식어5) + D(업체명·상황5)
+function buildKeywords(regionShort: string, suffixes: string[], businessName: string, label: string) {
+  const s = suffixes
+  const f = s[0] || label
+  return [
+    // A. 지역 + 업종 기본 (5)
+    { kw: regionShort + ' ' + (s[0] || f), rel: (s[0] || f) + ' 추천' },
+    { kw: regionShort + ' ' + (s[1] || f), rel: (s[1] || f) + ' 장소' },
+    { kw: regionShort + ' ' + (s[2] || f), rel: (s[2] || f) + ' 예약' },
+    { kw: regionShort + ' ' + (s[3] || f), rel: (s[3] || f) + ' 추천' },
+    { kw: regionShort + ' ' + (s[4] || f), rel: (s[4] || f) + ' 후기' },
+    // B. 역세권 변형 (5)
+    { kw: regionShort + '역 ' + (s[0] || f),       rel: regionShort + '역 근처 ' + (s[0] || f) },
+    { kw: regionShort + '역 ' + (s[1] || f),       rel: regionShort + '역 ' + (s[1] || f) + ' 추천' },
+    { kw: regionShort + '역 ' + (s[2] || f),       rel: regionShort + '역 ' + (s[2] || f) + ' 맛집' },
+    { kw: regionShort + ' 근처 ' + (s[0] || f),    rel: '근처 ' + (s[0] || f) + ' 추천' },
+    { kw: regionShort + ' 맛집 추천',               rel: regionShort + ' ' + (s[0] || f) + ' TOP5' },
+    // C. 수식어 조합 (5)
+    { kw: regionShort + ' ' + (s[0] || f) + ' 추천', rel: (s[0] || f) + ' 인기' },
+    { kw: regionShort + ' ' + (s[0] || f) + ' 맛집', rel: (s[0] || f) + ' 유명한' },
+    { kw: regionShort + ' 점심 ' + (s[0] || f),    rel: '점심 ' + (s[0] || f) + ' 추천' },
+    { kw: regionShort + ' 저녁 ' + (s[0] || f),    rel: '저녁 ' + (s[0] || f) + ' 추천' },
+    { kw: regionShort + ' 주말 ' + (s[0] || f),    rel: '주말 ' + (s[0] || f) + ' 추천' },
+    // D. 업체명 + 상황 조합 (5)
+    { kw: businessName,                             rel: businessName + ' 리뷰' },
+    { kw: businessName + ' ' + regionShort,         rel: businessName + ' 예약' },
+    { kw: regionShort + ' ' + (s[0] || f) + ' 혼밥', rel: '혼밥 ' + (s[0] || f) + ' 추천' },
+    { kw: regionShort + ' ' + (s[0] || f) + ' 데이트', rel: '데이트 ' + (s[0] || f) + ' 코스' },
+    { kw: regionShort + ' ' + (s[0] || f) + ' 회식', rel: '회식 ' + (s[0] || f) + ' 장소' },
+  ].map((item, i) => ({ id: String(i), keyword: item.kw, relatedKw: item.rel, label }))
+}
+
+// ─── 종합점수 공식 ─────────────────────────────────────────────────
+// 순위(50pt) + 블로그리뷰(25pt) + 방문자리뷰(25pt) = 100pt
+function calcScore(rank: number | null, blogCnt: number | null, visitorCnt: number | null): number {
+  // 순위 점수 (50점)
+  let rankScore = 0
+  if (rank !== null) {
+    if (rank <= 1)  rankScore = 50
+    else if (rank <= 3)  rankScore = 46
+    else if (rank <= 5)  rankScore = 41
+    else if (rank <= 10) rankScore = 33
+    else if (rank <= 15) rankScore = 24
+    else if (rank <= 20) rankScore = 17
+    else if (rank <= 30) rankScore = 11
+    else if (rank <= 50) rankScore = 6
+    else rankScore = 2
+  }
+
+  // 블로그 리뷰 점수 (25점) — 누적 리뷰 수 기준
+  let blogScore = 0
+  if (blogCnt !== null) {
+    if (blogCnt >= 500)  blogScore = 25
+    else if (blogCnt >= 200) blogScore = 22
+    else if (blogCnt >= 100) blogScore = 19
+    else if (blogCnt >= 50)  blogScore = 15
+    else if (blogCnt >= 20)  blogScore = 11
+    else if (blogCnt >= 10)  blogScore = 7
+    else if (blogCnt >= 1)   blogScore = 4
+  }
+
+  // 방문자 리뷰 점수 (25점) — 예약+영수증 합산
+  let visitorScore = 0
+  if (visitorCnt !== null) {
+    if (visitorCnt >= 2000)  visitorScore = 25
+    else if (visitorCnt >= 1000) visitorScore = 22
+    else if (visitorCnt >= 500)  visitorScore = 19
+    else if (visitorCnt >= 200)  visitorScore = 15
+    else if (visitorCnt >= 100)  visitorScore = 11
+    else if (visitorCnt >= 50)   visitorScore = 7
+    else if (visitorCnt >= 10)   visitorScore = 4
+    else if (visitorCnt >= 1)    visitorScore = 2
+  }
+
+  return parseFloat((rankScore + blogScore + visitorScore).toFixed(1))
+}
+
+// ─── 타입 ──────────────────────────────────────────────────────────
 interface BizContext { region: string; businessName: string }
 const DEFAULT_CTX: BizContext = { region: '강남구', businessName: '내 가게' }
 function readBizContext(): BizContext {
@@ -178,39 +255,21 @@ function readBizContext(): BizContext {
   } catch { return DEFAULT_CTX }
 }
 
-// ─── 순위 히스토리 타입 ────────────────────────────────────────────
 interface RankEntry {
-  date: string       // 'YY.MM.DD'
-  rank: number | null
-  prevRank: number | null
-  blogCnt: number    // 블로그 리뷰 수 (API 미지원 → 추정치)
-  searchVol: number  // 검색량 (별도 API 필요 → 누적 추정)
-  score: number      // 종합 점수
+  date:         string
+  rank:         number | null
+  blogCnt:      number | null  // 블로그 리뷰 수
+  visitorCnt:   number | null  // 방문자 리뷰(예약+영수증)
+  score:        number
 }
-
 interface PlaceGroup {
-  id: string
-  keyword: string
-  relatedKw: string
-  label: string
+  id: string; keyword: string; relatedKw: string; label: string
   history: RankEntry[]
-  loading: boolean
-  pinned: boolean
+  loading: boolean; pinned: boolean
+  placeId?: string | null  // 캐시된 placeId
 }
 
-// ─── 점수 계산 ─────────────────────────────────────────────────────
-function calcScore(rank: number | null): number {
-  if (rank === null) return 0
-  if (rank <= 1)  return 100
-  if (rank <= 3)  return 92 - (rank - 1) * 3
-  if (rank <= 5)  return 83 - (rank - 3) * 4
-  if (rank <= 10) return 72 - (rank - 5) * 3
-  if (rank <= 20) return 55 - (rank - 10) * 2
-  if (rank <= 50) return 32 - (rank - 20) * 0.7
-  return Math.max(5, 11 - (rank - 50) * 0.1)
-}
-
-// ─── 색상 헬퍼 ─────────────────────────────────────────────────────
+// ─── 색상 ──────────────────────────────────────────────────────────
 function rankColor(r: number | null, mode: 'text' | 'bg' = 'text') {
   if (r === null) return mode === 'text' ? 'text-[#C9D0D8]' : ''
   if (mode === 'text') {
@@ -227,14 +286,14 @@ function rankColor(r: number | null, mode: 'text' | 'bg' = 'text') {
   return 'bg-[#F8F9FA]'
 }
 function scoreColor(s: number) {
-  if (s >= 85) return 'text-[#3182F6]'
-  if (s >= 65) return 'text-[#12B76A]'
-  if (s >= 40) return 'text-[#F59E0B]'
+  if (s >= 80) return 'text-[#3182F6] font-bold'
+  if (s >= 60) return 'text-[#12B76A] font-semibold'
+  if (s >= 35) return 'text-[#F59E0B] font-semibold'
   return 'text-[#F04452]'
 }
 
-// ─── 로컬 스토리지 히스토리 ────────────────────────────────────────
-const LS_KEY = 'localution.place_realtime'
+// ─── 로컬스토리지 ──────────────────────────────────────────────────
+const LS_KEY = 'localution.place_realtime_v2'
 function loadAllHistory(): Record<string, RankEntry[]> {
   if (typeof window === 'undefined') return {}
   try { return JSON.parse(localStorage.getItem(LS_KEY) || '{}') } catch { return {} }
@@ -243,27 +302,29 @@ function saveEntry(keyword: string, entry: RankEntry) {
   try {
     const all = loadAllHistory()
     if (!all[keyword]) all[keyword] = []
-    // 오늘 날짜 중복 방지
     all[keyword] = [entry, ...all[keyword].filter(e => e.date !== entry.date)].slice(0, 30)
     localStorage.setItem(LS_KEY, JSON.stringify(all))
   } catch {}
 }
+function todayStr() {
+  const d = new Date()
+  return String(d.getFullYear()).slice(2) + '.' +
+    String(d.getMonth() + 1).padStart(2, '0') + '.' +
+    String(d.getDate()).padStart(2, '0')
+}
 
-// ─── PlaceCard 컴포넌트 ────────────────────────────────────────────
+// ─── PlaceCard ─────────────────────────────────────────────────────
 function PlaceCard({ group, onRefresh, onPin, onDelete, viewMode }: {
-  group: PlaceGroup
-  onRefresh: () => void
-  onPin: () => void
-  onDelete: () => void
+  group: PlaceGroup; onRefresh: () => void; onPin: () => void; onDelete: () => void
   viewMode: 'table' | 'chart'
 }) {
   const latest = group.history[0]
-  const diff = latest && latest.prevRank !== null && latest.rank !== null
-    ? latest.prevRank - latest.rank : null
+  const prev   = group.history[1]
+  const diff   = latest?.rank !== null && prev?.rank !== null ? prev.rank - (latest?.rank ?? 0) : null
 
   return (
     <div className={`bg-white rounded-2xl shadow-sm border transition-all ${group.pinned ? 'border-[#3182F6] ring-1 ring-[#3182F6]/20' : 'border-[#F2F4F6] hover:border-[#C5D8FF]'}`}>
-      {/* 카드 헤더 */}
+      {/* 헤더 */}
       <div className="px-4 py-3 border-b border-[#F2F4F6] flex items-center justify-between gap-2">
         <div className="flex items-center gap-2 flex-wrap min-w-0">
           {group.pinned && <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#EFF6FF] text-[#3182F6] font-bold shrink-0">고정</span>}
@@ -286,7 +347,6 @@ function PlaceCard({ group, onRefresh, onPin, onDelete, viewMode }: {
               )}
             </div>
           ) : null}
-          {/* 액션 버튼 */}
           <button onClick={onRefresh} title="새로고침"
             className="p-1 rounded text-[#8B95A1] hover:text-[#3182F6] hover:bg-[#F2F4F6] transition-colors">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
@@ -308,46 +368,48 @@ function PlaceCard({ group, onRefresh, onPin, onDelete, viewMode }: {
         </div>
       </div>
 
-      {/* 콘텐츠 */}
+      {/* 테이블 */}
       {viewMode === 'table' ? (
         <div className="overflow-x-auto">
           <table className="w-full text-xs">
             <thead>
               <tr className="bg-[#F8F9FA] text-[#8B95A1]">
-                <th className="text-left px-3 py-2 font-medium">날짜</th>
+                <th className="text-left px-3 py-2 font-medium whitespace-nowrap">날짜</th>
                 <th className="text-center px-2 py-2 font-medium">순위</th>
-                <th className="text-center px-2 py-2 font-medium">전주</th>
-                <th className="text-right px-2 py-2 font-medium">블로그</th>
-                <th className="text-right px-2 py-2 font-medium">검색량</th>
-                <th className="text-right px-3 py-2 font-medium">점수</th>
+                <th className="text-right px-2 py-2 font-medium whitespace-nowrap">블로그</th>
+                <th className="text-right px-2 py-2 font-medium whitespace-nowrap">방문자리뷰</th>
+                <th className="text-right px-3 py-2 font-medium whitespace-nowrap">
+                  종합점수
+                  <span className="ml-0.5 text-[10px] font-normal text-[#C9D0D8]" title="순위(50)+블로그(25)+방문자리뷰(25)=100점">ℹ</span>
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[#F8F9FA]">
               {group.loading ? (
-                <tr><td colSpan={6} className="px-3 py-4 text-center text-[#8B95A1] animate-pulse">조회 중...</td></tr>
+                <tr><td colSpan={5} className="px-3 py-4 text-center text-[#8B95A1] animate-pulse">조회 중...</td></tr>
               ) : group.history.length === 0 ? (
-                <tr><td colSpan={6} className="px-3 py-4 text-center text-[#C9D0D8]">조회 버튼을 눌러 순위를 확인하세요</td></tr>
+                <tr><td colSpan={5} className="px-3 py-5 text-center text-[#C9D0D8]">↑ 조회 버튼을 눌러 순위를 확인하세요</td></tr>
               ) : group.history.map((row, i) => {
-                const d = row.prevRank !== null && row.rank !== null ? row.prevRank - row.rank : null
+                const prevRow = group.history[i + 1]
+                const d = row.rank !== null && prevRow?.rank !== null ? prevRow.rank - row.rank : null
                 return (
                   <tr key={i} className={`transition-colors ${i === 0 ? 'bg-[#FAFBFF]' : 'hover:bg-[#FAFBFF]'}`}>
-                    <td className="px-3 py-2 text-[#8B95A1]">{row.date}</td>
-                    <td className={`px-2 py-2 text-center font-bold ${rankColor(row.rank)}`}>
-                      {row.rank ?? '—'}
-                    </td>
-                    <td className="px-2 py-2 text-center text-[#8B95A1]">
-                      {row.prevRank ?? '—'}
+                    <td className="px-3 py-2 text-[#8B95A1] whitespace-nowrap">{row.date}</td>
+                    <td className="px-2 py-2 text-center">
+                      <span className={`font-bold ${rankColor(row.rank)}`}>{row.rank ?? '—'}</span>
                       {d !== null && (
                         <span className={`ml-1 text-[10px] font-bold ${d > 0 ? 'text-[#12B76A]' : d < 0 ? 'text-[#F04452]' : 'text-[#C9D0D8]'}`}>
                           {d > 0 ? '▲' + d : d < 0 ? '▼' + Math.abs(d) : ''}
                         </span>
                       )}
                     </td>
-                    <td className="px-2 py-2 text-right text-[#4E5968]">{row.blogCnt.toLocaleString()}</td>
-                    <td className="px-2 py-2 text-right text-[#4E5968]">{row.searchVol.toLocaleString()}</td>
-                    <td className={`px-3 py-2 text-right font-semibold ${scoreColor(row.score)}`}>
-                      {row.score.toFixed(1)}
+                    <td className="px-2 py-2 text-right text-[#4E5968]">
+                      {row.blogCnt !== null ? row.blogCnt.toLocaleString() : <span className="text-[#C9D0D8]">—</span>}
                     </td>
+                    <td className="px-2 py-2 text-right text-[#4E5968]">
+                      {row.visitorCnt !== null ? row.visitorCnt.toLocaleString() : <span className="text-[#C9D0D8]">—</span>}
+                    </td>
+                    <td className={`px-3 py-2 text-right ${scoreColor(row.score)}`}>{row.score.toFixed(1)}</td>
                   </tr>
                 )
               })}
@@ -355,29 +417,27 @@ function PlaceCard({ group, onRefresh, onPin, onDelete, viewMode }: {
           </table>
         </div>
       ) : (
-        /* 차트 뷰: 미니 스파크라인 */
+        /* 차트 뷰 */
         <div className="px-4 py-3">
           {group.history.length < 2 ? (
-            <p className="text-xs text-[#C9D0D8] text-center py-2">데이터 2개 이상 필요</p>
+            <p className="text-xs text-[#C9D0D8] text-center py-3">데이터 2개 이상 필요</p>
           ) : (
-            <div className="flex flex-col gap-1.5">
+            <div className="flex flex-col gap-2">
               <div className="flex items-end gap-0.5 h-16">
                 {group.history.slice(0, 14).reverse().map((row, i) => {
-                  const maxRank = 30
-                  const h = row.rank ? Math.max(4, Math.round((1 - row.rank / maxRank) * 60)) : 4
+                  const h = row.rank ? Math.max(4, Math.round((1 - Math.min(row.rank, 30) / 30) * 60)) : 4
+                  const bg = row.rank && row.rank <= 3 ? 'bg-[#3182F6]' : row.rank && row.rank <= 10 ? 'bg-[#12B76A]' : row.rank && row.rank <= 20 ? 'bg-[#F59E0B]' : 'bg-[#E5E8EB]'
                   return (
-                    <div key={i} className="flex-1 flex flex-col items-center gap-0.5" title={row.date + ' ' + (row.rank ? row.rank + '위' : '—')}>
-                      <div
-                        className={`w-full rounded-t-sm transition-all ${row.rank && row.rank <= 3 ? 'bg-[#3182F6]' : row.rank && row.rank <= 10 ? 'bg-[#12B76A]' : 'bg-[#E5E8EB]'}`}
-                        style={{ height: h + 'px' }}
-                      />
+                    <div key={i} className="flex-1 flex flex-col items-center gap-0.5"
+                      title={row.date + (row.rank ? ' ' + row.rank + '위' : ' 순위없음')}>
+                      <div className={`w-full rounded-t-sm ${bg}`} style={{ height: h + 'px' }} />
                     </div>
                   )
                 })}
               </div>
               <div className="flex justify-between text-[10px] text-[#C9D0D8]">
                 <span>{group.history.slice(0, 14).at(-1)?.date}</span>
-                <span>{group.history[0]?.date}</span>
+                <span>오늘</span>
               </div>
             </div>
           )}
@@ -400,7 +460,7 @@ function RegionSelect({ value, onChange }: { value: string; onChange: (v: string
   }, [])
   return (
     <select value={value} onChange={e => onChange(e.target.value)}
-      className="text-sm border border-[#E5E8EB] rounded-lg px-2.5 py-1.5 bg-white text-[#191F28] font-medium focus:outline-none focus:border-[#3182F6] max-w-[140px]">
+      className="text-sm border border-[#E5E8EB] rounded-lg px-2.5 py-1.5 bg-white font-medium focus:outline-none focus:border-[#3182F6] max-w-[140px]">
       {Object.entries(groups).map(([parent, labels]) => (
         <optgroup key={parent} label={parent}>
           {labels.map(l => <option key={l} value={l}>{l}</option>)}
@@ -438,7 +498,7 @@ function CategorySelector({ topVal, midVal, subVal, customVal, onTop, onMid, onS
           <span className="text-[#D1D6DB] text-xs">›</span>
           <select value={midVal} onChange={e => onMid(e.target.value)}
             className={`text-sm border rounded-lg px-2.5 py-1.5 bg-white font-medium focus:outline-none max-w-[130px]
-              ${isTerminal ? 'border-[#3182F6] bg-[#EFF6FF] text-[#3182F6] focus:border-[#1B64DA]' : 'border-[#E5E8EB] focus:border-[#3182F6]'}`}>
+              ${isTerminal ? 'border-[#3182F6] bg-[#EFF6FF] text-[#3182F6]' : 'border-[#E5E8EB] focus:border-[#3182F6]'}`}>
             {mids.map(m => <option key={m.name} value={m.name}>{m.name}</option>)}
           </select>
         </>
@@ -465,7 +525,7 @@ function CategorySelector({ topVal, midVal, subVal, customVal, onTop, onMid, onS
 
 // ─── 메인 ──────────────────────────────────────────────────────────
 export default function PlaceRealtimePage() {
-  const [ctx, setCtx] = useState<BizContext>(DEFAULT_CTX)
+  const [ctx, setCtx]   = useState<BizContext>(DEFAULT_CTX)
   const [region, setRegion] = useState('강남구')
   const [geoStatus, setGeoStatus] = useState<'idle'|'loading'|'ok'|'denied'|'unavailable'|'unsupported'>('idle')
 
@@ -483,15 +543,12 @@ export default function PlaceRealtimePage() {
   const handleTop = useCallback((v: string) => {
     setTopCat(v)
     if (v === '직접입력') return
-    const tree = TREE.find(t => t.name === v)
-    const fm = tree?.mids[0]
-    setMidCat(fm?.name || '')
-    setSubCat(fm?.subs?.[0]?.name || '')
+    const fm = TREE.find(t => t.name === v)?.mids[0]
+    setMidCat(fm?.name || ''); setSubCat(fm?.subs?.[0]?.name || '')
   }, [])
   const handleMid = useCallback((v: string) => {
     setMidCat(v)
-    const tree = TREE.find(t => t.name === topCat)
-    const mid = tree?.mids.find(m => m.name === v)
+    const mid = TREE.find(t => t.name === topCat)?.mids.find(m => m.name === v)
     setSubCat(mid?.subs?.[0]?.name || '')
   }, [topCat])
 
@@ -500,8 +557,7 @@ export default function PlaceRealtimePage() {
       const label = customCat || '직접입력'
       return { activeLabel: label, activeSuffixes: getSuffixes(label, label) }
     }
-    const tree = TREE.find(t => t.name === topCat)
-    const mid = tree?.mids.find(m => m.name === midCat)
+    const mid = TREE.find(t => t.name === topCat)?.mids.find(m => m.name === midCat)
     if (!mid?.subs?.length) return { activeLabel: midCat, activeSuffixes: getSuffixes(midCat, midCat) }
     return { activeLabel: subCat, activeSuffixes: getSuffixes(subCat, subCat) }
   }, [topCat, midCat, subCat, customCat])
@@ -518,121 +574,101 @@ export default function PlaceRealtimePage() {
     if (!navigator?.geolocation) { setGeoStatus('unsupported'); return }
     setGeoStatus('loading')
     navigator.geolocation.getCurrentPosition(
-      pos => {
-        try {
-          const list = nearestRegions(pos.coords.latitude, pos.coords.longitude, 3)
-          if (list[0]) setRegion(list[0].label)
-          setGeoStatus('ok')
-        } catch { setGeoStatus('unavailable') }
-      },
-      err => {
-        if (err.code === 1) setGeoStatus('denied')
-        else setGeoStatus('unavailable')
-      },
+      pos => { try { const l = nearestRegions(pos.coords.latitude, pos.coords.longitude, 3); if (l[0]) setRegion(l[0].label); setGeoStatus('ok') } catch { setGeoStatus('unavailable') } },
+      err => { if (err.code === 1) setGeoStatus('denied'); else setGeoStatus('unavailable') },
       { enableHighAccuracy: true, timeout: 8000, maximumAge: 300000 }
     )
   }, [])
 
   const regionShort = useMemo(() => region.replace(/(구|군|시)$/, '').replace(/\(.*?\)$/, '').trim(), [region])
 
-  // 그룹 초기화 (키워드 변경 시)
+  // 키워드 그룹 초기화 (20개)
   useEffect(() => {
-    const s = activeSuffixes; const f = activeLabel
-    const allHistory = loadAllHistory()
-    const todayKws = [
-      { keyword: regionShort + ' ' + (s[0] || f), relatedKw: (s[0] || f) + ' 추천' },
-      { keyword: ctx.businessName + ' ' + regionShort, relatedKw: (s[0] || f) + ' 상위노출' },
-      { keyword: regionShort + '역 ' + (s[0] || f), relatedKw: regionShort + '역 ' + (s[2] || f) },
-      { keyword: regionShort + ' ' + (s[3] || f), relatedKw: (s[3] || f) + ' 추천' },
-      { keyword: regionShort + ' ' + (s[1] || f), relatedKw: (s[1] || f) + ' 장소' },
-      { keyword: regionShort + ' ' + (s[4] || f), relatedKw: (s[4] || f) + ' 후기' },
-    ]
-    setGroups(todayKws.map((kw, i) => ({
-      id: String(i),
-      keyword: kw.keyword,
-      relatedKw: kw.relatedKw,
-      label: activeLabel,
-      history: allHistory[kw.keyword] || [],
+    const kwList    = buildKeywords(regionShort, activeSuffixes, ctx.businessName, activeLabel)
+    const allHist   = loadAllHistory()
+    setGroups(kwList.map(kw => ({
+      ...kw,
+      history: allHist[kw.keyword] || [],
       loading: false,
-      pinned: false,
+      pinned:  false,
     })))
   }, [regionShort, activeSuffixes, activeLabel, ctx.businessName])
 
-  const today = () => {
-    const d = new Date()
-    const yy = String(d.getFullYear()).slice(2)
-    const mm = String(d.getMonth() + 1).padStart(2, '0')
-    const dd = String(d.getDate()).padStart(2, '0')
-    return yy + '.' + mm + '.' + dd
-  }
-
-  const fetchRank = useCallback(async (keyword: string) => {
+  // 단일 조회
+  const fetchOne = useCallback(async (g: PlaceGroup): Promise<RankEntry & { placeId?: string | null }> => {
     try {
-      const res = await fetch('/api/naver-rank?keyword=' + encodeURIComponent(keyword) + '&businessName=' + encodeURIComponent(ctx.businessName))
-      const data = await res.json()
-      return { rank: data.rank ?? null, matchedTitle: data.matchedTitle }
-    } catch { return { rank: null } }
+      // 1) 순위 조회
+      const rankRes = await fetch('/api/naver-rank?keyword=' + encodeURIComponent(g.keyword)
+        + '&businessName=' + encodeURIComponent(ctx.businessName))
+      const rankData = await rankRes.json()
+      const rank: number | null = rankData.rank ?? null
+      const placeId: string | null = rankData.placeId ?? g.placeId ?? null
+
+      // 2) 업체 리뷰 수 조회 (placeId 있을 때만)
+      let blogCnt: number | null = null
+      let visitorCnt: number | null = null
+      if (placeId) {
+        try {
+          const rvRes  = await fetch('/api/naver-place-reviews?placeId=' + placeId)
+          const rvData = await rvRes.json()
+          if (rvData.ok) {
+            blogCnt    = rvData.blogReviewCount    ?? null
+            visitorCnt = rvData.visitorReviewCount ?? null
+          }
+        } catch {}
+      }
+
+      return {
+        date: todayStr(), rank, blogCnt, visitorCnt,
+        score: calcScore(rank, blogCnt, visitorCnt),
+        placeId,
+      }
+    } catch {
+      return { date: todayStr(), rank: null, blogCnt: null, visitorCnt: null, score: 0 }
+    }
   }, [ctx.businessName])
 
   const refreshOne = useCallback(async (id: string) => {
     setGroups(prev => prev.map(g => g.id === id ? { ...g, loading: true } : g))
     const group = groups.find(g => g.id === id)
     if (!group) return
-    const { rank } = await fetchRank(group.keyword)
-    const prevRank = group.history[0]?.rank ?? null
-    const entry: RankEntry = {
-      date: today(), rank, prevRank,
-      blogCnt: rank ? Math.max(10, 800 - rank * 18 + Math.floor(Math.random() * 40)) : 0,
-      searchVol: rank ? Math.max(50, 2000 - rank * 30 + Math.floor(Math.random() * 100)) : 0,
-      score: parseFloat(calcScore(rank).toFixed(1)),
-    }
+    const result = await fetchOne(group)
+    const { placeId, ...entry } = result
     saveEntry(group.keyword, entry)
     setGroups(prev => prev.map(g => g.id === id ? {
       ...g, loading: false,
-      history: [entry, ...g.history.filter(e => e.date !== today())].slice(0, 30),
+      placeId: placeId ?? g.placeId,
+      history: [entry, ...g.history.filter(e => e.date !== entry.date)].slice(0, 30),
     } : g))
-  }, [groups, fetchRank])
+  }, [groups, fetchOne])
 
   const handleScan = useCallback(async () => {
     if (scanning) return
     setScanning(true)
     setGroups(prev => prev.map(g => ({ ...g, loading: true })))
-    const results = await Promise.all(groups.map(g => fetchRank(g.keyword)))
-    const now = today()
+    const results = await Promise.all(groups.map(g => fetchOne(g)))
     setGroups(prev => prev.map((g, i) => {
-      const { rank } = results[i]
-      const prevRank = g.history[0]?.rank ?? null
-      const entry: RankEntry = {
-        date: now, rank, prevRank,
-        blogCnt: rank ? Math.max(10, 800 - rank * 18 + Math.floor(Math.random() * 40)) : 0,
-        searchVol: rank ? Math.max(50, 2000 - rank * 30 + Math.floor(Math.random() * 100)) : 0,
-        score: parseFloat(calcScore(rank).toFixed(1)),
-      }
+      const { placeId, ...entry } = results[i]
       saveEntry(g.keyword, entry)
-      return { ...g, loading: false, history: [entry, ...g.history.filter(e => e.date !== now)].slice(0, 30) }
+      return { ...g, loading: false, placeId: placeId ?? g.placeId,
+        history: [entry, ...g.history.filter(e => e.date !== entry.date)].slice(0, 30) }
     }))
     setLastUpdated(new Date().toLocaleString('ko-KR'))
     setScanning(false)
-  }, [scanning, groups, fetchRank])
+  }, [scanning, groups, fetchOne])
 
-  const togglePin = useCallback((id: string) => {
-    setGroups(prev => prev.map(g => g.id === id ? { ...g, pinned: !g.pinned } : g))
-  }, [])
-  const deleteGroup = useCallback((id: string) => {
-    setGroups(prev => prev.filter(g => g.id !== id))
-  }, [])
+  const togglePin    = useCallback((id: string) => setGroups(prev => prev.map(g => g.id === id ? { ...g, pinned: !g.pinned } : g)), [])
+  const deleteGroup  = useCallback((id: string) => setGroups(prev => prev.filter(g => g.id !== id)), [])
 
-  // 정렬: 고정 → 나머지
   const sorted = useMemo(() => {
-    const filtered = groups.filter(g => search === '' || g.keyword.includes(search) || g.relatedKw.includes(search))
-    return [...filtered.filter(g => g.pinned), ...filtered.filter(g => !g.pinned)]
+    const f = groups.filter(g => search === '' || g.keyword.includes(search) || g.relatedKw.includes(search))
+    return [...f.filter(g => g.pinned), ...f.filter(g => !g.pinned)]
   }, [groups, search])
 
-  const ranked10 = groups.filter(g => g.history[0]?.rank !== null && (g.history[0]?.rank ?? 999) <= 10).length
+  const ranked10   = groups.filter(g => (g.history[0]?.rank ?? 999) <= 10).length
   const breadcrumb = topCat === '직접입력' ? (customCat || '직접입력')
     : (() => {
-        const tree = TREE.find(t => t.name === topCat)
-        const mid = tree?.mids.find(m => m.name === midCat)
+        const mid = TREE.find(t => t.name === topCat)?.mids.find(m => m.name === midCat)
         if (!mid?.subs?.length) return topCat + ' › ' + midCat
         return topCat + ' › ' + midCat + ' › ' + subCat
       })()
@@ -641,67 +677,45 @@ export default function PlaceRealtimePage() {
     <div className="flex min-h-screen bg-[#F2F4F6]">
       <Sidebar />
       <main className="flex-1 ml-0 md:ml-[220px] flex flex-col min-h-screen pt-16 md:pt-0 min-w-0">
-        <PageHeader
-          icon="🏪"
-          title="플레이스 실시간"
-          subtitle="네이버 플레이스에서 내 업체의 키워드별 순위를 실시간으로 추적합니다"
-          variant="sky"
-        />
+        <PageHeader icon="🏪" title="플레이스 실시간"
+          subtitle="네이버 플레이스 키워드 순위 · 블로그리뷰 · 방문자리뷰를 실시간으로 추적합니다"
+          variant="sky" />
 
         {/* 필터 바 */}
         <div className="bg-white border-b border-[#E5E8EB] px-4 py-3 sticky top-0 z-20">
           <div className="flex items-center gap-2 flex-wrap">
-            {/* 지역 */}
             <div className="flex items-center gap-1.5 shrink-0">
               <span className="text-xs text-[#8B95A1] font-medium">지역</span>
               <RegionSelect value={region} onChange={setRegion} />
-              <button onClick={requestGeo} disabled={geoStatus === 'loading'} title="내 위치 자동 감지"
+              <button onClick={requestGeo} disabled={geoStatus === 'loading'}
                 className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg border border-[#E5E8EB] text-xs font-medium text-[#4E5968] hover:border-[#3182F6] hover:text-[#3182F6] transition-colors disabled:opacity-50 shrink-0">
                 {geoStatus === 'loading'
                   ? <span className="w-3 h-3 border-2 border-[#3182F6] border-t-transparent rounded-full animate-spin" />
-                  : <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
-                      <circle cx="12" cy="12" r="3"/>
-                      <line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/>
+                  : <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+                      <circle cx="12" cy="12" r="3"/><line x1="12" y1="2" x2="12" y2="5"/><line x1="12" y1="19" x2="12" y2="22"/>
                       <line x1="2" y1="12" x2="5" y2="12"/><line x1="19" y1="12" x2="22" y2="12"/>
                     </svg>
-                }
-                내 위치
+                }내 위치
               </button>
             </div>
-
-            {/* 업종 3단계 */}
-            <CategorySelector
-              topVal={topCat} midVal={midCat} subVal={subCat} customVal={customCat}
-              onTop={handleTop} onMid={handleMid} onSub={setSubCat} onCustom={setCustomCat}
-            />
-
-            {/* 검색 */}
+            <CategorySelector topVal={topCat} midVal={midCat} subVal={subCat} customVal={customCat}
+              onTop={handleTop} onMid={handleMid} onSub={setSubCat} onCustom={setCustomCat} />
             <div className="flex-1 min-w-[130px]">
               <input value={search} onChange={e => setSearch(e.target.value)} placeholder="키워드 필터..."
-                className="w-full text-sm border border-[#E5E8EB] rounded-lg px-3 py-1.5 focus:outline-none focus:border-[#3182F6]"
-              />
+                className="w-full text-sm border border-[#E5E8EB] rounded-lg px-3 py-1.5 focus:outline-none focus:border-[#3182F6]" />
             </div>
-
-            {/* 뷰 토글 */}
             <div className="flex items-center bg-[#F2F4F6] rounded-lg p-0.5 shrink-0">
-              <button onClick={() => setViewMode('table')}
-                className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all ${viewMode === 'table' ? 'bg-white text-[#191F28] shadow-sm' : 'text-[#8B95A1] hover:text-[#4E5968]'}`}>
-                표
-              </button>
-              <button onClick={() => setViewMode('chart')}
-                className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all ${viewMode === 'chart' ? 'bg-white text-[#191F28] shadow-sm' : 'text-[#8B95A1] hover:text-[#4E5968]'}`}>
-                차트
-              </button>
+              {(['table', 'chart'] as const).map(m => (
+                <button key={m} onClick={() => setViewMode(m)}
+                  className={`px-2.5 py-1 rounded-md text-xs font-medium transition-all ${viewMode === m ? 'bg-white text-[#191F28] shadow-sm' : 'text-[#8B95A1]'}`}>
+                  {m === 'table' ? '표' : '차트'}
+                </button>
+              ))}
             </div>
-
-            {/* 전체 조회 */}
             <button onClick={handleScan} disabled={scanning}
               className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-[#3182F6] text-white text-sm font-semibold hover:bg-[#1B64DA] transition-colors disabled:opacity-60 shrink-0">
-              {scanning
-                ? <><span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />조회 중...</>
-                : '🔍 전체 조회'}
+              {scanning ? <><span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />조회 중...</> : '🔍 전체 조회'}
             </button>
-
             {lastUpdated && <span className="text-[11px] text-[#8B95A1] ml-auto shrink-0">최근: {lastUpdated}</span>}
           </div>
           {geoStatus === 'ok' && <p className="text-[11px] text-[#12B76A] mt-1.5">✓ 위치 기반으로 <strong>{region}</strong> 선택됨</p>}
@@ -712,21 +726,28 @@ export default function PlaceRealtimePage() {
         <div className="bg-[#EFF6FF] border-b border-[#BFDBFE] px-6 py-2 flex items-center justify-between flex-wrap gap-2">
           <p className="text-[11px] text-[#1D4ED8]">
             🏪 <strong>{ctx.businessName}</strong> &nbsp;·&nbsp;
-            <strong>{region}</strong> &nbsp;·&nbsp;
-            {breadcrumb}
+            <strong>{region}</strong> &nbsp;·&nbsp; {breadcrumb}
           </p>
           <div className="flex items-center gap-4 text-xs">
-            <span className="text-[#8B95A1]">키워드 <strong className="text-[#191F28]">{groups.length}개</strong></span>
-            {groups.some(g => g.history[0]?.rank !== null) && (
-              <span className="text-[#8B95A1]">상위 10위 <strong className="text-[#3182F6]">{ranked10}개</strong></span>
-            )}
-            <div className="flex items-center gap-2">
-              <span className="flex items-center gap-0.5"><span className="w-2 h-2 rounded-sm bg-[#EFF6FF] border border-[#3182F6]/20"/><span className="text-[#3182F6]">1~3위</span></span>
-              <span className="flex items-center gap-0.5"><span className="w-2 h-2 rounded-sm bg-[#ECFDF5] border border-[#12B76A]/20"/><span className="text-[#12B76A]">4~5위</span></span>
-              <span className="flex items-center gap-0.5"><span className="w-2 h-2 rounded-sm bg-[#FFFBEB] border border-[#F59E0B]/20"/><span className="text-[#F59E0B]">6~10위</span></span>
-              <span className="flex items-center gap-0.5"><span className="w-2 h-2 rounded-sm bg-[#FFF1F2] border border-[#F04452]/20"/><span className="text-[#F04452]">11~20위</span></span>
+            <span className="text-[#8B95A1]">총 <strong className="text-[#191F28]">{groups.length}개</strong></span>
+            {groups.some(g => g.history[0]) && <span className="text-[#8B95A1]">10위내 <strong className="text-[#3182F6]">{ranked10}개</strong></span>}
+            <div className="hidden md:flex items-center gap-2">
+              {[['#EFF6FF','#3182F6','1~3위'],['#ECFDF5','#12B76A','4~5위'],['#FFFBEB','#F59E0B','6~10위'],['#FFF1F2','#F04452','11~20위']].map(([bg, c, label]) => (
+                <span key={label} className="flex items-center gap-0.5">
+                  <span className="w-2 h-2 rounded-sm" style={{ background: bg, border: '1px solid ' + c + '40' }}/>
+                  <span style={{ color: c }}>{label}</span>
+                </span>
+              ))}
             </div>
           </div>
+        </div>
+
+        {/* 점수 기준 안내 */}
+        <div className="bg-white border-b border-[#F2F4F6] px-6 py-1.5">
+          <p className="text-[11px] text-[#8B95A1]">
+            종합점수 기준: <span className="text-[#4E5968]">순위 50점</span> + <span className="text-[#4E5968]">블로그리뷰 25점</span> + <span className="text-[#4E5968]">방문자리뷰 25점</span> = 100점 만점 &nbsp;·&nbsp;
+            블로그·방문자리뷰는 업체 placeId 확인 후 자동 수집됩니다
+          </p>
         </div>
 
         {/* 카드 그리드 */}
@@ -734,14 +755,12 @@ export default function PlaceRealtimePage() {
           {sorted.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-64 text-[#8B95A1]">
               <p className="text-lg font-bold mb-1">키워드 없음</p>
-              <p className="text-sm">지역·업종을 선택하면 키워드가 자동 생성됩니다</p>
+              <p className="text-sm">지역·업종을 선택하면 20개 키워드가 자동 생성됩니다</p>
             </div>
           ) : (
             <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
               {sorted.map(group => (
-                <PlaceCard
-                  key={group.id}
-                  group={group}
+                <PlaceCard key={group.id} group={group}
                   onRefresh={() => refreshOne(group.id)}
                   onPin={() => togglePin(group.id)}
                   onDelete={() => deleteGroup(group.id)}
@@ -750,17 +769,15 @@ export default function PlaceRealtimePage() {
               ))}
             </div>
           )}
-
           {!scanning && groups.every(g => g.history.length === 0) && (
             <div className="mt-8 flex flex-col items-center gap-2 text-[#8B95A1]">
-              <div className="text-4xl mb-2">🔍</div>
-              <p className="text-base font-bold text-[#191F28]">전체 조회를 눌러 순위를 확인하세요</p>
-              <p className="text-sm">조회한 순위는 자동으로 기록되어 추이를 확인할 수 있어요</p>
-              <p className="text-xs mt-1"><a href="/settings" className="text-[#3182F6] underline">설정 → 매장 정보</a>에서 업체명을 정확히 입력해 주세요</p>
+              <div className="text-4xl">🔍</div>
+              <p className="text-base font-bold text-[#191F28] mt-1">전체 조회를 눌러 20개 키워드 순위를 확인하세요</p>
+              <p className="text-sm">순위 조회 시 업체 placeId를 자동으로 찾아 블로그·방문자리뷰도 함께 수집됩니다</p>
+              <p className="text-xs"><a href="/settings" className="text-[#3182F6] underline">설정 → 매장 정보</a>에서 업체명을 정확히 입력해 주세요</p>
             </div>
           )}
         </div>
-
         <Footer />
       </main>
     </div>
