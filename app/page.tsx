@@ -183,6 +183,22 @@ export default function LandingPage() {
   const [isDemo, setIsDemo] = useState(true)
   // 25차-1: 쿠키 기반 로그인 여부 감지 → 하단 CTA 분기 (/updates 핸드오버 패턴 재사용)
   const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const [dayStep, setDayStep] = useState(0)
+
+  const DAY_SCENES = [
+    { time: '08:00', badge: '오픈',   emoji: '☕', platform: '',        msg: '청소·준비·재고 체크…',            stress: false },
+    { time: '09:20', badge: '알림',   emoji: '📬', platform: '네이버',  msg: '리뷰 3개가 새로 달렸어요',         stress: true  },
+    { time: '11:50', badge: '피크',   emoji: '🍽️', platform: '',        msg: '점심 피크, 주방 정신없음',         stress: false },
+    { time: '13:10', badge: '알림',   emoji: '🔔', platform: '배민',    msg: '리뷰 2개 · 구글 1개 추가 도착',    stress: true  },
+    { time: '15:30', badge: '알림',   emoji: '⭐', platform: '요기요',  msg: '별점 2점 리뷰 — 어떻게 답글?',     stress: true  },
+    { time: '18:00', badge: '마감',   emoji: '💳', platform: '',        msg: '카드·현금 매출 정산 시작…',        stress: false },
+    { time: '22:40', badge: '야근',   emoji: '😫', platform: '',        msg: '답글 아직 8개 남음. 내일 또 반복', stress: true  },
+  ]
+
+  useEffect(() => {
+    const t = setInterval(() => setDayStep(s => (s + 1) % DAY_SCENES.length), 1800)
+    return () => clearInterval(t)
+  }, [DAY_SCENES.length])
 
   useEffect(() => {
     if (typeof document === 'undefined') return
@@ -426,6 +442,81 @@ export default function LandingPage() {
             </h2>
             <p className="text-[#8B95A1] text-sm">로컬루션 하나로 마케팅·정산·고객관리 전부 해결</p>
           </div>
+          {/* ── 바쁜 사장님 일과 애니메이션 ── */}
+          <div className="flex justify-center mb-8">
+            <div className="w-full max-w-sm bg-[#1C1C1E] rounded-[2rem] p-3 shadow-2xl shadow-gray-300">
+              {/* 상단 상태바 */}
+              <div className="flex justify-between items-center px-3 py-1 mb-2">
+                <span className="text-white text-xs font-bold">{DAY_SCENES[dayStep].time}</span>
+                <div className="flex gap-1 items-center">
+                  <span className="text-white text-[10px]">●●●</span>
+                  <span className="text-white text-[10px]">WiFi</span>
+                  <span className="text-white text-[10px]">🔋</span>
+                </div>
+              </div>
+              {/* 화면 */}
+              <div className="bg-[#F2F2F7] rounded-[1.5rem] overflow-hidden min-h-[220px] p-4">
+                {/* 날짜 헤더 */}
+                <div className="text-center mb-4">
+                  <div className="text-xs text-gray-400 font-medium">오늘 · 사장님 일과</div>
+                </div>
+                {/* 알림 카드들 — 최근 3개까지 표시 */}
+                <div className="space-y-2">
+                  {DAY_SCENES.slice(0, dayStep + 1).slice(-3).map((scene, idx, arr) => {
+                    const isLatest = idx === arr.length - 1
+                    return (
+                      <div
+                        key={scene.time}
+                        style={{ animation: isLatest ? 'slideIn 0.35s ease-out' : undefined }}
+                        className={`flex items-start gap-2.5 rounded-xl p-3 ${
+                          scene.stress
+                            ? 'bg-red-50 border border-red-100'
+                            : 'bg-white border border-gray-100'
+                        }`}
+                      >
+                        <span className="text-xl leading-none mt-0.5">{scene.emoji}</span>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center gap-1.5 mb-0.5">
+                            {scene.platform && (
+                              <span className="text-[10px] font-bold bg-blue-100 text-blue-600 px-1.5 py-0.5 rounded-full">
+                                {scene.platform}
+                              </span>
+                            )}
+                            <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${
+                              scene.stress ? 'bg-red-100 text-red-500' : 'bg-gray-100 text-gray-500'
+                            }`}>
+                              {scene.badge}
+                            </span>
+                            <span className="text-[10px] text-gray-400 ml-auto">{scene.time}</span>
+                          </div>
+                          <p className="text-xs text-gray-700 font-medium leading-snug">{scene.msg}</p>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+                {/* 진행 점 */}
+                <div className="flex justify-center gap-1.5 mt-4">
+                  {DAY_SCENES.map((_, i) => (
+                    <span
+                      key={i}
+                      className={`inline-block rounded-full transition-all duration-300 ${
+                        i === dayStep ? 'w-4 h-1.5 bg-blue-500' : 'w-1.5 h-1.5 bg-gray-300'
+                      }`}
+                    />
+                  ))}
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <style>{`
+            @keyframes slideIn {
+              from { opacity: 0; transform: translateY(-8px); }
+              to   { opacity: 1; transform: translateY(0); }
+            }
+          `}</style>
+
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:gap-6">
             {/* Before */}
             <div className="bg-[#FFF5F5] border border-red-100 rounded-2xl p-6">
