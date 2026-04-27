@@ -86,7 +86,7 @@ export default function BlogIndexPage() {
     <div className="flex min-h-screen bg-[#F2F4F6]">
       <Sidebar />
       <main className="flex-1 ml-0 md:ml-[220px] flex flex-col min-h-screen pt-16 md:pt-0">
-        <PageHeader icon="📊" title="블로그 지수조회"
+        <PageHeader icon="📊" title="블로그 지수조회/분석"
           subtitle="네이버 블로그 링크를 입력하면 방문자·이웃·최신화·블로그 지수를 분석합니다"
           variant="sky" />
 
