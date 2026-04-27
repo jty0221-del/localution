@@ -236,8 +236,8 @@ export default function NaverAdsPage() {
 
   const TAB_LIST: { key: Tab; label: string; icon: string; desc: string }[] = [
     { key: 'volume',  label: '검색량 조회',     icon: '📊', desc: '키워드별 PC·모바일 월간 검색량' },
-    { key: 'bid',     label: '파워링크 입찰가', icon: '💰', desc: '순위별 PC·모바일 예상 입찰 단가' },
     { key: 'suggest', label: '키워드 확장',     icon: '🔍', desc: '주키워드에서 파생되는 추천 키워드' },
+    { key: 'bid',     label: '파워링크 입찰가', icon: '💰', desc: '순위별 PC·모바일 예상 입찰 단가' },
   ]
 
   return (
