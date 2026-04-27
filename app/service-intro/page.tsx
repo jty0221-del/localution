@@ -7,7 +7,7 @@ import Link from 'next/link'
 import Footer from '../components/Footer'
 import {
   ArrowLeft, ArrowRight, Star, RefreshCw, CheckCircle2,
-  Loader2, Send, QrCode, MessageSquare,
+  Loader2, Send, ScanLine, MessageSquare,
   TrendingUp, Users, BarChart3, PenLine, Zap, Shield,
 } from 'lucide-react'
 
@@ -644,7 +644,7 @@ export default function ServiceIntro() {
                 ? 'border-[#059669] bg-[#059669] text-white shadow-[0_4px_16px_rgba(5,150,105,0.3)]'
                 : 'border-[#E5E8EB] bg-white text-[#4E5968] hover:border-[#059669]'
             }`}>
-            <QrCode size={14} strokeWidth={2.25} />
+            <ScanLine size={14} strokeWidth={2.25} />
             QR 리뷰 수집
           </button>
         </div>
@@ -664,7 +664,7 @@ export default function ServiceIntro() {
           ) : (
             <div className="flex items-center gap-3">
               <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-[#ECFDF5] flex items-center justify-center shrink-0">
-                <QrCode size={18} strokeWidth={2} className="text-[#059669]" />
+                <ScanLine size={18} strokeWidth={2} className="text-[#059669]" />
               </div>
               <div>
                 <p className="text-sm sm:text-base font-black text-[#191F28] break-keep">QR 리뷰 수집 자동화</p>
