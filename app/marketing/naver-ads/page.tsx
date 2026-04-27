@@ -275,8 +275,8 @@ export default function NaverAdsPage() {
       <div className="md:ml-[220px] flex flex-col min-h-screen">
         <PageHeader
           icon="📊"
-          title="네이버 광고 분석"
-          subtitle="키워드 검색량 조회 · 파생 키워드 확장을 한 곳에서"
+          title="키워드 조회/분석"
+          subtitle="키워드별 검색량·트렌드·콘텐츠 포화도를 한눈에 — 소상공인 마케팅 인사이트 플랫폼"
         />
 
         <main className="flex-1 px-4 md:px-6 py-6 max-w-5xl mx-auto w-full space-y-6">
