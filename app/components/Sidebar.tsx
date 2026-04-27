@@ -8,7 +8,7 @@ const FLAT_NAV = [
   { href: '/dashboard', label: '대시보드',  icon: 'DB',  colors: { bg: '#EFF6FF', text: '#3182F6' } },
   { href: '/qr-admin',  label: 'QR 관리',   icon: 'QR',  colors: { bg: '#F5F3FF', text: '#8B5CF6' } },
   { href: '/customers', label: '고객 관리', icon: '고객', colors: { bg: '#ECFDF5', text: '#059669' } },
-  { href: '/store',     label: '매장 관리', icon: '매장', colors: { bg: '#FFF1F2', text: '#E11D48' } },
+  { href: '/settings/profile', label: '매장 관리', icon: '매장', colors: { bg: '#FFF1F2', text: '#E11D48' } },
 ]
 
 const REVIEW_SUB = [
@@ -20,10 +20,16 @@ const REVIEW_SUB = [
   { href: '/review-admin/coupang', label: '쿠팡이츠',   platform: 'coupang', color: '#FF4B30' },
 ]
 
-const MARKETING_SUB = [
-  { href: '/marketing/place',        label: '플레이스 진단',   icon: '📍' },
-  { href: '/marketing/keyword-rank', label: '플레이스(실시간)',     icon: '🔍' },
-  { href: '/marketing/keyword-score',label: '키워드 점수분석', icon: '📊' },
+const MARKETING_GROUPS = [
+  {
+    platform: '네이버',
+    color: '#03C75A',
+    items: [
+      { href: '/marketing/place',         label: '플레이스 진단' },
+      { href: '/marketing/keyword-rank',  label: '플레이스(실시간)' },
+      { href: '/marketing/keyword-score', label: '플레이스 분석' },
+    ],
+  },
 ]
 
 const REGIONS = [
@@ -264,17 +270,27 @@ export default function Sidebar() {
           <span className={"ml-auto text-xs transition-transform duration-200 " + (marketingOpen ? 'rotate-180' : '')}>▾</span>
         </button>
         {marketingOpen && (
-          <div className="mt-1 ml-3 pl-4 border-l-2 border-[#FFE4CC] space-y-0.5">
-            {MARKETING_SUB.map(sub => {
-              const active = pathname === sub.href
-              return (
-                <Link key={sub.href} href={sub.href} onClick={() => setMobileOpen(false)}
-                  className={"flex items-center gap-2.5 px-3 py-2 rounded-xl " + (active ? 'bg-[#FFF7ED] text-[#EA580C] font-semibold' : 'text-[#4E5968] hover:bg-[#F8F9FA] font-medium')}>
-                  <span>{sub.icon}</span>
-                  <span className="text-xs">{sub.label}</span>
-                </Link>
-              )
-            })}
+          <div className="mt-1 ml-3 pl-4 border-l-2 border-[#FFE4CC] space-y-1">
+            {MARKETING_GROUPS.map(group => (
+              <div key={group.platform}>
+                <div className="flex items-center gap-2 px-3 py-1">
+                  <span className="text-[10px] font-black tracking-wide" style={{ color: group.color }}>{group.platform}</span>
+                  <div className="flex-1 h-px" style={{ background: group.color + '33' }} />
+                </div>
+                <div className="space-y-0.5">
+                  {group.items.map(sub => {
+                    const active = pathname === sub.href
+                    return (
+                      <Link key={sub.href} href={sub.href} onClick={() => setMobileOpen(false)}
+                        className={"flex items-center gap-2.5 px-3 py-2 rounded-xl " + (active ? 'bg-[#FFF7ED] text-[#EA580C] font-semibold' : 'text-[#4E5968] hover:bg-[#F8F9FA] font-medium')}>
+                        <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: active ? '#EA580C' : '#D1D5DB' }} />
+                        <span className="text-xs">{sub.label}</span>
+                      </Link>
+                    )
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>
