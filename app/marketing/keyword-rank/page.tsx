@@ -5,7 +5,7 @@ import { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import Sidebar from '../../components/Sidebar'
 import PageHeader from '../../components/PageHeader'
 import Footer from '../../components/Footer'
-import { nearestRegions, COMMUNITY_REGIONS } from '../lib/regions-community'
+import { nearestRegions, COMMUNITY_REGIONS } from '../../lib/regions-community'
 
 // ── 플레이스 업종 목록 ──────────────────────────────────────────
 const PLACE_TYPE_GROUPS: { label: string; items: string[] }[] = [
