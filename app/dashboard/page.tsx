@@ -1126,10 +1126,37 @@ export default function Dashboard() {
     }
   }
 
-  // 프로필(매장 주소/이름/업종) → 플레이스(실시간) 연동 키워드 자동 생성
+  // keyword-rank 페이지 등록 키워드 → 대시보드 주요키워드 순위 연동
   useEffect(() => {
-    function syncKeywordsFromProfile() {
+    function syncKeywordsFromRank() {
       try {
+        // 1) keyword-rank 저장 키워드 우선
+        type KrankGroup = { keyword: string; relatedKw: string; label: string; history: Array<{ date: string; rank: number | null }> }
+        type KrankSet   = { id: string; name: string; region: string; groups: KrankGroup[] }
+        const saved: KrankSet[] = JSON.parse(localStorage.getItem('localution.krank_saved_v1') || '[]')
+
+        if (saved.length > 0) {
+          const mapped: KeywordRank[] = []
+          for (const set of saved) {
+            for (const g of set.groups) {
+              const latest = g.history?.[0] ?? null
+              const prev   = g.history?.[1] ?? null
+              mapped.push({
+                keyword:   g.keyword,
+                rank:      latest?.rank ?? 999,
+                prevRank:  prev?.rank ?? null,
+                area:      set.region || undefined,
+                updatedAt: latest?.date || '—',
+              })
+            }
+          }
+          setKeywords(mapped.slice(0, 10))
+          setStoreRegion(saved[0]?.region || null)
+          setMainKeyword(mapped[0]?.keyword || '')
+          return
+        }
+
+        // 2) fallback: 프로필 기반 자동 생성
         const raw1 = localStorage.getItem('localution.store_info')
         const raw2 = localStorage.getItem(LS_STORE)
         const profile = raw1 ? JSON.parse(raw1) : raw2 ? JSON.parse(raw2) : null
@@ -1147,10 +1174,10 @@ export default function Dashboard() {
         }
       } catch {}
     }
-    syncKeywordsFromProfile()
-    const onChange = () => syncKeywordsFromProfile()
+    syncKeywordsFromRank()
+    const onChange = () => syncKeywordsFromRank()
     const onStorage = (e: StorageEvent) => {
-      if (e.key === LS_STORE) syncKeywordsFromProfile()
+      if (e.key === LS_STORE || e.key === 'localution.krank_saved_v1') syncKeywordsFromRank()
     }
     window.addEventListener('localution:user-change', onChange)
     window.addEventListener('storage', onStorage)
