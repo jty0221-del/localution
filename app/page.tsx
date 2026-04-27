@@ -575,7 +575,8 @@ export default function LandingPage() {
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-14">
             <h2 className="text-3xl md:text-4xl font-black text-[#191F28] mb-4">
-              필요한 기능만 골라쓰는 모듈 방식
+              필요한 기능만!!<br />
+              <span className="text-[#3182F6]">골라쓰는 모듈방식</span>
             </h2>
             <p className="text-[#4E5968] text-sm md:text-base text-left sm:text-center">
               ☕ 커피 한 잔 값 월 6,900원 · 3개 묶으면 10% · 5개 15% · 8개 20% 추가 할인
