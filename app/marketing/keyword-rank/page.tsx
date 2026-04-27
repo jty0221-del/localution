@@ -410,7 +410,7 @@ function PlaceCard({ group, onRefresh, onPin, onDelete, viewMode }: {
                 <tr><td colSpan={6} className="px-3 py-5 text-center text-[#C9D0D8]">↑ 조회 버튼을 눌러 순위를 확인하세요</td></tr>
               ) : group.history.map((row, i) => {
                 const prevRow = group.history[i + 1]
-                const d = row.rank !== null && prevRow?.rank !== null ? prevRow.rank - row.rank : null
+                const d = (row.rank !== null && prevRow != null && prevRow.rank !== null) ? prevRow.rank - row.rank : null
                 return (
                   <tr key={i} className={`transition-colors ${i === 0 ? 'bg-[#FAFBFF]' : 'hover:bg-[#FAFBFF]'}`}>
                     <td className="px-3 py-2 text-[#8B95A1] whitespace-nowrap">{row.date}</td>
