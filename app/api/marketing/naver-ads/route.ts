@@ -6,7 +6,8 @@ const AD_BASE = 'https://api.searchad.naver.com'
 function sign(timestamp: number, method: string, path: string): string {
   const secret = process.env.NAVER_AD_SECRET_KEY || ''
   const msg = `${timestamp}.${method}.${path}`
-  return crypto.createHmac('sha256', secret).update(msg).digest('base64')
+  const key = Buffer.from(secret, 'base64')
+  return crypto.createHmac('sha256', key).update(msg).digest('base64')
 }
 
 function adHeaders(method: string, path: string) {
