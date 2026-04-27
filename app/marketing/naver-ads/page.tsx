@@ -265,8 +265,8 @@ export default function NaverAdsPage() {
   }
 
   const TAB_LIST = [
-    { key: 'volume'  as Tab, label: '검색량 조회',     icon: '📊', desc: '키워드별 PC·모바일 월간 검색량' },
-    { key: 'suggest' as Tab, label: '키워드 확장',     icon: '🔍', desc: '주키워드에서 파생되는 추천 키워드' },
+    { key: 'volume'  as Tab, label: '키워드 조회',     icon: '📊', desc: '키워드별 PC·모바일 월간 검색량' },
+    { key: 'suggest' as Tab, label: '분석',     icon: '🔍', desc: '주키워드에서 파생되는 추천 키워드' },
   ]
 
   return (
