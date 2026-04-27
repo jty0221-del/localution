@@ -190,15 +190,46 @@ function extractRegion(address?: string, storeName?: string, branch?: string): s
   return null
 }
 
-// 지역 기반 키워드 생성 (연동 전 노출용 데모, 단 실제 매장 지역 반영)
-function generateRegionKeywords(region: string): KeywordRank[] {
+// 플레이스(실시간) 페이지와 동일한 키워드 패턴 (업종별 접미어)
+const KW_PATTERNS: Record<string, string[]> = {
+  '맛집':     ['맛집', '회식', '점심', '데이트', '저녁'],
+  '카페':     ['카페', '브런치', '디저트', '스터디카페', '감성카페'],
+  '네일샵':   ['네일', '젤네일', '패디큐어', '네일아트', '속눈썹'],
+  '치과':     ['치과', '임플란트', '교정', '라미네이트', '스케일링'],
+  '미용실':   ['미용실', '염색', '펌', '남자컷', '헤어컷'],
+  '동물병원': ['동물병원', '건강검진', '예방접종', '중성화', '강아지'],
+  '학원':     ['학원', '과외', '입시학원', '영어학원', '수학학원'],
+  '피트니스': ['헬스장', 'PT', '필라테스', '요가', '크로스핏'],
+  '병원':     ['병원', '의원', '진료', '예약', '상담'],
+}
+const KW_RANKS = [3, 7, 12, 21, 34] as const
+const KW_PREV  = [5, 7, 15, 18, null] as const
+
+// 플레이스(실시간) 페이지의 buildMockData 와 동일한 키워드 생성
+function generateRegionKeywords(region: string, storeName?: string, category?: string): KeywordRank[] {
+  const cat = category || '맛집'
+  const suffixes = KW_PATTERNS[cat] || KW_PATTERNS['맛집']
+  const times = ['방금 전', '3분 전', '10분 전', '18분 전', '방금 전']
   return [
-    { keyword: `${region} 맛집`,     rank: 3,  prevRank: 5,   area: region, updatedAt: '방금 전' },
-    { keyword: `${region} 카페`,     rank: 7,  prevRank: 7,   area: region, updatedAt: '3분 전' },
-    { keyword: `${region} 점심`,     rank: 12, prevRank: 15,  area: region, updatedAt: '10분 전' },
-    { keyword: `${region} 회식`,     rank: 21, prevRank: 18,  area: region, updatedAt: '18분 전' },
-    { keyword: `${region} 데이트코스`, rank: 34, prevRank: null, area: region, updatedAt: '방금 전' },
+    { keyword: `${region} ${suffixes[0]}`,   rank: KW_RANKS[0], prevRank: KW_PREV[0] ?? null, area: region, updatedAt: times[0] },
+    { keyword: storeName ? `${storeName} ${region}` : `${region}역 ${suffixes[0]}`, rank: KW_RANKS[1], prevRank: KW_PREV[1] ?? null, area: region, updatedAt: times[1] },
+    { keyword: `${region}역 ${suffixes[0]}`, rank: KW_RANKS[2], prevRank: KW_PREV[2] ?? null, area: region, updatedAt: times[2] },
+    { keyword: `${region} ${suffixes[3] || suffixes[0]}`, rank: KW_RANKS[3], prevRank: KW_PREV[3] ?? null, area: region, updatedAt: times[3] },
+    { keyword: `${region} ${suffixes[1] || suffixes[0]}`, rank: KW_RANKS[4], prevRank: KW_PREV[4] ?? null, area: region, updatedAt: times[4] },
   ]
+}
+
+function inferCategoryFromStore(name: string): string | null {
+  if (!name) return null
+  if (/카페|커피|베이커리|브런치/.test(name)) return '카페'
+  if (/치과/.test(name)) return '치과'
+  if (/네일/.test(name)) return '네일샵'
+  if (/미용실|헤어샵|헤어|살롱/.test(name)) return '미용실'
+  if (/동물병원/.test(name)) return '동물병원'
+  if (/학원/.test(name)) return '학원'
+  if (/헬스|피트니스|요가|필라테스/.test(name)) return '피트니스'
+  if (/의원|한의원|정형외과|병원/.test(name)) return '병원'
+  return null
 }
 
 const RECENT_REVIEWS = [
@@ -1095,17 +1126,20 @@ export default function Dashboard() {
     }
   }
 
-  // 프로필(매장 주소/이름) → 지역 기반 키워드 자동 생성
+  // 프로필(매장 주소/이름/업종) → 플레이스(실시간) 연동 키워드 자동 생성
   useEffect(() => {
     function syncKeywordsFromProfile() {
       try {
-        const raw = localStorage.getItem(LS_STORE)
-        const profile = raw ? JSON.parse(raw) : null
-        const region = extractRegion(profile?.address, profile?.storeName, profile?.branch)
+        const raw1 = localStorage.getItem('localution.store_info')
+        const raw2 = localStorage.getItem(LS_STORE)
+        const profile = raw1 ? JSON.parse(raw1) : raw2 ? JSON.parse(raw2) : null
+        const region = extractRegion(profile?.address || profile?.location, profile?.storeName || profile?.name, profile?.branch)
         if (region) {
+          const storeName = profile?.name || profile?.storeName || ''
+          const category = profile?.category || profile?.industry || inferCategoryFromStore(storeName) || '맛집'
           setStoreRegion(region)
-          setKeywords(generateRegionKeywords(region))
-          setMainKeyword(`${region} 맛집`)
+          setKeywords(generateRegionKeywords(region, storeName, category))
+          setMainKeyword(`${region} ${(KW_PATTERNS[category] || KW_PATTERNS['맛집'])[0]}`)
         } else {
           setStoreRegion(null)
           setKeywords([])
