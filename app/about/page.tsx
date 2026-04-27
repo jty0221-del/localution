@@ -95,7 +95,7 @@ export default function AboutPage() {
           <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-white border border-[#D1E5FF] rounded-full text-xs font-semibold text-[#3182F6] mb-6 shadow-sm">
             <span>LOCALUTION · AI Marketing OS</span>
           </div>
-          <h1 className="text-3xl md:text-5xl font-black leading-tight tracking-tight mb-5">
+          <h1 className="text-2xl sm:text-4xl md:text-5xl font-black leading-tight tracking-tight mb-5">
             사장님의 마케팅을<br className="md:hidden" />
             {' '}AI가 대신합니다.
           </h1>
@@ -126,7 +126,7 @@ export default function AboutPage() {
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-12">
             <div className="text-xs font-bold text-[#3182F6] tracking-widest mb-3">WHY LOCALUTION</div>
-            <h2 className="text-2xl md:text-4xl font-black tracking-tight mb-4">
+            <h2 className="text-xl sm:text-3xl md:text-4xl font-black tracking-tight mb-4">
               대행사처럼 맡기고,<br className="md:hidden" />
               {' '}도구처럼 쓰세요.
             </h2>
@@ -135,16 +135,16 @@ export default function AboutPage() {
             </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-3 gap-3 md:gap-4">
             {[
               { num: '500+', label: '매장 데이터 학습', desc: '자영업 특화 AI 모델' },
               { num: '10분', label: '세팅 완료',        desc: '매장 정보만 입력' },
               { num: '24h', label: '자동 운영',         desc: '리뷰·SNS·광고 동시' },
             ].map((s, i) => (
-              <div key={i} className="bg-[#F9FAFB] rounded-3xl p-6 md:p-8 text-center hover:bg-[#F5F9FF] transition-colors">
-                <div className="text-4xl md:text-5xl font-black text-[#3182F6] mb-2">{s.num}</div>
-                <div className="text-sm font-bold text-[#191F28] mb-1">{s.label}</div>
-                <div className="text-xs text-[#4E5968] leading-relaxed">{s.desc}</div>
+              <div key={i} className="bg-[#F9FAFB] rounded-2xl md:rounded-3xl p-4 md:p-8 text-center hover:bg-[#F5F9FF] transition-colors">
+                <div className="text-2xl sm:text-3xl md:text-5xl font-black text-[#3182F6] mb-1 md:mb-2">{s.num}</div>
+                <div className="text-xs sm:text-sm font-bold text-[#191F28] mb-0.5 md:mb-1 break-keep">{s.label}</div>
+                <div className="text-[10px] sm:text-xs text-[#4E5968] leading-relaxed hidden sm:block">{s.desc}</div>
               </div>
             ))}
           </div>
@@ -193,7 +193,7 @@ export default function AboutPage() {
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-10">
             <div className="text-xs font-bold text-[#3182F6] tracking-widest mb-3">FOUNDER'S NOTE</div>
-            <h2 className="text-2xl md:text-4xl font-black tracking-tight">
+            <h2 className="text-xl sm:text-3xl md:text-4xl font-black tracking-tight">
               왜 만들었나
             </h2>
           </div>
@@ -245,7 +245,7 @@ export default function AboutPage() {
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-12">
             <div className="text-xs font-bold text-[#3182F6] tracking-widest mb-3">OUR PRINCIPLES</div>
-            <h2 className="text-2xl md:text-4xl font-black tracking-tight mb-4">
+            <h2 className="text-xl sm:text-3xl md:text-4xl font-black tracking-tight mb-4">
               로컬루션이 지키는 5가지 원칙
             </h2>
             <p className="text-[#4E5968] text-sm md:text-base text-left sm:text-center">
@@ -277,7 +277,7 @@ export default function AboutPage() {
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-12">
             <div className="text-xs font-bold text-[#3182F6] tracking-widest mb-3">WHAT WE AUTOMATE</div>
-            <h2 className="text-2xl md:text-4xl font-black tracking-tight mb-4">
+            <h2 className="text-xl sm:text-3xl md:text-4xl font-black tracking-tight mb-4">
               로컬루션이 대신 처리하는 것
             </h2>
             <p className="text-[#4E5968] text-sm md:text-base text-left sm:text-center">
@@ -308,10 +308,10 @@ export default function AboutPage() {
           6. FAQ
          ═══════════════════════════════════════════════════════ */}
       <section className="px-5 py-16 md:py-24">
-        <div className="max-w-3xl mx-auto">
+        <div className="max-w-4xl mx-auto">
           <div className="text-center mb-10">
             <div className="text-xs font-bold text-[#3182F6] tracking-widest mb-3">FAQ</div>
-            <h2 className="text-2xl md:text-4xl font-black tracking-tight">
+            <h2 className="text-xl sm:text-3xl md:text-4xl font-black tracking-tight">
               자주 묻는 질문
             </h2>
           </div>
