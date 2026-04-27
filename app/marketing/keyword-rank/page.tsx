@@ -369,7 +369,7 @@ function PlaceCard({ group, onRefresh, onPin, onDelete, onCheck, viewMode, sortK
 }) {
   const latest = group.history[0]
   const prev   = group.history[1]
-  const diff   = latest?.rank !== null && prev?.rank !== null ? prev.rank - (latest?.rank ?? 0) : null
+  const diff   = (latest != null && latest.rank !== null && prev != null && prev.rank !== null) ? prev.rank - latest.rank : null
   const vol    = latest?.totalQcCnt != null ? fmtNum(latest.totalQcCnt) + '건' : null
 
   return (
@@ -441,7 +441,7 @@ function PlaceCard({ group, onRefresh, onPin, onDelete, onCheck, viewMode, sortK
                 <tr><td colSpan={8} className="px-3 py-4 text-center text-[#C9D0D8] text-[11px]">조회 버튼을 눌러 순위를 확인하세요</td></tr>
               ) : group.history.map((row, i) => {
                 const prevRow = group.history[i + 1]
-                const d = row.rank !== null && prevRow?.rank !== null ? prevRow.rank - row.rank : null
+                const d = (row.rank !== null && prevRow != null && prevRow.rank !== null) ? prevRow.rank - row.rank : null
                 return (
                   <tr key={i} className={`transition-colors ${i === 0 ? 'bg-[#FAFBFF]' : 'hover:bg-[#FAFBFF]'}`}>
                     <td className="px-3 py-1.5 text-[#8B95A1] whitespace-nowrap">{row.date}</td>
