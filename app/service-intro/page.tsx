@@ -743,6 +743,91 @@ export default function ServiceIntro() {
             ))}
           </div>
 
+          {/* ── 실사용자 피드백 기반 업데이트 ────────── */}
+          <div className="mb-6 sm:mb-8">
+            <div className="bg-white rounded-2xl border border-[#E5E8EB] overflow-hidden">
+
+              {/* 헤더 */}
+              <div className="px-5 sm:px-8 py-5 sm:py-6 border-b border-[#F2F4F6]">
+                <div className="inline-flex items-center gap-1.5 bg-[#EFF6FF] text-[#3182F6] text-[10px] font-black px-3 py-1 rounded-full mb-3">
+                  🔄 실사용자 기반 지속 업그레이드
+                </div>
+                <h3 className="text-base sm:text-lg font-black text-[#191F28] break-keep mb-1.5">
+                  고객의 목소리로 매일 더 나아지고 있어요
+                </h3>
+                <p className="text-xs sm:text-sm text-[#8B95A1] break-keep leading-relaxed max-w-xl">
+                  자영업자·소상공인·블로거·프리랜서 등 실제로 쓰는 분들의 피드백을 직접 수용하고,
+                  매주 기능을 개선·추가하며 함께 만들어가고 있습니다.
+                </p>
+              </div>
+
+              {/* 사용 중인 분들 */}
+              <div className="px-5 sm:px-8 py-4 bg-[#F8F9FA] border-b border-[#F2F4F6]">
+                <p className="text-[10px] font-bold text-[#B0B8C1] tracking-widest uppercase mb-2.5">지금 함께하고 있는 분들</p>
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { label: '음식점 사장님', emoji: '🍜' },
+                    { label: '카페 사장님',   emoji: '☕' },
+                    { label: '마케팅 대행사', emoji: '📊' },
+                    { label: '블로거',        emoji: '✍️' },
+                    { label: '소상공인',      emoji: '🏪' },
+                    { label: '프리랜서',      emoji: '💻' },
+                    { label: '미용실·네일샵', emoji: '💅' },
+                    { label: '학원·교습소',   emoji: '📚' },
+                  ].map(u => (
+                    <span key={u.label}
+                      className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-bold bg-white border border-[#E5E8EB] text-[#4E5968]">
+                      {u.emoji} {u.label}
+                    </span>
+                  ))}
+                </div>
+              </div>
+
+              {/* 피드백 반영 업데이트 피드 */}
+              <div className="px-5 sm:px-8 py-5">
+                <p className="text-[10px] font-bold text-[#B0B8C1] tracking-widest uppercase mb-4">최근 반영된 피드백</p>
+                <div className="space-y-4">
+                  {[
+                    { from: '마케팅 대행사', emoji: '📊', color: '#3182F6', bg: '#EFF6FF', date: '04.25', update: '키워드 실시간 순위 조회 + 대시보드 연동 — "클라이언트에게 바로 보여줄 수 있게 됐어요"' },
+                    { from: '음식점 사장님', emoji: '🍜', color: '#EA580C', bg: '#FFF7ED', date: '04.22', update: 'QR 리뷰 4단계 흐름 간소화 및 모바일 최적화 — "고객이 헷갈려하지 않고 끝까지 써요"' },
+                    { from: '블로거',        emoji: '✍️', color: '#059669', bg: '#ECFDF5', date: '04.18', update: '블로그 게시글 키워드 순위 추적 기능 신규 추가 — "내 글이 몇 위인지 바로 보여서 좋아요"' },
+                    { from: '소상공인',      emoji: '🏪', color: '#F59E0B', bg: '#FFFBEB', date: '04.15', update: 'AI 답글 톤 MZ체 추가 · 감성적 어조 개선 — "우리 가게 분위기에 딱 맞아요"' },
+                    { from: '카페 사장님',   emoji: '☕', color: '#8B5CF6', bg: '#F5F3FF', date: '04.10', update: '사장님 커뮤니티 지역별 게시판 및 포인트 시스템 오픈 — "다른 사장님들이랑 소통하니 도움돼요"' },
+                  ].map((item, i) => (
+                    <div key={i} className="flex items-start gap-3">
+                      <div className="w-7 h-7 rounded-full flex items-center justify-center text-sm shrink-0 mt-0.5"
+                        style={{ background: item.bg }}>
+                        {item.emoji}
+                      </div>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
+                          <span className="text-[10px] font-black px-1.5 py-0.5 rounded-full"
+                            style={{ background: item.bg, color: item.color }}>{item.from} 피드백</span>
+                          <span className="text-[10px] text-[#B0B8C1]">{item.date}</span>
+                        </div>
+                        <p className="text-xs text-[#4E5968] break-keep leading-relaxed">{item.update}</p>
+                      </div>
+                      <div className="w-5 h-5 rounded-full bg-[#ECFDF5] flex items-center justify-center shrink-0 mt-0.5">
+                        <span className="text-[9px] text-[#059669] font-black">✓</span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* 하단 */}
+                <div className="mt-5 pt-4 border-t border-[#F2F4F6] flex items-center justify-between gap-3 flex-wrap">
+                  <p className="text-[11px] text-[#8B95A1] break-keep">
+                    💬 쓰면서 불편하신 점, 원하는 기능이 있으면 언제든 알려주세요. 다음 업데이트에 반영할게요.
+                  </p>
+                  <Link href="/inquiry"
+                    className="text-[11px] font-black text-[#3182F6] hover:underline shrink-0">
+                    피드백 남기기 →
+                  </Link>
+                </div>
+              </div>
+            </div>
+          </div>
+
           {/* 후킹 CTA */}
           <div className="rounded-2xl p-5 sm:p-8 text-white text-center"
             style={{ background: 'linear-gradient(135deg,#1B3FD8 0%,#3182F6 100%)' }}>
