@@ -664,6 +664,37 @@ const SERVICE_RANKING_INIT = [
   { id: 10, name: '세금계산서 자동 발행',      category: '행정', badge: '',     color: '#6B7280' },
 ]
 
+function QuickNav() {
+  const links = [
+    { href: '/dashboard',        label: '대시보드',   bg: '#EFF6FF', color: '#3182F6',  icon: 'DB' },
+    { href: '/reviews',          label: '리뷰 관리',  bg: '#FFFBEB', color: '#F59E0B',  icon: '리뷰' },
+    { href: '/marketing/place',  label: '마케팅 관리',bg: '#FFF7ED', color: '#EA580C',  icon: '마케' },
+    { href: '/qr-admin',         label: 'QR 관리',    bg: '#F5F3FF', color: '#8B5CF6',  icon: 'QR' },
+    { href: '/customers',        label: '고객 관리',  bg: '#ECFDF5', color: '#059669',  icon: '고객' },
+    { href: '/settings/profile', label: '매장 관리',  bg: '#FFF1F2', color: '#E11D48',  icon: '매장' },
+    { href: '/community',        label: '커뮤니티',   bg: '#FDF2F8', color: '#EC4899',  icon: '커뮤' },
+  ]
+  return (
+    <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+      <div className="px-5 py-4 border-b border-[#F2F4F6]">
+        <span className="text-sm font-bold text-[#191F28]">빠른 이동</span>
+        <p className="text-[10px] text-[#8B95A1] mt-0.5">주요 메뉴 바로가기</p>
+      </div>
+      <div className="p-3 space-y-1">
+        {links.map(l => (
+          <Link key={l.href} href={l.href}
+            className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[#F8F9FA] transition-colors group">
+            <div className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold flex-shrink-0"
+              style={{ background: l.bg, color: l.color }}>{l.icon}</div>
+            <span className="text-sm font-medium text-[#4E5968] group-hover:text-[#191F28]">{l.label}</span>
+            <ArrowRight size={12} strokeWidth={2.5} className="ml-auto text-[#D1D5DB] group-hover:text-[#3182F6] transition-colors" />
+          </Link>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function ServiceRanking() {
   const [items, setItems] = useState(SERVICE_RANKING_INIT.map((s, i) => ({ ...s, rank: i + 1, prevRank: i + 1, score: 100 - i * 8 })))
   const [isShuffling, setIsShuffling] = useState(false)
@@ -1858,8 +1889,11 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* 인기 서비스 랭킹 */}
-          <ServiceRanking />
+          {/* 우측: 빠른 이동 + 인기 서비스 랭킹 */}
+          <div className="flex flex-col gap-4">
+            <QuickNav />
+            <ServiceRanking />
+          </div>
         </div>
 
         {/* ── 최근 리뷰 ── */}

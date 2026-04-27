@@ -5,10 +5,10 @@ import Link from 'next/link'
 import { usePathname, useSearchParams, useRouter } from 'next/navigation'
 
 const FLAT_NAV = [
-  { href: '/dashboard', label: '대시보드',  icon: 'DB',  colors: { bg: '#EFF6FF', text: '#3182F6' } },
-  { href: '/qr-admin',  label: 'QR 관리',   icon: 'QR',  colors: { bg: '#F5F3FF', text: '#8B5CF6' } },
-  { href: '/customers', label: '고객 관리', icon: '고객', colors: { bg: '#ECFDF5', text: '#059669' } },
-  { href: '/settings/profile', label: '매장 관리', icon: '매장', colors: { bg: '#FFF1F2', text: '#E11D48' } },
+  { href: '/dashboard',        label: '대시보드', icon: 'DB',  colors: { bg: '#EFF6FF', text: '#3182F6' } },
+  { href: '/qr-admin',         label: 'QR 관리',  icon: 'QR',  colors: { bg: '#F5F3FF', text: '#8B5CF6' } },
+  { href: '/customers',        label: '고객 관리',icon: '고객', colors: { bg: '#ECFDF5', text: '#059669' } },
+  { href: '/settings/profile', label: '매장 관리',icon: '매장', colors: { bg: '#FFF1F2', text: '#E11D48' } },
 ]
 
 const REVIEW_SUB = [
@@ -20,6 +20,8 @@ const REVIEW_SUB = [
   { href: '/review-admin/coupang', label: '쿠팡이츠',   platform: 'coupang', color: '#FF4B30' },
 ]
 
+const MARKETING_TOP = { href: '/my/platforms', label: '플랫폼 통합관리', icon: '🔗' }
+
 const MARKETING_GROUPS = [
   {
     platform: '네이버',
@@ -28,6 +30,31 @@ const MARKETING_GROUPS = [
       { href: '/marketing/place',         label: '플레이스 진단' },
       { href: '/marketing/keyword-rank',  label: '플레이스(실시간)' },
       { href: '/marketing/keyword-score', label: '플레이스 분석' },
+      { href: '/marketing/blog-post',     label: '블로그' },
+      { href: '/marketing/blog-tracking', label: '블로그 순위 추적' },
+      { href: '/marketing/place',         label: '광고', badge: '준비중' },
+    ],
+  },
+  {
+    platform: '인스타',
+    color: '#E1306C',
+    items: [
+      { href: '/marketing/reels',     label: '릴스·숏폼' },
+      { href: '/marketing/card-news', label: '카드뉴스' },
+    ],
+  },
+  {
+    platform: '구글',
+    color: '#4285F4',
+    items: [
+      { href: '/marketing/place', label: '구글 마케팅', badge: '준비중' },
+    ],
+  },
+  {
+    platform: '카카오',
+    color: '#F5A623',
+    items: [
+      { href: '/marketing/place', label: '카카오 마케팅', badge: '준비중' },
     ],
   },
 ]
@@ -213,25 +240,28 @@ export default function Sidebar() {
     ? storeBranch
     : (storeAddr ? storeAddr.slice(0, 18) : (userEmail || ''))
 
+  const renderFlatNav = (item: typeof FLAT_NAV[0]) => {
+    const active = pathname === item.href
+    return (
+      <Link key={item.href} href={item.href} onClick={() => setMobileOpen(false)}
+        className={"flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all " + (active ? 'bg-[#EFF6FF] text-[#3182F6] font-semibold' : 'text-[#4E5968] hover:bg-[#F2F4F6] font-medium')}>
+        <div className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold flex-shrink-0"
+          style={active ? { background: '#3182F6', color: '#fff' } : { background: item.colors.bg, color: item.colors.text }}>
+          {item.icon}
+        </div>
+        <span className="text-sm">{item.label}</span>
+        {active && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-[#3182F6]" />}
+      </Link>
+    )
+  }
+
   const NavItems = () => (
     <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
 
-      {FLAT_NAV.map(item => {
-        const active = pathname === item.href
-        return (
-          <Link key={item.href} href={item.href} onClick={() => setMobileOpen(false)}
-            className={"flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all " + (active ? 'bg-[#EFF6FF] text-[#3182F6] font-semibold' : 'text-[#4E5968] hover:bg-[#F2F4F6] font-medium')}>
-            <div className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold flex-shrink-0"
-              style={active ? { background: '#3182F6', color: '#fff' } : { background: item.colors.bg, color: item.colors.text }}>
-              {item.icon}
-            </div>
-            <span className="text-sm">{item.label}</span>
-            {active && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-[#3182F6]" />}
-          </Link>
-        )
-      })}
+      {/* 1. 대시보드 */}
+      {renderFlatNav(FLAT_NAV[0])}
 
-      {/* 리뷰 관리 */}
+      {/* 2. 리뷰 관리 */}
       <div>
         <button onClick={() => setReviewOpen(v => !v)}
           className={"w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left " + (isReviewSection ? 'bg-[#FFFBEB] text-[#F59E0B] font-semibold' : 'text-[#4E5968] hover:bg-[#F2F4F6] font-medium')}>
@@ -271,20 +301,31 @@ export default function Sidebar() {
         </button>
         {marketingOpen && (
           <div className="mt-1 ml-3 pl-4 border-l-2 border-[#FFE4CC] space-y-1">
+            {/* 플랫폼 통합관리 — 최상단 */}
+            <Link href={MARKETING_TOP.href} onClick={() => setMobileOpen(false)}
+              className={"flex items-center gap-2 px-3 py-2 rounded-xl " + (pathname === MARKETING_TOP.href ? 'bg-[#FFF7ED] text-[#EA580C] font-semibold' : 'text-[#4E5968] hover:bg-[#F8F9FA] font-medium')}>
+              <span className="text-xs">{MARKETING_TOP.icon}</span>
+              <span className="text-xs">{MARKETING_TOP.label}</span>
+            </Link>
+            {/* 플랫폼 그룹 */}
             {MARKETING_GROUPS.map(group => (
               <div key={group.platform}>
-                <div className="flex items-center gap-2 px-3 py-1">
+                <div className="flex items-center gap-2 px-3 py-1 mt-1">
                   <span className="text-[10px] font-black tracking-wide" style={{ color: group.color }}>{group.platform}</span>
                   <div className="flex-1 h-px" style={{ background: group.color + '33' }} />
                 </div>
                 <div className="space-y-0.5">
-                  {group.items.map(sub => {
-                    const active = pathname === sub.href
+                  {group.items.map((sub, si) => {
+                    const active = pathname === sub.href && !('badge' in sub && sub.badge === '준비중')
+                    const isReady = !('badge' in sub && sub.badge === '준비중')
                     return (
-                      <Link key={sub.href} href={sub.href} onClick={() => setMobileOpen(false)}
-                        className={"flex items-center gap-2.5 px-3 py-2 rounded-xl " + (active ? 'bg-[#FFF7ED] text-[#EA580C] font-semibold' : 'text-[#4E5968] hover:bg-[#F8F9FA] font-medium')}>
-                        <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: active ? '#EA580C' : '#D1D5DB' }} />
-                        <span className="text-xs">{sub.label}</span>
+                      <Link key={sub.href + si} href={isReady ? sub.href : '#'} onClick={() => isReady && setMobileOpen(false)}
+                        className={"flex items-center gap-2.5 px-3 py-1.5 rounded-xl " + (active ? 'bg-[#FFF7ED] text-[#EA580C] font-semibold' : isReady ? 'text-[#4E5968] hover:bg-[#F8F9FA] font-medium' : 'text-[#B0B8C1] cursor-default font-medium')}>
+                        <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: active ? '#EA580C' : isReady ? '#D1D5DB' : '#E5E8EB' }} />
+                        <span className="text-xs flex-1">{sub.label}</span>
+                        {'badge' in sub && sub.badge && (
+                          <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-[#F2F4F6] text-[#8B95A1] font-bold flex-shrink-0">{sub.badge}</span>
+                        )}
                       </Link>
                     )
                   })}
@@ -295,7 +336,16 @@ export default function Sidebar() {
         )}
       </div>
 
-      {/* 커뮤니티 */}
+      {/* 4. QR 관리 */}
+      {renderFlatNav(FLAT_NAV[1])}
+
+      {/* 5. 고객 관리 */}
+      {renderFlatNav(FLAT_NAV[2])}
+
+      {/* 6. 매장 관리 */}
+      {renderFlatNav(FLAT_NAV[3])}
+
+      {/* 7. 커뮤니티 */}
       <div>
         <button onClick={() => setCommunityOpen(v => !v)}
           className={"w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left " + (isCommunitySection ? 'bg-[#FDF2F8] text-[#EC4899] font-semibold' : 'text-[#4E5968] hover:bg-[#F2F4F6] font-medium')}>
