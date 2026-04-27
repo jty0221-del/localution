@@ -449,7 +449,7 @@ async function postNaverReply(
     // 카드 내 버튼 목록 디버그 로깅
     try {
       const cardBtns = await card.$$('button')
-      const btnTexts = await Promise.all(cardBtns.map(b => b.innerText().catch(() => '')))
+      const btnTexts = await Promise.all(cardBtns.map((b: any) => b.innerText().catch(() => '')))
       log.info({ btnTexts: btnTexts.slice(0, 10) }, 'naver: buttons in card')
     } catch {}
 
