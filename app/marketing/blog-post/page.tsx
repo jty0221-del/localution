@@ -189,7 +189,7 @@ export default function BlogPostGeneratorPage() {
         <PageHeader
           icon="✍️"
           title="블로그 글 작성"
-          subtitle="네이버 SEO 최적화 3,000자 원고 — 키워드·사진만 주면 완성본"
+          subtitle="키워드와 사진만 넣으면 AI가 네이버 SEO 최적화 블로그 원고를 완성해드립니다"
           variant="emerald"
         />
         <div className="max-w-5xl mx-auto pt-6 pb-20 px-4 md:px-8">
