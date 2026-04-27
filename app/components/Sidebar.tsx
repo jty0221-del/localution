@@ -261,6 +261,28 @@ export default function Sidebar() {
       {/* 1. 대시보드 */}
       {renderFlatNav(FLAT_NAV[0])}
 
+      {/* 1-1. 플랫폼 통합관리 — STEP 1 강조 */}
+      <Link href="/my/platforms" onClick={() => setMobileOpen(false)}
+        className={"relative flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all border " + (pathname === '/my/platforms' ? 'bg-[#ECFDF5] text-[#059669] font-semibold border-[#059669]/30' : 'bg-[#F0FDF4] text-[#065F46] font-semibold border-[#BBF7D0] hover:bg-[#DCFCE7]')}>
+        <div className="relative w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold flex-shrink-0"
+          style={{ background: pathname === '/my/platforms' ? '#059669' : '#059669', color: '#fff' }}>
+          🔗
+          {pathname !== '/my/platforms' && (
+            <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[#EF4444] border-2 border-white animate-pulse" />
+          )}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-xs font-bold leading-none">플랫폼 연결</p>
+          <p className="text-[10px] text-[#059669] font-normal leading-none mt-0.5">리뷰·마케팅 시작 전 필수</p>
+        </div>
+        {pathname !== '/my/platforms' && (
+          <span className="flex-shrink-0 text-[9px] font-black px-1.5 py-0.5 rounded-full bg-[#059669] text-white">STEP 1</span>
+        )}
+        {pathname === '/my/platforms' && (
+          <span className="ml-auto w-1.5 h-1.5 rounded-full bg-[#059669]" />
+        )}
+      </Link>
+
       {/* 2. 리뷰 관리 */}
       <div>
         <button onClick={() => setReviewOpen(v => !v)}
@@ -301,12 +323,6 @@ export default function Sidebar() {
         </button>
         {marketingOpen && (
           <div className="mt-1 ml-3 pl-4 border-l-2 border-[#FFE4CC] space-y-1">
-            {/* 플랫폼 통합관리 — 최상단 */}
-            <Link href={MARKETING_TOP.href} onClick={() => setMobileOpen(false)}
-              className={"flex items-center gap-2 px-3 py-2 rounded-xl " + (pathname === MARKETING_TOP.href ? 'bg-[#FFF7ED] text-[#EA580C] font-semibold' : 'text-[#4E5968] hover:bg-[#F8F9FA] font-medium')}>
-              <span className="text-xs">{MARKETING_TOP.icon}</span>
-              <span className="text-xs">{MARKETING_TOP.label}</span>
-            </Link>
             {/* 플랫폼 그룹 */}
             {MARKETING_GROUPS.map(group => (
               <div key={group.platform}>
