@@ -1950,9 +1950,8 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* 우측: 빠른 이동 + 인기 서비스 랭킹 */}
+          {/* 우측: 인기 서비스 랭킹 */}
           <div className="flex flex-col gap-4">
-            <QuickNav />
             <ServiceRanking />
           </div>
         </div>
