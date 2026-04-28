@@ -612,11 +612,15 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
             subtitle={
               connected
                 ? (config.platform === 'naver_place'
-                    ? `${storeName || '연결된 매장'} · ${agg.review_count}건 수집 중 · 미답변 ${agg.unreplied_count}건`
-                    : `${storeName || '연결된 매장'} · 리뷰 ${agg.review_count}건 · 미답변 ${agg.unreplied_count}건`)
+                    ? `${storeName || '연결된 매장'} · 리뷰 ${agg.review_count}건 수집 완료 · 미답변 ${agg.unreplied_count}건 AI 답글 대기 중`
+                    : config.platform === 'kakao_map'
+                      ? `${storeName || '연결된 매장'} · 카카오맵 리뷰 ${agg.review_count}건 · 미답변 ${agg.unreplied_count}건 AI가 작성 준비 완료`
+                      : `${storeName || '연결된 매장'} · 리뷰 ${agg.review_count}건 수집 완료 · 미답변 ${agg.unreplied_count}건 AI 대기`)
                 : (config.platform === 'naver_place'
-                    ? '네이버 플레이스 공개 리뷰 자동 수집 · 미답변 리뷰에 사장님 답글 작성'
-                    : `${config.label}을 연결하면 리뷰가 자동 수집됩니다`)
+                    ? '네이버 플레이스 공개 리뷰 자동 수집 · AI가 맞춤 사장님 답글 작성'
+                    : config.platform === 'kakao_map'
+                      ? '카카오맵 리뷰 자동 수집 · AI가 카카오 감성으로 답글 작성'
+                      : `${config.label} 리뷰 자동 수집 · AI 맞춤 답글 작성`)
             }
             variant={config.uiKey as any}
           />
@@ -690,7 +694,7 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
                   <p className="text-xl font-black text-[#F59E0B]">{agg.unreplied_count}건</p>
                 </div>
                 <div className="bg-white rounded-2xl p-4 border border-[#E5E8EB]">
-                  <p className="text-[11px] text-[#8B95A1] font-medium mb-1">★≤3</p>
+                  <p className="text-[11px] text-[#8B95A1] font-medium mb-1">주의 리뷰</p>
                   <p className="text-xl font-black text-[#F04452]">{negativeCount}건</p>
                 </div>
               </div>
@@ -731,7 +735,7 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
               </div>
             )}
 
-            {/* 네이버 플레이스 전용 안내 (30차-23-3) */}
+            {/* 네이버 플레이스 전용 안내 */}
             {connected && config.platform === 'naver_place' && (
               <div className="bg-white rounded-2xl border border-[#E5E8EB] p-4 mb-4">
                 <div className="flex items-start gap-3 flex-wrap">
@@ -749,6 +753,46 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
                       네이버 리뷰 원본 ↗
                     </a>
                   )}
+                </div>
+              </div>
+            )}
+
+            {/* 카카오맵 전용 안내 */}
+            {connected && config.platform === 'kakao_map' && (
+              <div className="rounded-2xl border p-4 mb-4" style={{ background: '#FFFDE7', borderColor: '#FAE10060' }}>
+                <div className="flex items-center gap-3 flex-wrap">
+                  <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ background: '#FEE500' }}>
+                    <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
+                      <ellipse cx="10" cy="9.5" rx="8.5" ry="7.2" fill="#3C1E1E"/>
+                      <path d="M10 3.2C5.36 3.2 1.6 5.98 1.6 9.42c0 2.24 1.48 4.2 3.72 5.38-.16.62-.64 2.3-.73 2.6-.12.4.14.4.32.28.14-.1 2.24-1.52 3.14-2.12.6.1 1.23.16 1.87.16C14.64 15.72 18.4 12.94 18.4 9.5c0-3.44-3.76-6.3-8.4-6.3z" fill="#FEE500"/>
+                      <circle cx="7.5" cy="9.3" r="1" fill="#3C1E1E"/>
+                      <circle cx="12.5" cy="9.3" r="1" fill="#3C1E1E"/>
+                      <path d="M8 11.3 Q10 12.8 12 11.3" stroke="#3C1E1E" strokeWidth="0.9" strokeLinecap="round" fill="none"/>
+                    </svg>
+                  </div>
+                  <div className="flex-1 min-w-[200px]">
+                    <p className="text-sm font-bold text-[#3C1E1E]">카카오맵 리뷰 자동 수집 중</p>
+                    <p className="text-xs text-[#6B5A00] mt-0.5">AI가 카카오 감성에 맞는 따뜻한 답글을 자동으로 작성해드려요</p>
+                  </div>
+                  <div className="flex gap-2 flex-wrap">
+                    <a
+                      href="https://place.map.kakao.com/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[11px] font-bold px-3 py-1.5 rounded-lg hover:opacity-90 whitespace-nowrap"
+                      style={{ background: '#FEE500', color: '#3C1E1E' }}
+                    >
+                      카카오맵 리뷰 관리 ↗
+                    </a>
+                    <a
+                      href="https://business.kakao.com/"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-[11px] font-bold px-3 py-1.5 rounded-lg bg-[#3C1E1E] text-[#FEE500] hover:opacity-80 whitespace-nowrap"
+                    >
+                      카카오 비즈니스 ↗
+                    </a>
+                  </div>
                 </div>
               </div>
             )}
