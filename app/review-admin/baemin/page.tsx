@@ -10,21 +10,14 @@ export const dynamic = 'force-dynamic'
 
 function BaeminLogo() {
   // 배달의민족 공식 로고 — 민트 배경 + 흑색 수직 바 패턴 (ㅂ×2)
+  // 배경 rect 없이 바 심볼만 — PageHeader 뱃지 안에서 자연스러운 여백 확보
   return (
-    <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
-      <rect width="64" height="64" rx="14" fill="#2DDDC8"/>
-      {/* 왼쪽 ㅂ 그룹 */}
-      {/* 왼쪽 바: 위 세그먼트 */}
-      <rect x="10" y="10" width="8" height="18" rx="2" fill="#111111"/>
-      {/* 왼쪽 바: 아래 세그먼트 */}
-      <rect x="10" y="36" width="8" height="18" rx="2" fill="#111111"/>
-      {/* 가운데 바 (풀 하이트) */}
-      <rect x="24" y="10" width="8" height="44" rx="2" fill="#111111"/>
-      {/* 오른쪽 ㅂ 그룹 */}
-      {/* 가운데 바 (풀 하이트) */}
-      <rect x="38" y="10" width="8" height="44" rx="2" fill="#111111"/>
-      {/* 오른쪽 바: 위 세그먼트만 */}
-      <rect x="52" y="10" width="8" height="26" rx="2" fill="#111111"/>
+    <svg width="38" height="38" viewBox="0 0 64 64" fill="none">
+      <rect x="6"  y="6"  width="8" height="18" rx="2" fill="#111111"/>
+      <rect x="6"  y="32" width="8" height="18" rx="2" fill="#111111"/>
+      <rect x="20" y="6"  width="8" height="44" rx="2" fill="#111111"/>
+      <rect x="36" y="6"  width="8" height="44" rx="2" fill="#111111"/>
+      <rect x="50" y="6"  width="8" height="26" rx="2" fill="#111111"/>
     </svg>
   )
 }
