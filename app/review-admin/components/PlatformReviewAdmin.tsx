@@ -762,12 +762,9 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
               <div className="rounded-2xl border p-4 mb-4" style={{ background: '#FFFDE7', borderColor: '#FAE10060' }}>
                 <div className="flex items-center gap-3 flex-wrap">
                   <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ background: '#FEE500' }}>
-                    <svg width="18" height="18" viewBox="0 0 20 20" fill="none">
-                      <ellipse cx="10" cy="9.5" rx="8.5" ry="7.2" fill="#3C1E1E"/>
-                      <path d="M10 3.2C5.36 3.2 1.6 5.98 1.6 9.42c0 2.24 1.48 4.2 3.72 5.38-.16.62-.64 2.3-.73 2.6-.12.4.14.4.32.28.14-.1 2.24-1.52 3.14-2.12.6.1 1.23.16 1.87.16C14.64 15.72 18.4 12.94 18.4 9.5c0-3.44-3.76-6.3-8.4-6.3z" fill="#FEE500"/>
-                      <circle cx="7.5" cy="9.3" r="1" fill="#3C1E1E"/>
-                      <circle cx="12.5" cy="9.3" r="1" fill="#3C1E1E"/>
-                      <path d="M8 11.3 Q10 12.8 12 11.3" stroke="#3C1E1E" strokeWidth="0.9" strokeLinecap="round" fill="none"/>
+                    <svg width="18" height="18" viewBox="0 0 32 32" fill="none">
+                      <path d="M16 4C11.582 4 8 7.582 8 12c0 6.627 8 16 8 16s8-9.373 8-16c0-4.418-3.582-8-8-8z" fill="#3478F6"/>
+                      <circle cx="16" cy="12" r="3.2" fill="#FEE500"/>
                     </svg>
                   </div>
                   <div className="flex-1 min-w-[200px]">
