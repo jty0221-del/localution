@@ -104,6 +104,17 @@ interface StoreMeResponse {
   } | null
 }
 
+export interface PlatformInfoBannerLink {
+  label: string
+  href: string
+  dark: boolean   // true=진한 배경, false=연한 배경
+}
+export interface PlatformInfoBannerConfig {
+  title: string
+  desc: string
+  links: PlatformInfoBannerLink[]
+}
+
 export interface PlatformConfig {
   platform: PlatformSlug          // 서버 슬러그
   uiKey: string                   // Sidebar variant (naver/baemin/yogiyo/coupang)
@@ -112,12 +123,13 @@ export interface PlatformConfig {
   bg: string                      // 연한 배경 hex
   textColor: string               // 글자 컬러 hex
   icon: string                    // "🟢" 헤더 이모지 (logoNode 없을 때 폴백)
-  iconLetter: string              // "N" 원형 아이콘 글자 (사용 안 해도 됨)
-  logoNode?: ReactNode             // SVG 로고 — 있으면 PageHeader icon 대신 사용
+  iconLetter: string              // "N" 원형 아이콘 글자
+  logoNode?: ReactNode            // SVG 로고 — 있으면 PageHeader icon 대신 사용
   supportsFetch: boolean          // "지금 수집" 버튼 노출 여부
-  connectHref: string             // 미연결 시 이동 경로 (/dashboard or /my/platforms/xxx/connect)
-  collectEndpoint?: string        // 31차-3: "지금 수집" 커스텀 엔드포인트 (기본 /api/place/reviews/fetch)
-  reviewAdminUrl?: string           // 41차-2: 플랫폼 리뷰 관리 URL (직접 발행 시 새 탭 오픈)
+  connectHref: string             // 미연결 시 이동 경로
+  collectEndpoint?: string        // "지금 수집" 커스텀 엔드포인트
+  reviewAdminUrl?: string         // 플랫폼 리뷰 관리 URL
+  platformInfoBanner?: PlatformInfoBannerConfig  // 연결 시 안내 배너 (kakao/baemin 등)
 }
 
 function Stars({ n, color }: { n: number; color: string }) {
@@ -616,12 +628,16 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
                     ? `${storeName || '연결된 매장'} · 리뷰 ${agg.review_count}건 수집 완료 · 미답변 ${agg.unreplied_count}건 AI 답글 대기 중`
                     : config.platform === 'kakao_map'
                       ? `${storeName || '연결된 매장'} · 카카오맵 리뷰 ${agg.review_count}건 · 미답변 ${agg.unreplied_count}건 AI가 작성 준비 완료`
-                      : `${storeName || '연결된 매장'} · 리뷰 ${agg.review_count}건 수집 완료 · 미답변 ${agg.unreplied_count}건 AI 대기`)
+                      : config.platform === 'baemin'
+                        ? `${storeName || '연결된 매장'} · 배민 리뷰 ${agg.review_count}건 수집 완료 · 미답변 ${agg.unreplied_count}건 AI 답글 대기 중`
+                        : `${storeName || '연결된 매장'} · 리뷰 ${agg.review_count}건 수집 완료 · 미답변 ${agg.unreplied_count}건 AI 대기`)
                 : (config.platform === 'naver_place'
                     ? '네이버 플레이스 공개 리뷰 자동 수집 · AI가 맞춤 사장님 답글 작성'
                     : config.platform === 'kakao_map'
                       ? '카카오맵 리뷰 자동 수집 · AI가 카카오 감성으로 답글 작성'
-                      : `${config.label} 리뷰 자동 수집 · AI 맞춤 답글 작성`)
+                      : config.platform === 'baemin'
+                        ? '배달의민족 리뷰 자동 수집 · AI가 배민 스타일로 답글 작성'
+                        : `${config.label} 리뷰 자동 수집 · AI 맞춤 답글 작성`)
             }
             variant={config.uiKey as any}
           />
@@ -758,43 +774,46 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
               </div>
             )}
 
-            {/* 카카오맵 전용 안내 */}
-            {connected && config.platform === 'kakao_map' && (
-              <div className="rounded-2xl border p-4 mb-4" style={{ background: '#FFFDE7', borderColor: '#FAE10060' }}>
+            {/* 플랫폼 공통 안내 배너 (kakao_map / baemin 등) */}
+            {connected && config.platformInfoBanner && (
+              <div
+                className="rounded-2xl border p-4 mb-4"
+                style={{ background: config.bg, borderColor: config.color + '55' }}
+              >
                 <div className="flex items-center gap-3 flex-wrap">
-                  {/* KakaoTalk 로고 */}
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 overflow-hidden" style={{ background: '#FEE500' }}>
-                    <svg width="30" height="30" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
-                      {/* 말풍선 몸통 */}
-                      <ellipse cx="30" cy="26" rx="26" ry="22" fill="#3C1E1E"/>
-                      {/* 말풍선 꼬리 */}
-                      <path d="M16 44 L13 56 L26 48 Z" fill="#3C1E1E"/>
-                      {/* TALK 텍스트 */}
-                      <text x="30" y="33" textAnchor="middle" fontSize="16" fontWeight="900" fontFamily="Arial Black,Arial,sans-serif" fill="#FEE500">TALK</text>
-                    </svg>
+                  <div
+                    className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 overflow-hidden"
+                    style={{ background: config.color }}
+                  >
+                    {config.logoNode
+                      ? <div style={{ transform: 'scale(0.55)', transformOrigin: 'center' }}>{config.logoNode}</div>
+                      : <span className="text-base font-black" style={{ color: config.textColor }}>{config.iconLetter}</span>
+                    }
                   </div>
                   <div className="flex-1 min-w-[200px]">
-                    <p className="text-sm font-bold text-[#3C1E1E]">카카오맵 리뷰 자동 수집 중</p>
-                    <p className="text-xs text-[#6B5A00] mt-0.5">AI가 카카오 감성에 맞는 따뜻한 답글을 자동으로 작성해드려요</p>
+                    <p className="text-sm font-bold" style={{ color: config.textColor }}>
+                      {config.platformInfoBanner.title}
+                    </p>
+                    <p className="text-xs mt-0.5" style={{ color: config.textColor + 'BB' }}>
+                      {config.platformInfoBanner.desc}
+                    </p>
                   </div>
                   <div className="flex gap-2 flex-wrap">
-                    <a
-                      href="https://place.map.kakao.com/"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-[11px] font-bold px-3 py-1.5 rounded-lg hover:opacity-90 whitespace-nowrap"
-                      style={{ background: '#FEE500', color: '#3C1E1E' }}
-                    >
-                      카카오맵 리뷰 관리 ↗
-                    </a>
-                    <a
-                      href="https://business.kakao.com/"
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-[11px] font-bold px-3 py-1.5 rounded-lg bg-[#3C1E1E] text-[#FEE500] hover:opacity-80 whitespace-nowrap"
-                    >
-                      카카오 비즈니스 ↗
-                    </a>
+                    {config.platformInfoBanner.links.map((link) => (
+                      <a
+                        key={link.href}
+                        href={link.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[11px] font-bold px-3 py-1.5 rounded-lg hover:opacity-80 whitespace-nowrap transition-opacity"
+                        style={link.dark
+                          ? { background: config.textColor, color: config.bg }
+                          : { background: config.color, color: '#fff' }
+                        }
+                      >
+                        {link.label}
+                      </a>
+                    ))}
                   </div>
                 </div>
               </div>
