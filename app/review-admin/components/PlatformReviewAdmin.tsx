@@ -761,10 +761,15 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
             {connected && config.platform === 'kakao_map' && (
               <div className="rounded-2xl border p-4 mb-4" style={{ background: '#FFFDE7', borderColor: '#FAE10060' }}>
                 <div className="flex items-center gap-3 flex-wrap">
-                  <div className="w-8 h-8 rounded-xl flex items-center justify-center shrink-0" style={{ background: '#FEE500' }}>
-                    <svg width="18" height="18" viewBox="0 0 32 32" fill="none">
-                      <path d="M16 4C11.582 4 8 7.582 8 12c0 6.627 8 16 8 16s8-9.373 8-16c0-4.418-3.582-8-8-8z" fill="#3478F6"/>
-                      <circle cx="16" cy="12" r="3.2" fill="#FEE500"/>
+                  {/* KakaoTalk 로고 */}
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: '#FEE500' }}>
+                    <svg width="26" height="24" viewBox="0 0 52 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                      {/* 말풍선 몸통 */}
+                      <ellipse cx="26" cy="20" rx="24" ry="20" fill="#3C1E1E"/>
+                      {/* 말풍선 꼬리 */}
+                      <path d="M14 36 L10 46 L22 40 Z" fill="#3C1E1E"/>
+                      {/* TALK 텍스트 */}
+                      <text x="26" y="27" textAnchor="middle" fontSize="14" fontWeight="900" fontFamily="Arial,sans-serif" fill="#FEE500" letterSpacing="-0.5">TALK</text>
                     </svg>
                   </div>
                   <div className="flex-1 min-w-[200px]">
