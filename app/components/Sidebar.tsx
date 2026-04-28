@@ -30,10 +30,9 @@ const MARKETING_GROUPS = [
       { href: '/marketing/place',         label: '플레이스 진단' },
       { href: '/marketing/keyword-rank',  label: '플레이스(실시간)' },
       { href: '/marketing/keyword-score', label: '플레이스 분석' },
-      { href: '/marketing/blog-post',     label: '블로그 글 작성' },
+      { href: '/marketing/blog-post',     label: '블로그' },
       { href: '/marketing/blog-tracking', label: '블로그 순위 추적' },
-    { href: '/marketing/blog-index',    label: '블로그 지수조회/분석' },
-      { href: '/marketing/naver-ads',      label: '키워드 조회/분석' },
+      { href: '/marketing/naver-ads',      label: '네이버 광고 분석' },
     ],
   },
   {
@@ -104,9 +103,13 @@ function PlatformLogoSmall({ platform }: { platform: string }) {
     </svg>
   )
   if (platform === 'baemin') return (
-    <svg width="18" height="18" viewBox="0 0 48 48" fill="none" style={{flexShrink:0}}>
-      <rect width="48" height="48" rx="12" fill="#2AC1BC"/>
-      <path d="M14 34V14h11c3 0 6 1.8 6 5 0 2-.9 3.5-2.4 4.4 2.2.9 3.7 2.7 3.7 5C32.3 32 29 34 25.5 34H14zm5-12h5c1.3 0 2.2-.8 2.2-2s-.9-2-2.2-2h-5v4zm0 8.5h5.5c1.7 0 2.7-1 2.7-2.2s-1-2.2-2.7-2.2H19v4.4z" fill="white"/>
+    <svg width="18" height="18" viewBox="0 0 64 64" fill="none" style={{flexShrink:0}}>
+      <rect width="64" height="64" rx="14" fill="#2DDDC8"/>
+      <rect x="10" y="10" width="8" height="18" rx="2" fill="#111111"/>
+      <rect x="10" y="36" width="8" height="18" rx="2" fill="#111111"/>
+      <rect x="24" y="10" width="8" height="44" rx="2" fill="#111111"/>
+      <rect x="38" y="10" width="8" height="44" rx="2" fill="#111111"/>
+      <rect x="52" y="10" width="8" height="26" rx="2" fill="#111111"/>
     </svg>
   )
   if (platform === 'yogiyo') return (
@@ -274,7 +277,7 @@ export default function Sidebar() {
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-xs font-bold leading-none">플랫폼 연결</p>
-          <p className="text-[10px] text-[#059669] font-normal leading-none mt-0.5">리뷰·마케팅</p><p className="text-[10px] text-[#059669] font-normal leading-none mt-0.5">시작 전 필수</p>
+          <p className="text-[10px] text-[#059669] font-normal leading-none mt-0.5">리뷰·마케팅 시작 전 필수</p>
         </div>
         {pathname !== '/my/platforms' && (
           <span className="flex-shrink-0 text-[9px] font-black px-1.5 py-0.5 rounded-full bg-[#059669] text-white">STEP 1</span>
