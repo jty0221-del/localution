@@ -2105,8 +2105,9 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* 우측: 지역 커뮤니티 + 인기 서비스 랭킹 */}
+          {/* 우측: 빠른 이동 + 지역 커뮤니티 + 인기 서비스 랭킹 */}
           <div className="flex flex-col gap-4">
+            <QuickNav />
             <CommunityWidget storeRegion={storeRegion} />
             <ServiceRanking />
           </div>
