@@ -38,6 +38,14 @@ const CONFIG: PlatformConfig = {
   connectHref: '/my/platforms/kakao_map/connect',
   reviewAdminUrl: 'https://place.map.kakao.com/',
   collectEndpoint: '/api/place/kakao/collect',
+  platformInfoBanner: {
+    title: '카카오맵 리뷰 자동 수집 중',
+    desc: 'AI가 카카오 감성에 맞는 따뜻한 답글을 자동으로 작성해드려요',
+    links: [
+      { label: '카카오맵 리뷰 관리 ↗', href: 'https://place.map.kakao.com/', dark: false },
+      { label: '카카오 비즈니스 ↗',    href: 'https://business.kakao.com/',  dark: true  },
+    ],
+  },
 }
 
 export default function KakaoReviewPage() {
