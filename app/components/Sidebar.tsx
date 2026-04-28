@@ -105,11 +105,11 @@ function PlatformLogoSmall({ platform }: { platform: string }) {
   if (platform === 'baemin') return (
     <svg width="18" height="18" viewBox="0 0 64 64" fill="none" style={{flexShrink:0}}>
       <rect width="64" height="64" rx="14" fill="#2DDDC8"/>
-      <rect x="10" y="10" width="8" height="18" rx="2" fill="#111111"/>
-      <rect x="10" y="36" width="8" height="18" rx="2" fill="#111111"/>
-      <rect x="24" y="10" width="8" height="44" rx="2" fill="#111111"/>
-      <rect x="38" y="10" width="8" height="44" rx="2" fill="#111111"/>
-      <rect x="52" y="10" width="8" height="26" rx="2" fill="#111111"/>
+      <rect x="8"  y="8"  width="9" height="19" rx="2" fill="#111111"/>
+      <rect x="8"  y="34" width="9" height="19" rx="2" fill="#111111"/>
+      <rect x="22" y="8"  width="9" height="46" rx="2" fill="#111111"/>
+      <rect x="36" y="8"  width="9" height="46" rx="2" fill="#111111"/>
+      <rect x="50" y="8"  width="9" height="27" rx="2" fill="#111111"/>
     </svg>
   )
   if (platform === 'yogiyo') return (
