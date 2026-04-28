@@ -608,6 +608,7 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
           <PageHeader
             icon={config.icon}
             logoNode={config.logoNode}
+            textDark={config.platform === 'kakao_map'}
             title={`${config.label} 리뷰 관리`}
             subtitle={
               connected
@@ -762,14 +763,14 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
               <div className="rounded-2xl border p-4 mb-4" style={{ background: '#FFFDE7', borderColor: '#FAE10060' }}>
                 <div className="flex items-center gap-3 flex-wrap">
                   {/* KakaoTalk 로고 */}
-                  <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background: '#FEE500' }}>
-                    <svg width="26" height="24" viewBox="0 0 52 48" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 overflow-hidden" style={{ background: '#FEE500' }}>
+                    <svg width="30" height="30" viewBox="0 0 60 60" fill="none" xmlns="http://www.w3.org/2000/svg">
                       {/* 말풍선 몸통 */}
-                      <ellipse cx="26" cy="20" rx="24" ry="20" fill="#3C1E1E"/>
+                      <ellipse cx="30" cy="26" rx="26" ry="22" fill="#3C1E1E"/>
                       {/* 말풍선 꼬리 */}
-                      <path d="M14 36 L10 46 L22 40 Z" fill="#3C1E1E"/>
+                      <path d="M16 44 L13 56 L26 48 Z" fill="#3C1E1E"/>
                       {/* TALK 텍스트 */}
-                      <text x="26" y="27" textAnchor="middle" fontSize="14" fontWeight="900" fontFamily="Arial,sans-serif" fill="#FEE500" letterSpacing="-0.5">TALK</text>
+                      <text x="30" y="33" textAnchor="middle" fontSize="16" fontWeight="900" fontFamily="Arial Black,Arial,sans-serif" fill="#FEE500">TALK</text>
                     </svg>
                   </div>
                   <div className="flex-1 min-w-[200px]">
