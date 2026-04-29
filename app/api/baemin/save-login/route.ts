@@ -1,11 +1,10 @@
 // app/api/baemin/save-login/route.ts
-// Worker(worker/src/lib/credentials.ts)가 읽는 포맷으로 저장:
-//   account_id (평문), password_encrypted/iv/tag (DEK 암호화),
-//   dek_encrypted/iv/tag (KEK 암호화) — 2단 AES-256-GCM
+// 프록시로 실제 로그인 → 쿠키 + Worker 호환 2단 AES 모두 저장
 import { NextRequest, NextResponse } from 'next/server'
 import { createCipheriv, randomBytes } from 'crypto'
 import { requireUser } from '@/app/lib/userAuth'
 import { createServiceClient } from '@/app/lib/adminAuth'
+import { baeminProxyLogin } from '@/app/lib/baemin-login'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -20,19 +19,25 @@ function loadKek(): Buffer {
   return Buffer.from(hex, 'hex')
 }
 
-// worker/src/lib/crypto.ts 의 encryptSecret() 와 동일한 2단 암호화
-function encryptSecret(plaintext: string): {
+function encryptStr(plain: string): { enc: string; iv: string; tag: string } {
+  const kek = loadKek()
+  const iv = randomBytes(12)
+  const cipher = createCipheriv(ALGO, kek, iv)
+  const enc = Buffer.concat([cipher.update(Buffer.from(plain, 'utf8')), cipher.final()])
+  return { enc: enc.toString('base64'), iv: iv.toString('base64'), tag: cipher.getAuthTag().toString('base64') }
+}
+
+// Worker 호환 2단 AES (Railway Worker fallback용)
+function encryptSecret(plain: string): {
   ciphertext: string; iv: string; tag: string
   dek_ciphertext: string; dek_iv: string; dek_tag: string
 } {
   const kek = loadKek()
-  // 1) DEK 생성 후 평문 암호화
   const dek = randomBytes(32)
   const dekIv = randomBytes(12)
   const c1 = createCipheriv(ALGO, dek, dekIv)
-  const enc = Buffer.concat([c1.update(Buffer.from(plaintext, 'utf8')), c1.final()])
+  const enc = Buffer.concat([c1.update(Buffer.from(plain, 'utf8')), c1.final()])
   const encTag = c1.getAuthTag()
-  // 2) DEK 자체를 KEK로 암호화
   const kekIv = randomBytes(12)
   const c2 = createCipheriv(ALGO, kek, kekIv)
   const dekEnc = Buffer.concat([c2.update(dek), c2.final()])
@@ -69,47 +74,54 @@ export async function POST(req: NextRequest) {
     const pw = String(baemin_pw).trim()
     const shopNo = String(shop_no || '').trim() || null
 
-    // 2단 암호화 (Worker crypto.ts 와 동일 구조)
-    const pwEnc = encryptSecret(pw)
+    // 프록시로 실제 로그인 → 쿠키 획득
+    const cookieStr = await baeminProxyLogin(id, pw)
 
-    // 기존 레코드 확인 → insert or update
+    // 1단 AES (직접 API용 쿠키/ID/PW 재로그인 복호화)
+    const idEnc     = encryptStr(id)
+    const pwEnc     = encryptStr(pw)
+    const cookieEnc = encryptStr(cookieStr)
+
+    // 2단 AES (Worker fallback 호환)
+    const pwWorker = encryptSecret(pw)
+
     const { data: existing } = await svc
-      .from('platform_credentials')
-      .select('id')
-      .eq('user_id', userId)
-      .eq('platform', 'baemin')
-      .maybeSingle()
+      .from('platform_credentials').select('id')
+      .eq('user_id', userId).eq('platform', 'baemin').maybeSingle()
 
     const row: Record<string, unknown> = {
-      user_id:             userId,
-      platform:            'baemin',
-      account_id:          id,
-      password_encrypted:  pwEnc.ciphertext,
-      password_iv:         pwEnc.iv,
-      password_tag:        pwEnc.tag,
-      dek_encrypted:       pwEnc.dek_ciphertext,
-      dek_iv:              pwEnc.dek_iv,
-      dek_tag:             pwEnc.dek_tag,
-      last_login_status:   'pending',
+      user_id:            userId,
+      platform:           'baemin',
+      account_id:         id,
+      // Worker 호환 컬럼
+      password_encrypted: pwWorker.ciphertext,
+      password_iv:        pwWorker.iv,
+      password_tag:       pwWorker.tag,
+      dek_encrypted:      pwWorker.dek_ciphertext,
+      dek_iv:             pwWorker.dek_iv,
+      dek_tag:            pwWorker.dek_tag,
+      last_login_status:  'ok',
+      // 프록시 직접 API용 쿠키
+      extra_data: {
+        baemin_id_enc:     idEnc.enc,     baemin_id_iv:     idEnc.iv,     baemin_id_tag:     idEnc.tag,
+        baemin_pw_enc:     pwEnc.enc,     baemin_pw_iv:     pwEnc.iv,     baemin_pw_tag:     pwEnc.tag,
+        baemin_cookie_enc: cookieEnc.enc, baemin_cookie_iv: cookieEnc.iv, baemin_cookie_tag: cookieEnc.tag,
+        cookie_saved_at:   new Date().toISOString(),
+      },
     }
     if (shopNo) row.platform_store_id = shopNo
 
     if (existing) {
       const { error } = await svc.from('platform_credentials')
-        .update(row)
-        .eq('id', (existing as any).id)
+        .update(row).eq('id', (existing as any).id)
       if (error) throw new Error(error.message)
     } else {
-      const { error } = await svc.from('platform_credentials')
-        .insert(row)
+      const { error } = await svc.from('platform_credentials').insert(row)
       if (error) throw new Error(error.message)
     }
 
-    return NextResponse.json({
-      ok: true,
-      message: '배민 연동 완료! 리뷰 수집을 시작하면 자동으로 가져와요.',
-    })
+    return NextResponse.json({ ok: true, message: '배민 연동 완료! 리뷰를 실시간으로 가져와요 🎉' })
   } catch (e: any) {
-    return NextResponse.json({ ok: false, error: e?.message || '저장 실패' }, { status: 500 })
+    return NextResponse.json({ ok: false, error: e?.message || '연동 실패' }, { status: 500 })
   }
 }
