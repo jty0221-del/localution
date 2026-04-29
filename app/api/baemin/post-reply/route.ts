@@ -67,10 +67,15 @@ export async function POST(req: NextRequest) {
       headers: {
         'Cookie': cookieStr,
         'Content-Type': 'application/json',
-        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) Chrome/124.0.0.0',
-        'Referer': 'https://self.baemin.com/',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Referer': 'https://self.baemin.com/shops/' + shopNo + '/reviews',
         'Origin': 'https://self.baemin.com',
         'Accept': 'application/json',
+        'service-channel': 'SELF_SERVICE_PC',
+        'X-Web-Version': 'v20260422143632',
+        'sec-fetch-dest': 'empty',
+        'sec-fetch-mode': 'cors',
+        'sec-fetch-site': 'same-site',
       },
       body: JSON.stringify({
         reviewNo: rawReviewId,
