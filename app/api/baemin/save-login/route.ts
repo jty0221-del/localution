@@ -1,5 +1,4 @@
 // app/api/baemin/save-login/route.ts
-// 배민 아이디/비밀번호 저장 + RSA 로그인 테스트
 import { NextRequest, NextResponse } from 'next/server'
 import { createCipheriv, createDecipheriv, createPublicKey, publicEncrypt, constants, randomBytes } from 'crypto'
 import { requireUser } from '@/app/lib/userAuth'
@@ -7,8 +6,11 @@ import { createServiceClient } from '@/app/lib/adminAuth'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
+// 서울 리전 우선 배정 — 배민 서버가 한국 IP 외 차단
+export const preferredRegion = 'icn1'
 
 const ALGO = 'aes-256-gcm'
+const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
 
 function loadKek(): Buffer {
   const raw = process.env.ENCRYPTION_KEK_HEX || ''
@@ -40,18 +42,64 @@ function rsaEncryptHex(modHex: string, expHex: string, text: string): string {
   return publicEncrypt({ key, padding: constants.RSA_PKCS1_PADDING }, Buffer.from(text)).toString('hex')
 }
 
+function extractCookies(res: Response): string[] {
+  const parts: string[] = []
+  if ((res.headers as any).getSetCookie) {
+    for (const c of (res.headers as any).getSetCookie()) {
+      const p = c.split(';')[0].trim()
+      if (p) parts.push(p)
+    }
+  }
+  if (parts.length === 0) {
+    res.headers.forEach((val: string, name: string) => {
+      if (name.toLowerCase() === 'set-cookie') {
+        const p = val.split(';')[0].trim()
+        if (p && !parts.includes(p)) parts.push(p)
+      }
+    })
+  }
+  return parts
+}
+
 export async function doLogin(id: string, pw: string): Promise<string> {
+  const base = 'https://biz-member.baemin.com'
+  const commonHdrs: Record<string, string> = {
+    'User-Agent': UA,
+    'Accept-Language': 'ko-KR,ko;q=0.9,en;q=0.8',
+    'Accept-Encoding': 'gzip, deflate, br',
+  }
+
+  // Step 0: 로그인 페이지 방문 → dsid 등 초기 쿠키 획득
+  const preRes = await fetch(base + '/login', {
+    headers: { ...commonHdrs, Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8' },
+    redirect: 'follow',
+    cache: 'no-store',
+  })
+  const preCookies = extractCookies(preRes)
+  const preHdr = preCookies.join('; ')
+
+  // Step 1: RSA 공개키 획득
   const ts1 = Date.now()
-  const initRes = await fetch('https://biz-member.baemin.com/v1/login/init?__ts=' + ts1, {
+  const initRes = await fetch(base + '/v1/login/init?__ts=' + ts1, {
     headers: {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+      ...commonHdrs,
       'Accept': 'application/json, text/plain, */*',
-      'Origin': 'https://biz-member.baemin.com',
-      'Referer': 'https://biz-member.baemin.com/login',
+      'Origin': base,
+      'Referer': base + '/login',
+      'sec-fetch-dest': 'empty',
+      'sec-fetch-mode': 'cors',
+      'sec-fetch-site': 'same-origin',
+      ...(preHdr ? { 'Cookie': preHdr } : {}),
     },
     cache: 'no-store',
   })
-  if (!initRes.ok) throw new Error('로그인 초기화 실패 (' + initRes.status + ')')
+
+  if (!initRes.ok) {
+    const body = await initRes.text().catch(() => '')
+    throw new Error('로그인 초기화 실패 (' + initRes.status + ')' + (body ? ': ' + body.slice(0, 100) : ''))
+  }
+
+  const initCookies = [...preCookies, ...extractCookies(initRes)]
   const initData = await initRes.json()
   if (initData.status !== 'SUCCESS') throw new Error('초기화 오류: ' + initData.status)
 
@@ -62,47 +110,45 @@ export async function doLogin(id: string, pw: string): Promise<string> {
   const chars = 'abcdefghijklmnopqrstuvwxyz0123456789'
   const pwDecoy = Array.from({ length: 60 }, () => chars[Math.floor(Math.random() * 36)]).join('')
 
+  // Step 2: 로그인
   const ts2 = Date.now()
-  const loginRes = await fetch('https://biz-member.baemin.com/v1/login?__ts=' + ts2, {
+  const loginRes = await fetch(base + '/v1/login?__ts=' + ts2, {
     method: 'POST',
     headers: {
+      ...commonHdrs,
       'Content-Type': 'application/json',
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-      'Origin': 'https://biz-member.baemin.com',
-      'Referer': 'https://biz-member.baemin.com/login',
       'Accept': 'application/json, text/plain, */*',
+      'Origin': base,
+      'Referer': base + '/login',
+      'sec-fetch-dest': 'empty',
+      'sec-fetch-mode': 'cors',
+      'sec-fetch-site': 'same-origin',
+      ...(initCookies.length > 0 ? { 'Cookie': initCookies.join('; ') } : {}),
     },
     body: JSON.stringify({ id: id.trim(), pw: pwDecoy, value1, value2, token: '', autoLogin: false }),
     cache: 'no-store',
   })
 
-  const loginData = await loginRes.json()
-  if (loginData.status !== 'SUCCESS') {
-    const errMsg = loginData.message || loginData.status || '로그인 실패'
-    if (loginData.status === 'FAIL_WRONG_AUTHENTICATION') {
+  const loginData = await loginRes.json().catch(() => ({}))
+  if ((loginData as any).status !== 'SUCCESS') {
+    const msg = (loginData as any).message || (loginData as any).status || '로그인 실패'
+    if ((loginData as any).status === 'FAIL_WRONG_AUTHENTICATION') {
       throw new Error('아이디 또는 비밀번호가 올바르지 않습니다.')
     }
-    throw new Error(errMsg)
+    throw new Error(msg)
   }
 
-  // Set-Cookie 헤더에서 쿠키 추출
-  const cookieParts: string[] = []
-  if (loginRes.headers.getSetCookie) {
-    for (const c of loginRes.headers.getSetCookie()) {
-      const part = c.split(';')[0].trim()
-      if (part) cookieParts.push(part)
-    }
+  // Step 3: 모든 쿠키 수집
+  const allCookies = [...initCookies, ...extractCookies(loginRes)]
+  const seen = new Set<string>()
+  const deduped: string[] = []
+  for (const c of allCookies) {
+    const key = c.split('=')[0]
+    if (!seen.has(key)) { seen.add(key); deduped.push(c) }
   }
-  if (cookieParts.length === 0) {
-    loginRes.headers.forEach((val: string, name: string) => {
-      if (name.toLowerCase() === 'set-cookie') {
-        const part = val.split(';')[0].trim()
-        if (part && !cookieParts.includes(part)) cookieParts.push(part)
-      }
-    })
-  }
-  if (cookieParts.length === 0) throw new Error('로그인 후 쿠키를 받지 못했어요. 배민 서버 문제일 수 있어요.')
-  return cookieParts.join('; ')
+
+  if (deduped.length === 0) throw new Error('로그인 후 쿠키를 받지 못했어요.')
+  return deduped.join('; ')
 }
 
 export async function POST(req: NextRequest) {
@@ -114,19 +160,16 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}))
     const { baemin_id, baemin_pw, shop_no } = body || {}
-
     if (!baemin_id || !baemin_pw) {
       return NextResponse.json({ ok: false, error: '아이디와 비밀번호를 입력해주세요.' }, { status: 400 })
     }
 
-    // 로그인 테스트 (실제 쿠키 획득)
     const cookieStr = await doLogin(String(baemin_id), String(baemin_pw))
 
-    // 암호화 저장
-    const idEnc    = encryptStr(String(baemin_id))
-    const pwEnc    = encryptStr(String(baemin_pw))
+    const idEnc     = encryptStr(String(baemin_id))
+    const pwEnc     = encryptStr(String(baemin_pw))
     const cookieEnc = encryptStr(cookieStr)
-    const shopNo = String(shop_no || '14637452')
+    const shopNo    = String(shop_no || '14637452')
 
     const extraData = {
       baemin_id_enc: idEnc.enc, baemin_id_iv: idEnc.iv, baemin_id_tag: idEnc.tag,
@@ -134,13 +177,9 @@ export async function POST(req: NextRequest) {
       baemin_cookie_enc: cookieEnc.enc, baemin_cookie_iv: cookieEnc.iv, baemin_cookie_tag: cookieEnc.tag,
     }
 
-    // 기존 레코드 확인 후 insert/update
     const { data: existing } = await svc
-      .from('platform_credentials')
-      .select('id')
-      .eq('user_id', userId)
-      .eq('platform', 'baemin')
-      .maybeSingle()
+      .from('platform_credentials').select('id')
+      .eq('user_id', userId).eq('platform', 'baemin').maybeSingle()
 
     if (existing) {
       const { error } = await svc.from('platform_credentials')
