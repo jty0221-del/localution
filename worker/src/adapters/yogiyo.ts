@@ -333,14 +333,6 @@ export async function runYogiyo(
       }
     }
 
-    // 5) 리뷰 추출
-    let reviews: any[] = []
-
-    if ((apiReviews as any).ok && (apiReviews as any).data) {
-      reviews = extractYogiyoReviews((apiReviews as any).data, (apiReviews as any).ep)
-      log.info({ count: reviews.length, ep: (apiReviews as any).ep }, 'yogiyo: api reviews extracted')
-    }
-
     // API 실패 시 — 리뷰 탭 페이지 직접 이동해서 DOM 파싱
     if (reviews.length === 0) {
       log.warn('yogiyo: direct api failed, trying DOM scrape on reviews page')
