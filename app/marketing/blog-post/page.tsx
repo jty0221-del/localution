@@ -21,7 +21,7 @@ const LS_KEY = 'localution.naver_blog_post_inputs'
 const INDUSTRY_PRESETS = [
   { id: 'dealer', label: '자동차 딜러', keywords: ['벤츠 딜러', '신차 견적', 'BMW 시승'] },
   { id: 'dental', label: '치과',       keywords: ['임플란트', '교정 상담', '라미네이트'] },
-  { id: 'nail',   label: '네일샵',     keywords: ['젤네일', '패디큐어', '네일아트'] },
+  { id: 'nail',   label: '네일샵',     keywords: ['젤네일', '페디큐어', '네일아트'] },
   { id: 'cafe',   label: '카페/맛집',   keywords: ['브런치 카페', '디저트 맛집', '데이트 장소'] },
   { id: 'hair',   label: '미용실',     keywords: ['펌 추천', '남자컷', '염색 가격'] },
   { id: 'pet',    label: '동물병원',   keywords: ['강아지 건강검진', '고양이 예방접종', '반려동물 치료'] },
@@ -158,7 +158,7 @@ export default function BlogPostGeneratorPage() {
       ta.value = post
       document.body.appendChild(ta)
       ta.select()
-      document.execCommand('copy')
+      try { document.execCommand('copy') } catch (_) {}
       document.body.removeChild(ta)
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
