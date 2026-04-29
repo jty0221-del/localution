@@ -1,4 +1,4 @@
-// worker/src/adapters/yogiyo.ts
+// worker/src/adapters/yogiyo.ts (rebuilt)
 // ============================================================
 // 32차-2 · YogiyoAdapter (ceo.yogiyo.co.kr)
 // ============================================================
