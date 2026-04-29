@@ -9,15 +9,15 @@ import PlatformReviewAdmin, { PlatformConfig } from '../components/PlatformRevie
 export const dynamic = 'force-dynamic'
 
 function BaeminLogo() {
-  // 배달의민족 공식 로고 — 민트 배경 + 흑색 수직 바 패턴 (ㅂ×2)
-  // 배경 rect 없이 바 심볼만 — PageHeader 뱃지 안에서 자연스러운 여백 확보
+  // 배달의민족 로고 — 민트 배경 + 흑색 수직 바 패턴
   return (
-    <svg width="38" height="38" viewBox="0 0 64 64" fill="none">
-      <rect x="6"  y="6"  width="8" height="18" rx="2" fill="#111111"/>
-      <rect x="6"  y="32" width="8" height="18" rx="2" fill="#111111"/>
-      <rect x="20" y="6"  width="8" height="44" rx="2" fill="#111111"/>
-      <rect x="36" y="6"  width="8" height="44" rx="2" fill="#111111"/>
-      <rect x="50" y="6"  width="8" height="26" rx="2" fill="#111111"/>
+    <svg width="34" height="34" viewBox="0 0 64 64" fill="none">
+      <rect width="64" height="64" rx="14" fill="#2DDDC8"/>
+      <rect x="8"  y="8"  width="9" height="19" rx="2" fill="#111111"/>
+      <rect x="8"  y="34" width="9" height="19" rx="2" fill="#111111"/>
+      <rect x="22" y="8"  width="9" height="46" rx="2" fill="#111111"/>
+      <rect x="36" y="8"  width="9" height="46" rx="2" fill="#111111"/>
+      <rect x="50" y="8"  width="9" height="27" rx="2" fill="#111111"/>
     </svg>
   )
 }
