@@ -9,20 +9,13 @@ import PlatformReviewAdmin, { PlatformConfig } from '../components/PlatformRevie
 export const dynamic = 'force-dynamic'
 
 function BaeminLogo() {
-  // 배달의민족 로고 — 56px 컨테이너를 꽉 채움
-  // overflow-hidden + rounded-2xl(16px) 클리핑 계산: 바 시작점 x≥12, y≥12 확보
+  // 배달의민족 로고 — 민트 배경 + 흰색 "배민" 텍스트
   return (
-    <svg width="56" height="56" viewBox="0 0 110 110" fill="none">
-      <rect width="110" height="110" fill="#2DDDC8"/>
-      {/* 왼쪽 쌍 바 (위/아래) */}
-      <rect x="12" y="12" width="17" height="34" rx="3.5" fill="#111111"/>
-      <rect x="12" y="52" width="17" height="34" rx="3.5" fill="#111111"/>
-      {/* 중앙 좌 — 풀 높이 */}
-      <rect x="35" y="12" width="17" height="74" rx="3.5" fill="#111111"/>
-      {/* 중앙 우 — 풀 높이 */}
-      <rect x="58" y="12" width="17" height="74" rx="3.5" fill="#111111"/>
-      {/* 우측 절반 바 */}
-      <rect x="81" y="12" width="17" height="46" rx="3.5" fill="#111111"/>
+    <svg width="56" height="56" viewBox="0 0 56 56" fill="none">
+      <rect width="56" height="56" fill="#2DDDC8"/>
+      <text x="28" y="36" textAnchor="middle" fontSize="22" fontWeight="900"
+        fill="white" fontFamily="'Apple SD Gothic Neo','Noto Sans KR',sans-serif"
+        letterSpacing="-0.5">배민</text>
     </svg>
   )
 }
