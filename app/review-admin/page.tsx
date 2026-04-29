@@ -67,6 +67,7 @@ const HUB_TO_SLUG: Record<PlatformKey, string> = {
   yogiyo:  'yogiyo',
   coupang: 'coupangeats',
   kakao:   'kakao_map',
+  google:  'google',
 }
 
 type LogoFC = React.FC<{ size?: number }>
@@ -80,6 +81,7 @@ const PLATFORM_META: Record<PlatformKey, {
   yogiyo:  { label: '요기요',           color: '#E5007F', bg: '#FEF0EB', textColor: '#B32B00', icon: 'Y', Logo: YogiyoLogo,       detailPath: '/review-admin/yogiyo' },
   coupang: { label: '쿠팡이츠',         color: '#FF5A00', bg: '#FFF3F0', textColor: '#900000', icon: 'C', Logo: CoupangEatsLogo,  detailPath: '/review-admin/coupang' },
   kakao:   { label: '카카오맵',         color: '#FEE500', bg: '#FFFBE0', textColor: '#1A1A1A', icon: 'K', detailPath: '/review-admin/kakao' },
+  google:  { label: '구글',              color: '#4285F4', bg: '#EBF3FE', textColor: '#1A56B0', icon: 'G', detailPath: '/review-admin/google' },
 }
 
 interface PlatformStat {
