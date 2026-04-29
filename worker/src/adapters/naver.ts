@@ -10,6 +10,7 @@ import type { Logger } from 'pino'
 import { getServiceClient } from '../lib/supabase'
 import { loadPlainCredentials, loadCookieData, markLoginStatus } from '../lib/credentials'
 import { dumpPageDiagnostics, startNetworkCapture, detectLoginFailure } from '../lib/diagnostics'
+import { handleNaverCaptcha } from '../lib/captcha'
 import type { JobResult, Action } from '../jobs'
 
 const LOGIN_URL = 'https://nid.naver.com/nidlogin.login'
@@ -116,12 +117,38 @@ export async function runNaver(
     ? String(payload.biz_id)
     : (creds.platform_store_id || opts.storeId)
 
-  const context = await browser.newContext({
+  // 주거용 프록시 설정 (Railway IP 차단 우회)
+  const proxyHost = process.env.PROXY_HOST
+  const proxyPort = process.env.PROXY_PORT
+  const proxyUser = process.env.PROXY_USER
+  const proxyPass = process.env.PROXY_PASS
+  const proxyProto = process.env.PROXY_PROTOCOL || 'http'
+  const useProxy = !!(proxyHost && proxyPort)
+
+  const contextOptions: any = {
     userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36',
     viewport: { width: 1280, height: 900 },
     locale: 'ko-KR',
     timezoneId: 'Asia/Seoul',
-  })
+    extraHTTPHeaders: {
+      'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8',
+      'sec-ch-ua': '"Google Chrome";v="127", "Chromium";v="127", "Not-A.Brand";v="99"',
+      'sec-ch-ua-mobile': '?0',
+      'sec-ch-ua-platform': '"Windows"',
+    },
+  }
+  if (useProxy) {
+    contextOptions.proxy = {
+      server: `${proxyProto}://${proxyHost}:${proxyPort}`,
+      username: proxyUser,
+      password: proxyPass,
+    }
+    log.info({ proxy: `${proxyProto}://${proxyHost}:${proxyPort}` }, 'naver: using residential proxy')
+  } else {
+    log.warn('naver: no proxy configured (PROXY_HOST/PORT missing) — Railway IP may be blocked')
+  }
+
+  const context = await browser.newContext(contextOptions)
   const page = await context.newPage()
   startNetworkCapture(page, log, ['review', 'reply', 'smartplace'])
 
@@ -226,11 +253,38 @@ export async function runNaver(
       log.info({ url: urlAfterLogin }, 'naver: after form login')
 
       if (urlAfterLogin.includes('captcha') || urlAfterLogin.includes('challenge')) {
-        await dumpPageDiagnostics(page, log, 'naver-captcha')
-        await markLoginStatus(svc, userId, 'naver_place', 'captcha', urlAfterLogin)
-        const msg = 'naver: 캡차 발생 — /my/platforms/naver_place/session 에서 세션쿠키를 저장하면 자동 해결됩니다'
-        if (platformReviewId) await updateReviewStatus(svc, userId, platformReviewId, 'failed', { error: msg })
-        return { status: 'failed', message: msg }
+        log.info({ urlAfterLogin }, 'naver: captcha detected — attempting auto-solve with 2captcha')
+        const solved = await handleNaverCaptcha(page, log)
+        if (solved) {
+          const afterCaptchaUrl = page.url()
+          log.info({ afterCaptchaUrl }, 'naver: captcha solved, checking login state')
+          if (!afterCaptchaUrl.includes('nid.naver.com') && !afterCaptchaUrl.includes('login') && !afterCaptchaUrl.includes('captcha')) {
+            await markLoginStatus(svc, userId, 'naver_place', 'success')
+            log.info('naver: login succeeded after captcha solve')
+          } else {
+            // CAPTCHA 풀었지만 아직 로그인 안 됨 — SmartPlace 직접 이동으로 확인
+            const bizTestUrl = bizId && bizId !== 'unknown'
+              ? `${NEW_SMARTPLACE_BASE}/bizes/place/${bizId}`
+              : `${NEW_SMARTPLACE_BASE}/bizes`
+            await page.goto(bizTestUrl, { waitUntil: 'domcontentloaded', timeout: 25000 })
+            await page.waitForTimeout(2000)
+            const checkUrl = page.url()
+            if (!checkUrl.includes('login') && !checkUrl.includes('nid.naver.com')) {
+              loggedIn = true
+              await markLoginStatus(svc, userId, 'naver_place', 'success')
+              log.info('naver: captcha resolved, session confirmed')
+            }
+          }
+        } else {
+          // 2captcha 키 없거나 해결 실패
+          await dumpPageDiagnostics(page, log, 'naver-captcha')
+          await markLoginStatus(svc, userId, 'naver_place', 'captcha', urlAfterLogin)
+          const msg = process.env.TWOCAPTCHA_API_KEY
+            ? 'naver: CAPTCHA 자동 해결 실패 — 잠시 후 재시도됩니다'
+            : 'naver: CAPTCHA 발생 — TWOCAPTCHA_API_KEY를 Railway 환경변수에 추가해주세요'
+          if (platformReviewId) await updateReviewStatus(svc, userId, platformReviewId, 'failed', { error: msg })
+          return { status: 'failed', message: msg }
+        }
       }
 
       if (urlAfterLogin.includes('user2/help') || urlAfterLogin.includes('security') || urlAfterLogin.includes('verify')) {
