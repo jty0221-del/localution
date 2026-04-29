@@ -91,7 +91,7 @@ export default function CustomersPage() {
         // 비보안 컨텍스트 fallback
         const ta = document.createElement('textarea')
         ta.value = bulk; ta.style.position = 'fixed'; ta.style.opacity = '0'
-        document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta)
+        document.body.appendChild(ta); ta.select(); try { document.execCommand('copy') } catch (_) {}; document.body.removeChild(ta)
       }
       // 2) KakaoTalk PC 실행 시도 (Windows 카톡PC 설치 시 자동 실행)
       //    실패해도 복사는 완료돼 있으므로 사용자가 수동으로 열어 붙여넣을 수 있음
@@ -121,8 +121,25 @@ export default function CustomersPage() {
       setMsgSent(true)
       setTimeout(() => { setMsgOpen(false); setMsgSent(false); setMsgText(''); setSelected([]) }, 2500)
     } else {
-      // Windows/Mac 데스크톱 → 클립보드 + Phone Link 안내
-      sendKakao() // 결과적으로 동일(복사 + 안내)
+      // Windows/Mac 데스크톱 → Phone Link 미설치 시 클립보드 복사 후 안내
+      setSendError(null)
+      const bulk = buildPersonalizedBlocks()
+      const copyText = async () => {
+        if (navigator.clipboard && window.isSecureContext) {
+          await navigator.clipboard.writeText(bulk)
+        } else {
+          const ta = document.createElement('textarea')
+          ta.value = bulk; ta.style.position = 'fixed'; ta.style.opacity = '0'
+          document.body.appendChild(ta); ta.select(); try { document.execCommand('copy') } catch (_) {}; document.body.removeChild(ta)
+        }
+        setMsgSent(true)
+        setTimeout(() => { setMsgOpen(false); setMsgSent(false); setMsgText(''); setSelected([]) }, 2500)
+      }
+      // Windows 10+의 Phone Link(휴대폰 연결) 앱 실행 시도
+      try {
+        window.open('ms-phone-link:', '_self')
+      } catch (_) {}
+      copyText().catch(() => setSendError('클립보드 복사 실패: 브라우저 권한 확인'))
     }
   }
 
