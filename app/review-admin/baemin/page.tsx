@@ -9,20 +9,20 @@ import PlatformReviewAdmin, { PlatformConfig } from '../components/PlatformRevie
 export const dynamic = 'force-dynamic'
 
 function BaeminLogo() {
-  // 배달의민족 로고 — 민트 배경 + 흑색 수직 바 5개
-  // viewBox 80×80, 사방 10px 내부 여백으로 잘림 없음
+  // 배달의민족 로고 — 56px 컨테이너를 꽉 채움
+  // overflow-hidden + rounded-2xl(16px) 클리핑 계산: 바 시작점 x≥12, y≥12 확보
   return (
-    <svg width="34" height="34" viewBox="0 0 80 80" fill="none">
-      <rect width="80" height="80" rx="16" fill="#2DDDC8"/>
+    <svg width="56" height="56" viewBox="0 0 110 110" fill="none">
+      <rect width="110" height="110" fill="#2DDDC8"/>
       {/* 왼쪽 쌍 바 (위/아래) */}
-      <rect x="10" y="10" width="11" height="22" rx="2.5" fill="#111111"/>
-      <rect x="10" y="38" width="11" height="22" rx="2.5" fill="#111111"/>
+      <rect x="12" y="12" width="17" height="34" rx="3.5" fill="#111111"/>
+      <rect x="12" y="52" width="17" height="34" rx="3.5" fill="#111111"/>
       {/* 중앙 좌 — 풀 높이 */}
-      <rect x="26" y="10" width="11" height="50" rx="2.5" fill="#111111"/>
+      <rect x="35" y="12" width="17" height="74" rx="3.5" fill="#111111"/>
       {/* 중앙 우 — 풀 높이 */}
-      <rect x="42" y="10" width="11" height="50" rx="2.5" fill="#111111"/>
-      {/* 오른쪽 — 위에서 절반 */}
-      <rect x="58" y="10" width="11" height="32" rx="2.5" fill="#111111"/>
+      <rect x="58" y="12" width="17" height="74" rx="3.5" fill="#111111"/>
+      {/* 우측 절반 바 */}
+      <rect x="81" y="12" width="17" height="46" rx="3.5" fill="#111111"/>
     </svg>
   )
 }
