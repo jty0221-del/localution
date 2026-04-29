@@ -175,88 +175,163 @@ export async function runYogiyo(
       urls: homeRequests.map((r: any) => `[${r.type}] ${r.status} ${r.url}`).slice(0, 20),
     }, 'yogiyo home page captured requests')
 
-    // 3) localStorage / sessionStorage 에서 인증 토큰 추출
-    const authToken = await page.evaluate(() => {
-      const win = window as any
-      const ls = { ...localStorage }
-      const ss = { ...sessionStorage }
-      const all = { ...ls, ...ss }
-      const tokenKeys = Object.keys(all).filter(k =>
-        k.toLowerCase().includes('token') || k.toLowerCase().includes('auth') ||
-        k.toLowerCase().includes('jwt') || k.toLowerCase().includes('access')
-      )
-      const token = tokenKeys.length > 0 ? all[tokenKeys[0]] : null
-      return {
-        token,
-        tokenKey: tokenKeys[0] || null,
-        allKeys: Object.keys(all).slice(0, 20),
-        cookieStr: document.cookie.slice(0, 300),
-      }
-    }).catch(() => ({ token: null, tokenKey: null, allKeys: [], cookieStr: '' }))
-
-    log.info({
-      hasToken: !!authToken.token,
-      tokenKey: authToken.tokenKey,
-      storageKeys: authToken.allKeys,
-      cookiePreview: authToken.cookieStr.slice(0, 100),
-    }, 'yogiyo auth token status')
-
-    // 4) 직접 API 호출 — 토큰 + 쿠키 함께 사용
+    // 3) 쿠키에서 EXT_REFRESH_TOKEN 추출 → 액세스 토큰 교환
     const storeId = creds.platform_store_id || ''
-    const apiReviews = await page.evaluate(async (args: { storeId: string; token: string | null }) => {
-      const { storeId, token } = args
-      const headers: Record<string, string> = {
-        'Accept': 'application/json',
-        'Content-Type': 'application/json',
-        'X-Requested-With': 'XMLHttpRequest',
-      }
-      if (token) {
-        headers['Authorization'] = token.startsWith('Bearer ') ? token : `Bearer ${token}`
-        headers['X-Access-Token'] = token
+
+    const tokenResult = await page.evaluate(async (sid: string) => {
+      // 쿠키 파싱
+      const cookies: Record<string, string> = {}
+      document.cookie.split(';').forEach(c => {
+        const idx = c.indexOf('=')
+        if (idx > 0) cookies[c.slice(0, idx).trim()] = c.slice(idx + 1).trim()
+      })
+      const refreshToken = cookies['EXT_REFRESH_TOKEN'] || cookies['refresh_token'] || null
+      const accessToken = cookies['EXT_ACCESS_TOKEN'] || cookies['access_token'] || null
+
+      // localStorage/sessionStorage 도 확인
+      const allStorage: Record<string, string> = {}
+      try { Object.assign(allStorage, { ...localStorage, ...sessionStorage }) } catch {}
+      const storageRefresh = Object.entries(allStorage).find(([k]) =>
+        k.toLowerCase().includes('refresh'))?.[1] || null
+      const storageAccess = Object.entries(allStorage).find(([k]) =>
+        k.toLowerCase().includes('access') || k.toLowerCase().includes('token'))?.[1] || null
+
+      const finalRefresh = refreshToken || storageRefresh
+      const finalAccess = accessToken || storageAccess
+
+      // 액세스 토큰이 이미 있으면 바로 사용
+      if (finalAccess && finalAccess.startsWith('ey')) {
+        return { accessToken: finalAccess, source: 'cookie/storage', refreshToken: finalRefresh }
       }
 
-      const endpoints = [
-        // 현재 URL 기반
-        `/api/v4/reviews/?page=1&page_size=50`,
-        `/api/v4/reviews/?vendor_id=${storeId}&page=1&page_size=50`,
-        `/api/v3/reviews/?vendor_id=${storeId}&page=1&page_size=50`,
-        `/api/v4/vendors/${storeId}/reviews/?page=1&page_size=50`,
-        `/api/v3/vendors/${storeId}/reviews/`,
-        `/api/v2/vendors/${storeId}/reviews/`,
-        `/api/reviews/`,
-        // 새 패턴
-        `/bizes/${storeId}/reviews`,
-        `/api/bizes/${storeId}/reviews`,
-      ]
-
-      const results: any[] = []
-      for (const ep of endpoints) {
-        try {
-          const url = `https://ceo.yogiyo.co.kr${ep}`
-          const res = await fetch(url, { credentials: 'include', headers })
-          const text = await res.text()
-          const entry: any = { ep, status: res.status, body: text.slice(0, 300) }
-          results.push(entry)
-          if (res.status === 200) {
-            try {
+      // 리프레시 토큰으로 액세스 토큰 교환
+      if (finalRefresh) {
+        const refreshEndpoints = [
+          'https://ceo.yogiyo.co.kr/api/v4/users/login/refresh/',
+          'https://ceo.yogiyo.co.kr/api/v1/users/token/refresh/',
+          'https://ceo.yogiyo.co.kr/api/v2/users/token/refresh/',
+          'https://ceo.yogiyo.co.kr/users/token/refresh/',
+          'https://ceo.yogiyo.co.kr/api/v4/token/refresh/',
+        ]
+        for (const ep of refreshEndpoints) {
+          try {
+            const res = await fetch(ep, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              credentials: 'include',
+              body: JSON.stringify({ refresh: finalRefresh }),
+            })
+            const text = await res.text()
+            if (res.status === 200 && text.includes('{')) {
               const json = JSON.parse(text)
-              return { ok: true, ep, data: json }
-            } catch {}
-          }
-        } catch (e: any) {
-          results.push({ ep, error: e?.message })
+              if (json.access || json.access_token || json.token) {
+                return {
+                  accessToken: json.access || json.access_token || json.token,
+                  source: ep,
+                  refreshToken: finalRefresh,
+                }
+              }
+            }
+          } catch {}
         }
       }
-      return { ok: false, results }
-    }, { storeId, token: authToken.token })
+
+      // 4) 토큰 없어도 쿠키만으로 API 시도
+      // 요기요 실제 API 도메인 탐색
+      const apiDomains = [
+        'https://ceo.yogiyo.co.kr',
+        'https://api.yogiyo.co.kr',
+        'https://order.yogiyo.co.kr',
+      ]
+      const reviewPaths = [
+        `/api/v4/reviews/?page=1&page_size=50`,
+        `/api/v4/reviews/?vendor_id=${sid}&page=1&page_size=50`,
+        `/api/v4/vendors/${sid}/reviews/?page=1&page_size=50`,
+        `/v4/reviews/?vendor_id=${sid}`,
+        `/reviews/?vendor_id=${sid}`,
+      ]
+      const probeResults: any[] = []
+      for (const domain of apiDomains) {
+        for (const path of reviewPaths) {
+          try {
+            const res = await fetch(`${domain}${path}`, {
+              credentials: 'include',
+              headers: { Accept: 'application/json' },
+            })
+            const text = await res.text()
+            probeResults.push({ url: `${domain}${path}`, status: res.status, isJson: text.startsWith('{') || text.startsWith('[') })
+            if (res.status === 200 && (text.startsWith('{') || text.startsWith('['))) {
+              return { accessToken: null, source: 'cookie-only', apiData: JSON.parse(text), apiUrl: `${domain}${path}` }
+            }
+          } catch (e: any) {
+            probeResults.push({ url: `${domain}${path}`, error: e?.message })
+          }
+        }
+      }
+
+      return {
+        accessToken: finalAccess,
+        refreshToken: finalRefresh,
+        source: 'none',
+        cookieKeys: Object.keys(cookies),
+        storageKeys: Object.keys(allStorage).slice(0, 10),
+        probeResults: probeResults.slice(0, 10),
+      }
+    }, storeId)
 
     log.info({
-      ok: (apiReviews as any).ok,
-      ep: (apiReviews as any).ep,
-      results: (apiReviews as any).results,
-      dataSample: (apiReviews as any).data
-        ? JSON.stringify((apiReviews as any).data).slice(0, 500) : null,
-    }, 'yogiyo direct api probe')
+      source: (tokenResult as any).source,
+      hasAccess: !!(tokenResult as any).accessToken,
+      hasRefresh: !!(tokenResult as any).refreshToken,
+      cookieKeys: (tokenResult as any).cookieKeys,
+      probeResults: (tokenResult as any).probeResults,
+      directApiData: (tokenResult as any).apiData
+        ? JSON.stringify((tokenResult as any).apiData).slice(0, 400) : null,
+    }, 'yogiyo token + api probe result')
+
+    // 5) 리뷰 추출
+    let reviews: any[] = []
+
+    // 직접 API 데이터 (쿠키만으로 성공)
+    if ((tokenResult as any).apiData) {
+      reviews = extractYogiyoReviews((tokenResult as any).apiData, (tokenResult as any).apiUrl)
+      log.info({ count: reviews.length }, 'yogiyo: cookie-only api success')
+    }
+
+    // 액세스 토큰으로 API 호출
+    if (reviews.length === 0 && (tokenResult as any).accessToken) {
+      const accessToken = (tokenResult as any).accessToken
+      const apiData = await page.evaluate(async (args: { token: string; sid: string }) => {
+        const { token, sid } = args
+        const headers = {
+          'Authorization': `Bearer ${token}`,
+          'Accept': 'application/json',
+          'Content-Type': 'application/json',
+        }
+        const endpoints = [
+          `https://ceo.yogiyo.co.kr/api/v4/reviews/?page=1&page_size=50`,
+          `https://ceo.yogiyo.co.kr/api/v4/reviews/?vendor_id=${sid}&page=1&page_size=50`,
+          `https://ceo.yogiyo.co.kr/api/v4/vendors/${sid}/reviews/?page=1&page_size=50`,
+          `https://api.yogiyo.co.kr/api/v4/reviews/?vendor_id=${sid}`,
+          `https://api.yogiyo.co.kr/v4/reviews/?vendor_id=${sid}`,
+        ]
+        for (const url of endpoints) {
+          try {
+            const res = await fetch(url, { credentials: 'include', headers })
+            const text = await res.text()
+            if (res.status === 200 && (text.startsWith('{') || text.startsWith('['))) {
+              return { url, data: JSON.parse(text) }
+            }
+          } catch {}
+        }
+        return null
+      }, { token: accessToken, sid: storeId })
+
+      if (apiData) {
+        reviews = extractYogiyoReviews((apiData as any).data, (apiData as any).url)
+        log.info({ count: reviews.length, url: (apiData as any).url }, 'yogiyo: token api success')
+      }
+    }
 
     // 5) 리뷰 추출
     let reviews: any[] = []
