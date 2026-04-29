@@ -260,7 +260,7 @@ export default function ConnectPlatformPage() {
                 <input type="checkbox" checked={agreedScope} onChange={(e) => setAgreedScope(e.target.checked)} className="mt-1 w-4 h-4 accent-[#3182F6]" />
                 <div className="flex-1">
                   <div className="font-medium text-[#191F28] mb-1">① 위임 범위에 동의합니다 <span className="text-[#DC2626]">*</span></div>
-                  <div className="text-sm text-[#4E5968] leading-relaxed">하랑마케팅이 본인 {meta.label} 계정으로 <strong className="text-[#191F28]">(1) 리뷰 조회, (2) 답글 게시, (3) 순위/통계 수집, (4) 로그인 유지</strong>만 대리 수행하는 것에 동의합니다.</div>
+                  <div className="text-sm text-[#4E5968] leading-relaxed">로컬루션이 본인 {meta.label} 계정으로 <strong className="text-[#191F28]">(1) 리뷰 조회, (2) 답글 게시, (3) 순위/통계 수집, (4) 로그인 유지</strong>만 대리 수행하는 것에 동의합니다.</div>
                 </div>
               </label>
               <label className="flex gap-3 cursor-pointer">
