@@ -330,7 +330,7 @@ export default function ProfileSettingsPage() {
                 </label>
                 <input type="text" value={form.storeName || ''}
                   onChange={e => setForm(f => ({ ...f, storeName: e.target.value }))}
-                  placeholder="예) 하랑마케팅, 강남치과, 라떼커피 등" maxLength={24}
+                  placeholder="예) 강남치과, 라떼커피, 홍대미용실 등" maxLength={24}
                   className="w-full px-4 py-2.5 rounded-xl border border-[#E5E8EB] focus:outline-none focus:border-[#3182F6] focus:ring-2 focus:ring-[#3182F6]/10 text-sm" />
                 <p className="text-[10px] text-[#8B95A1] mt-1">사이드바 타이틀로 표시됩니다</p>
               </div>
