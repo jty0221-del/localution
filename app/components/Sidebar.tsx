@@ -113,7 +113,9 @@ function PlatformLogoSmall({ platform }: { platform: string }) {
   if (platform === 'yogiyo') return (
     <svg width="18" height="18" viewBox="0 0 48 48" fill="none" style={{flexShrink:0}}>
       <rect width="48" height="48" rx="12" fill="#E5007F"/>
-      <path d="M10 12L24 30V44h5V30L43 12H36L24 26 12 12H10Z" fill="white"/>
+      <text x="24" y="32" textAnchor="middle" fontSize="16" fontWeight="900"
+        fill="white" fontFamily="'Apple SD Gothic Neo','Noto Sans KR',sans-serif"
+        letterSpacing="-0.8">요기요</text>
     </svg>
   )
   if (platform === 'coupang') return (
