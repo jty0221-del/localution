@@ -105,6 +105,9 @@ function RankTab() {
 
   return (
     <div>
+      <div className="flex items-center gap-2 mb-3">
+        <span className="inline-block text-[10px] font-semibold bg-[#FEF9E8] text-[#CA8A04] border border-[#FCD34D] px-2 py-0.5 rounded-full">📊 예시 데이터 — 실제 연동 시 내 매장 순위가 표시됩니다</span>
+      </div>
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <span className="text-sm text-[#8B95A1]">정렬:</span>
