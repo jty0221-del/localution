@@ -133,9 +133,7 @@ export async function runYogiyo(
         const url = response.url()
         const ct = response.headers()['content-type'] || ''
         if (!ct.includes('json')) return
-        const isRelevant = url.includes('review') || url.includes('feedback') ||
-          url.includes('rating') || url.includes('comment') || url.includes('order')
-        if (!isRelevant) return
+        // URL 필터 없이 모든 JSON 응답 캡처 — 요기요 API 패턴 파악용
         const json = await response.json()
         capturedApiResponses.push({ url, data: json })
         log.info({ url, status: response.status() }, 'yogiyo api captured')
