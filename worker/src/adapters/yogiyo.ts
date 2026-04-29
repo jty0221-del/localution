@@ -11,19 +11,10 @@ import { dumpPageDiagnostics, startNetworkCapture, detectLoginFailure } from '..
 import type { JobResult, Action } from '../jobs'
 
 const LOGIN_URL = 'https://ceo.yogiyo.co.kr/login/'
-const REVIEWS_BASE_URL = 'https://ceo.yogiyo.co.kr/reviews'
 
 const DOM_SELECTORS = {
-  idInput: 'input[name="username"], input[name="loginId"], input[name="email"], input[type="email"], input[type="text"]',
   pwInput: 'input[name="password"], input[type="password"]',
   loginBtn: 'button[type="submit"], button:has-text("로그인"), button:has-text("로그인하기")',
-  reviewCard: '[class*="ReviewList"] [class*="ReviewItem"], [data-testid*="review-item"], article[class*="review"], li[class*="ReviewItem"]',
-  reviewAuthor: '[class*="nickname"], [class*="UserName"], [class*="author"]',
-  starFilled: '[class*="star"][class*="fill"], [class*="StarFilled"], svg[class*="active"]',
-  reviewContent: '[class*="ReviewContent"], [class*="content"], p[class*="body"]',
-  reviewDate: 'time, [class*="Date"], [class*="date"]',
-  reviewPhoto: 'img[src*="yogiyo"], img[class*="photo"], img[class*="image"]',
-  ownerReply: '[class*="OwnerReply"], [class*="ownerReply"], [class*="StoreReply"]',
   replyButton: 'button:has-text("답글"), button:has-text("사장님 답글"), [class*="replyButton"]',
   replyTextarea: 'textarea[placeholder*="답글"], textarea[class*="reply"]',
   replySubmit: 'button:has-text("등록"), button:has-text("저장"), button:has-text("확인")',
@@ -66,11 +57,10 @@ export async function runYogiyo(
   startNetworkCapture(page, log, ['review', 'feedback', 'rating'])
 
   try {
-    // 1) 로그인 — load 이후 SPA 렌더링 대기 (networkidle은 WebSocket으로 인해 타임아웃)
+    // 1) 로그인
     await page.goto(LOGIN_URL, { waitUntil: 'load', timeout: 45000 })
     await page.waitForTimeout(5000)
 
-    // 폼이 실제로 나타날 때까지 대기
     const pwLocator = page.locator(DOM_SELECTORS.pwInput).first()
     const pwVisible = await pwLocator.waitFor({ state: 'visible', timeout: 25000 }).then(() => true).catch(() => false)
     if (!pwVisible) {
@@ -79,7 +69,6 @@ export async function runYogiyo(
       return { status: 'failed', message: 'yogiyo 로그인 폼을 찾지 못했습니다 — 페이지 구조 변경 가능성' }
     }
 
-    // ID 입력창 — 셀렉터 후보 순차 시도
     const idCandidates = [
       'input[name="username"]',
       'input[name="loginId"]',
@@ -107,14 +96,13 @@ export async function runYogiyo(
     if (!idFilled) {
       await dumpPageDiagnostics(page, log, 'yogiyo-id-input-not-found')
       await markLoginStatus(svc, userId, 'yogiyo', 'failed', 'id input not found')
-      return { status: 'failed', message: 'yogiyo ID 입력 필드를 찾지 못했습니다 — html_snippet 로그 확인 필요' }
+      return { status: 'failed', message: 'yogiyo ID 입력 필드를 찾지 못했습니다' }
     }
     await pwLocator.click()
     await pwLocator.fill('')
     await pwLocator.pressSequentially(creds.password, { delay: 60 })
     await page.waitForTimeout(500)
     await page.locator(DOM_SELECTORS.loginBtn).first().click()
-    // 로그인 후 URL이 /login 에서 벗어날 때까지 대기 (리다이렉트 완료 보장)
     await page.waitForURL((url) => !url.href.includes('/login'), { timeout: 20000 }).catch(() => null)
     await page.waitForTimeout(2000)
 
@@ -138,52 +126,83 @@ export async function runYogiyo(
     await markLoginStatus(svc, userId, 'yogiyo', 'success')
     if (action === 'health_check') return { status: 'ok', message: 'yogiyo login ok' }
 
-    // 2) API 인터셉트로 리뷰 데이터 수집 — 모든 JSON API 응답 캡처
-    const capturedApiResponses: any[] = []
-    await page.route('**/*', async (route) => {
-      const request = route.request()
-      const resType = request.resourceType()
-      if (resType === 'xhr' || resType === 'fetch') {
-        try {
-          const response = await route.fetch()
-          const ct = response.headers()['content-type'] || ''
-          if (ct.includes('json')) {
-            const text = await response.text()
-            try {
-              const json = JSON.parse(text)
-              capturedApiResponses.push({ url: request.url(), data: json })
-              log.info({ url: request.url() }, 'yogiyo api captured')
-            } catch {}
-          }
-          await route.fulfill({ response })
-        } catch {
-          await route.continue()
-        }
-      } else {
-        await route.continue()
-      }
+    // 2) response 리스너 — 리뷰 페이지 이동 전에 먼저 등록해야 캡처됨
+    const capturedApiResponses: Array<{ url: string; data: any }> = []
+    page.on('response', async (response) => {
+      try {
+        const url = response.url()
+        const ct = response.headers()['content-type'] || ''
+        if (!ct.includes('json')) return
+        const isRelevant = url.includes('review') || url.includes('feedback') ||
+          url.includes('rating') || url.includes('comment') || url.includes('order')
+        if (!isRelevant) return
+        const json = await response.json()
+        capturedApiResponses.push({ url, data: json })
+        log.info({ url, status: response.status() }, 'yogiyo api captured')
+      } catch { /* skip */ }
     })
 
-    const postLoginUrl = page.url()
-    const postLoginOrigin = (() => { try { return new URL(postLoginUrl).origin } catch { return 'https://ceo.yogiyo.co.kr' } })()
+    // 3) 리뷰 페이지 이동
+    const postLoginOrigin = (() => {
+      try { return new URL(page.url()).origin } catch { return 'https://ceo.yogiyo.co.kr' }
+    })()
     const reviewsUrl = creds.platform_store_id
       ? `${postLoginOrigin}/reviews/${creds.platform_store_id}`
       : `${postLoginOrigin}/reviews`
-    log.info({ reviewsUrl, postLoginOrigin }, 'yogiyo navigating to reviews')
+    log.info({ reviewsUrl }, 'yogiyo navigating to reviews')
     await page.goto(reviewsUrl, { waitUntil: 'load', timeout: 45000 })
-    await page.waitForTimeout(8000)
-    log.info({ url: page.url(), title: await page.title(), capturedCount: capturedApiResponses.length }, 'yogiyo review page arrived')
+    // 충분히 대기 — API 응답 수신까지
+    await page.waitForTimeout(12000)
 
-    // 3) 캡처된 API 응답에서 리뷰 추출
+    // 스크롤로 추가 API 호출 유도 (무한 스크롤 / 페이지네이션 대응)
+    for (let i = 0; i < 5; i++) {
+      await page.evaluate(() => window.scrollBy(0, 800))
+      await page.waitForTimeout(1500)
+    }
+    await page.waitForTimeout(3000)
+
+    log.info({
+      url: page.url(),
+      capturedCount: capturedApiResponses.length,
+      capturedUrls: capturedApiResponses.map((r) => r.url),
+    }, 'yogiyo review page result')
+
+    // 4) 리뷰 추출
     let reviews: any[] = []
     for (const { url: apiUrl, data } of capturedApiResponses) {
       const extracted = extractYogiyoReviews(data, apiUrl)
       if (extracted.length > 0) {
-        log.info({ apiUrl, count: extracted.length }, 'yogiyo reviews from api')
+        log.info({ apiUrl, count: extracted.length }, 'yogiyo reviews extracted')
         reviews = reviews.concat(extracted)
       }
     }
-    log.info({ apiCaptured: capturedApiResponses.length, reviewsFound: reviews.length }, 'yogiyo api intercept result')
+
+    // 구조가 달라 못 찾은 경우 — 재귀 탐색
+    if (reviews.length === 0 && capturedApiResponses.length > 0) {
+      log.warn('yogiyo: standard extract failed, trying deep extract')
+      for (const { url: apiUrl, data } of capturedApiResponses) {
+        const extracted = deepExtractReviews(data)
+        if (extracted.length > 0) {
+          log.info({ apiUrl, count: extracted.length }, 'yogiyo deep extract succeeded')
+          reviews = reviews.concat(extracted)
+          break
+        }
+      }
+    }
+
+    log.info({ capturedApiCount: capturedApiResponses.length, reviewsFound: reviews.length }, 'yogiyo collect summary')
+
+    if (reviews.length === 0 && capturedApiResponses.length > 0) {
+      // 구조 진단용 — API 응답이 있는데도 파싱 실패 시 첫 응답 샘플 로깅
+      const first = capturedApiResponses[0]
+      log.warn({
+        url: first.url,
+        topKeys: Object.keys(first.data || {}),
+        sample: JSON.stringify(first.data).slice(0, 400),
+      }, 'yogiyo api response structure — needs parser update')
+    } else if (reviews.length === 0) {
+      await dumpPageDiagnostics(page, log, 'yogiyo-no-api-captured')
+    }
 
     const normalized: CollectedReview[] = reviews
       .filter((r) => r.content || r.author_name)
@@ -262,30 +281,61 @@ async function postYogiyoReply(
 
 function extractYogiyoReviews(data: any, apiUrl: string): any[] {
   if (!data || typeof data !== 'object') return []
-  // 다양한 API 응답 구조 처리
   const candidates = [
     data?.reviews, data?.data?.reviews, data?.result?.reviews,
     data?.items, data?.data?.items, data?.result?.items,
     data?.list, data?.data?.list, data?.review_list,
+    data?.results, data?.data?.results,
+    // DRF pagination: { count, next, results }
+    (data?.count !== undefined && Array.isArray(data?.results)) ? data.results : null,
     Array.isArray(data) ? data : null,
   ]
   for (const list of candidates) {
     if (!Array.isArray(list) || list.length === 0) continue
     const first = list[0]
     if (!first || typeof first !== 'object') continue
-    // 리뷰처럼 생겼는지 확인 (rating/score/content 필드 있어야)
-    const hasReviewFields = 'rating' in first || 'score' in first || 'content' in first || 'body' in first || 'review' in first
+    const hasReviewFields =
+      'rating' in first || 'score' in first || 'content' in first ||
+      'body' in first || 'review' in first || 'comment' in first
     if (!hasReviewFields) continue
     return list.map((r: any, idx: number) => ({
-      platform_review_id: String(r.id || r.review_id || r.reviewId || `yogiyo:api:${idx}:${(r.content || r.body || '').slice(0, 20)}`),
-      author_name: r.user_name || r.userName || r.nickname || r.author || null,
-      rating: r.rating ?? r.score ?? r.star ?? null,
-      content: r.content || r.body || r.review || null,
-      photos: Array.isArray(r.photos) ? r.photos.map((p: any) => p.url || p.image_url || p) : [],
-      posted_at: r.created_at || r.createdAt || r.date || r.reviewed_at || null,
-      has_reply: !!(r.comment || r.reply || r.owner_reply || r.store_reply),
-      reply_content: r.comment?.content || r.reply?.content || r.owner_reply || r.store_reply || null,
+      platform_review_id: String(
+        r.id || r.review_id || r.reviewId || r.pk ||
+        `yogiyo:${idx}:${(r.content || r.body || '').slice(0, 20)}`
+      ),
+      author_name: r.user_name || r.userName || r.nickname || r.author || r.writer || null,
+      rating: r.rating ?? r.score ?? r.star ?? r.stars ?? null,
+      content: r.content || r.body || r.review || r.comment || null,
+      photos: Array.isArray(r.photos)
+        ? r.photos.map((p: any) => (typeof p === 'string' ? p : p.url || p.image_url))
+        : Array.isArray(r.images)
+        ? r.images.map((p: any) => (typeof p === 'string' ? p : p.url))
+        : [],
+      posted_at: r.created_at || r.createdAt || r.date || r.reviewed_at || r.registered_at || null,
+      has_reply: !!(r.comment || r.reply || r.owner_reply || r.store_reply || r.ceo_reply),
+      reply_content:
+        r.comment?.content || r.reply?.content ||
+        r.owner_reply || r.store_reply || r.ceo_reply || null,
     }))
+  }
+  return []
+}
+
+function deepExtractReviews(data: any, depth = 0): any[] {
+  if (depth > 4 || !data || typeof data !== 'object') return []
+  if (Array.isArray(data)) {
+    if (data.length > 0) {
+      const first = data[0]
+      if (first && typeof first === 'object' &&
+          ('rating' in first || 'score' in first || 'content' in first)) {
+        return extractYogiyoReviews(data, 'deep')
+      }
+    }
+    return []
+  }
+  for (const val of Object.values(data)) {
+    const result = deepExtractReviews(val, depth + 1)
+    if (result.length > 0) return result
   }
   return []
 }
@@ -294,7 +344,7 @@ function normalizeDate(raw: string | null): string | null {
   if (!raw) return null
   const s = raw.trim()
   if (/^\d{4}-\d{2}-\d{2}T/.test(s)) return s
-  const m1 = s.match(/(\d{4})[.\-/](\d{1,2})[.\-/](\d{1,2})/)
+  const m1 = s.match(/(\d{4})[.\-\/](\d{1,2})[.\-\/](\d{1,2})/)
   if (m1) {
     const [, y, mo, d] = m1
     return `${y}-${mo.padStart(2, '0')}-${d.padStart(2, '0')}T00:00:00+09:00`
