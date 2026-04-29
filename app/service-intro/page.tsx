@@ -610,6 +610,19 @@ export default function ServiceIntro() {
 
       {/* ── 히어로 ─────────────────────────────────────── */}
       <div style={{ background: 'linear-gradient(135deg,#1B3FD8 0%,#3182F6 100%)' }} className="text-white relative overflow-hidden">
+        {/* SVG 배경 — 격자 dot pattern */}
+        <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-10" aria-hidden="true">
+          <defs>
+            <pattern id="si-dot" x="0" y="0" width="24" height="24" patternUnits="userSpaceOnUse">
+              <circle cx="1.5" cy="1.5" r="1.5" fill="white" />
+            </pattern>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#si-dot)" />
+        </svg>
+        {/* SVG 오른쪽 하단 원형 장식 */}
+        <svg className="absolute -bottom-16 -right-16 opacity-10 pointer-events-none" width="280" height="280" aria-hidden="true">
+          <circle cx="140" cy="140" r="140" fill="white" />
+        </svg>
         {/* 플로팅 리뷰 카드 (데스크탑 우측) */}
         <div className="hidden lg:block absolute right-8 top-0 bottom-0 w-64 pointer-events-none">
           {FLOAT_CARDS.map((c, i) => (
@@ -671,7 +684,13 @@ export default function ServiceIntro() {
         {/* ── STEP 1: QR 리뷰 수집 ───────────────────── */}
         <div className="mb-10 sm:mb-14">
           <div className="flex items-center gap-3 mb-5">
-            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-[#059669] text-white text-xs font-black shrink-0">1</div>
+            <div className="relative shrink-0 w-10 h-10 flex items-center justify-center">
+              <svg width="40" height="40" viewBox="0 0 40 40" aria-hidden="true">
+                <circle cx="20" cy="20" r="19" fill="#059669" />
+                <circle cx="20" cy="20" r="15" fill="none" stroke="white" strokeWidth="1" strokeDasharray="4 3" strokeOpacity="0.4" />
+              </svg>
+              <span className="absolute text-white text-sm font-black">1</span>
+            </div>
             <div>
               <p className="text-sm sm:text-base font-black text-[#191F28] break-keep">QR 리뷰 수집 자동화</p>
               <p className="text-xs text-[#8B95A1] break-keep mt-0.5">고객 입장에서 QR 체험 흐름을 직접 눌러보세요. 키워드 선택 → AI 생성 → 플랫폼 등록까지 1분.</p>
@@ -680,17 +699,49 @@ export default function ServiceIntro() {
           <QrDemo />
         </div>
 
-        {/* ── 섹션 연결 화살표 ─────────────────────── */}
-        <div className="flex flex-col items-center gap-1 mb-10 sm:mb-14 text-[#8B95A1]">
-          <div className="w-px h-8 bg-gradient-to-b from-[#059669] to-[#3182F6]" />
-          <div className="text-[10px] font-bold tracking-widest uppercase px-3 py-1 rounded-full bg-white border border-[#E5E8EB] text-[#8B95A1]">수집된 리뷰에</div>
-          <div className="w-px h-8 bg-gradient-to-b from-[#3182F6] to-[#1B3FD8]" />
+        {/* ── 섹션 연결 — SVG 강화 ─────────────────── */}
+        <div className="flex flex-col items-center gap-0 mb-10 sm:mb-14">
+          <svg width="2" height="32" viewBox="0 0 2 32" aria-hidden="true">
+            <defs>
+              <linearGradient id="line1" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#059669" />
+                <stop offset="100%" stopColor="#3182F6" />
+              </linearGradient>
+            </defs>
+            <rect x="0" y="0" width="2" height="32" fill="url(#line1)" rx="1" />
+          </svg>
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded-full bg-white border border-[#E5E8EB] shadow-sm">
+            <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true">
+              <circle cx="6" cy="6" r="5" fill="#EFF6FF" stroke="#3182F6" strokeWidth="1.5" />
+              <circle cx="6" cy="6" r="2" fill="#3182F6" />
+            </svg>
+            <span className="text-[10px] font-bold tracking-widest uppercase text-[#8B95A1]">수집된 리뷰에</span>
+          </div>
+          <svg width="2" height="32" viewBox="0 0 2 32" aria-hidden="true">
+            <defs>
+              <linearGradient id="line2" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="#3182F6" />
+                <stop offset="100%" stopColor="#1B3FD8" />
+              </linearGradient>
+            </defs>
+            <rect x="0" y="0" width="2" height="32" fill="url(#line2)" rx="1" />
+          </svg>
+          {/* 화살표 꼭짓점 */}
+          <svg width="14" height="8" viewBox="0 0 14 8" aria-hidden="true">
+            <path d="M0 0 L7 8 L14 0" fill="none" stroke="#1B3FD8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+          </svg>
         </div>
 
         {/* ── STEP 2: AI 리뷰 답글 ────────────────── */}
         <div className="mb-10 sm:mb-14">
           <div className="flex items-center gap-3 mb-5">
-            <div className="flex items-center justify-center w-8 h-8 rounded-full bg-[#3182F6] text-white text-xs font-black shrink-0">2</div>
+            <div className="relative shrink-0 w-10 h-10 flex items-center justify-center">
+              <svg width="40" height="40" viewBox="0 0 40 40" aria-hidden="true">
+                <circle cx="20" cy="20" r="19" fill="#3182F6" />
+                <circle cx="20" cy="20" r="15" fill="none" stroke="white" strokeWidth="1" strokeDasharray="4 3" strokeOpacity="0.4" />
+              </svg>
+              <span className="absolute text-white text-sm font-black">2</span>
+            </div>
             <div>
               <p className="text-sm sm:text-base font-black text-[#191F28] break-keep">AI 리뷰 답글 자동 생성</p>
               <p className="text-xs text-[#8B95A1] break-keep mt-0.5">아래 리뷰 중 하나를 골라 [AI 답글 생성]을 눌러보세요. 3초 안에 답글이 완성됩니다.</p>
