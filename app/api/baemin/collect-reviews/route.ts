@@ -171,6 +171,8 @@ export async function POST(req: NextRequest) {
       'Origin': 'https://self.baemin.com',
       'Accept': 'application/json, text/plain, */*',
       'Accept-Language': 'ko-KR,ko;q=0.9',
+      'service-channel': 'SELF_SERVICE_PC',
+      'X-Web-Version': 'v20260422143632',
       'sec-fetch-dest': 'empty',
       'sec-fetch-mode': 'cors',
       'sec-fetch-site': 'same-site',
