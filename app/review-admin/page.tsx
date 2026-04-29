@@ -18,63 +18,37 @@ export const dynamic = 'force-dynamic'
 // ─────────────────────────────────────────
 // 로고 컴포넌트
 // ─────────────────────────────────────────
-function NaverLogo({ size = 28 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
-      <rect width="48" height="48" rx="12" fill="#03C75A"/>
-      <path d="M10 38V10h8.2l9.6 14.8V10H36v28h-8.2L18.2 23.2V38H10Z" fill="white"/>
-    </svg>
-  )
-}
-function GoogleLogo({ size = 28 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
-      <rect width="48" height="48" rx="12" fill="white" stroke="#E5E7EB" strokeWidth="1.5"/>
-      <path d="M43.6 24.5c0-1.3-.12-2.6-.34-3.84H24v7.26h10.97c-.48 2.52-1.93 4.66-4.11 6.09v5.06h6.65C41.18 35.4 43.6 30.35 43.6 24.5z" fill="#4285F4"/>
-      <path d="M24 44c5.46 0 10.04-1.81 13.38-4.9l-6.52-5.07c-1.81 1.22-4.13 1.94-6.86 1.94-5.27 0-9.73-3.56-11.33-8.34H6.3v5.24A19.98 19.98 0 0024 44z" fill="#34A853"/>
-      <path d="M12.67 27.63A12.02 12.02 0 0112.05 24c0-1.26.22-2.49.62-3.63v-5.24H6.3A19.98 19.98 0 004 24c0 3.23.77 6.28 2.3 8.87l6.37-5.24z" fill="#FBBC05"/>
-      <path d="M24 11.06c2.97 0 5.63 1.02 7.73 3.01l5.79-5.79C34.02 5.06 29.44 3.04 24 3.04A19.98 19.98 0 006.3 15.13l6.37 5.24C14.27 14.62 18.73 11.06 24 11.06z" fill="#EA4335"/>
-    </svg>
-  )
-}
-function KakaoLogo({ size = 28 }: { size?: number }) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
-      <rect width="48" height="48" rx="12" fill="#FEE500"/>
-      <path d="M24 11C15.16 11 8 16.82 8 24.02c0 4.7 3.11 8.83 7.8 11.2l-1.98 7.28c-.17.63.53 1.14 1.08.77L22.6 38.1c.45.05.93.08 1.4.08 8.84 0 16-5.82 16-13.02S32.84 11 24 11z" fill="#3C1E1E"/>
-    </svg>
-  )
-}
 function BaeminLogo({ size = 28 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
       <rect width="48" height="48" rx="12" fill="#2AC1BC"/>
-      <rect x="11" y="13" width="10" height="22" rx="3" fill="#1A1A1A"/>
-      <rect x="11" y="13" width="10" height="10" rx="3" fill="#1A1A1A"/>
-      <path d="M21 18h5.5a5.5 5.5 0 010 11H21" stroke="#1A1A1A" strokeWidth="3.5" fill="none" strokeLinecap="round"/>
-      <path d="M21 24h6a5 5 0 010 10H21" stroke="#1A1A1A" strokeWidth="3.5" fill="none" strokeLinecap="round"/>
-      <rect x="11" y="31" width="10" height="4" rx="2" fill="#1A1A1A"/>
+      <text x="24" y="31" fontSize="18" fontWeight="900" fill="#1A1A1A"
+        fontFamily="'Apple SD Gothic Neo','Noto Sans KR',sans-serif"
+        textAnchor="middle" letterSpacing="-0.5">배민</text>
     </svg>
   )
 }
 function YogiyoLogo({ size = 28 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
-      <rect width="48" height="48" rx="12" fill="#FA0050"/>
-      <circle cx="24" cy="16" r="7" fill="white"/>
-      <path d="M17 26c0 0 2-4 7-4s7 4 7 4v10c0 2-1.5 3-3.5 3h-7C18.5 39 17 38 17 36V26z" fill="white"/>
-      <circle cx="21" cy="15" r="2" fill="#FA0050"/>
-      <circle cx="27" cy="15" r="2" fill="#FA0050"/>
-      <path d="M21 20 Q24 22 27 20" stroke="#FA0050" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
+      <rect width="48" height="48" rx="12" fill="#E5007F"/>
+      <text x="24" y="23" fontSize="11" fontWeight="900" fill="white"
+        fontFamily="'Apple SD Gothic Neo','Noto Sans KR',sans-serif" textAnchor="middle">요기요</text>
+      <circle cx="24" cy="33" r="4" fill="white"/>
+      <path d="M16 43 Q24 39 32 43" stroke="white" strokeWidth="2.2" fill="none" strokeLinecap="round"/>
     </svg>
   )
 }
 function CoupangEatsLogo({ size = 28 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
-      <rect width="48" height="48" rx="12" fill="#FF5A00"/>
-      <path d="M32 14H16a6 6 0 00-6 6v8a6 6 0 006 6h4l4 4 4-4h4a6 6 0 006-6v-8a6 6 0 00-6-6z" fill="white"/>
-      <path d="M19 22h10M19 27h7" stroke="#FF5A00" strokeWidth="2.5" strokeLinecap="round"/>
+      <rect width="48" height="48" rx="12" fill="white" stroke="#E5E7EB" strokeWidth="1.5"/>
+      <text x="5" y="25" fontSize="9.5" fontWeight="800" fontFamily="Arial,sans-serif" letterSpacing="0.2">
+        <tspan fill="#E31837">c</tspan><tspan fill="#F4A900">o</tspan><tspan fill="#E31837">u</tspan>
+        <tspan fill="#5BAD48">p</tspan><tspan fill="#3B79BE">a</tspan><tspan fill="#E31837">n</tspan>
+        <tspan fill="#F4A900">g</tspan>
+      </text>
+      <text x="5" y="39" fontSize="13" fontWeight="900" fill="#4A2C0A" fontFamily="Arial,sans-serif">eats</text>
     </svg>
   )
 }
@@ -100,11 +74,11 @@ const PLATFORM_META: Record<PlatformKey, {
   Logo?: LogoFC
   detailPath: string
 }> = {
-  naver:   { label: '네이버 플레이스', color: '#03C75A', bg: '#E8FBF0', textColor: '#015C2C', icon: 'N', Logo: NaverLogo,  detailPath: '/review-admin/naver' },
+  naver:   { label: '네이버 플레이스', color: '#03C75A', bg: '#E8FBF0', textColor: '#015C2C', icon: 'N', detailPath: '/review-admin/naver' },
   baemin:  { label: '배달의민족',       color: '#2AC1BC', bg: '#E6F9F8', textColor: '#0B7B78', icon: 'B', Logo: BaeminLogo,      detailPath: '/review-admin/baemin' },
   yogiyo:  { label: '요기요',           color: '#E5007F', bg: '#FEF0EB', textColor: '#B32B00', icon: 'Y', Logo: YogiyoLogo,       detailPath: '/review-admin/yogiyo' },
   coupang: { label: '쿠팡이츠',         color: '#FF5A00', bg: '#FFF3F0', textColor: '#900000', icon: 'C', Logo: CoupangEatsLogo,  detailPath: '/review-admin/coupang' },
-  kakao:   { label: '카카오맵',         color: '#FEE500', bg: '#FFFBE0', textColor: '#1A1A1A', icon: 'K', Logo: KakaoLogo,  detailPath: '/review-admin/kakao' },
+  kakao:   { label: '카카오맵',         color: '#FEE500', bg: '#FFFBE0', textColor: '#1A1A1A', icon: 'K', detailPath: '/review-admin/kakao' },
 }
 
 interface PlatformStat {
@@ -436,7 +410,7 @@ export default function ReviewAdminHub() {
                             {typeof r.rating === 'number' && <Stars n={r.rating} color={meta.color} />}
                             <span className="text-[10px] text-[#8B95A1]">{timeAgo(r.date)}</span>
                             {r.replied ? (
-                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#ECFDF5] text-[#059669] font-semibold">답글완료</span>
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#ECFDF5] text-[#059669] font-semibold">답글 완료</span>
                             ) : (
                               <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#FEF3C7] text-[#92400E] font-semibold">미답변</span>
                             )}
