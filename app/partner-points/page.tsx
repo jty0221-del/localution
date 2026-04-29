@@ -595,7 +595,7 @@ export default function PartnerPointsPage() {
                   📣 카카오 공유
                 </a>
                 <a
-                  href={`https://twitter.com/intent/tweet?text=${encodeURIComponent('하랑마케팅 로컬루션 — 소상공인 마케팅 도우미')}&url=${encodeURIComponent(link)}`}
+                  href={`https://twitter.com/intent/tweet?text=${encodeURIComponent('로컬루션 — 소상공인 마케팅 도우미')}&url=${encodeURIComponent(link)}`}
                   target="_blank"
                   rel="noopener noreferrer"
                   className="inline-flex items-center gap-1 text-[11px] font-bold px-2.5 py-1.5 rounded-lg bg-[#191F28] text-white hover:opacity-90"
