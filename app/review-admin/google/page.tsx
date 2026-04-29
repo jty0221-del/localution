@@ -20,23 +20,11 @@ interface Review {
 }
 
 const DEMO_REVIEWS: Review[] = [
-  { id: 1, author: 'J. Kim', rating: 5, content: 'Great food and cozy atmosphere. Service was excellent. Will definitely come back!', date: '5시간 전', replied: true },
-  { id: 2, author: 'Sarah L.', rating: 4, content: 'Nice place for dinner. The bibimbap was really good. A bit pricey though.', date: '1일 전', replied: false },
-  { id: 3, author: 'Mike P.', rating: 5, content: 'Best Korean restaurant in Gangnam! The BBQ set menu is a must-try.', date: '3일 전', replied: false },
-  { id: 4, author: 'Y. Park', rating: 3, content: 'Food was okay but waiting time was a bit long. Interior is nice though.', date: '5일 전', replied: false },
+  { id: 1, author: '김민준', rating: 5, content: '분위기도 좋고 음식도 정말 맛있어요. 서비스도 친절하고 다음에 또 오고 싶은 곳이에요!', date: '5시간 전', replied: true },
+  { id: 2, author: '이서연', rating: 4, content: '저녁 식사하기 좋은 곳이에요. 음식 맛은 훌륭한데 가격이 조금 있는 편이에요.', date: '1일 전', replied: false },
+  { id: 3, author: '박지훈', rating: 5, content: '이 근처에서 제일 맛있는 곳이에요! 세트 메뉴 강추합니다. 재방문 의사 100%', date: '3일 전', replied: false },
+  { id: 4, author: '최수아', rating: 3, content: '음식 맛은 괜찮은데 대기 시간이 조금 길었어요. 인테리어는 예뻐서 사진 찍기 좋아요.', date: '5일 전', replied: false },
 ]
-
-function GoogleLogo() {
-  return (
-    <svg width="64" height="64" viewBox="0 0 48 48" fill="none">
-      <rect width="48" height="48" rx="12" fill="white" stroke="#E5E7EB" strokeWidth="1.5"/>
-      <path d="M43.6 24.5c0-1.3-.12-2.6-.34-3.84H24v7.26h10.97c-.48 2.52-1.93 4.66-4.11 6.09v5.06h6.65C41.18 35.4 43.6 30.35 43.6 24.5z" fill="#4285F4"/>
-      <path d="M24 44c5.46 0 10.04-1.81 13.38-4.9l-6.52-5.07c-1.81 1.22-4.13 1.94-6.86 1.94-5.27 0-9.73-3.56-11.33-8.34H6.3v5.24A19.98 19.98 0 0024 44z" fill="#34A853"/>
-      <path d="M12.67 27.63A12.02 12.02 0 0112.05 24c0-1.26.22-2.49.62-3.63v-5.24H6.3A19.98 19.98 0 004 24c0 3.23.77 6.28 2.3 8.87l6.37-5.24z" fill="#FBBC05"/>
-      <path d="M24 11.06c2.97 0 5.63 1.02 7.73 3.01l5.79-5.79C34.02 5.06 29.44 3.04 24 3.04A19.98 19.98 0 006.3 15.13l6.37 5.24C14.27 14.62 18.73 11.06 24 11.06z" fill="#EA4335"/>
-    </svg>
-  )
-}
 
 const PLATFORM = {
   key: 'google',
@@ -45,7 +33,6 @@ const PLATFORM = {
   bg: '#EBF3FE',
   textColor: '#1A56B0',
   icon: 'G',
-  logo: <GoogleLogo />,
 }
 
 function Stars({ n }: { n: number }) {
