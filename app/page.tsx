@@ -414,8 +414,21 @@ export default function LandingPage() {
             <TopNav />
 
       {/* ── 히어로 ── */}
-      <section className="pt-24 md:pt-32 pb-16 md:pb-20 px-4 bg-gradient-to-b from-[#EFF6FF] to-white">
-        <div className="max-w-4xl mx-auto text-center">
+      <section className="pt-24 md:pt-32 pb-16 md:pb-20 px-4 bg-gradient-to-b from-[#EFF6FF] to-white relative overflow-hidden">
+        {/* SVG 배경 dot grid */}
+        <svg className="absolute inset-0 w-full h-full pointer-events-none opacity-[0.35]" aria-hidden="true">
+          <defs>
+            <pattern id="dot-grid" x="0" y="0" width="28" height="28" patternUnits="userSpaceOnUse">
+              <circle cx="1.5" cy="1.5" r="1.5" fill="#3182F6" />
+            </pattern>
+          </defs>
+          <rect width="100%" height="100%" fill="url(#dot-grid)" />
+        </svg>
+        {/* SVG 오른쪽 상단 블러 원 */}
+        <svg className="absolute -top-32 -right-32 opacity-20 pointer-events-none" width="420" height="420" aria-hidden="true">
+          <circle cx="210" cy="210" r="210" fill="#3182F6" />
+        </svg>
+        <div className="max-w-4xl mx-auto text-center relative z-10">
           <div className="inline-flex items-center gap-2 bg-blue-100 text-blue-700 text-xs font-semibold px-3 py-1.5 rounded-full mb-6">
             <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" />
             ☕ 커피 한 잔 값 6,900원 · 모든 플랫폼 리뷰 답글 자동
@@ -492,8 +505,15 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* wave divider */}
+      <div className="relative -mt-1 overflow-hidden leading-[0]" aria-hidden="true">
+        <svg viewBox="0 0 1440 48" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" className="w-full h-10 md:h-12 block" fill="#ffffff">
+          <path d="M0,32 C240,0 480,48 720,24 C960,0 1200,48 1440,32 L1440,48 L0,48 Z" />
+        </svg>
+      </div>
+
       {/* ── 통계 ── */}
-      <section className="py-12 px-4 bg-white border-y border-gray-100">
+      <section className="py-12 px-4 bg-white border-b border-gray-100">
         <div className="max-w-4xl mx-auto">
           {isDemo && (
             <div className="text-center mb-6">
@@ -502,11 +522,17 @@ export default function LandingPage() {
               </span>
             </div>
           )}
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 md:gap-8">
             {stats.map((s, i) => (
-              <div key={`${s.label}-${i}`} className="text-center">
-                <div className="text-3xl font-black text-[#3182F6] mb-1">{s.num}</div>
-                <div className="text-sm text-[#8B95A1] font-medium">{s.label}</div>
+              <div key={`${s.label}-${i}`} className="text-center group">
+                {/* SVG 배경 링 */}
+                <div className="relative inline-flex items-center justify-center mb-3">
+                  <svg width="64" height="64" viewBox="0 0 64 64" className="absolute opacity-10 group-hover:opacity-20 transition-opacity" aria-hidden="true">
+                    <circle cx="32" cy="32" r="30" stroke="#3182F6" strokeWidth="3" fill="none" strokeDasharray="8 4" />
+                  </svg>
+                  <div className="text-2xl md:text-3xl font-black text-[#3182F6]">{s.num}</div>
+                </div>
+                <div className="text-xs md:text-sm text-[#8B95A1] font-medium">{s.label}</div>
               </div>
             ))}
           </div>
@@ -613,7 +639,10 @@ export default function LandingPage() {
                   ['고객 재방문 유도', '기억으로 연락, 자주 놓침'],
                 ] as [string, string][]).map(([title, desc]) => (
                   <li key={title} className="flex items-start gap-3">
-                    <span className="text-red-400 mt-0.5 shrink-0 font-bold">✗</span>
+                    <svg width="16" height="16" viewBox="0 0 16 16" className="shrink-0 mt-0.5" aria-hidden="true">
+                      <circle cx="8" cy="8" r="7.5" fill="#FEE2E2" />
+                      <path d="M5 5l6 6M11 5l-6 6" stroke="#F87171" strokeWidth="1.8" strokeLinecap="round" />
+                    </svg>
                     <div>
                       <span className="text-sm font-bold text-[#191F28]">{title}</span>
                       <span className="text-xs text-[#8B95A1] ml-1.5">{desc}</span>
@@ -637,7 +666,10 @@ export default function LandingPage() {
                   ['CRM 재방문 유도', '방문 2주 후 자동 알림톡'],
                 ] as [string, string][]).map(([title, desc]) => (
                   <li key={title} className="flex items-start gap-3">
-                    <span className="text-blue-500 mt-0.5 shrink-0 font-bold">✓</span>
+                    <svg width="16" height="16" viewBox="0 0 16 16" className="shrink-0 mt-0.5" aria-hidden="true">
+                      <circle cx="8" cy="8" r="7.5" fill="#DBEAFE" />
+                      <path d="M4.5 8.5l2.5 2.5 4.5-5" stroke="#3182F6" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                    </svg>
                     <div>
                       <span className="text-sm font-bold text-[#191F28]">{title}</span>
                       <span className="text-xs text-[#8B95A1] ml-1.5">{desc}</span>
@@ -649,6 +681,13 @@ export default function LandingPage() {
           </div>
         </div>
       </section>
+
+      {/* wave divider — white to #F8FAFC */}
+      <div className="relative overflow-hidden leading-[0] bg-white" aria-hidden="true">
+        <svg viewBox="0 0 1440 40" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" className="w-full h-8 block" fill="#F8FAFC">
+          <path d="M0,20 C360,40 1080,0 1440,20 L1440,40 L0,40 Z" />
+        </svg>
+      </div>
 
       {/* ── 주요 기능 ── */}
       <section className="py-20 px-4 bg-[#F8FAFC]">
@@ -787,6 +826,13 @@ export default function LandingPage() {
         </div>
       </section>
 
+      {/* wave divider — white to #F8FAFC */}
+      <div className="relative overflow-hidden leading-[0] bg-white" aria-hidden="true">
+        <svg viewBox="0 0 1440 40" xmlns="http://www.w3.org/2000/svg" preserveAspectRatio="none" className="w-full h-8 block" fill="#F8FAFC">
+          <path d="M0,10 C480,40 960,0 1440,25 L1440,40 L0,40 Z" />
+        </svg>
+      </div>
+
       {/* ── 사용자 후기 ── */}
       <section className="py-20 px-4 bg-[#F8FAFC]">
         <div className="max-w-5xl mx-auto">
@@ -804,9 +850,13 @@ export default function LandingPage() {
             {testimonials.map((t, i) => {
               const TIcon = ICON_MAP[t.iconKey] ?? Coffee
               return (
-                <div key={`${t.name}-${i}`} className="relative bg-white rounded-2xl p-6 border border-gray-100 shadow-sm">
+                <div key={`${t.name}-${i}`} className="relative bg-white rounded-2xl p-6 border border-gray-100 shadow-sm hover:shadow-md hover:-translate-y-0.5 transition-all">
+                  {/* SVG 큰따옴표 장식 */}
+                  <svg className="absolute top-4 right-5 opacity-[0.07]" width="36" height="28" viewBox="0 0 36 28" aria-hidden="true">
+                    <path d="M0 28V17.5C0 7.833 4.5 2.5 13.5 0L15 3C10.5 4.667 8.167 7.833 8 12H14V28H0ZM22 28V17.5C22 7.833 26.5 2.5 35.5 0L37 3C32.5 4.667 30.167 7.833 30 12H36V28H22Z" fill="#3182F6" />
+                  </svg>
                   {isDemo && (
-                    <span className="absolute top-4 right-4 text-[10px] font-semibold text-[#8B95A1] bg-[#F2F4F6] px-2 py-0.5 rounded-full">
+                    <span className="absolute top-4 left-4 text-[10px] font-semibold text-[#8B95A1] bg-[#F2F4F6] px-2 py-0.5 rounded-full">
                       예시
                     </span>
                   )}
@@ -815,7 +865,7 @@ export default function LandingPage() {
                       <Star key={idx} size={14} strokeWidth={0} fill="currentColor" />
                     ))}
                   </div>
-                  <p className="text-sm text-[#191F28] leading-relaxed mb-4">&quot;{t.text}&quot;</p>
+                  <p className="text-sm text-[#191F28] leading-relaxed mb-4 break-keep">&quot;{t.text}&quot;</p>
                   <div className="flex items-center gap-3">
                     <div className="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0"
                       style={{ backgroundColor: t.color + '15' }}>
