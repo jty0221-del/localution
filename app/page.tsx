@@ -107,7 +107,7 @@ const FEATURES = [
 // /api/landing-stats 가 실제 값을 반환하면 자동 교체됨
 // ─────────────────────────────────────────────────────────────
 const STATS_DEMO = [
-  { num: '400+', label: '베타 사장님' },
+  { num: '400+', label: '누적 사장님' },
   { num: '5만+', label: 'AI 답글 누적' },
   { num: '+0.6점', label: '평균 별점 상승' },
   { num: '3배', label: '리뷰 수집 속도' },
@@ -115,7 +115,7 @@ const STATS_DEMO = [
 
 const HERO_DEMO = {
   reviewsPerMonth: '+20개',
-  reviewsPerMonthLabel: '월 평균 리뷰 증가',
+  reviewsPerMonthLabel: '월평균 리뷰 증가',
   avgRating: '4.7점',
   avgRatingLabel: '평균 별점',
 }
@@ -418,7 +418,7 @@ export default function LandingPage() {
         <div className="max-w-4xl mx-auto text-center">
           <div className="inline-flex items-center gap-2 bg-blue-100 text-blue-700 text-xs font-semibold px-3 py-1.5 rounded-full mb-6">
             <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" />
-            ☕ 커피 한 잔 값 6,900원 · 모든 플랫폼 리뷰답글 자동
+            ☕ 커피 한 잔 값 6,900원 · 모든 플랫폼 리뷰 답글 자동
           </div>
           <h1 className="text-4xl md:text-6xl font-black text-[#191F28] leading-tight mb-6">
             필요한 것만 골라쓰는<br />
@@ -632,7 +632,7 @@ export default function LandingPage() {
                 {([
                   ['AI 답글 자동 생성', '30초, 말투 6종 선택'],
                   ['6개 플랫폼 통합', '한 화면에서 전부 처리'],
-                  ['키워드 순위 자동 추적', '매일 카톡으로 리포트'],
+                  ['키워드 순위 자동 추적', '매일 카카오톡으로 리포트'],
                   ['정산 자동화', '매출·급여 한 번에 계산'],
                   ['CRM 재방문 유도', '방문 2주 후 자동 알림톡'],
                 ] as [string, string][]).map(([title, desc]) => (
@@ -850,7 +850,7 @@ export default function LandingPage() {
           },
           {
             q: '해지가 어렵거나 자동결제가 무서워요',
-            a: '언제든 설정에서 1클릭으로 해지 가능하고, 당월 남은 일수만큼 일할 계산해서 환불해드려요. 자동결제 알림도 결제 3일 전·당일에 카톡으로 보내드립니다.',
+            a: '언제든 설정에서 원클릭으로 해지 가능하고, 당월 남은 일수만큼 일할 계산 후 환불해드려요. 자동결제 알림도 결제 3일 전·당일에 카카오톡으로 보내드립니다.',
           },
           {
             q: '리뷰 답글을 AI가 달면 고객이 티 나게 느끼지 않을까요?',
@@ -870,7 +870,7 @@ export default function LandingPage() {
             <span className="text-[#3182F6]">합리적인 요금으로</span>
           </h2>
           <p className="text-[#4E5968] mb-8 text-left sm:text-center">
-            ☕ 커피 한 잔 값 월 6,900원으로 모든 플랫폼 리뷰답글 자동.<br />
+            ☕ 커피 한 잔 값 월 6,900원으로 모든 플랫폼 리뷰 답글 자동화.<br />
             부담 없이 체험하고 필요한 모듈만 추가하세요.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
