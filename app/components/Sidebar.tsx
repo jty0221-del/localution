@@ -120,8 +120,15 @@ function PlatformLogoSmall({ platform }: { platform: string }) {
   )
   if (platform === 'coupang') return (
     <svg width="18" height="18" viewBox="0 0 48 48" fill="none" style={{flexShrink:0}}>
-      <rect width="48" height="48" rx="12" fill="#FF4B30"/>
-      <path d="M27 8L12 26h10L19 40l21-18H29L34 8H27Z" fill="white"/>
+      <rect width="48" height="48" rx="10" fill="white" stroke="#E5E7EB" strokeWidth="2"/>
+      <text x="24" y="19" textAnchor="middle" fontSize="9" fontWeight="800"
+        fontFamily="Arial,sans-serif" letterSpacing="0.3">
+        <tspan fill="#E31837">c</tspan><tspan fill="#F4A900">o</tspan><tspan fill="#E31837">u</tspan>
+        <tspan fill="#5BAD48">p</tspan><tspan fill="#3B79BE">a</tspan><tspan fill="#E31837">n</tspan>
+        <tspan fill="#F4A900">g</tspan>
+      </text>
+      <text x="24" y="35" textAnchor="middle" fontSize="14" fontWeight="900"
+        fill="#5C3317" fontFamily="Arial,sans-serif">eats</text>
     </svg>
   )
   return null
