@@ -1,8 +1,9 @@
 // app/api/baemin/collect-reviews/route.ts
 import { NextRequest, NextResponse } from 'next/server'
-import { createDecipheriv } from 'crypto'
+import { createCipheriv, createDecipheriv, randomBytes } from 'crypto'
 import { requireUser } from '@/app/lib/userAuth'
 import { createServiceClient } from '@/app/lib/adminAuth'
+import { doLogin } from '../save-login/route'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -38,6 +39,14 @@ function decryptStr(enc: string, iv: string, tag: string): string {
   const decipher = createDecipheriv(ALGO, kek, Buffer.from(iv, 'base64'))
   decipher.setAuthTag(Buffer.from(tag, 'base64'))
   return Buffer.concat([decipher.update(Buffer.from(enc, 'base64')), decipher.final()]).toString('utf8')
+}
+
+function encryptStr(plain: string): { enc: string; iv: string; tag: string } {
+  const kek = loadKek()
+  const iv = randomBytes(12)
+  const cipher = createCipheriv(ALGO, kek, iv)
+  const enc = Buffer.concat([cipher.update(Buffer.from(plain, 'utf8')), cipher.final()])
+  return { enc: enc.toString('base64'), iv: iv.toString('base64'), tag: cipher.getAuthTag().toString('base64') }
 }
 
 function baeminHeaders(cookieStr: string, shopNo: string): Record<string, string> {
@@ -134,6 +143,30 @@ async function saveRows(userId: string, shopNo: string, reviews: any[], svc: any
   return saved?.length ?? rows.length
 }
 
+// 쿠키가 만료됐을 때 자동 갱신
+async function refreshCookieIfNeeded(svc: any, userId: string, extra: any): Promise<string | null> {
+  if (!extra.baemin_id_enc) return null
+  try {
+    const id = decryptStr(extra.baemin_id_enc, extra.baemin_id_iv, extra.baemin_id_tag)
+    const pw = decryptStr(extra.baemin_pw_enc, extra.baemin_pw_iv, extra.baemin_pw_tag)
+    const newCookie = await doLogin(id, pw)
+    // 새 쿠키 DB에 저장
+    const cookieEnc = encryptStr(newCookie)
+    await svc.from('platform_credentials').update({
+      extra_data: {
+        ...extra,
+        baemin_cookie_enc: cookieEnc.enc,
+        baemin_cookie_iv: cookieEnc.iv,
+        baemin_cookie_tag: cookieEnc.tag,
+      }
+    }).eq('user_id', userId).eq('platform', 'baemin')
+    return newCookie
+  } catch (e: any) {
+    console.error('자동 로그인 실패:', e?.message)
+    return null
+  }
+}
+
 export async function POST(req: NextRequest) {
   const origin = req.headers.get('origin') || ''
   const ch = corsHeaders(origin)
@@ -147,14 +180,14 @@ export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}))
 
-    // ── 경로 A: 북마크릿이 리뷰 배열을 직접 전송 ──
+    // 경로 A: 북마크릿이 리뷰 배열을 직접 전송
     if (Array.isArray(body.reviews) && body.reviews.length > 0) {
       const shopNo = String(body.shop_no || '14637452')
       const count = await saveRows(userId, shopNo, body.reviews, svc)
       return NextResponse.json({ ok: true, count, source: 'bookmarklet' }, { headers: ch })
     }
 
-    // 저장된 쿠키 로드
+    // 저장된 자격증명 로드
     const { data: cred } = await svc
       .from('platform_credentials')
       .select('extra_data, platform_store_id')
@@ -163,15 +196,32 @@ export async function POST(req: NextRequest) {
       .maybeSingle()
 
     const extra = (cred?.extra_data as any) || {}
-    if (!extra.baemin_cookie_enc) {
-      return NextResponse.json({ ok: false, error: '저장된 쿠키 없음. 쿠키를 먼저 저장해주세요.' }, { status: 400, headers: ch })
+    const shopNo = String(body.shop_no || cred?.platform_store_id || '14637452')
+
+    // 아이디/비밀번호 저장 여부 확인
+    if (!extra.baemin_id_enc && !extra.baemin_cookie_enc) {
+      return NextResponse.json({
+        ok: false,
+        error: '배민 연동 정보가 없어요. 먼저 배민 아이디/비밀번호를 연동해주세요.',
+        code: 'NO_CREDENTIALS',
+      }, { status: 400, headers: ch })
     }
 
-    const cookieStr = decryptStr(extra.baemin_cookie_enc, extra.baemin_cookie_iv, extra.baemin_cookie_tag)
-    const shopNo = String(body.shop_no || cred?.platform_store_id || '14637452')
+    // 쿠키 로드 (없거나 만료 시 자동 로그인)
+    let cookieStr: string | null = null
+    if (extra.baemin_cookie_enc) {
+      try { cookieStr = decryptStr(extra.baemin_cookie_enc, extra.baemin_cookie_iv, extra.baemin_cookie_tag) } catch { cookieStr = null }
+    }
+    if (!cookieStr) {
+      cookieStr = await refreshCookieIfNeeded(svc, userId, extra)
+      if (!cookieStr) {
+        return NextResponse.json({ ok: false, error: '자동 로그인 실패. 배민 아이디/비밀번호를 다시 확인해주세요.' }, { status: 401, headers: ch })
+      }
+    }
+
     const hdrs = baeminHeaders(cookieStr, shopNo)
 
-    // ── 경로 B: self-api.baemin.com 직접 호출 (service-channel 헤더 포함) ──
+    // 경로 B: self-api.baemin.com 직접 호출
     const apiPath = '/v1/review/shops/' + shopNo + '/reviews?pageNumber=1&pageSize=20'
     const apiRes = await fetch(BAEMIN_API + apiPath, { headers: hdrs, cache: 'no-store' })
 
@@ -185,10 +235,32 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, count: 0, source: 'api' }, { headers: ch })
     }
 
+    // 쿠키 만료(401/403) → 자동 재로그인 후 재시도
+    if (apiRes.status === 401 || apiRes.status === 403) {
+      const newCookie = await refreshCookieIfNeeded(svc, userId, extra)
+      if (newCookie) {
+        const retryRes = await fetch(BAEMIN_API + apiPath, { headers: baeminHeaders(newCookie, shopNo), cache: 'no-store' })
+        if (retryRes.ok) {
+          const json = await retryRes.json()
+          const reviews: any[] = Array.isArray(json) ? json : (json.contents || json.data || json.reviews || json.list || [])
+          if (reviews.length > 0) {
+            const count = await saveRows(userId, shopNo, reviews, svc)
+            return NextResponse.json({ ok: true, count, source: 'api-refreshed' }, { headers: ch })
+          }
+          return NextResponse.json({ ok: true, count: 0, source: 'api-refreshed' }, { headers: ch })
+        }
+      }
+      return NextResponse.json({
+        ok: false,
+        error: '배민 자동 로그인에 실패했어요. 비밀번호가 변경됐을 수 있어요.',
+        code: 'AUTH_FAILED',
+      }, { status: 401, headers: ch })
+    }
+
     const apiErrStatus = apiRes.status
     const apiErrText = await apiRes.text().catch(() => '')
 
-    // ── 경로 C: HTML 페이지 fetch → __NEXT_DATA__ 파싱 ──
+    // 경로 C: HTML 페이지 → __NEXT_DATA__ 파싱
     const pageRes = await fetch(BAEMIN_WEB + '/shops/' + shopNo + '/reviews', {
       headers: { ...hdrs, Accept: 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8' },
       redirect: 'follow',
@@ -211,24 +283,20 @@ export async function POST(req: NextRequest) {
               const count = await saveRows(userId, shopNo, reviews, svc)
               return NextResponse.json({ ok: true, count, source: 'html' }, { headers: ch })
             }
-            // 페이지는 로드됐지만 리뷰 없음 → 디버그 정보 반환
             return NextResponse.json({
               ok: false,
-              error: '페이지 로드 성공했지만 리뷰 데이터를 찾을 수 없어요. 북마크릿 방법을 사용해주세요.',
+              error: '페이지는 열렸지만 리뷰를 찾을 수 없어요.',
               debug_keys: Object.keys(pp).join(', '),
               api_status: apiErrStatus,
             }, { status: 422, headers: ch })
-          } catch (parseErr: any) {
-            // JSON 파싱 실패 → 로그인 페이지로 리다이렉트됐을 가능성
-          }
+          } catch (_) { /* HTML 파싱 실패 */ }
         }
       }
     }
 
-    // 모든 경로 실패
     return NextResponse.json({
       ok: false,
-      error: 'Baemin API 오류 (HTTP ' + apiErrStatus + '). 북마크릿 방법을 이용해주세요.',
+      error: 'API 오류 (HTTP ' + apiErrStatus + '). 잠시 후 다시 시도해주세요.',
       debug: apiErrText.slice(0, 400),
     }, { status: 502, headers: ch })
 
