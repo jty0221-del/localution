@@ -172,7 +172,7 @@ const faqs = [
   },
   {
     q: '해지는 쉽게 되나요?',
-    a: '설정에서 1클릭 해지 가능합니다. 정식 출시 후에도 당월 남은 일수만큼 일할 계산 환불됩니다.',
+    a: '설정에서 원클릭 해지 가능합니다. 정식 출시 후에도 당월 남은 일수만큼 일할 계산 후 환불됩니다.',
   },
   {
     q: '여러 매장을 운영 중인데 한 계정으로 쓸 수 있나요?',
@@ -269,7 +269,7 @@ export default function PricingPage() {
             지금은 모든 기능,<br className="sm:hidden" /> 테스트 기간 무료
           </h1>
           <p className="text-[#4E5968] text-sm sm:text-base max-w-lg mx-auto break-keep leading-relaxed">
-            신용카드 등록 없음 · 자동결제 없음 · 언제든 1클릭 해지
+            신용카드 등록 없음 · 자동결제 없음 · 언제든 원클릭 해지
             <br/>
             <span className="font-bold text-[#059669]">필요한 기능을 담고 지금 바로 써보세요.</span>
           </p>
