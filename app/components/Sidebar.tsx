@@ -274,9 +274,9 @@ export default function Sidebar() {
 
       {/* 1-1. 플랫폼 통합관리 — STEP 1 강조 */}
       <Link href="/my/platforms" onClick={() => setMobileOpen(false)}
-        className={"relative flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all border " + (pathname === '/my/platforms' ? 'bg-[#ECFDF5] text-[#059669] font-semibold border-[#059669]/30' : 'bg-[#F0FDF4] text-[#065F46] font-semibold border-[#BBF7D0] hover:bg-[#DCFCE7]')}>
+        className={"relative flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all border " + (pathname === '/my/platforms' ? 'bg-[#EFF6FF] text-[#3182F6] font-semibold border-[#3182F6]/30' : 'bg-[#EFF6FF] text-[#1D4ED8] font-semibold border-[#BFDBFE] hover:bg-[#DBEAFE]')}>
         <div className="relative w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold flex-shrink-0"
-          style={{ background: pathname === '/my/platforms' ? '#059669' : '#059669', color: '#fff' }}>
+          style={{ background: '#3182F6', color: '#fff' }}>
           🔗
           {pathname !== '/my/platforms' && (
             <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[#EF4444] border-2 border-white animate-pulse" />
@@ -284,13 +284,13 @@ export default function Sidebar() {
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-xs font-bold leading-none">플랫폼 연결</p>
-          <p className="text-[10px] text-[#059669] font-normal leading-none mt-0.5">리뷰·마케팅 시작 전 필수</p>
+          <p className="text-[10px] text-[#3182F6] font-normal leading-none mt-0.5">리뷰·마케팅 시작 전 필수</p>
         </div>
         {pathname !== '/my/platforms' && (
-          <span className="flex-shrink-0 text-[9px] font-black px-1.5 py-0.5 rounded-full bg-[#059669] text-white">STEP 1</span>
+          <span className="flex-shrink-0 text-[9px] font-black px-1.5 py-0.5 rounded-full bg-[#3182F6] text-white">STEP 1</span>
         )}
         {pathname === '/my/platforms' && (
-          <span className="ml-auto w-1.5 h-1.5 rounded-full bg-[#059669]" />
+          <span className="ml-auto w-1.5 h-1.5 rounded-full bg-[#3182F6]" />
         )}
       </Link>
 
