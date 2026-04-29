@@ -41,13 +41,15 @@ function YogiyoLogo({ size = 28 }: { size?: number }) {
 function CoupangEatsLogo({ size = 28 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
-      <rect width="48" height="48" rx="12" fill="white" stroke="#E5E7EB" strokeWidth="1.5"/>
-      <text x="5" y="25" fontSize="9.5" fontWeight="800" fontFamily="Arial,sans-serif" letterSpacing="0.2">
+      <rect width="48" height="48" rx="10" fill="white" stroke="#E5E7EB" strokeWidth="1.5"/>
+      <text x="24" y="19" textAnchor="middle" fontSize="9" fontWeight="800"
+        fontFamily="Arial,'Helvetica Neue',sans-serif" letterSpacing="0.3">
         <tspan fill="#E31837">c</tspan><tspan fill="#F4A900">o</tspan><tspan fill="#E31837">u</tspan>
         <tspan fill="#5BAD48">p</tspan><tspan fill="#3B79BE">a</tspan><tspan fill="#E31837">n</tspan>
         <tspan fill="#F4A900">g</tspan>
       </text>
-      <text x="5" y="39" fontSize="13" fontWeight="900" fill="#4A2C0A" fontFamily="Arial,sans-serif">eats</text>
+      <text x="24" y="35" textAnchor="middle" fontSize="14" fontWeight="900"
+        fill="#5C3317" fontFamily="Arial,'Helvetica Neue',sans-serif">eats</text>
     </svg>
   )
 }
