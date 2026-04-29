@@ -226,6 +226,7 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
   })
   const bulkCancelRef = useRef(false)
   const [noCredentialsHref, setNoCredentialsHref] = useState<string | null>(null)
+  const pollTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // ── 1) /api/stores/me ────────────────────────────
   const loadStoresMe = useCallback(async () => {
@@ -331,14 +332,23 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
         toast.error(data?.error || '리뷰 수집 실패')
         return
       }
-      if (data.note || data.message) {
-        toast.info(data.note || data.message)
+      if (data.queued) {
+        toast.info('리뷰 수집 중... 자동으로 업데이트돼요 🔄')
+        // Worker 처리 완료 대기: 20초 후 1차, 50초 후 2차, 90초 후 3차 로드
+        const delays = [20000, 50000, 90000]
+        delays.forEach((delay) => {
+          const t = setTimeout(async () => {
+            await Promise.all([loadStoresMe(), loadReviews()])
+          }, delay)
+          pollTimerRef.current = t
+        })
       } else if (data.total > 0) {
         toast.success(`${config.label} 리뷰 ${data.total}건 수집 완료`)
+        await Promise.all([loadStoresMe(), loadReviews()])
       } else {
-        toast.info('새로 수집된 리뷰가 없어요')
+        toast.info(data.note || data.message || '새로 수집된 리뷰가 없어요')
+        await Promise.all([loadStoresMe(), loadReviews()])
       }
-      await Promise.all([loadStoresMe(), loadReviews()])
     } catch (e: any) {
       toast.error('수집 중 오류: ' + (e?.message || e))
     } finally {
