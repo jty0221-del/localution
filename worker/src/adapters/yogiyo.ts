@@ -126,21 +126,7 @@ export async function runYogiyo(
     await markLoginStatus(svc, userId, 'yogiyo', 'success')
     if (action === 'health_check') return { status: 'ok', message: 'yogiyo login ok' }
 
-    // 2) response 리스너 — 리뷰 페이지 이동 전에 먼저 등록해야 캡처됨
-    const capturedApiResponses: Array<{ url: string; data: any }> = []
-    page.on('response', async (response) => {
-      try {
-        const url = response.url()
-        const ct = response.headers()['content-type'] || ''
-        if (!ct.includes('json')) return
-        // URL 필터 없이 모든 JSON 응답 캡처 — 요기요 API 패턴 파악용
-        const json = await response.json()
-        capturedApiResponses.push({ url, data: json })
-        log.info({ url, status: response.status() }, 'yogiyo api captured')
-      } catch { /* skip */ }
-    })
-
-    // 3) 리뷰 페이지 이동
+    // 2) 리뷰 페이지 이동
     const postLoginOrigin = (() => {
       try { return new URL(page.url()).origin } catch { return 'https://ceo.yogiyo.co.kr' }
     })()
@@ -149,58 +135,109 @@ export async function runYogiyo(
       : `${postLoginOrigin}/reviews`
     log.info({ reviewsUrl }, 'yogiyo navigating to reviews')
     await page.goto(reviewsUrl, { waitUntil: 'load', timeout: 45000 })
-    // 충분히 대기 — API 응답 수신까지
-    await page.waitForTimeout(12000)
+    await page.waitForTimeout(15000)
 
-    // 스크롤로 추가 API 호출 유도 (무한 스크롤 / 페이지네이션 대응)
+    // 스크롤로 lazy load 유도
     for (let i = 0; i < 5; i++) {
       await page.evaluate(() => window.scrollBy(0, 800))
-      await page.waitForTimeout(1500)
+      await page.waitForTimeout(1200)
     }
     await page.waitForTimeout(3000)
 
-    log.info({
-      url: page.url(),
-      capturedCount: capturedApiResponses.length,
-      capturedUrls: capturedApiResponses.map((r) => r.url),
-    }, 'yogiyo review page result')
-
-    // 4) 리뷰 추출
-    let reviews: any[] = []
-    for (const { url: apiUrl, data } of capturedApiResponses) {
-      const extracted = extractYogiyoReviews(data, apiUrl)
-      if (extracted.length > 0) {
-        log.info({ apiUrl, count: extracted.length }, 'yogiyo reviews extracted')
-        reviews = reviews.concat(extracted)
+    // 3) 페이지 내 JS 전역 상태에서 리뷰 추출 (SSR/SPA 모두 대응)
+    const pageState = await page.evaluate(() => {
+      const win = window as any
+      // 1순위: window 전역 상태 변수들
+      const candidates = [
+        win.__NEXT_DATA__,
+        win.__INITIAL_STATE__,
+        win.__STORE__,
+        win.__APP_STATE__,
+        win.__DATA__,
+        win.INITIAL_STATE,
+        win.__PRELOADED_STATE__,
+        win.__yogiyo__,
+        win.yogiyo,
+      ]
+      for (const c of candidates) {
+        if (c && typeof c === 'object') return { source: 'window', data: c }
       }
-    }
-
-    // 구조가 달라 못 찾은 경우 — 재귀 탐색
-    if (reviews.length === 0 && capturedApiResponses.length > 0) {
-      log.warn('yogiyo: standard extract failed, trying deep extract')
-      for (const { url: apiUrl, data } of capturedApiResponses) {
-        const extracted = deepExtractReviews(data)
-        if (extracted.length > 0) {
-          log.info({ apiUrl, count: extracted.length }, 'yogiyo deep extract succeeded')
-          reviews = reviews.concat(extracted)
-          break
+      // 2순위: script 태그 JSON 파싱
+      const scripts = Array.from(document.querySelectorAll('script'))
+      for (const s of scripts) {
+        const txt = s.textContent || ''
+        if (txt.length < 100) continue
+        // JSON blob 패턴 탐색
+        const jsonMatch = txt.match(/\{[\s\S]{200,}\}/)
+        if (jsonMatch) {
+          try {
+            const parsed = JSON.parse(jsonMatch[0])
+            if (parsed && typeof parsed === 'object') return { source: 'script', data: parsed }
+          } catch {}
         }
       }
+      // 3순위: 현재 렌더된 DOM에서 텍스트 추출
+      const allText = document.body?.innerText || ''
+      return { source: 'none', html: document.documentElement.outerHTML.slice(0, 3000), bodyText: allText.slice(0, 500) }
+    }).catch(() => null)
+
+    log.info({
+      source: pageState?.source,
+      hasData: !!pageState?.data,
+      topKeys: pageState?.data ? Object.keys(pageState.data).slice(0, 10) : [],
+      bodyTextSample: pageState?.bodyText?.slice(0, 200),
+    }, 'yogiyo page state extracted')
+
+    // 4) page.evaluate 로 요기요 API 직접 호출 (쿠키 포함)
+    const apiReviews = await page.evaluate(async (storeId: string) => {
+      const endpoints = [
+        `/api/v4/reviews/?vendor_id=${storeId}&page=1&page_size=20`,
+        `/api/v3/reviews/?vendor_id=${storeId}`,
+        `/api/reviews/?vendor_id=${storeId}`,
+        `/ceo/reviews/?vendor_id=${storeId}`,
+        `/api/v4/vendors/${storeId}/reviews/`,
+        `/api/v3/vendors/${storeId}/reviews/`,
+      ]
+      const results = []
+      for (const ep of endpoints) {
+        try {
+          const res = await fetch(`https://ceo.yogiyo.co.kr${ep}`, {
+            credentials: 'include',
+            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+          })
+          const text = await res.text()
+          results.push({ ep, status: res.status, body: text.slice(0, 500) })
+          if (res.status === 200 && text.includes('{')) {
+            try { return { ep, data: JSON.parse(text) } } catch {}
+          }
+        } catch (e: any) {
+          results.push({ ep, error: e?.message })
+        }
+      }
+      return { failed: true, results }
+    }, creds.platform_store_id || '')
+
+    log.info({
+      apiSuccess: !(apiReviews as any)?.failed,
+      ep: (apiReviews as any)?.ep,
+      results: (apiReviews as any)?.results?.slice(0, 5),
+      dataSample: (apiReviews as any)?.data ? JSON.stringify((apiReviews as any).data).slice(0, 400) : null,
+    }, 'yogiyo direct api result')
+
+    // 5) 리뷰 추출 — API 성공 시 우선, 실패 시 페이지 상태에서 추출
+    let reviews: any[] = []
+
+    if (!(apiReviews as any)?.failed && (apiReviews as any)?.data) {
+      reviews = extractYogiyoReviews((apiReviews as any).data, (apiReviews as any).ep)
+      log.info({ count: reviews.length }, 'yogiyo: direct api extract result')
     }
 
-    log.info({ capturedApiCount: capturedApiResponses.length, reviewsFound: reviews.length }, 'yogiyo collect summary')
-
-    if (reviews.length === 0 && capturedApiResponses.length > 0) {
-      // 구조 진단용 — API 응답이 있는데도 파싱 실패 시 첫 응답 샘플 로깅
-      const first = capturedApiResponses[0]
-      log.warn({
-        url: first.url,
-        topKeys: Object.keys(first.data || {}),
-        sample: JSON.stringify(first.data).slice(0, 400),
-      }, 'yogiyo api response structure — needs parser update')
-    } else if (reviews.length === 0) {
-      await dumpPageDiagnostics(page, log, 'yogiyo-no-api-captured')
+    if (reviews.length === 0 && pageState?.data) {
+      reviews = deepExtractReviews(pageState.data)
+      log.info({ count: reviews.length }, 'yogiyo: page state extract result')
     }
+
+    log.info({ reviewsFound: reviews.length }, 'yogiyo collect summary')
 
     const normalized: CollectedReview[] = reviews
       .filter((r) => r.content || r.author_name)
