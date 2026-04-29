@@ -287,8 +287,12 @@ export default function PricingPage() {
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5 sm:gap-3">
             {PERSONAS.map(p => (
               <button key={p.key} onClick={() => applyPersona(p.features)}
-                className="bg-white rounded-2xl p-3.5 sm:p-4 border border-[#E5E8EB] hover:border-[#3182F6] hover:shadow-md transition-all text-left group active:scale-95">
-                <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center mb-2.5"
+                className="relative bg-white rounded-2xl p-3.5 sm:p-4 border border-[#E5E8EB] hover:border-[#3182F6] hover:shadow-md transition-all text-left group active:scale-95 overflow-hidden">
+                {/* SVG 배경 — 오른쪽 하단 원형 장식 */}
+                <svg className="absolute -bottom-4 -right-4 opacity-[0.06] pointer-events-none" width="80" height="80" aria-hidden="true">
+                  <circle cx="40" cy="40" r="40" fill={p.color} />
+                </svg>
+                <div className="relative w-9 h-9 sm:w-10 sm:h-10 rounded-xl flex items-center justify-center mb-2.5"
                   style={{ background: p.color + '18' }}>
                   <p.Icon size={18} strokeWidth={2} style={{ color: p.color }} />
                 </div>
@@ -304,15 +308,19 @@ export default function PricingPage() {
         </div>
 
         {/* ── 베타 안내 박스 ─────────────────────────── */}
-        <div className="mb-8 sm:mb-10 bg-gradient-to-br from-[#ECFDF5] to-[#F0FDF4] rounded-2xl p-4 sm:p-5 border border-[#A7F3D0]">
-          <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+        <div className="mb-8 sm:mb-10 bg-gradient-to-br from-[#ECFDF5] to-[#F0FDF4] rounded-2xl p-4 sm:p-5 border border-[#A7F3D0] relative overflow-hidden">
+          {/* SVG 배경 장식 */}
+          <svg className="absolute -top-8 -right-8 opacity-10 pointer-events-none" width="120" height="120" aria-hidden="true">
+            <circle cx="60" cy="60" r="60" fill="#10B981" />
+          </svg>
+          <div className="flex flex-col sm:flex-row sm:items-center gap-3 relative">
             <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-2xl bg-[#10B981] flex items-center justify-center shrink-0">
               <Gift size={20} strokeWidth={2.25} className="text-white" />
             </div>
             <div className="flex-1">
               <p className="text-sm font-black text-[#065F46] mb-1">베타 테스트 기간 — 모든 기능 무료로 써보세요</p>
               <p className="text-xs text-[#065F46]/80 leading-relaxed break-keep">
-                신용카드 등록 안 받습니다. 자동결제 불가능합니다. 정식 출시는 <b>최소 30일 전</b> 카톡·이메일로 미리 안내드리고, 원치 않으면 해지만 하면 끝입니다.
+                신용카드 등록 안 받습니다. 자동결제 불가능합니다. 정식 출시는 <b>최소 30일 전</b> 카카오톡·이메일로 미리 안내드리고, 원치 않으면 해지만 하면 끝입니다.
               </p>
             </div>
           </div>
