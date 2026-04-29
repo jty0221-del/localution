@@ -291,17 +291,27 @@ export default function CustomersPage() {
               </div>
             ))
           ) : filtered.length === 0 ? (
-            <div className="text-center py-16 text-[#8B95A1]">
-              <div className="text-4xl mb-3">🧑‍🤝‍🧑</div>
-              <div className="text-sm mb-3">
+            <div className="text-center py-16 text-[#8B95A1] flex flex-col items-center">
+              {/* SVG 빈 상태 일러스트 */}
+              <svg width="80" height="80" viewBox="0 0 80 80" fill="none" className="mb-4 opacity-60" aria-hidden="true">
+                <circle cx="40" cy="40" r="38" fill="#EFF6FF" stroke="#DBEAFE" strokeWidth="2" />
+                <circle cx="28" cy="33" r="9" fill="#BFDBFE" />
+                <circle cx="52" cy="33" r="9" fill="#93C5FD" />
+                <path d="M18 58c0-8 9-14 22-14s22 6 22 14" stroke="#3182F6" strokeWidth="2.5" strokeLinecap="round" fill="none" />
+                <circle cx="40" cy="23" r="5" fill="#60A5FA" opacity="0.5" />
+              </svg>
+              <div className="text-sm font-semibold mb-1 text-[#4E5968]">
                 {customers.length === 0
                   ? '아직 등록된 고객이 없어요'
                   : '검색 조건에 맞는 고객이 없습니다'}
               </div>
+              <div className="text-xs text-[#8B95A1] mb-4 break-keep">
+                {customers.length === 0 ? '첫 고객을 추가하고 CRM을 시작해보세요' : '필터나 검색어를 바꿔보세요'}
+              </div>
               {customers.length === 0 && (
                 <button onClick={() => setAddOpen(true)}
-                  className="px-4 py-2 rounded-xl text-xs font-bold bg-[#3182F6] text-white">
-                  + 첫 고객 추가
+                  className="px-5 py-2.5 rounded-xl text-xs font-bold bg-[#3182F6] text-white hover:bg-[#1B64DA] transition-colors">
+                  + 첫 고객 추가하기
                 </button>
               )}
             </div>
