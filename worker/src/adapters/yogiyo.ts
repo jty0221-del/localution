@@ -126,115 +126,138 @@ export async function runYogiyo(
     await markLoginStatus(svc, userId, 'yogiyo', 'success')
     if (action === 'health_check') return { status: 'ok', message: 'yogiyo login ok' }
 
-    // 2) 리뷰 페이지 이동
+    // 2) 홈 먼저 이동 → SPA 완전 초기화 후 토큰 획득
     const postLoginOrigin = (() => {
       try { return new URL(page.url()).origin } catch { return 'https://ceo.yogiyo.co.kr' }
     })()
-    const reviewsUrl = creds.platform_store_id
-      ? `${postLoginOrigin}/reviews/${creds.platform_store_id}`
-      : `${postLoginOrigin}/reviews`
-    log.info({ reviewsUrl }, 'yogiyo navigating to reviews')
-    await page.goto(reviewsUrl, { waitUntil: 'load', timeout: 45000 })
-    await page.waitForTimeout(15000)
+    await page.goto(`${postLoginOrigin}/self-service-home/`, { waitUntil: 'load', timeout: 45000 })
+    await page.waitForTimeout(6000)
 
-    // 스크롤로 lazy load 유도
-    for (let i = 0; i < 5; i++) {
-      await page.evaluate(() => window.scrollBy(0, 800))
-      await page.waitForTimeout(1200)
-    }
-    await page.waitForTimeout(3000)
-
-    // 3) 페이지 내 JS 전역 상태에서 리뷰 추출 (SSR/SPA 모두 대응)
-    const pageState = await page.evaluate(() => {
+    // 3) localStorage / sessionStorage 에서 인증 토큰 추출
+    const authToken = await page.evaluate(() => {
       const win = window as any
-      // 1순위: window 전역 상태 변수들
-      const candidates = [
-        win.__NEXT_DATA__,
-        win.__INITIAL_STATE__,
-        win.__STORE__,
-        win.__APP_STATE__,
-        win.__DATA__,
-        win.INITIAL_STATE,
-        win.__PRELOADED_STATE__,
-        win.__yogiyo__,
-        win.yogiyo,
-      ]
-      for (const c of candidates) {
-        if (c && typeof c === 'object') return { source: 'window', data: c }
+      const ls = { ...localStorage }
+      const ss = { ...sessionStorage }
+      const all = { ...ls, ...ss }
+      const tokenKeys = Object.keys(all).filter(k =>
+        k.toLowerCase().includes('token') || k.toLowerCase().includes('auth') ||
+        k.toLowerCase().includes('jwt') || k.toLowerCase().includes('access')
+      )
+      const token = tokenKeys.length > 0 ? all[tokenKeys[0]] : null
+      return {
+        token,
+        tokenKey: tokenKeys[0] || null,
+        allKeys: Object.keys(all).slice(0, 20),
+        cookieStr: document.cookie.slice(0, 300),
       }
-      // 2순위: script 태그 JSON 파싱
-      const scripts = Array.from(document.querySelectorAll('script'))
-      for (const s of scripts) {
-        const txt = s.textContent || ''
-        if (txt.length < 100) continue
-        // JSON blob 패턴 탐색
-        const jsonMatch = txt.match(/\{[\s\S]{200,}\}/)
-        if (jsonMatch) {
-          try {
-            const parsed = JSON.parse(jsonMatch[0])
-            if (parsed && typeof parsed === 'object') return { source: 'script', data: parsed }
-          } catch {}
-        }
-      }
-      // 3순위: 현재 렌더된 DOM에서 텍스트 추출
-      const allText = document.body?.innerText || ''
-      return { source: 'none', html: document.documentElement.outerHTML.slice(0, 3000), bodyText: allText.slice(0, 500) }
-    }).catch(() => null)
+    }).catch(() => ({ token: null, tokenKey: null, allKeys: [], cookieStr: '' }))
 
     log.info({
-      source: pageState?.source,
-      hasData: !!pageState?.data,
-      topKeys: pageState?.data ? Object.keys(pageState.data).slice(0, 10) : [],
-      bodyTextSample: pageState?.bodyText?.slice(0, 200),
-    }, 'yogiyo page state extracted')
+      hasToken: !!authToken.token,
+      tokenKey: authToken.tokenKey,
+      storageKeys: authToken.allKeys,
+      cookiePreview: authToken.cookieStr.slice(0, 100),
+    }, 'yogiyo auth token status')
 
-    // 4) page.evaluate 로 요기요 API 직접 호출 (쿠키 포함)
-    const apiReviews = await page.evaluate(async (storeId: string) => {
+    // 4) 직접 API 호출 — 토큰 + 쿠키 함께 사용
+    const storeId = creds.platform_store_id || ''
+    const apiReviews = await page.evaluate(async (args: { storeId: string; token: string | null }) => {
+      const { storeId, token } = args
+      const headers: Record<string, string> = {
+        'Accept': 'application/json',
+        'Content-Type': 'application/json',
+        'X-Requested-With': 'XMLHttpRequest',
+      }
+      if (token) {
+        headers['Authorization'] = token.startsWith('Bearer ') ? token : `Bearer ${token}`
+        headers['X-Access-Token'] = token
+      }
+
       const endpoints = [
-        `/api/v4/reviews/?vendor_id=${storeId}&page=1&page_size=20`,
-        `/api/v3/reviews/?vendor_id=${storeId}`,
-        `/api/reviews/?vendor_id=${storeId}`,
-        `/ceo/reviews/?vendor_id=${storeId}`,
-        `/api/v4/vendors/${storeId}/reviews/`,
+        // 현재 URL 기반
+        `/api/v4/reviews/?page=1&page_size=50`,
+        `/api/v4/reviews/?vendor_id=${storeId}&page=1&page_size=50`,
+        `/api/v3/reviews/?vendor_id=${storeId}&page=1&page_size=50`,
+        `/api/v4/vendors/${storeId}/reviews/?page=1&page_size=50`,
         `/api/v3/vendors/${storeId}/reviews/`,
+        `/api/v2/vendors/${storeId}/reviews/`,
+        `/api/reviews/`,
+        // 새 패턴
+        `/bizes/${storeId}/reviews`,
+        `/api/bizes/${storeId}/reviews`,
       ]
-      const results = []
+
+      const results: any[] = []
       for (const ep of endpoints) {
         try {
-          const res = await fetch(`https://ceo.yogiyo.co.kr${ep}`, {
-            credentials: 'include',
-            headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-          })
+          const url = `https://ceo.yogiyo.co.kr${ep}`
+          const res = await fetch(url, { credentials: 'include', headers })
           const text = await res.text()
-          results.push({ ep, status: res.status, body: text.slice(0, 500) })
-          if (res.status === 200 && text.includes('{')) {
-            try { return { ep, data: JSON.parse(text) } } catch {}
+          const entry: any = { ep, status: res.status, body: text.slice(0, 300) }
+          results.push(entry)
+          if (res.status === 200) {
+            try {
+              const json = JSON.parse(text)
+              return { ok: true, ep, data: json }
+            } catch {}
           }
         } catch (e: any) {
           results.push({ ep, error: e?.message })
         }
       }
-      return { failed: true, results }
-    }, creds.platform_store_id || '')
+      return { ok: false, results }
+    }, { storeId, token: authToken.token })
 
     log.info({
-      apiSuccess: !(apiReviews as any)?.failed,
-      ep: (apiReviews as any)?.ep,
-      results: (apiReviews as any)?.results?.slice(0, 5),
-      dataSample: (apiReviews as any)?.data ? JSON.stringify((apiReviews as any).data).slice(0, 400) : null,
-    }, 'yogiyo direct api result')
+      ok: (apiReviews as any).ok,
+      ep: (apiReviews as any).ep,
+      results: (apiReviews as any).results,
+      dataSample: (apiReviews as any).data
+        ? JSON.stringify((apiReviews as any).data).slice(0, 500) : null,
+    }, 'yogiyo direct api probe')
 
-    // 5) 리뷰 추출 — API 성공 시 우선, 실패 시 페이지 상태에서 추출
+    // 5) 리뷰 추출
     let reviews: any[] = []
 
-    if (!(apiReviews as any)?.failed && (apiReviews as any)?.data) {
+    if ((apiReviews as any).ok && (apiReviews as any).data) {
       reviews = extractYogiyoReviews((apiReviews as any).data, (apiReviews as any).ep)
-      log.info({ count: reviews.length }, 'yogiyo: direct api extract result')
+      log.info({ count: reviews.length, ep: (apiReviews as any).ep }, 'yogiyo: api reviews extracted')
     }
 
-    if (reviews.length === 0 && pageState?.data) {
-      reviews = deepExtractReviews(pageState.data)
-      log.info({ count: reviews.length }, 'yogiyo: page state extract result')
+    // API 실패 시 — 리뷰 탭 페이지 직접 이동해서 DOM 파싱
+    if (reviews.length === 0) {
+      log.warn('yogiyo: direct api failed, trying DOM scrape on reviews page')
+      const reviewsUrl = storeId
+        ? `${postLoginOrigin}/reviews/${storeId}`
+        : `${postLoginOrigin}/reviews`
+      await page.goto(reviewsUrl, { waitUntil: 'load', timeout: 45000 })
+      await page.waitForTimeout(15000)
+      for (let i = 0; i < 5; i++) {
+        await page.evaluate(() => window.scrollBy(0, 800))
+        await page.waitForTimeout(1000)
+      }
+
+      // window 전역 상태에서 리뷰 추출
+      const winState = await page.evaluate(() => {
+        const win = window as any
+        const sources = [
+          win.__NEXT_DATA__, win.__INITIAL_STATE__, win.__STORE__,
+          win.__APP_STATE__, win.__PRELOADED_STATE__, win.APP_STATE,
+        ]
+        for (const s of sources) {
+          if (s && typeof s === 'object') return s
+        }
+        return null
+      }).catch(() => null)
+
+      if (winState) {
+        reviews = deepExtractReviews(winState)
+        log.info({ count: reviews.length }, 'yogiyo: window state extract result')
+      }
+
+      if (reviews.length === 0) {
+        await dumpPageDiagnostics(page, log, 'yogiyo-all-methods-failed')
+      }
     }
 
     log.info({ reviewsFound: reviews.length }, 'yogiyo collect summary')
