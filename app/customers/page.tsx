@@ -441,7 +441,7 @@ export default function CustomersPage() {
                 <button
                   onClick={() => setSendMode('kakao')}
                   className={`py-2.5 rounded-lg text-xs font-bold transition-colors ${sendMode === 'kakao' ? 'bg-[#FEE500] text-[#191F28]' : 'bg-[#F2F4F6] text-[#8B95A1]'}`}>
-                  카톡 복사
+                  카카오톡 복사
                   <div className="text-[10px] opacity-70 font-normal">PC 카카오톡</div>
                 </button>
                 <button
@@ -496,7 +496,7 @@ export default function CustomersPage() {
                   </button>
                   <button onClick={sendMessage} disabled={!msgText.trim() || selected.length === 0}
                     className="flex-1 bg-[#3182F6] text-white py-3 rounded-xl text-sm font-bold hover:bg-[#1B64DA] disabled:opacity-40 transition-colors">
-                    {sendMode === 'kakao' ? '복사 + 카톡 열기' : 'SMS 발송'}
+                    {sendMode === 'kakao' ? '복사 + 카카오톡 열기' : 'SMS 발송'}
                   </button>
                 </div>
               )}
