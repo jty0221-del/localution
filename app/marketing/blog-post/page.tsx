@@ -189,7 +189,7 @@ export default function BlogPostGeneratorPage() {
         <PageHeader
           icon="✍️"
           title="블로그 글 작성"
-          subtitle="키워드와 사진만 넣으면 AI가 네이버 SEO 최적화 블로그 원고를 완성해드립니다"
+          subtitle="네이버 SEO 최적화 3,000자 원고 — 키워드·사진만 주면 완성본"
           variant="emerald"
         />
         <div className="max-w-5xl mx-auto pt-6 pb-20 px-4 md:px-8">
@@ -214,7 +214,7 @@ export default function BlogPostGeneratorPage() {
               </div>
               <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#ECFDF5] border border-[#D1FAE5]">
                 <Sparkles size={14} className="text-[#059669]" />
-                <span className="text-xs font-semibold text-[#059669]">AI 생성 · 하랑마케팅 프리셋</span>
+                <span className="text-xs font-semibold text-[#059669]">AI 생성 · 로컬루션 프리셋</span>
               </div>
             </div>
           </div>
@@ -282,7 +282,7 @@ export default function BlogPostGeneratorPage() {
               <div className="flex items-center gap-2 mb-3">
                 <Sparkles size={16} className="text-[#F59E0B]" />
                 <h3 className="font-bold text-[#191F28]">타겟 키워드</h3>
-                <span className="text-xs text-[#8B95A1] ml-1">(첫번째가 메인 키워드)</span>
+                <span className="text-xs text-[#8B95A1] ml-1">(첫 번째가 메인 키워드)</span>
               </div>
               <div className="flex gap-2">
                 <input
