@@ -32,10 +32,9 @@ function YogiyoLogo({ size = 28 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
       <rect width="48" height="48" rx="12" fill="#E5007F"/>
-      <text x="24" y="23" fontSize="11" fontWeight="900" fill="white"
-        fontFamily="'Apple SD Gothic Neo','Noto Sans KR',sans-serif" textAnchor="middle">요기요</text>
-      <circle cx="24" cy="33" r="4" fill="white"/>
-      <path d="M16 43 Q24 39 32 43" stroke="white" strokeWidth="2.2" fill="none" strokeLinecap="round"/>
+      <text x="24" y="32" textAnchor="middle" fontSize="16" fontWeight="900"
+        fill="white" fontFamily="'Apple SD Gothic Neo','Noto Sans KR',sans-serif"
+        letterSpacing="-0.8">요기요</text>
     </svg>
   )
 }
@@ -56,7 +55,7 @@ function CoupangEatsLogo({ size = 28 }: { size?: number }) {
 // ─────────────────────────────────────────
 // 상수
 // ─────────────────────────────────────────
-const ALL_PLATFORMS = ['naver', 'baemin', 'yogiyo', 'coupang', 'kakao'] as const
+const ALL_PLATFORMS = ['naver', 'baemin', 'yogiyo', 'coupang', 'kakao', 'google'] as const
 type PlatformKey = typeof ALL_PLATFORMS[number]
 
 // hub key → stores/me slug 매핑
