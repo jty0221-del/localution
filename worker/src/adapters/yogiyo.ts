@@ -56,6 +56,41 @@ export async function runYogiyo(
   const page = await context.newPage()
   startNetworkCapture(page, log, ['review', 'feedback', 'rating'])
 
+  // fetch / XHR 인터셉터 주입 — React 앱이 실제 호출하는 API 도메인 파악
+  await page.addInitScript(() => {
+    const win = window as any
+    win.__capturedRequests = []
+    const _fetch = window.fetch
+    window.fetch = async function (...args: any[]) {
+      const url = typeof args[0] === 'string' ? args[0] : (args[0] as any)?.url || ''
+      const res = await _fetch.apply(this, args)
+      const clone = res.clone()
+      clone.text().then((t: string) => {
+        win.__capturedRequests.push({ url, status: res.status, body: t.slice(0, 300), type: 'fetch' })
+      }).catch(() => {})
+      return res
+    }
+    // XHR 인터셉터
+    const XHR = XMLHttpRequest.prototype
+    const _open = XHR.open as any
+    XHR.open = function (method: string, url: string, ...rest: any[]) {
+      (this as any).__url = url
+      return _open.apply(this, [method, url, ...rest])
+    }
+    const _send = XHR.send
+    XHR.send = function (...args: any[]) {
+      this.addEventListener('load', function () {
+        win.__capturedRequests.push({
+          url: (this as any).__url,
+          status: (this as any).status,
+          body: (this as any).responseText?.slice(0, 300),
+          type: 'xhr',
+        })
+      })
+      return _send.apply(this, args)
+    }
+  })
+
   try {
     // 1) 로그인
     await page.goto(LOGIN_URL, { waitUntil: 'load', timeout: 45000 })
@@ -132,6 +167,13 @@ export async function runYogiyo(
     })()
     await page.goto(`${postLoginOrigin}/self-service-home/`, { waitUntil: 'load', timeout: 45000 })
     await page.waitForTimeout(6000)
+
+    // 2-b) 홈 로드 후 캡처된 요청 확인
+    const homeRequests = await page.evaluate(() => (window as any).__capturedRequests || [])
+    log.info({
+      count: homeRequests.length,
+      urls: homeRequests.map((r: any) => `[${r.type}] ${r.status} ${r.url}`).slice(0, 20),
+    }, 'yogiyo home page captured requests')
 
     // 3) localStorage / sessionStorage 에서 인증 토큰 추출
     const authToken = await page.evaluate(() => {
@@ -254,6 +296,16 @@ export async function runYogiyo(
         reviews = deepExtractReviews(winState)
         log.info({ count: reviews.length }, 'yogiyo: window state extract result')
       }
+
+      // 리뷰 페이지에서 캡처된 실제 API 요청 로깅
+      const reviewPageRequests = await page.evaluate(() => (window as any).__capturedRequests || [])
+      log.info({
+        count: reviewPageRequests.length,
+        allUrls: reviewPageRequests.map((r: any) => `[${r.type}] ${r.status} ${r.url}`),
+        jsonCalls: reviewPageRequests.filter((r: any) => r.body?.startsWith('{')).map((r: any) => ({
+          url: r.url, status: r.status, bodySample: r.body?.slice(0, 200),
+        })),
+      }, 'yogiyo reviews page captured requests — actual api urls')
 
       if (reviews.length === 0) {
         await dumpPageDiagnostics(page, log, 'yogiyo-all-methods-failed')
