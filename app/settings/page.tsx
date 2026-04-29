@@ -1179,7 +1179,7 @@ function ConnectTab() {
     }
     const name = await promptDialog(`${label} 연동 매장명을 입력해주세요`, {
       title: `${label} 연동`,
-      placeholder: '예: 하랑마케팅 본점',
+      placeholder: '예: 강남 본점',
       okText: '연동',
     })
     if (!name) return
