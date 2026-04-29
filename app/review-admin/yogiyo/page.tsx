@@ -10,13 +10,11 @@ export const dynamic = 'force-dynamic'
 
 function YogiyoLogo() {
   return (
-    <svg width="64" height="64" viewBox="0 0 48 48" fill="none">
-      <rect width="48" height="48" rx="12" fill="#FA0050"/>
-      <circle cx="24" cy="16" r="7" fill="white"/>
-      <path d="M17 26c0 0 2-4 7-4s7 4 7 4v10c0 2-1.5 3-3.5 3h-7C18.5 39 17 38 17 36V26z" fill="white"/>
-      <circle cx="21" cy="15" r="2" fill="#FA0050"/>
-      <circle cx="27" cy="15" r="2" fill="#FA0050"/>
-      <path d="M21 20 Q24 22 27 20" stroke="#FA0050" strokeWidth="1.5" fill="none" strokeLinecap="round"/>
+    <svg width="56" height="56" viewBox="0 0 56 56" fill="none">
+      <rect width="56" height="56" fill="#E5007F"/>
+      <text x="28" y="36" textAnchor="middle" fontSize="19" fontWeight="900"
+        fill="white" fontFamily="'Apple SD Gothic Neo','Noto Sans KR',sans-serif"
+        letterSpacing="-0.8">요기요</text>
     </svg>
   )
 }
