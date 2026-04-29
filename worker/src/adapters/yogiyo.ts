@@ -63,7 +63,7 @@ export async function runYogiyo(
     const _fetch = window.fetch
     window.fetch = async function (...args: any[]) {
       const url = typeof args[0] === 'string' ? args[0] : (args[0] as any)?.url || ''
-      const res = await _fetch.apply(this, args)
+      const res = await (_fetch as any).apply(this, args)
       const clone = res.clone()
       clone.text().then((t: string) => {
         win.__capturedRequests.push({ url, status: res.status, body: t.slice(0, 300), type: 'fetch' })
@@ -87,7 +87,7 @@ export async function runYogiyo(
           type: 'xhr',
         })
       })
-      return _send.apply(this, args)
+      return (_send as any).apply(this, args)
     }
   })
 
