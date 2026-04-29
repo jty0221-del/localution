@@ -21,8 +21,8 @@ export const dynamic = 'force-dynamic'
 function BaeminLogo({ size = 28 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
-      <rect width="48" height="48" rx="12" fill="#2AC1BC"/>
-      <text x="24" y="31" fontSize="18" fontWeight="900" fill="#1A1A1A"
+      <rect width="48" height="48" rx="12" fill="#2DDDC8"/>
+      <text x="24" y="32" fontSize="19" fontWeight="900" fill="white"
         fontFamily="'Apple SD Gothic Neo','Noto Sans KR',sans-serif"
         textAnchor="middle" letterSpacing="-0.5">배민</text>
     </svg>
