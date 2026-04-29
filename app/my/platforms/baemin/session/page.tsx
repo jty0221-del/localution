@@ -1,166 +1,172 @@
 'use client'
 // app/my/platforms/baemin/session/page.tsx
-// DevTools Network 탭 Cookie 헤더 붙여넣기 → 배민 API 인증 쿠키 저장
 import { useState } from 'react'
 import Link from 'next/link'
 
 export default function BaeminSessionPage() {
-  const [cookieStr, setCookieStr] = useState('')
-  const [shopNo, setShopNo] = useState('')
-  const [status, setStatus] = useState<'idle' | 'saving' | 'ok' | 'error'>('idle')
-  const [msg, setMsg] = useState('')
+  const [baeminId, setBaeminId]   = useState('')
+  const [baeminPw, setBaeminPw]   = useState('')
+  const [shopNo, setShopNo]       = useState('')
+  const [showPw, setShowPw]       = useState(false)
+  const [status, setStatus]       = useState<'idle' | 'loading' | 'ok' | 'error'>('idle')
+  const [msg, setMsg]             = useState('')
 
-  async function handleSave() {
-    let cookie = cookieStr.trim()
-    if (cookie.toLowerCase().startsWith('cookie:')) cookie = cookie.slice(7).trim()
-    if (!cookie || cookie.length < 10) {
+  async function handleConnect() {
+    if (!baeminId.trim() || !baeminPw.trim()) {
       setStatus('error')
-      setMsg('쿠키 값을 입력해주세요.')
+      setMsg('아이디와 비밀번호를 모두 입력해주세요.')
       return
     }
-    setStatus('saving')
+    setStatus('loading')
     setMsg('')
     try {
-      const res = await fetch('/api/platform-accounts/baemin-cookie', {
+      const res = await fetch('/api/baemin/save-login', {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cookie_str: cookie, shop_no: shopNo.trim() || '14637452' }),
+        body: JSON.stringify({ baemin_id: baeminId.trim(), baemin_pw: baeminPw.trim(), shop_no: shopNo.trim() }),
       })
       const data = await res.json()
       if (data.ok) {
         setStatus('ok')
-        setMsg('배민 쿠키가 저장됐어요! 이제 리뷰를 가져올 수 있어요.')
-        setCookieStr('')
+        setMsg(data.message || '배민 연동이 완료됐어요!')
+        setBaeminPw('')
       } else {
         setStatus('error')
-        setMsg(data.error || '저장 실패. 다시 시도해주세요.')
+        setMsg(data.error || '연동 실패. 아이디/비밀번호를 확인해주세요.')
       }
     } catch (e: any) {
       setStatus('error')
-      setMsg(e?.message || '알 수 없는 오류')
-    }
-  }
-
-  async function handleCollect() {
-    setStatus('saving')
-    setMsg('실제 리뷰를 가져오는 중...')
-    try {
-      const res = await fetch('/api/baemin/collect-reviews', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ shop_no: shopNo.trim() || '14637452' }),
-      })
-      const data = await res.json()
-      if (data.ok) {
-        setStatus('ok')
-        setMsg('리뷰 ' + (data.count || 0) + '개를 가져왔어요!')
-      } else {
-        setStatus('error')
-        setMsg(data.error || '리뷰 수집 실패')
-      }
-    } catch (e: any) {
-      setStatus('error')
-      setMsg(e?.message || '알 수 없는 오류')
+      setMsg(e?.message || '연결 오류가 발생했어요.')
     }
   }
 
   return (
     <div className="min-h-screen bg-gray-50 py-10 px-4">
-      <div className="max-w-xl mx-auto">
-        <div className="mb-6">
-          <Link href="/review-admin/baemin" className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1 mb-4">
+      <div className="max-w-lg mx-auto">
+
+        {/* 헤더 */}
+        <div className="mb-8">
+          <Link href="/review-admin/baemin" className="text-sm text-gray-400 hover:text-gray-600 flex items-center gap-1 mb-4">
             ← 배민 리뷰 관리
           </Link>
-          <h1 className="text-2xl font-bold text-gray-900">배민 실제 리뷰 연동</h1>
-          <p className="mt-1 text-sm text-gray-500">
-            배민 셀프서비스에서 쿠키를 복사하면 실제 리뷰와 사진을 가져올 수 있어요.
+          <div className="flex items-center gap-3 mb-2">
+            <div className="w-10 h-10 rounded-xl bg-[#FFBE00] flex items-center justify-center text-white font-bold text-lg">B</div>
+            <h1 className="text-2xl font-bold text-gray-900">배민 자동 연동</h1>
+          </div>
+          <p className="text-sm text-gray-500">
+            배민 셀프서비스 로그인 정보를 저장하면 리뷰를 자동으로 수집하고 답글을 달 수 있어요.
           </p>
         </div>
 
+        {/* 결과 메시지 */}
         {status === 'ok' && (
-          <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-xl flex items-start gap-3">
+          <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-2xl flex items-start gap-3">
             <span className="text-2xl">✅</span>
             <div>
-              <p className="font-semibold text-green-800">완료!</p>
+              <p className="font-semibold text-green-800">연동 완료!</p>
               <p className="text-sm text-green-700 mt-1">{msg}</p>
+              <Link href="/review-admin/baemin" className="mt-3 inline-block text-sm font-medium text-green-700 underline">
+                리뷰 관리로 이동 →
+              </Link>
             </div>
           </div>
         )}
         {status === 'error' && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-xl">
-            <p className="text-sm text-red-700">{msg}</p>
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-2xl">
+            <p className="text-sm font-medium text-red-700">❌ {msg}</p>
           </div>
         )}
 
-        {/* 1단계: 쿠키 가져오는 방법 */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-4">
-          <h2 className="font-bold text-gray-900 mb-3">1단계. 배민 쿠키 복사하기</h2>
-          <ol className="text-sm text-gray-600 space-y-2 list-decimal list-inside">
-            <li>Chrome에서 <a href="https://self.baemin.com/shops/14637452/reviews" target="_blank" rel="noreferrer" className="text-[#2AC1BC] underline">self.baemin.com 리뷰 페이지</a>에 접속하세요 (로그인 필요)</li>
-            <li><strong>F12</strong> → <strong>Network</strong> 탭 클릭 → <strong>F5</strong> 새로고침</li>
-            <li>Network 목록 맨 위 첫 번째 요청 클릭</li>
-            <li>오른쪽 <strong>Headers → Request Headers</strong> 에서 <strong>cookie</strong> 항목 찾기</li>
-            <li>cookie 값 전체를 복사해서 아래에 붙여넣기</li>
-          </ol>
-          <div className="mt-3 p-3 bg-blue-50 rounded-lg text-xs text-blue-700">
-            <strong>TIP:</strong> 필터 없이 목록 맨 위 첫 번째 항목을 클릭하면 돼요. cookie 값이 매우 길어도 전체를 복사해주세요.
+        {/* 연동 폼 */}
+        {status !== 'ok' && (
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-4">
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                배민 셀프서비스 아이디
+              </label>
+              <input
+                type="text"
+                value={baeminId}
+                onChange={e => setBaeminId(e.target.value)}
+                placeholder="self.baemin.com 로그인 아이디"
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#FFBE00] focus:border-transparent"
+                disabled={status === 'loading'}
+                autoComplete="username"
+              />
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                비밀번호
+              </label>
+              <div className="relative">
+                <input
+                  type={showPw ? 'text' : 'password'}
+                  value={baeminPw}
+                  onChange={e => setBaeminPw(e.target.value)}
+                  onKeyDown={e => { if (e.key === 'Enter') handleConnect() }}
+                  placeholder="배민 셀프서비스 비밀번호"
+                  className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#FFBE00] focus:border-transparent pr-12"
+                  disabled={status === 'loading'}
+                  autoComplete="current-password"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowPw(v => !v)}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 text-sm px-1"
+                >
+                  {showPw ? '숨김' : '표시'}
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1">
+                매장 번호 <span className="text-gray-400 font-normal">(선택)</span>
+              </label>
+              <input
+                type="text"
+                value={shopNo}
+                onChange={e => setShopNo(e.target.value)}
+                placeholder="URL의 숫자 (예: 14637452) — 비워도 자동 감지"
+                className="w-full px-4 py-3 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-[#FFBE00] focus:border-transparent"
+                disabled={status === 'loading'}
+              />
+              <p className="mt-1 text-xs text-gray-400">self.baemin.com/shops/<strong>숫자</strong>/reviews 에서 확인</p>
+            </div>
+
+            <button
+              onClick={handleConnect}
+              disabled={status === 'loading' || !baeminId.trim() || !baeminPw.trim()}
+              className="w-full py-3 bg-[#FFBE00] hover:bg-[#f0b000] disabled:opacity-50 text-gray-900 font-semibold rounded-xl transition-colors text-sm"
+            >
+              {status === 'loading' ? '연동 중...' : '🔗 배민 연동 시작'}
+            </button>
           </div>
+        )}
+
+        {/* 안전 안내 */}
+        <div className="mt-6 p-4 bg-blue-50 border border-blue-100 rounded-2xl">
+          <p className="text-xs font-semibold text-blue-700 mb-2">🔒 보안 안내</p>
+          <ul className="text-xs text-blue-600 space-y-1">
+            <li>• 로그인 정보는 AES-256-GCM으로 암호화해 저장돼요</li>
+            <li>• 비밀번호는 복호화 불가 형태로만 보관해요</li>
+            <li>• 쿠키가 만료되면 자동으로 재로그인해요</li>
+          </ul>
         </div>
 
-        {/* 2단계: 쿠키 입력 */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-4">
-          <h2 className="font-bold text-gray-900 mb-3">2단계. 정보 입력</h2>
-          <div className="mb-3">
-            <label className="text-sm font-medium text-gray-700 mb-1 block">가게 번호 (shopNo)</label>
-            <input
-              type="text"
-              value={shopNo}
-              onChange={e => setShopNo(e.target.value)}
-              placeholder="14637452 (URL에서 확인)"
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#2AC1BC]"
-            />
-            <p className="text-xs text-gray-400 mt-1">self.baemin.com/shops/<strong>14637452</strong>/reviews 에서 숫자 부분</p>
-          </div>
-          <div>
-            <label className="text-sm font-medium text-gray-700 mb-1 block">Cookie 값 붙여넣기</label>
-            <textarea
-              value={cookieStr}
-              onChange={e => setCookieStr(e.target.value)}
-              placeholder="SESSION=xxxx; __cf_bm=yyyy; ..."
-              rows={5}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-[#2AC1BC] resize-none"
-            />
-          </div>
+        {/* 재연동 버튼 */}
+        {status === 'ok' && (
           <button
-            onClick={handleSave}
-            disabled={status === 'saving'}
-            className="mt-3 w-full py-3 rounded-xl font-bold text-white transition"
-            style={{ background: status === 'saving' ? '#9CA3AF' : '#2AC1BC' }}
+            onClick={() => { setStatus('idle'); setMsg(''); }}
+            className="mt-4 w-full py-2 text-sm text-gray-500 hover:text-gray-700 underline"
           >
-            {status === 'saving' ? '저장 중...' : '쿠키 저장하기'}
+            정보 변경 / 재연동
           </button>
-        </div>
+        )}
 
-        {/* 3단계: 리뷰 가져오기 */}
-        <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-          <h2 className="font-bold text-gray-900 mb-2">3단계. 실제 리뷰 가져오기</h2>
-          <p className="text-sm text-gray-500 mb-3">
-            쿠키 저장 후 버튼을 누르면 배민에서 실제 리뷰(사진 포함)를 가져와요.
-          </p>
-          <button
-            onClick={handleCollect}
-            disabled={status === 'saving'}
-            className="w-full py-3 rounded-xl font-bold text-white transition"
-            style={{ background: status === 'saving' ? '#9CA3AF' : '#2AC1BC' }}
-          >
-            {status === 'saving' ? '수집 중...' : '실제 리뷰 가져오기'}
-          </button>
-          <p className="text-xs text-gray-400 mt-2 text-center">
-            쿠키는 약 1~2주 후 만료돼요. 만료되면 다시 저장해주세요.
-          </p>
-        </div>
       </div>
     </div>
   )
