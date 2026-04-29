@@ -30,9 +30,9 @@ const MARKETING_GROUPS = [
       { href: '/marketing/place',         label: '플레이스 진단' },
       { href: '/marketing/keyword-rank',  label: '플레이스(실시간)' },
       { href: '/marketing/keyword-score', label: '플레이스 분석' },
-      { href: '/marketing/blog-post',     label: '블로그' },
+      { href: '/marketing/blog-post',     label: '블로그 글 작성' },
       { href: '/marketing/blog-tracking', label: '블로그 순위 추적' },
-      { href: '/marketing/naver-ads',      label: '네이버 광고 분석' },
+      { href: '/marketing/naver-ads',      label: '키워드 조회/분석' },
     ],
   },
   {
