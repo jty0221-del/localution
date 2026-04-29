@@ -466,15 +466,19 @@ ${lines.join('\n')}
                   </div>
 
                   {myInquiries.length === 0 ? (
-                    <div className="text-center py-12 px-6">
-                      <div className="w-14 h-14 rounded-2xl bg-[#F2F4F6] mx-auto mb-3 flex items-center justify-center">
-                        <Inbox size={24} strokeWidth={1.75} className="text-[#B0B8C1]" />
-                      </div>
+                    <div className="text-center py-14 px-6 flex flex-col items-center">
+                      {/* SVG 빈 상태 — 편지봉투 일러스트 */}
+                      <svg width="72" height="72" viewBox="0 0 72 72" fill="none" className="mb-4 opacity-70" aria-hidden="true">
+                        <rect x="6" y="18" width="60" height="40" rx="6" fill="#EFF6FF" stroke="#BFDBFE" strokeWidth="2" />
+                        <path d="M6 24l30 20 30-20" stroke="#3182F6" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" fill="none" />
+                        <circle cx="54" cy="20" r="10" fill="#DBEAFE" />
+                        <path d="M49 20h10M54 15v10" stroke="#3182F6" strokeWidth="2" strokeLinecap="round" />
+                      </svg>
                       <p className="font-bold text-[#191F28] text-sm mb-1">문의 내역이 없습니다</p>
-                      <p className="text-xs text-[#8B95A1] mb-4 break-keep">궁금한 점이 있으시면 문의해 주세요.</p>
+                      <p className="text-xs text-[#8B95A1] mb-4 break-keep">궁금한 점이 있으시면 언제든 문의해 주세요.<br/>평균 1~2일 내 답변드립니다.</p>
                       <button onClick={() => setTab('new')}
                         className="px-5 py-2.5 bg-[#3182F6] text-white font-bold rounded-xl text-sm hover:bg-[#1B64DA] transition-colors">
-                        문의하기
+                        첫 문의 남기기
                       </button>
                     </div>
                   ) : (
