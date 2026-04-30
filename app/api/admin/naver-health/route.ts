@@ -344,6 +344,71 @@ export async function GET() {
     }
   }
 
+  // ── 10. Claude AI API 상태 (AI 답글 생성용) ───────────────
+  const anthropicKey = process.env.ANTHROPIC_API_KEY
+  if (!anthropicKey) {
+    checks.push({
+      id: 'claude_api',
+      label: 'Claude AI API (AI 답글 생성)',
+      category: 'AI 상태',
+      status: 'error',
+      message: 'ANTHROPIC_API_KEY 미설정 — AI 답글 생성 불가',
+      detail: 'Vercel 환경변수에 ANTHROPIC_API_KEY 추가 필요',
+      action_url: 'https://console.anthropic.com/settings/keys',
+    })
+  } else {
+    // 미니멀 API 호출로 키 유효성 확인
+    try {
+      const t0 = Date.now()
+      const r = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': anthropicKey,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+          model: 'claude-3-5-haiku-20241022',
+          max_tokens: 5,
+          messages: [{ role: 'user', content: '안녕' }],
+        }),
+        signal: AbortSignal.timeout(10000),
+        cache: 'no-store',
+      })
+      const latency = Date.now() - t0
+      if (r.ok) {
+        checks.push({
+          id: 'claude_api',
+          label: 'Claude AI API (AI 답글 생성)',
+          category: 'AI 상태',
+          status: 'ok',
+          message: `정상 응답 (${latency}ms) — claude-3-5-haiku`,
+          detail: `API 키: ${anthropicKey.slice(0, 8)}***`,
+        })
+      } else {
+        const errText = await r.text()
+        checks.push({
+          id: 'claude_api',
+          label: 'Claude AI API (AI 답글 생성)',
+          category: 'AI 상태',
+          status: 'error',
+          message: `오류 HTTP ${r.status}`,
+          detail: errText.slice(0, 150),
+          action_url: 'https://console.anthropic.com/settings/keys',
+        })
+      }
+    } catch (e) {
+      checks.push({
+        id: 'claude_api',
+        label: 'Claude AI API (AI 답글 생성)',
+        category: 'AI 상태',
+        status: 'error',
+        message: `호출 실패: ${e instanceof Error ? e.message : String(e)}`,
+        detail: null,
+      })
+    }
+  }
+
   const summary = { ok: 0, warn: 0, error: 0, skip: 0 }
   for (const c of checks) summary[c.status]++
   const overall: CheckStatus = summary.error > 0 ? 'error' : summary.warn > 0 ? 'warn' : 'ok'
