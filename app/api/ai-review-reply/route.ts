@@ -532,7 +532,7 @@ export async function POST(req: NextRequest) {
     }
 
     // 6) 모델 선택: 사진 있으면 sonnet(비전 성능↑), 없으면 haiku(속도↑)
-    const model = hasPhotos ? 'claude-sonnet-4-6' : 'claude-haiku-4-5-20251001'
+    const model = hasPhotos ? 'claude-3-5-sonnet-20241022' : 'claude-3-5-haiku-20241022'
 
     const resp = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
@@ -562,7 +562,7 @@ export async function POST(req: NextRequest) {
             'anthropic-version': '2023-06-01',
           },
           body: JSON.stringify({
-            model: 'claude-haiku-4-5-20251001',
+            model: 'claude-3-5-haiku-20241022',
             max_tokens: 1200,
             system: systemPrompt,
             messages: [{ role: 'user', content: [{ type: 'text', text: textPart }] }],
