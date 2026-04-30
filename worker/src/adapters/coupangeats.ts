@@ -557,7 +557,16 @@ async function fetchCoupangReviews(
   return {
     status: 'ok',
     message: `coupangeats: collected ${res.total}, upserted ${res.inserted}`,
-    data: res,
+    data: {
+      ...res,
+      _debug: {
+        rawBodySample: evalResult.rawBodySample || '(empty)',
+        errors: evalResult.errors,
+        capturedUrls,
+        capturedCount: capturedReviews.length,
+        storeId,
+      },
+    },
   }
 }
 
