@@ -375,87 +375,79 @@ async function fetchCoupangReviews(
   const alreadyOnReviews = page.url().includes('/review')
   log.info({ reviewsUrl, alreadyOnReviews, earlyCaptured: capturedReviews.length }, 'coupangeats: fetchCoupangReviews entry')
 
-  // ── 전략: React 컴포넌트 대신 브라우저 내 fetch()로 API 직접 호출 ──
-  // contract API에서 storeId=738438 이미 확인됨. 여러 후보 엔드포인트를 직접 탐색.
+  // ── 실제 API 엔드포인트 확인됨: /api/v1/merchant/reviews/search ──
   await closeAllModals(page, log)
-  await page.waitForTimeout(1000)
+  await page.waitForTimeout(500)
 
   const storeId = creds.platform_store_id || '738438'
-  log.info({ storeId }, 'coupangeats: probing review API endpoints via page.evaluate fetch')
+  log.info({ storeId }, 'coupangeats: calling review API directly')
 
-  const probeResult: { url: string; data: any; statuses: Record<string, number> } | null = await page.evaluate(async (sid: string) => {
-    const statuses: Record<string, number> = {}
-    const candidates = [
-      `/api/v1/review/stores/${sid}`,
-      `/api/v1/review/stores/${sid}?page=0&size=20`,
-      `/api/v1/review/stores/${sid}?pageIndex=0&pageSize=20&hasOwnerReply=false`,
-      `/api/v1/stores/${sid}/reviews`,
-      `/api/v1/stores/${sid}/reviews?page=0&size=20`,
-      `/api/v2/review/stores/${sid}`,
-      `/api/v2/review/stores/${sid}?page=0&size=20`,
-      `/api/v1/merchant/reviews?storeId=${sid}`,
-      `/api/v1/merchant/reviews?storeId=${sid}&page=0&size=20`,
-      `/api/v1/review?storeId=${sid}&page=0&size=20`,
-      `/api/v1/reviews?storeId=${sid}&page=0&size=20`,
-      `/api/v1/merchant/management/reviews?storeId=${sid}`,
-      `/api/v1/order/review?storeId=${sid}&page=0&size=20`,
-      `/api/v1/store/${sid}/reviews`,
-      `/api/v1/store/${sid}/review?page=0&size=20`,
-      `/api/v1/merchant/${sid}/reviews`,
-      `/api/v1/merchant/${sid}/review?page=0&size=20`,
-    ]
+  // 전체 리뷰 페이지네이션 수집 (최대 500개)
+  const allApiReviews: any[] = await page.evaluate(async (sid: string) => {
     const hdrs = {
       'Accept': 'application/json, text/plain, */*',
       'Accept-Language': 'ko-KR,ko;q=0.9',
       'X-Requested-With': 'XMLHttpRequest',
-      'Referer': `https://store.coupangeats.com/merchant/management/reviews`,
+      'Referer': 'https://store.coupangeats.com/merchant/management/reviews',
     }
-    for (const path of candidates) {
-      try {
-        const res = await fetch(path, { credentials: 'include', headers: hdrs })
-        statuses[path] = res.status
-        if (!res.ok) continue
-        const ct = res.headers.get('content-type') || ''
-        if (!ct.includes('json') && !ct.includes('text')) continue
-        const body = await res.json().catch(() => null)
-        if (!body) continue
-        const arr = Array.isArray(body) ? body
-          : body?.data?.reviews || body?.reviews || body?.data || body?.content || body?.list || body?.items
-            || body?.result?.reviews || body?.result || body?.payload
-        if (Array.isArray(arr) && arr.length > 0) {
-          return { url: path, data: body, statuses }
-        }
-        if (res.status === 200) {
-          return { url: path + '___status200', data: body, statuses }
-        }
-      } catch (e: any) {
-        statuses[path] = -1
+    const collected: any[] = []
+
+    // statusType 목록: ALL 우선, 없으면 개별 타입
+    const statusTypes = ['ALL', 'EXPOSE', 'UNEXPOSE', 'REPORTED']
+    const seenIds = new Set<string>()
+
+    for (const statusType of statusTypes) {
+      let page = 1
+      let hasMore = true
+      while (hasMore && collected.length < 500) {
+        try {
+          const url = `/api/v1/merchant/reviews/search?storeId=${sid}&page=${page}&statusType=${statusType}&size=100`
+          const res = await fetch(url, { credentials: 'include', headers: hdrs })
+          if (!res.ok) {
+            // ALL이 안되면 개별 타입으로 넘어감
+            if (statusType === 'ALL') break
+            hasMore = false
+            break
+          }
+          const body = await res.json().catch(() => null)
+          if (!body) { hasMore = false; break }
+          // 다양한 응답 구조 파싱
+          const arr: any[] = Array.isArray(body) ? body
+            : body?.data?.reviews || body?.reviews || body?.data?.content || body?.content
+              || body?.data?.list || body?.list || body?.data?.items || body?.items
+              || body?.result?.reviews || body?.result || body?.data || []
+          if (!Array.isArray(arr) || arr.length === 0) { hasMore = false; break }
+          let newCount = 0
+          for (const r of arr) {
+            const rid = String(r.reviewId || r.id || r.review_id || '')
+            if (!rid || seenIds.has(rid)) continue
+            seenIds.add(rid)
+            collected.push(r)
+            newCount++
+          }
+          // 페이지네이션 종료 조건
+          const totalPages = body?.data?.totalPages || body?.totalPages || body?.data?.total_pages
+          const totalCount = body?.data?.totalCount || body?.totalCount || body?.data?.total || body?.total
+          if (totalPages && page >= totalPages) { hasMore = false; break }
+          if (totalCount && collected.length >= totalCount) { hasMore = false; break }
+          if (arr.length < 100) { hasMore = false; break }
+          page++
+        } catch { hasMore = false; break }
       }
+      // ALL로 충분히 가져왔으면 나머지 statusType 스킵
+      if (collected.length > 0 && statusType === 'ALL') break
+      if (collected.length > 0 && statusType !== 'ALL') break
     }
-    return { url: '___none', data: null, statuses }
+    return collected
   }, storeId)
 
-  log.info({
-    probeUrl: probeResult?.url,
-    statuses: probeResult?.statuses,
-    sample: probeResult?.data ? JSON.stringify(probeResult.data).slice(0, 400) : null,
-    allRequests: allRequestUrls.slice(-40),  // 마지막 40개 요청 URL 로깅
-  }, 'coupangeats: API probe result')
+  log.info({ storeId, count: allApiReviews.length, sample: JSON.stringify(allApiReviews[0]).slice(0, 300) }, 'coupangeats: API reviews collected')
+  capturedReviews.push(...allApiReviews)
+  capturedUrls.push(`/api/v1/merchant/reviews/search?storeId=${storeId}`)
 
   log.info({ capturedUrls, capturedCount: capturedReviews.length }, 'coupangeats: network capture result')
 
-  // ── API 직접 호출 성공 시 사용, 실패 시 earlyCapture 사용 ──
   let reviews: any[] = []
-  if (probeResult && probeResult.url && !probeResult.url.includes('___status200') && !probeResult.url.includes('___none')) {
-    const body = probeResult.data
-    const arr: any[] = Array.isArray(body) ? body
-      : body?.data?.reviews || body?.reviews || body?.data || body?.content || body?.list || body?.items
-        || body?.result?.reviews || body?.result || body?.payload || []
-    log.info({ url: probeResult.url, count: arr.length }, 'coupangeats: using probed API data')
-    capturedReviews.push(...arr)
-    capturedUrls.push(probeResult.url)
-  }
-
   if (capturedReviews.length > 0) {
     reviews = capturedReviews.slice(0, 200).map((r: any, idx: number) => {
       const rating = typeof r.rating === 'number' ? Math.round(r.rating)
