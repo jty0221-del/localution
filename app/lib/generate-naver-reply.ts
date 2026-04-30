@@ -248,7 +248,7 @@ export async function generateNaverReply(
   const { system, userText, reviewType } = buildPrompt(store, review, tone)
   const hasPhotos = review.photos.length > 0
   const isExpert = tone === 'expert' || tone === 'formal' || tone === 'simple'
-  const model = hasPhotos ? 'claude-sonnet-4-6' : 'claude-haiku-4-5-20251001'
+  const model = hasPhotos ? 'claude-3-5-sonnet-20241022' : 'claude-3-5-haiku-20241022'
 
   const userContent: Array<{ type: string; text?: string; source?: { type: string; url: string } }> = [
     { type: 'text', text: userText },
@@ -295,7 +295,7 @@ export async function generateNaverReply(
 
   // Vision 실패 시 텍스트로 재시도
   if (!result.ok && hasPhotos) {
-    result = await callClaude('claude-haiku-4-5-20251001', [{ type: 'text', text: userText }])
+    result = await callClaude('claude-3-5-haiku-20241022', [{ type: 'text', text: userText }])
     if (result.ok) {
       let reply = result.reply
       if (isExpert) reply = stripMarkdown(reply)
