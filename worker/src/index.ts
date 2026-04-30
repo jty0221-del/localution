@@ -124,6 +124,43 @@ const healthServer = http.createServer(async (req, res) => {
     return
   }
 
+  // GET /jobs  — 최근 완료/실패 잡 조회 (디버그용)
+  if (req.method === 'GET' && req.url && req.url.startsWith('/jobs')) {
+    const auth = req.headers['authorization'] || ''
+    if (TRIGGER_SECRET && auth !== `Bearer ${TRIGGER_SECRET}`) {
+      res.writeHead(401, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ ok: false, error: 'unauthorized' }))
+      return
+    }
+    try {
+      const completed = await jobQueue.getCompleted(0, 9)
+      const failed = await jobQueue.getFailed(0, 9)
+      const active = await jobQueue.getActive(0, 9)
+      const waiting = await jobQueue.getWaiting(0, 9)
+      const toInfo = (j: any) => ({
+        id: j.id,
+        name: j.name,
+        data: { platform: j.data?.platform, action: j.data?.action, userId: j.data?.userId?.slice(0, 8) },
+        returnvalue: j.returnvalue,
+        failedReason: j.failedReason,
+        processedOn: j.processedOn,
+        finishedOn: j.finishedOn,
+      })
+      res.writeHead(200, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({
+        ok: true,
+        counts: { completed: completed.length, failed: failed.length, active: active.length, waiting: waiting.length },
+        completed: completed.map(toInfo),
+        failed: failed.map(toInfo),
+        active: active.map(toInfo),
+      }))
+    } catch (e: any) {
+      res.writeHead(500, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ ok: false, error: e?.message }))
+    }
+    return
+  }
+
   // POST /trigger  — 수동 잡 등록 (테스트/디버그용)
   if (req.method === 'POST' && req.url === '/trigger') {
     // optional secret check
