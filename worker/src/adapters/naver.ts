@@ -138,11 +138,10 @@ export async function runNaver(
     },
   }
   if (useProxy) {
-    contextOptions.proxy = {
-      server: `${proxyProto}://${proxyHost}:${proxyPort}`,
-      username: proxyUser,
-      password: proxyPass,
-    }
+    const proxyUrl = (proxyUser && proxyPass)
+      ? `${proxyProto}://${proxyUser}:${proxyPass}@${proxyHost}:${proxyPort}`
+      : `${proxyProto}://${proxyHost}:${proxyPort}`
+    contextOptions.proxy = { server: proxyUrl }
     log.info({ proxy: `${proxyProto}://${proxyHost}:${proxyPort}` }, 'naver: using residential proxy')
   } else {
     log.warn('naver: no proxy configured (PROXY_HOST/PORT missing) — Railway IP may be blocked')
