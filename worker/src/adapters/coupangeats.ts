@@ -363,14 +363,19 @@ async function fetchCoupangReviews(
   const alreadyOnReviews = page.url().includes('/review')
   log.info({ reviewsUrl, alreadyOnReviews, earlyCaptured: capturedReviews.length }, 'coupangeats: fetchCoupangReviews entry')
 
-  // ── STEP 1: 현재 페이지에서 모달 먼저 닫기 (이미 reviews 페이지에 있는 경우) ──
-  if (alreadyOnReviews) {
-    await closeAllModals(page, log)
-    await page.waitForTimeout(2000)
-  }
+  // ── STEP 1: 모달 먼저 닫기 ──
+  await closeAllModals(page, log)
+  await page.waitForTimeout(1000)
 
-  // ── STEP 2: 항상 re-navigate — 모달 닫은 후 fresh navigation으로 API 재캡처 ──
-  log.info({ reviewsUrl }, 'coupangeats: navigating to reviews (force re-navigate to trigger API)')
+  // ── STEP 2: 다른 페이지로 이동 후 리뷰 페이지로 재진입 (React router remount 강제) ──
+  const homeUrl = 'https://store.coupangeats.com/merchant/management/'
+  log.info('coupangeats: navigating to home to force React remount')
+  await page.goto(homeUrl, { waitUntil: 'load', timeout: 30000 }).catch(() => null)
+  await page.waitForTimeout(2000)
+  await closeAllModals(page, log)
+
+  // ── STEP 3: 리뷰 페이지로 진입 → React가 reviews 컴포넌트 새로 mount → API 호출 ──
+  log.info({ reviewsUrl }, 'coupangeats: navigating to reviews (fresh mount)')
   await page.goto(reviewsUrl, { waitUntil: 'load', timeout: 45000 }).catch(() => null)
   await page.waitForTimeout(3000)
 
@@ -378,11 +383,23 @@ async function fetchCoupangReviews(
     return { status: 'failed', message: 'coupangeats: 세션 만료 — 쿠키를 다시 등록해주세요' }
   }
 
-  // ── STEP 3: 모달 닫기 (navigation 후) → React가 reviews API 호출 트리거 ──
+  // ── STEP 4: 모달 닫기 → 리뷰 컴포넌트 활성화 ──
   await closeAllModals(page, log)
+  await page.waitForTimeout(3000)
 
-  // ── STEP 4: 리뷰 로딩 대기 + 스크롤로 추가 API 호출 트리거 ──
-  await page.waitForTimeout(4000)
+  // ── STEP 5: 사이드바 리뷰 메뉴 클릭 시도 (API 호출 트리거) ──
+  try {
+    const reviewNavLink = page.locator('.icon-ce-review').first()
+    if (await reviewNavLink.isVisible().catch(() => false)) {
+      await reviewNavLink.click()
+      log.info('coupangeats: clicked review nav link')
+      await page.waitForTimeout(3000)
+      await closeAllModals(page, log)
+      await page.waitForTimeout(2000)
+    }
+  } catch { /* ignore */ }
+
+  // ── STEP 6: 스크롤로 추가 API 호출 트리거 ──
   for (let i = 0; i < 8; i++) {
     await page.evaluate(() => window.scrollBy(0, 600))
     await page.waitForTimeout(500)
