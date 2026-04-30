@@ -87,6 +87,23 @@ export async function runCoupangEats(
 
   const context = await browser.newContext(contextOptions)
 
+  // ── 봇 감지 우회: navigator.webdriver 제거 + 플러그인 위장 ──
+  await context.addInitScript(() => {
+    Object.defineProperty(navigator, 'webdriver', { get: () => undefined })
+    Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] })
+    Object.defineProperty(navigator, 'languages', { get: () => ['ko-KR', 'ko', 'en-US'] })
+    // Chrome 런타임 위장
+    ;(window as any).chrome = { runtime: {} }
+    // Permission API 위장
+    const origQuery = window.navigator.permissions?.query?.bind(window.navigator.permissions)
+    if (origQuery) {
+      ;(window.navigator.permissions as any).query = (params: any) =>
+        params.name === 'notifications'
+          ? Promise.resolve({ state: Notification.permission } as PermissionStatus)
+          : origQuery(params)
+    }
+  })
+
   // 저장된 쿠키가 있으면 세션 복원
   if (savedCookies && savedCookies.length > 0) {
     try {
