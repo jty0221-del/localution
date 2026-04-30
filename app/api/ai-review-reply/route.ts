@@ -552,6 +552,13 @@ export async function POST(req: NextRequest) {
     if (!resp.ok) {
       const errText = await resp.text()
       console.error('[ai-review-reply] Claude API error:', resp.status, errText.slice(0, 500))
+      // 오류 메시지 파싱 (Claude API 에러 JSON)
+      let claudeErrMsg = `HTTP ${resp.status}`
+      try {
+        const errJson = JSON.parse(errText)
+        const msg = errJson?.error?.message || errJson?.message || ''
+        if (msg) claudeErrMsg = `HTTP ${resp.status}: ${String(msg).slice(0, 100)}`
+      } catch { /* ignore */ }
       // 사진 업로드 실패 시 사진 없이 재시도 (Vision URL 거부 대응)
       if (hasPhotos) {
         const retry = await fetch('https://api.anthropic.com/v1/messages', {
@@ -575,7 +582,7 @@ export async function POST(req: NextRequest) {
           return NextResponse.json({ ok: true, reply: reply2, lang, reviewType, mode: 'text-fallback' })
         }
       }
-      return NextResponse.json({ ok: false, error: 'AI 서버 오류' }, { status: 500 })
+      return NextResponse.json({ ok: false, error: claudeErrMsg }, { status: 500 })
     }
 
     const data = await resp.json()
