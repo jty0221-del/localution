@@ -363,53 +363,66 @@ async function fetchCoupangReviews(
   const alreadyOnReviews = page.url().includes('/review')
   log.info({ reviewsUrl, alreadyOnReviews, earlyCaptured: capturedReviews.length }, 'coupangeats: fetchCoupangReviews entry')
 
-  // ── STEP 1: 모달 먼저 닫기 ──
+  // ── 전략: React 컴포넌트 대신 브라우저 내 fetch()로 API 직접 호출 ──
+  // contract API에서 storeId=738438 이미 확인됨. 여러 후보 엔드포인트를 직접 탐색.
   await closeAllModals(page, log)
   await page.waitForTimeout(1000)
 
-  // ── STEP 2: 다른 페이지로 이동 후 리뷰 페이지로 재진입 (React router remount 강제) ──
-  const homeUrl = 'https://store.coupangeats.com/merchant/management/'
-  log.info('coupangeats: navigating to home to force React remount')
-  await page.goto(homeUrl, { waitUntil: 'load', timeout: 30000 }).catch(() => null)
-  await page.waitForTimeout(2000)
-  await closeAllModals(page, log)
+  const storeId = creds.platform_store_id || '738438'
+  log.info({ storeId }, 'coupangeats: probing review API endpoints via page.evaluate fetch')
 
-  // ── STEP 3: 리뷰 페이지로 진입 → React가 reviews 컴포넌트 새로 mount → API 호출 ──
-  log.info({ reviewsUrl }, 'coupangeats: navigating to reviews (fresh mount)')
-  await page.goto(reviewsUrl, { waitUntil: 'load', timeout: 45000 }).catch(() => null)
-  await page.waitForTimeout(3000)
-
-  if (page.url().includes('/login')) {
-    return { status: 'failed', message: 'coupangeats: 세션 만료 — 쿠키를 다시 등록해주세요' }
-  }
-
-  // ── STEP 4: 모달 닫기 → 리뷰 컴포넌트 활성화 ──
-  await closeAllModals(page, log)
-  await page.waitForTimeout(3000)
-
-  // ── STEP 5: 사이드바 리뷰 메뉴 클릭 시도 (API 호출 트리거) ──
-  try {
-    const reviewNavLink = page.locator('.icon-ce-review').first()
-    if (await reviewNavLink.isVisible().catch(() => false)) {
-      await reviewNavLink.click()
-      log.info('coupangeats: clicked review nav link')
-      await page.waitForTimeout(3000)
-      await closeAllModals(page, log)
-      await page.waitForTimeout(2000)
+  const probeResult: { url: string; data: any } | null = await page.evaluate(async (sid: string) => {
+    const candidates = [
+      `/api/v1/review/stores/${sid}`,
+      `/api/v1/review/stores/${sid}?page=0&size=20`,
+      `/api/v1/review/stores/${sid}?pageIndex=0&pageSize=20`,
+      `/api/v1/stores/${sid}/reviews`,
+      `/api/v1/stores/${sid}/reviews?page=0&size=20`,
+      `/api/v2/review/stores/${sid}`,
+      `/api/v2/review/stores/${sid}?page=0&size=20`,
+      `/api/v1/merchant/reviews?storeId=${sid}`,
+      `/api/v1/merchant/reviews?storeId=${sid}&page=0&size=20`,
+      `/api/v1/review?storeId=${sid}`,
+      `/api/v1/reviews?storeId=${sid}&page=0&size=20`,
+      `/api/v1/merchant/management/reviews?storeId=${sid}`,
+      `/api/v1/order/review?storeId=${sid}&page=0&size=20`,
+    ]
+    for (const path of candidates) {
+      try {
+        const res = await fetch(path, { credentials: 'include', headers: { 'Accept': 'application/json' } })
+        if (!res.ok) continue
+        const body = await res.json()
+        const arr = Array.isArray(body) ? body
+          : body?.data?.reviews || body?.reviews || body?.data || body?.content || body?.list || body?.items
+            || body?.result?.reviews || body?.result || body?.payload
+        if (Array.isArray(arr) && arr.length > 0) {
+          return { url: path, data: body }
+        }
+        // 빈 배열이어도 200이면 올바른 엔드포인트일 수 있음
+        if (res.status === 200 && body !== null) {
+          return { url: path + '___status200', data: body }
+        }
+      } catch { continue }
     }
-  } catch { /* ignore */ }
+    return null
+  }, storeId)
 
-  // ── STEP 6: 스크롤로 추가 API 호출 트리거 ──
-  for (let i = 0; i < 8; i++) {
-    await page.evaluate(() => window.scrollBy(0, 600))
-    await page.waitForTimeout(500)
-  }
-  await page.waitForTimeout(3000)
+  log.info({ probeResult: probeResult ? { url: probeResult.url, sample: JSON.stringify(probeResult.data).slice(0, 300) } : null }, 'coupangeats: API probe result')
 
   log.info({ capturedUrls, capturedCount: capturedReviews.length }, 'coupangeats: network capture result')
 
-  // ── 네트워크 캡처 성공 시 → API 데이터 사용 ──
+  // ── API 직접 호출 성공 시 사용, 실패 시 earlyCapture 사용 ──
   let reviews: any[] = []
+  if (probeResult && !probeResult.url.includes('___status200')) {
+    const body = probeResult.data
+    const arr: any[] = Array.isArray(body) ? body
+      : body?.data?.reviews || body?.reviews || body?.data || body?.content || body?.list || body?.items
+        || body?.result?.reviews || body?.result || body?.payload || []
+    log.info({ url: probeResult.url, count: arr.length }, 'coupangeats: using probed API data')
+    capturedReviews.push(...arr)
+    capturedUrls.push(probeResult.url)
+  }
+
   if (capturedReviews.length > 0) {
     reviews = capturedReviews.slice(0, 200).map((r: any, idx: number) => {
       const rating = typeof r.rating === 'number' ? Math.round(r.rating)
