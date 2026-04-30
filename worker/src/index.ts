@@ -9,6 +9,7 @@ import IORedis from 'ioredis'
 import pino from 'pino'
 import http from 'http'
 import { chromium, Browser } from 'playwright'
+import { createClient } from '@supabase/supabase-js'
 import { runJob, PlatformJobData } from './jobs'
 
 const log = pino({
@@ -148,6 +149,45 @@ const healthServer = http.createServer(async (req, res) => {
         res.end(JSON.stringify({ ok: false, error: e?.message }))
       }
     })
+    return
+  }
+
+  // POST /run-all?platform=coupangeats  — 모든 유저 잡 일괄 등록
+  if (req.method === 'POST' && req.url && req.url.startsWith('/run-all')) {
+    const auth = req.headers['authorization'] || ''
+    if (TRIGGER_SECRET && auth !== `Bearer ${TRIGGER_SECRET}`) {
+      res.writeHead(401, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ ok: false, error: 'unauthorized' }))
+      return
+    }
+    const platform = new URL(req.url, 'http://localhost').searchParams.get('platform') || 'coupangeats'
+    try {
+      const svc = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!)
+      const { data: creds, error } = await svc
+        .from('platform_credentials')
+        .select('user_id, platform_store_id')
+        .eq('platform', platform)
+        .neq('last_login_status', 'disabled')
+      if (error) throw new Error('DB error: ' + error.message)
+      const queued: string[] = []
+      for (const cred of (creds || [])) {
+        const jobId = `runall_${cred.user_id}_${platform}_${Date.now()}`
+        const job = await jobQueue.add(`${platform}:fetch_reviews`, {
+          platform: platform as any,
+          action: 'fetch_reviews',
+          userId: cred.user_id,
+          storeId: cred.platform_store_id || 'unknown',
+        }, { jobId })
+        queued.push(String(job.id))
+        log.info({ jobId: job.id, userId: cred.user_id, platform }, '/run-all: enqueued')
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ ok: true, platform, queued, total: queued.length }))
+    } catch (e: any) {
+      log.error({ err: e?.message }, '/run-all error')
+      res.writeHead(500, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ ok: false, error: e?.message }))
+    }
     return
   }
 
