@@ -7,9 +7,10 @@ import { supabase } from '@/app/lib/supabase'
 import { isAdminEmail } from '@/app/lib/admin-emails'
 
 const NAV = [
-  { href: '/admin/dashboard',    label: '대시보드',  icon: '📊' },
-  { href: '/admin/subscriptions',label: '구독 현황', icon: '💳' },
-  { href: '/admin/users',        label: '사용자',    icon: '👥' },
+  { href: '/admin/dashboard',    label: '대시보드',      icon: '📊' },
+  { href: '/admin/subscriptions',label: '구독 현황',     icon: '💳' },
+  { href: '/admin/users',        label: '사용자',        icon: '👥' },
+  { href: '/admin/naver-check',  label: '네이버 연동 진단', icon: '🔍' },
 ]
 
 // ------------------------------------------------------------
