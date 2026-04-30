@@ -397,41 +397,12 @@ async function postNaverReply(
     }
     log.warn({ reason: (apiResult as any).reason }, 'naver: internal API failed, falling back to DOM')
 
-    // 3) 리뷰 탭으로 이동
+    // 3) 리뷰 페이지로 URL 직접 이동 (탭 클릭 제거 — 오버레이로 인한 60초 지연 방지)
+    const reviewsPageUrl = `${NEW_SMARTPLACE_BASE}/bizes/place/${actualPlaceId}/reviews`
     try {
-      // 이동 전 ESC로 혹시 있을 모달 닫기
-      await page.keyboard.press('Escape')
-      await page.waitForTimeout(600)
-
-      const reviewTabSelectors = [
-        'a[href*="/reviews"]:visible',
-        '[class*="LocalNavigationBar"] a:has-text("리뷰")',
-        '[class*="nav"] a:has-text("리뷰")',
-        'nav a:has-text("리뷰")',
-        'a:has-text("리뷰")',
-      ]
-      let tabClicked = false
-      for (const sel of reviewTabSelectors) {
-        try {
-          const tab = await page.$(sel)
-          if (tab) {
-            await tab.click()
-            // networkidle 대기: 리뷰 목록 XHR 완료까지 기다림
-            await page.waitForLoadState('networkidle', { timeout: 20000 }).catch(() => null)
-            await page.waitForTimeout(2000)
-            log.info({ sel }, 'naver: clicked reviews nav tab')
-            tabClicked = true
-            break
-          }
-        } catch {}
-      }
-      if (!tabClicked) {
-        // 탭 클릭 실패 시 URL 직접 이동 (networkidle 사용)
-        const reviewsPageUrl = `${NEW_SMARTPLACE_BASE}/bizes/place/${actualPlaceId}/reviews`
-        log.info({ reviewsPageUrl }, 'naver: navigating to reviews page via URL (domcontentloaded)')
-        await page.goto(reviewsPageUrl, { waitUntil: 'domcontentloaded', timeout: 20000 })
-        await page.waitForTimeout(2000)
-      }
+      log.info({ reviewsPageUrl }, 'naver: navigating to reviews page via URL (domcontentloaded)')
+      await page.goto(reviewsPageUrl, { waitUntil: 'domcontentloaded', timeout: 20000 })
+      await page.waitForTimeout(2000)
     } catch (e: any) {
       log.warn({ err: e?.message }, 'naver: reviews navigation error')
     }
@@ -440,7 +411,7 @@ async function postNaverReply(
     log.info({ url: currentUrl }, 'naver: reviews page loaded')
 
     if (currentUrl.includes('nid.naver.com') || currentUrl.includes('login')) {
-      return { ok: false, reason: '세션 만료 — /my/platforms/naver_place/session 에서 쿠키를 갱신해주세요' }
+      return { ok: false, reason: '세션 만료 — SmartPlace 전용 쿠키 재수집 필요. NID_AUT/NID_SES 외 nstore_session 등 추가 쿠키가 필요합니다. /my/platforms/naver_place/session 재방문 후 전체 쿠키 저장 필요.' }
     }
 
     // 4) 모달/오버레이/dimmed 닫기
@@ -514,6 +485,18 @@ async function postNaverReply(
         )
         if (buttonsLoaded) log.info('naver: reply buttons found after scroll recovery')
       } catch {}
+    }
+
+    // 5b) waitForFunction 이후 로그인 리다이렉트 재확인
+    //     SmartPlace SPA가 reviews API 호출 후 세션 만료 감지 → 로그인 페이지로 리다이렉트
+    const urlAfterWait = page.url()
+    log.info({ urlAfterWait, buttonsLoaded }, 'naver: URL after waitForFunction')
+    if (urlAfterWait.includes('nid.naver.com') || urlAfterWait.includes('login')) {
+      return {
+        ok: false,
+        reason: 'SmartPlace 세션 만료 — NID_AUT/NID_SES 외 nstore_session 쿠키 누락. ' +
+          '해결: /my/platforms/naver_place/session 페이지에서 전체 쿠키(배열 형식)로 재저장 필요.',
+      }
     }
 
     // 6) 페이지 상태 덤프 (항상 실행 — 선택자 튜닝 단서)
