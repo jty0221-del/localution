@@ -248,7 +248,7 @@ export async function generateNaverReply(
   const { system, userText, reviewType } = buildPrompt(store, review, tone)
   const hasPhotos = review.photos.length > 0
   const isExpert = tone === 'expert' || tone === 'formal' || tone === 'simple'
-  const model = hasPhotos ? 'claude-3-5-sonnet-20241022' : 'claude-3-5-haiku-20241022'
+  const model = 'claude-3-5-haiku-20241022'
 
   const userContent: Array<{ type: string; text?: string; source?: { type: string; url: string } }> = [
     { type: 'text', text: userText },
