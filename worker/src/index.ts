@@ -152,6 +152,34 @@ const healthServer = http.createServer(async (req, res) => {
     return
   }
 
+  // GET /debug-creds  — platform_credentials 테이블 플랫폼별 카운트 조회
+  if (req.method === 'GET' && req.url === '/debug-creds') {
+    const auth = req.headers['authorization'] || ''
+    if (TRIGGER_SECRET && auth !== `Bearer ${TRIGGER_SECRET}`) {
+      res.writeHead(401, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ ok: false, error: 'unauthorized' }))
+      return
+    }
+    try {
+      const svc = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!)
+      const { data, error } = await svc
+        .from('platform_credentials')
+        .select('platform, last_login_status, user_id')
+        .limit(100)
+      if (error) throw new Error('DB error: ' + error.message)
+      const summary: Record<string, number> = {}
+      for (const r of (data || [])) {
+        summary[r.platform] = (summary[r.platform] || 0) + 1
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ ok: true, total: data?.length || 0, byPlatform: summary, sample: data?.slice(0,3).map(r => ({platform: r.platform, status: r.last_login_status, userId: r.user_id?.slice(0,8)+'...'})) }))
+    } catch (e: any) {
+      res.writeHead(500, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ ok: false, error: e?.message }))
+    }
+    return
+  }
+
   // POST /run-all?platform=coupangeats  — 모든 유저 잡 일괄 등록
   if (req.method === 'POST' && req.url && req.url.startsWith('/run-all')) {
     const auth = req.headers['authorization'] || ''
