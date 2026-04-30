@@ -137,7 +137,7 @@ export async function POST(req: NextRequest) {
     if (Array.isArray(body.reviews) && body.reviews.length > 0) {
       const shopNo = String(body.shop_no || '14637452')
       const count = await saveRows(userId, shopNo, body.reviews, svc)
-      return NextResponse.json({ ok: true, count, source: 'bookmarklet' }, { headers: ch })
+      return NextResponse.json({ ok: true, count, total: count, source: 'bookmarklet' }, { headers: ch })
     }
 
     // ── 경로 B: 저장된 쿠키로 서버 직접 호출 ──
@@ -204,7 +204,7 @@ export async function POST(req: NextRequest) {
           if (reviews.length === 0) continue
 
           const count = await saveRows(userId, shopNo, reviews, svc)
-          return NextResponse.json({ ok: true, count, source: 'server', shopNo }, { headers: ch })
+          return NextResponse.json({ ok: true, count, total: count, source: 'server', shopNo }, { headers: ch })
         } catch {}
       }
     }
