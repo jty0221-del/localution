@@ -248,7 +248,15 @@ export async function generateNaverReply(
   const { system, userText, reviewType } = buildPrompt(store, review, tone)
   const hasPhotos = review.photos.length > 0
   const isExpert = tone === 'expert' || tone === 'formal' || tone === 'simple'
-  const model = 'claude-3-5-haiku-20241022'
+
+  // 계정 플랜별 접근 가능 모델이 달라 순차 시도
+  const MODEL_CANDIDATES = [
+    'claude-3-5-haiku-20241022',
+    'claude-3-haiku-20240307',
+    'claude-3-5-sonnet-20241022',
+    'claude-3-sonnet-20240229',
+    'claude-3-opus-20240229',
+  ]
 
   const userContent: Array<{ type: string; text?: string; source?: { type: string; url: string } }> = [
     { type: 'text', text: userText },
@@ -264,7 +272,7 @@ export async function generateNaverReply(
   const callClaude = async (
     m: string,
     content: typeof userContent,
-  ): Promise<{ ok: boolean; reply: string; error?: string }> => {
+  ): Promise<{ ok: boolean; status: number; reply: string; error?: string }> => {
     try {
       const resp = await fetch('https://api.anthropic.com/v1/messages', {
         method: 'POST',
@@ -281,25 +289,33 @@ export async function generateNaverReply(
         }),
         signal: AbortSignal.timeout(25_000),
       })
-      if (!resp.ok) return { ok: false, reply: '', error: `HTTP ${resp.status}` }
+      if (!resp.ok) return { ok: false, status: resp.status, reply: '', error: `HTTP ${resp.status}` }
       const d = await resp.json()
       const text = (d.content?.[0]?.text || '').trim()
-      return { ok: !!text, reply: text, error: text ? undefined : 'Empty response' }
+      return { ok: !!text, status: resp.status, reply: text, error: text ? undefined : 'Empty response' }
     } catch (e: unknown) {
-      return { ok: false, reply: '', error: e instanceof Error ? e.message : String(e) }
+      return { ok: false, status: 0, reply: '', error: e instanceof Error ? e.message : String(e) }
     }
   }
 
-  // 1차 시도
-  let result = await callClaude(model, userContent)
+  // 모델 순차 시도 (404 = 해당 모델 미지원 → 다음 모델로)
+  let result = { ok: false, status: 0, reply: '', error: 'No available model' }
+  for (const candidate of MODEL_CANDIDATES) {
+    result = await callClaude(candidate, userContent)
+    if (result.status !== 404) break
+  }
 
-  // Vision 실패 시 텍스트로 재시도
+  // Vision 실패 시 텍스트만으로 재시도
   if (!result.ok && hasPhotos) {
-    result = await callClaude('claude-3-5-haiku-20241022', [{ type: 'text', text: userText }])
-    if (result.ok) {
-      let reply = result.reply
-      if (isExpert) reply = stripMarkdown(reply)
-      return { ok: true, reply, mode: 'text' }
+    for (const candidate of MODEL_CANDIDATES) {
+      const retry = await callClaude(candidate, [{ type: 'text', text: userText }])
+      if (retry.status === 404) continue
+      if (retry.ok) {
+        let reply = retry.reply
+        if (isExpert) reply = stripMarkdown(reply)
+        return { ok: true, reply, mode: 'text' }
+      }
+      break
     }
   }
 
