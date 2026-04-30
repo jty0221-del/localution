@@ -22,8 +22,8 @@
       "schedule": "0 */6 * * *"
     },
     {
-      "path": "/api/cron/baemin-auto-refresh",
-      "schedule": "0 */2 * * *"
+      "path": "/api/cron/naver-reply-generate",
+      "schedule": "0 2,8,14,20 * * *"
     }
   ]
 }
