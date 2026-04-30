@@ -31,7 +31,7 @@ const CONFIG: PlatformConfig = {
   iconLetter: '배',
   logoNode: <BaeminLogo />,
   supportsFetch: true,
-  collectEndpoint: '/api/review-reply/collect',
+  collectEndpoint: '/api/baemin/collect-reviews',
   connectHref: '/my/platforms/baemin/connect',
   reviewAdminUrl: 'https://self.baemin.com/',
   platformInfoBanner: {
