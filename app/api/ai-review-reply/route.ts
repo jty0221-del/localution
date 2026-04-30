@@ -531,14 +531,37 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, reply, lang, reviewType, mode: 'mock' })
     }
 
-    // 6) 모델 fallback: 계정 플랜에 따라 접근 가능한 모델이 다름 → 순서대로 시도
-    const MODEL_CANDIDATES = [
-      'claude-3-5-haiku-20241022',
-      'claude-3-haiku-20240307',
-      'claude-3-5-sonnet-20241022',
-      'claude-3-sonnet-20240229',
-      'claude-3-opus-20240229',
-    ]
+    // 6) /v1/models API로 계정에서 실제 사용 가능한 모델 동적 조회
+    const pickModels = async (): Promise<string[]> => {
+      try {
+        const r = await fetch('https://api.anthropic.com/v1/models', {
+          headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+          signal: AbortSignal.timeout(6000),
+          cache: 'no-store',
+        })
+        if (r.ok) {
+          const d = await r.json()
+          const ids: string[] = (d.data || []).map((m: any) => String(m.id))
+          if (ids.length > 0) {
+            // haiku 계열 우선(저렴·빠름) → sonnet → 그 외
+            return [
+              ...ids.filter(id => id.includes('haiku')),
+              ...ids.filter(id => id.includes('sonnet') && !id.includes('haiku')),
+              ...ids.filter(id => !id.includes('haiku') && !id.includes('sonnet')),
+            ]
+          }
+        }
+      } catch { /* ignore */ }
+      // /v1/models 실패 시 알려진 모델 목록 fallback
+      return [
+        'claude-3-5-haiku-20241022',
+        'claude-3-haiku-20240307',
+        'claude-3-5-sonnet-20241022',
+        'claude-3-sonnet-20240229',
+        'claude-3-opus-20240229',
+      ]
+    }
+    const MODEL_CANDIDATES = await pickModels()
 
     // Claude API 호출 헬퍼
     const callClaude = async (
