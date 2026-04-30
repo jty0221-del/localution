@@ -324,28 +324,39 @@ async function fetchCoupangReviews(
     return { status: 'failed', message: 'coupangeats: 세션 만료 — 쿠키를 다시 등록해주세요' }
   }
 
-  // ── 팝업/모달 닫기 (공지사항, 안내 등) ──
+  // ── 팝업/모달 전부 닫기 (반복 3회, break 없음) ──
   const modalCloseSelectors = [
     '[data-testid="Dialog__CloseButton"]',
     'button[data-testid*="close"]',
+    'button.close-btn',
     'button[class*="close-btn"]',
     'button[class*="CloseButton"]',
-    'button.close-btn',
     '[class*="modal"] button[class*="close"]',
+    '[class*="faq"] button[class*="close"]',
     '[class*="modal"] button:has-text("닫기")',
     '[class*="modal"] button:has-text("확인")',
+    'button:has-text("닫기")',
   ]
-  for (const mSel of modalCloseSelectors) {
-    try {
-      const modal = page.locator(mSel).first()
-      const visible = await modal.isVisible().catch(() => false)
-      if (visible) {
-        await modal.click({ force: true })
-        log.info({ mSel }, 'coupangeats: modal closed')
-        await page.waitForTimeout(1500)
-        break
-      }
-    } catch { continue }
+  for (let attempt = 0; attempt < 3; attempt++) {
+    let closedAny = false
+    for (const mSel of modalCloseSelectors) {
+      try {
+        const modals = page.locator(mSel)
+        const cnt = await modals.count().catch(() => 0)
+        for (let mi = 0; mi < cnt; mi++) {
+          const m = modals.nth(mi)
+          const visible = await m.isVisible().catch(() => false)
+          if (visible) {
+            await m.click({ force: true })
+            log.info({ mSel, attempt }, 'coupangeats: modal closed')
+            closedAny = true
+            await page.waitForTimeout(800)
+          }
+        }
+      } catch { continue }
+    }
+    if (!closedAny) break
+    await page.waitForTimeout(1000)
   }
 
   // ── 리뷰 탭/메뉴 클릭 (좌측 네비 icon-ce-review) ──
@@ -406,6 +417,13 @@ async function fetchCoupangReviews(
   }, DOM_SELECTORS)
 
   if (!reviews || reviews.length === 0) {
+    // 빈 상태(리뷰 없음) 체크
+    const emptyText = await page.evaluate(() => document.body.innerText).catch(() => '')
+    const hasEmpty = emptyText.includes('리뷰가 없') || emptyText.includes('작성된 리뷰') || emptyText.includes('등록된 리뷰') || emptyText.includes('아직 리뷰')
+    if (hasEmpty) {
+      log.info('coupangeats: review page is empty (0 reviews on platform)')
+      return { status: 'ok', message: 'coupangeats: 리뷰 0개 (쿠팡이츠에 아직 리뷰 없음)' }
+    }
     await dumpPageDiagnostics(page, log, 'coupangeats-no-review-cards')
   }
 
