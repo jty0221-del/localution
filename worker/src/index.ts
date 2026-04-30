@@ -97,10 +97,14 @@ worker.on('error', (err) => {
   log.error({ err: err.message }, 'worker error')
 })
 
+// BullMQ Queue (enqueue 전용) — 같은 Redis connection 재사용
+const jobQueue = new Queue<PlatformJobData>(QUEUE_NAME, { connection })
+
+const TRIGGER_SECRET = process.env.TRIGGER_SECRET || ''
+
 const port = parseInt(process.env.PORT || '8080', 10)
 const healthServer = http.createServer(async (req, res) => {
   if (req.url === '/health' || req.url === '/') {
-    // 43차-2: Redis 연결 상태까지 점검해야 fly.io 헬스체크가 의미 있음
     let redisOk = false
     try {
       const pong = await connection.ping()
@@ -118,6 +122,35 @@ const healthServer = http.createServer(async (req, res) => {
     }))
     return
   }
+
+  // POST /trigger  — 수동 잡 등록 (테스트/디버그용)
+  if (req.method === 'POST' && req.url === '/trigger') {
+    // optional secret check
+    const auth = req.headers['authorization'] || ''
+    if (TRIGGER_SECRET && auth !== `Bearer ${TRIGGER_SECRET}`) {
+      res.writeHead(401, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ ok: false, error: 'unauthorized' }))
+      return
+    }
+    let body = ''
+    req.on('data', (chunk) => { body += chunk })
+    req.on('end', async () => {
+      try {
+        const data: PlatformJobData = JSON.parse(body)
+        const jobId = `manual_${data.platform}_${data.action}_${Date.now()}`
+        const job = await jobQueue.add(`${data.platform}:${data.action}`, data, { jobId })
+        log.info({ jobId: job.id, data }, '/trigger: job enqueued')
+        res.writeHead(200, { 'Content-Type': 'application/json' })
+        res.end(JSON.stringify({ ok: true, jobId: job.id }))
+      } catch (e: any) {
+        log.error({ err: e?.message }, '/trigger error')
+        res.writeHead(400, { 'Content-Type': 'application/json' })
+        res.end(JSON.stringify({ ok: false, error: e?.message }))
+      }
+    })
+    return
+  }
+
   res.writeHead(404)
   res.end()
 })
