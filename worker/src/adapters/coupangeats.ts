@@ -383,65 +383,93 @@ async function fetchCoupangReviews(
   log.info({ storeId }, 'coupangeats: calling review API directly')
 
   // 전체 리뷰 페이지네이션 수집 (최대 500개)
-  const allApiReviews: any[] = await page.evaluate(async (sid: string) => {
-    const hdrs = {
+  // 실제 확인된 API: /api/v1/merchant/reviews/search?storeId=738438&page=1&statusType=EXPOSE&size=5
+  const evalResult: { reviews: any[]; rawBodySample: string; errors: string[] } = await page.evaluate(async (sid: string) => {
+    const hdrs: Record<string, string> = {
       'Accept': 'application/json, text/plain, */*',
       'Accept-Language': 'ko-KR,ko;q=0.9',
       'X-Requested-With': 'XMLHttpRequest',
       'Referer': 'https://store.coupangeats.com/merchant/management/reviews',
     }
-    const collected: any[] = []
 
-    // statusType 목록: ALL 우선, 없으면 개별 타입
-    const statusTypes = ['ALL', 'EXPOSE', 'UNEXPOSE', 'REPORTED']
+    function extractArr(body: any): any[] {
+      if (Array.isArray(body)) return body
+      // Spring Page 구조: { content: [...], totalPages: N }
+      if (Array.isArray(body?.content)) return body.content
+      if (Array.isArray(body?.data?.content)) return body.data.content
+      // 기타 구조
+      if (Array.isArray(body?.data?.reviews)) return body.data.reviews
+      if (Array.isArray(body?.reviews)) return body.reviews
+      if (Array.isArray(body?.data?.list)) return body.data.list
+      if (Array.isArray(body?.list)) return body.list
+      if (Array.isArray(body?.data?.items)) return body.data.items
+      if (Array.isArray(body?.items)) return body.items
+      if (Array.isArray(body?.data)) return body.data
+      if (Array.isArray(body?.result)) return body.result
+      return []
+    }
+
+    function getTotalPages(body: any): number {
+      return body?.totalPages || body?.data?.totalPages
+        || body?.total_pages || body?.data?.total_pages
+        || Math.ceil((body?.totalElements || body?.data?.totalElements || body?.data?.totalCount || body?.totalCount || 0) / 100)
+        || 0
+    }
+
+    const collected: any[] = []
     const seenIds = new Set<string>()
+    let rawBodySample = ''
+    const errors: string[] = []
+
+    // statusType 시도 순서: EXPOSE (실제 확인됨), UNEXPOSE, REPORTED
+    const statusTypes = ['EXPOSE', 'UNEXPOSE', 'REPORTED']
 
     for (const statusType of statusTypes) {
-      let page = 1
+      let pageNum = 1
       let hasMore = true
       while (hasMore && collected.length < 500) {
         try {
-          const url = `/api/v1/merchant/reviews/search?storeId=${sid}&page=${page}&statusType=${statusType}&size=100`
+          const url = `/api/v1/merchant/reviews/search?storeId=${sid}&page=${pageNum}&statusType=${statusType}&size=100`
           const res = await fetch(url, { credentials: 'include', headers: hdrs })
           if (!res.ok) {
-            // ALL이 안되면 개별 타입으로 넘어감
-            if (statusType === 'ALL') break
-            hasMore = false
-            break
+            errors.push(`${statusType} p${pageNum}: HTTP ${res.status}`)
+            hasMore = false; break
           }
           const body = await res.json().catch(() => null)
           if (!body) { hasMore = false; break }
-          // 다양한 응답 구조 파싱
-          const arr: any[] = Array.isArray(body) ? body
-            : body?.data?.reviews || body?.reviews || body?.data?.content || body?.content
-              || body?.data?.list || body?.list || body?.data?.items || body?.items
-              || body?.result?.reviews || body?.result || body?.data || []
-          if (!Array.isArray(arr) || arr.length === 0) { hasMore = false; break }
-          let newCount = 0
+          if (!rawBodySample) rawBodySample = JSON.stringify(body).slice(0, 600)
+          const arr = extractArr(body)
+          if (arr.length === 0) { hasMore = false; break }
           for (const r of arr) {
-            const rid = String(r.reviewId || r.id || r.review_id || '')
-            if (!rid || seenIds.has(rid)) continue
-            seenIds.add(rid)
+            const rid = String(r.reviewId || r.id || r.review_id || r.orderId || '')
+            if (rid && seenIds.has(rid)) continue
+            if (rid) seenIds.add(rid)
             collected.push(r)
-            newCount++
           }
-          // 페이지네이션 종료 조건
-          const totalPages = body?.data?.totalPages || body?.totalPages || body?.data?.total_pages
-          const totalCount = body?.data?.totalCount || body?.totalCount || body?.data?.total || body?.total
-          if (totalPages && page >= totalPages) { hasMore = false; break }
-          if (totalCount && collected.length >= totalCount) { hasMore = false; break }
-          if (arr.length < 100) { hasMore = false; break }
-          page++
-        } catch { hasMore = false; break }
+          const totalPages = getTotalPages(body)
+          const isLast = body?.last === true || body?.data?.last === true
+          if (isLast || (totalPages > 0 && pageNum >= totalPages) || arr.length < 100) {
+            hasMore = false; break
+          }
+          pageNum++
+        } catch (ex: any) {
+          errors.push(`${statusType} p${pageNum}: ${ex?.message || ex}`)
+          hasMore = false; break
+        }
       }
-      // ALL로 충분히 가져왔으면 나머지 statusType 스킵
-      if (collected.length > 0 && statusType === 'ALL') break
-      if (collected.length > 0 && statusType !== 'ALL') break
     }
-    return collected
+
+    return { reviews: collected, rawBodySample, errors }
   }, storeId)
 
-  log.info({ storeId, count: allApiReviews.length, sample: JSON.stringify(allApiReviews[0]).slice(0, 300) }, 'coupangeats: API reviews collected')
+  const allApiReviews = evalResult.reviews || []
+  log.info({
+    storeId,
+    count: allApiReviews.length,
+    rawBodySample: evalResult.rawBodySample,
+    errors: evalResult.errors,
+    firstItem: allApiReviews[0] ? JSON.stringify(allApiReviews[0]).slice(0, 400) : null,
+  }, 'coupangeats: API reviews collected')
   capturedReviews.push(...allApiReviews)
   capturedUrls.push(`/api/v1/merchant/reviews/search?storeId=${storeId}`)
 
