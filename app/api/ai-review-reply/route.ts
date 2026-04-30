@@ -531,8 +531,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, reply, lang, reviewType, mode: 'mock' })
     }
 
-    // 6) 모델 선택: 사진 있으면 sonnet(비전 성능↑), 없으면 haiku(속도↑)
-    const model = hasPhotos ? 'claude-3-5-sonnet-20241022' : 'claude-3-5-haiku-20241022'
+    // 6) 모델 선택: haiku는 Vision 지원 + 속도·비용 최적
+    const model = 'claude-3-5-haiku-20241022'
 
     const resp = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
