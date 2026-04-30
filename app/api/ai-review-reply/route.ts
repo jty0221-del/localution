@@ -37,6 +37,7 @@ import { rateLimit, getClientIp } from '@/app/lib/rate-limit'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
+export const maxDuration = 60
 
 // ── 언어 감지 ────────────────────────────────────────────
 function detectLang(text: string): string {
