@@ -149,6 +149,27 @@ export async function runCoupangEats(
   const page = await context.newPage()
   startNetworkCapture(page, log, ['review', 'feedback', 'rating', 'merchant'])
 
+  // ── 네트워크 인터셉트: page 생성 직후 미리 등록 (쿠키 세션 navigation 전) ──
+  const earlyCapture: any[] = []
+  const earlyCaptureUrls: string[] = []
+  page.on('response', async (response: any) => {
+    try {
+      const url = response.url()
+      const ct = response.headers()['content-type'] || ''
+      if (!ct.includes('json')) return
+      if (!url.includes('review') && !url.includes('feedback') && !url.includes('rating') && !url.includes('comment')) return
+      earlyCaptureUrls.push(url)
+      const body = await response.json().catch(() => null)
+      if (!body) return
+      const arr: any[] = Array.isArray(body) ? body
+        : body?.data?.reviews || body?.reviews || body?.data || body?.content || body?.list || body?.items || []
+      if (arr.length > 0) {
+        log.info({ url, count: arr.length }, 'coupangeats: early-captured review API response')
+        earlyCapture.push(...arr)
+      }
+    } catch { /* ignore */ }
+  })
+
   try {
     // ── 쿠키 세션으로 리뷰 페이지 직접 접근 ──
     if (savedCookies && savedCookies.length > 0) {
@@ -156,15 +177,17 @@ export async function runCoupangEats(
         ? `${REVIEWS_BASE_URL}/${creds.platform_store_id}`
         : REVIEWS_BASE_URL
       log.info({ reviewsUrl }, 'coupangeats: trying direct reviews access with saved cookies')
-      await page.goto(reviewsUrl, { waitUntil: 'load', timeout: 45000 })
+      await page.goto(reviewsUrl, { waitUntil: 'networkidle', timeout: 45000 }).catch(() =>
+        page.goto(reviewsUrl, { waitUntil: 'load', timeout: 45000 })
+      )
       await page.waitForTimeout(4000)
 
       const directUrl = page.url()
       if (!directUrl.includes('/login')) {
-        log.info({ directUrl }, 'coupangeats: cookie session valid')
+        log.info({ directUrl, earlyCaptured: earlyCapture.length }, 'coupangeats: cookie session valid')
         await markLoginStatus(svc, userId, 'coupangeats', 'success')
         if (action === 'health_check') return { status: 'ok', message: 'coupangeats cookie session ok' }
-        return await fetchCoupangReviews(page, svc, creds, userId, action, payload, log)
+        return await fetchCoupangReviews(page, svc, creds, userId, action, payload, log, earlyCapture, earlyCaptureUrls)
       }
       log.warn('coupangeats: saved cookies expired, falling back to login')
     }
@@ -291,7 +314,7 @@ export async function runCoupangEats(
     }
 
     if (action === 'health_check') return { status: 'ok', message: 'coupangeats login ok' }
-    return await fetchCoupangReviews(page, svc, creds, userId, action, payload, log)
+    return await fetchCoupangReviews(page, svc, creds, userId, action, payload, log, earlyCapture, earlyCaptureUrls)
   } catch (e: any) {
     log.error({ err: e?.message }, 'coupangeats error')
     return { status: 'failed', message: `coupangeats: ${e?.message || e}` }
@@ -308,41 +331,26 @@ async function fetchCoupangReviews(
   action: Action,
   payload: Record<string, unknown> | undefined,
   log: Logger,
+  earlyCapture: any[] = [],
+  earlyCaptureUrls: string[] = [],
 ): Promise<JobResult> {
   const reviewsUrl = creds.platform_store_id
     ? `${REVIEWS_BASE_URL}/${creds.platform_store_id}`
     : REVIEWS_BASE_URL
 
-  // ── 네트워크 인터셉트: API 응답에서 리뷰 JSON 수집 ──
-  const capturedReviews: any[] = []
-  const capturedUrls: string[] = []
+  // ── 네트워크 인터셉트: earlyCapture 배열을 그대로 사용 (같은 참조 → 리스너가 계속 push) ──
+  const capturedReviews = earlyCapture       // 같은 배열 참조 (리스너 push 반영됨)
+  const capturedUrls = earlyCaptureUrls      // 같은 배열 참조
 
-  page.on('response', async (response: any) => {
-    try {
-      const url = response.url()
-      const ct = response.headers()['content-type'] || ''
-      if (!ct.includes('json')) return
-      if (!url.includes('review') && !url.includes('feedback') && !url.includes('rating') && !url.includes('comment')) return
-      capturedUrls.push(url)
-      const body = await response.json().catch(() => null)
-      if (!body) return
-      // 배열이거나 { data: [...] } 또는 { reviews: [...] } 등 형태 파싱
-      const arr: any[] = Array.isArray(body) ? body
-        : body?.data?.reviews || body?.reviews || body?.data || body?.content || body?.list || body?.items || []
-      if (arr.length > 0) {
-        log.info({ url, count: arr.length }, 'coupangeats: captured review API response')
-        capturedReviews.push(...arr)
-      }
-    } catch { /* ignore */ }
-  })
+  const alreadyOnReviews = page.url().includes('/review')
+  log.info({ reviewsUrl, alreadyOnReviews, earlyCaptured: capturedReviews.length }, 'coupangeats: fetchCoupangReviews entry')
 
-  if (!page.url().includes('/reviews')) {
-    log.info({ reviewsUrl }, 'coupangeats navigating to reviews')
-    await page.goto(reviewsUrl, { waitUntil: 'networkidle', timeout: 45000 }).catch(() =>
-      page.goto(reviewsUrl, { waitUntil: 'load', timeout: 45000 })
-    )
-    await page.waitForTimeout(4000)
-  }
+  // 항상 re-navigate — 리스너가 이미 등록돼 있으므로 새 navigation으로 API 재캡처
+  log.info({ reviewsUrl }, 'coupangeats: navigating to reviews (force, to trigger API capture)')
+  await page.goto(reviewsUrl, { waitUntil: 'networkidle', timeout: 45000 }).catch(() =>
+    page.goto(reviewsUrl, { waitUntil: 'load', timeout: 45000 })
+  )
+  await page.waitForTimeout(5000)
 
   if (page.url().includes('/login')) {
     return { status: 'failed', message: 'coupangeats: 세션 만료 — 쿠키를 다시 등록해주세요' }
