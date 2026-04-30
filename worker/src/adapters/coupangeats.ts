@@ -313,118 +313,116 @@ async function fetchCoupangReviews(
     ? `${REVIEWS_BASE_URL}/${creds.platform_store_id}`
     : REVIEWS_BASE_URL
 
-  const cur = page.url()
-  if (!cur.includes('/reviews')) {
+  // ── 네트워크 인터셉트: API 응답에서 리뷰 JSON 수집 ──
+  const capturedReviews: any[] = []
+  const capturedUrls: string[] = []
+
+  page.on('response', async (response: any) => {
+    try {
+      const url = response.url()
+      const ct = response.headers()['content-type'] || ''
+      if (!ct.includes('json')) return
+      if (!url.includes('review') && !url.includes('feedback') && !url.includes('rating') && !url.includes('comment')) return
+      capturedUrls.push(url)
+      const body = await response.json().catch(() => null)
+      if (!body) return
+      // 배열이거나 { data: [...] } 또는 { reviews: [...] } 등 형태 파싱
+      const arr: any[] = Array.isArray(body) ? body
+        : body?.data?.reviews || body?.reviews || body?.data || body?.content || body?.list || body?.items || []
+      if (arr.length > 0) {
+        log.info({ url, count: arr.length }, 'coupangeats: captured review API response')
+        capturedReviews.push(...arr)
+      }
+    } catch { /* ignore */ }
+  })
+
+  if (!page.url().includes('/reviews')) {
     log.info({ reviewsUrl }, 'coupangeats navigating to reviews')
-    await page.goto(reviewsUrl, { waitUntil: 'load', timeout: 45000 })
-    await page.waitForTimeout(5000)
+    await page.goto(reviewsUrl, { waitUntil: 'networkidle', timeout: 45000 }).catch(() =>
+      page.goto(reviewsUrl, { waitUntil: 'load', timeout: 45000 })
+    )
+    await page.waitForTimeout(4000)
   }
 
   if (page.url().includes('/login')) {
     return { status: 'failed', message: 'coupangeats: 세션 만료 — 쿠키를 다시 등록해주세요' }
   }
 
-  // ── 팝업/모달 전부 닫기 (반복 3회, break 없음) ──
-  const modalCloseSelectors = [
-    '[data-testid="Dialog__CloseButton"]',
-    'button[data-testid*="close"]',
-    'button.close-btn',
-    'button[class*="close-btn"]',
-    'button[class*="CloseButton"]',
-    '[class*="modal"] button[class*="close"]',
-    '[class*="faq"] button[class*="close"]',
-    '[class*="modal"] button:has-text("닫기")',
-    '[class*="modal"] button:has-text("확인")',
-    'button:has-text("닫기")',
-  ]
+  // 모달 닫기 (최대 3번 시도)
   for (let attempt = 0; attempt < 3; attempt++) {
     let closedAny = false
-    for (const mSel of modalCloseSelectors) {
+    for (const mSel of ['[data-testid="Dialog__CloseButton"]', 'button.close-btn', 'button[class*="close-btn"]', 'button:has-text("닫기")']) {
       try {
-        const modals = page.locator(mSel)
-        const cnt = await modals.count().catch(() => 0)
-        for (let mi = 0; mi < cnt; mi++) {
-          const m = modals.nth(mi)
-          const visible = await m.isVisible().catch(() => false)
-          if (visible) {
-            await m.click({ force: true })
-            log.info({ mSel, attempt }, 'coupangeats: modal closed')
-            closedAny = true
-            await page.waitForTimeout(800)
-          }
+        const m = page.locator(mSel).first()
+        if (await m.isVisible().catch(() => false)) {
+          await m.click({ force: true })
+          closedAny = true
+          await page.waitForTimeout(800)
         }
       } catch { continue }
     }
     if (!closedAny) break
-    await page.waitForTimeout(1000)
+    await page.waitForTimeout(500)
   }
 
-  // ── 리뷰 탭/메뉴 클릭 (좌측 네비 icon-ce-review) ──
-  try {
-    const reviewNav = page.locator('[class*="icon-ce-review"], [data-testid*="review"], a[href*="/reviews"]').first()
-    const navVisible = await reviewNav.isVisible().catch(() => false)
-    if (navVisible && !page.url().includes('/reviews')) {
-      await reviewNav.click()
-      log.info('coupangeats: clicked review nav menu')
-      await page.waitForTimeout(3000)
-    }
-  } catch { /* ignore */ }
-
-  // ── 페이지 스크롤하며 리뷰 로딩 대기 ──
-  for (let i = 0; i < 6; i++) {
+  // 스크롤 → 추가 API 호출 트리거
+  for (let i = 0; i < 5; i++) {
     await page.evaluate(() => window.scrollBy(0, 800))
-    await page.waitForTimeout(500)
+    await page.waitForTimeout(600)
   }
   await page.waitForTimeout(2000)
 
-  const reviews = await page.evaluate((sel: typeof DOM_SELECTORS) => {
-    const cards = Array.from(document.querySelectorAll(sel.reviewCard))
-    return cards.slice(0, 200).map((c, idx) => {
-      const author = (c.querySelector(sel.reviewAuthor) as HTMLElement | null)?.innerText?.trim() ?? null
-      const filled = c.querySelectorAll(sel.starFilled).length
-      let rating: number | null = filled > 0 && filled <= 5 ? filled : null
-      if (rating === null) {
-        const ratingEl = c.querySelector(sel.ratingText) as HTMLElement | null
-        const t = ratingEl?.innerText || ''
-        const m = t.match(/(\d(?:\.\d)?)/)
-        if (m) rating = Math.round(parseFloat(m[1]))
-      }
-      const content = (c.querySelector(sel.reviewContent) as HTMLElement | null)?.innerText?.trim() ?? null
-      const dateEl = c.querySelector(sel.reviewDate) as HTMLElement | null
-      const posted = dateEl?.getAttribute('datetime') || dateEl?.innerText || null
-      const photos = Array.from(c.querySelectorAll(sel.reviewPhoto))
-        .map((img) => (img as HTMLImageElement).src)
-        .filter(Boolean)
-      const hasReply = !!c.querySelector(sel.ownerReply)
-      const replyContent = hasReply
-        ? (c.querySelector(sel.ownerReply) as HTMLElement | null)?.innerText?.trim() ?? null
-        : null
-      const idAttr =
-        (c as HTMLElement).getAttribute('data-review-id') ||
-        (c as HTMLElement).getAttribute('data-id') ||
-        null
+  log.info({ capturedUrls, capturedCount: capturedReviews.length }, 'coupangeats: network capture result')
+
+  // ── 네트워크 캡처 성공 시 → API 데이터 사용 ──
+  let reviews: any[] = []
+  if (capturedReviews.length > 0) {
+    reviews = capturedReviews.slice(0, 200).map((r: any, idx: number) => {
+      const rating = typeof r.rating === 'number' ? Math.round(r.rating)
+        : typeof r.starRating === 'number' ? Math.round(r.starRating)
+        : typeof r.score === 'number' ? Math.round(r.score) : null
       return {
-        platform_review_id: idAttr || `coupangeats:${idx}:${(content || '').slice(0, 20)}:${posted || ''}`,
-        author_name: author,
+        platform_review_id: String(r.reviewId || r.id || r.review_id || `ce:${idx}`),
+        author_name: r.authorName || r.nickname || r.userName || r.author || null,
         rating,
-        content,
-        photos,
-        posted_at: posted,
-        has_reply: hasReply,
-        reply_content: replyContent,
+        content: r.content || r.body || r.text || r.reviewContent || null,
+        photos: (r.images || r.photos || r.attachments || []).map((img: any) => img?.url || img?.imageUrl || img).filter((u: any) => typeof u === 'string'),
+        posted_at: r.createdAt || r.reviewedAt || r.postedAt || r.created_at || null,
+        has_reply: !!(r.ownerReply || r.reply || r.storeReply || r.replyContent),
+        reply_content: r.ownerReply?.content || r.reply?.content || r.storeReply || r.replyContent || null,
       }
     })
-  }, DOM_SELECTORS)
+  } else {
+    // ── 네트워크 캡처 실패 시 → DOM 폴백 ──
+    reviews = await page.evaluate((sel: typeof DOM_SELECTORS) => {
+      const cards = Array.from(document.querySelectorAll(sel.reviewCard))
+      return cards.slice(0, 200).map((c, idx) => {
+        const author = (c.querySelector(sel.reviewAuthor) as HTMLElement | null)?.innerText?.trim() ?? null
+        const filled = c.querySelectorAll(sel.starFilled).length
+        let rating: number | null = filled > 0 && filled <= 5 ? filled : null
+        if (rating === null) {
+          const ratingEl = c.querySelector(sel.ratingText) as HTMLElement | null
+          const t = ratingEl?.innerText || ''
+          const m = t.match(/(\d(?:\.\d)?)/)
+          if (m) rating = Math.round(parseFloat(m[1]))
+        }
+        const content = (c.querySelector(sel.reviewContent) as HTMLElement | null)?.innerText?.trim() ?? null
+        const dateEl = c.querySelector(sel.reviewDate) as HTMLElement | null
+        const posted = dateEl?.getAttribute('datetime') || dateEl?.innerText || null
+        const photos = Array.from(c.querySelectorAll(sel.reviewPhoto)).map((img) => (img as HTMLImageElement).src).filter(Boolean)
+        const hasReply = !!c.querySelector(sel.ownerReply)
+        const replyContent = hasReply ? (c.querySelector(sel.ownerReply) as HTMLElement | null)?.innerText?.trim() ?? null : null
+        const idAttr = (c as HTMLElement).getAttribute('data-review-id') || (c as HTMLElement).getAttribute('data-id') || null
+        return {
+          platform_review_id: idAttr || `coupangeats:${idx}:${(content || '').slice(0, 20)}:${posted || ''}`,
+          author_name: author, rating, content, photos, posted_at: posted, has_reply: hasReply, reply_content: replyContent,
+        }
+      })
+    }, DOM_SELECTORS)
 
-  if (!reviews || reviews.length === 0) {
-    // 빈 상태(리뷰 없음) 체크
-    const emptyText = await page.evaluate(() => document.body.innerText).catch(() => '')
-    const hasEmpty = emptyText.includes('리뷰가 없') || emptyText.includes('작성된 리뷰') || emptyText.includes('등록된 리뷰') || emptyText.includes('아직 리뷰')
-    if (hasEmpty) {
-      log.info('coupangeats: review page is empty (0 reviews on platform)')
-      return { status: 'ok', message: 'coupangeats: 리뷰 0개 (쿠팡이츠에 아직 리뷰 없음)' }
+    if (!reviews || reviews.length === 0) {
+      await dumpPageDiagnostics(page, log, 'coupangeats-no-review-cards')
     }
-    await dumpPageDiagnostics(page, log, 'coupangeats-no-review-cards')
   }
 
   const normalized: CollectedReview[] = reviews
