@@ -380,21 +380,43 @@ async function fetchCoupangReviews(
   const alreadyOnReviews = page.url().includes('/review')
   log.info({ reviewsUrl, alreadyOnReviews, earlyCaptured: capturedReviews.length }, 'coupangeats: fetchCoupangReviews entry')
 
+  // ── 리뷰 관리 페이지로 이동 (네트워크 인터셉트 + 자연 API 호출 유도) ──
+  if (!alreadyOnReviews) {
+    log.info({ reviewsUrl }, 'coupangeats: navigating to reviews page for natural API capture')
+    try {
+      await page.goto(reviewsUrl, { waitUntil: 'networkidle', timeout: 30000 }).catch(() =>
+        page.goto(reviewsUrl, { waitUntil: 'domcontentloaded', timeout: 25000 })
+      )
+      await page.waitForTimeout(4000)   // 자연 API 호출이 완료될 때까지 대기
+      log.info({ url: page.url(), capturedSoFar: capturedReviews.length }, 'coupangeats: reviews page loaded')
+    } catch (navErr: any) {
+      log.warn({ err: navErr?.message }, 'coupangeats: reviews navigation failed, trying direct API')
+    }
+  }
+
   // ── 실제 API 엔드포인트 확인됨: /api/v1/merchant/reviews/search ──
   await closeAllModals(page, log)
   await page.waitForTimeout(500)
 
   const storeId = creds.platform_store_id || '738438'
-  log.info({ storeId }, 'coupangeats: calling review API directly')
+  log.info({ storeId, naturalCaptured: capturedReviews.length }, 'coupangeats: calling review API via page.evaluate')
 
   // 전체 리뷰 페이지네이션 수집 (최대 500개)
   // 실제 확인된 API: /api/v1/merchant/reviews/search?storeId=738438&page=1&statusType=EXPOSE&size=5
   const evalResult: { reviews: any[]; rawBodySample: string; errors: string[] } = await page.evaluate(async (sid: string) => {
+    // CSRF 토큰 추출 시도 (다양한 패턴)
+    const csrfToken: string = (window as any).__CSRF_TOKEN__
+      || (window as any).__csrf_token__
+      || document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
+      || document.querySelector('meta[name="_csrf"]')?.getAttribute('content')
+      || document.cookie.split('; ').find(c => c.startsWith('XSRF-TOKEN='))?.split('=')[1]
+      || ''
     const hdrs: Record<string, string> = {
       'Accept': 'application/json, text/plain, */*',
       'Accept-Language': 'ko-KR,ko;q=0.9',
       'X-Requested-With': 'XMLHttpRequest',
       'Referer': 'https://store.coupangeats.com/merchant/management/reviews',
+      ...(csrfToken ? { 'X-CSRF-Token': csrfToken, 'X-XSRF-TOKEN': csrfToken } : {}),
     }
 
     function extractArr(body: any): any[] {
