@@ -218,7 +218,7 @@ export async function runCoupangEats(
         log.info({ directUrl, earlyCaptured: earlyCapture.length }, 'coupangeats: cookie session valid')
         await markLoginStatus(svc, userId, 'coupangeats', 'success')
         if (action === 'health_check') return { status: 'ok', message: 'coupangeats cookie session ok' }
-        return await fetchCoupangReviews(page, svc, creds, userId, action, payload, log, earlyCapture, earlyCaptureUrls, allRequestUrls)
+        return await fetchCoupangReviews(page, svc, creds, userId, action, payload, log, earlyCapture, earlyCaptureUrls, allRequestUrls, allJsonUrls)
       }
       log.warn('coupangeats: saved cookies expired, falling back to login')
     }
@@ -348,7 +348,7 @@ export async function runCoupangEats(
     }
 
     if (action === 'health_check') return { status: 'ok', message: 'coupangeats login ok' }
-    return await fetchCoupangReviews(page, svc, creds, userId, action, payload, log, earlyCapture, earlyCaptureUrls, allRequestUrls)
+    return await fetchCoupangReviews(page, svc, creds, userId, action, payload, log, earlyCapture, earlyCaptureUrls, allRequestUrls, allJsonUrls)
   } catch (e: any) {
     log.error({ err: e?.message }, 'coupangeats error')
     return { status: 'failed', message: `coupangeats: ${e?.message || e}` }
@@ -368,6 +368,7 @@ async function fetchCoupangReviews(
   earlyCapture: any[] = [],
   earlyCaptureUrls: string[] = [],
   allRequestUrls: string[] = [],
+  allJsonUrls: string[] = [],
 ): Promise<JobResult> {
   const reviewsUrl = creds.platform_store_id
     ? `${REVIEWS_BASE_URL}/${creds.platform_store_id}`
@@ -591,6 +592,8 @@ async function fetchCoupangReviews(
       capturedUrls,
       capturedCount: capturedReviews.length,
       storeId,
+      currentUrl: page.url(),
+      allJsonUrls: allJsonUrls.slice(0, 20),
     },
   }
 }
