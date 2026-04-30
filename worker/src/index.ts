@@ -9,6 +9,7 @@ import IORedis from 'ioredis'
 import pino from 'pino'
 import http from 'http'
 import { chromium, Browser } from 'playwright'
+import { createClient } from '@supabase/supabase-js'
 import { runJob, PlatformJobData } from './jobs'
 
 const log = pino({
@@ -97,10 +98,14 @@ worker.on('error', (err) => {
   log.error({ err: err.message }, 'worker error')
 })
 
+// BullMQ Queue (enqueue 전용) — 같은 Redis connection 재사용
+const jobQueue = new Queue<PlatformJobData>(QUEUE_NAME, { connection })
+
+const TRIGGER_SECRET = process.env.TRIGGER_SECRET || ''
+
 const port = parseInt(process.env.PORT || '8080', 10)
 const healthServer = http.createServer(async (req, res) => {
   if (req.url === '/health' || req.url === '/') {
-    // 43차-2: Redis 연결 상태까지 점검해야 fly.io 헬스체크가 의미 있음
     let redisOk = false
     try {
       const pong = await connection.ping()
@@ -118,6 +123,139 @@ const healthServer = http.createServer(async (req, res) => {
     }))
     return
   }
+
+  // GET /jobs  — 최근 완료/실패 잡 조회 (디버그용)
+  if (req.method === 'GET' && req.url && req.url.startsWith('/jobs')) {
+    const auth = req.headers['authorization'] || ''
+    if (TRIGGER_SECRET && auth !== `Bearer ${TRIGGER_SECRET}`) {
+      res.writeHead(401, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ ok: false, error: 'unauthorized' }))
+      return
+    }
+    try {
+      const completed = await jobQueue.getCompleted(0, 9)
+      const failed = await jobQueue.getFailed(0, 9)
+      const active = await jobQueue.getActive(0, 9)
+      const waiting = await jobQueue.getWaiting(0, 9)
+      const toInfo = (j: any) => ({
+        id: j.id,
+        name: j.name,
+        data: { platform: j.data?.platform, action: j.data?.action, userId: j.data?.userId?.slice(0, 8) },
+        returnvalue: j.returnvalue,
+        failedReason: j.failedReason,
+        processedOn: j.processedOn,
+        finishedOn: j.finishedOn,
+      })
+      res.writeHead(200, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({
+        ok: true,
+        counts: { completed: completed.length, failed: failed.length, active: active.length, waiting: waiting.length },
+        completed: completed.map(toInfo),
+        failed: failed.map(toInfo),
+        active: active.map(toInfo),
+      }))
+    } catch (e: any) {
+      res.writeHead(500, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ ok: false, error: e?.message }))
+    }
+    return
+  }
+
+  // POST /trigger  — 수동 잡 등록 (테스트/디버그용)
+  if (req.method === 'POST' && req.url === '/trigger') {
+    // optional secret check
+    const auth = req.headers['authorization'] || ''
+    if (TRIGGER_SECRET && auth !== `Bearer ${TRIGGER_SECRET}`) {
+      res.writeHead(401, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ ok: false, error: 'unauthorized' }))
+      return
+    }
+    let body = ''
+    req.on('data', (chunk) => { body += chunk })
+    req.on('end', async () => {
+      try {
+        const data: PlatformJobData = JSON.parse(body)
+        const jobId = `manual_${data.platform}_${data.action}_${Date.now()}`
+        const job = await jobQueue.add(`${data.platform}:${data.action}`, data, { jobId })
+        log.info({ jobId: job.id, data }, '/trigger: job enqueued')
+        res.writeHead(200, { 'Content-Type': 'application/json' })
+        res.end(JSON.stringify({ ok: true, jobId: job.id }))
+      } catch (e: any) {
+        log.error({ err: e?.message }, '/trigger error')
+        res.writeHead(400, { 'Content-Type': 'application/json' })
+        res.end(JSON.stringify({ ok: false, error: e?.message }))
+      }
+    })
+    return
+  }
+
+  // GET /debug-creds  — platform_credentials 테이블 플랫폼별 카운트 조회
+  if (req.method === 'GET' && req.url === '/debug-creds') {
+    const auth = req.headers['authorization'] || ''
+    if (TRIGGER_SECRET && auth !== `Bearer ${TRIGGER_SECRET}`) {
+      res.writeHead(401, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ ok: false, error: 'unauthorized' }))
+      return
+    }
+    try {
+      const svc = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!)
+      const { data, error } = await svc
+        .from('platform_credentials')
+        .select('platform, last_login_status, user_id')
+        .limit(100)
+      if (error) throw new Error('DB error: ' + error.message)
+      const summary: Record<string, number> = {}
+      for (const r of (data || [])) {
+        summary[r.platform] = (summary[r.platform] || 0) + 1
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ ok: true, total: data?.length || 0, byPlatform: summary, sample: data?.slice(0,3).map(r => ({platform: r.platform, status: r.last_login_status, userId: r.user_id?.slice(0,8)+'...'})) }))
+    } catch (e: any) {
+      res.writeHead(500, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ ok: false, error: e?.message }))
+    }
+    return
+  }
+
+  // POST /run-all?platform=coupangeats  — 모든 유저 잡 일괄 등록
+  if (req.method === 'POST' && req.url && req.url.startsWith('/run-all')) {
+    const auth = req.headers['authorization'] || ''
+    if (TRIGGER_SECRET && auth !== `Bearer ${TRIGGER_SECRET}`) {
+      res.writeHead(401, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ ok: false, error: 'unauthorized' }))
+      return
+    }
+    const platform = new URL(req.url, 'http://localhost').searchParams.get('platform') || 'coupangeats'
+    try {
+      const svc = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!)
+      const { data: creds, error } = await svc
+        .from('platform_credentials')
+        .select('user_id, platform_store_id')
+        .eq('platform', platform)
+        .or('last_login_status.neq.disabled,last_login_status.is.null')
+      if (error) throw new Error('DB error: ' + error.message)
+      const queued: string[] = []
+      for (const cred of (creds || [])) {
+        const jobId = `runall_${cred.user_id}_${platform}_${Date.now()}`
+        const job = await jobQueue.add(`${platform}:fetch_reviews`, {
+          platform: platform as any,
+          action: 'fetch_reviews',
+          userId: cred.user_id,
+          storeId: cred.platform_store_id || 'unknown',
+        }, { jobId })
+        queued.push(String(job.id))
+        log.info({ jobId: job.id, userId: cred.user_id, platform }, '/run-all: enqueued')
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ ok: true, platform, queued, total: queued.length }))
+    } catch (e: any) {
+      log.error({ err: e?.message }, '/run-all error')
+      res.writeHead(500, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ ok: false, error: e?.message }))
+    }
+    return
+  }
+
   res.writeHead(404)
   res.end()
 })

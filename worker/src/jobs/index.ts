@@ -30,6 +30,7 @@ export interface JobResult {
   status: 'ok' | 'skipped' | 'failed'
   message?: string
   data?: unknown
+  debug?: unknown
 }
 
 export async function runJob(
