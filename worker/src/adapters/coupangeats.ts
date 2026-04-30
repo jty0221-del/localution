@@ -18,7 +18,7 @@ const DOM_SELECTORS = {
   idInput: 'input[name="loginId"], input[name="username"], input[name="email"], input[type="email"]',
   pwInput: 'input[name="password"], input[type="password"]',
   loginBtn: 'button[type="submit"], button:has-text("로그인"), button:has-text("로그인하기")',
-  reviewCard: '[class*="ReviewItem"], [class*="review-item"], [data-testid*="review"]',
+  reviewCard: '[class*="ReviewItem"], [class*="review-item"], [class*="review-card"], [data-testid*="review-item"], [class*="ReviewCard"], [class*="ce-review-item"], li[class*="review"], .review-list > li, [class*="reviewList"] > li, [class*="review_item"]',
   reviewAuthor: '[class*="name"], [class*="nickname"], [class*="author"]',
   starFilled: '[class*="star"][class*="fill"], svg[class*="active"], [class*="StarActive"]',
   ratingText: '[class*="rating"], [class*="Rating"]',
@@ -317,17 +317,54 @@ async function fetchCoupangReviews(
   if (!cur.includes('/reviews')) {
     log.info({ reviewsUrl }, 'coupangeats navigating to reviews')
     await page.goto(reviewsUrl, { waitUntil: 'load', timeout: 45000 })
-    await page.waitForTimeout(4000)
+    await page.waitForTimeout(5000)
   }
 
   if (page.url().includes('/login')) {
     return { status: 'failed', message: 'coupangeats: 세션 만료 — 쿠키를 다시 등록해주세요' }
   }
 
-  for (let i = 0; i < 8; i++) {
-    await page.evaluate(() => window.scrollBy(0, 1200))
-    await page.waitForTimeout(700)
+  // ── 팝업/모달 닫기 (공지사항, 안내 등) ──
+  const modalCloseSelectors = [
+    '[data-testid="Dialog__CloseButton"]',
+    'button[data-testid*="close"]',
+    'button[class*="close-btn"]',
+    'button[class*="CloseButton"]',
+    'button.close-btn',
+    '[class*="modal"] button[class*="close"]',
+    '[class*="modal"] button:has-text("닫기")',
+    '[class*="modal"] button:has-text("확인")',
+  ]
+  for (const mSel of modalCloseSelectors) {
+    try {
+      const modal = page.locator(mSel).first()
+      const visible = await modal.isVisible().catch(() => false)
+      if (visible) {
+        await modal.click({ force: true })
+        log.info({ mSel }, 'coupangeats: modal closed')
+        await page.waitForTimeout(1500)
+        break
+      }
+    } catch { continue }
   }
+
+  // ── 리뷰 탭/메뉴 클릭 (좌측 네비 icon-ce-review) ──
+  try {
+    const reviewNav = page.locator('[class*="icon-ce-review"], [data-testid*="review"], a[href*="/reviews"]').first()
+    const navVisible = await reviewNav.isVisible().catch(() => false)
+    if (navVisible && !page.url().includes('/reviews')) {
+      await reviewNav.click()
+      log.info('coupangeats: clicked review nav menu')
+      await page.waitForTimeout(3000)
+    }
+  } catch { /* ignore */ }
+
+  // ── 페이지 스크롤하며 리뷰 로딩 대기 ──
+  for (let i = 0; i < 6; i++) {
+    await page.evaluate(() => window.scrollBy(0, 800))
+    await page.waitForTimeout(500)
+  }
+  await page.waitForTimeout(2000)
 
   const reviews = await page.evaluate((sel: typeof DOM_SELECTORS) => {
     const cards = Array.from(document.querySelectorAll(sel.reviewCard))
