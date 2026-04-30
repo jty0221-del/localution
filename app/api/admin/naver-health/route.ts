@@ -357,62 +357,70 @@ export async function GET() {
       action_url: 'https://console.anthropic.com/settings/keys',
     })
   } else {
-    // 미니멀 API 호출로 키 유효성 + 사용 가능 모델 확인
-    const HEALTH_MODELS = [
-      'claude-3-5-haiku-20241022',
-      'claude-3-haiku-20240307',
-      'claude-3-5-sonnet-20241022',
-      'claude-3-sonnet-20240229',
-      'claude-3-opus-20240229',
-    ]
+    // /v1/models로 실제 사용 가능 모델 조회 → 첫 번째 모델로 응답 테스트
     try {
       const t0 = Date.now()
-      let foundModel = ''
-      let lastStatus = 0
-      let lastErrText = ''
-      for (const m of HEALTH_MODELS) {
-        const r = await fetch('https://api.anthropic.com/v1/messages', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': anthropicKey,
-            'anthropic-version': '2023-06-01',
-          },
-          body: JSON.stringify({ model: m, max_tokens: 5, messages: [{ role: 'user', content: '안녕' }] }),
-          signal: AbortSignal.timeout(10000),
-          cache: 'no-store',
-        })
-        lastStatus = r.status
-        if (r.ok) { foundModel = m; break }
-        lastErrText = (await r.text()).slice(0, 150)
-        if (r.status !== 404) break  // 404 아니면 다른 오류 → 더 시도해도 의미 없음
-      }
-      const latency = Date.now() - t0
-      if (foundModel) {
-        checks.push({
-          id: 'claude_api',
-          label: 'Claude AI API (AI 답글 생성)',
-          category: 'AI 상태',
-          status: 'ok',
-          message: `정상 응답 (${latency}ms) — ${foundModel}`,
-          detail: `API 키: ${anthropicKey.slice(0, 8)}***`,
-        })
-      } else {
+      // 1단계: 사용 가능한 모델 목록 조회
+      const modelsRes = await fetch('https://api.anthropic.com/v1/models', {
+        headers: { 'x-api-key': anthropicKey, 'anthropic-version': '2023-06-01' },
+        signal: AbortSignal.timeout(6000),
+        cache: 'no-store',
+      })
+      if (!modelsRes.ok) {
+        const errText = (await modelsRes.text()).slice(0, 150)
         checks.push({
           id: 'claude_api',
           label: 'Claude AI API (AI 답글 생성)',
           category: 'AI 상태',
           status: 'error',
-          message: `모든 모델 응답 실패 (HTTP ${lastStatus})`,
-          detail: lastErrText,
+          message: `모델 목록 조회 실패 HTTP ${modelsRes.status}`,
+          detail: errText,
           action_url: 'https://console.anthropic.com/settings/keys',
         })
+      } else {
+        const modelsData = await modelsRes.json()
+        const allIds: string[] = (modelsData.data || []).map((m: any) => String(m.id))
+        // haiku 우선 선택
+        const testModel = allIds.find(id => id.includes('haiku')) ||
+                          allIds.find(id => id.includes('sonnet')) ||
+                          allIds[0]
+        if (!testModel) {
+          checks.push({
+            id: 'claude_api', label: 'Claude AI API (AI 답글 생성)', category: 'AI 상태',
+            status: 'warn', message: '사용 가능한 모델 없음', detail: '계정에 활성화된 모델이 없습니다.',
+          })
+        } else {
+          // 2단계: 선택된 모델로 실제 응답 테스트
+          const r = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'x-api-key': anthropicKey, 'anthropic-version': '2023-06-01' },
+            body: JSON.stringify({ model: testModel, max_tokens: 5, messages: [{ role: 'user', content: '안녕' }] }),
+            signal: AbortSignal.timeout(10000),
+            cache: 'no-store',
+          })
+          const latency = Date.now() - t0
+          if (r.ok) {
+            checks.push({
+              id: 'claude_api', label: 'Claude AI API (AI 답글 생성)', category: 'AI 상태',
+              status: 'ok',
+              message: `정상 응답 (${latency}ms) — ${testModel}`,
+              detail: `사용 가능 모델 ${allIds.length}개 | 키: ${anthropicKey.slice(0, 8)}***`,
+            })
+          } else {
+            const errText = (await r.text()).slice(0, 150)
+            checks.push({
+              id: 'claude_api', label: 'Claude AI API (AI 답글 생성)', category: 'AI 상태',
+              status: 'error',
+              message: `오류 HTTP ${r.status} (${testModel})`,
+              detail: errText,
+              action_url: 'https://console.anthropic.com/settings/keys',
+            })
+          }
+        }
       }
     } catch (e) {
       checks.push({
-        id: 'claude_api',
-        label: 'Claude AI API (AI 답글 생성)',
-        category: 'AI 상태',
+        id: 'claude_api', label: 'Claude AI API (AI 답글 생성)', category: 'AI 상태',
         status: 'error',
         message: `호출 실패: ${e instanceof Error ? e.message : String(e)}`,
         detail: null,
