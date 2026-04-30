@@ -149,6 +149,17 @@ export async function runCoupangEats(
   const page = await context.newPage()
   startNetworkCapture(page, log, ['review', 'feedback', 'rating', 'merchant'])
 
+  // ── 모든 요청 URL 로깅 (리뷰 API 발견용) ──
+  const allRequestUrls: string[] = []
+  page.on('request', (request: any) => {
+    const url = request.url()
+    // 정적 자산 제외
+    if (url.includes('.js') || url.includes('.css') || url.includes('.png') || url.includes('.jpg')
+      || url.includes('.ico') || url.includes('gtm') || url.includes('google') || url.includes('analytics')
+      || url.includes('coupangcdn')) return
+    allRequestUrls.push(`${request.method()} ${url}`)
+  })
+
   // ── 네트워크 인터셉트: page 생성 직후 미리 등록 (쿠키 세션 navigation 전) ──
   // URL 필터 없이 ALL JSON 캡처 → Coupang API URL이 'review' 없어도 잡힘
   const earlyCapture: any[] = []
@@ -205,7 +216,7 @@ export async function runCoupangEats(
         log.info({ directUrl, earlyCaptured: earlyCapture.length }, 'coupangeats: cookie session valid')
         await markLoginStatus(svc, userId, 'coupangeats', 'success')
         if (action === 'health_check') return { status: 'ok', message: 'coupangeats cookie session ok' }
-        return await fetchCoupangReviews(page, svc, creds, userId, action, payload, log, earlyCapture, earlyCaptureUrls)
+        return await fetchCoupangReviews(page, svc, creds, userId, action, payload, log, earlyCapture, earlyCaptureUrls, allRequestUrls)
       }
       log.warn('coupangeats: saved cookies expired, falling back to login')
     }
@@ -332,7 +343,7 @@ export async function runCoupangEats(
     }
 
     if (action === 'health_check') return { status: 'ok', message: 'coupangeats login ok' }
-    return await fetchCoupangReviews(page, svc, creds, userId, action, payload, log, earlyCapture, earlyCaptureUrls)
+    return await fetchCoupangReviews(page, svc, creds, userId, action, payload, log, earlyCapture, earlyCaptureUrls, allRequestUrls)
   } catch (e: any) {
     log.error({ err: e?.message }, 'coupangeats error')
     return { status: 'failed', message: `coupangeats: ${e?.message || e}` }
@@ -351,6 +362,7 @@ async function fetchCoupangReviews(
   log: Logger,
   earlyCapture: any[] = [],
   earlyCaptureUrls: string[] = [],
+  allRequestUrls: string[] = [],
 ): Promise<JobResult> {
   const reviewsUrl = creds.platform_store_id
     ? `${REVIEWS_BASE_URL}/${creds.platform_store_id}`
@@ -427,6 +439,7 @@ async function fetchCoupangReviews(
     probeUrl: probeResult?.url,
     statuses: probeResult?.statuses,
     sample: probeResult?.data ? JSON.stringify(probeResult.data).slice(0, 400) : null,
+    allRequests: allRequestUrls.slice(-40),  // 마지막 40개 요청 URL 로깅
   }, 'coupangeats: API probe result')
 
   log.info({ capturedUrls, capturedCount: capturedReviews.length }, 'coupangeats: network capture result')
