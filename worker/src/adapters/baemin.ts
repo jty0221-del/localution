@@ -153,7 +153,7 @@ export async function runBaemin(
       log.info('baemin: submitting login')
       // 로그인 버튼 클릭 + URL 변경 대기
       const [navResult] = await Promise.allSettled([
-        page.waitForURL((url) => !url.includes('biz-member'), { timeout: 30_000 }),
+        page.waitForURL((url) => !url.href.includes('biz-member'), { timeout: 30_000 }),
         page.click(LOGIN_FORM.loginBtn),
       ])
       await page.waitForTimeout(3000)
