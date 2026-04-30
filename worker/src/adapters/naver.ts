@@ -344,6 +344,8 @@ async function postNaverReply(
   try {
     // ── 항상 SmartPlace API 호출 캡처 (DEBUG_CAPTURE 무관) ──────────
     const capturedApis: string[] = []
+    // 실제 리뷰 목록 GET 엔드포인트 자동 포착 (동적 reply URL 구성에 활용)
+    let discoveredReviewListPath = ''
     page.on('response', async (resp: any) => {
       try {
         const url = resp.url()
@@ -354,6 +356,14 @@ async function postNaverReply(
           const entry = `${method} ${status} ${url.replace('https://new.smartplace.naver.com', '')} => ${body.slice(0, 150)}`
           capturedApis.push(entry)
           log.info({ url, method, status, bodyPreview: body.slice(0, 200) }, 'naver: SmartPlace API intercepted')
+          // GET 200으로 리뷰 목록을 반환하는 엔드포인트 포착
+          if (method === 'GET' && status === 200 && !discoveredReviewListPath &&
+              (url.includes('review') || url.includes('visitor')) &&
+              (url.includes(storeId) || url.includes('/bizes/'))) {
+            const pathPart = url.replace('https://new.smartplace.naver.com', '').split('?')[0]
+            discoveredReviewListPath = pathPart
+            log.info({ discoveredReviewListPath }, 'naver: review list API path discovered')
+          }
         }
       } catch {}
     })
@@ -418,8 +428,8 @@ async function postNaverReply(
       if (!tabClicked) {
         // 탭 클릭 실패 시 URL 직접 이동 (networkidle 사용)
         const reviewsPageUrl = `${NEW_SMARTPLACE_BASE}/bizes/place/${actualPlaceId}/reviews`
-        log.info({ reviewsPageUrl }, 'naver: navigated to reviews page via URL (networkidle)')
-        await page.goto(reviewsPageUrl, { waitUntil: 'networkidle', timeout: 40000 })
+        log.info({ reviewsPageUrl }, 'naver: navigating to reviews page via URL (domcontentloaded)')
+        await page.goto(reviewsPageUrl, { waitUntil: 'domcontentloaded', timeout: 20000 })
         await page.waitForTimeout(2000)
       }
     } catch (e: any) {
@@ -471,38 +481,38 @@ async function postNaverReply(
       }
     } catch {}
 
-    // 5) 리뷰 카드 로딩 대기 (15초 + 스크롤 + 재대기)
-    const CARD_WAIT_MS = 15000
-    let cardsVisible = false
+    // 5) "답글" 버튼이 DOM에 나타날 때까지 대기 (최대 35초)
+    //    Naver SmartPlace는 emotion CSS-in-JS → class selector 무용 → textContent 기반으로 탐색
+    let buttonsLoaded = false
     try {
-      await page.waitForSelector(
-        '[class*="Review_single_review"], [class*="single_review"], [class*="ReviewItem"], [data-review-id], [class*="Review_item"], [class*="review_item"]',
-        { timeout: CARD_WAIT_MS },
+      await page.waitForFunction(
+        () => Array.from(document.querySelectorAll('button')).some(
+          (b: any) => {
+            const t = (b.textContent || '').trim()
+            return t === '답글 달기' || t === '답글쓰기' || t === '답글 쓰기' || t === '답글 작성' || t.startsWith('답글')
+          }
+        ),
+        { timeout: 35000, polling: 700 },
       )
-      cardsVisible = true
-      log.info('naver: review cards appeared via waitForSelector')
+      buttonsLoaded = true
+      log.info('naver: reply buttons appeared in DOM via waitForFunction')
     } catch {
-      log.warn('naver: waitForSelector timed out — trying scroll to trigger lazy load')
-    }
-
-    // 스크롤로 lazy load 유발 (카드가 보이든 안 보이든 실행)
-    for (let i = 0; i < 6; i++) {
-      await page.evaluate(() => window.scrollBy(0, 500))
-      await page.waitForTimeout(350)
-    }
-    await page.waitForTimeout(1000)
-    await page.evaluate(() => window.scrollTo(0, 0))
-    await page.waitForTimeout(800)
-
-    // 스크롤 후 카드가 생겼는지 재확인
-    if (!cardsVisible) {
+      log.warn('naver: reply buttons not found after 35s — scroll recovery 시도')
+      // 스크롤로 lazy load 유발
+      for (let i = 0; i < 5; i++) {
+        await page.evaluate(() => window.scrollBy(0, 500))
+        await page.waitForTimeout(300)
+      }
+      await page.evaluate(() => window.scrollTo(0, 0))
+      await page.waitForTimeout(800)
+      // 스크롤 후 재확인
       try {
-        await page.waitForSelector(
-          '[class*="Review_single_review"], [class*="single_review"], [class*="ReviewItem"], [data-review-id]',
-          { timeout: 5000 },
+        buttonsLoaded = await page.evaluate(() =>
+          Array.from(document.querySelectorAll('button')).some(
+            (b: any) => (b.textContent || '').includes('답글')
+          )
         )
-        cardsVisible = true
-        log.info('naver: cards appeared after scroll')
+        if (buttonsLoaded) log.info('naver: reply buttons found after scroll recovery')
       } catch {}
     }
 
@@ -613,12 +623,45 @@ async function postNaverReply(
       log.warn({ url: page.url(), capturedApis: capturedApis.slice(-5) }, 'naver: card not found by any selector')
       await dumpPageDiagnostics(page, log, `naver-no-card-${platformReviewId}`)
 
+      // 발견된 리뷰 API 경로로 동적 POST 시도
+      if (discoveredReviewListPath) {
+        log.info({ discoveredReviewListPath }, 'naver: trying dynamic reply endpoint from captured GET')
+        const dynamicResult = await page.evaluate(
+          async (args: { basePath: string; reviewId: string; text: string }) => {
+            const candidates = [
+              `https://new.smartplace.naver.com${args.basePath}/${args.reviewId}/reply`,
+              `https://new.smartplace.naver.com${args.basePath}/${args.reviewId}/comment`,
+              `https://new.smartplace.naver.com${args.basePath}/${args.reviewId}/owner-reply`,
+            ]
+            for (const url of candidates) {
+              try {
+                const res = await fetch(url, {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json', 'x-requested-with': 'XMLHttpRequest' },
+                  credentials: 'include',
+                  body: JSON.stringify({ content: args.text }),
+                })
+                if (res.status === 200 || res.status === 201 || res.status === 204) {
+                  return { ok: true, url, status: res.status }
+                }
+              } catch {}
+            }
+            return { ok: false }
+          },
+          { basePath: discoveredReviewListPath, reviewId: platformReviewId, text: replyText },
+        ).catch(() => ({ ok: false }))
+        if ((dynamicResult as any).ok) {
+          log.info({ dynamicResult }, 'naver: reply posted via dynamic API endpoint')
+          return { ok: true }
+        }
+      }
+
       // 두 번째 API 시도 (페이지 로드 후 쿠키가 완전히 설정됐을 수 있음)
       log.info('naver: second API attempt after full page load')
       const apiResult2 = await tryNaverReplyAPI(page, actualPlaceId, platformReviewId, replyText, log)
       if (apiResult2.ok) return apiResult2
 
-      return { ok: false, reason: `review card not found (url: ${page.url()}, classes: ${reviewClasses.slice(0, 5).join(',')})` }
+      return { ok: false, reason: `review card not found (url: ${page.url()}, discoveredApi: ${discoveredReviewListPath}, classes: ${reviewClasses.slice(0, 5).join(',')})` }
     }
 
     // 10) 카드 내 버튼 디버그
@@ -702,23 +745,13 @@ async function tryNaverReplyAPI(
         if (metaCsrf) baseHeaders['x-csrf-token'] = metaCsrf
         if (metaToken) baseHeaders['x-token'] = metaToken
 
-        // SmartPlace 실제 엔드포인트 후보 (다양한 body 형식 시도)
+        // SmartPlace 실제 엔드포인트 후보 (가장 가능성 높은 5개만 — 시간 절약)
         const endpoints = [
-          // 새 SmartPlace (new.smartplace.naver.com)
           { url: `https://new.smartplace.naver.com/api/bizes/${storeId}/reviews/${reviewId}/reply`, body: { content: text } },
-          { url: `https://new.smartplace.naver.com/api/bizes/${storeId}/reviews/${reviewId}/reply`, body: { replyContent: text } },
-          { url: `https://new.smartplace.naver.com/api/bizes/${storeId}/reviews/${reviewId}/owner-comment`, body: { content: text } },
           { url: `https://new.smartplace.naver.com/api/v1/bizes/${storeId}/reviews/${reviewId}/reply`, body: { content: text } },
-          { url: `https://new.smartplace.naver.com/api/v2/bizes/${storeId}/reviews/${reviewId}/reply`, body: { content: text } },
-          // 구 SmartPlace 도메인
-          { url: `https://smartplace.naver.com/api/bizes/${storeId}/reviews/${reviewId}/reply`, body: { content: text } },
-          // place API
-          { url: `https://place.naver.com/api/bizes/${storeId}/reviews/${reviewId}/reply`, body: { content: text } },
-          // owner-reply 변형
+          { url: `https://new.smartplace.naver.com/api/bizes/${storeId}/visitor-reviews/${reviewId}/comment`, body: { content: text } },
+          { url: `https://new.smartplace.naver.com/api/v1/bizes/${storeId}/visitor-reviews/${reviewId}/comment`, body: { content: text } },
           { url: `https://new.smartplace.naver.com/api/bizes/${storeId}/reviews/${reviewId}/owner-reply`, body: { content: text } },
-          // text 필드 변형
-          { url: `https://new.smartplace.naver.com/api/bizes/${storeId}/reviews/${reviewId}/reply`, body: { text } },
-          { url: `https://new.smartplace.naver.com/api/bizes/${storeId}/reviews/${reviewId}/reply`, body: { comment: text } },
         ]
         const results: string[] = []
         for (const ep of endpoints) {
