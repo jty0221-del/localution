@@ -9,6 +9,7 @@ import { getServiceClient } from '../lib/supabase'
 import { loadPlainCredentials, markLoginStatus } from '../lib/credentials'
 import { upsertReviews, CollectedReview } from '../lib/reviews'
 import { dumpPageDiagnostics, detectLoginFailure } from '../lib/diagnostics'
+import { handleNaverCaptcha, solveCaptcha } from '../lib/captcha'
 import type { JobResult, Action } from '../jobs'
 
 const LOGIN_URL = 'https://ceo.yogiyo.co.kr/login/'
@@ -41,7 +42,20 @@ export async function runYogiyo(
 
   const svc = getServiceClient()
   const creds = await loadPlainCredentials(svc, userId, 'yogiyo')
-  const context = await browser.newContext({
+  // ── 프록시 설정 (IP Royal / Webshare / 정적) ─────────────────
+  const proxyHost  = process.env.IPROYAL_HOST  || process.env.PROXY_HOST  || ''
+  const proxyPort  = process.env.IPROYAL_PORT  || process.env.PROXY_PORT  || '80'
+  const proxyUser  = process.env.IPROYAL_USER  || process.env.PROXY_USER  || ''
+  const proxyPassRaw = process.env.IPROYAL_PASS || process.env.PROXY_PASS || ''
+  // IP Royal 한국 타겟팅
+  const proxyPass  = (process.env.IPROYAL_USER && proxyPassRaw && !proxyPassRaw.includes('country'))
+    ? proxyPassRaw + '_country-KR'
+    : proxyPassRaw
+  const proxyProto = process.env.PROXY_PROTOCOL || 'http'
+  const isPlaceholder = proxyHost.includes('제공값') || proxyHost.includes('(') || proxyUser.includes('유저명')
+  const useProxy   = !!(proxyHost && proxyPort && !isPlaceholder)
+
+  const contextOptions: any = {
     userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
     viewport: { width: 1920, height: 1080 },
     locale: 'ko-KR',
@@ -49,7 +63,18 @@ export async function runYogiyo(
     extraHTTPHeaders: {
       'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8',
     },
-  })
+  }
+  if (useProxy) {
+    const proxyUrl = (proxyUser && proxyPass)
+      ? proxyProto + '://' + proxyUser + ':' + proxyPass + '@' + proxyHost + ':' + proxyPort
+      : proxyProto + '://' + proxyHost + ':' + proxyPort
+    contextOptions.proxy = { server: proxyUrl }
+    log.info({ proxy: proxyProto + '://' + proxyHost + ':' + proxyPort }, 'yogiyo: using proxy')
+  } else {
+    log.warn('yogiyo: no proxy configured — IPROYAL_USER or PROXY_HOST 설정 필요')
+  }
+
+  const context = await browser.newContext(contextOptions)
   const page = await context.newPage()
 
   // ── Playwright 레벨 응답 인터셉터 (CORS 우회, 모든 JSON 캡처) ──
