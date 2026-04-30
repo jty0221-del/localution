@@ -77,11 +77,11 @@ export async function runCoupangEats(
     },
   }
   if (useProxy) {
-    contextOptions.proxy = {
-      server: `${proxyProto}://${proxyHost}:${proxyPort}`,
-      username: proxyUser,
-      password: proxyPass,
-    }
+    // credentials를 URL에 직접 포함 — ERR_PROXY_AUTH_UNSUPPORTED 우회
+    const proxyUrl = (proxyUser && proxyPass)
+      ? `${proxyProto}://${proxyUser}:${proxyPass}@${proxyHost}:${proxyPort}`
+      : `${proxyProto}://${proxyHost}:${proxyPort}`
+    contextOptions.proxy = { server: proxyUrl }
     log.info({ proxy: `${proxyProto}://${proxyHost}:${proxyPort}` }, 'coupangeats: using proxy')
   }
 
