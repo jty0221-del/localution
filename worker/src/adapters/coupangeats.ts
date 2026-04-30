@@ -319,13 +319,16 @@ export async function runCoupangEats(
       await markLoginStatus(svc, userId, 'coupangeats', 'captcha', currentUrl)
       return { status: 'failed', message: 'coupangeats captcha — 수동 로그인 필요' }
     }
-    if (currentUrl.includes('/login')) {
+    // 로그인 성공 여부: /merchant/ 페이지여야 함 (단순히 /login을 벗어난 것만으로는 불충분)
+    const loginSucceeded = currentUrl.includes('/merchant/') || currentUrl.includes('/management/')
+    if (!loginSucceeded) {
       await dumpPageDiagnostics(page, log, 'coupangeats-login-failed')
       const { failed, reason } = await detectLoginFailure(page)
-      await markLoginStatus(svc, userId, 'coupangeats', 'failed', reason || 'stayed on login')
+      await markLoginStatus(svc, userId, 'coupangeats', 'failed', reason || `blocked at ${currentUrl.slice(0, 60)}`)
       return {
         status: 'failed',
         message: 'coupangeats: Railway IP 차단으로 로그인 불가 — /my/platforms/coupangeats/connect 에서 브라우저 쿠키를 붙여넣어 주세요',
+        debug: { currentUrl },
       }
     }
 
@@ -557,7 +560,7 @@ async function fetchCoupangReviews(
   }
 
   return {
-    status: res.total > 0 ? 'ok' : 'ok',
+    status: 'ok',
     message: `coupangeats: collected ${res.total}, inserted ${res.inserted}`,
     data: res,
     debug: {
