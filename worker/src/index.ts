@@ -167,7 +167,7 @@ const healthServer = http.createServer(async (req, res) => {
         .from('platform_credentials')
         .select('user_id, platform_store_id')
         .eq('platform', platform)
-        .neq('last_login_status', 'disabled')
+        .or('last_login_status.neq.disabled,last_login_status.is.null')
       if (error) throw new Error('DB error: ' + error.message)
       const queued: string[] = []
       for (const cred of (creds || [])) {
