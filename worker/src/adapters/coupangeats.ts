@@ -412,11 +412,9 @@ async function fetchCoupangReviews(
       || document.querySelector('meta[name="_csrf"]')?.getAttribute('content')
       || document.cookie.split('; ').find(c => c.startsWith('XSRF-TOKEN='))?.split('=')[1]
       || ''
+    // 커스텀 헤더 최소화 — X-Requested-With 등이 봇탐지 트리거할 수 있음
     const hdrs: Record<string, string> = {
       'Accept': 'application/json, text/plain, */*',
-      'Accept-Language': 'ko-KR,ko;q=0.9',
-      'X-Requested-With': 'XMLHttpRequest',
-      'Referer': 'https://store.coupangeats.com/merchant/management/reviews',
       ...(csrfToken ? { 'X-CSRF-Token': csrfToken, 'X-XSRF-TOKEN': csrfToken } : {}),
     }
 
@@ -444,9 +442,16 @@ async function fetchCoupangReviews(
         || 0
     }
 
+    // 세션 유효성 확인
+    let whoami: any = null
+    try {
+      const wRes = await fetch('/api/v1/merchant/whoami', { credentials: 'include' })
+      if (wRes.ok) whoami = await wRes.json().catch(() => null)
+    } catch { /* ignore */ }
+
     const collected: any[] = []
     const seenIds = new Set<string>()
-    let rawBodySample = ''
+    let rawBodySample = whoami ? JSON.stringify(whoami).slice(0, 200) : '(whoami failed)'
     const errors: string[] = []
 
     // statusType 시도 순서: EXPOSE (실제 확인됨), UNEXPOSE, REPORTED
@@ -593,7 +598,7 @@ async function fetchCoupangReviews(
       capturedCount: capturedReviews.length,
       storeId,
       currentUrl: page.url(),
-      allJsonUrls: allJsonUrls.slice(0, 20),
+      allJsonUrls: allJsonUrls.slice(0, 30),
     },
   }
 }
