@@ -150,22 +150,40 @@ export async function runCoupangEats(
   startNetworkCapture(page, log, ['review', 'feedback', 'rating', 'merchant'])
 
   // ── 네트워크 인터셉트: page 생성 직후 미리 등록 (쿠키 세션 navigation 전) ──
+  // URL 필터 없이 ALL JSON 캡처 → Coupang API URL이 'review' 없어도 잡힘
   const earlyCapture: any[] = []
   const earlyCaptureUrls: string[] = []
+  const allJsonUrls: string[] = []  // 디버그용: 모든 JSON URL 기록
   page.on('response', async (response: any) => {
     try {
       const url = response.url()
       const ct = response.headers()['content-type'] || ''
-      if (!ct.includes('json')) return
-      if (!url.includes('review') && !url.includes('feedback') && !url.includes('rating') && !url.includes('comment')) return
-      earlyCaptureUrls.push(url)
+      if (!ct.includes('json') && !ct.includes('javascript')) return
+      // 정적 자산 제외 (JS/CSS 번들)
+      if (url.includes('.js') || url.includes('.css') || url.includes('gtm') || url.includes('google') || url.includes('analytics')) return
       const body = await response.json().catch(() => null)
       if (!body) return
+      // 모든 JSON URL 기록 (디버그)
+      allJsonUrls.push(url)
+      // 리뷰 배열 감지: 배열이거나 { data: [...] } 등 다양한 형태
       const arr: any[] = Array.isArray(body) ? body
-        : body?.data?.reviews || body?.reviews || body?.data || body?.content || body?.list || body?.items || []
-      if (arr.length > 0) {
+        : body?.data?.reviews || body?.reviews || body?.data || body?.content || body?.list || body?.items
+          || body?.result?.reviews || body?.result || body?.payload || []
+      if (!Array.isArray(arr) || arr.length === 0) return
+      // 리뷰 구조 감지: rating/content/id 중 하나라도 있으면
+      const firstItem = arr[0]
+      const looksLikeReview = firstItem && (
+        firstItem.rating != null || firstItem.starRating != null || firstItem.score != null
+        || firstItem.content != null || firstItem.body != null
+        || firstItem.reviewId != null || firstItem.review_id != null
+        || firstItem.authorName != null || firstItem.nickname != null
+      )
+      if (looksLikeReview) {
         log.info({ url, count: arr.length }, 'coupangeats: early-captured review API response')
+        earlyCaptureUrls.push(url)
         earlyCapture.push(...arr)
+      } else {
+        log.info({ url, arrLen: arr.length, sample: JSON.stringify(firstItem).slice(0, 100) }, 'coupangeats: json captured (non-review)')
       }
     } catch { /* ignore */ }
   })
@@ -345,42 +363,33 @@ async function fetchCoupangReviews(
   const alreadyOnReviews = page.url().includes('/review')
   log.info({ reviewsUrl, alreadyOnReviews, earlyCaptured: capturedReviews.length }, 'coupangeats: fetchCoupangReviews entry')
 
-  // 항상 re-navigate — 리스너가 이미 등록돼 있으므로 새 navigation으로 API 재캡처
-  log.info({ reviewsUrl }, 'coupangeats: navigating to reviews (force, to trigger API capture)')
-  await page.goto(reviewsUrl, { waitUntil: 'networkidle', timeout: 45000 }).catch(() =>
-    page.goto(reviewsUrl, { waitUntil: 'load', timeout: 45000 })
-  )
-  await page.waitForTimeout(5000)
+  // ── STEP 1: 현재 페이지에서 모달 먼저 닫기 (이미 reviews 페이지에 있는 경우) ──
+  if (alreadyOnReviews) {
+    await closeAllModals(page, log)
+    await page.waitForTimeout(2000)
+  }
+
+  // ── STEP 2: 항상 re-navigate — 모달 닫은 후 fresh navigation으로 API 재캡처 ──
+  log.info({ reviewsUrl }, 'coupangeats: navigating to reviews (force re-navigate to trigger API)')
+  await page.goto(reviewsUrl, { waitUntil: 'load', timeout: 45000 }).catch(() => null)
+  await page.waitForTimeout(3000)
 
   if (page.url().includes('/login')) {
     return { status: 'failed', message: 'coupangeats: 세션 만료 — 쿠키를 다시 등록해주세요' }
   }
 
-  // 모달 닫기 (최대 3번 시도)
-  for (let attempt = 0; attempt < 3; attempt++) {
-    let closedAny = false
-    for (const mSel of ['[data-testid="Dialog__CloseButton"]', 'button.close-btn', 'button[class*="close-btn"]', 'button:has-text("닫기")']) {
-      try {
-        const m = page.locator(mSel).first()
-        if (await m.isVisible().catch(() => false)) {
-          await m.click({ force: true })
-          closedAny = true
-          await page.waitForTimeout(800)
-        }
-      } catch { continue }
-    }
-    if (!closedAny) break
+  // ── STEP 3: 모달 닫기 (navigation 후) → React가 reviews API 호출 트리거 ──
+  await closeAllModals(page, log)
+
+  // ── STEP 4: 리뷰 로딩 대기 + 스크롤로 추가 API 호출 트리거 ──
+  await page.waitForTimeout(4000)
+  for (let i = 0; i < 8; i++) {
+    await page.evaluate(() => window.scrollBy(0, 600))
     await page.waitForTimeout(500)
   }
+  await page.waitForTimeout(3000)
 
-  // 스크롤 → 추가 API 호출 트리거
-  for (let i = 0; i < 5; i++) {
-    await page.evaluate(() => window.scrollBy(0, 800))
-    await page.waitForTimeout(600)
-  }
-  await page.waitForTimeout(2000)
-
-  log.info({ capturedUrls, capturedCount: capturedReviews.length }, 'coupangeats: network capture result')
+  log.info({ capturedUrls, capturedCount: capturedReviews.length, allJsonUrls }, 'coupangeats: network capture result')
 
   // ── 네트워크 캡처 성공 시 → API 데이터 사용 ──
   let reviews: any[] = []
@@ -548,6 +557,34 @@ async function postCoupangEatsReply(
   } catch (e: any) {
     log.error({ err: e?.message }, 'coupangeats reply error')
     return { ok: false, reason: e?.message || 'unknown' }
+  }
+}
+
+async function closeAllModals(page: any, log: Logger): Promise<void> {
+  const modalSelectors = [
+    '[data-testid="Dialog__CloseButton"]',
+    'button.close-btn',
+    'button[class*="close-btn"]',
+    '.faq-popup button.close-btn',
+    'button:has-text("닫기")',
+    'button:has-text("확인")',
+    '[class*="modal"] button[class*="close"]',
+  ]
+  for (let attempt = 0; attempt < 4; attempt++) {
+    let closedAny = false
+    for (const mSel of modalSelectors) {
+      try {
+        const m = page.locator(mSel).first()
+        if (await m.isVisible().catch(() => false)) {
+          await m.click({ force: true })
+          closedAny = true
+          await page.waitForTimeout(600)
+          log.info({ mSel }, 'coupangeats: modal closed')
+        }
+      } catch { continue }
+    }
+    if (!closedAny) break
+    await page.waitForTimeout(400)
   }
 }
 
