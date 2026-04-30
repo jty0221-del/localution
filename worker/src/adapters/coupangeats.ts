@@ -389,7 +389,7 @@ async function fetchCoupangReviews(
   }
   await page.waitForTimeout(3000)
 
-  log.info({ capturedUrls, capturedCount: capturedReviews.length, allJsonUrls }, 'coupangeats: network capture result')
+  log.info({ capturedUrls, capturedCount: capturedReviews.length }, 'coupangeats: network capture result')
 
   // ── 네트워크 캡처 성공 시 → API 데이터 사용 ──
   let reviews: any[] = []
