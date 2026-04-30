@@ -106,14 +106,14 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    const note = `Worker 큐에 등록됐어요. 1~3분 뒤 "새로고침" 누르면 리뷰가 표시됩니다. (jobId: ${result.jobId})`
     return NextResponse.json({
       ok: true,
       platform,
       jobId: result.jobId,
-      total: 0, // 비동기 enqueue 이므로 즉시 0 — UI 는 note 를 info 로 표시
-      note,
-      message: note,
+      total: 0,
+      queued: true,
+      note: '리뷰 수집을 시작했어요! 잠시 후 자동으로 표시돼요.',
+      message: '리뷰 수집을 시작했어요! 잠시 후 자동으로 표시돼요.',
     })
   } catch (e: any) {
     return NextResponse.json(

@@ -3,6 +3,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createDecipheriv } from 'crypto'
 import { requireUser } from '@/app/lib/userAuth'
 import { createServiceClient } from '@/app/lib/adminAuth'
+import { enqueuePlatformJob } from '@/app/lib/queue'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -36,7 +37,7 @@ export async function OPTIONS(req: NextRequest) {
 function loadKek(): Buffer {
   const raw = process.env.ENCRYPTION_KEK_HEX || ''
   let hex = ''
-  for (const c of raw) { if (c !== ' ' && c !== '\t' && c !== '\n' && c !== '\r') hex += c }
+  for (const c of raw) { if (c !== ' ' && c !== '\\t' && c !== '\\n' && c !== '\\r') hex += c }
   if (hex.length !== 64) throw new Error('ENCRYPTION_KEK_HEX 설정 필요')
   return Buffer.from(hex, 'hex')
 }
@@ -50,11 +51,13 @@ function decryptStr(enc: string, iv: string, tag: string): string {
 
 function extractPhotos(r: any): string[] {
   const urls: string[] = []
-  for (const list of [r.images, r.imageList, r.photos, r.photoList, r.imageUrls, r.photoUrls]) {
+  for (const list of [r.images, r.imageList, r.photos, r.photoList, r.imageUrls, r.photoUrls, r.reviewImages]) {
     if (!Array.isArray(list) || list.length === 0) continue
     for (const item of list) {
-      const url = typeof item === 'string' ? item : (item.url || item.imageUrl || item.src || item.thumbnailUrl || '')
-      if (url && url.startsWith('http')) urls.push(url)
+      const url = typeof item === 'string' ? item : (item.url || item.imageUrl || item.src || item.thumbnailUrl || item.reviewImageUrl || '')
+      if (url && (url.startsWith('http') || url.startsWith('//'))) {
+        urls.push(url.startsWith('//') ? 'https:' + url : url)
+      }
     }
     if (urls.length > 0) break
   }
@@ -62,53 +65,57 @@ function extractPhotos(r: any): string[] {
 }
 
 function extractAuthor(r: any): string {
-  return r.writer?.nickname || r.writer?.name || r.memberNickname || r.nickname || r.authorName || r.author || '익명'
-}
-
-function maskName(name: string): string {
-  if (!name || name.length <= 1) return name
-  if (name.length === 2) return name[0] + '*'
-  return name[0] + '*'.repeat(name.length - 2) + name[name.length - 1]
+  return r.writer?.nickname || r.writer?.name || r.memberNickname || r.nickname || r.authorName || r.author || r.writerNickname || '익명'
 }
 
 function extractDate(r: any): string {
-  const raw = r.createdAt || r.writtenAt || r.orderDate || r.date || ''
+  const raw = r.createdAt || r.writtenAt || r.orderDate || r.date || r.registeredAt || r.regDate || ''
   if (raw) { try { return new Date(raw).toISOString() } catch { return new Date().toISOString() } }
   return new Date().toISOString()
 }
 
 function extractRating(r: any): number | null {
-  const v = r.starScore ?? r.rating ?? r.starRating ?? r.star ?? null
-  if (v === null) return null
-  const n = Number(v)
-  return (n >= 1 && n <= 5) ? n : null
+  const v = r.starScore ?? r.rating ?? r.score ?? r.star ?? null
+  if (typeof v === 'number') return Math.min(5, Math.max(1, v))
+  if (typeof v === 'string') {
+    const n = parseFloat(v)
+    return isNaN(n) ? null : Math.min(5, Math.max(1, n))
+  }
+  return null
 }
 
-function extractId(r: any): string {
-  return String(r.reviewNo || r.reviewId || r.id || r.orderNo || Math.random().toString(36).slice(2))
+function extractReplyContent(r: any): string | null {
+  const rc = r.ownerReply?.content || r.ownerReply || r.reply?.content || r.reply
+    || r.ownerComment || r.replyContent || r.ceoComment || null
+  return typeof rc === 'string' ? rc.trim() || null : null
 }
 
-async function saveRows(userId: string, shopNo: string, reviews: any[], svc: any) {
-  const rows = reviews.map((r: any) => ({
-    user_id: userId,
-    platform: 'baemin',
-    platform_review_id: 'baemin-real-' + extractId(r),
-    platform_store_id: shopNo,
-    author_name: extractAuthor(r),
-    author_mask: maskName(extractAuthor(r)),
-    content: r.content || r.reviewContent || r.text || r.comment || null,
-    rating: extractRating(r),
-    photos: extractPhotos(r),
-    has_reply: !!(r.comments?.length || r.commentList?.length || r.hasComment || r.hasReply || r.ownerReply),
-    posted_at: extractDate(r),
-    collected_at: new Date().toISOString(),
-  }))
+function normalizeReviews(reviews: any[], shopNo: string): any[] {
+  return reviews.map((r: any, i: number) => {
+    const id = r.reviewId ?? r.reviewNo ?? r.id ?? r.seq ?? ('baemin-' + shopNo + '-' + i)
+    return {
+      platform: 'baemin',
+      platform_review_id: 'baemin-real-' + String(id),
+      platform_store_id: shopNo,
+      author_name: extractAuthor(r),
+      rating: extractRating(r),
+      content: (r.reviewContent || r.content || r.comment || r.body || '').trim() || null,
+      photos: extractPhotos(r),
+      has_reply: !!(r.ownerReply || r.reply || r.ownerComment || r.replyContent || r.hasComment || r.hasReply),
+      reply_content: extractReplyContent(r),
+      posted_at: extractDate(r),
+      collected_at: new Date().toISOString(),
+    }
+  })
+}
 
+async function saveRows(userId: string, shopNo: string, reviews: any[], svc: any): Promise<number> {
+  const rows = normalizeReviews(reviews, shopNo).map(r => ({ ...r, user_id: userId }))
+  if (rows.length === 0) return 0
   const { data: saved, error } = await svc
     .from('platform_reviews')
     .upsert(rows, { onConflict: 'platform,platform_review_id' })
     .select('id')
-
   if (error) throw new Error(error.message)
   return saved?.length ?? rows.length
 }
@@ -130,7 +137,7 @@ export async function POST(req: NextRequest) {
     if (Array.isArray(body.reviews) && body.reviews.length > 0) {
       const shopNo = String(body.shop_no || '14637452')
       const count = await saveRows(userId, shopNo, body.reviews, svc)
-      return NextResponse.json({ ok: true, count, source: 'bookmarklet' }, { headers: ch })
+      return NextResponse.json({ ok: true, count, total: count, source: 'bookmarklet' }, { headers: ch })
     }
 
     // ── 경로 B: 저장된 쿠키로 서버 직접 호출 ──
@@ -142,63 +149,101 @@ export async function POST(req: NextRequest) {
       .maybeSingle()
 
     const extra = (cred?.extra_data as any) || {}
-    if (!extra.baemin_cookie_enc) {
-      return NextResponse.json({
-        ok: false,
-        error: '저장된 쿠키 없음. 북마크릿 방법을 이용하거나 쿠키를 먼저 저장해주세요.',
-      }, { status: 400, headers: ch })
-    }
-
-    const cookieStr = decryptStr(extra.baemin_cookie_enc, extra.baemin_cookie_iv, extra.baemin_cookie_tag)
     const shopNo = String(body.shop_no || cred?.platform_store_id || '14637452')
 
-    let xsrfToken = ''
-    for (const part of cookieStr.split(';')) {
-      const kv = part.trim()
-      const eqIdx = kv.indexOf('=')
-      if (eqIdx === -1) continue
-      const name = kv.slice(0, eqIdx).trim().toLowerCase()
-      if (name === 'xsrf-token' || name === '_xsrf' || name === 'csrf_token') {
-        xsrfToken = kv.slice(eqIdx + 1).trim()
-        break
+    if (extra.baemin_cookie_enc) {
+      const cookieStr = decryptStr(extra.baemin_cookie_enc, extra.baemin_cookie_iv, extra.baemin_cookie_tag)
+
+      let xsrfToken = ''
+      for (const part of cookieStr.split(';')) {
+        const kv = part.trim()
+        const eqIdx = kv.indexOf('=')
+        if (eqIdx === -1) continue
+        const name = kv.slice(0, eqIdx).trim().toLowerCase()
+        if (name === 'xsrf-token' || name === '_xsrf' || name === 'csrf_token') {
+          xsrfToken = kv.slice(eqIdx + 1).trim()
+          break
+        }
+      }
+
+      const reqHeaders: Record<string, string> = {
+        'Cookie': cookieStr,
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36',
+        'Referer': 'https://self.baemin.com/shops/' + shopNo + '/reviews',
+        'Origin': 'https://self.baemin.com',
+        'Accept': 'application/json, text/plain, */*',
+        'Accept-Language': 'ko-KR,ko;q=0.9',
+        'sec-fetch-dest': 'empty',
+        'sec-fetch-mode': 'cors',
+        'sec-fetch-site': 'same-site',
+      }
+      if (xsrfToken) reqHeaders['X-XSRF-TOKEN'] = xsrfToken
+
+      // 여러 API 엔드포인트 시도
+      const endpoints = [
+        BAEMIN_API + '/v1/review/shops/' + shopNo + '/reviews?pageNumber=1&pageSize=30',
+        BAEMIN_API2 + '/v1/review/shops/' + shopNo + '/reviews?pageNumber=1&pageSize=30',
+        BAEMIN_API + '/v1/review/shops/' + shopNo + '/reviews?page=1&size=30',
+      ]
+
+      for (const endpoint of endpoints) {
+        try {
+          const baeminRes = await fetch(endpoint, { headers: reqHeaders, cache: 'no-store' })
+
+          if (baeminRes.status === 401 || baeminRes.status === 403) {
+            // 쿠키 만료 → Worker 폴백
+            break
+          }
+
+          if (!baeminRes.ok) continue
+
+          const json = await baeminRes.json()
+          const reviews: any[] = Array.isArray(json) ? json
+            : (json.contents || json.data?.contents || json.data || json.reviews || json.list || json.reviewList || [])
+
+          if (reviews.length === 0) continue
+
+          const count = await saveRows(userId, shopNo, reviews, svc)
+          return NextResponse.json({ ok: true, count, total: count, source: 'server', shopNo }, { headers: ch })
+        } catch {}
       }
     }
 
-    const reqHeaders: Record<string, string> = {
-      'Cookie': cookieStr,
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-      'Referer': 'https://self.baemin.com/shops/' + shopNo + '/reviews',
-      'Origin': 'https://self.baemin.com',
-      'Accept': 'application/json, text/plain, */*',
-      'Accept-Language': 'ko-KR,ko;q=0.9',
-      'sec-fetch-dest': 'empty',
-      'sec-fetch-mode': 'cors',
-      'sec-fetch-site': 'same-site',
+    // ── 경로 C: Worker 큐 폴백 ──────────────────────────────────────
+    const redisAvailable = !!process.env.REDIS_URL
+    if (redisAvailable && cred) {
+      const jobResult = await enqueuePlatformJob({
+        platform: 'baemin',
+        action: 'fetch_reviews',
+        userId,
+        storeId: shopNo,
+        payload: { shop_no: shopNo },
+      })
+      if (jobResult.ok) {
+        return NextResponse.json({
+          ok: true,
+          queued: true,
+          source: 'worker',
+          jobId: jobResult.jobId,
+          note: '리뷰 수집을 시작했어요! 잠시 후 자동으로 표시돼요.',
+        }, { headers: ch })
+      }
     }
-    if (xsrfToken) reqHeaders['X-XSRF-TOKEN'] = xsrfToken
 
-    const path = '/v1/review/shops/' + shopNo + '/reviews?pageNumber=1&pageSize=20'
-    let baeminRes = await fetch(BAEMIN_API + path, { headers: reqHeaders, cache: 'no-store' })
-    if (!baeminRes.ok && baeminRes.status !== 404) {
-      const r2 = await fetch(BAEMIN_API2 + path, { headers: reqHeaders, cache: 'no-store' })
-      if (r2.ok) baeminRes = r2
-    }
-
-    if (!baeminRes.ok) {
-      const errText = await baeminRes.text().catch(() => '')
+    // 쿠키 없음 안내
+    if (!extra.baemin_cookie_enc) {
       return NextResponse.json({
         ok: false,
-        error: 'Baemin API 오류 (HTTP ' + baeminRes.status + '). 북마크릿 방법을 이용해주세요.',
-        debug: errText.slice(0, 500),
-      }, { status: 502, headers: ch })
+        error: '배민 세션이 없어요. 배민 리뷰 페이지에서 "쿠키 저장" 또는 북마크릿으로 가져와주세요.',
+        cookie_page: '/my/platforms/baemin/session',
+      }, { status: 400, headers: ch })
     }
 
-    const json = await baeminRes.json()
-    const reviews: any[] = Array.isArray(json) ? json : (json.contents || json.data || json.reviews || json.list || [])
-    if (reviews.length === 0) return NextResponse.json({ ok: true, count: 0 }, { headers: ch })
-
-    const count = await saveRows(userId, shopNo, reviews, svc)
-    return NextResponse.json({ ok: true, count, source: 'server' }, { headers: ch })
+    return NextResponse.json({
+      ok: false,
+      error: '배민 API 연결 실패. 북마크릿으로 직접 가져오거나 쿠키를 다시 저장해주세요.',
+      cookie_page: '/my/platforms/baemin/session',
+    }, { status: 502, headers: ch })
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e?.message || 'unknown' }, { status: 500, headers: ch })
   }
