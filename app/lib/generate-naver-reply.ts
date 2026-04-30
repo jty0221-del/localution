@@ -249,14 +249,35 @@ export async function generateNaverReply(
   const hasPhotos = review.photos.length > 0
   const isExpert = tone === 'expert' || tone === 'formal' || tone === 'simple'
 
-  // 계정 플랜별 접근 가능 모델이 달라 순차 시도
-  const MODEL_CANDIDATES = [
-    'claude-3-5-haiku-20241022',
-    'claude-3-haiku-20240307',
-    'claude-3-5-sonnet-20241022',
-    'claude-3-sonnet-20240229',
-    'claude-3-opus-20240229',
-  ]
+  // /v1/models API로 계정에서 실제 사용 가능한 모델 동적 조회
+  const pickModels = async (): Promise<string[]> => {
+    try {
+      const r = await fetch('https://api.anthropic.com/v1/models', {
+        headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+        signal: AbortSignal.timeout(6000),
+        cache: 'no-store',
+      })
+      if (r.ok) {
+        const d = await r.json()
+        const ids: string[] = (d.data || []).map((m: any) => String(m.id))
+        if (ids.length > 0) {
+          return [
+            ...ids.filter(id => id.includes('haiku')),
+            ...ids.filter(id => id.includes('sonnet') && !id.includes('haiku')),
+            ...ids.filter(id => !id.includes('haiku') && !id.includes('sonnet')),
+          ]
+        }
+      }
+    } catch { /* ignore */ }
+    return [
+      'claude-3-5-haiku-20241022',
+      'claude-3-haiku-20240307',
+      'claude-3-5-sonnet-20241022',
+      'claude-3-sonnet-20240229',
+      'claude-3-opus-20240229',
+    ]
+  }
+  const MODEL_CANDIDATES = await pickModels()
 
   const userContent: Array<{ type: string; text?: string; source?: { type: string; url: string } }> = [
     { type: 'text', text: userText },
