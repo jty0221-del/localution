@@ -212,7 +212,9 @@ export async function runCoupangEats(
       await page.waitForTimeout(4000)
 
       const directUrl = page.url()
-      if (!directUrl.includes('/login')) {
+      // 리뷰 관리 페이지에 실제로 도달했는지 확인 (login/signin/auth 등 리다이렉트 방지)
+      const cookieValid = directUrl.includes('/management/reviews') || directUrl.includes('/merchant/management') || directUrl.includes('/merchant/main')
+      if (cookieValid) {
         log.info({ directUrl, earlyCaptured: earlyCapture.length }, 'coupangeats: cookie session valid')
         await markLoginStatus(svc, userId, 'coupangeats', 'success')
         if (action === 'health_check') return { status: 'ok', message: 'coupangeats cookie session ok' }
@@ -555,17 +557,15 @@ async function fetchCoupangReviews(
   }
 
   return {
-    status: 'ok',
-    message: `coupangeats: collected ${res.total}, upserted ${res.inserted}`,
-    data: {
-      ...res,
-      _debug: {
-        rawBodySample: evalResult.rawBodySample || '(empty)',
-        errors: evalResult.errors,
-        capturedUrls,
-        capturedCount: capturedReviews.length,
-        storeId,
-      },
+    status: res.total > 0 ? 'ok' : 'ok',
+    message: `coupangeats: collected ${res.total}, inserted ${res.inserted}`,
+    data: res,
+    debug: {
+      rawBodySample: evalResult.rawBodySample || '(empty)',
+      apiErrors: evalResult.errors,
+      capturedUrls,
+      capturedCount: capturedReviews.length,
+      storeId,
     },
   }
 }
