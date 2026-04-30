@@ -87,14 +87,43 @@ export async function runCoupangEats(
 
   const context = await browser.newContext(contextOptions)
 
-  // ── 봇 감지 우회: navigator.webdriver 제거 + 플러그인 위장 ──
+  // ── 봇 감지 우회 (강화판) ──
   await context.addInitScript(() => {
+    // 1) webdriver 제거
     Object.defineProperty(navigator, 'webdriver', { get: () => undefined })
-    Object.defineProperty(navigator, 'plugins', { get: () => [1, 2, 3, 4, 5] })
-    Object.defineProperty(navigator, 'languages', { get: () => ['ko-KR', 'ko', 'en-US'] })
-    // Chrome 런타임 위장
-    ;(window as any).chrome = { runtime: {} }
-    // Permission API 위장
+    // 2) plugins — PluginArray 흉내 (길이·item 포함)
+    const fakePlugins = ['Chrome PDF Plugin', 'Chrome PDF Viewer', 'Native Client', 'Widevine Content Decryption Module', 'Microsoft Edge PDF Plugin']
+    Object.defineProperty(navigator, 'plugins', {
+      get: () => {
+        const arr: any = fakePlugins.map((name, i) => ({ name, filename: name.toLowerCase().replace(/ /g, '-') + '.dll', description: name, length: 1, item: () => null, namedItem: () => null, [i]: { type: 'application/x-' + i } }))
+        arr.length = fakePlugins.length
+        arr.item = (i: number) => arr[i]
+        arr.namedItem = (n: string) => arr.find((p: any) => p.name === n) || null
+        arr.refresh = () => {}
+        return arr
+      }
+    })
+    // 3) mimeTypes
+    Object.defineProperty(navigator, 'mimeTypes', { get: () => ({ length: 4, item: () => null, namedItem: () => null }) })
+    // 4) languages
+    Object.defineProperty(navigator, 'languages', { get: () => ['ko-KR', 'ko', 'en-US', 'en'] })
+    // 5) hardwareConcurrency
+    Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 8 })
+    // 6) deviceMemory
+    Object.defineProperty(navigator, 'deviceMemory', { get: () => 8 })
+    // 7) Chrome 런타임 완전 위장
+    ;(window as any).chrome = {
+      runtime: {
+        id: undefined,
+        connect: () => {},
+        sendMessage: () => {},
+        onConnect: { addListener: () => {}, removeListener: () => {}, hasListener: () => false },
+        onMessage: { addListener: () => {}, removeListener: () => {}, hasListener: () => false },
+      },
+      loadTimes: () => ({}),
+      csi: () => ({}),
+    }
+    // 8) Permission API 위장
     const origQuery = window.navigator.permissions?.query?.bind(window.navigator.permissions)
     if (origQuery) {
       ;(window.navigator.permissions as any).query = (params: any) =>
@@ -102,6 +131,9 @@ export async function runCoupangEats(
           ? Promise.resolve({ state: Notification.permission } as PermissionStatus)
           : origQuery(params)
     }
+    // 9) outerWidth/Height
+    if (!window.outerWidth) Object.defineProperty(window, 'outerWidth', { get: () => 1920 })
+    if (!window.outerHeight) Object.defineProperty(window, 'outerHeight', { get: () => 1080 })
   })
 
   // 저장된 쿠키가 있으면 세션 복원
@@ -186,8 +218,45 @@ export async function runCoupangEats(
     await pwLocator.click()
     await pwLocator.fill('')
     await pwLocator.pressSequentially(creds.password, { delay: 80 })
-    await page.waitForTimeout(800)
-    await page.locator(DOM_SELECTORS.loginBtn).first().click()
+    await page.waitForTimeout(1200)
+
+    // ── ce-check-input 체크박스 자동 클릭 (약관동의/아이디저장) ──
+    try {
+      const checkbox = page.locator('input[class*="ce-check"], .ce-check-input, input[type="checkbox"]').first()
+      const cbVisible = await checkbox.isVisible().catch(() => false)
+      if (cbVisible) {
+        const checked = await checkbox.isChecked().catch(() => false)
+        if (!checked) {
+          await checkbox.click({ force: true })
+          log.info('coupangeats: checked checkbox before submit')
+        }
+      }
+    } catch { /* ignore */ }
+
+    // ── 제출 버튼 클릭 (merchant-submit-btn 우선) ──
+    const submitSelectors = [
+      'button.merchant-submit-btn',
+      'button[class*="merchant-submit"]',
+      'button[type="submit"]',
+      'button:has-text("로그인")',
+      'button:has-text("로그인하기")',
+    ]
+    let submitted = false
+    for (const sSel of submitSelectors) {
+      try {
+        const btn = page.locator(sSel).first()
+        const visible = await btn.isVisible().catch(() => false)
+        if (visible) {
+          await btn.click()
+          submitted = true
+          log.info({ sSel }, 'coupangeats: submit button clicked')
+          break
+        }
+      } catch { continue }
+    }
+    if (!submitted) {
+      await page.locator(DOM_SELECTORS.loginBtn).first().click()
+    }
     await page.waitForURL((url) => !url.href.includes('/login'), { timeout: 20000 }).catch(() => null)
     await page.waitForTimeout(2000)
 
