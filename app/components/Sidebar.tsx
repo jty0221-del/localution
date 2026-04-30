@@ -319,12 +319,6 @@ export default function Sidebar() {
                 </Link>
               )
             })}
-            <Link href="/review-admin/naver/autoreply" onClick={() => setMobileOpen(false)}
-              className={"flex items-center gap-2.5 px-3 py-1.5 rounded-xl " + (pathname === '/review-admin/naver/autoreply' ? 'bg-[#EEF4FF] text-[#1A67F5] font-semibold' : 'text-[#4E5968] hover:bg-[#F8F9FA] font-medium')}>
-              <span className="text-sm">✦</span>
-              <span className="text-xs">AI 자동답글</span>
-              <span className="ml-auto text-[9px] bg-[#1A67F5] text-white px-1.5 py-0.5 rounded-full font-bold">N</span>
-            </Link>
           </div>
         )}
       </div>
