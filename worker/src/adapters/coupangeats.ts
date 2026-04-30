@@ -196,7 +196,7 @@ export async function runCoupangEats(
       } else {
         log.info({ url, arrLen: arr.length, sample: JSON.stringify(firstItem).slice(0, 100) }, 'coupangeats: json captured (non-review)')
       }
-    } catch { /* ignore */ }
+    } catch (_) { /* ignore */ }
   })
 
   try {
@@ -285,7 +285,7 @@ export async function runCoupangEats(
           log.info('coupangeats: checked checkbox before submit')
         }
       }
-    } catch { /* ignore */ }
+    } catch (_) { /* ignore */ }
 
     // ── 제출 버튼 클릭 (merchant-submit-btn 우선) ──
     const submitSelectors = [
@@ -395,9 +395,25 @@ async function fetchCoupangReviews(
     }
   }
 
-  // ── 실제 API 엔드포인트 확인됨: /api/v1/merchant/reviews/search ──
+  // ── 페이지 상호작용으로 리뷰 API 자연 유도 ──
   await closeAllModals(page, log)
-  await page.waitForTimeout(500)
+  try {
+    // 검색/조회 버튼 클릭으로 리뷰 목록 트리거
+    const triggerSelectors = [
+      'button:has-text("조회")', 'button:has-text("검색")', 'button:has-text("불러오기")',
+      '[class*="search-btn"]', '[class*="filter"] button', 'button[class*="submit"]',
+    ]
+    for (const sel of triggerSelectors) {
+      const btn = page.locator(sel).first()
+      if (await btn.isVisible().catch(() => false)) {
+        await btn.click()
+        log.info({ sel }, 'coupangeats: clicked trigger button')
+        await page.waitForTimeout(2000)
+        break
+      }
+    }
+  } catch (_) { /* ignore */ }
+  await page.waitForTimeout(1000)
 
   const storeId = creds.platform_store_id || '738438'
   log.info({ storeId, naturalCaptured: capturedReviews.length }, 'coupangeats: calling review API via page.evaluate')
@@ -447,7 +463,7 @@ async function fetchCoupangReviews(
     try {
       const wRes = await fetch('/api/v1/merchant/whoami', { credentials: 'include' })
       if (wRes.ok) whoami = await wRes.json().catch(() => null)
-    } catch { /* ignore */ }
+    } catch (_) { /* ignore */ }
 
     const collected: any[] = []
     const seenIds = new Set<string>()
@@ -465,7 +481,10 @@ async function fetchCoupangReviews(
           const url = `/api/v1/merchant/reviews/search?storeId=${sid}&page=${pageNum}&statusType=${statusType}&size=100`
           const res = await fetch(url, { credentials: 'include', headers: hdrs })
           if (!res.ok) {
-            errors.push(`${statusType} p${pageNum}: HTTP ${res.status}`)
+            let errBody = ''
+            try { errBody = JSON.stringify(await res.json()) } catch (eb) { try { errBody = await res.text() } catch (et) { errBody = '(no body)' } }
+            errors.push(`${statusType} p${pageNum}: HTTP ${res.status} ${errBody.slice(0, 150)}`)
+            if (!rawBodySample) rawBodySample = `HTTP${res.status}: ${errBody.slice(0, 300)}`
             hasMore = false; break
           }
           const body = await res.json().catch(() => null)
