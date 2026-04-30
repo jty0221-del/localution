@@ -352,8 +352,8 @@ export default function LoginPage() {
                 <span className='footerDivider'>·</span>
                 <a href='/legal/platform-consent' target='_blank' rel='noopener'>위임동의서</a>
               </div>
-              &copy; 2026 하랑<br/>
-              Powered by 하랑마케팅
+              &copy; 2026 로컬루션<br/>
+              Powered by Localution
             </div>
           </div>
         </div>

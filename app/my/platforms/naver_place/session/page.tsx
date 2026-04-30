@@ -1,52 +1,82 @@
 'use client'
 // app/my/platforms/naver_place/session/page.tsx
 // ============================================================
-// 네이버 세션쿠키 저장 페이지 (간단 버전)
-// Network 탭 Cookie 헤더 전체 붙여넣기 → NID_AUT / NID_SES 자동 추출
+// 네이버 세션쿠키 저장 페이지 (전체 쿠키 버전)
+// new.smartplace.naver.com Network 탭 Cookie 헤더 붙여넣기
+// → NID_AUT / NID_SES / nstore_session 등 전체 추출
 // ============================================================
 import { useState } from 'react'
 import Link from 'next/link'
+
+function parseCookiePreview(str: string) {
+  const clean = str.replace(/^cookie:\s*/i, '').trim()
+  const get = (name: string) => {
+    const m = clean.match(new RegExp(name + '=([^;\\s]+)'))
+    return m ? m[1].slice(0, 10) + '…' : null
+  }
+  const countAll = clean.split(/;\s*/).filter(p => p.includes('=')).length
+  return {
+    nidAut: get('NID_AUT'),
+    nidSes: get('NID_SES'),
+    nstoreSession: get('nstore_session'),
+    nstorePrsId: get('nstore_prs_id'),
+    total: countAll,
+  }
+}
+
+function buildCookieJson(str: string): string | null {
+  const clean = str.replace(/^cookie:\s*/i, '').trim()
+  const nowSec = Math.floor(Date.now() / 1000)
+  const cookies: object[] = []
+  for (const part of clean.split(/;\s*/)) {
+    const eqIdx = part.indexOf('=')
+    if (eqIdx < 0) continue
+    const name = part.slice(0, eqIdx).trim()
+    const value = part.slice(eqIdx + 1).trim()
+    if (!name || !value) continue
+    const isSmartPlace = name.startsWith('nstore_') || name === 'smart_biz_session'
+    cookies.push({
+      name, value,
+      domain: isSmartPlace ? 'new.smartplace.naver.com' : '.naver.com',
+      path: '/', httpOnly: false, secure: true,
+      expires: nowSec + 86400 * 30,
+    })
+  }
+  if (!cookies.some((c: any) => c.name === 'NID_AUT')) return null
+  return JSON.stringify(cookies)
+}
 
 export default function NaverSessionPage() {
   const [cookieStr, setCookieStr] = useState('')
   const [status, setStatus] = useState<'idle' | 'saving' | 'ok' | 'error'>('idle')
   const [msg, setMsg] = useState('')
 
-  function parseCookieString(str: string): { aut: string; ses: string } | null {
-    const clean = str.replace(/^cookie:\s*/i, '').trim()
-    const aut = (clean.match(/NID_AUT=([^;]+)/) || [])[1]?.trim()
-    const ses = (clean.match(/NID_SES=([^;]+)/) || [])[1]?.trim()
-    if (!aut) return null
-    return { aut, ses: ses || '' }
-  }
+  const preview = cookieStr.length > 10 ? parseCookiePreview(cookieStr) : null
 
   async function handleSave() {
-    const parsed = parseCookieString(cookieStr)
-    if (!parsed) {
+    const cookieJson = buildCookieJson(cookieStr)
+    if (!cookieJson) {
       setStatus('error')
-      setMsg('NID_AUT 값을 찾을 수 없어요. 쿠키 문자열에 NID_AUT=... 가 포함돼 있어야 해요.')
+      setMsg('NID_AUT 값을 찾을 수 없어요. new.smartplace.naver.com 에서 복사했는지 확인해주세요.')
       return
     }
     setStatus('saving')
     setMsg('')
     try {
-      const nowSec = Math.floor(Date.now() / 1000)
-      const cookieArr: any[] = [
-        { name: 'NID_AUT', value: parsed.aut, domain: '.naver.com', path: '/', httpOnly: true, secure: true, expires: nowSec + 86400 * 30 },
-      ]
-      if (parsed.ses) {
-        cookieArr.push({ name: 'NID_SES', value: parsed.ses, domain: '.naver.com', path: '/', httpOnly: true, secure: true, expires: nowSec + 86400 * 7 })
-      }
       const res = await fetch('/api/platform-accounts/naver-cookie', {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ cookie_json: JSON.stringify(cookieArr) }),
+        body: JSON.stringify({ cookie_json: cookieJson }),
       })
       const data = await res.json()
       if (data.ok) {
+        const parsed = parseCookiePreview(cookieStr)
+        const hasNstore = parsed?.nstoreSession
         setStatus('ok')
-        setMsg(`저장 완료! NID_AUT${parsed.ses ? ' + NID_SES' : ''} 쿠키가 저장됐어요.`)
+        setMsg(hasNstore
+          ? `저장 완료! NID_AUT + NID_SES + nstore_session 포함 ${parsed.total}개 쿠키 저장됨.`
+          : `저장 완료! ${parsed?.total ?? 0}개 쿠키 저장됨. (nstore_session 없음 → 리뷰 탭에서 재시도)`)
         setCookieStr('')
       } else {
         setStatus('error')
@@ -68,7 +98,7 @@ export default function NaverSessionPage() {
           </Link>
           <h1 className="text-2xl font-bold text-gray-900">네이버 세션쿠키 저장</h1>
           <p className="mt-1 text-sm text-gray-500">
-            Worker가 네이버 로그인할 때 사용하는 쿠키예요. 2주마다 갱신이 필요해요.
+            자동발행 Worker가 SmartPlace에 로그인할 때 사용하는 쿠키예요.
           </p>
         </div>
 
@@ -86,6 +116,15 @@ export default function NaverSessionPage() {
           </div>
         )}
 
+        {/* nstore_session 필요 안내 */}
+        <div className="mb-5 p-4 bg-blue-50 border border-blue-200 rounded-xl">
+          <p className="text-xs font-semibold text-blue-800 mb-1">🔑 SmartPlace 전용 쿠키가 필요해요</p>
+          <p className="text-xs text-blue-700">
+            기존에 <code className="bg-blue-100 px-1 rounded">naver.com</code>에서 복사했다면 다시 해주세요.{' '}
+            <strong>리뷰 관리</strong>는 <code className="bg-blue-100 px-1 rounded">nstore_session</code> 쿠키가 있어야 동작해요.
+          </p>
+        </div>
+
         {/* 방법 안내 */}
         <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-5">
           <h2 className="font-semibold text-gray-800 mb-4 flex items-center gap-2">
@@ -93,37 +132,44 @@ export default function NaverSessionPage() {
           </h2>
           <ol className="space-y-4">
             <li className="flex gap-3">
-              <span className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-bold flex items-center justify-center">1</span>
+              <span className="flex-shrink-0 w-6 h-6 rounded-full bg-green-100 text-green-700 text-xs font-bold flex items-center justify-center">1</span>
               <div>
-                <p className="text-sm font-medium text-gray-800">크롬에서 naver.com 열기</p>
-                <p className="text-xs text-gray-500 mt-0.5">로그인된 상태여야 해요</p>
+                <p className="text-sm font-medium text-gray-800">크롬에서 SmartPlace 리뷰 탭 열기</p>
+                <a
+                  href="https://new.smartplace.naver.com/bizes"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs text-blue-600 underline"
+                >
+                  new.smartplace.naver.com/bizes → 내 매장 선택 → 리뷰 탭
+                </a>
+                <p className="text-xs text-gray-500 mt-0.5">로그인된 상태 + 리뷰 탭까지 이동 필수</p>
               </div>
             </li>
             <li className="flex gap-3">
-              <span className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-bold flex items-center justify-center">2</span>
+              <span className="flex-shrink-0 w-6 h-6 rounded-full bg-green-100 text-green-700 text-xs font-bold flex items-center justify-center">2</span>
               <div>
-                <p className="text-sm font-medium text-gray-800">F12 → Network 탭 클릭</p>
-                <p className="text-xs text-gray-500 mt-0.5">개발자 도구가 열려요</p>
+                <p className="text-sm font-medium text-gray-800">F12 → Network 탭 → F5 새로고침</p>
               </div>
             </li>
             <li className="flex gap-3">
-              <span className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-bold flex items-center justify-center">3</span>
+              <span className="flex-shrink-0 w-6 h-6 rounded-full bg-green-100 text-green-700 text-xs font-bold flex items-center justify-center">3</span>
               <div>
-                <p className="text-sm font-medium text-gray-800">목록에서 <code className="bg-gray-100 px-1 rounded text-xs">www.naver.com</code> 클릭</p>
-                <p className="text-xs text-gray-500 mt-0.5">없으면 F5로 새로고침 후 클릭</p>
+                <p className="text-sm font-medium text-gray-800">목록에서 <code className="bg-gray-100 px-1 rounded text-xs">new.smartplace.naver.com</code> 클릭</p>
+                <p className="text-xs text-gray-500 mt-0.5">첫 번째 항목 (HTML 문서) 선택</p>
               </div>
             </li>
             <li className="flex gap-3">
-              <span className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-bold flex items-center justify-center">4</span>
+              <span className="flex-shrink-0 w-6 h-6 rounded-full bg-green-100 text-green-700 text-xs font-bold flex items-center justify-center">4</span>
               <div>
-                <p className="text-sm font-medium text-gray-800">Headers 탭 → Request Headers → Cookie</p>
+                <p className="text-sm font-medium text-gray-800">Headers → Request Headers → Cookie</p>
                 <p className="text-xs text-gray-500 mt-0.5">
-                  <code className="bg-gray-100 px-1 rounded text-xs">Cookie:</code> 옆의 긴 문자열 전체 복사
+                  <code className="bg-gray-100 px-1 rounded text-xs">nstore_session=...</code>이 포함된 긴 문자열 전체 복사
                 </p>
               </div>
             </li>
             <li className="flex gap-3">
-              <span className="flex-shrink-0 w-6 h-6 rounded-full bg-blue-100 text-blue-700 text-xs font-bold flex items-center justify-center">5</span>
+              <span className="flex-shrink-0 w-6 h-6 rounded-full bg-green-100 text-green-700 text-xs font-bold flex items-center justify-center">5</span>
               <div>
                 <p className="text-sm font-medium text-gray-800">아래 칸에 붙여넣기 후 저장</p>
               </div>
@@ -139,26 +185,33 @@ export default function NaverSessionPage() {
           <textarea
             value={cookieStr}
             onChange={(e) => { setCookieStr(e.target.value); setStatus('idle'); setMsg('') }}
-            placeholder="NID_AUT=xxxxx; NID_SES=yyyyy; ..."
+            placeholder="NID_AUT=xxxxx; NID_SES=yyyyy; nstore_session=zzzzz; ..."
             rows={5}
             className="w-full border border-gray-200 rounded-xl px-4 py-3 text-xs font-mono text-gray-700 focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
           />
 
           {/* 유효성 미리보기 */}
-          {cookieStr.length > 10 && (
-            <div className="mt-2 text-xs text-gray-500 space-y-0.5">
+          {preview && (
+            <div className="mt-2 text-xs space-y-0.5">
               <p>
                 NID_AUT:{' '}
-                {cookieStr.includes('NID_AUT=')
-                  ? <span className="text-green-600 font-medium">확인됨</span>
-                  : <span className="text-red-500">없음</span>}
+                {preview.nidAut
+                  ? <span className="text-green-600 font-medium">✓ 확인됨</span>
+                  : <span className="text-red-500">✗ 없음 (필수)</span>}
               </p>
               <p>
                 NID_SES:{' '}
-                {cookieStr.includes('NID_SES=')
-                  ? <span className="text-green-600 font-medium">확인됨</span>
+                {preview.nidSes
+                  ? <span className="text-green-600 font-medium">✓ 확인됨</span>
                   : <span className="text-orange-500">없음 (선택)</span>}
               </p>
+              <p>
+                nstore_session:{' '}
+                {preview.nstoreSession
+                  ? <span className="text-green-600 font-medium">✓ 확인됨 — 리뷰 관리 가능</span>
+                  : <span className="text-red-500 font-medium">✗ 없음 — SmartPlace 리뷰 탭에서 다시 복사하세요</span>}
+              </p>
+              <p className="text-gray-400">총 {preview.total}개 쿠키 감지됨</p>
             </div>
           )}
 
@@ -169,7 +222,7 @@ export default function NaverSessionPage() {
           <button
             onClick={handleSave}
             disabled={status === 'saving' || cookieStr.length < 10}
-            className="mt-4 w-full py-3 rounded-xl font-semibold text-white bg-blue-600 hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
+            className="mt-4 w-full py-3 rounded-xl font-semibold text-white bg-green-600 hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition-colors"
           >
             {status === 'saving' ? '저장 중...' : '쿠키 저장하기'}
           </button>
@@ -180,8 +233,8 @@ export default function NaverSessionPage() {
           <p className="text-xs text-amber-700 font-medium mb-1">⚠️ 주의사항</p>
           <ul className="text-xs text-amber-600 space-y-1 list-disc list-inside">
             <li>쿠키는 암호화해서 저장돼요</li>
-            <li>네이버 쿠키는 약 2주 후 만료돼요 — 주기적으로 갱신해주세요</li>
-            <li>네이버 비밀번호를 변경하면 기존 쿠키는 무효화돼요</li>
+            <li><strong>반드시 SmartPlace 리뷰 탭</strong>에서 복사해야 nstore_session이 포함돼요</li>
+            <li>약 2주마다 갱신이 필요해요 (비밀번호 변경 시 즉시 무효화)</li>
           </ul>
         </div>
       </div>

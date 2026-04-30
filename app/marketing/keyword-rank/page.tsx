@@ -23,7 +23,7 @@ const DEFAULT_CTX: BizContext = {
 const KEYWORD_PATTERNS: Record<string, string[]> = {
   '맛집':     ['맛집', '회식', '점심', '데이트', '저녁'],
   '카페':     ['카페', '브런치', '디저트', '스터디카페', '감성카페'],
-  '네일샵':   ['네일', '젤네일', '패디큐어', '네일아트', '속눈썹'],
+  '네일샵':   ['네일', '젤네일', '페디큐어', '네일아트', '속눈썹'],
   '치과':     ['치과', '임플란트', '교정', '라미네이트', '스케일링'],
   '미용실':   ['미용실', '염색', '펌', '남자컷', '헤어컷'],
   '동물병원': ['동물병원', '건강검진', '예방접종', '중성화', '강아지'],
@@ -119,68 +119,84 @@ interface KeywordGroup {
   rows: RankRow[]
 }
 
+// ── 날짜 동적 생성 (오늘 기준 최근 7일) ─────────
+function recentDates(n = 7): string[] {
+  const dates: string[] = []
+  const now = new Date()
+  for (let i = 0; i < n; i++) {
+    const d = new Date(now)
+    d.setDate(d.getDate() - i)
+    const yy = String(d.getFullYear()).slice(2)
+    const mm = String(d.getMonth() + 1).padStart(2, '0')
+    const dd = String(d.getDate()).padStart(2, '0')
+    dates.push(`${yy}.${mm}.${dd}`)
+  }
+  return dates
+}
+const RECENT = recentDates()
+
 // ── 목업 데이터 (실제: 네이버 Search API 연동) ─────────
 // 6가지 순위 프로필 (상위권~중하위권까지 다양한 경쟁 시나리오)
 const ROW_TEMPLATES = [
   // 1. 주력 대형 키워드 — 상승 중 (3→5→4→7…)
   { volume: 2340, rows: [
-    { date: '26.04.13', rank: 3,  prev: 5,  blogCount: 380, searchVol: 2340, score: 91.2 },
-    { date: '26.04.12', rank: 5,  prev: 4,  blogCount: 375, searchVol: 2280, score: 85.4 },
-    { date: '26.04.11', rank: 4,  prev: 7,  blogCount: 371, searchVol: 2310, score: 88.1 },
-    { date: '26.04.10', rank: 7,  prev: 6,  blogCount: 365, searchVol: 2290, score: 79.3 },
-    { date: '26.04.09', rank: 6,  prev: 9,  blogCount: 360, searchVol: 2200, score: 82.0 },
-    { date: '26.04.08', rank: 9,  prev: 11, blogCount: 358, searchVol: 2180, score: 74.5 },
-    { date: '26.04.07', rank: 11, prev: 10, blogCount: 352, searchVol: 2150, score: 69.8 },
+    { date: RECENT[0], rank: 3,  prev: 5,  blogCount: 380, searchVol: 2340, score: 91.2 },
+    { date: RECENT[1], rank: 5,  prev: 4,  blogCount: 375, searchVol: 2280, score: 85.4 },
+    { date: RECENT[2], rank: 4,  prev: 7,  blogCount: 371, searchVol: 2310, score: 88.1 },
+    { date: RECENT[3], rank: 7,  prev: 6,  blogCount: 365, searchVol: 2290, score: 79.3 },
+    { date: RECENT[4], rank: 6,  prev: 9,  blogCount: 360, searchVol: 2200, score: 82.0 },
+    { date: RECENT[5], rank: 9,  prev: 11, blogCount: 358, searchVol: 2180, score: 74.5 },
+    { date: RECENT[6], rank: 11, prev: 10, blogCount: 352, searchVol: 2150, score: 69.8 },
   ]},
   // 2. 브랜드 키워드 — 1위 고정
   { volume: 310, rows: [
-    { date: '26.04.13', rank: 1,  prev: 1,  blogCount: 42,  searchVol: 310,  score: 98.4 },
-    { date: '26.04.12', rank: 1,  prev: 2,  blogCount: 41,  searchVol: 308,  score: 97.1 },
-    { date: '26.04.11', rank: 2,  prev: 1,  blogCount: 40,  searchVol: 305,  score: 94.2 },
-    { date: '26.04.10', rank: 1,  prev: 3,  blogCount: 39,  searchVol: 300,  score: 98.0 },
-    { date: '26.04.09', rank: 3,  prev: 2,  blogCount: 38,  searchVol: 295,  score: 91.3 },
-    { date: '26.04.08', rank: 2,  prev: 4,  blogCount: 37,  searchVol: 290,  score: 94.5 },
-    { date: '26.04.07', rank: 4,  prev: 3,  blogCount: 36,  searchVol: 285,  score: 88.6 },
+    { date: RECENT[0], rank: 1,  prev: 1,  blogCount: 42,  searchVol: 310,  score: 98.4 },
+    { date: RECENT[1], rank: 1,  prev: 2,  blogCount: 41,  searchVol: 308,  score: 97.1 },
+    { date: RECENT[2], rank: 2,  prev: 1,  blogCount: 40,  searchVol: 305,  score: 94.2 },
+    { date: RECENT[3], rank: 1,  prev: 3,  blogCount: 39,  searchVol: 300,  score: 98.0 },
+    { date: RECENT[4], rank: 3,  prev: 2,  blogCount: 38,  searchVol: 295,  score: 91.3 },
+    { date: RECENT[5], rank: 2,  prev: 4,  blogCount: 37,  searchVol: 290,  score: 94.5 },
+    { date: RECENT[6], rank: 4,  prev: 3,  blogCount: 36,  searchVol: 285,  score: 88.6 },
   ]},
   // 3. 대형 경쟁 키워드 — 중위권 (12~21위)
   { volume: 2860, rows: [
-    { date: '26.04.13', rank: 12, prev: 15, blogCount: 786, searchVol: 2860, score: 67.4 },
-    { date: '26.04.12', rank: 15, prev: 13, blogCount: 780, searchVol: 2800, score: 59.2 },
-    { date: '26.04.11', rank: 13, prev: 18, blogCount: 775, searchVol: 2820, score: 63.8 },
-    { date: '26.04.10', rank: 18, prev: 16, blogCount: 768, searchVol: 2750, score: 54.1 },
-    { date: '26.04.09', rank: 16, prev: 21, blogCount: 760, searchVol: 2700, score: 58.3 },
-    { date: '26.04.08', rank: 21, prev: 19, blogCount: 755, searchVol: 2680, score: 47.9 },
-    { date: '26.04.07', rank: 19, prev: 22, blogCount: 750, searchVol: 2650, score: 52.1 },
+    { date: RECENT[0], rank: 12, prev: 15, blogCount: 786, searchVol: 2860, score: 67.4 },
+    { date: RECENT[1], rank: 15, prev: 13, blogCount: 780, searchVol: 2800, score: 59.2 },
+    { date: RECENT[2], rank: 13, prev: 18, blogCount: 775, searchVol: 2820, score: 63.8 },
+    { date: RECENT[3], rank: 18, prev: 16, blogCount: 768, searchVol: 2750, score: 54.1 },
+    { date: RECENT[4], rank: 16, prev: 21, blogCount: 760, searchVol: 2700, score: 58.3 },
+    { date: RECENT[5], rank: 21, prev: 19, blogCount: 755, searchVol: 2680, score: 47.9 },
+    { date: RECENT[6], rank: 19, prev: 22, blogCount: 750, searchVol: 2650, score: 52.1 },
   ]},
   // 4. 중형 키워드 — 중상위권 (8~16위)
   { volume: 2570, rows: [
-    { date: '26.04.13', rank: 8,  prev: 10, blogCount: 521, searchVol: 2570, score: 76.2 },
-    { date: '26.04.12', rank: 10, prev: 9,  blogCount: 517, searchVol: 2520, score: 71.4 },
-    { date: '26.04.11', rank: 9,  prev: 12, blogCount: 512, searchVol: 2540, score: 74.1 },
-    { date: '26.04.10', rank: 12, prev: 11, blogCount: 505, searchVol: 2480, score: 66.8 },
-    { date: '26.04.09', rank: 11, prev: 14, blogCount: 500, searchVol: 2450, score: 69.3 },
-    { date: '26.04.08', rank: 14, prev: 16, blogCount: 495, searchVol: 2420, score: 61.5 },
-    { date: '26.04.07', rank: 16, prev: 15, blogCount: 488, searchVol: 2390, score: 57.8 },
+    { date: RECENT[0], rank: 8,  prev: 10, blogCount: 521, searchVol: 2570, score: 76.2 },
+    { date: RECENT[1], rank: 10, prev: 9,  blogCount: 517, searchVol: 2520, score: 71.4 },
+    { date: RECENT[2], rank: 9,  prev: 12, blogCount: 512, searchVol: 2540, score: 74.1 },
+    { date: RECENT[3], rank: 12, prev: 11, blogCount: 505, searchVol: 2480, score: 66.8 },
+    { date: RECENT[4], rank: 11, prev: 14, blogCount: 500, searchVol: 2450, score: 69.3 },
+    { date: RECENT[5], rank: 14, prev: 16, blogCount: 495, searchVol: 2420, score: 61.5 },
+    { date: RECENT[6], rank: 16, prev: 15, blogCount: 488, searchVol: 2390, score: 57.8 },
   ]},
   // 5. 롱테일 키워드 — 상위권 (2~5위)
   { volume: 196, rows: [
-    { date: '26.04.13', rank: 2,  prev: 3,  blogCount: 35,  searchVol: 196,  score: 95.1 },
-    { date: '26.04.12', rank: 3,  prev: 2,  blogCount: 34,  searchVol: 192,  score: 91.8 },
-    { date: '26.04.11', rank: 2,  prev: 4,  blogCount: 33,  searchVol: 194,  score: 94.6 },
-    { date: '26.04.10', rank: 4,  prev: 3,  blogCount: 32,  searchVol: 188,  score: 88.2 },
-    { date: '26.04.09', rank: 3,  prev: 5,  blogCount: 31,  searchVol: 185,  score: 91.0 },
-    { date: '26.04.08', rank: 5,  prev: 4,  blogCount: 30,  searchVol: 180,  score: 84.7 },
-    { date: '26.04.07', rank: 4,  prev: 6,  blogCount: 29,  searchVol: 178,  score: 88.3 },
+    { date: RECENT[0], rank: 2,  prev: 3,  blogCount: 35,  searchVol: 196,  score: 95.1 },
+    { date: RECENT[1], rank: 3,  prev: 2,  blogCount: 34,  searchVol: 192,  score: 91.8 },
+    { date: RECENT[2], rank: 2,  prev: 4,  blogCount: 33,  searchVol: 194,  score: 94.6 },
+    { date: RECENT[3], rank: 4,  prev: 3,  blogCount: 32,  searchVol: 188,  score: 88.2 },
+    { date: RECENT[4], rank: 3,  prev: 5,  blogCount: 31,  searchVol: 185,  score: 91.0 },
+    { date: RECENT[5], rank: 5,  prev: 4,  blogCount: 30,  searchVol: 180,  score: 84.7 },
+    { date: RECENT[6], rank: 4,  prev: 6,  blogCount: 29,  searchVol: 178,  score: 88.3 },
   ]},
   // 6. 대형 경쟁 키워드 — 하위권 (25~38위, 개선 필요)
   { volume: 2200, rows: [
-    { date: '26.04.13', rank: 25, prev: 30, blogCount: 468, searchVol: 2200, score: 41.3 },
-    { date: '26.04.12', rank: 30, prev: 27, blogCount: 462, searchVol: 2150, score: 34.8 },
-    { date: '26.04.11', rank: 27, prev: 32, blogCount: 455, searchVol: 2170, score: 38.9 },
-    { date: '26.04.10', rank: 32, prev: 29, blogCount: 448, searchVol: 2100, score: 31.2 },
-    { date: '26.04.09', rank: 29, prev: 35, blogCount: 440, searchVol: 2080, score: 35.6 },
-    { date: '26.04.08', rank: 35, prev: 33, blogCount: 435, searchVol: 2050, score: 27.4 },
-    { date: '26.04.07', rank: 33, prev: 38, blogCount: 428, searchVol: 2020, score: 30.1 },
+    { date: RECENT[0], rank: 25, prev: 30, blogCount: 468, searchVol: 2200, score: 41.3 },
+    { date: RECENT[1], rank: 30, prev: 27, blogCount: 462, searchVol: 2150, score: 34.8 },
+    { date: RECENT[2], rank: 27, prev: 32, blogCount: 455, searchVol: 2170, score: 38.9 },
+    { date: RECENT[3], rank: 32, prev: 29, blogCount: 448, searchVol: 2100, score: 31.2 },
+    { date: RECENT[4], rank: 29, prev: 35, blogCount: 440, searchVol: 2080, score: 35.6 },
+    { date: RECENT[5], rank: 35, prev: 33, blogCount: 435, searchVol: 2050, score: 27.4 },
+    { date: RECENT[6], rank: 33, prev: 38, blogCount: 428, searchVol: 2020, score: 30.1 },
   ]},
 ] as const
 

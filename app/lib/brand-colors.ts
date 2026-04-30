@@ -47,9 +47,8 @@ export const BRAND_GRAD = {
   baemin:    'bg-gradient-to-r from-[#2AC1BC] via-[#1DA5A0] to-[#0E877F]',
   yogiyo:    'bg-gradient-to-r from-[#FA0050] via-[#DA003C] to-[#B00030]',
   coupang:   'bg-gradient-to-r from-[#FF4B30] via-[#E03B20] to-[#C02A15]',
-  // 카카오는 노란색(#FEE500)이 브랜드지만 PageHeader 백색 텍스트 대비를 위해
-  // 어두운 카카오-브라운 톤으로 내린다.
-  kakao:     'bg-gradient-to-r from-[#D4A800] via-[#A67B00] to-[#6B4E00]',
+  // 카카오 공식 브랜드 옐로우 (텍스트는 PageHeader에서 dark 모드 적용)
+  kakao:     'bg-gradient-to-r from-[#FEE500] via-[#FAD900] to-[#F0C600]',
   // 마케팅 하위 페이지별 (15차-4)
   // 블로그 포스팅 — 에메랄드 (네이버 톤과 차별화)
   emerald:   'bg-gradient-to-r from-[#10B981] via-[#059669] to-[#047857]',

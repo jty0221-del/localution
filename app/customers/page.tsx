@@ -91,7 +91,7 @@ export default function CustomersPage() {
         // 비보안 컨텍스트 fallback
         const ta = document.createElement('textarea')
         ta.value = bulk; ta.style.position = 'fixed'; ta.style.opacity = '0'
-        document.body.appendChild(ta); ta.select(); document.execCommand('copy'); document.body.removeChild(ta)
+        document.body.appendChild(ta); ta.select(); try { document.execCommand('copy') } catch (_) {}; document.body.removeChild(ta)
       }
       // 2) KakaoTalk PC 실행 시도 (Windows 카톡PC 설치 시 자동 실행)
       //    실패해도 복사는 완료돼 있으므로 사용자가 수동으로 열어 붙여넣을 수 있음
@@ -121,8 +121,25 @@ export default function CustomersPage() {
       setMsgSent(true)
       setTimeout(() => { setMsgOpen(false); setMsgSent(false); setMsgText(''); setSelected([]) }, 2500)
     } else {
-      // Windows/Mac 데스크톱 → 클립보드 + Phone Link 안내
-      sendKakao() // 결과적으로 동일(복사 + 안내)
+      // Windows/Mac 데스크톱 → Phone Link 미설치 시 클립보드 복사 후 안내
+      setSendError(null)
+      const bulk = buildPersonalizedBlocks()
+      const copyText = async () => {
+        if (navigator.clipboard && window.isSecureContext) {
+          await navigator.clipboard.writeText(bulk)
+        } else {
+          const ta = document.createElement('textarea')
+          ta.value = bulk; ta.style.position = 'fixed'; ta.style.opacity = '0'
+          document.body.appendChild(ta); ta.select(); try { document.execCommand('copy') } catch (_) {}; document.body.removeChild(ta)
+        }
+        setMsgSent(true)
+        setTimeout(() => { setMsgOpen(false); setMsgSent(false); setMsgText(''); setSelected([]) }, 2500)
+      }
+      // Windows 10+의 Phone Link(휴대폰 연결) 앱 실행 시도
+      try {
+        window.open('ms-phone-link:', '_self')
+      } catch (_) {}
+      copyText().catch(() => setSendError('클립보드 복사 실패: 브라우저 권한 확인'))
     }
   }
 
@@ -291,17 +308,27 @@ export default function CustomersPage() {
               </div>
             ))
           ) : filtered.length === 0 ? (
-            <div className="text-center py-16 text-[#8B95A1]">
-              <div className="text-4xl mb-3">🧑‍🤝‍🧑</div>
-              <div className="text-sm mb-3">
+            <div className="text-center py-16 text-[#8B95A1] flex flex-col items-center">
+              {/* SVG 빈 상태 일러스트 */}
+              <svg width="80" height="80" viewBox="0 0 80 80" fill="none" className="mb-4 opacity-60" aria-hidden="true">
+                <circle cx="40" cy="40" r="38" fill="#EFF6FF" stroke="#DBEAFE" strokeWidth="2" />
+                <circle cx="28" cy="33" r="9" fill="#BFDBFE" />
+                <circle cx="52" cy="33" r="9" fill="#93C5FD" />
+                <path d="M18 58c0-8 9-14 22-14s22 6 22 14" stroke="#3182F6" strokeWidth="2.5" strokeLinecap="round" fill="none" />
+                <circle cx="40" cy="23" r="5" fill="#60A5FA" opacity="0.5" />
+              </svg>
+              <div className="text-sm font-semibold mb-1 text-[#4E5968]">
                 {customers.length === 0
                   ? '아직 등록된 고객이 없어요'
                   : '검색 조건에 맞는 고객이 없습니다'}
               </div>
+              <div className="text-xs text-[#8B95A1] mb-4 break-keep">
+                {customers.length === 0 ? '첫 고객을 추가하고 CRM을 시작해보세요' : '필터나 검색어를 바꿔보세요'}
+              </div>
               {customers.length === 0 && (
                 <button onClick={() => setAddOpen(true)}
-                  className="px-4 py-2 rounded-xl text-xs font-bold bg-[#3182F6] text-white">
-                  + 첫 고객 추가
+                  className="px-5 py-2.5 rounded-xl text-xs font-bold bg-[#3182F6] text-white hover:bg-[#1B64DA] transition-colors">
+                  + 첫 고객 추가하기
                 </button>
               )}
             </div>
@@ -414,7 +441,7 @@ export default function CustomersPage() {
                 <button
                   onClick={() => setSendMode('kakao')}
                   className={`py-2.5 rounded-lg text-xs font-bold transition-colors ${sendMode === 'kakao' ? 'bg-[#FEE500] text-[#191F28]' : 'bg-[#F2F4F6] text-[#8B95A1]'}`}>
-                  카톡 복사
+                  카카오톡 복사
                   <div className="text-[10px] opacity-70 font-normal">PC 카카오톡</div>
                 </button>
                 <button
@@ -469,7 +496,7 @@ export default function CustomersPage() {
                   </button>
                   <button onClick={sendMessage} disabled={!msgText.trim() || selected.length === 0}
                     className="flex-1 bg-[#3182F6] text-white py-3 rounded-xl text-sm font-bold hover:bg-[#1B64DA] disabled:opacity-40 transition-colors">
-                    {sendMode === 'kakao' ? '복사 + 카톡 열기' : 'SMS 발송'}
+                    {sendMode === 'kakao' ? '복사 + 카카오톡 열기' : 'SMS 발송'}
                   </button>
                 </div>
               )}

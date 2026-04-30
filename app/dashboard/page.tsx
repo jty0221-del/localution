@@ -190,15 +190,46 @@ function extractRegion(address?: string, storeName?: string, branch?: string): s
   return null
 }
 
-// 지역 기반 키워드 생성 (연동 전 노출용 데모, 단 실제 매장 지역 반영)
-function generateRegionKeywords(region: string): KeywordRank[] {
+// 플레이스(실시간) 페이지와 동일한 키워드 패턴 (업종별 접미어)
+const KW_PATTERNS: Record<string, string[]> = {
+  '맛집':     ['맛집', '회식', '점심', '데이트', '저녁'],
+  '카페':     ['카페', '브런치', '디저트', '스터디카페', '감성카페'],
+  '네일샵':   ['네일', '젤네일', '페디큐어', '네일아트', '속눈썹'],
+  '치과':     ['치과', '임플란트', '교정', '라미네이트', '스케일링'],
+  '미용실':   ['미용실', '염색', '펌', '남자컷', '헤어컷'],
+  '동물병원': ['동물병원', '건강검진', '예방접종', '중성화', '강아지'],
+  '학원':     ['학원', '과외', '입시학원', '영어학원', '수학학원'],
+  '피트니스': ['헬스장', 'PT', '필라테스', '요가', '크로스핏'],
+  '병원':     ['병원', '의원', '진료', '예약', '상담'],
+}
+const KW_RANKS = [3, 7, 12, 21, 34] as const
+const KW_PREV  = [5, 7, 15, 18, null] as const
+
+// 플레이스(실시간) 페이지의 buildMockData 와 동일한 키워드 생성
+function generateRegionKeywords(region: string, storeName?: string, category?: string): KeywordRank[] {
+  const cat = category || '맛집'
+  const suffixes = KW_PATTERNS[cat] || KW_PATTERNS['맛집']
+  const times = ['방금 전', '3분 전', '10분 전', '18분 전', '방금 전']
   return [
-    { keyword: `${region} 맛집`,     rank: 3,  prevRank: 5,   area: region, updatedAt: '방금 전' },
-    { keyword: `${region} 카페`,     rank: 7,  prevRank: 7,   area: region, updatedAt: '3분 전' },
-    { keyword: `${region} 점심`,     rank: 12, prevRank: 15,  area: region, updatedAt: '10분 전' },
-    { keyword: `${region} 회식`,     rank: 21, prevRank: 18,  area: region, updatedAt: '18분 전' },
-    { keyword: `${region} 데이트코스`, rank: 34, prevRank: null, area: region, updatedAt: '방금 전' },
+    { keyword: `${region} ${suffixes[0]}`,   rank: KW_RANKS[0], prevRank: KW_PREV[0] ?? null, area: region, updatedAt: times[0] },
+    { keyword: storeName ? `${storeName} ${region}` : `${region}역 ${suffixes[0]}`, rank: KW_RANKS[1], prevRank: KW_PREV[1] ?? null, area: region, updatedAt: times[1] },
+    { keyword: `${region}역 ${suffixes[0]}`, rank: KW_RANKS[2], prevRank: KW_PREV[2] ?? null, area: region, updatedAt: times[2] },
+    { keyword: `${region} ${suffixes[3] || suffixes[0]}`, rank: KW_RANKS[3], prevRank: KW_PREV[3] ?? null, area: region, updatedAt: times[3] },
+    { keyword: `${region} ${suffixes[1] || suffixes[0]}`, rank: KW_RANKS[4], prevRank: KW_PREV[4] ?? null, area: region, updatedAt: times[4] },
   ]
+}
+
+function inferCategoryFromStore(name: string): string | null {
+  if (!name) return null
+  if (/카페|커피|베이커리|브런치/.test(name)) return '카페'
+  if (/치과/.test(name)) return '치과'
+  if (/네일/.test(name)) return '네일샵'
+  if (/미용실|헤어샵|헤어|살롱/.test(name)) return '미용실'
+  if (/동물병원/.test(name)) return '동물병원'
+  if (/학원/.test(name)) return '학원'
+  if (/헬스|피트니스|요가|필라테스/.test(name)) return '피트니스'
+  if (/의원|한의원|정형외과|병원/.test(name)) return '병원'
+  return null
 }
 
 const RECENT_REVIEWS = [
@@ -664,6 +695,37 @@ const SERVICE_RANKING_INIT = [
   { id: 10, name: '세금계산서 자동 발행',      category: '행정', badge: '',     color: '#6B7280' },
 ]
 
+function QuickNav() {
+  const links = [
+    { href: '/dashboard',        label: '대시보드',   bg: '#EFF6FF', color: '#3182F6',  icon: 'DB' },
+    { href: '/reviews',          label: '리뷰 관리',  bg: '#FFFBEB', color: '#F59E0B',  icon: '리뷰' },
+    { href: '/marketing/place',  label: '마케팅 관리',bg: '#FFF7ED', color: '#EA580C',  icon: '마케' },
+    { href: '/qr-admin',         label: 'QR 관리',    bg: '#F5F3FF', color: '#8B5CF6',  icon: 'QR' },
+    { href: '/customers',        label: '고객 관리',  bg: '#ECFDF5', color: '#059669',  icon: '고객' },
+    { href: '/settings/profile', label: '매장 관리',  bg: '#FFF1F2', color: '#E11D48',  icon: '매장' },
+    { href: '/community',        label: '커뮤니티',   bg: '#FDF2F8', color: '#EC4899',  icon: '커뮤' },
+  ]
+  return (
+    <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
+      <div className="px-5 py-4 border-b border-[#F2F4F6]">
+        <span className="text-sm font-bold text-[#191F28]">빠른 이동</span>
+        <p className="text-[10px] text-[#8B95A1] mt-0.5">주요 메뉴 바로가기</p>
+      </div>
+      <div className="p-3 space-y-1">
+        {links.map(l => (
+          <Link key={l.href} href={l.href}
+            className="flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-[#F8F9FA] transition-colors group">
+            <div className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold flex-shrink-0"
+              style={{ background: l.bg, color: l.color }}>{l.icon}</div>
+            <span className="text-sm font-medium text-[#4E5968] group-hover:text-[#191F28]">{l.label}</span>
+            <ArrowRight size={12} strokeWidth={2.5} className="ml-auto text-[#D1D5DB] group-hover:text-[#3182F6] transition-colors" />
+          </Link>
+        ))}
+      </div>
+    </div>
+  )
+}
+
 function ServiceRanking() {
   const [items, setItems] = useState(SERVICE_RANKING_INIT.map((s, i) => ({ ...s, rank: i + 1, prevRank: i + 1, score: 100 - i * 8 })))
   const [isShuffling, setIsShuffling] = useState(false)
@@ -1064,17 +1126,20 @@ export default function Dashboard() {
     }
   }
 
-  // 프로필(매장 주소/이름) → 지역 기반 키워드 자동 생성
+  // 프로필(매장 주소/이름/업종) → 플레이스(실시간) 연동 키워드 자동 생성
   useEffect(() => {
     function syncKeywordsFromProfile() {
       try {
-        const raw = localStorage.getItem(LS_STORE)
-        const profile = raw ? JSON.parse(raw) : null
-        const region = extractRegion(profile?.address, profile?.storeName, profile?.branch)
+        const raw1 = localStorage.getItem('localution.store_info')
+        const raw2 = localStorage.getItem(LS_STORE)
+        const profile = raw1 ? JSON.parse(raw1) : raw2 ? JSON.parse(raw2) : null
+        const region = extractRegion(profile?.address || profile?.location, profile?.storeName || profile?.name, profile?.branch)
         if (region) {
+          const storeName = profile?.name || profile?.storeName || ''
+          const category = profile?.category || profile?.industry || inferCategoryFromStore(storeName) || '맛집'
           setStoreRegion(region)
-          setKeywords(generateRegionKeywords(region))
-          setMainKeyword(`${region} 맛집`)
+          setKeywords(generateRegionKeywords(region, storeName, category))
+          setMainKeyword(`${region} ${(KW_PATTERNS[category] || KW_PATTERNS['맛집'])[0]}`)
         } else {
           setStoreRegion(null)
           setKeywords([])
@@ -1451,7 +1516,7 @@ export default function Dashboard() {
               </div>
             </div>
           </div>
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
             {todayTasks.map(t => {
               const ready = t.ready
               const href = ready ? t.href : (t.connectHref || '/settings')
@@ -1496,7 +1561,7 @@ export default function Dashboard() {
         </div>
 
         {/* ── 25차-4: 신규 모듈 프로모 스트립 ── */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mb-5">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
           <Link
             href="/marketing/card-news"
             className="group relative overflow-hidden rounded-2xl p-5 bg-gradient-to-br from-[#EC4899] via-[#F43F5E] to-[#F97316] text-white shadow-sm hover:shadow-lg transition-all"
@@ -1555,26 +1620,27 @@ export default function Dashboard() {
               {isLoggedIn ? <>연동 관리 <ArrowRight size={11} strokeWidth={2.5} /></> : '로그인 후 연동 가능'}
             </a>
           </div>
-          <div className="grid grid-cols-4 sm:grid-cols-4 md:grid-cols-8 gap-2">
+          <div className="grid grid-cols-4 md:grid-cols-8 gap-1.5 md:gap-2">
             {platforms.map(p => (
               <button
                 key={p.id}
                 onClick={() => handlePlatformClick(p)}
                 className={[
-                  'flex flex-col items-center gap-1.5 p-2.5 rounded-xl transition-all cursor-pointer',
+                  'flex flex-col items-center gap-1 p-2 md:p-2.5 rounded-xl transition-all cursor-pointer',
                   p.connected
                     ? 'bg-white border border-[#E5E8EB] hover:border-[#3182F6] hover:shadow-md'
                     : 'bg-[#F8F9FA] border border-dashed border-[#E0E0E0] hover:border-[#3182F6] hover:bg-white',
                 ].join(' ')}
                 title={p.connected ? '클릭하여 연동 정보 수정' : '클릭하여 연동하기'}
               >
-                {p.logo(32)}
-                <span className="text-[10px] font-semibold text-[#4E5968] text-center leading-tight">{p.shortName}</span>
+                <span className="block md:hidden">{p.logo(26)}</span>
+                <span className="hidden md:block">{p.logo(32)}</span>
+                <span className="text-[9px] md:text-[10px] font-semibold text-[#4E5968] text-center leading-tight">{p.shortName}</span>
                 <span className={[
-                  'text-[9px] font-bold px-1.5 py-0.5 rounded-full',
+                  'text-[8px] md:text-[9px] font-bold px-1 md:px-1.5 py-0.5 rounded-full',
                   p.connected ? 'bg-[#E8FFF0] text-[#12B76A]' : 'bg-[#F2F4F6] text-[#8B95A1]',
                 ].join(' ')}>
-                  {p.connected ? '연동됨' : '연동하기'}
+                  {p.connected ? '연동됨' : '연동'}
                 </span>
               </button>
             ))}
@@ -1588,19 +1654,19 @@ export default function Dashboard() {
             <span className="text-xs text-[#8B95A1]">리뷰 플랫폼(네이버·구글·배민·요기요·쿠팡)을 연동하면 실데이터로 자동 교체됩니다</span>
           </div>
         )}
-        <div className="grid grid-cols-2 md:grid-cols-6 gap-3 mb-5">
+        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-6 gap-2 md:gap-3 mb-5">
           {stats.map((s, i) => (
-            <div key={i} className={`bg-white rounded-2xl shadow-sm p-4 ${!reviewPlatformConnected ? 'opacity-75' : ''}`}>
-              <div className="flex items-center gap-2 mb-2">
-                <span className="w-1 h-6 rounded-full" style={{ background: s.color }}/>
-                <span className="text-[11px] text-[#8B95A1] font-medium">{s.label}</span>
+            <div key={i} className={`bg-white rounded-2xl shadow-sm p-3 md:p-4 min-w-0 ${!reviewPlatformConnected ? 'opacity-75' : ''}`}>
+              <div className="flex items-center gap-1.5 mb-1.5">
+                <span className="w-1 h-5 rounded-full shrink-0" style={{ background: s.color }}/>
+                <span className="text-[10px] md:text-[11px] text-[#8B95A1] font-medium truncate">{s.label}</span>
               </div>
-              <p className="text-lg font-black text-[#191F28]">{s.value}</p>
-              <p className={`inline-flex items-center gap-0.5 text-[11px] font-bold mt-0.5 ${s.up ? 'text-[#12B76A]' : 'text-[#F04452]'}`}>
+              <p className="text-base md:text-lg font-black text-[#191F28] truncate">{s.value}</p>
+              <p className={`inline-flex items-center gap-0.5 text-[10px] font-bold mt-0.5 ${s.up ? 'text-[#12B76A]' : 'text-[#F04452]'}`}>
                 {s.up
-                  ? <ArrowUp size={11} strokeWidth={2.75} />
-                  : <ArrowDown size={11} strokeWidth={2.75} />}
-                <span>{s.sub}</span>
+                  ? <ArrowUp size={10} strokeWidth={2.75} />
+                  : <ArrowDown size={10} strokeWidth={2.75} />}
+                <span className="truncate">{s.sub}</span>
               </p>
             </div>
           ))}
@@ -1857,15 +1923,18 @@ export default function Dashboard() {
             </div>
           </div>
 
-          {/* 인기 서비스 랭킹 */}
-          <ServiceRanking />
+          {/* 우측: 빠른 이동 + 인기 서비스 랭킹 */}
+          <div className="flex flex-col gap-4">
+            <QuickNav />
+            <ServiceRanking />
+          </div>
         </div>
 
         {/* ── 최근 리뷰 ── */}
         <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-          <div className="px-5 py-4 border-b border-[#F2F4F6] flex items-center justify-between">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-sm font-bold text-[#191F28]">최근 리뷰</span>
+          <div className="px-4 md:px-5 py-4 border-b border-[#F2F4F6] flex items-start md:items-center justify-between gap-2">
+            <div className="flex items-center gap-1.5 md:gap-2 flex-wrap min-w-0">
+              <span className="text-sm font-bold text-[#191F28] shrink-0">최근 리뷰</span>
               {!hasRealReviews && (
                 <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-[#FEF3C7] text-[#92400E] font-bold">데모</span>
               )}

@@ -45,14 +45,15 @@ export async function POST(req: NextRequest) {
 
   try {
     const svc = createServiceClient()
-    // 미답변 + (none/draft/failed) 상태인 리뷰만 후보
+    // 미답변 + (null/none/draft/failed) 상태인 리뷰만 후보
+    // 주의: reply_status 가 DB에서 NULL 일 때 .in() 은 매칭 안 되므로 .or() 로 처리
     const { data, error } = await svc
       .from('platform_reviews')
       .select('id, draft_reply, reply_status, has_reply, posted_at, collected_at')
       .eq('user_id', userId)
       .eq('platform', platform)
       .eq('has_reply', false)
-      .in('reply_status', ['none', 'draft', 'failed'])
+      .or('reply_status.is.null,reply_status.in.(none,draft,failed)')
       .order('posted_at', { ascending: false, nullsFirst: false })
       .limit(50)
 

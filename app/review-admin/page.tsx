@@ -12,6 +12,7 @@ import Link from 'next/link'
 import Sidebar from '../components/Sidebar'
 import Footer from '../components/Footer'
 import PageHeader from '../components/PageHeader'
+import PlatformHealthStatus from './components/PlatformHealthStatus'
 
 export const dynamic = 'force-dynamic'
 
@@ -21,8 +22,8 @@ export const dynamic = 'force-dynamic'
 function BaeminLogo({ size = 28 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
-      <rect width="48" height="48" rx="12" fill="#2AC1BC"/>
-      <text x="24" y="31" fontSize="18" fontWeight="900" fill="#1A1A1A"
+      <rect width="48" height="48" rx="12" fill="#2DDDC8"/>
+      <text x="24" y="32" fontSize="19" fontWeight="900" fill="white"
         fontFamily="'Apple SD Gothic Neo','Noto Sans KR',sans-serif"
         textAnchor="middle" letterSpacing="-0.5">배민</text>
     </svg>
@@ -32,23 +33,24 @@ function YogiyoLogo({ size = 28 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
       <rect width="48" height="48" rx="12" fill="#E5007F"/>
-      <text x="24" y="23" fontSize="11" fontWeight="900" fill="white"
-        fontFamily="'Apple SD Gothic Neo','Noto Sans KR',sans-serif" textAnchor="middle">요기요</text>
-      <circle cx="24" cy="33" r="4" fill="white"/>
-      <path d="M16 43 Q24 39 32 43" stroke="white" strokeWidth="2.2" fill="none" strokeLinecap="round"/>
+      <text x="24" y="32" textAnchor="middle" fontSize="16" fontWeight="900"
+        fill="white" fontFamily="'Apple SD Gothic Neo','Noto Sans KR',sans-serif"
+        letterSpacing="-0.8">요기요</text>
     </svg>
   )
 }
 function CoupangEatsLogo({ size = 28 }: { size?: number }) {
   return (
     <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
-      <rect width="48" height="48" rx="12" fill="white" stroke="#E5E7EB" strokeWidth="1.5"/>
-      <text x="5" y="25" fontSize="9.5" fontWeight="800" fontFamily="Arial,sans-serif" letterSpacing="0.2">
+      <rect width="48" height="48" rx="10" fill="white" stroke="#E5E7EB" strokeWidth="1.5"/>
+      <text x="24" y="19" textAnchor="middle" fontSize="9" fontWeight="800"
+        fontFamily="Arial,'Helvetica Neue',sans-serif" letterSpacing="0.3">
         <tspan fill="#E31837">c</tspan><tspan fill="#F4A900">o</tspan><tspan fill="#E31837">u</tspan>
         <tspan fill="#5BAD48">p</tspan><tspan fill="#3B79BE">a</tspan><tspan fill="#E31837">n</tspan>
         <tspan fill="#F4A900">g</tspan>
       </text>
-      <text x="5" y="39" fontSize="13" fontWeight="900" fill="#4A2C0A" fontFamily="Arial,sans-serif">eats</text>
+      <text x="24" y="35" textAnchor="middle" fontSize="14" fontWeight="900"
+        fill="#5C3317" fontFamily="Arial,'Helvetica Neue',sans-serif">eats</text>
     </svg>
   )
 }
@@ -56,7 +58,7 @@ function CoupangEatsLogo({ size = 28 }: { size?: number }) {
 // ─────────────────────────────────────────
 // 상수
 // ─────────────────────────────────────────
-const ALL_PLATFORMS = ['naver', 'baemin', 'yogiyo', 'coupang', 'kakao'] as const
+const ALL_PLATFORMS = ['naver', 'baemin', 'yogiyo', 'coupang', 'kakao', 'google'] as const
 type PlatformKey = typeof ALL_PLATFORMS[number]
 
 // hub key → stores/me slug 매핑
@@ -66,6 +68,7 @@ const HUB_TO_SLUG: Record<PlatformKey, string> = {
   yogiyo:  'yogiyo',
   coupang: 'coupangeats',
   kakao:   'kakao_map',
+  google:  'google',
 }
 
 type LogoFC = React.FC<{ size?: number }>
@@ -79,6 +82,7 @@ const PLATFORM_META: Record<PlatformKey, {
   yogiyo:  { label: '요기요',           color: '#E5007F', bg: '#FEF0EB', textColor: '#B32B00', icon: 'Y', Logo: YogiyoLogo,       detailPath: '/review-admin/yogiyo' },
   coupang: { label: '쿠팡이츠',         color: '#FF5A00', bg: '#FFF3F0', textColor: '#900000', icon: 'C', Logo: CoupangEatsLogo,  detailPath: '/review-admin/coupang' },
   kakao:   { label: '카카오맵',         color: '#FEE500', bg: '#FFFBE0', textColor: '#1A1A1A', icon: 'K', detailPath: '/review-admin/kakao' },
+  google:  { label: '구글',              color: '#4285F4', bg: '#EBF3FE', textColor: '#1A56B0', icon: 'G', detailPath: '/review-admin/google' },
 }
 
 interface PlatformStat {
@@ -237,6 +241,9 @@ export default function ReviewAdminHub() {
           />
 
           <div className="max-w-5xl mx-auto p-4 md:p-6 w-full">
+
+            {/* ─── 플랫폼 자가점검 상태 ─── */}
+            <PlatformHealthStatus />
 
             {/* ─── 요약 통계 ─── */}
             <div className="grid grid-cols-3 gap-3 md:gap-4 mb-6">
@@ -410,7 +417,7 @@ export default function ReviewAdminHub() {
                             {typeof r.rating === 'number' && <Stars n={r.rating} color={meta.color} />}
                             <span className="text-[10px] text-[#8B95A1]">{timeAgo(r.date)}</span>
                             {r.replied ? (
-                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#ECFDF5] text-[#059669] font-semibold">답글완료</span>
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#ECFDF5] text-[#059669] font-semibold">답글 완료</span>
                             ) : (
                               <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#FEF3C7] text-[#92400E] font-semibold">미답변</span>
                             )}

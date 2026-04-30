@@ -20,10 +20,10 @@ interface Review {
 }
 
 const DEMO_REVIEWS: Review[] = [
-  { id: 1, author: 'J. Kim', rating: 5, content: 'Great food and cozy atmosphere. Service was excellent. Will definitely come back!', date: '5시간 전', replied: true },
-  { id: 2, author: 'Sarah L.', rating: 4, content: 'Nice place for dinner. The bibimbap was really good. A bit pricey though.', date: '1일 전', replied: false },
-  { id: 3, author: 'Mike P.', rating: 5, content: 'Best Korean restaurant in Gangnam! The BBQ set menu is a must-try.', date: '3일 전', replied: false },
-  { id: 4, author: 'Y. Park', rating: 3, content: 'Food was okay but waiting time was a bit long. Interior is nice though.', date: '5일 전', replied: false },
+  { id: 1, author: '김민준', rating: 5, content: '분위기도 좋고 음식도 정말 맛있어요. 서비스도 친절하고 다음에 또 오고 싶은 곳이에요!', date: '5시간 전', replied: true },
+  { id: 2, author: '이서연', rating: 4, content: '저녁 식사하기 좋은 곳이에요. 음식 맛은 훌륭한데 가격이 조금 있는 편이에요.', date: '1일 전', replied: false },
+  { id: 3, author: '박지훈', rating: 5, content: '이 근처에서 제일 맛있는 곳이에요! 세트 메뉴 강추합니다. 재방문 의사 100%', date: '3일 전', replied: false },
+  { id: 4, author: '최수아', rating: 3, content: '음식 맛은 괜찮은데 대기 시간이 조금 길었어요. 인테리어는 예뻐서 사진 찍기 좋아요.', date: '5일 전', replied: false },
 ]
 
 const PLATFORM = {

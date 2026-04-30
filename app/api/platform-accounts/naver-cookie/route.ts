@@ -88,6 +88,36 @@ function parseCookieStr(str: string): { aut: string; ses: string } | null {
   return { aut, ses: ses || aut }
 }
 
+/** 쿠키 문자열에서 전체 쿠키 배열 추출 (SmartPlace 전용 쿠키 포함) */
+function parseAllCookiesFromStr(str: string): object[] | null {
+  const clean = str.replace(/^cookie:\s*/i, '').trim()
+  const nowSec = Math.floor(Date.now() / 1000)
+  const cookies: object[] = []
+
+  for (const part of clean.split(/;\s*/)) {
+    const eqIdx = part.indexOf('=')
+    if (eqIdx < 0) continue
+    const name = part.slice(0, eqIdx).trim()
+    const value = part.slice(eqIdx + 1).trim()
+    if (!name || !value) continue
+
+    // SmartPlace 전용 쿠키는 new.smartplace.naver.com 도메인
+    const isSmartPlace = name.startsWith('nstore_') || name === 'smart_biz_session'
+    cookies.push({
+      name,
+      value,
+      domain: isSmartPlace ? 'new.smartplace.naver.com' : '.naver.com',
+      path: '/',
+      httpOnly: false,
+      secure: true,
+      expires: nowSec + 86400 * 30,
+    })
+  }
+
+  if (!cookies.some((c: any) => c.name === 'NID_AUT')) return null
+  return cookies
+}
+
 function makeCookieArr(aut: string, ses: string): object[] {
   const nowSec = Math.floor(Date.now() / 1000)
   return [
@@ -117,13 +147,12 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // ?cookie_str=... → 파싱 후 저장
+  // ?cookie_str=... → 전체 쿠키 파싱 후 저장
   if (cookieStrParam) {
-    const parsed = parseCookieStr(decodeURIComponent(cookieStrParam))
-    if (!parsed) return NextResponse.json({ ok: false, error: 'NID_AUT를 찾을 수 없어요' }, { status: 400 })
+    const allArr = parseAllCookiesFromStr(decodeURIComponent(cookieStrParam))
+    if (!allArr) return NextResponse.json({ ok: false, error: 'NID_AUT를 찾을 수 없어요' }, { status: 400 })
     try {
-      const arr = makeCookieArr(parsed.aut, parsed.ses)
-      const now = await saveCookieJson(auth.userId!, JSON.stringify(arr))
+      const now = await saveCookieJson(auth.userId!, JSON.stringify(allArr))
       return NextResponse.json({ ok: true, message: '쿠키 저장 완료!', updated_at: now })
     } catch (e: any) {
       return NextResponse.json({ ok: false, error: e?.message }, { status: 500 })
@@ -159,11 +188,10 @@ export async function POST(req: NextRequest) {
     const arr = makeCookieArr(String(body.nid_aut).trim(), String(body.nid_ses || body.nid_aut).trim())
     cookieJson = JSON.stringify(arr)
   } else if (body.cookie_str) {
-    // 쿠키 헤더 문자열
-    const parsed = parseCookieStr(String(body.cookie_str))
-    if (!parsed) return NextResponse.json({ ok: false, error: 'NID_AUT를 찾을 수 없어요' }, { status: 400 })
-    const arr = makeCookieArr(parsed.aut, parsed.ses)
-    cookieJson = JSON.stringify(arr)
+    // 쿠키 헤더 문자열 — 전체 쿠키 배열로 파싱 (nstore_session 포함)
+    const allArr = parseAllCookiesFromStr(String(body.cookie_str))
+    if (!allArr) return NextResponse.json({ ok: false, error: 'NID_AUT를 찾을 수 없어요' }, { status: 400 })
+    cookieJson = JSON.stringify(allArr)
   } else if (Array.isArray(body)) {
     // 배열 직접
     cookieJson = JSON.stringify(body)

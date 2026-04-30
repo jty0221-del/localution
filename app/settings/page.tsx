@@ -1076,7 +1076,7 @@ function ConnectTab() {
   const PLATFORMS_8: Array<{ key: PlatformId; label: string; logo: any; color: string; desc: string; cat: string }> = [
     { key: 'naver',   label: '네이버 플레이스', logo: <NaverLogoS />,   color: '#03C75A', desc: '네이버 리뷰·검색 연동',      cat: '리뷰·검색' },
     { key: 'google',  label: '구글 비즈니스',   logo: <GoogleLogoS />,  color: '#4285F4', desc: '구글 마이비즈니스 연동',     cat: '리뷰·검색' },
-    { key: 'kakao',   label: '카카오톡 채널',   logo: <KakaoLogoS />,   color: '#FEE500', desc: '카톡 알림톡·채널 연동',       cat: '메시지' },
+    { key: 'kakao',   label: '카카오톡 채널',   logo: <KakaoLogoS />,   color: '#FEE500', desc: '카카오톡 알림톡·채널 연동',       cat: '메시지' },
     { key: 'baemin',  label: '배달의민족',      logo: <BaeminLogoS />,  color: '#2AC1BC', desc: '배민 주문·리뷰 관리',         cat: '배달' },
     { key: 'yogiyo',  label: '요기요',          logo: <YogiyoLogoS />,  color: '#FA3C00', desc: '요기요 주문·리뷰 연동',       cat: '배달' },
     { key: 'coupang', label: '쿠팡이츠',        logo: <CoupangLogoS />, color: '#FF4B30', desc: '쿠팡이츠 주문·리뷰 연동',     cat: '배달' },
@@ -1179,7 +1179,7 @@ function ConnectTab() {
     }
     const name = await promptDialog(`${label} 연동 매장명을 입력해주세요`, {
       title: `${label} 연동`,
-      placeholder: '예: 하랑마케팅 본점',
+      placeholder: '예: 강남 본점',
       okText: '연동',
     })
     if (!name) return

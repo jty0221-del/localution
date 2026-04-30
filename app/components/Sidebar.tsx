@@ -5,10 +5,10 @@ import Link from 'next/link'
 import { usePathname, useSearchParams, useRouter } from 'next/navigation'
 
 const FLAT_NAV = [
-  { href: '/dashboard', label: '대시보드',  icon: 'DB',  colors: { bg: '#EFF6FF', text: '#3182F6' } },
-  { href: '/qr-admin',  label: 'QR 관리',   icon: 'QR',  colors: { bg: '#F5F3FF', text: '#8B5CF6' } },
-  { href: '/customers', label: '고객 관리', icon: '고객', colors: { bg: '#ECFDF5', text: '#059669' } },
-  { href: '/store',     label: '매장 관리', icon: '매장', colors: { bg: '#FFF1F2', text: '#E11D48' } },
+  { href: '/dashboard',        label: '대시보드', icon: 'DB',  colors: { bg: '#EFF6FF', text: '#3182F6' } },
+  { href: '/qr-admin',         label: 'QR 관리',  icon: 'QR',  colors: { bg: '#F5F3FF', text: '#8B5CF6' } },
+  { href: '/customers',        label: '고객 관리',icon: '고객', colors: { bg: '#ECFDF5', text: '#059669' } },
+  { href: '/settings/profile', label: '매장 관리',icon: '매장', colors: { bg: '#FFF1F2', text: '#E11D48' } },
 ]
 
 const REVIEW_SUB = [
@@ -20,10 +20,43 @@ const REVIEW_SUB = [
   { href: '/review-admin/coupang', label: '쿠팡이츠',   platform: 'coupang', color: '#FF4B30' },
 ]
 
-const MARKETING_SUB = [
-  { href: '/marketing/place',        label: '플레이스 진단',   icon: '📍' },
-  { href: '/marketing/keyword-rank', label: '키워드 순위',     icon: '🔍' },
-  { href: '/marketing/keyword-score',label: '키워드 점수분석', icon: '📊' },
+const MARKETING_TOP = { href: '/my/platforms', label: '플랫폼 통합관리', icon: '🔗' }
+
+const MARKETING_GROUPS = [
+  {
+    platform: '네이버',
+    color: '#03C75A',
+    items: [
+      { href: '/marketing/place',         label: '플레이스 진단' },
+      { href: '/marketing/keyword-rank',  label: '플레이스(실시간)' },
+      { href: '/marketing/keyword-score', label: '플레이스 분석' },
+      { href: '/marketing/blog-post',     label: '블로그 글 작성' },
+      { href: '/marketing/blog-tracking', label: '블로그 순위 추적' },
+      { href: '/marketing/naver-ads',     label: '키워드 조회/분석' },
+    ],
+  },
+  {
+    platform: '인스타',
+    color: '#E1306C',
+    items: [
+      { href: '/marketing/reels',     label: '릴스·숏폼' },
+      { href: '/marketing/card-news', label: '카드뉴스' },
+    ],
+  },
+  {
+    platform: '구글',
+    color: '#4285F4',
+    items: [
+      { href: '/marketing/place', label: '구글 마케팅', badge: '준비중' },
+    ],
+  },
+  {
+    platform: '카카오',
+    color: '#F5A623',
+    items: [
+      { href: '/marketing/place', label: '카카오 마케팅', badge: '준비중' },
+    ],
+  },
 ]
 
 const REGIONS = [
@@ -70,21 +103,32 @@ function PlatformLogoSmall({ platform }: { platform: string }) {
     </svg>
   )
   if (platform === 'baemin') return (
-    <svg width="18" height="18" viewBox="0 0 48 48" fill="none" style={{flexShrink:0}}>
-      <rect width="48" height="48" rx="12" fill="#2AC1BC"/>
-      <path d="M14 34V14h11c3 0 6 1.8 6 5 0 2-.9 3.5-2.4 4.4 2.2.9 3.7 2.7 3.7 5C32.3 32 29 34 25.5 34H14zm5-12h5c1.3 0 2.2-.8 2.2-2s-.9-2-2.2-2h-5v4zm0 8.5h5.5c1.7 0 2.7-1 2.7-2.2s-1-2.2-2.7-2.2H19v4.4z" fill="white"/>
+    <svg width="16" height="16" viewBox="0 0 32 32" fill="none" style={{flexShrink:0}}>
+      <rect width="32" height="32" rx="7" fill="#2DDDC8"/>
+      <text x="16" y="22" textAnchor="middle" fontSize="13" fontWeight="900"
+        fill="white" fontFamily="'Apple SD Gothic Neo','Noto Sans KR',sans-serif"
+        letterSpacing="-0.3">배민</text>
     </svg>
   )
   if (platform === 'yogiyo') return (
     <svg width="18" height="18" viewBox="0 0 48 48" fill="none" style={{flexShrink:0}}>
       <rect width="48" height="48" rx="12" fill="#E5007F"/>
-      <path d="M10 12L24 30V44h5V30L43 12H36L24 26 12 12H10Z" fill="white"/>
+      <text x="24" y="32" textAnchor="middle" fontSize="16" fontWeight="900"
+        fill="white" fontFamily="'Apple SD Gothic Neo','Noto Sans KR',sans-serif"
+        letterSpacing="-0.8">요기요</text>
     </svg>
   )
   if (platform === 'coupang') return (
     <svg width="18" height="18" viewBox="0 0 48 48" fill="none" style={{flexShrink:0}}>
-      <rect width="48" height="48" rx="12" fill="#FF4B30"/>
-      <path d="M27 8L12 26h10L19 40l21-18H29L34 8H27Z" fill="white"/>
+      <rect width="48" height="48" rx="10" fill="white" stroke="#E5E7EB" strokeWidth="2"/>
+      <text x="24" y="19" textAnchor="middle" fontSize="9" fontWeight="800"
+        fontFamily="Arial,sans-serif" letterSpacing="0.3">
+        <tspan fill="#E31837">c</tspan><tspan fill="#F4A900">o</tspan><tspan fill="#E31837">u</tspan>
+        <tspan fill="#5BAD48">p</tspan><tspan fill="#3B79BE">a</tspan><tspan fill="#E31837">n</tspan>
+        <tspan fill="#F4A900">g</tspan>
+      </text>
+      <text x="24" y="35" textAnchor="middle" fontSize="14" fontWeight="900"
+        fill="#5C3317" fontFamily="Arial,sans-serif">eats</text>
     </svg>
   )
   return null
@@ -207,25 +251,50 @@ export default function Sidebar() {
     ? storeBranch
     : (storeAddr ? storeAddr.slice(0, 18) : (userEmail || ''))
 
+  const renderFlatNav = (item: typeof FLAT_NAV[0]) => {
+    const active = pathname === item.href
+    return (
+      <Link key={item.href} href={item.href} onClick={() => setMobileOpen(false)}
+        className={"flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all " + (active ? 'bg-[#EFF6FF] text-[#3182F6] font-semibold' : 'text-[#4E5968] hover:bg-[#F2F4F6] font-medium')}>
+        <div className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold flex-shrink-0"
+          style={active ? { background: '#3182F6', color: '#fff' } : { background: item.colors.bg, color: item.colors.text }}>
+          {item.icon}
+        </div>
+        <span className="text-sm">{item.label}</span>
+        {active && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-[#3182F6]" />}
+      </Link>
+    )
+  }
+
   const NavItems = () => (
     <nav className="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
 
-      {FLAT_NAV.map(item => {
-        const active = pathname === item.href
-        return (
-          <Link key={item.href} href={item.href} onClick={() => setMobileOpen(false)}
-            className={"flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all " + (active ? 'bg-[#EFF6FF] text-[#3182F6] font-semibold' : 'text-[#4E5968] hover:bg-[#F2F4F6] font-medium')}>
-            <div className="w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold flex-shrink-0"
-              style={active ? { background: '#3182F6', color: '#fff' } : { background: item.colors.bg, color: item.colors.text }}>
-              {item.icon}
-            </div>
-            <span className="text-sm">{item.label}</span>
-            {active && <span className="ml-auto w-1.5 h-1.5 rounded-full bg-[#3182F6]" />}
-          </Link>
-        )
-      })}
+      {/* 1. 대시보드 */}
+      {renderFlatNav(FLAT_NAV[0])}
 
-      {/* 리뷰 관리 */}
+      {/* 1-1. 플랫폼 통합관리 — STEP 1 강조 */}
+      <Link href="/my/platforms" onClick={() => setMobileOpen(false)}
+        className={"relative flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all border " + (pathname === '/my/platforms' ? 'bg-[#EFF6FF] text-[#3182F6] font-semibold border-[#3182F6]/30' : 'bg-[#EFF6FF] text-[#1D4ED8] font-semibold border-[#BFDBFE] hover:bg-[#DBEAFE]')}>
+        <div className="relative w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold flex-shrink-0"
+          style={{ background: '#3182F6', color: '#fff' }}>
+          🔗
+          {pathname !== '/my/platforms' && (
+            <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[#EF4444] border-2 border-white animate-pulse" />
+          )}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-xs font-bold leading-none">플랫폼 연결</p>
+          <p className="text-[10px] text-[#3182F6] font-normal leading-none mt-0.5">리뷰·마케팅 시작 전 필수</p>
+        </div>
+        {pathname !== '/my/platforms' && (
+          <span className="flex-shrink-0 text-[9px] font-black px-1.5 py-0.5 rounded-full bg-[#3182F6] text-white">STEP 1</span>
+        )}
+        {pathname === '/my/platforms' && (
+          <span className="ml-auto w-1.5 h-1.5 rounded-full bg-[#3182F6]" />
+        )}
+      </Link>
+
+      {/* 2. 리뷰 관리 */}
       <div>
         <button onClick={() => setReviewOpen(v => !v)}
           className={"w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left " + (isReviewSection ? 'bg-[#FFFBEB] text-[#F59E0B] font-semibold' : 'text-[#4E5968] hover:bg-[#F2F4F6] font-medium')}>
@@ -264,22 +333,46 @@ export default function Sidebar() {
           <span className={"ml-auto text-xs transition-transform duration-200 " + (marketingOpen ? 'rotate-180' : '')}>▾</span>
         </button>
         {marketingOpen && (
-          <div className="mt-1 ml-3 pl-4 border-l-2 border-[#FFE4CC] space-y-0.5">
-            {MARKETING_SUB.map(sub => {
-              const active = pathname === sub.href
-              return (
-                <Link key={sub.href} href={sub.href} onClick={() => setMobileOpen(false)}
-                  className={"flex items-center gap-2.5 px-3 py-2 rounded-xl " + (active ? 'bg-[#FFF7ED] text-[#EA580C] font-semibold' : 'text-[#4E5968] hover:bg-[#F8F9FA] font-medium')}>
-                  <span>{sub.icon}</span>
-                  <span className="text-xs">{sub.label}</span>
-                </Link>
-              )
-            })}
+          <div className="mt-1 ml-3 pl-4 border-l-2 border-[#FFE4CC] space-y-1">
+            {/* 플랫폼 그룹 */}
+            {MARKETING_GROUPS.map(group => (
+              <div key={group.platform}>
+                <div className="flex items-center gap-2 px-3 py-1 mt-1">
+                  <span className="text-[10px] font-black tracking-wide" style={{ color: group.color }}>{group.platform}</span>
+                  <div className="flex-1 h-px" style={{ background: group.color + '33' }} />
+                </div>
+                <div className="space-y-0.5">
+                  {group.items.map((sub, si) => {
+                    const active = pathname === sub.href && !('badge' in sub && sub.badge === '준비중')
+                    const isReady = !('badge' in sub && sub.badge === '준비중')
+                    return (
+                      <Link key={sub.href + si} href={isReady ? sub.href : '#'} onClick={() => isReady && setMobileOpen(false)}
+                        className={"flex items-center gap-2.5 px-3 py-1.5 rounded-xl " + (active ? 'bg-[#FFF7ED] text-[#EA580C] font-semibold' : isReady ? 'text-[#4E5968] hover:bg-[#F8F9FA] font-medium' : 'text-[#B0B8C1] cursor-default font-medium')}>
+                        <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: active ? '#EA580C' : isReady ? '#D1D5DB' : '#E5E8EB' }} />
+                        <span className="text-xs flex-1">{sub.label}</span>
+                        {'badge' in sub && sub.badge && (
+                          <span className="text-[8px] px-1.5 py-0.5 rounded-full bg-[#F2F4F6] text-[#8B95A1] font-bold flex-shrink-0">{sub.badge}</span>
+                        )}
+                      </Link>
+                    )
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
         )}
       </div>
 
-      {/* 커뮤니티 */}
+      {/* 4. QR 관리 */}
+      {renderFlatNav(FLAT_NAV[1])}
+
+      {/* 5. 고객 관리 */}
+      {renderFlatNav(FLAT_NAV[2])}
+
+      {/* 6. 매장 관리 */}
+      {renderFlatNav(FLAT_NAV[3])}
+
+      {/* 7. 커뮤니티 */}
       <div>
         <button onClick={() => setCommunityOpen(v => !v)}
           className={"w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all text-left " + (isCommunitySection ? 'bg-[#FDF2F8] text-[#EC4899] font-semibold' : 'text-[#4E5968] hover:bg-[#F2F4F6] font-medium')}>

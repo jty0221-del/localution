@@ -37,6 +37,7 @@ import { rateLimit, getClientIp } from '@/app/lib/rate-limit'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
+export const maxDuration = 60
 
 // ── 언어 감지 ────────────────────────────────────────────
 function detectLang(text: string): string {
@@ -530,54 +531,102 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, reply, lang, reviewType, mode: 'mock' })
     }
 
-    // 6) 모델 선택: 사진 있으면 sonnet(비전 성능↑), 없으면 haiku(속도↑)
-    const model = hasPhotos ? 'claude-sonnet-4-6' : 'claude-haiku-4-5-20251001'
-
-    const resp = await fetch('https://api.anthropic.com/v1/messages', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-      },
-      body: JSON.stringify({
-        model,
-        max_tokens: 1200,
-        system: systemPrompt,
-        messages: [{ role: 'user', content: userContent }],
-      }),
-    })
-
-    if (!resp.ok) {
-      const errText = await resp.text()
-      console.error('[ai-review-reply] Claude API error:', resp.status, errText.slice(0, 500))
-      // 사진 업로드 실패 시 사진 없이 재시도 (Vision URL 거부 대응)
-      if (hasPhotos) {
-        const retry = await fetch('https://api.anthropic.com/v1/messages', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'x-api-key': apiKey,
-            'anthropic-version': '2023-06-01',
-          },
-          body: JSON.stringify({
-            model: 'claude-haiku-4-5-20251001',
-            max_tokens: 1200,
-            system: systemPrompt,
-            messages: [{ role: 'user', content: [{ type: 'text', text: textPart }] }],
-          }),
+    // 6) /v1/models API로 계정에서 실제 사용 가능한 모델 동적 조회
+    const pickModels = async (): Promise<string[]> => {
+      try {
+        const r = await fetch('https://api.anthropic.com/v1/models', {
+          headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
+          signal: AbortSignal.timeout(6000),
+          cache: 'no-store',
         })
-        if (retry.ok) {
-          const d2 = await retry.json()
-          let reply2 = d2.content?.[0]?.text?.trim() || '답변 생성 실패'
-          if (isExpert) reply2 = stripArtifacts(reply2, true)
-          return NextResponse.json({ ok: true, reply: reply2, lang, reviewType, mode: 'text-fallback' })
+        if (r.ok) {
+          const d = await r.json()
+          const ids: string[] = (d.data || []).map((m: any) => String(m.id))
+          if (ids.length > 0) {
+            // haiku 계열 우선(저렴·빠름) → sonnet → 그 외
+            return [
+              ...ids.filter(id => id.includes('haiku')),
+              ...ids.filter(id => id.includes('sonnet') && !id.includes('haiku')),
+              ...ids.filter(id => !id.includes('haiku') && !id.includes('sonnet')),
+            ]
+          }
         }
-      }
-      return NextResponse.json({ ok: false, error: 'AI 서버 오류' }, { status: 500 })
+      } catch { /* ignore */ }
+      // /v1/models 실패 시 알려진 모델 목록 fallback
+      return [
+        'claude-3-5-haiku-20241022',
+        'claude-3-haiku-20240307',
+        'claude-3-5-sonnet-20241022',
+        'claude-3-sonnet-20240229',
+        'claude-3-opus-20240229',
+      ]
+    }
+    const MODEL_CANDIDATES = await pickModels()
+
+    // Claude API 호출 헬퍼
+    const callClaude = async (
+      m: string,
+      content: typeof userContent,
+    ): Promise<{ status: number; ok: boolean; text: string }> => {
+      const r = await fetch('https://api.anthropic.com/v1/messages', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-api-key': apiKey,
+          'anthropic-version': '2023-06-01',
+        },
+        body: JSON.stringify({
+          model: m, max_tokens: 1200,
+          system: systemPrompt,
+          messages: [{ role: 'user', content }],
+        }),
+        signal: AbortSignal.timeout(30000),
+      })
+      const text = await r.text()
+      return { status: r.status, ok: r.ok, text }
     }
 
-    const data = await resp.json()
+    // 모델 순차 시도 (404 = 해당 모델 미지원 → 다음 모델로)
+    let usedModel = MODEL_CANDIDATES[0]
+    let respStatus = 0
+    let respText = ''
+    let respOk = false
+
+    for (const candidate of MODEL_CANDIDATES) {
+      const result = await callClaude(candidate, userContent)
+      usedModel = candidate
+      respStatus = result.status
+      respText = result.text
+      respOk = result.ok
+      if (result.status !== 404) break  // 404 아니면 (성공이든 다른 오류든) 중단
+    }
+
+    if (!respOk) {
+      console.error('[ai-review-reply] Claude error:', respStatus, respText.slice(0, 400))
+      let claudeErrMsg = `HTTP ${respStatus}`
+      try {
+        const errJson = JSON.parse(respText)
+        const msg = errJson?.error?.message || errJson?.message || ''
+        if (msg) claudeErrMsg = `HTTP ${respStatus}: ${String(msg).slice(0, 100)}`
+      } catch { /* ignore */ }
+      // 사진 있을 때 → 텍스트만으로 재시도
+      if (hasPhotos) {
+        for (const candidate of MODEL_CANDIDATES) {
+          const retry = await callClaude(candidate, [{ type: 'text', text: textPart }])
+          if (retry.status === 404) continue
+          if (retry.ok) {
+            const d2 = JSON.parse(retry.text)
+            let reply2 = d2.content?.[0]?.text?.trim() || '답변 생성 실패'
+            if (isExpert) reply2 = stripArtifacts(reply2, true)
+            return NextResponse.json({ ok: true, reply: reply2, lang, reviewType, mode: 'text-fallback', meta: { model: candidate } })
+          }
+          break
+        }
+      }
+      return NextResponse.json({ ok: false, error: claudeErrMsg }, { status: 500 })
+    }
+
+    const data = JSON.parse(respText)
     let reply = data.content?.[0]?.text?.trim() || '답변 생성 실패'
     if (isExpert) reply = stripArtifacts(reply, true)
 
@@ -587,7 +636,7 @@ export async function POST(req: NextRequest) {
       lang,
       reviewType,
       mode: hasPhotos ? 'vision' : 'text',
-      meta: { model, photos: photos.length, region, storeName, mainKeyword },
+      meta: { model: usedModel, photos: photos.length, region, storeName, mainKeyword },
     })
   } catch (err: any) {
     console.error('[ai-review-reply] exception:', err?.message || err)

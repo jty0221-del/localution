@@ -34,7 +34,7 @@ export async function GET(req: NextRequest) {
       .from('platform_credentials')
       .select('user_id, platform_store_id, last_login_status')
       .eq('platform', platform)
-      .neq('last_login_status', 'disabled')
+      .or('last_login_status.neq.disabled,last_login_status.is.null')
 
     if (error) {
       results[platform].errors.push('DB 조회 실패: ' + error.message)

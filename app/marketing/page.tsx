@@ -49,7 +49,7 @@ const diagData = [
   { category: '리뷰 관리', items: [
     { label: '리뷰 수', status: 'ok' as const, desc: '127개 (업종 평균 이상)', score: 10 },
     { label: '평균 평점', status: 'ok' as const, desc: '4.6점', score: 10 },
-    { label: '사장님 댓글 답변율', status: 'warn' as const, desc: '62% — 80% 이상 권장', score: 6 },
+    { label: '사장님 답글률', status: 'warn' as const, desc: '62% — 80% 이상 권장', score: 6 },
     { label: '최근 리뷰 답변', status: 'bad' as const, desc: '14일 이상 미답변', score: 2 },
   ]},
   { category: 'SNS 연동', items: [
@@ -105,6 +105,9 @@ function RankTab() {
 
   return (
     <div>
+      <div className="flex items-center gap-2 mb-3">
+        <span className="inline-block text-[10px] font-semibold bg-[#FEF9E8] text-[#CA8A04] border border-[#FCD34D] px-2 py-0.5 rounded-full">📊 예시 데이터 — 실제 연동 시 내 매장 순위가 표시됩니다</span>
+      </div>
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
           <span className="text-sm text-[#8B95A1]">정렬:</span>
@@ -202,16 +205,23 @@ function ScoreTab() {
     setLoading(true)
     setResult(null)
     setTimeout(() => {
+      // 키워드 해시 기반 고정 점수 (같은 키워드 → 항상 동일한 결과)
+      function hashScore(seed: string, min: number, max: number) {
+        let h = 0
+        for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) & 0xffff
+        return min + (h % (max - min + 1))
+      }
+      const total = hashScore(q + '_t', 40, 78)
       setResult({
         keyword: q,
-        totalScore: Math.floor(Math.random() * 40) + 40,
-        competition: Math.floor(Math.random() * 100),
-        volume: Math.floor(Math.random() * 20000) + 500,
-        places: Math.floor(Math.random() * 500) + 50,
-        optimizeScore: Math.floor(Math.random() * 50) + 30,
-        reviewScore: Math.floor(Math.random() * 60) + 20,
-        photoScore: Math.floor(Math.random() * 50) + 30,
-        updateScore: Math.floor(Math.random() * 70) + 20,
+        totalScore: total,
+        competition: hashScore(q + '_c', 20, 95),
+        volume: hashScore(q + '_v', 800, 18000),
+        places: hashScore(q + '_p', 30, 480),
+        optimizeScore: hashScore(q + '_o', 30, 78),
+        reviewScore: hashScore(q + '_r', 25, 78),
+        photoScore: hashScore(q + '_ph', 30, 78),
+        updateScore: hashScore(q + '_u', 25, 88),
         relatedKeywords: [q + ' 맛집', q + ' 추천', q + ' 맛집 추천', '근처 ' + q, q + ' 저렴한'],
       })
       setLoading(false)

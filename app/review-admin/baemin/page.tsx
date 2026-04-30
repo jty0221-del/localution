@@ -9,18 +9,13 @@ import PlatformReviewAdmin, { PlatformConfig } from '../components/PlatformRevie
 export const dynamic = 'force-dynamic'
 
 function BaeminLogo() {
+  // 배달의민족 로고 — 민트 배경 + 흰색 "배민" 텍스트
   return (
-    <svg width="64" height="64" viewBox="0 0 64 64" fill="none">
-      <rect width="64" height="64" rx="14" fill="#2AC1BC"/>
-      {/* 배달의민족 B 로고 — 수직 바 패턴 */}
-      <rect x="14" y="14" width="8" height="36" rx="2" fill="#1A1A1A"/>
-      <rect x="25" y="14" width="4" height="20" rx="2" fill="#1A1A1A"/>
-      <rect x="32" y="14" width="4" height="36" rx="2" fill="#1A1A1A"/>
-      <rect x="25" y="30" width="4" height="20" rx="2" fill="#1A1A1A"/>
-      <rect x="39" y="14" width="4" height="14" rx="2" fill="#1A1A1A"/>
-      <rect x="39" y="30" width="4" height="20" rx="2" fill="#1A1A1A"/>
-      <rect x="46" y="20" width="4" height="8" rx="2" fill="#1A1A1A"/>
-      <rect x="46" y="36" width="4" height="8" rx="2" fill="#1A1A1A"/>
+    <svg width="56" height="56" viewBox="0 0 56 56" fill="none">
+      <rect width="56" height="56" fill="#2DDDC8"/>
+      <text x="28" y="36" textAnchor="middle" fontSize="22" fontWeight="900"
+        fill="white" fontFamily="'Apple SD Gothic Neo','Noto Sans KR',sans-serif"
+        letterSpacing="-0.5">배민</text>
     </svg>
   )
 }
@@ -29,9 +24,9 @@ const CONFIG: PlatformConfig = {
   platform: 'baemin',
   uiKey: 'baemin',
   label: '배달의민족',
-  color: '#2AC1BC',
-  bg: '#E0F7F6',
-  textColor: '#0C6F6B',
+  color: '#2DDDC8',
+  bg: '#E0FAF8',
+  textColor: '#0A5E5A',
   icon: 'B',
   iconLetter: '배',
   logoNode: <BaeminLogo />,
@@ -39,6 +34,14 @@ const CONFIG: PlatformConfig = {
   collectEndpoint: '/api/review-reply/collect',
   connectHref: '/my/platforms/baemin/connect',
   reviewAdminUrl: 'https://self.baemin.com/',
+  platformInfoBanner: {
+    title: '배달의민족 리뷰 자동 수집 중',
+    desc: 'AI가 배민 감성에 맞는 친근한 답글을 자동으로 작성해드려요',
+    links: [
+      { label: '배민 사장님 리뷰 관리 ↗', href: 'https://self.baemin.com/', dark: true },
+      { label: '배민 사장님광장 ↗', href: 'https://ceo.baemin.com/', dark: false },
+    ],
+  },
 }
 
 export default function BaeminReviewPage() {

@@ -4,6 +4,7 @@
 // 30차-22 · /review-admin/naver — 공통 컴포넌트 사용 wrapper
 // ============================================================
 
+import Link from 'next/link'
 import PlatformReviewAdmin, { PlatformConfig } from '../components/PlatformReviewAdmin'
 
 export const dynamic = 'force-dynamic'
@@ -33,5 +34,18 @@ const CONFIG: PlatformConfig = {
 }
 
 export default function NaverReviewPage() {
-  return <PlatformReviewAdmin config={CONFIG} />
+  return (
+    <>
+      <div className="flex justify-end px-4 pt-2">
+        <Link
+          href="/review-admin/naver-health"
+          className="inline-flex items-center gap-1.5 text-[11px] text-[#64748B] hover:text-[#03C75A] transition"
+        >
+          <span className="w-1.5 h-1.5 rounded-full bg-[#22C55E] animate-pulse" />
+          시스템 진단
+        </Link>
+      </div>
+      <PlatformReviewAdmin config={CONFIG} />
+    </>
+  )
 }

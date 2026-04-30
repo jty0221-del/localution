@@ -11,7 +11,7 @@ import {
 } from 'lucide-react'
 import Footer from '../../components/Footer'
 
-type Persona = { name: string; title: string; phone: string }
+type Persona = { name: string; phone: string }
 type CTA = { phone: string; kakao: string; reservation: string }
 
 // localStorage 키
@@ -19,19 +19,27 @@ const LS_KEY = 'localution.naver_blog_post_inputs'
 
 // 프리셋: 업종별 템플릿 예시
 const INDUSTRY_PRESETS = [
-  { id: 'dealer', label: '자동차 딜러', keywords: ['벤츠 딜러', '신차 견적', 'BMW 시승'] },
-  { id: 'dental', label: '치과',       keywords: ['임플란트', '교정 상담', '라미네이트'] },
-  { id: 'nail',   label: '네일샵',     keywords: ['젤네일', '패디큐어', '네일아트'] },
-  { id: 'cafe',   label: '카페/맛집',   keywords: ['브런치 카페', '디저트 맛집', '데이트 장소'] },
-  { id: 'hair',   label: '미용실',     keywords: ['펌 추천', '남자컷', '염색 가격'] },
-  { id: 'pet',    label: '동물병원',   keywords: ['강아지 건강검진', '고양이 예방접종', '반려동물 치료'] },
+  { id: 'cafe',      label: '카페',       keywords: ['감성 카페', '브런치 카페', '디저트 맛집'] },
+  { id: 'food',      label: '음식점',     keywords: ['점심 맛집', '회식 장소', '데이트 코스'] },
+  { id: 'dental',    label: '치과',       keywords: ['임플란트', '교정 상담', '치아 미백'] },
+  { id: 'nail',      label: '네일샵',     keywords: ['젤네일', '페디큐어', '네일아트'] },
+  { id: 'hair',      label: '미용실',     keywords: ['펌 추천', '남자컷', '염색 가격'] },
+  { id: 'fitness',   label: '헬스장/PT',  keywords: ['헬스장 등록', 'PT 가격', '다이어트'] },
+  { id: 'pet',       label: '동물병원',   keywords: ['강아지 건강검진', '예방접종', '중성화 수술'] },
+  { id: 'academy',   label: '학원',       keywords: ['입시학원', '영어 학원', '내신 관리'] },
+  { id: 'skin',      label: '피부과',     keywords: ['피부 관리', '여드름 치료', '레이저'] },
+  { id: 'realestate',label: '부동산',     keywords: ['아파트 매매', '전세', '월세 추천'] },
+  { id: 'pharmacy',  label: '약국',       keywords: ['약국 영업시간', '영양제 추천', '처방전 조제'] },
+  { id: 'study',     label: '스터디카페', keywords: ['24시 스터디카페', '1인실', '조용한 공부방'] },
+  { id: 'oriental',  label: '한의원',     keywords: ['추나요법', '침 치료', '다이어트 한약'] },
+  { id: 'insurance', label: '보험설계사', keywords: ['보험 추천', '실손보험', '무료 보험 상담'] },
+  { id: 'clothes',   label: '의류/쇼핑',  keywords: ['남자 옷', '여성 의류', '캐주얼 쇼핑'] },
 ] as const
 
 export default function BlogPostGeneratorPage() {
   // 입력 상태
   const [industry, setIndustry] = useState('')
   const [personaName, setPersonaName] = useState('')
-  const [personaTitle, setPersonaTitle] = useState('')
   const [personaPhone, setPersonaPhone] = useState('')
   const [keywordInput, setKeywordInput] = useState('')
   const [keywords, setKeywords] = useState<string[]>([])
@@ -58,7 +66,7 @@ export default function BlogPostGeneratorPage() {
       if (raw) {
         const info = JSON.parse(raw)
         if (info?.category && !industry) setIndustry(info.category)
-        if (info?.name && !personaTitle) setPersonaTitle(info.name + ' 담당')
+        // 매장명은 업종 입력란에 활용
       }
     } catch (_) {}
     try {
@@ -67,7 +75,6 @@ export default function BlogPostGeneratorPage() {
         const s = JSON.parse(saved)
         if (s.industry && !industry) setIndustry(s.industry)
         if (s.personaName) setPersonaName(s.personaName)
-        if (s.personaTitle && !personaTitle) setPersonaTitle(s.personaTitle)
         if (s.personaPhone) setPersonaPhone(s.personaPhone)
         if (Array.isArray(s.keywords) && s.keywords.length) setKeywords(s.keywords)
         if (s.ctaPhone) setCtaPhone(s.ctaPhone)
@@ -82,7 +89,7 @@ export default function BlogPostGeneratorPage() {
   useEffect(() => {
     try {
       window.localStorage.setItem(LS_KEY, JSON.stringify({
-        industry, personaName, personaTitle, personaPhone,
+        industry, personaName, personaPhone,
         keywords, ctaPhone, ctaKakao, ctaReservation,
       }))
     } catch (_) {}
@@ -127,7 +134,7 @@ export default function BlogPostGeneratorPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           industry: industry.trim(),
-          persona: { name: personaName.trim(), title: personaTitle.trim(), phone: personaPhone.trim() },
+          persona: { name: personaName.trim(), phone: personaPhone.trim() },
           keywords: keywords.filter(Boolean),
           draft: draft.trim(),
           cta: { phone: ctaPhone.trim(), kakao: ctaKakao.trim(), reservation: ctaReservation.trim() },
@@ -158,7 +165,7 @@ export default function BlogPostGeneratorPage() {
       ta.value = post
       document.body.appendChild(ta)
       ta.select()
-      document.execCommand('copy')
+      try { document.execCommand('copy') } catch (_) {}
       document.body.removeChild(ta)
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
@@ -214,7 +221,7 @@ export default function BlogPostGeneratorPage() {
               </div>
               <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#ECFDF5] border border-[#D1FAE5]">
                 <Sparkles size={14} className="text-[#059669]" />
-                <span className="text-xs font-semibold text-[#059669]">AI 생성 · 하랑마케팅 프리셋</span>
+                <span className="text-xs font-semibold text-[#059669]">AI 생성 · 로컬루션 프리셋</span>
               </div>
             </div>
           </div>
@@ -230,7 +237,7 @@ export default function BlogPostGeneratorPage() {
               <input
                 value={industry}
                 onChange={e => setIndustry(e.target.value)}
-                placeholder="예: 벤츠 공식딜러, 강남 치과, 분당 네일샵"
+                placeholder="예: 강남 카페, 홍대 맛집, 분당 네일샵"
                 className="w-full h-11 px-3 rounded-lg border border-[#E5E8EB] bg-[#F8F9FB] focus:bg-white focus:border-[#3182F6] outline-none text-sm"
               />
               <div className="mt-3">
@@ -251,29 +258,22 @@ export default function BlogPostGeneratorPage() {
 
             {/* 페르소나 */}
             <section className="bg-white rounded-2xl border border-[#E5E8EB] p-5">
-              <div className="flex items-center gap-2 mb-3">
+              <div className="flex items-center gap-2 mb-1">
                 <User size={16} className="text-[#8B5CF6]" />
                 <h3 className="font-bold text-[#191F28]">페르소나 (작성자)</h3>
               </div>
-              <div className="grid grid-cols-2 gap-2">
-                <input
-                  value={personaName}
-                  onChange={e => setPersonaName(e.target.value)}
-                  placeholder="이름 (예: 신형섭)"
-                  className="h-10 px-3 rounded-lg border border-[#E5E8EB] bg-[#F8F9FB] focus:bg-white focus:border-[#3182F6] outline-none text-sm"
-                />
-                <input
-                  value={personaTitle}
-                  onChange={e => setPersonaTitle(e.target.value)}
-                  placeholder="직함 (예: 부장)"
-                  className="h-10 px-3 rounded-lg border border-[#E5E8EB] bg-[#F8F9FB] focus:bg-white focus:border-[#3182F6] outline-none text-sm"
-                />
-              </div>
+              <p className="text-xs text-[#8B95A1] mb-3">블로그 글의 1인칭 화자 정보 — 담당자 이름·연락처를 넣으면 신뢰감이 높아져요</p>
+              <input
+                value={personaName}
+                onChange={e => setPersonaName(e.target.value)}
+                placeholder="이름 (예: 홍길동)"
+                className="w-full h-10 px-3 rounded-lg border border-[#E5E8EB] bg-[#F8F9FB] focus:bg-white focus:border-[#3182F6] outline-none text-sm mb-2"
+              />
               <input
                 value={personaPhone}
                 onChange={e => setPersonaPhone(e.target.value)}
-                placeholder="연락처 (예: 010-7771-1112)"
-                className="w-full h-10 px-3 mt-2 rounded-lg border border-[#E5E8EB] bg-[#F8F9FB] focus:bg-white focus:border-[#3182F6] outline-none text-sm"
+                placeholder="연락처 (예: 010-XXXX-XXXX)"
+                className="w-full h-10 px-3 rounded-lg border border-[#E5E8EB] bg-[#F8F9FB] focus:bg-white focus:border-[#3182F6] outline-none text-sm"
               />
             </section>
 
@@ -282,7 +282,7 @@ export default function BlogPostGeneratorPage() {
               <div className="flex items-center gap-2 mb-3">
                 <Sparkles size={16} className="text-[#F59E0B]" />
                 <h3 className="font-bold text-[#191F28]">타겟 키워드</h3>
-                <span className="text-xs text-[#8B95A1] ml-1">(첫번째가 메인 키워드)</span>
+                <span className="text-xs text-[#8B95A1] ml-1">(첫 번째가 메인 키워드)</span>
               </div>
               <div className="flex gap-2">
                 <input
@@ -291,7 +291,7 @@ export default function BlogPostGeneratorPage() {
                   onKeyDown={e => {
                     if (e.key === 'Enter') { e.preventDefault(); addKeyword() }
                   }}
-                  placeholder="키워드 입력 후 엔터 (예: 벤츠 E클래스 견적)"
+                  placeholder="키워드 입력 후 엔터 (예: 강남 브런치 카페, 임플란트 가격)"
                   className="flex-1 h-11 px-3 rounded-lg border border-[#E5E8EB] bg-[#F8F9FB] focus:bg-white focus:border-[#3182F6] outline-none text-sm"
                 />
                 <button
@@ -329,7 +329,7 @@ export default function BlogPostGeneratorPage() {
               <textarea
                 value={draft}
                 onChange={e => setDraft(e.target.value)}
-                placeholder={`예시) 20년 경력 공식딜러, 월 평균 30대 인도, 시승 무료, 구매 후 7년 무상수리\n고객 후기: "다른 지점보다 견적이 100만원 쌌어요" (김OO 고객)`}
+                placeholder={`예) 우리 가게만의 강점, 특별한 서비스, 고객 후기 등을 자유롭게 적어주세요\n- 주차 무료 / 당일 예약 가능 / 10년 경력\n- 고객 후기: "또 오고 싶어요" (김OO 고객)\n※ 없어도 생성 가능합니다`}
                 rows={5}
                 className="w-full px-3 py-2.5 rounded-lg border border-[#E5E8EB] bg-[#F8F9FB] focus:bg-white focus:border-[#3182F6] outline-none text-sm resize-none"
               />
@@ -513,7 +513,7 @@ export default function BlogPostGeneratorPage() {
                   { title: '사진 분산 배치', desc: '한 곳 몰아넣기 금지 — 본문 전체에 고르게 배치' },
                   { title: 'CTA 구조화', desc: '부담 낮추는 멘트 → 예상 질문 3개 → 희소성 클로징' },
                   { title: '이모티콘 배제', desc: '📷, ✅, 🚗 등 일체 사용 안 함 — 브랜딩 톤 유지' },
-                  { title: '페르소나 신뢰감', desc: '담당자 이름·직함·연락처로 1인칭 작성' },
+                  { title: '페르소나 신뢰감', desc: '담당자 이름·연락처로 1인칭 작성 — 독자와 직접 소통하는 느낌' },
                 ].map(f => (
                   <div key={f.title} className="flex items-start gap-2 p-3 rounded-lg bg-[#F8F9FB] border border-[#E5E8EB]">
                     <Check size={14} className="text-[#059669] mt-0.5 flex-shrink-0" />

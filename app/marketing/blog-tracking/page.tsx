@@ -163,6 +163,32 @@ export default function BlogTrackingPage() {
   const [expandedIds, setExpandedIds] = useState<Set<string>>(new Set())
   const [historyMap, setHistoryMap]   = useState<Record<string, HistoryPoint[]>>({})
 
+  // 블로그 TOP5
+  type Top5Item = { rank: number; title: string; link: string; bloggername: string; description: string; postdate: string }
+  const [top5Open, setTop5Open]       = useState(true)
+  const [top5Input, setTop5Input]     = useState('')
+  const [top5Keyword, setTop5Keyword] = useState('')
+  const [top5Data, setTop5Data]       = useState<Top5Item[]>([])
+  const [top5Loading, setTop5Loading] = useState(false)
+  const [top5Error, setTop5Error]     = useState<string | null>(null)
+
+  async function fetchTop5() {
+    const kw = top5Input.trim()
+    if (!kw) return
+    setTop5Loading(true); setTop5Error(null); setTop5Data([]); setTop5Keyword('')
+    try {
+      const r = await fetch(`/api/marketing/blog-top5?keyword=${encodeURIComponent(kw)}`)
+      const j = await r.json()
+      if (!r.ok || j.error) throw new Error(j.error || `HTTP ${r.status}`)
+      setTop5Data(j.items || [])
+      setTop5Keyword(j.keyword || kw)
+    } catch (e) {
+      setTop5Error(e instanceof Error ? e.message : '오류 발생')
+    } finally {
+      setTop5Loading(false)
+    }
+  }
+
   // ─── 데이터 로드 ───
   const load = useCallback(async () => {
     setLoading(true)
@@ -381,6 +407,77 @@ export default function BlogTrackingPage() {
                 새 타겟 등록
               </button>
             </div>
+          </div>
+
+          {/* 블로그 TOP5 조회 섹션 */}
+          <div className="bg-white rounded-2xl border border-[#E5E8EB] shadow-sm mb-4">
+            <button
+              onClick={() => setTop5Open(v => !v)}
+              className="w-full flex items-center justify-between px-5 py-4 text-left"
+            >
+              <div className="flex items-center gap-2">
+                <span className="w-7 h-7 rounded-lg bg-[#03C75A] flex items-center justify-center text-white text-xs font-bold flex-shrink-0">N</span>
+                <span className="text-sm font-bold text-[#191F28]">블로그 TOP5 조회</span>
+                <span className="text-[11px] text-[#8B95A1] hidden sm:inline">키워드로 네이버 상위 블로그 5개 확인</span>
+              </div>
+              <span className={"text-xs text-[#8B95A1] transition-transform " + (top5Open ? 'rotate-180' : '')}>▾</span>
+            </button>
+            {top5Open && (
+              <div className="px-5 pb-5 space-y-4 border-t border-[#F2F4F6] pt-4">
+                <div className="flex gap-2">
+                  <input
+                    className="flex-1 border border-[#E5E8EB] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#03C75A]"
+                    placeholder="예: 부천맛집"
+                    value={top5Input}
+                    onChange={e => setTop5Input(e.target.value)}
+                    onKeyDown={e => e.key === 'Enter' && fetchTop5()}
+                  />
+                  <button
+                    onClick={fetchTop5}
+                    disabled={top5Loading || !top5Input.trim()}
+                    className="px-5 py-2.5 bg-[#03C75A] text-white rounded-xl text-sm font-semibold disabled:opacity-40 hover:bg-[#02B350] transition-colors"
+                  >
+                    {top5Loading ? '조회 중…' : '조회'}
+                  </button>
+                </div>
+
+                {top5Error && (
+                  <div className="bg-[#FFF1F2] border border-[#FECDD3] rounded-xl p-3 text-sm text-[#E11D48]">{top5Error}</div>
+                )}
+
+                {top5Data.length > 0 && (
+                  <div className="space-y-2.5">
+                    <p className="text-xs text-[#8B95A1]">
+                      <span className="font-bold text-[#03C75A]">[{top5Keyword}]</span> 네이버 블로그 상위 노출 결과 (관련도순)
+                    </p>
+                    {top5Data.map(item => (
+                      <a
+                        key={item.rank}
+                        href={item.link}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="flex items-start gap-3 p-3.5 rounded-xl border border-[#E5E8EB] hover:border-[#03C75A] hover:bg-[#F0FDF4] transition-all group"
+                      >
+                        <div className={"w-7 h-7 rounded-full flex items-center justify-center text-sm font-black flex-shrink-0 " + (item.rank === 1 ? 'bg-[#03C75A] text-white' : item.rank <= 3 ? 'bg-[#ECFDF5] text-[#03C75A]' : 'bg-[#F2F4F6] text-[#8B95A1]')}>
+                          {item.rank}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-semibold text-[#191F28] group-hover:text-[#03C75A] truncate">{item.title}</p>
+                          <p className="text-[11px] text-[#8B95A1] mt-0.5 line-clamp-1">{item.description}</p>
+                          <p className="text-[10px] text-[#B0B8C1] mt-1">{item.bloggername} · {item.postdate ? item.postdate.replace(/(\d{4})(\d{2})(\d{2})/, '$1.$2.$3') : ''}</p>
+                        </div>
+                        <ExternalLink size={13} className="text-[#B0B8C1] group-hover:text-[#03C75A] flex-shrink-0 mt-1" />
+                      </a>
+                    ))}
+                    <p className="text-[11px] text-[#B0B8C1]">* 네이버 블로그 검색 관련도순 기준 · 실제 인기글 순위와 다를 수 있음</p>
+                  </div>
+                )}
+
+                {!top5Loading && top5Data.length === 0 && !top5Error && (
+                  <p className="text-sm text-[#B0B8C1] text-center py-4">키워드를 입력하고 조회하세요</p>
+                )}
+              </div>
+            )}
           </div>
 
           {/* 카카오톡 알림 연결 배너 (18차-5) */}

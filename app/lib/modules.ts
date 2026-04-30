@@ -199,7 +199,7 @@ export const MODULES: readonly Module[] = [
     price: 9900,
     category: '마케터',
     status: 'beta',
-    paths: [],
+    paths: ['/marketing/card-news'],
     icon: 'Layers',
     desc: '주제만 던지면 인스타 캐러셀 10장이 AI로 완성 · PNG 저장.',
     bullets: [
@@ -217,7 +217,7 @@ export const MODULES: readonly Module[] = [
     price: 9900,
     category: '마케터',
     status: 'live',
-    paths: [],
+    paths: ['/marketing/blog-tracking'],
     icon: 'TrendingUp',
     desc: '내 블로그 글이 스마트블록·블로그탭·인기글 어디 몇 위에 떴는지 일 1회 자동 추적.',
     bullets: [
@@ -368,6 +368,12 @@ export const SIDEBAR_MODULE_MAP: Record<string, ModuleId | null> = {
 
   // 블로그 AI
   '/marketing/blog-post': 'blog-ai',
+
+  // 블로그 순위 추적
+  '/marketing/blog-tracking': 'blog-tracking',
+
+  // 카드뉴스
+  '/marketing/card-news': 'card-news',
 
   // SNS 자동 포스팅
   '/marketing/reels': 'sns-manage',

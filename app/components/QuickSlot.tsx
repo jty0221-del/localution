@@ -7,18 +7,20 @@ import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 
 const LINKS = [
-  { href: '/dashboard', label: '대시보드', short: 'DB', bg: '#EFF6FF', color: '#3182F6' },
-  { href: '/review-admin', label: '리뷰 관리', short: '리뷰', bg: '#FFFBEB', color: '#F59E0B' },
-  { href: '/qr', label: 'QR 관리', short: 'QR', bg: '#F5F3FF', color: '#8B5CF6' },
-  { href: '/customers', label: '고객 관리', short: '고객', bg: '#ECFDF5', color: '#059669' },
-  { href: '/community', label: '커뮤니티', short: '커뮤', bg: '#FDF2F8', color: '#EC4899' },
-    { href: '/inquiry', label: '1:1 문의', short: '문의', bg: '#FFF7ED', color: '#EA580C' },
-        { href: '/settings', label: '설정', short: '설정', bg: '#F2F4F6', color: '#4E5968' },
+  { href: '/dashboard',           label: '대시보드',   short: 'DB',   bg: '#EFF6FF', color: '#3182F6' },
+  { href: '/review-admin',        label: '리뷰 관리',  short: '리뷰', bg: '#FFFBEB', color: '#F59E0B' },
+  { href: '/marketing',           label: '마케팅 관리', short: '마케팅', bg: '#F0FDF4', color: '#03C75A' },
+  { href: '/qr-admin',            label: 'QR 관리',   short: 'QR',   bg: '#F5F3FF', color: '#8B5CF6' },
+  { href: '/customers',           label: '고객 관리',  short: '고객', bg: '#ECFDF5', color: '#059669' },
+  { href: '/community',           label: '커뮤니티',   short: '커뮤', bg: '#FDF2F8', color: '#EC4899' },
+  { href: '/settings/profile',    label: '매장 관리',  short: '매장', bg: '#FFF7ED', color: '#EA580C' },
+  { href: '/inquiry',             label: '1:1 문의',  short: '문의', bg: '#FEF3C7', color: '#D97706' },
+  { href: '/settings',            label: '설정',       short: '설정', bg: '#F2F4F6', color: '#4E5968' },
 ]
 
 export default function QuickSlot() {
   const pathname = usePathname()
-  if (pathname === '/login') return null
+  if (pathname === '/login' || pathname === '/dashboard') return null
 
 
   const [open, setOpen] = useState(false)
@@ -59,7 +61,7 @@ export default function QuickSlot() {
           pointerEvents: open ? 'auto' : 'none',
           transformOrigin: 'right bottom',
         }}
-        className="bg-white rounded-2xl shadow-2xl border border-[#E5E8EB] p-2 w-[152px]"
+        className="bg-white rounded-2xl shadow-2xl border border-[#E5E8EB] p-2 w-[162px]"
       >
         <p className="text-[10px] font-bold text-[#B0B8C1] px-3 pt-1.5 pb-1 tracking-widest uppercase">빠른 이동</p>
         {LINKS.map(link => {

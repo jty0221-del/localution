@@ -23,27 +23,22 @@ import { useState } from 'react'
 /* ─────────── 5가지 제품 원칙 ─────────── */
 const PRINCIPLES = [
   {
-    icon: '📊',
     title: '결과는 대시보드로',
     desc: 'AI가 무엇을 실행했는지 로그·지표 전부 실시간 공개. 숨기는 값 없습니다.',
   },
   {
-    icon: '🎯',
     title: '내 매장만의 세팅',
     desc: '업종·지역·경쟁 구도를 분석해 공식대로 찍지 않습니다. 매장별 자동 튜닝.',
   },
   {
-    icon: '📈',
     title: '장기 매출 관점',
     desc: '단기 순위가 아니라 6개월·12개월 리텐션 지표까지 추적합니다.',
   },
   {
-    icon: '⚡',
     title: '10분 세팅, 24시간 작동',
     desc: '매장 정보만 입력하면 AI가 알아서. 사장님은 결과만 확인.',
   },
   {
-    icon: '💬',
     title: '초기 고객은 창업자 직접 응대',
     desc: '세팅·운영·개선 요청 모두 창업자가 카톡으로 24시간 내 회신.',
   },
@@ -100,11 +95,11 @@ export default function AboutPage() {
           <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-white border border-[#D1E5FF] rounded-full text-xs font-semibold text-[#3182F6] mb-6 shadow-sm">
             <span>LOCALUTION · AI Marketing OS</span>
           </div>
-          <h1 className="text-3xl md:text-5xl font-black leading-tight tracking-tight mb-5">
+          <h1 className="text-2xl sm:text-4xl md:text-5xl font-black leading-tight tracking-tight mb-5">
             사장님의 마케팅을<br className="md:hidden" />
             {' '}AI가 대신합니다.
           </h1>
-          <p className="text-base md:text-lg text-[#4E5968] leading-relaxed">
+          <p className="text-sm md:text-lg text-[#4E5968] leading-relaxed text-left sm:text-center">
             리뷰 답글, SNS 운영, 광고 집행 — <strong className="text-[#191F28]">하루 10분</strong>이면 충분합니다.
             <br className="hidden md:block" />
             {' '}500곳 매장 데이터를 학습한 로컬루션이, <strong className="text-[#191F28]">24시간 자동</strong>으로 돌립니다.
@@ -131,57 +126,59 @@ export default function AboutPage() {
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-12">
             <div className="text-xs font-bold text-[#3182F6] tracking-widest mb-3">WHY LOCALUTION</div>
-            <h2 className="text-2xl md:text-4xl font-black tracking-tight mb-4">
+            <h2 className="text-xl sm:text-3xl md:text-4xl font-black tracking-tight mb-4">
               대행사처럼 맡기고,<br className="md:hidden" />
               {' '}도구처럼 쓰세요.
             </h2>
-            <p className="text-[#4E5968] text-sm md:text-base">
+            <p className="text-[#4E5968] text-sm md:text-base text-left sm:text-center">
               로컬루션이 기존 마케팅 대행·툴과 다른 3가지.
             </p>
           </div>
 
-          <div className="grid md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-3 gap-3 md:gap-4">
             {[
               { num: '500+', label: '매장 데이터 학습', desc: '자영업 특화 AI 모델' },
               { num: '10분', label: '세팅 완료',        desc: '매장 정보만 입력' },
               { num: '24h', label: '자동 운영',         desc: '리뷰·SNS·광고 동시' },
             ].map((s, i) => (
-              <div key={i} className="bg-[#F9FAFB] rounded-3xl p-6 md:p-8 text-center hover:bg-[#F5F9FF] transition-colors">
-                <div className="text-4xl md:text-5xl font-black text-[#3182F6] mb-2">{s.num}</div>
-                <div className="text-sm font-bold text-[#191F28] mb-1">{s.label}</div>
-                <div className="text-xs text-[#4E5968] leading-relaxed">{s.desc}</div>
+              <div key={i} className="bg-[#F9FAFB] rounded-2xl md:rounded-3xl p-4 md:p-8 text-center hover:bg-[#F5F9FF] transition-colors">
+                <div className="text-2xl sm:text-3xl md:text-5xl font-black text-[#3182F6] mb-1 md:mb-2">{s.num}</div>
+                <div className="text-xs sm:text-sm font-bold text-[#191F28] mb-0.5 md:mb-1 break-keep">{s.label}</div>
+                <div className="text-[10px] sm:text-xs text-[#4E5968] leading-relaxed hidden sm:block">{s.desc}</div>
               </div>
             ))}
           </div>
 
           {/* 비교 테이블 */}
-          <div className="mt-10 bg-white border border-gray-100 rounded-3xl overflow-hidden shadow-sm">
-            <div className="grid grid-cols-3 text-xs md:text-sm">
-              <div className="p-4 md:p-6 bg-[#FAFBFC] border-r border-gray-100">
-                <div className="font-bold text-[#8B95A1] mb-3">&nbsp;</div>
-                <div className="space-y-3 text-[#4E5968]">
-                  <div>월 비용</div>
-                  <div>세팅 기간</div>
-                  <div>실행 속도</div>
-                  <div>결과 투명성</div>
+          <div className="mt-10 overflow-x-auto rounded-3xl shadow-sm border border-gray-100">
+            <div className="bg-white min-w-[320px]">
+              <div className="grid grid-cols-3 text-[11px] sm:text-xs md:text-sm">
+                <div className="p-3 sm:p-4 md:p-6 bg-[#FAFBFC] border-r border-gray-100">
+                  <div className="font-bold text-[#8B95A1] mb-3">&nbsp;</div>
+                  <div className="space-y-3 text-[#4E5968]">
+                    <div>월 비용</div>
+                    <div>세팅 기간</div>
+                    <div>실행 속도</div>
+                    <div>결과 투명성</div>
+                  </div>
                 </div>
-              </div>
-              <div className="p-4 md:p-6 border-r border-gray-100">
-                <div className="font-bold text-[#8B95A1] mb-3">기존 대행사</div>
-                <div className="space-y-3 text-[#4E5968]">
-                  <div>30~300만 원</div>
-                  <div>1~2주</div>
-                  <div>사람 리드타임</div>
-                  <div>월 1회 리포트</div>
+                <div className="p-3 sm:p-4 md:p-6 border-r border-gray-100">
+                  <div className="font-bold text-[#8B95A1] mb-3">기존 대행사</div>
+                  <div className="space-y-3 text-[#4E5968]">
+                    <div>30~300만원</div>
+                    <div>1~2주</div>
+                    <div>사람 리드타임</div>
+                    <div>월1회 리포트</div>
+                  </div>
                 </div>
-              </div>
-              <div className="p-4 md:p-6 bg-[#F5F9FF]">
-                <div className="font-bold text-[#3182F6] mb-3">로컬루션</div>
-                <div className="space-y-3 text-[#191F28] font-semibold">
-                  <div>월 6,900원~</div>
-                  <div>10분</div>
-                  <div>AI 24시간</div>
-                  <div>실시간 대시보드</div>
+                <div className="p-3 sm:p-4 md:p-6 bg-[#F5F9FF]">
+                  <div className="font-bold text-[#3182F6] mb-3">로컬루션</div>
+                  <div className="space-y-3 text-[#191F28] font-semibold">
+                    <div>월 6,900원~</div>
+                    <div>10분</div>
+                    <div>AI 24시간</div>
+                    <div>실시간 대시보드</div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -193,33 +190,41 @@ export default function AboutPage() {
           3. 창업자 노트 (짧게)
          ═══════════════════════════════════════════════════════ */}
       <section className="px-5 py-16 md:py-24 bg-[#FAFBFC]">
-        <div className="max-w-3xl mx-auto">
+        <div className="max-w-4xl mx-auto">
           <div className="text-center mb-10">
             <div className="text-xs font-bold text-[#3182F6] tracking-widest mb-3">FOUNDER'S NOTE</div>
-            <h2 className="text-2xl md:text-4xl font-black tracking-tight">
+            <h2 className="text-xl sm:text-3xl md:text-4xl font-black tracking-tight">
               왜 만들었나
             </h2>
           </div>
 
-          <article className="bg-white rounded-3xl p-7 md:p-12 shadow-[0_4px_30px_rgba(0,0,0,0.04)] border border-gray-100">
-            <div className="space-y-5 text-[#191F28] text-[15px] md:text-base leading-[1.9]">
-              <p className="font-semibold text-lg md:text-xl text-[#191F28]">
+          <article className="bg-white rounded-3xl p-6 sm:p-8 md:p-14 shadow-[0_4px_30px_rgba(0,0,0,0.04)] border border-gray-100">
+            <div className="space-y-5 text-[#191F28] text-sm md:text-base leading-[1.75] md:leading-[1.9]">
+              <p className="font-semibold text-base md:text-xl text-[#191F28]">
                 자영업자 편에서 10년을 일했습니다.
               </p>
               <p className="text-[#4E5968]">
-                카페를 직접 열었다가 망해봤습니다. 그때 깨달았습니다.
-                <br />
+                군대 전역하고 카페를 직접 열었다가 코로나 때 망해봤습니다.
+                너무 힘든 시기였습니다. 새벽 쪽잠, 3잡…
+              </p>
+              <p className="font-semibold text-[#191F28]">
+                그때 깨달았습니다.
+              </p>
+              <p className="text-[#4E5968]">
                 사장님들에게 필요한 건 <strong className="text-[#191F28]">비싼 대행</strong>이 아니라,
-                {' '}<strong className="text-[#191F28]">언제든 옆에 있는 도구</strong>라는 것.
+                {' '}<strong className="text-[#191F28]">언제든 옆에서 도움 줄 수 있는 사람과 도구</strong>라는 것을요.
               </p>
               <p className="text-[#4E5968]">
                 로컬루션은 그 경험을 제품으로 옮긴 결과입니다.
-                10년의 판단, 500곳의 데이터, 수백 번의 실패를 <strong className="text-[#191F28]">AI가 24시간 대신</strong>합니다.
+                자영업자+마케팅 대행사 등 10년 이상의 경험과 판단으로
+                500곳 이상의 데이터, 수백 번의 실패를{' '}
+                <strong className="text-[#191F28]">AI가 대표님, 사장님 대신 24시간 일합니다.</strong>{' '}
                 사장님은 결과만 확인하면 됩니다.
               </p>
-              <p className="text-[#191F28] font-semibold">
-                "사장님이 원하는 마케팅"을 사장님이 직접 돌릴 수 있게,<br />
-                그게 로컬루션이 존재하는 이유입니다.
+              <p className="text-lg sm:text-xl md:text-2xl font-black text-[#191F28] leading-snug tracking-tight border-l-4 border-[#3182F6] pl-4 md:pl-5 py-1">
+                "사장님이 원하는 마케팅"을<br />
+                사장님이 직접 돌릴 수 있게,<br />
+                <span className="text-[#3182F6]">그게 로컬루션이 존재하는 이유입니다.</span>
               </p>
             </div>
             <div className="mt-8 pt-6 border-t border-gray-100 flex items-center gap-3">
@@ -240,20 +245,25 @@ export default function AboutPage() {
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-12">
             <div className="text-xs font-bold text-[#3182F6] tracking-widest mb-3">OUR PRINCIPLES</div>
-            <h2 className="text-2xl md:text-4xl font-black tracking-tight mb-4">
+            <h2 className="text-xl sm:text-3xl md:text-4xl font-black tracking-tight mb-4">
               로컬루션이 지키는 5가지 원칙
             </h2>
-            <p className="text-[#4E5968] text-sm md:text-base">
+            <p className="text-[#4E5968] text-sm md:text-base text-left sm:text-center">
               제품은 말이 아니라 운영 원칙으로 증명합니다.
             </p>
           </div>
 
           <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-4">
             {PRINCIPLES.map((p, i) => (
-              <div key={i} className="bg-white border border-gray-100 rounded-3xl p-6 md:p-7 hover:shadow-[0_6px_24px_rgba(49,130,246,0.1)] hover:border-[#D1E5FF] transition-all">
-                <div className="text-3xl mb-3" aria-hidden="true">{p.icon}</div>
-                <h3 className="text-base md:text-lg font-black text-[#191F28] mb-2">{p.title}</h3>
-                <p className="text-sm text-[#4E5968] leading-relaxed">{p.desc}</p>
+              <div key={i} className="group bg-white border border-gray-100 rounded-3xl p-5 md:p-7 hover:shadow-[0_6px_24px_rgba(49,130,246,0.1)] hover:border-[#D1E5FF] transition-all">
+                <div className="flex items-center gap-3 mb-3">
+                  <span className="inline-flex items-center justify-center w-8 h-8 rounded-xl bg-[#EFF6FF] text-[#3182F6] text-xs font-black tracking-tight shrink-0 group-hover:bg-[#3182F6] group-hover:text-white transition-colors">
+                    {String(i + 1).padStart(2, '0')}
+                  </span>
+                  <div className="h-px flex-1 bg-gray-100 group-hover:bg-[#D1E5FF] transition-colors" />
+                </div>
+                <h3 className="text-sm md:text-base font-black text-[#191F28] mb-2 tracking-tight">{p.title}</h3>
+                <p className="text-xs md:text-sm text-[#4E5968] leading-relaxed">{p.desc}</p>
               </div>
             ))}
           </div>
@@ -267,10 +277,10 @@ export default function AboutPage() {
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-12">
             <div className="text-xs font-bold text-[#3182F6] tracking-widest mb-3">WHAT WE AUTOMATE</div>
-            <h2 className="text-2xl md:text-4xl font-black tracking-tight mb-4">
+            <h2 className="text-xl sm:text-3xl md:text-4xl font-black tracking-tight mb-4">
               로컬루션이 대신 처리하는 것
             </h2>
-            <p className="text-[#4E5968] text-sm md:text-base">
+            <p className="text-[#4E5968] text-sm md:text-base text-left sm:text-center">
               사장님이 손댈 필요 없습니다. 결과만 확인하세요.
             </p>
           </div>
@@ -298,10 +308,10 @@ export default function AboutPage() {
           6. FAQ
          ═══════════════════════════════════════════════════════ */}
       <section className="px-5 py-16 md:py-24">
-        <div className="max-w-3xl mx-auto">
+        <div className="max-w-4xl mx-auto">
           <div className="text-center mb-10">
             <div className="text-xs font-bold text-[#3182F6] tracking-widest mb-3">FAQ</div>
-            <h2 className="text-2xl md:text-4xl font-black tracking-tight">
+            <h2 className="text-xl sm:text-3xl md:text-4xl font-black tracking-tight">
               자주 묻는 질문
             </h2>
           </div>
@@ -349,11 +359,11 @@ export default function AboutPage() {
           <div className="inline-flex items-center gap-2 px-3 py-1.5 bg-white/15 backdrop-blur-sm rounded-full text-xs font-semibold mb-6 border border-white/20">
             <span>14일 무료 체험 진행 중</span>
           </div>
-          <h2 className="text-2xl md:text-4xl font-black tracking-tight mb-4">
-            지금 쓰는 마케팅,<br />
-            로컬루션이 더 싸고 빠르게 대신합니다.
+          <h2 className="text-xl sm:text-2xl md:text-4xl font-black tracking-tight mb-4 break-keep">
+            지금 쓰는 마케팅,<br className="hidden sm:block" />
+            {' '}로컬루션이 더 싸고 빠르게 대신합니다.
           </h2>
-          <p className="text-white/85 text-sm md:text-base mb-10">
+          <p className="text-white/85 text-sm md:text-base mb-10 text-left sm:text-center">
             신용카드 등록 없이 14일 무료 체험. 언제든 해지.
           </p>
 
@@ -369,19 +379,19 @@ export default function AboutPage() {
           {/* 4단계 온보딩 */}
           <div className="mt-12 pt-10 border-t border-white/15">
             <div className="text-xs font-bold text-white/75 tracking-widest mb-5">온보딩 4단계 · 10분 소요</div>
-            <div className="grid grid-cols-4 gap-2 md:gap-3 max-w-2xl mx-auto">
+            <div className="grid grid-cols-4 gap-1.5 sm:gap-3 md:gap-3 max-w-2xl mx-auto">
               {[
-                { step: '가입', desc: '네이버·카카오 1초' },
-                { step: '매장 연결', desc: '플레이스·배민' },
-                { step: '세팅', desc: 'AI 자동 튜닝' },
-                { step: '완료', desc: '24h 자동 운영' },
+                { step: '가입', desc: '카카오 1초' },
+                { step: '매장연결', desc: '플레이스·배민' },
+                { step: 'AI세팅', desc: '자동 튜닝' },
+                { step: '완료', desc: '24h 자동' },
               ].map((item, i) => (
                 <div key={i} className="flex flex-col items-center">
-                  <div className="w-9 h-9 md:w-11 md:h-11 rounded-full bg-white/15 backdrop-blur-sm border border-white/30 flex items-center justify-center text-xs md:text-sm font-black">
+                  <div className="w-8 h-8 sm:w-9 sm:h-9 md:w-11 md:h-11 rounded-full bg-white/15 backdrop-blur-sm border border-white/30 flex items-center justify-center text-xs md:text-sm font-black">
                     {i + 1}
                   </div>
-                  <div className="mt-2 text-[11px] md:text-xs font-semibold text-white/90">{item.step}</div>
-                  <div className="text-[10px] text-white/70">{item.desc}</div>
+                  <div className="mt-1.5 text-[10px] sm:text-[11px] md:text-xs font-semibold text-white/90 whitespace-nowrap">{item.step}</div>
+                  <div className="text-[9px] sm:text-[10px] text-white/60 whitespace-nowrap">{item.desc}</div>
                 </div>
               ))}
             </div>

@@ -185,11 +185,16 @@ function WriteModal({ onClose, onSubmit, defaultRegion }: {
       } else {
         const url = URL.createObjectURL(file)
         setMedia(prev => [...prev, { type: isVideo ? 'video' : 'image', url, name: file.name }])
+        // 메모리 누수 방지: 컴포넌트 언마운트 또는 미디어 제거 시 URL 해제는 removeMedia에서 처리
       }
     })
     e.target.value = ''
   }
-  const removeMedia = (i: number) => setMedia(prev => prev.filter((_, idx) => idx !== i))
+  const removeMedia = (i: number) => setMedia(prev => {
+    const item = prev[i]
+    if (item && item.url.startsWith('blob:')) URL.revokeObjectURL(item.url)
+    return prev.filter((_, idx) => idx !== i)
+  })
 
   const handleSubmit = () => {
     if (!title.trim() || !content.trim()) return

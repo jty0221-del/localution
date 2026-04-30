@@ -104,6 +104,17 @@ interface StoreMeResponse {
   } | null
 }
 
+export interface PlatformInfoBannerLink {
+  label: string
+  href: string
+  dark: boolean   // true=진한 배경, false=연한 배경
+}
+export interface PlatformInfoBannerConfig {
+  title: string
+  desc: string
+  links: PlatformInfoBannerLink[]
+}
+
 export interface PlatformConfig {
   platform: PlatformSlug          // 서버 슬러그
   uiKey: string                   // Sidebar variant (naver/baemin/yogiyo/coupang)
@@ -112,12 +123,13 @@ export interface PlatformConfig {
   bg: string                      // 연한 배경 hex
   textColor: string               // 글자 컬러 hex
   icon: string                    // "🟢" 헤더 이모지 (logoNode 없을 때 폴백)
-  iconLetter: string              // "N" 원형 아이콘 글자 (사용 안 해도 됨)
-  logoNode?: ReactNode             // SVG 로고 — 있으면 PageHeader icon 대신 사용
+  iconLetter: string              // "N" 원형 아이콘 글자
+  logoNode?: ReactNode            // SVG 로고 — 있으면 PageHeader icon 대신 사용
   supportsFetch: boolean          // "지금 수집" 버튼 노출 여부
-  connectHref: string             // 미연결 시 이동 경로 (/dashboard or /my/platforms/xxx/connect)
-  collectEndpoint?: string        // 31차-3: "지금 수집" 커스텀 엔드포인트 (기본 /api/place/reviews/fetch)
-  reviewAdminUrl?: string           // 41차-2: 플랫폼 리뷰 관리 URL (직접 발행 시 새 탭 오픈)
+  connectHref: string             // 미연결 시 이동 경로
+  collectEndpoint?: string        // "지금 수집" 커스텀 엔드포인트
+  reviewAdminUrl?: string         // 플랫폼 리뷰 관리 URL
+  platformInfoBanner?: PlatformInfoBannerConfig  // 연결 시 안내 배너 (kakao/baemin 등)
 }
 
 function Stars({ n, color }: { n: number; color: string }) {
@@ -366,9 +378,10 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
         }),
       })
       const aiData = await aiRes.json()
-      const generated = String(aiData?.reply || aiData?.message || '').trim()
+      const generated = String(aiData?.reply || '').trim()
       if (!generated) {
-        toast.error('답글 생성 실패. 다시 시도해주세요 🙏')
+        const errMsg = String(aiData?.error || aiData?.message || 'AI 서버 응답 없음')
+        toast.error(`답글 생성 실패: ${errMsg.slice(0, 80)}`)
         setGenerating(false)
         return
       }
@@ -608,15 +621,24 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
           <PageHeader
             icon={config.icon}
             logoNode={config.logoNode}
+            textDark={config.platform === 'kakao_map'}
             title={`${config.label} 리뷰 관리`}
             subtitle={
               connected
                 ? (config.platform === 'naver_place'
-                    ? `${storeName || '연결된 매장'} · ${agg.review_count}건 수집 중 · 미답변 ${agg.unreplied_count}건`
-                    : `${storeName || '연결된 매장'} · 리뷰 ${agg.review_count}건 · 미답변 ${agg.unreplied_count}건`)
+                    ? `${storeName || '연결된 매장'} · 리뷰 ${agg.review_count}건 수집 완료 · 미답변 ${agg.unreplied_count}건 AI 답글 대기 중`
+                    : config.platform === 'kakao_map'
+                      ? `${storeName || '연결된 매장'} · 카카오맵 리뷰 ${agg.review_count}건 · 미답변 ${agg.unreplied_count}건 AI가 작성 준비 완료`
+                      : config.platform === 'baemin'
+                        ? `${storeName || '연결된 매장'} · 배민 리뷰 ${agg.review_count}건 수집 완료 · 미답변 ${agg.unreplied_count}건 AI 답글 대기 중`
+                        : `${storeName || '연결된 매장'} · 리뷰 ${agg.review_count}건 수집 완료 · 미답변 ${agg.unreplied_count}건 AI 대기`)
                 : (config.platform === 'naver_place'
-                    ? '네이버 플레이스 공개 리뷰 자동 수집 · 미답변 리뷰에 사장님 답글 작성'
-                    : `${config.label}을 연결하면 리뷰가 자동 수집됩니다`)
+                    ? '네이버 플레이스 공개 리뷰 자동 수집 · AI가 맞춤 사장님 답글 작성'
+                    : config.platform === 'kakao_map'
+                      ? '카카오맵 리뷰 자동 수집 · AI가 카카오 감성으로 답글 작성'
+                      : config.platform === 'baemin'
+                        ? '배달의민족 리뷰 자동 수집 · AI가 배민 스타일로 답글 작성'
+                        : `${config.label} 리뷰 자동 수집 · AI 맞춤 답글 작성`)
             }
             variant={config.uiKey as any}
           />
@@ -690,7 +712,7 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
                   <p className="text-xl font-black text-[#F59E0B]">{agg.unreplied_count}건</p>
                 </div>
                 <div className="bg-white rounded-2xl p-4 border border-[#E5E8EB]">
-                  <p className="text-[11px] text-[#8B95A1] font-medium mb-1">★≤3</p>
+                  <p className="text-[11px] text-[#8B95A1] font-medium mb-1">주의 리뷰</p>
                   <p className="text-xl font-black text-[#F04452]">{negativeCount}건</p>
                 </div>
               </div>
@@ -731,7 +753,7 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
               </div>
             )}
 
-            {/* 네이버 플레이스 전용 안내 (30차-23-3) */}
+            {/* 네이버 플레이스 전용 안내 */}
             {connected && config.platform === 'naver_place' && (
               <div className="bg-white rounded-2xl border border-[#E5E8EB] p-4 mb-4">
                 <div className="flex items-start gap-3 flex-wrap">
@@ -749,6 +771,51 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
                       네이버 리뷰 원본 ↗
                     </a>
                   )}
+                </div>
+              </div>
+            )}
+
+            {/* 플랫폼 공통 안내 배너 (kakao_map / baemin 등) */}
+            {connected && config.platformInfoBanner && (
+              <div
+                className="rounded-2xl border p-4 mb-4"
+                style={{ background: config.bg, borderColor: config.color + '55' }}
+              >
+                <div className="flex items-center gap-3 flex-wrap">
+                  <div
+                    className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0 overflow-hidden"
+                    style={{ background: config.color }}
+                  >
+                    {config.logoNode
+                      ? <div style={{ transform: 'scale(0.55)', transformOrigin: 'center' }}>{config.logoNode}</div>
+                      : <span className="text-base font-black" style={{ color: config.textColor }}>{config.iconLetter}</span>
+                    }
+                  </div>
+                  <div className="flex-1 min-w-[200px]">
+                    <p className="text-sm font-bold" style={{ color: config.textColor }}>
+                      {config.platformInfoBanner.title}
+                    </p>
+                    <p className="text-xs mt-0.5" style={{ color: config.textColor + 'BB' }}>
+                      {config.platformInfoBanner.desc}
+                    </p>
+                  </div>
+                  <div className="flex gap-2 flex-wrap">
+                    {config.platformInfoBanner.links.map((link) => (
+                      <a
+                        key={link.href}
+                        href={link.href}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="text-[11px] font-bold px-3 py-1.5 rounded-lg hover:opacity-80 whitespace-nowrap transition-opacity"
+                        style={link.dark
+                          ? { background: config.textColor, color: config.bg }
+                          : { background: config.color, color: '#fff' }
+                        }
+                      >
+                        {link.label}
+                      </a>
+                    ))}
+                  </div>
                 </div>
               </div>
             )}
@@ -1070,7 +1137,7 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
                                 )}
                                 {isSubmitted && (
                                   <p className="text-[11px] mt-2 text-[#059669] bg-[#ECFDF5] rounded-lg px-2 py-1.5">
-                                    ✅ {config.label}에 등록 완료 ({timeAgo(review.replySubmittedAt)} 전)
+                                    ✅ {config.label}에 등록 완료 ({timeAgo(review.replySubmittedAt)})
                                   </p>
                                 )}
                                 {review.replyStatus === 'failed' && review.replyError && (
