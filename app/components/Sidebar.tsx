@@ -33,7 +33,6 @@ const MARKETING_GROUPS = [
       { href: '/marketing/blog-post',     label: '블로그 글 작성' },
       { href: '/marketing/blog-tracking', label: '블로그 순위 추적' },
       { href: '/marketing/naver-ads',     label: '키워드 조회/분석' },
-      { href: '/marketing/naver-check',  label: '네이버 연동 진단' },
     ],
   },
   {
