@@ -393,9 +393,24 @@ export async function runNaver(
               : null
 
             if (b64) {
-              log.info('captcha: submitting base64 captcha to 2captcha' + (captchaQuestion ? ' with question hint' : ''))
-              const bodyPayload: Record<string, string> = { key: apiKey, method: 'base64', body: b64, json: '1' }
-              if (captchaQuestion) bodyPayload.textinstructions = captchaQuestion
+              // 한국어 workers 지정 (lang=5) + 영문 힌트 추가로 가독성 향상
+              let instructions = captchaQuestion
+              if (captchaQuestion) {
+                let engHint = 'Korean receipt CAPTCHA. '
+                if (captchaQuestion.includes('이름') || captchaQuestion.includes('전체')) {
+                  engHint += 'Find the brand name (Korean word) on the receipt and fill the blank.'
+                } else if (captchaQuestion.includes('몇') || captchaQuestion.includes('kg') || captchaQuestion.includes('g')) {
+                  engHint += 'Find the weight/quantity number on the receipt. Type only the number.'
+                } else if (captchaQuestion.includes('번호') || captchaQuestion.includes('숫자')) {
+                  engHint += 'Find the number on the receipt and type it.'
+                } else {
+                  engHint += 'Answer based on the receipt image.'
+                }
+                instructions = captchaQuestion + '\n' + engHint
+              }
+              log.info('captcha: submitting base64 captcha to 2captcha lang=Korean' + (instructions ? ' with hint' : ''))
+              const bodyPayload: Record<string, string> = { key: apiKey, method: 'base64', body: b64, json: '1', lang: '5' }
+              if (instructions) bodyPayload.textinstructions = instructions
               const submitRes = await fetch('https://2captcha.com/in.php', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
