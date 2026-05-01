@@ -667,8 +667,10 @@ function parseReviewObject(objStr: string, fallbackId: string): VisitorReview | 
 // ============================================================
 
 const NAVER_GRAPHQL_URL = 'https://pcmap-api.place.naver.com/graphql'
+// 37차-9: replyCount/ownerReply 필드는 네이버 GraphQL 스키마에 없어서 전체 쿼리가 거부됨 → 제거 (리뷰 0건 버그 수정)
+// has_reply 감지는 fetch/route.ts의 보존 로직(기존 has_reply=true 또는 reply_status='submitted')에 의존
 const VISITOR_REVIEWS_QUERY =
-  'query getVisitorReviews($input: VisitorReviewsInput) { visitorReviews(input: $input) { total items { id rating body visited visitedDate created author { id nickname } originType userIdno media { type thumbnail videoId trailerUrl } replyCount ownerReply { body } } } }'
+  'query getVisitorReviews($input: VisitorReviewsInput) { visitorReviews(input: $input) { total items { id rating body visited visitedDate created author { id nickname } originType userIdno media { type thumbnail videoId trailerUrl } } } }'
 
 type GraphQLReviewItem = {
   id: string
@@ -681,8 +683,6 @@ type GraphQLReviewItem = {
   originType: string | null
   userIdno: string | null
   media: Array<{ type: string | null; thumbnail: string | null; videoId: string | null; trailerUrl: string | null }> | null
-  replyCount?: number | null
-  ownerReply?: { body: string | null } | null
 }
 
 async function fetchVisitorReviewsGraphQL(
@@ -725,11 +725,18 @@ async function fetchVisitorReviewsGraphQL(
       signal: AbortSignal.timeout(10000),
       cache: 'no-store',
     })
-    if (!res.ok) return null
+    if (!res.ok) {
+      console.warn('[naver-place] GraphQL HTTP error', res.status, placeId, businessType)
+      return null
+    }
     const j = (await res.json()) as Array<{
       data?: { visitorReviews?: { total: number; items: GraphQLReviewItem[] } }
-      errors?: unknown
+      errors?: Array<{ message?: string }>
     }>
+    if (j?.[0]?.errors && Array.isArray(j[0].errors) && j[0].errors.length > 0) {
+      console.warn('[naver-place] GraphQL errors', placeId, businessType,
+        j[0].errors.map(e => e?.message).filter(Boolean).slice(0, 3))
+    }
     const d = j?.[0]?.data?.visitorReviews
     if (!d) return null
     if (!Array.isArray(d.items)) return []
@@ -743,9 +750,8 @@ async function fetchVisitorReviewsGraphQL(
             .filter((u): u is string => typeof u === 'string' && u.length > 0)
             .slice(0, 6)
         : []
-      // 사장님 답글 여부: replyCount>0 또는 ownerReply 객체 존재
-      const hasOwnerReply = (typeof it.replyCount === 'number' && it.replyCount > 0) ||
-                            (it.ownerReply != null && typeof it.ownerReply.body === 'string' && it.ownerReply.body.length > 0)
+      // 37차-9: GraphQL 필드 추가가 전체 쿼리 거부를 유발 → has_reply는 별도 경로로 처리
+      // (fetch/route.ts에서 기존 has_reply=true 보존 + worker가 등록한 답글은 reply_status='submitted')
       return {
         reviewId: String(it.id),
         authorName: it.author?.nickname ?? null,
@@ -754,7 +760,7 @@ async function fetchVisitorReviewsGraphQL(
         visitedAt: it.visitedDate || it.visited || null,
         postedAt: it.created || null,
         photos,
-        hasOwnerReply,
+        hasOwnerReply: false, // 별도 fetch 또는 보존 로직에서 처리
       }
     })
   } catch (e) {
