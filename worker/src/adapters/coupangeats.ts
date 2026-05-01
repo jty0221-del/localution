@@ -267,50 +267,8 @@ export async function runCoupangEats(
     allRequestUrls.push(`${request.method()} ${url}`)
   })
 
-  // ── page.route: reviews/search 요청 날짜 범위 확장 (브라우저 XHR 가로채기) ──
-  // 브라우저가 오늘 하루만 조회 → 1년 범위로 교체하여 실제 리뷰 수집
-  // 브라우저 자체 인증(Bearer + 세션쿠키) 그대로 사용 → 403 없음
-  const routeEndDate = new Date(); routeEndDate.setDate(routeEndDate.getDate() + 1)
-  const routeStartDate = new Date(); routeStartDate.setFullYear(routeStartDate.getFullYear() - 1)
-  const routeEndStr = routeEndDate.toISOString().split('T')[0]
-  const routeStartStr = routeStartDate.toISOString().split('T')[0]
-  let capturedNaturalHeaders: Record<string, string> = {}
-  let capturedNaturalUrl = ''
-  await page.route('**/api/v1/merchant/reviews/search**', async (route: any) => {
-    try {
-      const origUrl: string = route.request().url()
-      const reqHeaders: Record<string, string> = route.request().headers() || {}
-      // 자연 요청 헤더 1회 캡처 (Bearer 토큰 탐색)
-      if (!capturedNaturalUrl) {
-        capturedNaturalUrl = origUrl
-        capturedNaturalHeaders = reqHeaders
-        const authHeader = reqHeaders['authorization'] || reqHeaders['Authorization'] || ''
-        log.info('coupangeats: natural reviews/search headers — authorization=' + authHeader.slice(0, 40) +
-          ' x-eats-store-id=' + (reqHeaders['x-eats-store-id'] || reqHeaders['X-Eats-Store-Id'] || 'none') +
-          ' origin-url=' + origUrl.slice(0, 120))
-        log.info('coupangeats: natural request ALL headers: ' + JSON.stringify(reqHeaders).slice(0, 400))
-      }
-      let newUrl = origUrl
-      if (newUrl.includes('startDateTime=')) {
-        newUrl = newUrl.replace(/startDateTime=[^&]+/, 'startDateTime=' + routeStartStr)
-      } else {
-        newUrl += (newUrl.includes('?') ? '&' : '?') + 'startDateTime=' + routeStartStr
-      }
-      if (newUrl.includes('exclusiveEndDateTime=')) {
-        newUrl = newUrl.replace(/exclusiveEndDateTime=[^&]+/, 'exclusiveEndDateTime=' + routeEndStr)
-      } else {
-        newUrl += '&exclusiveEndDateTime=' + routeEndStr
-      }
-      newUrl = newUrl.replace(/size=\d+/, 'size=100')
-      if (newUrl !== origUrl) {
-        log.info('coupangeats: route intercept reviews/search expanded date range → ' + newUrl.slice(0, 120))
-        // 캡처한 자연 헤더를 그대로 사용해서 확장 URL 요청
-        await route.continue({ url: newUrl, headers: reqHeaders })
-      } else {
-        await route.continue()
-      }
-    } catch (_) { await route.continue() }
-  })
+  // ── page.route: reviews/search 헤더 캡처 (fetchCoupangReviews 내부로 이동) ──
+  // capturedNaturalHeaders는 fetchCoupangReviews 내부에서 nodeDirectApiGet과 같은 스코프로 등록됨
 
   // ── 네트워크 인터셉트: page 생성 직후 미리 등록 (쿠키 세션 navigation 전) ──
   // URL 필터 없이 ALL JSON 캡처 → Coupang API URL이 'review' 없어도 잡힘
@@ -360,9 +318,10 @@ export async function runCoupangEats(
       // 쿠키 만료(whoami 403) 감지 → 브라우저 재로그인 폴백
       const dbg = (result as any)?.debug?.rawBodySample || ''
       const inserted = (result as any)?.data?.inserted ?? -1
-      // whoami 실패 감지: 403, Access Denied, 또는 JSON merchantId 없는 경우
+      // whoami 실패 또는 browser도 403 → fresh login 폴백
       const whoamiFailed = dbg.startsWith('whoami node:[') && !dbg.includes('"merchantId"') && !dbg.includes('"accountId"')
-      const cookieExpired = whoamiFailed && inserted === 0
+      const browserBlocked = dbg.includes('alt2browser:403') && inserted === 0
+      const cookieExpired = (whoamiFailed || browserBlocked) && inserted === 0
       if (cookieExpired) {
         log.warn({ rawBodySample: dbg }, 'coupangeats: saved cookies expired (403), falling back to browser login')
         return await fetchCoupangReviews(page, context, svc, creds, userId, action, payload, log, earlyCapture, earlyCaptureUrls, allRequestUrls, allJsonUrls, null)
@@ -546,6 +505,28 @@ async function fetchCoupangReviews(
   // ── 네트워크 인터셉트: earlyCapture 배열을 그대로 사용 (같은 참조 → 리스너가 계속 push) ──
   const capturedReviews = earlyCapture       // 같은 배열 참조 (리스너 push 반영됨)
   const capturedUrls = earlyCaptureUrls      // 같은 배열 참조
+
+  // ── reviews/search 자연 요청 헤더 캡처 (fetchCoupangReviews 내부 — nodeDirectApiGet 스코프 공유) ──
+  // 날짜 범위 확장 제거: Akamai가 2일 이상 차단 → 자연 요청 그대로 통과 + 헤더만 캡처
+  let capturedNaturalHeaders: Record<string, string> = {}
+  let capturedNaturalUrl = ''
+  try {
+    await page.route('**/api/v1/merchant/reviews/search**', async (route: any) => {
+      try {
+        const origUrl: string = route.request().url()
+        const reqHeaders: Record<string, string> = route.request().headers() || {}
+        if (!capturedNaturalUrl) {
+          capturedNaturalUrl = origUrl
+          capturedNaturalHeaders = reqHeaders
+          const authHeader = reqHeaders['authorization'] || reqHeaders['Authorization'] || ''
+          log.info('coupangeats: natural reviews/search CAPTURED — auth=' + authHeader.slice(0, 40) + ' url=' + origUrl.slice(0, 120))
+          log.info('coupangeats: natural ALL headers: ' + JSON.stringify(reqHeaders).slice(0, 400))
+        }
+        // 날짜 범위 확장 제거 (기존 1년 확장이 Akamai 403 유발) — 자연 요청 그대로 통과
+        await route.continue()
+      } catch (_) { await route.continue() }
+    })
+  } catch (_) {}
 
   // directCookies가 있으면 브라우저가 proxy 차단으로 불능 → 페이지 조작 전체 건너뜀
   const skipBrowser = !!directCookies
@@ -785,12 +766,21 @@ async function fetchCoupangReviews(
     let tunnelErr: string | null = null
     if (useProxy && proxyHost && proxyPort && proxyUser && proxyPass) {
       try {
+        // capturedNaturalHeaders가 있으면 자연 요청의 헤더 재사용 (Akamai 인증 헤더 포함)
+        const naturalH: Record<string, string> = {}
+        if (Object.keys(capturedNaturalHeaders).length > 0) {
+          const skipKeys = new Set(['host', 'content-length', 'cookie', ':authority', ':method', ':path', ':scheme'])
+          for (const [k, v] of Object.entries(capturedNaturalHeaders)) {
+            if (!skipKeys.has(k.toLowerCase())) naturalH[k] = v
+          }
+        }
         const extraH: Record<string, string> = {
           'X-Requested-With': 'XMLHttpRequest',
           'Referer': 'https://store.coupangeats.com/merchant/management/reviews',
           'Origin': 'https://store.coupangeats.com',
           'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
           'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8',
+          ...naturalH,  // 자연 헤더 오버레이 (Authorization, x-eats-store-id 등)
         }
         if (csrfToken) { extraH['X-XSRF-TOKEN'] = csrfToken; extraH['X-CSRF-Token'] = csrfToken }
         // Authorization Bearer 제거 — Cookie 헤더가 세션 인증을 담당 (Bearer 추가 시 충돌 가능)
