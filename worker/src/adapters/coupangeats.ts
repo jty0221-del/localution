@@ -726,6 +726,23 @@ async function fetchCoupangReviews(
     log.warn({ err: e?.message }, 'coupangeats: whoami exception')
   }
 
+  // 스토어 목록 조회 (403 원인 진단) + 스토어 컨텍스트 설정 시도
+  if (useNodeDirect && merchantId) {
+    try {
+      const storesRes = await nodeDirectApiGet(`/api/v1/merchant/${merchantId}/stores`)
+      log.info({ storesStatus: storesRes.status, storesBody: JSON.stringify(storesRes.body).slice(0, 200), storesErr: storesRes.errBody }, 'coupangeats: merchant stores check')
+      // 스토어 스위치 시도
+      const switchRes = await nodeDirectApiGet(`/api/v1/merchant/stores/${storeId}/switch`)
+      log.info({ switchStatus: switchRes.status, switchBody: JSON.stringify(switchRes.body).slice(0, 100), switchErr: switchRes.errBody }, 'coupangeats: store switch attempt')
+      // 대안 스토어 엔드포인트 시도
+      const alt1 = await nodeDirectApiGet(`/api/v1/merchant/reviews/search?storeId=${storeId}&page=1&size=10`)
+      log.info({ alt1Status: alt1.status, alt1Err: alt1.errBody?.slice(0,50) }, 'coupangeats: alt1 review (no statusType)')
+      rawBodySample += ` | stores:${storesRes.status} switch:${switchRes.status} alt1:${alt1.status}`
+    } catch (e: any) {
+      log.warn({ err: e?.message }, 'coupangeats: stores/switch diagnostic failed')
+    }
+  }
+
   // statusType 순서: EXPOSE (공개), UNEXPOSE (비공개), REPORTED
   const statusTypes = ['EXPOSE', 'UNEXPOSE', 'REPORTED']
 
@@ -898,6 +915,8 @@ async function fetchCoupangReviews(
       storeId,
       currentUrl: page.url(),
       allJsonUrls: allJsonUrls.slice(0, 30),
+      cookieCount: contextCookies.length,
+      cookieNames: cookieNames.slice(0, 30),
     },
   }
 }
