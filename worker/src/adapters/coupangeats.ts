@@ -311,7 +311,16 @@ export async function runCoupangEats(
     // 이유: Railway 프록시(socks5/http 불일치)로 browser nav 자체가 실패 → ERR 종류 무관하게 direct API 우선
     if (savedCookies && savedCookies.length > 0) {
       log.info({ cookieCount: savedCookies.length }, 'coupangeats: saved cookies found → skip browser nav, use direct API')
-      return await fetchCoupangReviews(page, context, svc, creds, userId, action, payload, log, earlyCapture, earlyCaptureUrls, allRequestUrls, allJsonUrls, savedCookies)
+      const result = await fetchCoupangReviews(page, context, svc, creds, userId, action, payload, log, earlyCapture, earlyCaptureUrls, allRequestUrls, allJsonUrls, savedCookies)
+      // 쿠키 만료(whoami 403) 감지 → 브라우저 재로그인 폴백
+      const dbg = (result as any)?.debug?.rawBodySample || ''
+      const inserted = (result as any)?.data?.inserted ?? -1
+      const cookieExpired = (dbg.includes('HTTP403') || dbg.includes('403')) && inserted === 0
+      if (cookieExpired) {
+        log.warn({ rawBodySample: dbg }, 'coupangeats: saved cookies expired (403), falling back to browser login')
+        return await fetchCoupangReviews(page, context, svc, creds, userId, action, payload, log, earlyCapture, earlyCaptureUrls, allRequestUrls, allJsonUrls, null)
+      }
+      return result
     }
 
     // ── 폼 로그인 (쿠키 없거나 만료) ──
