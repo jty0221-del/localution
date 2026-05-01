@@ -152,6 +152,25 @@ export async function runNaver(
   try {
     let loggedIn = false
 
+    // ── 0) 프록시 alive 체크 (결제 만료 조기 감지) ─────────────────────
+    if (useProxy) {
+      try {
+        // 가벼운 HTTP 요청으로 프록시 402/407 체크
+        const proxyTestUrl = 'http://www.gstatic.com/generate_204'
+        const resp = await page.request.get(proxyTestUrl, { timeout: 10000 }).catch((e2: any) => ({ status: () => 0, _err: e2?.message }))
+        const status = typeof resp.status === 'function' ? resp.status() : 0
+        log.info({ proxyStatus: status }, 'naver: proxy alive check')
+        if (status === 402 || status === 407) {
+          const msg = `naver: 프록시 이용권 만료(HTTP ${status}) — IPRoyal 결제 후 Railway PROXY_PASS 확인 필요`
+          log.error('naver proxy expired: HTTP ' + status)
+          if (platformReviewId) await updateReviewStatus(svc, userId, platformReviewId, 'failed', { error: msg })
+          return { status: 'failed', message: msg }
+        }
+      } catch (_) {
+        // alive 체크 실패는 무시하고 계속 진행
+      }
+    }
+
     // ── 1) 항상 ID/PW 폼 로그인 (IPRoyal 프록시 경유 한국 IP)
     //    노트: 저장된 NID 쿠키는 다른 IP에서 사용 시 Naver가 강제 만료시킴
     //    → 쿠키 방식 제거, 매번 신선한 폼 로그인으로 진행
@@ -345,11 +364,19 @@ export async function runNaver(
     return { status: 'failed', message: `naver reply 실패: ${result.reason}` }
 
   } catch (e: any) {
-    log.error({ err: e?.message }, 'naver unhandled error')
+    const errMsg = String(e?.message || e || 'unknown')
+    // 프록시 결제 만료 / 연결 불가 → 명확한 안내
+    const isProxyErr = errMsg.includes('402') || errMsg.includes('407') || errMsg.includes('Payment') ||
+                       errMsg.includes('ERR_TUNNEL') || errMsg.includes('ERR_PROXY') || errMsg.includes('ERR_EMPTY_RESPONSE')
+    const friendlyMsg = isProxyErr
+      ? 'naver: 프록시 이용권 만료 또는 연결 실패 — IPRoyal 결제 후 Railway PROXY_PASS 확인 필요'
+      : `naver: ${errMsg.slice(0, 150)}`
+    // 에러 메시지를 Railway 로그에서 바로 볼 수 있도록 log message 에 포함
+    log.error('naver unhandled error: ' + errMsg.slice(0, 200))
     if (platformReviewId) {
-      await updateReviewStatus(svc, userId, platformReviewId, 'failed', { error: `unhandled: ${e?.message}` }).catch(() => null)
+      await updateReviewStatus(svc, userId, platformReviewId, 'failed', { error: friendlyMsg }).catch(() => null)
     }
-    return { status: 'failed', message: `naver: ${e?.message || e}` }
+    return { status: 'failed', message: friendlyMsg }
   } finally {
     await context.close().catch(() => null)
   }
