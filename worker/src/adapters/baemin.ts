@@ -76,13 +76,10 @@ export async function runBaemin(
   const proxyPass = process.env.PROXY_PASS
   const proxyProto = process.env.PROXY_PROTOCOL || 'http'
 
+  // proxy는 chromium.launch() 레벨에서 설정됨 (index.ts)
+  // context 레벨에서 재설정하면 ERR_PROXY_AUTH_UNSUPPORTED 발생 → 여기서는 로그만
   if (proxyHost && proxyHost.trim() && !proxyHost.includes('제공값') && !proxyHost.includes('유저')) {
-    ctxOpts.proxy = {
-      server:   `${proxyProto}://${proxyHost}:${proxyPort}`,
-      username: proxyUser || '',
-      password: proxyPass || '',
-    }
-    log.info({ proxyHost, proxyPort }, 'baemin: using Korean proxy for browser context')
+    log.info({ proxyHost, proxyPort }, 'baemin: using proxy (set at browser launch level)')
   } else {
     log.warn('baemin: no proxy configured — login may fail from non-KR IP')
   }
