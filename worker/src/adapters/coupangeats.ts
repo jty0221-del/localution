@@ -666,40 +666,14 @@ async function fetchCoupangReviews(
     }
   }
 
-  // ── 페이지 상호작용으로 리뷰 API 자연 유도 (브라우저가 살아있을 때만) ──
+  // ── 페이지 상호작용 제거 ──
+  // 주의: 조회/검색 버튼 클릭 시 SPA 상태 변경 → Akamai 세션 무효화 → 이후 모든 fetch 403
+  // dateWindowTest(버튼 클릭 전)에서 1d/7d/30d 모두 200 → 버튼 클릭이 세션 파괴 원인 확인
+  // 따라서 상호작용 없이 직접 fetch로 진행
   if (!skipBrowser || browserNavOk) {
     try { await closeAllModals(page, log) } catch { /* browser dead — ignore */ }
-    // 쿠팡이츠 리뷰 페이지의 자연 API 호출 유도 (다양한 방식 시도)
-    const interactionDone = await (async () => {
-      // 1) 검색/조회 버튼 클릭
-      const triggerSelectors = [
-        'button:has-text("조회")', 'button:has-text("검색")', 'button:has-text("목록 불러오기")',
-        'button:has-text("불러오기")', '[class*="SearchButton"]', '[class*="search-button"]',
-        'form button[type="submit"]', '[class*="ReviewFilter"] button',
-      ]
-      for (const sel of triggerSelectors) {
-        try {
-          const btn = page.locator(sel).first()
-          if (await btn.isVisible({ timeout: 1500 }).catch(() => false)) {
-            await btn.click()
-            log.info({ sel }, 'coupangeats: clicked review trigger button')
-            await page.waitForTimeout(2500)
-            return true
-          }
-        } catch (_) { /* ignore */ }
-      }
-      // 2) 페이지에서 Enter 키 전송 (검색 폼 제출)
-      try {
-        await page.keyboard.press('Enter')
-        await page.waitForTimeout(2000)
-      } catch (_) { /* ignore */ }
-      return false
-    })()
-    log.info({ interactionDone, capturedAfterInteraction: capturedReviews.length }, 'coupangeats: after page interaction')
-    try { await page.waitForTimeout(500) } catch { /* browser dead — ignore */ }
-  } else {
-    log.info('coupangeats: skipBrowser=true — skipping all page interactions, going direct to node API')
   }
+  log.info({ capturedSoFar: capturedReviews.length }, 'coupangeats: skipping page interactions (버튼 클릭 → Akamai 세션 파괴 방지)')
 
   const storeId = creds.platform_store_id || '738438'
   log.info({ storeId, naturalCaptured: capturedReviews.length }, 'coupangeats: calling review API (node-direct fetch primary, browser fallback)')
@@ -1021,12 +995,34 @@ async function fetchCoupangReviews(
   }
 
   // statusType 순서: EXPOSE (공개) 우선, 이후 UNEXPOSE
-  // 주의: nodeDirectApiGet은 Akamai TLS 차단으로 reviews/search 항상 403 → browserApiGet 직접 사용
+  // 핵심 발견(47cha-8): browserApiGet(복잡 헤더)은 403, minimal fetch(credentials:include만)는 200
+  // → dateWindowTest와 동일한 minimal fetch 사용
   const statusTypes = ['EXPOSE', 'UNEXPOSE']
 
   // Akamai가 2일 이상 날짜범위를 403으로 차단함 → 1일 단위 슬라이딩 윈도우 사용
   const fmtDate = (d: Date) => d.toISOString().split('T')[0]
-  log.info('coupangeats: using 1-day sliding windows via browserApiGet (Chrome TLS, Akamai bypass)')
+  log.info('coupangeats: using 1-day sliding windows via minimal page.evaluate fetch (dateWindowTest 동일 방식)')
+
+  // minimal fetch: dateWindowTest에서 200 확인된 방식 (복잡 헤더 없이 credentials:include만)
+  async function minimalBrowserFetch(url: string): Promise<{ok: boolean; body: any; status: number; errBody: string}> {
+    try {
+      const fullUrl = url.startsWith('http') ? url : `${BASE_ORIGIN}${url}`
+      const result = await page.evaluate(async (args: { url: string }) => {
+        try {
+          const r = await fetch(args.url, { credentials: 'include', headers: { 'Accept': 'application/json' } })
+          const text = await r.text()
+          let body: any = null
+          try { body = JSON.parse(text) } catch { body = null }
+          return { ok: r.ok, status: r.status, body, errBody: r.ok ? '' : text.slice(0, 200) }
+        } catch (e: any) {
+          return { ok: false, status: 0, body: null, errBody: String(e?.message || e) }
+        }
+      }, { url: fullUrl })
+      return result
+    } catch (e: any) {
+      return { ok: false, status: 0, body: null, errBody: String(e?.message || e) }
+    }
+  }
 
   for (const statusType of statusTypes) {
     let consecutiveEmpty = 0
@@ -1038,9 +1034,9 @@ async function fetchCoupangReviews(
         dayStart.setDate(dayStart.getDate() - daysBack)
         const dateRange = `startDateTime=${fmtDate(dayStart)}&exclusiveEndDateTime=${fmtDate(dayEnd)}`
 
-        // reviews/search는 node-direct 항상 403 (Akamai TLS 차단) → browserApiGet(Chrome fetch) 직접
+        // minimal fetch (dateWindowTest 방식) — 버튼 클릭 없이 바로 호출 → 200 기대
         const url = `/api/v1/merchant/reviews/search?storeId=${storeId}&page=1&statusType=${statusType}&${dateRange}&size=100`
-        const fetchResult = await browserApiGet(url)
+        const fetchResult = await minimalBrowserFetch(url)
 
         if (!fetchResult.ok) {
           if (daysBack === 0) {
