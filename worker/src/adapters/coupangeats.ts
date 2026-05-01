@@ -585,7 +585,14 @@ async function fetchCoupangReviews(
   const contextCookies = directCookies
     ?? await context.cookies('https://store.coupangeats.com').catch(() => [] as any[])
   const cookieStr = contextCookies.map((c: any) => `${c.name}=${c.value}`).join('; ')
-  log.info({ cookieCount: contextCookies.length, hasCookieStr: !!cookieStr, viaDirectCookies: !!directCookies }, 'coupangeats: node-direct cookie string built')
+  const cookieNames = contextCookies.map((c: any) => c.name)
+  log.info({ cookieCount: contextCookies.length, cookieNames, hasCookieStr: !!cookieStr, viaDirectCookies: !!directCookies }, 'coupangeats: node-direct cookie string built')
+
+  // CSRF & Auth token extraction from cookies
+  const findCookie = (names: string[]) => contextCookies.find((c: any) => names.includes(c.name))?.value || null
+  const csrfToken = findCookie(['XSRF-TOKEN', 'xsrf-token', 'csrf-token', '_csrf', 'X-CSRF-TOKEN', 'csrftoken'])
+  const authToken = findCookie(['access-token', 'store-access-token', 'Authorization', 'auth-token', 'jwt', 'token'])
+  log.info({ csrfToken: csrfToken ? csrfToken.slice(0, 20) + '...' : null, authToken: authToken ? authToken.slice(0, 20) + '...' : null }, 'coupangeats: extracted tokens')
 
   async function nodeDirectApiGet(path: string): Promise<{ ok: boolean; body: any; status: number; errBody: string }> {
     const url = path.startsWith('http') ? path : `${BASE_ORIGIN}${path}`
@@ -594,16 +601,19 @@ async function fetchCoupangReviews(
     let tunnelErr: string | null = null
     if (useProxy && proxyHost && proxyPort && proxyUser && proxyPass) {
       try {
+        const extraH: Record<string, string> = {
+          'X-Requested-With': 'XMLHttpRequest',
+          'Referer': 'https://store.coupangeats.com/merchant/management/reviews',
+          'Origin': 'https://store.coupangeats.com',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+          'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8',
+        }
+        if (csrfToken) { extraH['X-XSRF-TOKEN'] = csrfToken; extraH['X-CSRF-Token'] = csrfToken }
+        if (authToken) extraH['Authorization'] = `Bearer ${authToken}`
         const result = await tunnelFetch(
           url, cookieStr,
           proxyHost, parseInt(proxyPort, 10), proxyUser, proxyPass,
-          {
-            'X-Requested-With': 'XMLHttpRequest',
-            'Referer': 'https://store.coupangeats.com/merchant/management/reviews',
-            'Origin': 'https://store.coupangeats.com',
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-            'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8',
-          },
+          extraH,
         )
         log.info({ url: path.slice(0, 80), status: result.status, via: 'tunnelFetch' }, 'coupangeats: nodeDirectApiGet via proxy tunnel')
         return result
