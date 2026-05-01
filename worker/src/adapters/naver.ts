@@ -10,7 +10,7 @@ import type { Logger } from 'pino'
 import { getServiceClient } from '../lib/supabase'
 import { loadPlainCredentials, loadCookieData, markLoginStatus } from '../lib/credentials'
 import { dumpPageDiagnostics, startNetworkCapture, detectLoginFailure } from '../lib/diagnostics'
-import { handleNaverCaptcha } from '../lib/captcha'
+import { handleNaverCaptcha, solveCaptcha } from '../lib/captcha'
 import type { JobResult, Action } from '../jobs'
 
 const LOGIN_URL = 'https://nid.naver.com/nidlogin.login'
@@ -277,6 +277,43 @@ export async function runNaver(
         await pwEl.focus()
         await page.keyboard.type(creds.password, { delay: 80 })
         await page.waitForTimeout(300)
+      }
+
+      // ── 인라인 CAPTCHA 체크 (해외 IP 로그인 시 PW 필드와 함께 삽입됨) ──────
+      // Railway Tokyo IP → Naver가 로그인 폼 안에 이미지 CAPTCHA("자동입력 방지 문자") 삽입
+      // URL은 그대로 nidlogin.login 이므로 URL-based 감지 불가 → DOM 직접 탐지
+      {
+        const captchaImgEl = await page.$(
+          '#captchaimg, img[src*="captcha"], .captcha_area img, img.captcha_img'
+        ).catch(() => null)
+
+        if (captchaImgEl) {
+          log.info('naver: inline CAPTCHA detected on login page — solving with 2captcha')
+          const captchaAnswer = await solveCaptcha({
+            page,
+            log,
+            type: 'image',
+            captchaSelector: '#captchaimg, img[src*="captcha"], .captcha_area img, img.captcha_img',
+          })
+          if (captchaAnswer) {
+            // CAPTCHA 답 입력 (placeholder "자동입력 방지 문자" 포함하는 input)
+            const captchaInput = await page.$(
+              '#captcha, input[name="captcha"], input[placeholder*="자동"], input[class*="captcha"]'
+            ).catch(() => null)
+            if (captchaInput) {
+              await captchaInput.click({ clickCount: 3 })
+              await captchaInput.type(captchaAnswer, { delay: 80 })
+              await page.waitForTimeout(300)
+              log.info('naver: inline CAPTCHA answer filled (len=' + captchaAnswer.length + ') — proceeding to login submit')
+            } else {
+              log.warn('naver: CAPTCHA input field not found after solving — login may fail')
+            }
+          } else {
+            log.warn('naver: 2captcha could not solve inline CAPTCHA — login will likely fail. Check TWOCAPTCHA_API_KEY balance.')
+          }
+        } else {
+          log.info('naver: no inline CAPTCHA on login page — submitting directly')
+        }
       }
 
       // 로그인 버튼 클릭
