@@ -520,10 +520,39 @@ async function fetchCoupangReviews(
     log.info({ reviewsUrl }, 'coupangeats: savedCookies — attempting direct nav to reviews page for Akamai challenge')
     try {
       await page.goto(reviewsUrl, { waitUntil: 'domcontentloaded', timeout: 35000 })
-      await page.waitForTimeout(5000)   // Akamai JS + 자연 API 호출 대기
+      await page.waitForTimeout(8000)   // Akamai JS + 자연 API 호출 대기 (8초)
       browserNavOk = true
       const finalUrl = page.url()
       log.info({ url: finalUrl, capturedSoFar: capturedReviews.length }, `coupangeats: reviews page loaded url=${finalUrl} captured=${capturedReviews.length}`)
+      // 실제 요청 URL 로깅 — 리뷰 API / 스토어 선택 API 발견용
+      log.info(`coupangeats: allRequestUrls after nav (last 25): ${allRequestUrls.slice(-25).join(' | ')}`)
+      log.info(`coupangeats: allJsonUrls after nav: ${allJsonUrls.slice(0, 20).join(' | ')}`)
+      // 스토어 선택 UI 감지 — 스토어 목록/선택 팝업이 있으면 첫 번째 항목 클릭
+      const storeSelectSelectors = [
+        '[class*="StoreSelect"] li:first-child',
+        '[class*="store-select"] li:first-child',
+        '[class*="StoreList"] li:first-child',
+        '[class*="store-list"] li:first-child',
+        '[class*="storeItem"]:first-child',
+        '[class*="store-item"]:first-child',
+        'ul[class*="store"] > li:first-child',
+        '[data-testid*="store"]:first-child',
+        'button[class*="store"]:first-child',
+      ]
+      for (const sel of storeSelectSelectors) {
+        try {
+          const el = page.locator(sel).first()
+          const visible = await el.isVisible({ timeout: 1500 }).catch(() => false)
+          if (visible) {
+            await el.click()
+            await page.waitForTimeout(3000)
+            const afterClickUrl = page.url()
+            log.info({ sel, url: afterClickUrl, captured: capturedReviews.length }, 'coupangeats: store selector clicked')
+            log.info(`coupangeats: allRequestUrls after store click: ${allRequestUrls.slice(-15).join(' | ')}`)
+            break
+          }
+        } catch (_) { /* ignore */ }
+      }
     } catch (navErr: any) {
       log.warn({ err: navErr?.message }, 'coupangeats: savedCookies reviews nav failed — will use node-direct only')
     }
@@ -799,28 +828,59 @@ async function fetchCoupangReviews(
   if (useNodeDirect && merchantId) {
     try {
       const storesRes = await nodeDirectApiGet(`/api/v1/merchant/${merchantId}/stores`)
-      log.info({ storesStatus: storesRes.status }, `coupangeats: stores=${storesRes.status} body=${JSON.stringify(storesRes.body).slice(0,150)} err=${storesRes.errBody?.slice(0,80)}`)
-      // 다양한 스토어 스위치 endpoint 시도
-      const switchGet = await apiGet(`/api/v1/merchant/stores/${storeId}/switch`)
+      log.info(`coupangeats: stores=${storesRes.status} body=${JSON.stringify(storesRes.body).slice(0,200)} err=${storesRes.errBody?.slice(0,80)}`)
+
+      // 실제 스토어 ID 추출 시도 (API에서 반환된 첫 번째 스토어)
+      let realStoreId = storeId
+      if (storesRes.ok && storesRes.body) {
+        const storeList: any[] = storesRes.body?.data?.stores || storesRes.body?.stores || storesRes.body?.data || []
+        if (Array.isArray(storeList) && storeList.length > 0) {
+          const firstStore = storeList[0]
+          const apiStoreId = String(firstStore?.storeId || firstStore?.id || firstStore?.store_id || '')
+          if (apiStoreId && apiStoreId !== storeId) {
+            log.info({ configuredStoreId: storeId, apiStoreId }, 'coupangeats: storeId mismatch — using API-returned storeId')
+            realStoreId = apiStoreId
+          }
+          log.info(`coupangeats: first store from API: ${JSON.stringify(firstStore).slice(0,150)}`)
+        }
+      }
+
+      // browserApiGet으로 whoami 재확인 (Chrome 쿠키 기반 — browserNavOk 후 갱신된 세션)
+      if (browserNavOk) {
+        const bWhoami = await browserApiGet('/api/v1/merchant/whoami')
+        log.info(`coupangeats: browserWhoami=${bWhoami.status} body=${JSON.stringify(bWhoami.body).slice(0,200)}`)
+        const bMerchantId = bWhoami.body?.data?.merchantId || bWhoami.body?.merchantId
+        const bStoreId = bWhoami.body?.data?.responsibleStoreId || bWhoami.body?.responsibleStoreId
+        if (bStoreId) {
+          log.info({ bStoreId }, 'coupangeats: browser whoami has responsibleStoreId — using it')
+          realStoreId = String(bStoreId)
+        }
+        if (bMerchantId) merchantId = bMerchantId
+      }
+
+      // 스토어 스위치 시도 (실제 스토어 ID로)
+      const switchGet = await apiGet(`/api/v1/merchant/stores/${realStoreId}/switch`)
       const switchPost = await (async () => {
-        // POST switch (body에 storeId)
         try {
-          const u = `https://store.coupangeats.com/api/v1/merchant/stores/${storeId}/switch`
+          const u = `https://store.coupangeats.com/api/v1/merchant/stores/${realStoreId}/switch`
           const r = await (globalThis as any).fetch(u, {
             method: 'POST',
             headers: { 'Cookie': cookieStr, 'Content-Type': 'application/json', 'Accept': 'application/json', 'Origin': 'https://store.coupangeats.com', 'Referer': 'https://store.coupangeats.com/merchant/management/reviews' },
-            body: JSON.stringify({ storeId: parseInt(storeId, 10) }),
+            body: JSON.stringify({ storeId: parseInt(realStoreId, 10) }),
           })
           const body = await r.json().catch(() => null)
           return { status: r.status, body }
         } catch (e: any) { return { status: 0, body: null } }
       })()
-      log.info(`coupangeats: switchGET=${switchGet.status} switchPOST=${switchPost.status} switchPOSTbody=${JSON.stringify(switchPost.body).slice(0,100)}`)
-      // 리뷰 없이도 merchantId 경로 시도
+      log.info(`coupangeats: switchGET=${switchGet.status} switchPOST=${switchPost.status} switchPOSTbody=${JSON.stringify(switchPost.body).slice(0,100)} realStoreId=${realStoreId}`)
+
+      // 리뷰 API 다양한 경로 시도
       const noStore = await apiGet(`/api/v1/merchant/reviews/search?page=1&statusType=EXPOSE&size=10`)
-      const alt1 = await nodeDirectApiGet(`/api/v1/merchant/reviews/search?storeId=${storeId}&page=1&size=10`)
-      log.info(`coupangeats: alt1=${alt1.status} noStore=${noStore.status} noStoreSample=${JSON.stringify(noStore.body).slice(0,80)}`)
-      rawBodySample += ` | stores:${storesRes.status} switchGET:${switchGet.status} switchPOST:${switchPost.status} alt1:${alt1.status} noStore:${noStore.status}`
+      const alt1 = await nodeDirectApiGet(`/api/v1/merchant/reviews/search?storeId=${realStoreId}&page=1&size=10`)
+      const alt2 = await browserApiGet(`/api/v1/merchant/reviews/search?storeId=${realStoreId}&page=1&statusType=EXPOSE&size=10`)
+      log.info(`coupangeats: alt1=${alt1.status} alt2(browser)=${alt2.status} noStore=${noStore.status}`)
+      log.info(`coupangeats: alt1body=${JSON.stringify(alt1.body).slice(0,120)} alt2body=${JSON.stringify(alt2.body).slice(0,120)}`)
+      rawBodySample += ` | stores:${storesRes.status} switchGET:${switchGet.status} switchPOST:${switchPost.status} alt1:${alt1.status} alt2browser:${alt2.status} noStore:${noStore.status} realStoreId:${realStoreId}`
     } catch (e: any) {
       log.warn({ err: e?.message }, 'coupangeats: stores/switch diagnostic failed')
     }
