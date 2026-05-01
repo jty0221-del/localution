@@ -623,44 +623,37 @@ async function fetchCoupangReviews(
         log.warn({ err: pse?.message }, 'coupangeats: pageState inspect failed')
       }
 
-      // ── Step 2b: 리뷰 페이지 로드 후 단기 날짜 범위 테스트 ──
-      // 서버가 responsibleStoreId 없이도 허용하는 최대 날짜 범위 탐색
+      // ── Step 2b: 51차 슬라이딩 윈도우 (dateWindowTest 제거) ──
+      // 핵심 발견: dateWindowTest 3번 fetch(size=5) → 200, 4번째 fetch(size=100) → 403
+      // 원인: Akamai 빠른 연속 request quota 초과 or size=100이 스크래핑으로 감지됨
+      // 51차 수정:
+      //   1. dateWindowTest 제거 (3번 quota 낭비 없애기)
+      //   2. size=5 + 페이지네이션 (자연스러운 브라우저 동작)
+      //   3. fetch 간 800ms 딜레이 (rate detection 회피)
       try {
-        const testNow = new Date()
-        const testFmt = (d: Date) => d.toISOString().split('T')[0]
-        const testEnd = new Date(testNow); testEnd.setDate(testEnd.getDate() + 1)
-        const test1s = new Date(testNow); test1s.setDate(test1s.getDate() - 1)
-        const test7s = new Date(testNow); test7s.setDate(test7s.getDate() - 7)
-        const test30s = new Date(testNow); test30s.setDate(test30s.getDate() - 30)
-        const r1 = await page.evaluate(async (args: { url: string }) => {
-          const r = await fetch(args.url, { credentials: 'include', headers: { 'Accept': 'application/json' } })
-          return { status: r.status, ok: r.ok }
-        }, { url: `https://store.coupangeats.com/api/v1/merchant/reviews/search?storeId=${targetStoreId2}&page=1&statusType=EXPOSE&startDateTime=${testFmt(test1s)}&exclusiveEndDateTime=${testFmt(testEnd)}&size=5` })
-        const r7 = await page.evaluate(async (args: { url: string }) => {
-          const r = await fetch(args.url, { credentials: 'include', headers: { 'Accept': 'application/json' } })
-          return { status: r.status, ok: r.ok }
-        }, { url: `https://store.coupangeats.com/api/v1/merchant/reviews/search?storeId=${targetStoreId2}&page=1&statusType=EXPOSE&startDateTime=${testFmt(test7s)}&exclusiveEndDateTime=${testFmt(testEnd)}&size=5` })
-        const r30 = await page.evaluate(async (args: { url: string }) => {
-          const r = await fetch(args.url, { credentials: 'include', headers: { 'Accept': 'application/json' } })
-          return { status: r.status, ok: r.ok }
-        }, { url: `https://store.coupangeats.com/api/v1/merchant/reviews/search?storeId=${targetStoreId2}&page=1&statusType=EXPOSE&startDateTime=${testFmt(test30s)}&exclusiveEndDateTime=${testFmt(testEnd)}&size=5` })
-        log.info(`coupangeats: dateWindowTest 1d=${r1.status} 7d=${r7.status} 30d=${r30.status}`)
+        const storeId0 = targetStoreId2
+        const fmtD = (d: Date) => d.toISOString().split('T')[0]
+        const statusTypes0 = ['EXPOSE', 'UNEXPOSE']
+        const PAGE_SIZE = 5
+        const DAYS_BACK = 30
 
-        // ── 50차: 세션이 살아있는 지금 바로 슬라이딩 윈도우 실행 ──
-        // dateWindowTest 직후 → Akamai 세션 신선 → minimalBrowserFetch 200 기대
-        // (이전 문제: 45초 후 nodeDirectApiGet 완료 → 세션 만료 → 403)
-        log.info('coupangeats: 50cha — running sliding window IMMEDIATELY after dateWindowTest (session fresh)')
-        try {
-          const storeId0 = creds.platform_store_id || '738438'
-          const fmtD = (d: Date) => d.toISOString().split('T')[0]
-          const statusTypes0 = ['EXPOSE', 'UNEXPOSE']
-          const DAYS_BACK = 30
+        log.info('coupangeats: 51cha — sliding window start (no dateWindowTest, size=5, 800ms delay)')
 
-          for (const statusType0 of statusTypes0) {
-            for (let daysBack = 0; daysBack <= DAYS_BACK; daysBack++) {
-              const dayEnd = new Date(); dayEnd.setDate(dayEnd.getDate() - daysBack + 1)
-              const dayStart = new Date(); dayStart.setDate(dayStart.getDate() - daysBack)
-              const url0 = `https://store.coupangeats.com/api/v1/merchant/reviews/search?storeId=${storeId0}&page=1&statusType=${statusType0}&startDateTime=${fmtD(dayStart)}&exclusiveEndDateTime=${fmtD(dayEnd)}&size=100`
+        for (const statusType0 of statusTypes0) {
+          let sessionOk = true
+          for (let daysBack = 0; daysBack <= DAYS_BACK && sessionOk; daysBack++) {
+            const dayEnd = new Date(); dayEnd.setDate(dayEnd.getDate() - daysBack + 1)
+            const dayStart = new Date(); dayStart.setDate(dayStart.getDate() - daysBack)
+            const dateRange = `startDateTime=${fmtD(dayStart)}&exclusiveEndDateTime=${fmtD(dayEnd)}`
+
+            // 페이지네이션: 각 날짜에서 size=5씩 수집
+            let pageNum = 1
+            let hasMore = true
+            while (hasMore) {
+              const url0 = `https://store.coupangeats.com/api/v1/merchant/reviews/search?storeId=${storeId0}&page=${pageNum}&statusType=${statusType0}&${dateRange}&size=${PAGE_SIZE}`
+
+              // 800ms 딜레이 (Akamai rate detection 회피)
+              await new Promise(resolve => setTimeout(resolve, 800))
 
               const res0 = await page.evaluate(async (args: { url: string }) => {
                 try {
@@ -675,9 +668,9 @@ async function fetchCoupangReviews(
               }, { url: url0 })
 
               if (!res0.ok) {
-                log.warn({ statusType: statusType0, daysBack, status: res0.status, err: res0.errBody?.slice(0, 100) }, 'coupangeats: 50cha window fetch failed')
-                if (daysBack === 0) break  // 오늘도 403이면 세션 완전 만료 — 종료
-                break  // 이 statusType 포기
+                log.warn({ statusType: statusType0, daysBack, pageNum, status: res0.status, err: res0.errBody?.slice(0, 80) }, 'coupangeats: 51cha window failed')
+                sessionOk = false
+                break
               }
 
               const items: any[] = []
@@ -688,19 +681,18 @@ async function fetchCoupangReviews(
               else if (Array.isArray(rawBody?.data?.reviews)) items.push(...rawBody.data.reviews)
               else if (Array.isArray(rawBody?.reviews)) items.push(...rawBody.reviews)
 
-              log.info({ statusType: statusType0, daysBack, status: res0.status, count: items.length }, 'coupangeats: 50cha window ok')
+              log.info({ statusType: statusType0, daysBack, pageNum, status: res0.status, count: items.length }, 'coupangeats: 51cha window ok')
+              for (const item of items) capturedReviews.push(item)
 
-              for (const item of items) {
-                capturedReviews.push(item)
-              }
+              hasMore = items.length >= PAGE_SIZE
+              pageNum++
+              if (pageNum > 10) break  // 안전장치
             }
           }
-          log.info({ total: capturedReviews.length }, 'coupangeats: 50cha sliding window done')
-        } catch (slideErr: any) {
-          log.warn({ err: slideErr?.message }, 'coupangeats: 50cha sliding window error')
         }
+        log.info({ total: capturedReviews.length }, 'coupangeats: 51cha sliding window done')
       } catch (wte: any) {
-        log.warn({ err: wte?.message }, 'coupangeats: dateWindowTest failed')
+        log.warn({ err: wte?.message }, 'coupangeats: 51cha sliding window error')
       }
     } catch (navErr: any) {
       log.warn({ err: navErr?.message }, 'coupangeats: savedCookies nav failed — will use node-direct only')
