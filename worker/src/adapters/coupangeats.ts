@@ -562,13 +562,66 @@ async function fetchCoupangReviews(
       log.info(`coupangeats: allRequestUrls after home nav (last 20): ${allRequestUrls.slice(-20).join(' | ')}`)
 
       // 홈 페이지 로드 후 whoami 재확인 (responsibleStoreId 설정 여부 체크)
+      let responsibleStoreIdSet = false
       try {
         const whoamiCheck = await page.evaluate(async () => {
           const r = await fetch('https://store.coupangeats.com/api/v1/merchant/whoami', { credentials: 'include' })
           return r.ok ? await r.json() : null
         })
-        log.info('coupangeats: whoami after home nav responsibleStoreId=' + (whoamiCheck?.data?.responsibleStoreId ?? 'N/A'))
+        const rid = whoamiCheck?.data?.responsibleStoreId
+        log.info('coupangeats: whoami after home nav responsibleStoreId=' + (rid ?? 'N/A'))
+        if (rid) responsibleStoreIdSet = true
       } catch (_) {}
+
+      // ── Step 1b: responsibleStoreId가 없으면 브라우저 axios로 store switch 시도 ──
+      if (!responsibleStoreIdSet) {
+        const switchCandidates = [
+          { method: 'POST', path: `/api/v1/merchant/stores/${targetStoreId2}/switch`, body: {} },
+          { method: 'POST', path: `/api/v1/merchant/web/stores/${targetStoreId2}/switch`, body: {} },
+          { method: 'POST', path: `/api/v1/merchant/login/stores/switch`, body: { storeId: parseInt(targetStoreId2, 10) } },
+          { method: 'PUT', path: `/api/v1/merchant/stores/select`, body: { storeId: parseInt(targetStoreId2, 10) } },
+          { method: 'POST', path: `/api/v1/merchant/context/store`, body: { storeId: parseInt(targetStoreId2, 10) } },
+        ]
+        for (const cand of switchCandidates) {
+          try {
+            const sr = await page.evaluate(async (args: { method: string; path: string; body: any }) => {
+              const fullUrl = 'https://store.coupangeats.com' + args.path
+              const ax = (window as any).axios || (window as any).__axios
+              if (ax) {
+                try {
+                  const fn = args.method === 'PUT' ? ax.put : ax.post
+                  const resp = await fn(fullUrl, args.body)
+                  return { ok: true, status: resp.status, src: 'axios' }
+                } catch (e: any) { return { ok: false, status: e?.response?.status || 0, src: 'axios' } }
+              }
+              const res = await fetch(fullUrl, {
+                method: args.method,
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                body: JSON.stringify(args.body),
+              })
+              return { ok: res.ok, status: res.status, src: 'fetch' }
+            }, cand)
+            log.info(`coupangeats: switchCandidate ${cand.method} ${cand.path} → ${sr.status} (${sr.src})`)
+            if (sr.ok || sr.status === 200) {
+              const wc = await page.evaluate(async () => {
+                const r = await fetch('https://store.coupangeats.com/api/v1/merchant/whoami', { credentials: 'include' })
+                return r.ok ? await r.json() : null
+              })
+              const rid2 = wc?.data?.responsibleStoreId
+              log.info(`coupangeats: whoami after ${cand.path} → responsibleStoreId=${rid2 ?? 'null'}`)
+              if (rid2) { responsibleStoreIdSet = true; break }
+            }
+          } catch (se: any) {
+            log.info(`coupangeats: switchCandidate ${cand.path} error: ${se?.message?.slice(0, 60)}`)
+          }
+        }
+        log.info(`coupangeats: after switchCandidates responsibleStoreIdSet=${responsibleStoreIdSet}`)
+      }
+
+      // POST URL 로그 (어떤 POST 요청들이 발생했는지)
+      const postUrls = allRequestUrls.filter((u) => u.startsWith('POST') || u.startsWith('PUT'))
+      log.info(`coupangeats: POST/PUT urls so far: ${postUrls.slice(0, 10).join(' | ')}`)
 
       // ── Step 2: 리뷰 페이지로 이동 ──
       log.info(`coupangeats: step2 nav to reviewsUrl (allRequest before=${allRequestUrls.length})`)
@@ -577,8 +630,38 @@ async function fetchCoupangReviews(
       browserNavOk = true
       const finalUrl = page.url()
       log.info(`coupangeats: reviews page loaded url=${finalUrl} captured=${capturedReviews.length}`)
-      log.info(`coupangeats: allRequestUrls after reviews nav (last 25): ${allRequestUrls.slice(-25).join(' | ')}`)
+      log.info(`coupangeats: allRequestUrls after reviews nav (last 30): ${allRequestUrls.slice(-30).join(' | ')}`)
       log.info(`coupangeats: allJsonUrls: ${allJsonUrls.slice(0, 25).join(' | ')}`)
+      // POST/PUT 전체 목록 (store 선택 엔드포인트 탐색)
+      const postUrlsAfter = allRequestUrls.filter((u) => u.startsWith('POST') || u.startsWith('PUT'))
+      log.info(`coupangeats: ALL POST/PUT urls: ${postUrlsAfter.join(' | ')}`)
+
+      // ── Step 2b: 리뷰 페이지 로드 후 단기 날짜 범위 테스트 ──
+      // 서버가 responsibleStoreId 없이도 허용하는 최대 날짜 범위 탐색
+      try {
+        const testNow = new Date()
+        const testFmt = (d: Date) => d.toISOString().split('T')[0]
+        const testEnd = new Date(testNow); testEnd.setDate(testEnd.getDate() + 1)
+        const test1s = new Date(testNow); test1s.setDate(test1s.getDate() - 1)
+        const test7s = new Date(testNow); test7s.setDate(test7s.getDate() - 7)
+        const test30s = new Date(testNow); test30s.setDate(test30s.getDate() - 30)
+        const r1 = await page.evaluate(async (args: { url: string }) => {
+          const r = await fetch(args.url, { credentials: 'include', headers: { 'Accept': 'application/json' } })
+          return { status: r.status, ok: r.ok }
+        }, { url: `https://store.coupangeats.com/api/v1/merchant/reviews/search?storeId=${targetStoreId2}&page=1&statusType=EXPOSE&startDateTime=${testFmt(test1s)}&exclusiveEndDateTime=${testFmt(testEnd)}&size=5` })
+        const r7 = await page.evaluate(async (args: { url: string }) => {
+          const r = await fetch(args.url, { credentials: 'include', headers: { 'Accept': 'application/json' } })
+          return { status: r.status, ok: r.ok }
+        }, { url: `https://store.coupangeats.com/api/v1/merchant/reviews/search?storeId=${targetStoreId2}&page=1&statusType=EXPOSE&startDateTime=${testFmt(test7s)}&exclusiveEndDateTime=${testFmt(testEnd)}&size=5` })
+        const r30 = await page.evaluate(async (args: { url: string }) => {
+          const r = await fetch(args.url, { credentials: 'include', headers: { 'Accept': 'application/json' } })
+          return { status: r.status, ok: r.ok }
+        }, { url: `https://store.coupangeats.com/api/v1/merchant/reviews/search?storeId=${targetStoreId2}&page=1&statusType=EXPOSE&startDateTime=${testFmt(test30s)}&exclusiveEndDateTime=${testFmt(testEnd)}&size=5` })
+        log.info(`coupangeats: dateWindowTest 1d=${r1.status} 7d=${r7.status} 30d=${r30.status}`)
+        rawBodySample += ` | dateWindowTest:1d=${r1.status},7d=${r7.status},30d=${r30.status} responsibleStoreIdSet=${responsibleStoreIdSet}`
+      } catch (wte: any) {
+        log.warn({ err: wte?.message }, 'coupangeats: dateWindowTest failed')
+      }
     } catch (navErr: any) {
       log.warn({ err: navErr?.message }, 'coupangeats: savedCookies nav failed — will use node-direct only')
     }
