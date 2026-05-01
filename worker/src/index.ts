@@ -315,6 +315,30 @@ const healthServer = http.createServer(async (req, res) => {
     return
   }
 
+  // GET /build-info  — 런타임 빌드 정보 확인 (naver.ts 버전 검증용)
+  if (req.method === 'GET' && req.url === '/build-info') {
+    try {
+      const fs = await import('fs')
+      const naverJs = fs.readFileSync('/app/dist/adapters/naver.js', 'utf-8')
+      const hasVersion = naverJs.includes('NAVER_CODE_VERSION')
+      const hasDiagMsg = naverJs.includes('diagMsg')
+      const versionMatch = naverJs.match(/NAVER_CODE_VERSION\s*=\s*'([^']+)'/)
+      res.writeHead(200, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({
+        ok: true,
+        naverJsSize: naverJs.length,
+        hasVersionConst: hasVersion,
+        hasDiagMsg,
+        versionValue: versionMatch?.[1] || null,
+        naverJsSnippet: naverJs.slice(0, 200),
+      }))
+    } catch (e: any) {
+      res.writeHead(500, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ ok: false, error: e?.message }))
+    }
+    return
+  }
+
   // GET /env-proxy  — 프록시 환경변수 확인 (진단용)
   if (req.method === 'GET' && req.url === '/env-proxy') {
     const ph = process.env.PROXY_HOST
