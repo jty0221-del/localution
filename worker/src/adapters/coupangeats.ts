@@ -772,26 +772,36 @@ async function fetchCoupangReviews(
     }
   }
 
-  // ── browser page.evaluate fetch — Chrome TLS + HttpOnly cookie via context.cookies() ──
-  // Key insight: unify-token is likely HttpOnly (document.cookie can't read it)
-  // Fix: read token via page.context().cookies() (Playwright can read HttpOnly),
-  //      then pass it as parameter to page.evaluate(fetch(...)) so Chrome TLS is used
+  // ── browser page.evaluate — try Axios instance first, then fetch ──
+  // Strategy: use the page's own Axios (with interceptors) if available,
+  //           otherwise pass HttpOnly token to fetch via object arg
   async function browserApiGet(path: string): Promise<{ ok: boolean; body: any; status: number; errBody: string }> {
     const url = path.startsWith('http') ? path : `${BASE_ORIGIN}${path}`
     try {
-      // Read unify-token via Playwright context API (reads HttpOnly cookies too)
+      // Read unify-token via Playwright (reads HttpOnly cookies)
       let unifyToken = ''
       try {
         const allCookies = await page.context().cookies(BASE_ORIGIN)
         const uc = allCookies.find((c: any) => c.name === 'unify-token')
         unifyToken = uc?.value || ''
-        log.info('coupangeats: browserApiGet unifyToken=' + (unifyToken ? unifyToken.slice(0, 20) + '...' : 'EMPTY'))
+        log.info('coupangeats: browserApiGet unifyToken=' + (unifyToken ? 'FOUND(' + unifyToken.slice(0, 10) + '...)' : 'EMPTY'))
       } catch (_) {}
 
-      // Run fetch inside Chrome renderer (Chrome TLS fingerprint) with token passed as param
-      // Use object arg to avoid TS tuple destructuring issue
-      const result: { ok: boolean; body: any; status: number; errBody: string } = await page.evaluate(
+      const result: { ok: boolean; body: any; status: number; errBody: string; axiosUsed: boolean } = await page.evaluate(
         async (args: { fetchUrl: string; token: string }) => {
+          // Try to use the page's existing Axios instance (has interceptors with Bearer token)
+          const axiosInstance = (window as any).axios || (window as any).__axios
+          if (axiosInstance) {
+            try {
+              const resp = await axiosInstance.get(args.fetchUrl)
+              return { ok: true, body: resp.data, status: resp.status, errBody: '', axiosUsed: true }
+            } catch (axErr: any) {
+              const status = axErr?.response?.status || 0
+              const errBody = JSON.stringify(axErr?.response?.data || axErr?.message || '').slice(0, 150)
+              return { ok: false, body: null, status, errBody, axiosUsed: true }
+            }
+          }
+          // Fallback: fetch with explicit token header
           try {
             const hdrs: Record<string, string> = {
               'Accept': 'application/json, text/plain, */*',
@@ -805,16 +815,17 @@ async function fetchCoupangReviews(
             if (!r.ok) {
               let errBody = ''
               try { errBody = JSON.stringify(await r.json()) } catch (_) { try { errBody = await r.text() } catch (_) { errBody = '(no body)' } }
-              return { ok: false, body: null, status, errBody: String(errBody).slice(0, 150) }
+              return { ok: false, body: null, status, errBody: String(errBody).slice(0, 150), axiosUsed: false }
             }
             const body = await r.json().catch(() => null)
-            return { ok: true, body, status, errBody: '' }
+            return { ok: true, body, status, errBody: '', axiosUsed: false }
           } catch (e: any) {
-            return { ok: false, body: null, status: 0, errBody: String(e?.message || e).slice(0, 150) }
+            return { ok: false, body: null, status: 0, errBody: String(e?.message || e).slice(0, 150), axiosUsed: false }
           }
         },
         { fetchUrl: url, token: unifyToken }
       )
+      log.info('coupangeats: browserApiGet axiosUsed=' + result.axiosUsed + ' status=' + result.status)
       return result
     } catch (e: any) {
       return { ok: false, body: null, status: 0, errBody: String(e?.message || e).slice(0, 150) }
