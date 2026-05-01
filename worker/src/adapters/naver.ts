@@ -359,27 +359,86 @@ export async function runNaver(
 
         if (captchaInputElRetry) {
           log.info('naver: CAPTCHA appeared after login attempt — solving with 2captcha')
-          const captchaAnswerRetry = await solveCaptcha({
-            page,
-            log,
-            type: 'image',
-            captchaSelector: [
-              '#captchaimg',
-              'img[id*="captcha"]',
-              'img[src*="captcha"]',
-              'img[alt*="자동"]',
-              'img[alt*="captcha"]',
-              '.captcha_area img',
-              'img.captcha_img',
-              '.captcha img',
-              '#mainContent img',
-            ].join(', '),
-          })
+
+          // CAPTCHA 이미지 src 추출 (data:image/png;base64,... 형식)
+          const captchaImgSrc = await page.evaluate(() => {
+            const img = document.querySelector('#captchaimg, img[id*="captcha"], img.captcha_img, .captcha_area img') as HTMLImageElement | null
+            return img?.src || ''
+          }).catch(() => '')
+          // CAPTCHA 질문 텍스트 추출 (2captcha textinstructions 용)
+          const captchaQuestion = await page.evaluate(() => {
+            const bodyText = (document.body?.innerText || '').replace(/\s+/g, ' ')
+            const m = bodyText.match(/(구매한[^?？]+[?？]|[가-힣\w\s]{4,30}(몇|kg|g)[^?？]{0,20}[?？])/)
+            return m ? m[0].trim().slice(0, 100) : ''
+          }).catch(() => '')
+          log.info('naver: CAPTCHA img len=' + captchaImgSrc.length + ' question=' + captchaQuestion.slice(0, 60))
+
+          let captchaAnswerRetry: string | null = null
+          const apiKey = process.env.TWOCAPTCHA_API_KEY
+
+          if (apiKey && captchaImgSrc) {
+            // data URL → base64 strip → 2captcha 직접 호출 (textinstructions 포함)
+            const b64 = captchaImgSrc.startsWith('data:')
+              ? captchaImgSrc.replace(/^data:[^;]+;base64,/, '')
+              : null
+
+            if (b64) {
+              log.info('captcha: submitting base64 captcha to 2captcha' + (captchaQuestion ? ' with question hint' : ''))
+              const bodyPayload: Record<string, string> = { key: apiKey, method: 'base64', body: b64, json: '1' }
+              if (captchaQuestion) bodyPayload.textinstructions = captchaQuestion
+              const submitRes = await fetch('https://2captcha.com/in.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(bodyPayload),
+              }).then((r: any) => r.json()).catch(() => null)
+              log.info('captcha: 2captcha submit res: ' + JSON.stringify(submitRes || 'null').slice(0, 80))
+
+              if (submitRes?.status === 1) {
+                const captchaId = submitRes.request
+                await new Promise((r) => setTimeout(r, 15000))
+                for (let i = 0; i < 15; i++) {
+                  await new Promise((r) => setTimeout(r, 5000))
+                  const pollRes = await fetch(
+                    'https://2captcha.com/res.php?key=' + apiKey + '&action=get&id=' + captchaId + '&json=1'
+                  ).then((r: any) => r.json()).catch(() => null)
+                  if (pollRes?.status === 1) {
+                    captchaAnswerRetry = pollRes.request
+                    log.info('captcha: solved — answer=' + captchaAnswerRetry)
+                    break
+                  }
+                  if (pollRes?.request !== 'CAPCHA_NOT_READY') {
+                    log.warn('captcha: 2captcha error: ' + JSON.stringify(pollRes).slice(0, 80))
+                    break
+                  }
+                  log.info('captcha: still solving... attempt ' + (i + 1))
+                }
+              }
+            } else {
+              // HTTP URL 이미지
+              captchaAnswerRetry = await solveCaptcha({ page, log, type: 'image',
+                captchaSelector: '#captchaimg, img[id*="captcha"], img.captcha_img, .captcha_area img' })
+            }
+          }
+
           if (captchaAnswerRetry) {
+            // Naver가 실패한 로그인 후 PW 필드를 초기화 → 재입력 필수
+            const idElRetry = await page.$(DOM_SELECTORS.idInput).catch(() => null)
+            if (idElRetry) {
+              await idElRetry.click({ clickCount: 3 })
+              await idElRetry.type(creds.account_id, { delay: 80 })
+              await page.waitForTimeout(200)
+            }
+            const pwElRetry = await page.$('input[type="password"]:not([disabled])').catch(() => null)
+            if (pwElRetry) {
+              await pwElRetry.click({ clickCount: 3 })
+              await pwElRetry.type(creds.password, { delay: 80 })
+              await page.waitForTimeout(200)
+            }
+            // CAPTCHA 답 입력
             await captchaInputElRetry.click({ clickCount: 3 })
             await captchaInputElRetry.type(captchaAnswerRetry, { delay: 80 })
             await page.waitForTimeout(500)
-            log.info('naver: CAPTCHA filled (len=' + captchaAnswerRetry.length + ') — re-submitting login')
+            log.info('naver: ID/PW/CAPTCHA re-filled (answer len=' + captchaAnswerRetry.length + ') — re-submitting login')
             await page.evaluate(() => {
               const btn = document.querySelector('#log\\.login') as HTMLElement | null
               btn?.scrollIntoView({ block: 'center' })
