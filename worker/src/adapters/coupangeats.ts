@@ -625,17 +625,18 @@ async function fetchCoupangReviews(
 
     // ── 2순위: globalThis.fetch (프록시 없을 때 직접 연결) ──
     try {
-      const r = await (globalThis as any).fetch(url, {
-        headers: {
-          'Cookie': cookieStr,
-          'Accept': 'application/json, text/plain, */*',
-          'X-Requested-With': 'XMLHttpRequest',
-          'Referer': 'https://store.coupangeats.com/merchant/management/reviews',
-          'Origin': 'https://store.coupangeats.com',
-          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-          'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8',
-        },
-      })
+      const directH: Record<string, string> = {
+        'Cookie': cookieStr,
+        'Accept': 'application/json, text/plain, */*',
+        'X-Requested-With': 'XMLHttpRequest',
+        'Referer': 'https://store.coupangeats.com/merchant/management/reviews',
+        'Origin': 'https://store.coupangeats.com',
+        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8',
+      }
+      if (authToken) directH['Authorization'] = `Bearer ${authToken}`
+      if (csrfToken) { directH['X-XSRF-TOKEN'] = csrfToken; directH['X-CSRF-Token'] = csrfToken }
+      const r = await (globalThis as any).fetch(url, { headers: directH })
       const status = r.status
       if (!r.ok) {
         let directErrBody = ''
