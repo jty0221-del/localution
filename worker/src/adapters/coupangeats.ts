@@ -779,15 +779,16 @@ async function fetchCoupangReviews(
     try {
       const result: { ok: boolean; body: any; status: number; errBody: string } = await page.evaluate(async (fetchUrl: string) => {
         try {
-          const r = await fetch(fetchUrl, {
-            credentials: 'include',
-            headers: {
-              'Accept': 'application/json, text/plain, */*',
-              'X-Requested-With': 'XMLHttpRequest',
-              'Referer': 'https://store.coupangeats.com/merchant/management/reviews',
-              'Origin': 'https://store.coupangeats.com',
-            },
-          })
+          // Read unify-token — Axios interceptor sends it as Bearer
+          let unifyToken = ''
+          try {
+            const cookieMap = {}
+            document.cookie.split(';').forEach(c => { const eq = c.indexOf('='); if (eq > 0) cookieMap[c.slice(0,eq).trim()] = c.slice(eq+1).trim() })
+            unifyToken = cookieMap['unify-token'] || localStorage.getItem('unify-token') || ''
+          } catch (_) {}
+          const hdrs = { 'Accept': 'application/json, text/plain, */*', 'X-Requested-With': 'XMLHttpRequest', 'Referer': 'https://store.coupangeats.com/merchant/management/reviews', 'Origin': 'https://store.coupangeats.com' }
+          if (unifyToken) hdrs['Authorization'] = 'Bearer ' + unifyToken
+          const r = await fetch(fetchUrl, { credentials: 'include', headers: hdrs })
           const status = r.status
           if (!r.ok) {
             let errBody = ''
