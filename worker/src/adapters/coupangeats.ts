@@ -783,7 +783,7 @@ async function fetchCoupangReviews(
       let unifyToken = ''
       try {
         const allCookies = await page.context().cookies(BASE_ORIGIN)
-        const uc = allCookies.find(c => c.name === 'unify-token')
+        const uc = allCookies.find((c: any) => c.name === 'unify-token')
         unifyToken = uc?.value || ''
         log.info('coupangeats: browserApiGet unifyToken=' + (unifyToken ? unifyToken.slice(0, 20) + '...' : 'EMPTY'))
       } catch (_) {}
