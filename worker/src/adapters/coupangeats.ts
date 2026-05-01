@@ -587,52 +587,6 @@ async function fetchCoupangReviews(
         if (rid) responsibleStoreIdSet = true
       } catch (_) {}
 
-      // ── Step 1b: responsibleStoreId가 없으면 브라우저 axios로 store switch 시도 ──
-      if (!responsibleStoreIdSet) {
-        const switchCandidates = [
-          { method: 'POST', path: `/api/v1/merchant/stores/${targetStoreId2}/switch`, body: {} },
-          { method: 'POST', path: `/api/v1/merchant/web/stores/${targetStoreId2}/switch`, body: {} },
-          { method: 'POST', path: `/api/v1/merchant/login/stores/switch`, body: { storeId: parseInt(targetStoreId2, 10) } },
-          { method: 'PUT', path: `/api/v1/merchant/stores/select`, body: { storeId: parseInt(targetStoreId2, 10) } },
-          { method: 'POST', path: `/api/v1/merchant/context/store`, body: { storeId: parseInt(targetStoreId2, 10) } },
-        ]
-        for (const cand of switchCandidates) {
-          try {
-            const sr = await page.evaluate(async (args: { method: string; path: string; body: any }) => {
-              const fullUrl = 'https://store.coupangeats.com' + args.path
-              const ax = (window as any).axios || (window as any).__axios
-              if (ax) {
-                try {
-                  const fn = args.method === 'PUT' ? ax.put : ax.post
-                  const resp = await fn(fullUrl, args.body)
-                  return { ok: true, status: resp.status, src: 'axios' }
-                } catch (e: any) { return { ok: false, status: e?.response?.status || 0, src: 'axios' } }
-              }
-              const res = await fetch(fullUrl, {
-                method: args.method,
-                credentials: 'include',
-                headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-                body: JSON.stringify(args.body),
-              })
-              return { ok: res.ok, status: res.status, src: 'fetch' }
-            }, cand)
-            log.info(`coupangeats: switchCandidate ${cand.method} ${cand.path} → ${sr.status} (${sr.src})`)
-            if (sr.ok || sr.status === 200) {
-              const wc = await page.evaluate(async () => {
-                const r = await fetch('https://store.coupangeats.com/api/v1/merchant/whoami', { credentials: 'include' })
-                return r.ok ? await r.json() : null
-              })
-              const rid2 = wc?.data?.responsibleStoreId
-              log.info(`coupangeats: whoami after ${cand.path} → responsibleStoreId=${rid2 ?? 'null'}`)
-              if (rid2) { responsibleStoreIdSet = true; break }
-            }
-          } catch (se: any) {
-            log.info(`coupangeats: switchCandidate ${cand.path} error: ${se?.message?.slice(0, 60)}`)
-          }
-        }
-        log.info(`coupangeats: after switchCandidates responsibleStoreIdSet=${responsibleStoreIdSet}`)
-      }
-
       // POST URL 로그 (어떤 POST 요청들이 발생했는지)
       const postUrls = allRequestUrls.filter((u) => u.startsWith('POST') || u.startsWith('PUT'))
       log.info(`coupangeats: POST/PUT urls so far: ${postUrls.slice(0, 10).join(' | ')}`)
@@ -1079,77 +1033,53 @@ async function fetchCoupangReviews(
   // statusType 순서: EXPOSE (공개), UNEXPOSE (비공개), REPORTED
   const statusTypes = ['EXPOSE', 'UNEXPOSE', 'REPORTED']
 
-  // CoupangEats API requires date range params — without them, returns 403
-  const endDate = new Date(); endDate.setDate(endDate.getDate() + 1)
-  const startDate = new Date(); startDate.setFullYear(startDate.getFullYear() - 1)
-  const endDateStr = endDate.toISOString().split('T')[0]   // tomorrow
-  const startDateStr = startDate.toISOString().split('T')[0] // 1 year ago
-  const dateRange = `startDateTime=${startDateStr}&exclusiveEndDateTime=${endDateStr}`
-  log.info(`coupangeats: dateRange=${dateRange}`)
+  // Akamai가 2일 이상 날짜범위를 403으로 차단함 → 1일 단위 슬라이딩 윈도우 사용
+  const fmtDate = (d: Date) => d.toISOString().split('T')[0]
+  log.info('coupangeats: using 1-day sliding windows (Akamai blocks >1day range confirmed)')
 
   for (const statusType of statusTypes) {
-    let pageNum = 1
-    let hasMore = true
-    let baseUrl = ''
-    let pageParam = 'page'
-
-    while (hasMore && collected.length < 500) {
+    let consecutiveEmpty = 0
+    for (let daysBack = 0; daysBack <= 365 && collected.length < 500 && consecutiveEmpty < 60; daysBack++) {
       try {
-        let fetchResult: { ok: boolean; body: any; status: number; errBody: string }
+        const dayEnd = new Date()
+        dayEnd.setDate(dayEnd.getDate() - daysBack + 1)
+        const dayStart = new Date()
+        dayStart.setDate(dayStart.getDate() - daysBack)
+        const dateRange = `startDateTime=${fmtDate(dayStart)}&exclusiveEndDateTime=${fmtDate(dayEnd)}`
 
-        if (pageNum === 1) {
-          const candidates = [
-            { url: `/api/v1/merchant/reviews/search?storeId=${storeId}&page=1&statusType=${statusType}&${dateRange}&size=100`, param: 'page' },
-            ...(merchantId ? [
-              { url: `/api/v1/merchant/reviews/search?merchantId=${merchantId}&page=1&statusType=${statusType}&${dateRange}&size=100`, param: 'page' },
-              { url: `/api/v1/merchant/${merchantId}/reviews?page=1&statusType=${statusType}&${dateRange}&size=100`, param: 'page' },
-            ] : []),
-          ]
-          let found = false
-          for (const c of candidates) {
-            fetchResult = await apiGet(c.url)
-            if (fetchResult.ok) {
-              baseUrl = c.url.replace('&page=1', `&${c.param}=PAGE`)
-              pageParam = c.param
-              errors.push(`${statusType}: working URL ${c.url.slice(0, 80)}`)
-              found = true
-              break
-            } else {
-              errors.push(`${statusType} ${c.url.slice(0, 60)}: HTTP ${fetchResult.status} ${fetchResult.errBody}`)
-            }
+        // 첫 날에만 후보 URL 시도, 이후는 storeId 기반으로 고정
+        const url = `/api/v1/merchant/reviews/search?storeId=${storeId}&page=1&statusType=${statusType}&${dateRange}&size=100`
+        const fetchResult = await apiGet(url)
+
+        if (!fetchResult.ok) {
+          if (daysBack === 0) {
+            errors.push(`${statusType} ${fmtDate(dayStart)}: HTTP ${fetchResult.status} ${fetchResult.errBody}`)
           }
-          if (!found) { hasMore = false; break }
-        } else {
-          const url = baseUrl.replace(`${pageParam}=PAGE`, `${pageParam}=${pageNum}`)
-          fetchResult = await apiGet(url)
-          if (!fetchResult.ok) {
-            errors.push(`${statusType} p${pageNum}: HTTP ${fetchResult.status} ${fetchResult.errBody}`)
-            hasMore = false; break
-          }
+          consecutiveEmpty++
+          continue
         }
 
-        const body = fetchResult!.body
-        if (!body) { hasMore = false; break }
+        const body = fetchResult.body
+        if (!body) { consecutiveEmpty++; continue }
         if (!rawBodySample) rawBodySample = JSON.stringify(body).slice(0, 600)
         const arr = extractArr(body)
-        if (arr.length === 0) { hasMore = false; break }
+        if (arr.length === 0) { consecutiveEmpty++; continue }
+        consecutiveEmpty = 0
         for (const r of arr) {
           const rid = String(r.reviewId || r.id || r.review_id || r.orderId || '')
           if (rid && seenIds.has(rid)) continue
           if (rid) seenIds.add(rid)
           collected.push(r)
         }
-        const totalPages = getTotalPages(body)
-        const isLast = body?.last === true || body?.data?.last === true
-        if (isLast || (totalPages > 0 && pageNum >= totalPages) || arr.length < 100) {
-          hasMore = false; break
+        if (daysBack % 30 === 0) {
+          log.info(`coupangeats: ${statusType} daysBack=${daysBack} day=${fmtDate(dayStart)} got=${arr.length} total=${collected.length}`)
         }
-        pageNum++
       } catch (ex: any) {
-        errors.push(`${statusType} p${pageNum}: ${ex?.message || ex}`)
-        hasMore = false; break
+        errors.push(`${statusType} daysBack=${daysBack}: ${ex?.message || ex}`)
+        consecutiveEmpty++
       }
     }
+    log.info(`coupangeats: ${statusType} done collected=${collected.length}`)
   }
 
   const allApiReviews = collected
