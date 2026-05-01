@@ -10,7 +10,7 @@ RUN npm install --omit=optional --no-audit --no-fund \
     && npm cache clean --force
 
 COPY tsconfig.json ./
-RUN echo "build-marker: v7-verify-reply-graphql-20260502"
+RUN echo "build-marker: v13c-cardnotfound-search-20260502"
 COPY src ./src
 
 RUN npx tsc

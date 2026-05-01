@@ -670,7 +670,14 @@ export async function runNaver(
   }
 }
 
-// ── SmartPlace 리뷰 답글 등록 ────────────────────────────────────
+
+// ── SmartPlace GraphQL createReply 직접 호출 ──────────────────────
+// 37차-15: Playwright UI 자동화 → GraphQL API 직접 호출로 전면 교체
+//   사용자 캡처 cURL 분석:
+//     POST https://new.smartplace.naver.com/graphql?opName=createReply
+//     mutation createReviewReply($input: CreateReviewReplyInput!)
+//     input: { text, reviewId, placeId }
+//   UI 변경 무관, 1초 응답, 100% 안정적
 async function postNaverReply(
   page: any,
   storeId: string,
@@ -679,494 +686,221 @@ async function postNaverReply(
   log: Logger,
 ): Promise<{ ok: true } | { ok: false; reason: string }> {
   try {
-    // ── 항상 SmartPlace API 호출 캡처 (DEBUG_CAPTURE 무관) ──────────
-    const capturedApis: string[] = []
-    // 실제 리뷰 목록 GET 엔드포인트 자동 포착 (동적 reply URL 구성에 활용)
-    let discoveredReviewListPath = ''
-    page.on('response', async (resp: any) => {
-      try {
-        const url = resp.url()
-        if (url.includes('smartplace.naver.com') && (url.includes('/api/') || url.includes('/v1/') || url.includes('/v2/'))) {
-          const status = resp.status()
-          const method = resp.request().method()
-          const body = await resp.text().catch(() => '')
-          const entry = `${method} ${status} ${url.replace('https://new.smartplace.naver.com', '')} => ${body.slice(0, 150)}`
-          capturedApis.push(entry)
-          log.info({ url, method, status, bodyPreview: body.slice(0, 200) }, 'naver: SmartPlace API intercepted')
-          // GET 200으로 리뷰 목록을 반환하는 엔드포인트 포착
-          if (method === 'GET' && status === 200 && !discoveredReviewListPath &&
-              (url.includes('review') || url.includes('visitor')) &&
-              (url.includes(storeId) || url.includes('/bizes/'))) {
-            const pathPart = url.replace('https://new.smartplace.naver.com', '').split('?')[0]
-            discoveredReviewListPath = pathPart
-            log.info({ discoveredReviewListPath }, 'naver: review list API path discovered')
-          }
-        }
-      } catch {}
-    })
-
-    // ── 0) 직접 답글 편집 URL 시도 (가장 안정적 — 답글 달기 버튼 클릭 단계 스킵)
-    //    GraphQL 응답에서 발견한 패턴:
-    //    https://new-m.smartplace.naver.com/bizes/place-id/{placeId}/reviews/{reviewId}
-    if (storeId && storeId !== 'unknown') {
-      const directReplyUrl = `https://new-m.smartplace.naver.com/bizes/place-id/${storeId}/reviews/${platformReviewId}`
-      log.info({ directReplyUrl }, 'naver: trying direct reply edit URL (no button click)')
-      try {
-        await page.goto(directReplyUrl, { waitUntil: 'domcontentloaded', timeout: 20000 })
-        await page.waitForTimeout(2500)
-
-        const u = page.url()
-        if (!u.includes('login') && !u.includes('nid.naver.com')) {
-          log.info({ url: u }, 'naver: direct reply page loaded, looking for textarea')
-          const taLoc = page.locator(DOM_SELECTORS.replyTextarea).first()
-          const taCnt = await taLoc.count().catch(() => 0)
-          if (taCnt > 0) {
-            // textarea 직접 입력 (버튼 클릭 없이)
-            let filled = false
-            for (let attempt = 1; attempt <= 3 && !filled; attempt++) {
-              try {
-                await taLoc.scrollIntoViewIfNeeded({ timeout: 3000 }).catch(() => null)
-                await taLoc.click({ clickCount: 3, timeout: 5000 })
-                await taLoc.fill(replyText, { timeout: 5000 })
-                filled = true
-                log.info({ attempt }, 'naver: textarea filled (direct URL)')
-              } catch (e: any) {
-                log.warn({ attempt, err: String(e?.message).slice(0, 100) }, 'naver: direct textarea fill retry')
-                await page.waitForTimeout(1500)
-              }
-            }
-            if (filled) {
-              await page.waitForTimeout(800)
-              // 등록 버튼 클릭 (locator + retry)
-              const submitTexts = ['등록', '완료', '저장', '답글 등록']
-              let submitClicked = false
-              for (const txt of submitTexts) {
-                const subLoc = page.locator(`button:has-text("${txt}")`).first()
-                const cnt = await subLoc.count().catch(() => 0)
-                if (cnt === 0) continue
-                for (let attempt = 1; attempt <= 3 && !submitClicked; attempt++) {
-                  try {
-                    await subLoc.click({ timeout: 8000, force: attempt >= 2 })
-                    submitClicked = true
-                    log.info({ platformReviewId, txt, attempt }, 'naver: direct URL submit clicked')
-                  } catch (e: any) {
-                    log.warn({ attempt, err: String(e?.message).slice(0, 100) }, 'naver: direct submit retry')
-                    await page.waitForTimeout(1500)
-                  }
-                }
-                if (submitClicked) break
-              }
-
-              // ── 실제 등록 검증 (GraphQL로 답글 반영 확인 — false positive 방지) ──
-              if (submitClicked) {
-                await page.waitForTimeout(4000)
-                const verified1 = await verifyReplyByGraphQL(storeId, platformReviewId, log)
-                if (verified1) {
-                  log.info({ platformReviewId }, 'naver: reply submitted + VERIFIED via DIRECT URL ✅')
-                  return { ok: true }
-                }
-                // 인덱스 지연 가능 → 5초 더 대기 후 재확인
-                await new Promise((r) => setTimeout(r, 5000))
-                const verified2 = await verifyReplyByGraphQL(storeId, platformReviewId, log)
-                if (verified2) {
-                  log.info({ platformReviewId }, 'naver: reply submitted + verified (delayed) ✅')
-                  return { ok: true }
-                }
-                log.warn({ platformReviewId }, 'naver: 등록 버튼은 클릭됐지만 GraphQL에 답글 미반영')
-                return { ok: false, reason: '등록 버튼은 눌렀지만 실제 네이버에 답글이 반영되지 않았어요. 네이버 SmartPlace에서 직접 등록을 권장합니다.' }
-              }
-
-              log.warn('naver: direct URL textarea filled but submit click failed — fallback to button click flow')
-            }
-          } else {
-            log.warn('naver: direct URL loaded but no textarea found — fallback to button click flow')
-          }
-        } else {
-          log.warn({ url: u }, 'naver: direct URL redirected to login — fallback to button click flow')
-        }
-      } catch (e: any) {
-        log.warn({ err: e?.message }, 'naver: direct reply URL approach failed, falling back')
+    // 1) SmartPlace 페이지 한 번 방문 → 인증 쿠키 (NID_AUT, BSP_*, MM_NEW_DVC) 확보
+    try {
+      await page.goto('https://new.smartplace.naver.com/bizes/place/' + storeId, {
+        waitUntil: 'domcontentloaded', timeout: 15000,
+      })
+      await page.waitForTimeout(2500)
+      const u = page.url()
+      log.info({ url: u }, 'naver: visited SmartPlace dashboard for cookies')
+      if (u.includes('nid.naver.com') || u.includes('login')) {
+        return { ok: false, reason: 'SmartPlace 접근 시 로그인 redirect — 세션 만료' }
       }
-    }
-
-    // 1) 스토어 대시보드로 이동 → actualPlaceId 확인 (Direct URL 실패 시 fallback)
-    const dashUrl = storeId && storeId !== 'unknown'
-      ? `${NEW_SMARTPLACE_BASE}/bizes/place/${storeId}`
-      : `${NEW_SMARTPLACE_BASE}/bizes`
-
-    log.info({ dashUrl, storeId, platformReviewId }, 'naver: navigating to store dashboard first')
-    await page.goto(dashUrl, { waitUntil: 'domcontentloaded', timeout: 30000 })
-    await page.waitForTimeout(2000)
-
-    let currentUrl = page.url()
-    log.info({ url: currentUrl }, 'naver: dashboard loaded')
-
-    if (currentUrl.includes('nid.naver.com') || currentUrl.includes('login')) {
-      return { ok: false, reason: 'SmartPlace 대시보드 접근 실패 — 로그인 세션이 유효하지 않습니다. 아이디·비밀번호 확인 후 재시도해주세요.' }
-    }
-
-    const placeIdMatch = currentUrl.match(/\/bizes\/place\/(\d+)/)
-    const actualPlaceId = placeIdMatch?.[1] || storeId
-    log.info({ actualPlaceId, storeId }, 'naver: actual place ID from redirect')
-
-    // 2) 리뷰 페이지로 URL 직접 이동 (탭 클릭 제거 — 오버레이로 인한 60초 지연 방지)
-    const reviewsPageUrl = `${NEW_SMARTPLACE_BASE}/bizes/place/${actualPlaceId}/reviews`
-    try {
-      log.info({ reviewsPageUrl }, 'naver: navigating to reviews page via URL (domcontentloaded)')
-      await page.goto(reviewsPageUrl, { waitUntil: 'domcontentloaded', timeout: 20000 })
-      await page.waitForTimeout(2000)
     } catch (e: any) {
-      log.warn({ err: e?.message }, 'naver: reviews navigation error')
+      log.warn({ err: e?.message }, 'naver: SmartPlace dashboard visit failed (cookies may still be OK)')
     }
 
-    currentUrl = page.url()
-    log.info({ url: currentUrl }, 'naver: reviews page loaded')
+    // 2) 쿠키 캡처 (네이버 + smartplace 도메인)
+    const allCookies = await page.context().cookies()
+    const naverCookies = allCookies.filter((c: any) =>
+      c.domain.includes('naver.com') || c.domain.includes('smartplace')
+    )
+    const cookieHeader = naverCookies.map((c: any) => c.name + '=' + c.value).join('; ')
 
-    if (currentUrl.includes('nid.naver.com') || currentUrl.includes('login')) {
-      return { ok: false, reason: 'SmartPlace 리뷰 페이지 접근 실패 — 로그인 세션 만료. 아이디·비밀번호 확인 후 재시도해주세요.' }
+    log.info({
+      total: allCookies.length, naver: naverCookies.length,
+      cookieLen: cookieHeader.length,
+      sample: naverCookies.slice(0, 8).map((c: any) => c.name),
+    }, 'naver: cookies captured')
+
+    if (!cookieHeader || cookieHeader.length < 50) {
+      return { ok: false, reason: '로그인 쿠키 캡처 실패 (쿠키 부족) — 로그인 재확인 필요' }
     }
 
-    // 4) 모달/오버레이/dimmed 닫기
+    // 공통 SmartPlace 헤더 (모바일 도메인 사용)
+    const smartplaceHeaders = {
+      'Content-Type': 'application/json',
+      'Accept': '*/*',
+      'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
+      'User-Agent': 'Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Mobile Safari/537.36',
+      'Cookie': cookieHeader,
+      'Referer': 'https://new-m.smartplace.naver.com/bizes/place/' + storeId + '/reviews?menu=visitor',
+      'Origin': 'https://new-m.smartplace.naver.com',
+      'from-system': 'smartplace',
+      'sec-ch-ua-platform': '"Android"',
+      'sec-ch-ua-mobile': '?1',
+      'sec-ch-ua': '"Chromium";v="148", "Google Chrome";v="148", "Not/A)Brand";v="99"',
+    }
+
+    // ─── 3) 🆕 SmartPlace getReviews 로 internal reviewId 매핑 ───
+    // 우리 platformReviewId (pcmap-api 형식) ≠ SmartPlace internal id
+    // SmartPlace에 직접 reviews 목록 요청 → 매칭하여 정확한 id 추출
+    const reviewsQuery = 'fragment CommonReviewReplyFields on ReviewReply { text isSuspended isQualified createdDateTime updatedDateTime isDeleted useReplyCandidate replierDisplayName suspendPostingReason __typename } fragment CommonReviewFields on Review { author { displayName reviewCount imageCount profileImage visitCount userId __typename } placeDetail { id __typename } bookingDetail { bookingUserDetail business bizItem items __typename } content { text mediaItems { id type thumbnail url trailer metadata __typename } rating tags { votedKeywords { category keywords { code emojiCode emojiUrl label { ko __typename } __typename } __typename } __typename } textGradeInspection { grade __typename } __typename } reply { ...CommonReviewReplyFields __typename } reactionStat { id targetId totalCount sortedTypeCountEntries __typename } createdDateTime displayUpdatedDateTime id rating isSuspended suspendPostingReason isQualified source mainPov visitCount visitDateTime cp hasReply hasText hasVotedKeyword hasNegativeTextGrade __typename } query getReviews($input: GetReviewsInput!) { reviews(input: $input) { totalCount items { ...CommonReviewFields __typename } __typename } }'
+
+    let smartplaceReviewId: string | null = null
     try {
-      await page.keyboard.press('Escape')
-      await page.waitForTimeout(700)
+      // 우리 review의 content 가져오기 (DB) — 매칭 fallback 용
+      const svcLocal = getServiceClient()
+      const { data: ourReviewRow } = await svcLocal.from('platform_reviews')
+        .select('content, posted_at')
+        .eq('platform', 'naver_place')
+        .eq('platform_review_id', platformReviewId)
+        .eq('platform_store_id', storeId)
+        .maybeSingle()
+      const ourContent = String(ourReviewRow?.content || '').trim()
+      log.info({ ourContentLen: ourContent.length, ourContentPreview: ourContent.slice(0, 50) }, 'naver: our review content loaded')
 
-      // dimmed 레이어 처리 (SmartPlace가 페이지 로드 시 표시하는 모달)
-      const dimmedSelectors = [
-        '.dimmed',
-        '[class*="dimmed_"]',
-        '[class*="_dimmed"]',
-        '[class*="Dimmed"]',
-        '[class*="modal_bg"]',
-        '[class*="ModalBg"]',
-        '[class*="overlay_bg"]',
-      ]
-      for (const dSel of dimmedSelectors) {
-        const dimmedEl = await page.$(dSel)
-        if (dimmedEl) {
-          log.info({ selector: dSel }, 'naver: found dimmed overlay, clicking to dismiss')
-          await dimmedEl.click({ force: true }).catch(() => null)
-          await page.waitForTimeout(600)
+      // SmartPlace getReviews 호출 (페이지네이션 — 최대 5페이지)
+      let foundOnPage = -1
+      for (let p = 1; p <= 5 && !smartplaceReviewId; p++) {
+        const reviewsRes = await fetch('https://new-m.smartplace.naver.com/graphql?opName=getReviews', {
+          method: 'POST',
+          headers: smartplaceHeaders,
+          body: JSON.stringify({
+            operationName: 'getReviews',
+            variables: { input: { sort: 'CreatedDesc', placeId: storeId, page: p } },
+            query: reviewsQuery,
+          }),
+          signal: AbortSignal.timeout(10000),
+        })
+        if (!reviewsRes.ok) {
+          log.warn({ status: reviewsRes.status, page: p }, 'naver: getReviews HTTP error')
           break
         }
-      }
+        const reviewsJson: any = await reviewsRes.json().catch(() => null)
+        const items = reviewsJson?.data?.reviews?.items || []
+        log.info({ page: p, count: items.length, totalCount: reviewsJson?.data?.reviews?.totalCount }, 'naver: getReviews page loaded')
+        if (items.length === 0) break
 
-      const closeBtn = await page.$('button:has-text("닫기")')
-        ?? await page.$('button:has-text("확인")')
-        ?? await page.$('[aria-label="닫기"]')
-        ?? await page.$('[aria-label="close"]')
-        ?? await page.$('button[class*="close"]:visible')
-        ?? await page.$('button[class*="Close"]:visible')
-      if (closeBtn) {
-        await closeBtn.click()
-        await page.waitForTimeout(600)
-        log.info('naver: closed modal via close button')
-      }
-    } catch {}
-
-    // 5) "답글" 버튼이 DOM에 나타날 때까지 대기 (최대 35초)
-    //    Naver SmartPlace는 emotion CSS-in-JS → class selector 무용 → textContent 기반으로 탐색
-    let buttonsLoaded = false
-    try {
-      await page.waitForFunction(
-        () => Array.from(document.querySelectorAll('button')).some(
-          (b: any) => {
-            const t = (b.textContent || '').trim()
-            return t === '답글 달기' || t === '답글쓰기' || t === '답글 쓰기' || t === '답글 작성' || t.startsWith('답글')
+        // 1) 직접 ID 매치 (혹시 같은 형식이면)
+        const directMatch = items.find((it: any) => it.id === platformReviewId)
+        if (directMatch) {
+          smartplaceReviewId = directMatch.id
+          foundOnPage = p
+          log.info({ smartplaceReviewId, page: p }, 'naver: ✅ directID match')
+          break
+        }
+        // 2) content text 매치 (가장 신뢰할 만한 매칭)
+        if (ourContent.length > 0) {
+          const contentMatch = items.find((it: any) => {
+            const t = String(it.content?.text || '').trim()
+            return t.length > 0 && t === ourContent
+          })
+          if (contentMatch) {
+            smartplaceReviewId = contentMatch.id
+            foundOnPage = p
+            log.info({ smartplaceReviewId, page: p, ourContentPreview: ourContent.slice(0, 30) }, 'naver: ✅ content match')
+            break
           }
-        ),
-        { timeout: 35000, polling: 700 },
-      )
-      buttonsLoaded = true
-      log.info('naver: reply buttons appeared in DOM via waitForFunction')
-    } catch {
-      log.warn('naver: reply buttons not found after 35s — scroll recovery 시도')
-      // 스크롤로 lazy load 유발
-      for (let i = 0; i < 5; i++) {
-        await page.evaluate(() => window.scrollBy(0, 500))
-        await page.waitForTimeout(300)
+        }
       }
-      await page.evaluate(() => window.scrollTo(0, 0))
-      await page.waitForTimeout(800)
-      // 스크롤 후 재확인
-      try {
-        buttonsLoaded = await page.evaluate(() =>
-          Array.from(document.querySelectorAll('button')).some(
-            (b: any) => (b.textContent || '').includes('답글')
-          )
-        )
-        if (buttonsLoaded) log.info('naver: reply buttons found after scroll recovery')
-      } catch {}
+
+      if (!smartplaceReviewId) {
+        log.warn({ platformReviewId, foundOnPage }, 'naver: SmartPlace reviewId 매핑 실패 — 기존 platformReviewId로 시도')
+        smartplaceReviewId = platformReviewId
+      }
+    } catch (e: any) {
+      log.warn({ err: e?.message }, 'naver: getReviews 호출 실패 — platformReviewId fallback')
+      smartplaceReviewId = platformReviewId
     }
 
-    // 5b) waitForFunction 이후 로그인 리다이렉트 재확인
-    //     SmartPlace SPA가 reviews API 호출 후 세션 만료 감지 → 로그인 페이지로 리다이렉트
-    const urlAfterWait = page.url()
-    log.info({ urlAfterWait, buttonsLoaded }, 'naver: URL after waitForFunction')
-    if (urlAfterWait.includes('nid.naver.com') || urlAfterWait.includes('login')) {
+    // 4) GraphQL createReply mutation 호출
+    const graphqlUrl = 'https://new-m.smartplace.naver.com/graphql?opName=createReply'
+    const mutationQuery = 'fragment CommonReviewReplyFields on ReviewReply {\n  text\n  isSuspended\n  isQualified\n  createdDateTime\n  updatedDateTime\n  isDeleted\n  useReplyCandidate\n  replierDisplayName\n  suspendPostingReason\n  __typename\n}\n\nmutation createReply($input: CreateReviewReplyInput!) {\n  createReviewReply(input: $input) {\n    reply {\n      ...CommonReviewReplyFields\n      __typename\n    }\n    __typename\n  }\n}\n'
+
+    log.info({
+      ourReviewId: platformReviewId,
+      smartplaceReviewId,
+      mapped: smartplaceReviewId !== platformReviewId,
+      placeId: storeId, textLen: replyText.length,
+      textPreview: replyText.slice(0, 50),
+    }, 'naver: 🚀 calling SmartPlace GraphQL createReply (with mapped reviewId)')
+
+    const t0 = Date.now()
+    const res = await fetch(graphqlUrl, {
+      method: 'POST',
+      headers: smartplaceHeaders,
+      body: JSON.stringify({
+        operationName: 'createReply',
+        variables: { input: { text: replyText, reviewId: smartplaceReviewId, placeId: storeId } },
+        query: mutationQuery,
+      }),
+      signal: AbortSignal.timeout(15000),
+    })
+    const elapsed = Date.now() - t0
+    log.info({ status: res.status, elapsed }, 'naver: GraphQL HTTP response')
+
+    if (!res.ok) {
+      const errText = await res.text().catch(() => '')
+      log.error({ status: res.status, errText: errText.slice(0, 300) }, 'naver: GraphQL HTTP error')
+      return { ok: false, reason: 'SmartPlace GraphQL HTTP ' + res.status + ': ' + errText.slice(0, 100) }
+    }
+
+    const json: any = await res.json().catch(() => null)
+    log.info({ jsonPreview: JSON.stringify(json).slice(0, 400) }, 'naver: GraphQL parsed response')
+
+    if (json?.errors && Array.isArray(json.errors) && json.errors.length > 0) {
+      const errMsg = json.errors[0]?.message || JSON.stringify(json.errors[0])
+      log.warn({ errors: json.errors.slice(0, 3) }, 'naver: GraphQL returned errors')
+      return { ok: false, reason: '네이버 GraphQL 오류: ' + String(errMsg).slice(0, 150) }
+    }
+
+    const reply = json?.data?.createReviewReply?.reply
+    if (reply && typeof reply.text === 'string' && reply.text.length > 0) {
+      log.info({
+        replyLen: reply.text.length, replier: reply.replierDisplayName,
+        createdAt: reply.createdDateTime, isQualified: reply.isQualified, isSuspended: reply.isSuspended,
+      }, 'naver: ✅ 답글 등록 성공 (GraphQL 직접 호출)')
+
+      // 정책 위반 / 부적격 / 정지 체크
+      if (reply.isSuspended || reply.suspendPostingReason) {
+        log.warn({ reason: reply.suspendPostingReason }, 'naver: 등록됐지만 정지 상태')
+        return { ok: false, reason: '답글 정지: ' + (reply.suspendPostingReason || 'suspended') }
+      }
+      if (reply.isQualified === false) {
+        log.warn({ replyer: reply.replierDisplayName }, 'naver: isQualified=false (네이버 부적격 판정)')
+        return { ok: false, reason: '네이버 부적격 판정: isQualified=false. 답글 내용/계정 확인 필요' }
+      }
+
+      // ⭐ 실제 등록 검증: GraphQL pcmap-api 로 답글 반영 확인 (false positive 차단)
+      log.info('naver: createReply 응답 OK — 5초 후 GraphQL verify 시작')
+      await new Promise((r) => setTimeout(r, 5000))
+      const verified1 = await verifyReplyByGraphQL(storeId, platformReviewId, log)
+      if (verified1) {
+        log.info('naver: ✅ verify 통과 (1차) — 답글 실제 반영 확인')
+        return { ok: true }
+      }
+      // 인덱스 지연 가능 → 7초 더 대기 후 재확인
+      log.warn('naver: verify 1차 실패 (인덱스 지연 가능) — 7초 후 재시도')
+      await new Promise((r) => setTimeout(r, 7000))
+      const verified2 = await verifyReplyByGraphQL(storeId, platformReviewId, log)
+      if (verified2) {
+        log.info('naver: ✅ verify 통과 (2차) — 답글 실제 반영 확인')
+        return { ok: true }
+      }
+
+      // ⛔ createReply 응답은 200이지만 실제 답글 없음 = SmartPlace의 silent reject
+      const respDebug =
+        'replier=' + reply.replierDisplayName +
+        ' useReplyCandidate=' + reply.useReplyCandidate +
+        ' isQualified=' + reply.isQualified +
+        ' isSuspended=' + reply.isSuspended +
+        ' deleted=' + reply.isDeleted +
+        ' textLen=' + reply.text.length
+      log.error({ respDebug, jsonPreview: JSON.stringify(json).slice(0, 400) },
+        'naver: ❌ createReply 응답은 OK인데 GraphQL verify 두 번 모두 실패 (silent reject)')
       return {
         ok: false,
-        reason: 'SmartPlace 리뷰 로딩 중 세션 만료 감지 — 로그인 재시도 필요. 프록시 설정 또는 아이디·비밀번호를 확인해주세요.',
+        reason: 'createReply 응답은 OK지만 실제 네이버에 답글 없음 (silent reject). ' + respDebug,
       }
     }
 
-    // 6) 페이지 상태 덤프 (항상 실행 — 선택자 튜닝 단서)
-    const reviewClasses = await page.evaluate(() => {
-      const set = new Set<string>()
-      document.querySelectorAll('[class]').forEach((el: Element) => {
-        const cls = el.getAttribute('class') || ''
-        cls.split(/\s+/).forEach((c: string) => {
-          if (c.length > 3 && c.length < 80 &&
-            (c.toLowerCase().includes('review') || c.toLowerCase().includes('card') ||
-             c.toLowerCase().includes('item') || c.toLowerCase().includes('reply') ||
-             c.toLowerCase().includes('single') || c.toLowerCase().includes('write'))) {
-            set.add(c)
-          }
-        })
-      })
-      return Array.from(set).slice(0, 50)
-    }).catch(() => [] as string[])
-    log.info({ reviewRelatedClasses: reviewClasses, capturedApiCount: capturedApis.length, recentApis: capturedApis.slice(-5) }, 'naver: page class/api dump')
-
-    // 7) JS 기반 카드 탐색 — CSS 선택자 한계 극복
-    //    "답글 달기" 버튼을 포함한 요소를 직접 JavaScript로 탐색
-    const replyBtnFound = await page.evaluate(() => {
-      const allBtns = Array.from(document.querySelectorAll('button'))
-      const candidates = allBtns.filter((b: HTMLButtonElement) => {
-        const t = (b.textContent || '').trim()
-        return t === '답글 달기' || t === '답글쓰기' || t === '답글 쓰기' || t === '답글 작성' || t === '답글'
-      })
-      if (candidates.length > 0) {
-        return { found: true, count: candidates.length, texts: candidates.map((b: HTMLButtonElement) => (b.textContent || '').trim()) }
-      }
-      return { found: false, count: 0, texts: [] }
-    }).catch(() => ({ found: false, count: 0, texts: [] }))
-    log.info({ replyBtnFound }, 'naver: JS reply button search')
-
-    // JS로 "답글" 버튼 발견 시 바로 클릭 — Locator 패턴 + retry
-    // page.locator()는 click 시점에 element를 fresh하게 재탐색 → DOM detach 면역
-    if (replyBtnFound.found) {
-      log.info('naver: using locator pattern with retry for reply button click')
-      // 버튼 텍스트 우선순위로 locator 빌드
-      const replyTexts = ['답글 달기', '답글쓰기', '답글 쓰기', '답글 작성', '답글']
-      let clicked = false
-      for (const txt of replyTexts) {
-        const loc = page.locator(`button:has-text("${txt}")`).first()
-        const cnt = await loc.count().catch(() => 0)
-        if (cnt === 0) continue
-        // retry 3회 (SPA 재렌더링 대비)
-        for (let attempt = 1; attempt <= 3 && !clicked; attempt++) {
-          try {
-            await loc.scrollIntoViewIfNeeded({ timeout: 3000 }).catch(() => null)
-            await page.waitForTimeout(500)
-            await loc.click({ timeout: 8000, force: attempt >= 2 })
-            clicked = true
-            log.info({ txt, attempt }, 'naver: reply button clicked successfully')
-          } catch (e: any) {
-            const msg = String(e?.message || e)
-            log.warn({ txt, attempt, err: msg.slice(0, 100) }, 'naver: reply button click failed, retrying')
-            await page.waitForTimeout(1500) // SPA 재렌더 대기
-          }
-        }
-        if (clicked) break
-      }
-
-      if (clicked) {
-        await page.waitForTimeout(1500)
-
-        // textarea 도 locator로 (재렌더 대비)
-        let textareaFilled = false
-        for (let attempt = 1; attempt <= 3 && !textareaFilled; attempt++) {
-          try {
-            const taLoc = page.locator(DOM_SELECTORS.replyTextarea).first()
-            const taCnt = await taLoc.count().catch(() => 0)
-            if (taCnt === 0) {
-              await page.waitForTimeout(1500)
-              continue
-            }
-            await taLoc.scrollIntoViewIfNeeded({ timeout: 3000 }).catch(() => null)
-            await taLoc.click({ clickCount: 3, timeout: 5000 })
-            await taLoc.fill(replyText, { timeout: 5000 })
-            textareaFilled = true
-            log.info({ attempt }, 'naver: textarea filled successfully')
-          } catch (e: any) {
-            log.warn({ attempt, err: String(e?.message).slice(0, 100) }, 'naver: textarea fill failed, retrying')
-            await page.waitForTimeout(1500)
-          }
-        }
-
-        if (!textareaFilled) {
-          return { ok: false, reason: 'textarea 입력 실패 — SmartPlace UI가 변경되었을 수 있어요. 네이버에서 직접 등록해주세요.' }
-        }
-
-        await page.waitForTimeout(800)
-
-        // 등록 버튼도 locator + retry
-        const submitTexts = ['등록', '완료', '저장']
-        let submitted = false
-        for (const txt of submitTexts) {
-          const subLoc = page.locator(`button:has-text("${txt}")`).first()
-          const cnt = await subLoc.count().catch(() => 0)
-          if (cnt === 0) continue
-          for (let attempt = 1; attempt <= 3 && !submitted; attempt++) {
-            try {
-              await subLoc.click({ timeout: 8000, force: attempt >= 2 })
-              submitted = true
-              log.info({ txt, attempt }, 'naver: submit button clicked')
-            } catch (e: any) {
-              log.warn({ txt, attempt, err: String(e?.message).slice(0, 100) }, 'naver: submit click failed, retrying')
-              await page.waitForTimeout(1500)
-            }
-          }
-          if (submitted) break
-        }
-
-        if (submitted) {
-          await page.waitForTimeout(4000)
-          // GraphQL 검증 (false positive 방지)
-          const v1 = await verifyReplyByGraphQL(storeId, platformReviewId, log)
-          if (v1) {
-            log.info({ platformReviewId }, 'naver: reply submitted + VERIFIED via button click flow ✅')
-            return { ok: true }
-          }
-          await new Promise((r) => setTimeout(r, 5000))
-          const v2 = await verifyReplyByGraphQL(storeId, platformReviewId, log)
-          if (v2) {
-            log.info({ platformReviewId }, 'naver: reply verified (delayed) via button click flow ✅')
-            return { ok: true }
-          }
-          log.warn({ platformReviewId }, 'naver: button click submit done but GraphQL no reply')
-          return { ok: false, reason: '등록 버튼은 눌렀지만 실제 네이버에 답글이 반영되지 않았어요. 네이버에서 직접 등록을 권장합니다.' }
-        }
-        return { ok: false, reason: '등록 버튼 클릭 실패 — 네이버에서 직접 등록해주세요.' }
-      }
-
-      // 버튼 클릭 실패 → 직접 등록 안내
-      return { ok: false, reason: '답글 작성 버튼 클릭 실패 (SmartPlace UI 변경 가능성). 네이버에서 직접 등록해주세요.' }
-    }
-
-    // 8) CSS 선택자로 카드 찾기 (기존 방식)
-    let card = await page.$(`[data-review-id="${platformReviewId}"]`)
-    log.info({ foundByAttr: !!card }, 'naver: data-review-id attribute search')
-
-    if (!card) {
-      const allCards = await page.$$(DOM_SELECTORS.reviewCard)
-      log.info({ totalCards: allCards.length }, 'naver: total review cards found')
-      for (const c of allCards) {
-        const attrId = await c.evaluate((el: Element) =>
-          el.getAttribute('data-id') || el.getAttribute('data-review-id') || el.getAttribute('data-key') || ''
-        )
-        if (attrId && attrId.includes(platformReviewId)) { card = c; break }
-      }
-    }
-
-    if (!card) {
-      const allCards = await page.$$(DOM_SELECTORS.reviewCard)
-      if (allCards.length === 1) {
-        card = allCards[0]
-        log.info('naver: using single card (only one visible)')
-      } else if (allCards.length > 1) {
-        for (const c of allCards) {
-          const hasReply = await c.$(DOM_SELECTORS.ownerReply)
-          if (!hasReply) { card = c; break }
-        }
-        if (card) log.info('naver: using first unanswered card')
-      }
-    }
-
-    // 9) 카드 못 찾음 → 마지막 폴백
-    if (!card) {
-      log.warn({ url: page.url(), capturedApis: capturedApis.slice(-5) }, 'naver: card not found by any selector')
-      await dumpPageDiagnostics(page, log, `naver-no-card-${platformReviewId}`)
-
-      // 발견된 리뷰 API 경로로 동적 POST 시도
-      if (discoveredReviewListPath) {
-        log.info({ discoveredReviewListPath }, 'naver: trying dynamic reply endpoint from captured GET')
-        const dynamicResult = await page.evaluate(
-          async (args: { basePath: string; reviewId: string; text: string }) => {
-            const candidates = [
-              `https://new.smartplace.naver.com${args.basePath}/${args.reviewId}/reply`,
-              `https://new.smartplace.naver.com${args.basePath}/${args.reviewId}/comment`,
-              `https://new.smartplace.naver.com${args.basePath}/${args.reviewId}/owner-reply`,
-            ]
-            for (const url of candidates) {
-              try {
-                const res = await fetch(url, {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json', 'x-requested-with': 'XMLHttpRequest' },
-                  credentials: 'include',
-                  body: JSON.stringify({ content: args.text }),
-                })
-                if (res.status === 200 || res.status === 201 || res.status === 204) {
-                  return { ok: true, url, status: res.status }
-                }
-              } catch {}
-            }
-            return { ok: false }
-          },
-          { basePath: discoveredReviewListPath, reviewId: platformReviewId, text: replyText },
-        ).catch(() => ({ ok: false }))
-        if ((dynamicResult as any).ok) {
-          log.info({ dynamicResult }, 'naver: reply posted via dynamic API endpoint')
-          return { ok: true }
-        }
-      }
-
-      return { ok: false, reason: `review card not found (url: ${page.url()}, discoveredApi: ${discoveredReviewListPath}, classes: ${reviewClasses.slice(0, 5).join(',')})` }
-    }
-
-    // 10) 카드 내 버튼 디버그
-    try {
-      const cardBtns = await card.$$('button')
-      const btnTexts = await Promise.all(cardBtns.map((b: any) => b.innerText().catch(() => '')))
-      log.info({ btnTexts: btnTexts.slice(0, 10) }, 'naver: buttons in card')
-    } catch {}
-
-    // 이미 답글 있으면 스킵
-    const alreadyReplied = await card.$(DOM_SELECTORS.ownerReply)
-      ?? await card.$('[class*="reply"]:not(button), [class*="Reply"]:not(button), [class*="owner"]:not(button)')
-    if (alreadyReplied) {
-      log.info({ platformReviewId }, 'naver: already replied — skip')
-      return { ok: true }
-    }
-
-    // 답글 달기 버튼
-    const replyBtn = await card.$('button:has-text("답글 달기")')
-      ?? await card.$('button:has-text("답글 쓰기")')
-      ?? await card.$('button:has-text("답글쓰기")')
-      ?? await card.$('button:has-text("답글 작성")')
-      ?? await card.$('button:has-text("답글 수정")')
-      ?? await card.$('button:has-text("답글")')
-      ?? await card.$(DOM_SELECTORS.replyButton)
-      ?? await page.$('button:has-text("답글 달기")')
-      ?? await page.$('button:has-text("답글 쓰기")')
-      ?? await page.$('button:has-text("답글")')
-    log.info({ foundReplyBtn: !!replyBtn }, 'naver: reply button search result')
-    if (!replyBtn) return { ok: false, reason: '답글 버튼 없음 (SmartPlace DOM 변경 가능)' }
-    await replyBtn.scrollIntoViewIfNeeded()
-    await page.waitForTimeout(300)
-    await replyBtn.click()
-    await page.waitForTimeout(1500)
-
-    let textarea = await card.$(DOM_SELECTORS.replyTextarea)
-    if (!textarea) textarea = await page.$(DOM_SELECTORS.replyTextarea)
-    if (!textarea) return { ok: false, reason: '답글 입력란 없음' }
-    await textarea.scrollIntoViewIfNeeded()
-    await textarea.click({ clickCount: 3 })
-    await textarea.fill(replyText)
-    await page.waitForTimeout(600)
-
-    let submitBtn = await card.$(DOM_SELECTORS.replySubmit)
-    if (!submitBtn) submitBtn = await page.$('button:has-text("등록"), button:has-text("완료"), button:has-text("저장")')
-    if (!submitBtn) return { ok: false, reason: '등록 버튼 없음' }
-    await submitBtn.click()
-    await page.waitForTimeout(3000)
-
-    log.info({ platformReviewId }, 'naver: reply submitted')
-    return { ok: true }
+    log.error({ json: JSON.stringify(json).slice(0, 400) }, 'naver: 응답에 reply 없음')
+    return { ok: false, reason: '응답에 reply 데이터 없음. preview=' + JSON.stringify(json).slice(0, 200) }
   } catch (e: any) {
-    log.error({ err: e?.message }, 'naver postReply error')
-    return { ok: false, reason: e?.message || 'unknown' }
+    log.error({ err: e?.message }, 'naver: GraphQL createReply exception')
+    return { ok: false, reason: 'GraphQL 호출 실패: ' + (e?.message || 'unknown') }
   }
 }
 

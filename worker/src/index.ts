@@ -327,6 +327,18 @@ const healthServer = http.createServer(async (req, res) => {
       const hasV2Msg = naverJs.includes('[v2] naver login failed')
       const hasV3Msg = naverJs.includes('v3-timeout')
       const hasAbortSignal = naverJs.includes('AbortSignal.timeout')
+      // v10 GraphQL 직접 호출 코드 검증
+      const hasV10GraphQL = naverJs.includes('🚀 calling SmartPlace GraphQL') || naverJs.includes('opName=createReply')
+      const hasOldButtonClick = naverJs.includes('trying direct reply edit URL') || naverJs.includes('reply buttons not found after 35s')
+      const hasReplyInputErr = naverJs.includes('답글 입력란 없음')
+      const hasReviewCardNotFound = naverJs.includes('review card not found')
+      const hasInputBox = naverJs.includes('입력란')
+      const hasInputBoxBytes = naverJs.includes('입력란')  // 입력란 unicode
+      const hasReviewIdMapping = naverJs.includes('opName=getReviews') && naverJs.includes('reviewId 매핑')
+      const replyInputIdx = naverJs.indexOf('답글 입력란 없음')
+      const replyInputSnippet = replyInputIdx >= 0 ? naverJs.slice(Math.max(0, replyInputIdx - 30), replyInputIdx + 80) : null
+      const inputIdx = naverJs.indexOf('입력란')
+      const inputSnippet = inputIdx >= 0 ? naverJs.slice(Math.max(0, inputIdx - 30), inputIdx + 80) : null
       // 에러 메시지 주변 30자 추출
       const v2Idx = naverJs.indexOf('[v2] naver login failed')
       const railwayIdx = naverJs.indexOf('Railway IP')
@@ -340,6 +352,14 @@ const healthServer = http.createServer(async (req, res) => {
         hasV2Msg,
         hasV3Msg,
         hasAbortSignal,
+        hasV10GraphQL,
+        hasOldButtonClick,
+        hasReplyInputErr,
+        hasReviewCardNotFound,
+        hasInputBox,
+        hasReviewIdMapping,
+        replyInputSnippet,
+        inputSnippet,
         v2MsgSnippet: v2Idx >= 0 ? naverJs.slice(Math.max(0, v2Idx - 10), v2Idx + 60) : null,
         railwayMsgSnippet: railwayIdx >= 0 ? naverJs.slice(Math.max(0, railwayIdx - 10), railwayIdx + 80) : null,
         naverJsSnippet: naverJs.slice(0, 200),
