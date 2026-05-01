@@ -772,46 +772,37 @@ async function fetchCoupangReviews(
     }
   }
 
-  // ── browser page.evaluate fetch (fallback) ──
+  // ── browser APIRequestContext (uses all browser cookies incl. HttpOnly) ──
   async function browserApiGet(path: string): Promise<{ ok: boolean; body: any; status: number; errBody: string }> {
     const url = path.startsWith('http') ? path : `${BASE_ORIGIN}${path}`
     try {
-      const result: { ok: boolean; body: any; status: number; errBody: string } = await page.evaluate(async (fetchUrl: string) => {
-        try {
-          // Read unify-token from cookie or localStorage — Axios interceptor sends it as Bearer header
-          let unifyToken = ''
-          try {
-            const cookieMap: Record<string, string> = {}
-            document.cookie.split(';').forEach(c => {
-              const eq = c.indexOf('=')
-              if (eq > 0) cookieMap[c.slice(0, eq).trim()] = c.slice(eq + 1).trim()
-            })
-            unifyToken = cookieMap['unify-token'] || (window as any).localStorage?.getItem('unify-token') || ''
-          } catch (_) {}
-          const headers: Record<string, string> = {
-            'Accept': 'application/json, text/plain, */*',
-            'X-Requested-With': 'XMLHttpRequest',
-            'Referer': 'https://store.coupangeats.com/merchant/management/reviews',
-            'Origin': 'https://store.coupangeats.com',
-          }
-          if (unifyToken) headers['Authorization'] = 'Bearer ' + unifyToken
-          const r = await fetch(fetchUrl, {
-            credentials: 'include',
-            headers,
-          })
-          const status = r.status
-          if (!r.ok) {
-            let errBody = ''
-            try { errBody = JSON.stringify(await r.json()) } catch (_) { try { errBody = await r.text() } catch (_) { errBody = '(no body)' } }
-            return { ok: false, body: null, status, errBody: String(errBody).slice(0, 150) }
-          }
-          const body = await r.json().catch(() => null)
-          return { ok: true, body, status, errBody: '' }
-        } catch (e: any) {
-          return { ok: false, body: null, status: 0, errBody: String(e?.message || e).slice(0, 150) }
-        }
-      }, url)
-      return result
+      // Read unify-token via Playwright context (can read HttpOnly cookies)
+      let unifyToken = ''
+      try {
+        const allCookies = await page.context().cookies(BASE_ORIGIN)
+        const uc = allCookies.find(c => c.name === 'unify-token')
+        unifyToken = uc?.value || ''
+        log.info('coupangeats: browserApiGet unifyToken=' + (unifyToken ? unifyToken.slice(0, 20) + '...' : 'EMPTY'))
+      } catch (_) {}
+
+      const headers: Record<string, string> = {
+        'Accept': 'application/json, text/plain, */*',
+        'X-Requested-With': 'XMLHttpRequest',
+        'Referer': 'https://store.coupangeats.com/merchant/management/reviews',
+        'Origin': 'https://store.coupangeats.com',
+      }
+      if (unifyToken) headers['Authorization'] = 'Bearer ' + unifyToken
+
+      // Use Playwright APIRequestContext — automatically sends all browser cookies
+      const r = await page.context().request.get(url, { headers })
+      const status = r.status()
+      if (!r.ok()) {
+        let errBody = ''
+        try { errBody = JSON.stringify(await r.json()) } catch (_) { try { errBody = await r.text() } catch (_) { errBody = '(no body)' } }
+        return { ok: false, body: null, status, errBody: String(errBody).slice(0, 150) }
+      }
+      const body = await r.json().catch(() => null)
+      return { ok: true, body, status, errBody: '' }
     } catch (e: any) {
       return { ok: false, body: null, status: 0, errBody: String(e?.message || e).slice(0, 150) }
     }
