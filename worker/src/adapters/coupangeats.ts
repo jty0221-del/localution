@@ -594,9 +594,17 @@ async function fetchCoupangReviews(
   // directCookies: proxy 차단으로 browser navigation 불가 시 savedCookies를 직접 사용
   const contextCookies = directCookies
     ?? await context.cookies('https://store.coupangeats.com').catch(() => [] as any[])
-  const cookieStr = contextCookies.map((c: any) => `${c.name}=${c.value}`).join('; ')
+
+  // Akamai Bot Manager 쿠키는 IP+브라우저 핑거프린트에 묶여 있어서
+  // 다른 IP(프록시)에서 보내면 오히려 403을 유발함 → API 요청 시 제외
+  const AKAMAI_COOKIE_PREFIXES = ['bm_', 'ak_', '_abck']
+  const apiCookies = contextCookies.filter((c: any) => {
+    const n = c.name.toLowerCase()
+    return !AKAMAI_COOKIE_PREFIXES.some(p => n.startsWith(p))
+  })
+  const cookieStr = apiCookies.map((c: any) => `${c.name}=${c.value}`).join('; ')
   const cookieNames = contextCookies.map((c: any) => c.name)
-  log.info({ cookieCount: contextCookies.length, cookieNames, hasCookieStr: !!cookieStr, viaDirectCookies: !!directCookies }, 'coupangeats: node-direct cookie string built')
+  log.info({ cookieCount: contextCookies.length, apiCookieCount: apiCookies.length, cookieNames, hasCookieStr: !!cookieStr, viaDirectCookies: !!directCookies }, 'coupangeats: node-direct cookie string built (akamai cookies excluded)')
 
   // CSRF & Auth token extraction from cookies
   const findCookie = (names: string[]) => contextCookies.find((c: any) => names.includes(c.name))?.value || null
