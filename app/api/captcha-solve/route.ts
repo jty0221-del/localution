@@ -34,7 +34,9 @@ export async function POST(req: NextRequest) {
   }
 
   // question 은 naver.ts 에서 이미 한국어 instruction 포함하여 전달됨
-  const promptText = question || '이 이미지를 보고 이미지 속 질문에 답하세요. 한국어로 답만 짧게 (예: 순창, 3, 15000).'
+  // 마크다운/따옴표 없이 답만 출력하도록 명시
+  const promptText = (question || '이 이미지를 보고 이미지 속 질문에 답하세요.')
+    + ' 마크다운, 따옴표, ** 없이 순수 텍스트로만 답하세요.'
 
   // base64 첫 4자로 실제 파일 형식 감지: /9j/=JPEG, iVBO=PNG
   const detectedMediaType = (mediaType as string) || (image.startsWith('/9j/') ? 'image/jpeg' : 'image/png')
@@ -61,7 +63,14 @@ export async function POST(req: NextRequest) {
     })
 
     const claudeJson = await claudeRes.json()
-    const answer = (claudeJson?.content?.[0]?.text || '').trim()
+    // 마크다운 포매팅 제거: Claude가 **굵게** 또는 _기울임_ 형식으로 답할 수 있음
+    const rawAnswer = (claudeJson?.content?.[0]?.text || '').trim()
+    const answer = rawAnswer
+      .replace(/\*\*/g, '')   // **bold** 제거
+      .replace(/\*/g, '')     // *italic* 제거
+      .replace(/`/g, '')      // `code` 제거
+      .replace(/^["'「『]/,'').replace(/["'」』]$/,'')  // 따옴표 제거
+      .trim()
 
     if (!answer) {
       return NextResponse.json({ error: 'no answer from Claude', detail: JSON.stringify(claudeJson).slice(0, 200) }, { status: 502 })
