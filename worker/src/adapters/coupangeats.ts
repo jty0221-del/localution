@@ -279,40 +279,11 @@ export async function runCoupangEats(
   })
 
   try {
-    // ── 쿠키 세션으로 리뷰 페이지 직접 접근 ──
+    // ── 쿠키 세션 → 브라우저 nav 건너뜀, 직접 node-direct API 호출 ──
+    // 이유: Railway 프록시(socks5/http 불일치)로 browser nav 자체가 실패 → ERR 종류 무관하게 direct API 우선
     if (savedCookies && savedCookies.length > 0) {
-      const reviewsUrl = creds.platform_store_id
-        ? `${REVIEWS_BASE_URL}/${creds.platform_store_id}`
-        : REVIEWS_BASE_URL
-      log.info({ reviewsUrl }, 'coupangeats: trying direct reviews access with saved cookies')
-
-      // ERR_PROXY_AUTH_UNSUPPORTED 발생 시 → 브라우저 navigation 스킵, node-direct API로만 시도
-      let navErr: string | null = null
-      try {
-        await page.goto(reviewsUrl, { waitUntil: 'networkidle', timeout: 45000 }).catch(() =>
-          page.goto(reviewsUrl, { waitUntil: 'load', timeout: 45000 }).catch((e: any) => { navErr = String(e?.message || e) })
-        )
-      } catch (e: any) {
-        navErr = String(e?.message || e)
-      }
-
-      if (navErr && navErr.includes('ERR_PROXY_AUTH_UNSUPPORTED')) {
-        log.warn({ navErr }, 'coupangeats: proxy auth unsupported — skipping browser nav, using node-direct API with saved cookies')
-        // 브라우저 navigation 없이 nodeDirectApiGet 으로 직접 API 호출
-        return await fetchCoupangReviews(page, context, svc, creds, userId, action, payload, log, earlyCapture, earlyCaptureUrls, allRequestUrls, allJsonUrls, savedCookies)
-      }
-
-      await page.waitForTimeout(4000)
-      const directUrl = page.url()
-      // 리뷰 관리 페이지에 실제로 도달했는지 확인 (login/signin/auth 등 리다이렉트 방지)
-      const cookieValid = directUrl.includes('/management/reviews') || directUrl.includes('/merchant/management') || directUrl.includes('/merchant/main')
-      if (cookieValid) {
-        log.info({ directUrl, earlyCaptured: earlyCapture.length }, 'coupangeats: cookie session valid')
-        await markLoginStatus(svc, userId, 'coupangeats', 'success')
-        if (action === 'health_check') return { status: 'ok', message: 'coupangeats cookie session ok' }
-        return await fetchCoupangReviews(page, context, svc, creds, userId, action, payload, log, earlyCapture, earlyCaptureUrls, allRequestUrls, allJsonUrls, savedCookies)
-      }
-      log.warn('coupangeats: saved cookies expired, falling back to login')
+      log.info({ cookieCount: savedCookies.length }, 'coupangeats: saved cookies found → skip browser nav, use direct API')
+      return await fetchCoupangReviews(page, context, svc, creds, userId, action, payload, log, earlyCapture, earlyCaptureUrls, allRequestUrls, allJsonUrls, savedCookies)
     }
 
     // ── 폼 로그인 (쿠키 없거나 만료) ──
