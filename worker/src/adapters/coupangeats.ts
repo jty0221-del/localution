@@ -530,7 +530,8 @@ async function fetchCoupangReviews(
       log.info(`coupangeats: allRequestUrls after root nav (last 20): ${allRequestUrls.slice(-20).join(' | ')}`)
 
       // 스토어 선택 버튼/링크 감지 (스토어명 또는 storeId 포함)
-      const storeNameHints = ['일산닭칼국수', '부천', String(storeId)]
+      const targetStoreId = creds.platform_store_id || '738438'
+      const storeNameHints = ['일산닭칼국수', '부천', targetStoreId]
       let storeClicked = false
 
       // 1) 텍스트 기반 클릭 (스토어명/storeId 포함 요소)
