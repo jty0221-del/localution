@@ -950,18 +950,8 @@ async function fetchCoupangReviews(
         }
       }
 
-      // browserApiGet으로 whoami 재확인 (Chrome 쿠키 기반 — browserNavOk 후 갱신된 세션)
-      if (browserNavOk) {
-        const bWhoami = await browserApiGet('/api/v1/merchant/whoami')
-        log.info(`coupangeats: browserWhoami=${bWhoami.status} body=${JSON.stringify(bWhoami.body).slice(0,200)}`)
-        const bMerchantId = bWhoami.body?.data?.merchantId || bWhoami.body?.merchantId
-        const bStoreId = bWhoami.body?.data?.responsibleStoreId || bWhoami.body?.responsibleStoreId
-        if (bStoreId) {
-          log.info({ bStoreId }, 'coupangeats: browser whoami has responsibleStoreId — using it')
-          realStoreId = String(bStoreId)
-        }
-        if (bMerchantId) merchantId = bMerchantId
-      }
+      // 48차: browserApiGet은 complex headers → Akamai 세션 파괴 → 슬라이딩 윈도우 403
+      // browserWhoami 블록 제거 (세션 보호)
 
       // 스토어 스위치 시도 (실제 스토어 ID로)
       const switchGet = await apiGet(`/api/v1/merchant/stores/${realStoreId}/switch`)
@@ -985,10 +975,10 @@ async function fetchCoupangReviews(
       const diagDateRange = `startDateTime=${todayStr}&exclusiveEndDateTime=${tomorrowStr}`
       const noStore = await apiGet(`/api/v1/merchant/reviews/search?page=1&statusType=EXPOSE&${diagDateRange}&size=10`)
       const alt1 = await nodeDirectApiGet(`/api/v1/merchant/reviews/search?storeId=${realStoreId}&page=1&${diagDateRange}&size=10`)
-      const alt2 = await browserApiGet(`/api/v1/merchant/reviews/search?storeId=${realStoreId}&page=1&statusType=EXPOSE&${diagDateRange}&size=10`)
-      log.info(`coupangeats: alt1=${alt1.status} alt2(browser)=${alt2.status} noStore=${noStore.status}`)
-      log.info(`coupangeats: alt1body=${JSON.stringify(alt1.body).slice(0,120)} alt2body=${JSON.stringify(alt2.body).slice(0,120)}`)
-      rawBodySample += ` | stores:${storesRes.status} switchGET:${switchGet.status} switchPOST:${switchPost.status} alt1:${alt1.status} alt2browser:${alt2.status} noStore:${noStore.status} realStoreId:${realStoreId}`
+      // 48차: browserApiGet(alt2) 제거 — complex headers → Akamai 세션 파괴 → 슬라이딩 윈도우 403
+      log.info(`coupangeats: alt1=${alt1.status} noStore=${noStore.status}`)
+      log.info(`coupangeats: alt1body=${JSON.stringify(alt1.body).slice(0,120)}`)
+      rawBodySample += ` | stores:${storesRes.status} switchGET:${switchGet.status} switchPOST:${switchPost.status} alt1:${alt1.status} noStore:${noStore.status} realStoreId:${realStoreId}`
     } catch (e: any) {
       log.warn({ err: e?.message }, 'coupangeats: stores/switch diagnostic failed')
     }
