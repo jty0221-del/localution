@@ -358,114 +358,51 @@ export async function runNaver(
         log.info('naver: captchaInputFoundAfterLogin=' + !!captchaInputElRetry)
 
         if (captchaInputElRetry) {
-          log.info('naver: CAPTCHA appeared after login attempt — solving with 2captcha')
+          log.info('naver: CAPTCHA appeared after login attempt')
 
           // CAPTCHA 이미지 src 추출 (data:image/png;base64,... 형식)
           const captchaImgSrc = await page.evaluate(() => {
             const img = document.querySelector('#captchaimg, img[id*="captcha"], img.captcha_img, .captcha_area img') as HTMLImageElement | null
             return img?.src || ''
           }).catch(() => '')
-          // CAPTCHA 질문 텍스트 추출 (2captcha textinstructions 용)
-          // 1) CAPTCHA 컨테이너 내부 텍스트 우선, 2) body 전체에서 구매한/몇 키워드로 검색
+          // CAPTCHA 질문 텍스트 추출 (보조 정보 — 질문이 이미지 속에 있을 경우 비어있을 수 있음)
           const captchaQuestion = await page.evaluate(() => {
-            // 방법 1: CAPTCHA input 의 부모 컨테이너 텍스트
             const inp = document.querySelector('#captcha, input[name="captcha"]') as HTMLElement | null
             const container = inp?.closest('div, section, form') as HTMLElement | null
             const containerText = (container?.innerText || '').replace(/\s+/g, ' ').trim()
-            if (containerText.length > 5) return containerText.slice(0, 120)
-            // 방법 2: body 전체에서 키워드 검색
+            if (containerText.length > 5) return containerText.slice(0, 200)
+            // body 전체에서 영수증 키워드 검색
             const bt = (document.body?.innerText || '').replace(/\s+/g, ' ')
-            const idx1 = bt.indexOf('구매한') // 구매한
-            if (idx1 >= 0) return bt.slice(idx1, idx1 + 80)
-            const idx2 = bt.indexOf('몇') // 몇
-            if (idx2 >= 0) return bt.slice(Math.max(0, idx2 - 10), idx2 + 60)
+            const kws = ['구매한', '영수증', '결제', '금액', '총', '개 당', '몇', '가격', '이름']
+            for (const kw of kws) {
+              const idx = bt.indexOf(kw)
+              if (idx >= 0) return bt.slice(Math.max(0, idx - 20), idx + 120)
+            }
             return ''
           }).catch(() => '')
-          log.info('naver: CAPTCHA img len=' + captchaImgSrc.length + ' question=' + captchaQuestion.slice(0, 80))
+          log.info('naver: CAPTCHA img len=' + captchaImgSrc.length + ' question=' + (captchaQuestion || '(없음—이미지 속 질문)').slice(0, 80))
 
           let captchaAnswerRetry: string | null = null
-          const apiKey = process.env.TWOCAPTCHA_API_KEY
 
-          if (apiKey && captchaImgSrc) {
-            // data URL → base64 strip → 2captcha 직접 호출 (textinstructions 포함)
-            const b64 = captchaImgSrc.startsWith('data:')
-              ? captchaImgSrc.replace(/^data:[^;]+;base64,/, '')
-              : null
-
-            if (b64) {
-              // 한국어 workers 지정 (lang=5) + 영문 힌트 추가로 가독성 향상
-              let instructions = captchaQuestion
-              if (captchaQuestion) {
-                let engHint = 'Korean receipt CAPTCHA. '
-                if (captchaQuestion.includes('이름') || captchaQuestion.includes('전체')) {
-                  engHint += 'Find the brand name (Korean word) on the receipt and fill the blank.'
-                } else if (captchaQuestion.includes('몇') || captchaQuestion.includes('kg') || captchaQuestion.includes('g')) {
-                  engHint += 'Find the weight/quantity number on the receipt. Type only the number.'
-                } else if (captchaQuestion.includes('번호') || captchaQuestion.includes('숫자')) {
-                  engHint += 'Find the number on the receipt and type it.'
-                } else {
-                  engHint += 'Answer based on the receipt image.'
-                }
-                instructions = captchaQuestion + '\n' + engHint
-              }
-              log.info('captcha: submitting base64 captcha to 2captcha' + (instructions ? ' with hint' : ''))
-              const bodyPayload: Record<string, string> = { key: apiKey, method: 'base64', body: b64, json: '1' }
-              if (instructions) bodyPayload.textinstructions = instructions
-              const submitRes = await fetch('https://2captcha.com/in.php', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify(bodyPayload),
-              }).then((r: any) => r.json()).catch(() => null)
-              log.info('captcha: 2captcha submit res: ' + JSON.stringify(submitRes || 'null').slice(0, 80))
-
-              if (submitRes?.status === 1) {
-                const captchaId = submitRes.request
-                await new Promise((r) => setTimeout(r, 15000))
-                for (let i = 0; i < 15; i++) {
-                  await new Promise((r) => setTimeout(r, 5000))
-                  const pollRes = await fetch(
-                    'https://2captcha.com/res.php?key=' + apiKey + '&action=get&id=' + captchaId + '&json=1'
-                  ).then((r: any) => r.json()).catch(() => null)
-                  if (pollRes?.status === 1) {
-                    captchaAnswerRetry = pollRes.request
-                    log.info('captcha: solved — answer=' + captchaAnswerRetry)
-                    break
-                  }
-                  if (pollRes?.request !== 'CAPCHA_NOT_READY') {
-                    log.warn('captcha: 2captcha error: ' + JSON.stringify(pollRes).slice(0, 80))
-                    break
-                  }
-                  log.info('captcha: still solving... attempt ' + (i + 1))
-                }
-              }
-            } else {
-              // HTTP URL 이미지
-              captchaAnswerRetry = await solveCaptcha({ page, log, type: 'image',
-                captchaSelector: '#captchaimg, img[id*="captcha"], img.captcha_img, .captcha_area img' })
-            }
-          }
-
-          // ── Vision AI 폴백: 2captcha 실패 시 Claude Vision으로 CAPTCHA 해결 ──────────
-          // 한국어 영수증 CAPTCHA는 한국어를 모르는 2captcha workers가 해결 못함
-          // 방법 1 (우선): Vercel /api/captcha-solve 엔드포인트 — SUPABASE_SERVICE_ROLE_KEY로 인증
-          //               → Vercel에 이미 ANTHROPIC_API_KEY가 설정되어 있어 Railway 추가 설정 불필요
-          // 방법 2 (폴백): Railway ANTHROPIC_API_KEY 직접 사용 (별도 설정 시)
-          // 방법 3 (폴백): Railway OPENAI_API_KEY 직접 사용 (별도 설정 시)
-          if (!captchaAnswerRetry && captchaImgSrc && captchaImgSrc.startsWith('data:')) {
+          // ══ 방법 1 (우선): Claude Vision via Vercel 프록시 ══════════════════════
+          // 한국어 영수증 CAPTCHA는 2captcha 비한국어 workers가 해결 못함
+          // Vercel에 ANTHROPIC_API_KEY 기설정 → Railway에 추가 설정 불필요
+          // SUPABASE_SERVICE_ROLE_KEY (Railway·Vercel 양측 공유)로 인증
+          if (captchaImgSrc.startsWith('data:')) {
             const rawB64 = captchaImgSrc.replace(/^data:[^;]+;base64,/, '')
             const mediaType = rawB64.startsWith('/9j/') ? 'image/jpeg' : 'image/png'
-            const promptText = (captchaQuestion || '이 이미지에서 질문에 답하세요')
-              + '\n한국어로 답하세요. 답만 짧게 (예: 순창, 3, 15000). 다른 설명 없이 답만.'
+            // 질문이 이미지 속에 있을 경우 포괄적인 프롬프트 사용
+            const captchaInstruction = captchaQuestion
+              ? captchaQuestion + '\n이미지의 영수증을 보고 답하세요. 답만 짧게 (예: 순창, 3, 15000). 설명 없이 답만.'
+              : '이 이미지를 자세히 보세요. 이미지 안에 한국어 질문이 있습니다. 그 질문을 찾아 영수증 내용 기반으로 답하세요. 답만 짧게 (예: 상품명, 숫자, 금액). 설명 없이 답만.'
 
-            // ── 방법 1: Vercel 프록시 엔드포인트 (SUPABASE_SERVICE_ROLE_KEY 인증)
             const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-            const vercelUrl = 'https://localution.vercel.app/api/captcha-solve'
             if (supabaseKey) {
-              log.info('naver: calling Vercel captcha-solve proxy for CAPTCHA')
-              const proxyRes = await fetch(vercelUrl, {
+              log.info('naver: calling Vercel captcha-solve proxy (Claude Vision)')
+              const proxyRes = await fetch('https://localution.vercel.app/api/captcha-solve', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + supabaseKey },
-                body: JSON.stringify({ image: rawB64, question: captchaQuestion, mediaType }),
+                body: JSON.stringify({ image: rawB64, question: captchaInstruction, mediaType }),
               }).then((r: any) => r.json()).catch((e: any) => ({ error: e?.message }))
               const proxyAnswer = (proxyRes?.answer || '').trim()
               log.info('naver: Vercel proxy answer: ' + (proxyAnswer || 'null').slice(0, 30)
@@ -473,67 +410,81 @@ export async function runNaver(
               if (proxyAnswer) captchaAnswerRetry = proxyAnswer
             }
 
-            // ── 방법 2: Railway ANTHROPIC_API_KEY 직접 호출 (설정 시)
+            // 방법 1-b: Railway ANTHROPIC_API_KEY 직접 (Vercel 프록시 실패 시)
             if (!captchaAnswerRetry) {
               const anthropicKey = process.env.ANTHROPIC_API_KEY
               if (anthropicKey) {
-                log.info('naver: falling back to direct Anthropic Claude Vision for CAPTCHA solve')
+                log.info('naver: direct Anthropic Claude Vision for CAPTCHA')
                 const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
                   method: 'POST',
-                  headers: {
-                    'Content-Type': 'application/json',
-                    'x-api-key': anthropicKey,
-                    'anthropic-version': '2023-06-01',
-                  },
+                  headers: { 'Content-Type': 'application/json', 'x-api-key': anthropicKey, 'anthropic-version': '2023-06-01' },
                   body: JSON.stringify({
-                    model: 'claude-3-haiku-20240307',
-                    max_tokens: 30,
-                    messages: [{
-                      role: 'user',
-                      content: [
-                        { type: 'image', source: { type: 'base64', media_type: mediaType, data: rawB64 } },
-                        { type: 'text', text: promptText },
-                      ],
-                    }],
+                    model: 'claude-3-haiku-20240307', max_tokens: 30,
+                    messages: [{ role: 'user', content: [
+                      { type: 'image', source: { type: 'base64', media_type: mediaType, data: rawB64 } },
+                      { type: 'text', text: captchaInstruction },
+                    ]}],
                   }),
                 }).then((r: any) => r.json()).catch(() => null)
                 const claudeAnswer = (claudeRes?.content?.[0]?.text || '').trim()
-                log.info('naver: direct Claude Vision answer: ' + (claudeAnswer || 'null').slice(0, 30)
-                  + (claudeRes?.error ? ' err=' + JSON.stringify(claudeRes.error).slice(0, 60) : ''))
+                log.info('naver: direct Claude Vision answer: ' + (claudeAnswer || 'null').slice(0, 30))
                 if (claudeAnswer) captchaAnswerRetry = claudeAnswer
               }
             }
+          }
 
-            // ── 방법 3: Railway OPENAI_API_KEY 직접 호출 (설정 시)
-            if (!captchaAnswerRetry) {
-              const openaiKey = process.env.OPENAI_API_KEY
-              if (openaiKey) {
-                log.info('naver: falling back to OpenAI Vision for CAPTCHA solve')
-                const oaiRes = await fetch('https://api.openai.com/v1/chat/completions', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + openaiKey },
-                  body: JSON.stringify({
-                    model: 'gpt-4o-mini',
-                    max_tokens: 20,
-                    messages: [{
-                      role: 'user',
-                      content: [
-                        { type: 'image_url', image_url: { url: captchaImgSrc } },
-                        { type: 'text', text: promptText },
-                      ],
-                    }],
-                  }),
+          // ══ 방법 2 (폴백): 2captcha (한국어 영수증 CAPTCHA에 실패 빈번) ══════════
+          if (!captchaAnswerRetry) {
+            const apiKey = process.env.TWOCAPTCHA_API_KEY
+            if (apiKey && captchaImgSrc) {
+              const b64 = captchaImgSrc.startsWith('data:')
+                ? captchaImgSrc.replace(/^data:[^;]+;base64,/, '')
+                : null
+              if (b64) {
+                let instructions = captchaQuestion
+                if (captchaQuestion) {
+                  let engHint = 'Korean receipt CAPTCHA. '
+                  if (captchaQuestion.includes('이름') || captchaQuestion.includes('전체')) {
+                    engHint += 'Find the brand name (Korean word) on the receipt.'
+                  } else if (captchaQuestion.includes('몇') || captchaQuestion.includes('kg') || captchaQuestion.includes('g')) {
+                    engHint += 'Find the weight/quantity number on the receipt. Type only the number.'
+                  } else if (captchaQuestion.includes('번호') || captchaQuestion.includes('숫자') || captchaQuestion.includes('금액') || captchaQuestion.includes('가격')) {
+                    engHint += 'Find the price/number on the receipt. Type only the number.'
+                  } else {
+                    engHint += 'Answer based on the receipt image.'
+                  }
+                  instructions = captchaQuestion + '\n' + engHint
+                }
+                log.info('captcha: submitting base64 captcha to 2captcha' + (instructions ? ' with hint' : ''))
+                const bodyPayload: Record<string, string> = { key: apiKey, method: 'base64', body: b64, json: '1' }
+                if (instructions) bodyPayload.textinstructions = instructions
+                const submitRes = await fetch('https://2captcha.com/in.php', {
+                  method: 'POST', headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify(bodyPayload),
                 }).then((r: any) => r.json()).catch(() => null)
-                const oaiAnswer = (oaiRes?.choices?.[0]?.message?.content || '').trim()
-                log.info('naver: OpenAI Vision answer: ' + (oaiAnswer || 'null').slice(0, 30))
-                if (oaiAnswer) captchaAnswerRetry = oaiAnswer
+                log.info('captcha: 2captcha submit res: ' + JSON.stringify(submitRes || 'null').slice(0, 80))
+                if (submitRes?.status === 1) {
+                  const captchaId = submitRes.request
+                  await new Promise((r) => setTimeout(r, 15000))
+                  for (let i = 0; i < 15; i++) {
+                    await new Promise((r) => setTimeout(r, 5000))
+                    const pollRes = await fetch(
+                      'https://2captcha.com/res.php?key=' + apiKey + '&action=get&id=' + captchaId + '&json=1'
+                    ).then((r: any) => r.json()).catch(() => null)
+                    if (pollRes?.status === 1) { captchaAnswerRetry = pollRes.request; log.info('captcha: 2captcha answered=' + captchaAnswerRetry); break }
+                    if (pollRes?.request !== 'CAPCHA_NOT_READY') { log.warn('captcha: 2captcha error: ' + JSON.stringify(pollRes).slice(0, 80)); break }
+                    log.info('captcha: 2captcha still solving... attempt ' + (i + 1))
+                  }
+                }
+              } else {
+                captchaAnswerRetry = await solveCaptcha({ page, log, type: 'image',
+                  captchaSelector: '#captchaimg, img[id*="captcha"], img.captcha_img, .captcha_area img' })
               }
             }
+          }
 
-            if (!captchaAnswerRetry) {
-              log.warn('naver: 모든 CAPTCHA 풀이 방법 실패 — Vercel proxy도 실패. '
-                + 'SUPABASE_SERVICE_ROLE_KEY가 Railway에 설정되어 있는지 확인')
-            }
+          if (!captchaAnswerRetry) {
+            log.warn('naver: 모든 CAPTCHA 풀이 방법 실패 (Vercel 프록시 + 2captcha 모두 실패)')
           }
 
           if (captchaAnswerRetry) {

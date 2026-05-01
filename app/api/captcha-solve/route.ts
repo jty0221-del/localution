@@ -33,8 +33,8 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ error: 'image is required' }, { status: 400 })
   }
 
-  const promptText = (question || '이 이미지에서 질문에 답하세요')
-    + '\n한국어로 답하세요. 답만 짧게 (예: 순창, 3, 15000). 다른 설명 없이 답만.'
+  // question 은 naver.ts 에서 이미 한국어 instruction 포함하여 전달됨
+  const promptText = question || '이 이미지를 보고 이미지 속 질문에 답하세요. 한국어로 답만 짧게 (예: 순창, 3, 15000).'
 
   // base64 첫 4자로 실제 파일 형식 감지: /9j/=JPEG, iVBO=PNG
   const detectedMediaType = (mediaType as string) || (image.startsWith('/9j/') ? 'image/jpeg' : 'image/png')
