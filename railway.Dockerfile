@@ -21,7 +21,7 @@ RUN npm install --omit=optional --no-audit --no-fund \
 COPY worker/tsconfig.json ./
 
 # build-marker: COPY src 앞에 위치 — 이 줄 변경 시 이후 레이어 전체 캐시 무효화
-RUN echo "build-marker: 46cha-6 page-route-date-intercept"
+RUN echo "build-marker: 46cha-7 home-storeId-nav-first"
 
 COPY worker/src ./src
 RUN npx tsc
