@@ -346,16 +346,22 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
     }
   }, [connected, fetching, placeId, loadStoresMe, loadReviews, config.supportsFetch, config.label])
 
-  // ── 4) 자동 1회 수집 ─────
+  // ── 4) 자동 수집 ─────
+  // 37차-10: 페이지 진입 시 항상 최신 리뷰를 가져오도록 개선
+  //   · 데이터가 0건이면 무조건 수집 (기존 동작)
+  //   · 마지막 수집이 30분 이상 지났으면 자동 재수집 (최신 리뷰 누락 방지)
   useEffect(() => {
     if (!connected) return
     if (!config.supportsFetch) return
     if (autoFetchTried) return
     if (loadingReviews) return
-    if (reviews.length > 0) return
+    // 30분 이상 지났는지 체크
+    const lastMs = agg.latest_collected_at ? new Date(agg.latest_collected_at).getTime() : 0
+    const isStale = !lastMs || (Date.now() - lastMs > 30 * 60 * 1000)
+    if (reviews.length > 0 && !isStale) return
     setAutoFetchTried(true)
     collectNow()
-  }, [connected, autoFetchTried, loadingReviews, reviews.length, collectNow, config.supportsFetch])
+  }, [connected, autoFetchTried, loadingReviews, reviews.length, collectNow, config.supportsFetch, agg.latest_collected_at])
 
   // ── 5) 단일 초안 생성 ───────────────────────
   const handleGenerateDraft = async (review: Review, currentPersona?: Persona) => {

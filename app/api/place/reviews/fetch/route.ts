@@ -68,11 +68,11 @@ function parseDateSafely(raw: string | null | undefined): string | null {
   return null
 }
 
-// GET: 디버그용 (?debug=1 또는 ?debug=2)만 허용 — 브라우저에서 직접 호출 가능하도록
+// GET: 디버그용 — ?debug=1(GraphQL 직접) / ?debug=2(함수 호출만) / ?debug=3(실제 수집+DB저장)
 export async function GET(req: NextRequest) {
   const dbg = req.nextUrl.searchParams.get('debug')
-  if (dbg !== '1' && dbg !== '2') {
-    return NextResponse.json({ ok: false, error: 'POST only (GET은 ?debug=1/2 디버그 모드만 허용)' }, { status: 405 })
+  if (dbg !== '1' && dbg !== '2' && dbg !== '3') {
+    return NextResponse.json({ ok: false, error: 'POST only (GET은 ?debug=1/2/3 만 허용)' }, { status: 405 })
   }
   return POST(req)
 }
