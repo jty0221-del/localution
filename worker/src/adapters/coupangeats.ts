@@ -511,7 +511,7 @@ async function fetchCoupangReviews(
   await page.waitForTimeout(500)
 
   const storeId = creds.platform_store_id || '738438'
-  log.info({ storeId, naturalCaptured: capturedReviews.length }, 'coupangeats: calling review API via context.request')
+  log.info({ storeId, naturalCaptured: capturedReviews.length }, 'coupangeats: calling review API via page.goto (browser navigation)')
 
   // ── context.request 로 직접 API 호출 (proxy 인증 문제 해결) ──
   // page.evaluate 내부 fetch()는 407 Proxy Auth 실패 → Playwright APIRequestContext 사용
@@ -539,44 +539,27 @@ async function fetchCoupangReviews(
       || 0
   }
 
-  // context.request 가 407 반환 시 → tunnelFetch(Node.js CONNECT 터널)로 fallback
-  const browserCookies = await context.cookies().catch(() => [] as any[])
-  const cookieStr = browserCookies
-    .filter((c: any) => (c.domain || '').includes('coupangeats') || (c.domain || '').includes('coupang'))
-    .map((c: any) => `${c.name}=${c.value}`)
-    .join('; ')
-
-  async function tryRequestGet(path: string): Promise<{ ok: boolean; body: any; status: number; errBody: string }> {
+  // ── page.goto() 방식으로 API 호출 ──
+  // context.request/tunnelFetch 모두 407 (IPRoyal이 Node.js CONNECT 거부)
+  // 브라우저 navigation은 프록시+쿠키가 이미 작동하므로 page.goto(API_URL) 사용
+  async function browserApiGet(path: string): Promise<{ ok: boolean; body: any; status: number; errBody: string }> {
     const url = path.startsWith('http') ? path : `${BASE_ORIGIN}${path}`
-    // 1차 시도: context.request (Playwright APIRequestContext, 프록시+쿠키 공유)
     try {
-      const res = await context.request.get(url, {
-        headers: { 'Accept': 'application/json, text/plain, */*' },
-        timeout: 20000,
-      })
-      const status = res.status()
-      if (status === 407) {
-        log.warn({ url: url.slice(0, 80), status }, 'coupangeats: context.request 407 → tunnelFetch fallback')
-        // 2차 시도: Node.js CONNECT 터널 (407 완전 우회)
-        if (useProxy && proxyHost && proxyPort) {
-          return tunnelFetch(url, cookieStr, proxyHost, parseInt(proxyPort), proxyUser || '', proxyPass || '')
-        }
-        return { ok: false, body: null, status: 407, errBody: '407 and no proxy configured' }
-      }
-      if (!res.ok()) {
-        let errBody = ''
-        try { errBody = JSON.stringify(await res.json()) } catch (_) { try { errBody = await res.text() } catch (_) { errBody = '(no body)' } }
-        return { ok: false, body: null, status, errBody: String(errBody).slice(0, 150) }
-      }
-      const body = await res.json().catch(() => null)
+      const resp = await page.goto(url, { waitUntil: 'load', timeout: 20000 })
+      const status = (resp?.status() ?? 0) as number
+      if (status >= 400) return { ok: false, body: null, status, errBody: `HTTP ${status}` }
+      // Chrome은 JSON 응답을 <pre> 태그 안에 렌더링하거나 body.innerText로 노출
+      const text: string = await page.evaluate(() => {
+        const pre = document.querySelector('pre')
+        if (pre) return pre.innerText || pre.textContent || ''
+        return document.body?.innerText || document.body?.textContent || ''
+      }).catch(() => '') as string
+      const trimmed = text.trim()
+      if (!trimmed) return { ok: false, body: null, status, errBody: '(empty body)' }
+      const body = JSON.parse(trimmed)
       return { ok: true, body, status, errBody: '' }
     } catch (e: any) {
-      // context.request 예외 시에도 tunnelFetch 시도
-      log.warn({ err: e?.message, url: url.slice(0, 80) }, 'coupangeats: context.request exception → tunnelFetch fallback')
-      if (useProxy && proxyHost && proxyPort) {
-        return tunnelFetch(url, cookieStr, proxyHost, parseInt(proxyPort), proxyUser || '', proxyPass || '')
-      }
-      return { ok: false, body: null, status: 0, errBody: e?.message || 'request error' }
+      return { ok: false, body: null, status: 0, errBody: String(e?.message || e).slice(0, 150) }
     }
   }
 
@@ -588,7 +571,7 @@ async function fetchCoupangReviews(
   // whoami 확인 (세션 유효성 + merchantId)
   let merchantId: number | null = null
   try {
-    const wRes = await tryRequestGet('/api/v1/merchant/whoami')
+    const wRes = await browserApiGet('/api/v1/merchant/whoami')
     if (wRes.ok && wRes.body) {
       rawBodySample = JSON.stringify(wRes.body).slice(0, 200)
       merchantId = wRes.body?.data?.merchantId || wRes.body?.merchantId || null
@@ -625,7 +608,7 @@ async function fetchCoupangReviews(
           ]
           let found = false
           for (const c of candidates) {
-            fetchResult = await tryRequestGet(c.url)
+            fetchResult = await browserApiGet(c.url)
             if (fetchResult.ok) {
               baseUrl = c.url.replace('&page=1', `&${c.param}=PAGE`)
               pageParam = c.param
@@ -639,7 +622,7 @@ async function fetchCoupangReviews(
           if (!found) { hasMore = false; break }
         } else {
           const url = baseUrl.replace(`${pageParam}=PAGE`, `${pageParam}=${pageNum}`)
-          fetchResult = await tryRequestGet(url)
+          fetchResult = await browserApiGet(url)
           if (!fetchResult.ok) {
             errors.push(`${statusType} p${pageNum}: HTTP ${fetchResult.status} ${fetchResult.errBody}`)
             hasMore = false; break
