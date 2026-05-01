@@ -518,6 +518,7 @@ export type VisitorReview = {
   visitedAt: string | null    // YYYY-MM-DD or ISO
   postedAt: string | null     // ISO
   photos: string[]            // 첨부 사진 URL
+  hasOwnerReply: boolean      // 사장님 답글 여부 (replyCount>0 or ownerReply 존재)
   raw?: unknown               // 디버깅용 원본
 }
 
@@ -638,6 +639,7 @@ function parseReviewObject(objStr: string, fallbackId: string): VisitorReview | 
     visitedAt,
     postedAt,
     photos: photos.slice(0, 6),
+    hasOwnerReply: false, // SSR fallback에서는 답글 여부 파악 불가
   }
 }
 
@@ -666,7 +668,7 @@ function parseReviewObject(objStr: string, fallbackId: string): VisitorReview | 
 
 const NAVER_GRAPHQL_URL = 'https://pcmap-api.place.naver.com/graphql'
 const VISITOR_REVIEWS_QUERY =
-  'query getVisitorReviews($input: VisitorReviewsInput) { visitorReviews(input: $input) { total items { id rating body visited visitedDate created author { id nickname } originType userIdno media { type thumbnail videoId trailerUrl } } } }'
+  'query getVisitorReviews($input: VisitorReviewsInput) { visitorReviews(input: $input) { total items { id rating body visited visitedDate created author { id nickname } originType userIdno media { type thumbnail videoId trailerUrl } replyCount ownerReply { body } } } }'
 
 type GraphQLReviewItem = {
   id: string
@@ -679,6 +681,8 @@ type GraphQLReviewItem = {
   originType: string | null
   userIdno: string | null
   media: Array<{ type: string | null; thumbnail: string | null; videoId: string | null; trailerUrl: string | null }> | null
+  replyCount?: number | null
+  ownerReply?: { body: string | null } | null
 }
 
 async function fetchVisitorReviewsGraphQL(
@@ -739,6 +743,9 @@ async function fetchVisitorReviewsGraphQL(
             .filter((u): u is string => typeof u === 'string' && u.length > 0)
             .slice(0, 6)
         : []
+      // 사장님 답글 여부: replyCount>0 또는 ownerReply 객체 존재
+      const hasOwnerReply = (typeof it.replyCount === 'number' && it.replyCount > 0) ||
+                            (it.ownerReply != null && typeof it.ownerReply.body === 'string' && it.ownerReply.body.length > 0)
       return {
         reviewId: String(it.id),
         authorName: it.author?.nickname ?? null,
@@ -747,6 +754,7 @@ async function fetchVisitorReviewsGraphQL(
         visitedAt: it.visitedDate || it.visited || null,
         postedAt: it.created || null,
         photos,
+        hasOwnerReply,
       }
     })
   } catch (e) {

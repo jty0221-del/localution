@@ -156,6 +156,27 @@ export async function POST(req: NextRequest) {
 
   // 3) platform_reviews UPSERT (platform + platform_review_id 유니크)
   const now = new Date().toISOString()
+  const reviewIds = reviews.map((r) => r.reviewId)
+
+  // 기존 has_reply / reply_status 보존 — upsert 시 덮어쓰기 방지
+  // (사장님이 네이버에서 직접 답글 달거나, worker가 post_reply로 등록한 경우 has_reply=true가 리셋되는 버그 수정)
+  const existingHasReply = new Map<string, boolean>()
+  const existingReplyStatus = new Map<string, string | null>()
+  try {
+    const { data: existing } = await svc
+      .from('platform_reviews')
+      .select('platform_review_id, has_reply, reply_status')
+      .eq('user_id', userId)
+      .eq('platform', 'naver_place')
+      .in('platform_review_id', reviewIds.slice(0, 500)) // Supabase in() 최대 500
+    for (const row of existing ?? []) {
+      existingHasReply.set(row.platform_review_id, row.has_reply ?? false)
+      existingReplyStatus.set(row.platform_review_id, row.reply_status ?? null)
+    }
+  } catch (_) {
+    // 조회 실패해도 upsert는 진행 (has_reply는 false로 폴백)
+  }
+
   const rowsRaw: UpsertRow[] = reviews.map((r) => ({
     user_id: userId,
     platform: 'naver_place' as const,
@@ -168,7 +189,10 @@ export async function POST(req: NextRequest) {
     photos: r.photos.length > 0 ? r.photos : null,
     posted_at: parseDateSafely(r.postedAt) || parseDateSafely(r.visitedAt),
     collected_at: now,
-    has_reply: false,
+    // 사장님 답글 여부: GraphQL에서 감지 OR 기존 DB 값 true OR worker가 등록 완료
+    has_reply: r.hasOwnerReply === true ||
+               existingHasReply.get(r.reviewId) === true ||
+               existingReplyStatus.get(r.reviewId) === 'submitted',
     raw_snapshot: r,
   }))
   // 중복 reviewId가 있으면 PostgreSQL upsert 오류 발생 → 마지막 항목만 유지
