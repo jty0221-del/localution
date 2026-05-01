@@ -281,38 +281,61 @@ export async function runNaver(
 
       // ── 인라인 CAPTCHA 체크 (해외 IP 로그인 시 PW 필드와 함께 삽입됨) ──────
       // Railway Tokyo IP → Naver가 로그인 폼 안에 이미지 CAPTCHA("자동입력 방지 문자") 삽입
-      // URL은 그대로 nidlogin.login 이므로 URL-based 감지 불가 → DOM 직접 탐지
+      // URL은 그대로 nidlogin.login 이므로 URL-based 감지 불가 → INPUT FIELD + DOM 탐지
+      // 3초 대기: Naver CAPTCHA가 비동기로 렌더링되는 경우 대비
+      await page.waitForTimeout(3000)
+
       {
-        const captchaImgEl = await page.$(
-          '#captchaimg, img[src*="captcha"], .captcha_area img, img.captcha_img'
+        // 페이지 내 모든 img 정보 수집 (Railway 로그에서 실제 selector 파악용)
+        const pageImgs = await page.evaluate(() =>
+          Array.from(document.querySelectorAll('img')).slice(0, 10).map((el: any) => ({
+            id: el.id || '-',
+            src: (el.getAttribute('src') || '').slice(0, 100),
+            cls: (el.className || '').slice(0, 40),
+          }))
+        ).catch(() => [] as any[])
+        log.info('naver: page-imgs: ' + JSON.stringify(pageImgs).slice(0, 400))
+
+        // CAPTCHA input 필드 존재 여부 (이미지보다 신뢰도 높은 지표)
+        const captchaInputEl = await page.$(
+          '#captcha, input[name="captcha"], input[placeholder*="자동입력"], input[placeholder*="자동"], input[class*="captcha"]'
         ).catch(() => null)
 
-        if (captchaImgEl) {
-          log.info('naver: inline CAPTCHA detected on login page — solving with 2captcha')
+        log.info('naver: captchaInputFound=' + !!captchaInputEl)
+
+        if (captchaInputEl) {
+          log.info('naver: inline CAPTCHA input detected — solving with 2captcha')
+          // 넓은 img selector: id/src/alt/class 모두 포함
           const captchaAnswer = await solveCaptcha({
             page,
             log,
             type: 'image',
-            captchaSelector: '#captchaimg, img[src*="captcha"], .captcha_area img, img.captcha_img',
+            captchaSelector: [
+              '#captchaimg',
+              'img[id*="captcha"]',
+              'img[src*="captcha"]',
+              'img[alt*="자동"]',
+              'img[alt*="captcha"]',
+              '.captcha_area img',
+              'img.captcha_img',
+              '.captcha img',
+              '#mainContent img',
+            ].join(', '),
           })
           if (captchaAnswer) {
-            // CAPTCHA 답 입력 (placeholder "자동입력 방지 문자" 포함하는 input)
-            const captchaInput = await page.$(
-              '#captcha, input[name="captcha"], input[placeholder*="자동"], input[class*="captcha"]'
-            ).catch(() => null)
-            if (captchaInput) {
-              await captchaInput.click({ clickCount: 3 })
-              await captchaInput.type(captchaAnswer, { delay: 80 })
-              await page.waitForTimeout(300)
-              log.info('naver: inline CAPTCHA answer filled (len=' + captchaAnswer.length + ') — proceeding to login submit')
-            } else {
-              log.warn('naver: CAPTCHA input field not found after solving — login may fail')
-            }
+            await captchaInputEl.click({ clickCount: 3 })
+            await captchaInputEl.type(captchaAnswer, { delay: 80 })
+            await page.waitForTimeout(300)
+            log.info('naver: CAPTCHA answer filled: ' + captchaAnswer.slice(0, 30) + ' (len=' + captchaAnswer.length + ')')
           } else {
-            log.warn('naver: 2captcha could not solve inline CAPTCHA — login will likely fail. Check TWOCAPTCHA_API_KEY balance.')
+            log.warn('naver: 2captcha could not solve inline CAPTCHA — login will likely fail. Check TWOCAPTCHA_API_KEY balance and img selectors above.')
           }
         } else {
-          log.info('naver: no inline CAPTCHA on login page — submitting directly')
+          // body text 에 CAPTCHA 관련 텍스트 있으면 경고 (selector 불일치 감지)
+          const hasCaptchaText = await page.evaluate(() =>
+            (document.body?.innerText || '').includes('자동입력 방지')
+          ).catch(() => false)
+          log.info('naver: no CAPTCHA input found, hasCaptchaText=' + hasCaptchaText + ' — submitting directly')
         }
       }
 
