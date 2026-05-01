@@ -517,44 +517,76 @@ async function fetchCoupangReviews(
   // 로그인 URL이 아닌 리뷰 URL로 바로 가면 프록시 auth 문제 없이 동작 가능
   let browserNavOk = false
   if (skipBrowser) {
-    log.info({ reviewsUrl }, 'coupangeats: savedCookies — attempting direct nav to reviews page for Akamai challenge')
+    log.info({ reviewsUrl }, 'coupangeats: savedCookies — step1: nav to /merchant root to trigger store selection')
     try {
-      await page.goto(reviewsUrl, { waitUntil: 'domcontentloaded', timeout: 35000 })
-      await page.waitForTimeout(8000)   // Akamai JS + 자연 API 호출 대기 (8초)
-      browserNavOk = true
-      const finalUrl = page.url()
-      log.info({ url: finalUrl, capturedSoFar: capturedReviews.length }, `coupangeats: reviews page loaded url=${finalUrl} captured=${capturedReviews.length}`)
-      // 실제 요청 URL 로깅 — 리뷰 API / 스토어 선택 API 발견용
-      log.info(`coupangeats: allRequestUrls after nav (last 25): ${allRequestUrls.slice(-25).join(' | ')}`)
-      log.info(`coupangeats: allJsonUrls after nav: ${allJsonUrls.slice(0, 20).join(' | ')}`)
-      // 스토어 선택 UI 감지 — 스토어 목록/선택 팝업이 있으면 첫 번째 항목 클릭
-      const storeSelectSelectors = [
-        '[class*="StoreSelect"] li:first-child',
-        '[class*="store-select"] li:first-child',
-        '[class*="StoreList"] li:first-child',
-        '[class*="store-list"] li:first-child',
-        '[class*="storeItem"]:first-child',
-        '[class*="store-item"]:first-child',
-        'ul[class*="store"] > li:first-child',
-        '[data-testid*="store"]:first-child',
-        'button[class*="store"]:first-child',
-      ]
-      for (const sel of storeSelectSelectors) {
+      // ── Step 1: /merchant 루트로 이동 → 스토어 선택 UI 유도 ──
+      // 이유: responsibleStoreId=null 일 때 /merchant 에서 스토어를 클릭해야
+      //       서버 세션에 responsibleStoreId 가 설정됨
+      const merchantRoot = 'https://store.coupangeats.com/merchant'
+      await page.goto(merchantRoot, { waitUntil: 'domcontentloaded', timeout: 30000 })
+      await page.waitForTimeout(5000)
+      const rootUrl = page.url()
+      log.info(`coupangeats: rootUrl=${rootUrl} after merchant root nav`)
+      log.info(`coupangeats: allRequestUrls after root nav (last 20): ${allRequestUrls.slice(-20).join(' | ')}`)
+
+      // 스토어 선택 버튼/링크 감지 (스토어명 또는 storeId 포함)
+      const storeNameHints = ['일산닭칼국수', '부천', String(storeId)]
+      let storeClicked = false
+
+      // 1) 텍스트 기반 클릭 (스토어명/storeId 포함 요소)
+      for (const hint of storeNameHints) {
         try {
-          const el = page.locator(sel).first()
-          const visible = await el.isVisible({ timeout: 1500 }).catch(() => false)
+          const el = page.locator(`text=${hint}`).first()
+          const visible = await el.isVisible({ timeout: 2000 }).catch(() => false)
           if (visible) {
             await el.click()
             await page.waitForTimeout(3000)
-            const afterClickUrl = page.url()
-            log.info({ sel, url: afterClickUrl, captured: capturedReviews.length }, 'coupangeats: store selector clicked')
-            log.info(`coupangeats: allRequestUrls after store click: ${allRequestUrls.slice(-15).join(' | ')}`)
+            log.info(`coupangeats: clicked store by text hint="${hint}" url=${page.url()}`)
+            storeClicked = true
             break
           }
         } catch (_) { /* ignore */ }
       }
+
+      // 2) 스토어 목록 첫 번째 항목 클릭 (텍스트 기반 실패 시)
+      if (!storeClicked) {
+        const storeSelectSelectors = [
+          '[class*="StoreItem"]', '[class*="store-item"]', '[class*="storeItem"]',
+          '[class*="StoreCard"]', '[class*="store-card"]',
+          '[class*="StoreList"] li', '[class*="store-list"] li',
+          'ul[class*="store"] > li', '[class*="StoreSelect"] li',
+          '[data-store-id]', '[data-testid*="store"]',
+        ]
+        for (const sel of storeSelectSelectors) {
+          try {
+            const els = page.locator(sel)
+            const count = await els.count().catch(() => 0)
+            if (count > 0) {
+              await els.first().click()
+              await page.waitForTimeout(3000)
+              log.info(`coupangeats: clicked store selector sel="${sel}" count=${count} url=${page.url()}`)
+              storeClicked = true
+              break
+            }
+          } catch (_) { /* ignore */ }
+        }
+      }
+
+      if (!storeClicked) {
+        log.warn('coupangeats: store selector not found on merchant root — trying direct reviews nav')
+      }
+
+      // ── Step 2: 리뷰 페이지로 이동 ──
+      log.info(`coupangeats: step2 nav to reviewsUrl (allRequest before=${allRequestUrls.length})`)
+      await page.goto(reviewsUrl, { waitUntil: 'domcontentloaded', timeout: 35000 })
+      await page.waitForTimeout(8000)
+      browserNavOk = true
+      const finalUrl = page.url()
+      log.info(`coupangeats: reviews page loaded url=${finalUrl} captured=${capturedReviews.length}`)
+      log.info(`coupangeats: allRequestUrls after reviews nav (last 25): ${allRequestUrls.slice(-25).join(' | ')}`)
+      log.info(`coupangeats: allJsonUrls: ${allJsonUrls.slice(0, 25).join(' | ')}`)
     } catch (navErr: any) {
-      log.warn({ err: navErr?.message }, 'coupangeats: savedCookies reviews nav failed — will use node-direct only')
+      log.warn({ err: navErr?.message }, 'coupangeats: savedCookies nav failed — will use node-direct only')
     }
   }
 
