@@ -366,12 +366,22 @@ export async function runNaver(
             return img?.src || ''
           }).catch(() => '')
           // CAPTCHA 질문 텍스트 추출 (2captcha textinstructions 용)
+          // 1) CAPTCHA 컨테이너 내부 텍스트 우선, 2) body 전체에서 구매한/몇 키워드로 검색
           const captchaQuestion = await page.evaluate(() => {
-            const bodyText = (document.body?.innerText || '').replace(/\s+/g, ' ')
-            const m = bodyText.match(/(구매한[^?？]+[?？]|[가-힣\w\s]{4,30}(몇|kg|g)[^?？]{0,20}[?？])/)
-            return m ? m[0].trim().slice(0, 100) : ''
+            // 방법 1: CAPTCHA input 의 부모 컨테이너 텍스트
+            const inp = document.querySelector('#captcha, input[name="captcha"]') as HTMLElement | null
+            const container = inp?.closest('div, section, form') as HTMLElement | null
+            const containerText = (container?.innerText || '').replace(/\s+/g, ' ').trim()
+            if (containerText.length > 5) return containerText.slice(0, 120)
+            // 방법 2: body 전체에서 키워드 검색
+            const bt = (document.body?.innerText || '').replace(/\s+/g, ' ')
+            const idx1 = bt.indexOf('구매한') // 구매한
+            if (idx1 >= 0) return bt.slice(idx1, idx1 + 80)
+            const idx2 = bt.indexOf('몇') // 몇
+            if (idx2 >= 0) return bt.slice(Math.max(0, idx2 - 10), idx2 + 60)
+            return ''
           }).catch(() => '')
-          log.info('naver: CAPTCHA img len=' + captchaImgSrc.length + ' question=' + captchaQuestion.slice(0, 60))
+          log.info('naver: CAPTCHA img len=' + captchaImgSrc.length + ' question=' + captchaQuestion.slice(0, 80))
 
           let captchaAnswerRetry: string | null = null
           const apiKey = process.env.TWOCAPTCHA_API_KEY
