@@ -772,11 +772,14 @@ async function fetchCoupangReviews(
     }
   }
 
-  // ── browser APIRequestContext (uses all browser cookies incl. HttpOnly) ──
+  // ── browser page.evaluate fetch — Chrome TLS + HttpOnly cookie via context.cookies() ──
+  // Key insight: unify-token is likely HttpOnly (document.cookie can't read it)
+  // Fix: read token via page.context().cookies() (Playwright can read HttpOnly),
+  //      then pass it as parameter to page.evaluate(fetch(...)) so Chrome TLS is used
   async function browserApiGet(path: string): Promise<{ ok: boolean; body: any; status: number; errBody: string }> {
     const url = path.startsWith('http') ? path : `${BASE_ORIGIN}${path}`
     try {
-      // Read unify-token via Playwright context (can read HttpOnly cookies)
+      // Read unify-token via Playwright context API (reads HttpOnly cookies too)
       let unifyToken = ''
       try {
         const allCookies = await page.context().cookies(BASE_ORIGIN)
@@ -785,24 +788,33 @@ async function fetchCoupangReviews(
         log.info('coupangeats: browserApiGet unifyToken=' + (unifyToken ? unifyToken.slice(0, 20) + '...' : 'EMPTY'))
       } catch (_) {}
 
-      const headers: Record<string, string> = {
-        'Accept': 'application/json, text/plain, */*',
-        'X-Requested-With': 'XMLHttpRequest',
-        'Referer': 'https://store.coupangeats.com/merchant/management/reviews',
-        'Origin': 'https://store.coupangeats.com',
-      }
-      if (unifyToken) headers['Authorization'] = 'Bearer ' + unifyToken
-
-      // Use Playwright APIRequestContext — automatically sends all browser cookies
-      const r = await page.context().request.get(url, { headers })
-      const status = r.status()
-      if (!r.ok()) {
-        let errBody = ''
-        try { errBody = JSON.stringify(await r.json()) } catch (_) { try { errBody = await r.text() } catch (_) { errBody = '(no body)' } }
-        return { ok: false, body: null, status, errBody: String(errBody).slice(0, 150) }
-      }
-      const body = await r.json().catch(() => null)
-      return { ok: true, body, status, errBody: '' }
+      // Run fetch inside Chrome renderer (Chrome TLS fingerprint) with token passed as param
+      const result: { ok: boolean; body: any; status: number; errBody: string } = await page.evaluate(
+        async ([fetchUrl, token]: [string, string]) => {
+          try {
+            const headers: Record<string, string> = {
+              'Accept': 'application/json, text/plain, */*',
+              'X-Requested-With': 'XMLHttpRequest',
+              'Referer': 'https://store.coupangeats.com/merchant/management/reviews',
+              'Origin': 'https://store.coupangeats.com',
+            }
+            if (token) headers['Authorization'] = 'Bearer ' + token
+            const r = await fetch(fetchUrl, { credentials: 'include', headers })
+            const status = r.status
+            if (!r.ok) {
+              let errBody = ''
+              try { errBody = JSON.stringify(await r.json()) } catch (_) { try { errBody = await r.text() } catch (_) { errBody = '(no body)' } }
+              return { ok: false, body: null, status, errBody: String(errBody).slice(0, 150) }
+            }
+            const body = await r.json().catch(() => null)
+            return { ok: true, body, status, errBody: '' }
+          } catch (e: any) {
+            return { ok: false, body: null, status: 0, errBody: String(e?.message || e).slice(0, 150) }
+          }
+        },
+        [url, unifyToken] as [string, string]
+      )
+      return result
     } catch (e: any) {
       return { ok: false, body: null, status: 0, errBody: String(e?.message || e).slice(0, 150) }
     }
