@@ -68,10 +68,11 @@ function parseDateSafely(raw: string | null | undefined): string | null {
   return null
 }
 
-// GET: 디버그용 (?debug=1)만 허용 — 브라우저에서 직접 호출 가능하도록
+// GET: 디버그용 (?debug=1 또는 ?debug=2)만 허용 — 브라우저에서 직접 호출 가능하도록
 export async function GET(req: NextRequest) {
-  if (req.nextUrl.searchParams.get('debug') !== '1') {
-    return NextResponse.json({ ok: false, error: 'POST only (GET은 ?debug=1 디버그 모드만 허용)' }, { status: 405 })
+  const dbg = req.nextUrl.searchParams.get('debug')
+  if (dbg !== '1' && dbg !== '2') {
+    return NextResponse.json({ ok: false, error: 'POST only (GET은 ?debug=1/2 디버그 모드만 허용)' }, { status: 405 })
   }
   return POST(req)
 }
@@ -148,7 +149,31 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  // 디버그 모드: ?debug=1 로 호출하면 GraphQL 직접 응답을 반환 (Vercel 환경 차단 진단용)
+  // 디버그 모드 2: ?debug=2 → fetchVisitorReviews() 직접 호출 결과 반환
+  if (req.nextUrl.searchParams.get('debug') === '2') {
+    const t0 = Date.now()
+    let reviews: any[] = []
+    let err: string | null = null
+    try {
+      reviews = await fetchVisitorReviews(placeId, hint)
+    } catch (e: any) {
+      err = e?.message || String(e)
+    }
+    return NextResponse.json({
+      ok: true,
+      debug2: {
+        placeId,
+        hint,
+        elapsed_ms: Date.now() - t0,
+        count: reviews.length,
+        error: err,
+        first: reviews[0] ? { id: reviews[0].reviewId, body: (reviews[0].body || '').slice(0, 80) } : null,
+        vercel_region: process.env.VERCEL_REGION || 'unknown',
+      },
+    })
+  }
+
+  // 디버그 모드 1: ?debug=1 로 호출하면 GraphQL 직접 응답을 반환 (Vercel 환경 차단 진단용)
   const debugMode = req.nextUrl.searchParams.get('debug') === '1'
   if (debugMode) {
     const debugInfo: any = { placeId, hint, vercel_region: process.env.VERCEL_REGION || 'unknown' }
