@@ -140,6 +140,40 @@ export async function POST(req: NextRequest) {
     )
   }
 
+  // 디버그 모드: ?debug=1 로 호출하면 GraphQL 직접 응답을 반환 (Vercel 환경 차단 진단용)
+  const debugMode = req.nextUrl.searchParams.get('debug') === '1'
+  if (debugMode) {
+    const debugInfo: any = { placeId, hint, vercel_region: process.env.VERCEL_REGION || 'unknown' }
+    try {
+      const t0 = Date.now()
+      const debugRes = await fetch('https://pcmap-api.place.naver.com/graphql', {
+        method: 'POST',
+        headers: {
+          'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1',
+          'Accept': '*/*',
+          'Content-Type': 'application/json',
+          'Origin': 'https://m.place.naver.com',
+          'Referer': 'https://m.place.naver.com/restaurant/' + placeId + '/review/visitor',
+        },
+        body: JSON.stringify([{
+          operationName: 'getVisitorReviews',
+          variables: { input: { businessId: placeId, businessType: hint || 'restaurant', item: '0', page: 1, size: 3, isPhotoUsed: false, includeContent: true, getReactions: true } },
+          query: 'query getVisitorReviews($input: VisitorReviewsInput) { visitorReviews(input: $input) { total items { id body created } } }',
+        }]),
+        signal: AbortSignal.timeout(10000),
+        cache: 'no-store',
+      })
+      debugInfo.elapsed_ms = Date.now() - t0
+      debugInfo.status = debugRes.status
+      const txt = await debugRes.text()
+      debugInfo.body_length = txt.length
+      debugInfo.body_preview = txt.slice(0, 500)
+    } catch (e: any) {
+      debugInfo.error = e?.message || String(e)
+    }
+    return NextResponse.json({ ok: true, debug: debugInfo })
+  }
+
   // 2) 공개 리뷰 수집
   const reviews = await fetchVisitorReviews(placeId, hint)
   if (reviews.length === 0) {
