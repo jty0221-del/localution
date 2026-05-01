@@ -20,7 +20,7 @@ export async function GET(req: NextRequest) {
 
   const { data: row } = await svc
     .from('platform_reviews')
-    .select('id, user_id, platform, platform_store_id, platform_review_id, draft_reply, has_reply, reply_status')
+    .select('id, user_id, platform, platform_store_id, platform_review_id, draft_reply, has_reply, reply_status, reply_error')
     .eq('id', reviewId)
     .maybeSingle()
 
@@ -66,7 +66,7 @@ export async function GET(req: NextRequest) {
     ok: true,
     userId: auth.userId,
     redis: { available: !!redisUrl, url_prefix: redisUrl ? redisUrl.slice(0, 20) + '...' : null },
-    review: row ? { id: row.id, status: row.reply_status, platform_review_id: row.platform_review_id } : null,
+    review: row ? { id: row.id, status: row.reply_status, platform_review_id: row.platform_review_id, reply_error: (row as any).reply_error || null, draft_reply_len: String(row.draft_reply || '').length } : null,
     credentials: { storeId: cred?.platform_store_id, bizId },
     dbTest: dbTestResult,
     enqueue: enqueueResult,
