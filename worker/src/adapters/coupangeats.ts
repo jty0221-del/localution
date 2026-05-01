@@ -953,8 +953,12 @@ async function fetchCoupangReviews(
       // 48차: browserApiGet은 complex headers → Akamai 세션 파괴 → 슬라이딩 윈도우 403
       // browserWhoami 블록 제거 (세션 보호)
 
-      // 스토어 스위치 시도 (실제 스토어 ID로)
-      const switchGet = await apiGet(`/api/v1/merchant/stores/${realStoreId}/switch`)
+      // 49차: 진단 블록 내 모든 apiGet → nodeDirectApiGet으로 교체
+      // apiGet은 Akamai 차단 시 browserApiGet 폴백 → complex headers → 세션 파괴
+      // nodeDirectApiGet은 Node.js로만 요청 → 브라우저 세션 무영향
+
+      // 스토어 스위치 (node-direct only — browserApiGet 폴백 없음)
+      const switchGet = await nodeDirectApiGet(`/api/v1/merchant/stores/${realStoreId}/switch`)
       const switchPost = await (async () => {
         try {
           const u = `https://store.coupangeats.com/api/v1/merchant/stores/${realStoreId}/switch`
@@ -969,16 +973,13 @@ async function fetchCoupangReviews(
       })()
       log.info(`coupangeats: switchGET=${switchGet.status} switchPOST=${switchPost.status} switchPOSTbody=${JSON.stringify(switchPost.body).slice(0,100)} realStoreId=${realStoreId}`)
 
-      // 리뷰 API 다양한 경로 시도
+      // 리뷰 API 진단 (node-direct only — browserApiGet 절대 호출 금지)
       const todayStr = new Date().toISOString().split('T')[0]
       const tomorrowStr = new Date(Date.now() + 86400000).toISOString().split('T')[0]
       const diagDateRange = `startDateTime=${todayStr}&exclusiveEndDateTime=${tomorrowStr}`
-      const noStore = await apiGet(`/api/v1/merchant/reviews/search?page=1&statusType=EXPOSE&${diagDateRange}&size=10`)
       const alt1 = await nodeDirectApiGet(`/api/v1/merchant/reviews/search?storeId=${realStoreId}&page=1&${diagDateRange}&size=10`)
-      // 48차: browserApiGet(alt2) 제거 — complex headers → Akamai 세션 파괴 → 슬라이딩 윈도우 403
-      log.info(`coupangeats: alt1=${alt1.status} noStore=${noStore.status}`)
-      log.info(`coupangeats: alt1body=${JSON.stringify(alt1.body).slice(0,120)}`)
-      rawBodySample += ` | stores:${storesRes.status} switchGET:${switchGet.status} switchPOST:${switchPost.status} alt1:${alt1.status} noStore:${noStore.status} realStoreId:${realStoreId}`
+      log.info(`coupangeats: alt1=${alt1.status} stores=${storesRes.status} switch=${switchGet.status}`)
+      rawBodySample += ` | stores:${storesRes.status} switchGET:${switchGet.status} switchPOST:${switchPost.status} alt1:${alt1.status} realStoreId:${realStoreId}`
     } catch (e: any) {
       log.warn({ err: e?.message }, 'coupangeats: stores/switch diagnostic failed')
     }
