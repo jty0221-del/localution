@@ -208,8 +208,21 @@ export async function runNaver(
       }
       await idEl.click({ clickCount: 3 })
       await idEl.type(creds.account_id, { delay: 60 })
-      await page.waitForTimeout(300)
+      await page.waitForTimeout(400)
 
+      // ── 네이버 2단계 로그인: ID 입력 후 "다음" 클릭 → PW 입력 후 "로그인" 클릭
+      //    (2026년 네이버 로그인 UX 변경: #log.login 버튼이 "다음" → "로그인" 으로 바뀜)
+      const step1BtnText = await page.$eval('#log\\.login .btn_text, #log\\.login', (el: any) => el.textContent?.trim()).catch(() => '')
+      log.info({ step1BtnText }, 'naver: step1 button text before click')
+
+      // 1단계: ID 확인 ("다음" 클릭)
+      await page.click(DOM_SELECTORS.loginBtn)
+      await page.waitForTimeout(2000)  // 페이지 전환/DOM 업데이트 대기
+
+      const step2BtnText = await page.$eval('#log\\.login .btn_text, #log\\.login', (el: any) => el.textContent?.trim()).catch(() => '')
+      log.info({ step2BtnText, currentUrl: page.url() }, 'naver: after step1 click')
+
+      // 2단계: 비밀번호 입력
       const pwEl = await page.$(DOM_SELECTORS.pwInput)
       if (!pwEl) {
         const msg = 'naver: 로그인 폼 pw 입력란 없음'
@@ -218,7 +231,7 @@ export async function runNaver(
       }
       await pwEl.click({ clickCount: 3 })
       await pwEl.type(creds.password, { delay: 60 })
-      await page.waitForTimeout(300)
+      await page.waitForTimeout(400)
 
       // 로그인 버튼 클릭 후 URL 변경 대기 (networkidle 대신 URL 변경 감지로 빠르게)
       await page.click(DOM_SELECTORS.loginBtn)
