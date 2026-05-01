@@ -150,16 +150,43 @@ export async function runNaver(
   startNetworkCapture(page, log, ['review', 'reply', 'smartplace'])
 
   try {
-    // ── 1) ID/PW 폼 로그인 (IPRoyal 프록시 + 2captcha 사용)
-    //    쿠키 방식 제거 → 매번 신선한 로그인으로 세션 문제 해결
-    log.info({
-      hasProxy: useProxy,
-      proxyHost: proxyHost || '(없음 — Railway IP 직접)',
-      hasTwocaptcha: !!process.env.TWOCAPTCHA_API_KEY,
-    }, 'naver: starting fresh form login')
     let loggedIn = false
 
-    // ── 2) 폼 로그인 ─────────────────────────────────────────
+    // ── 1) 세션 쿠키 우선 로그인 (NID_AUT/NID_SES → SmartPlace 직접 접근)
+    //    유효한 쿠키가 있으면 새 IP에서의 기기인증/캡차 없이 바로 통과
+    const cookieJson = await loadCookieData(svc, userId)
+    if (cookieJson) {
+      try {
+        const cookies = JSON.parse(cookieJson) as any[]
+        if (cookies.length > 0) {
+          await context.addCookies(cookies)
+          log.info({ cookieCount: cookies.length }, 'naver: trying session cookie login')
+          const bizTestUrl = bizId && bizId !== 'unknown'
+            ? `${NEW_SMARTPLACE_BASE}/bizes/place/${bizId}`
+            : `${NEW_SMARTPLACE_BASE}/bizes`
+          await page.goto(bizTestUrl, { waitUntil: 'domcontentloaded', timeout: 25000 })
+          await page.waitForTimeout(2000)
+          const checkUrl = page.url()
+          if (!checkUrl.includes('login') && !checkUrl.includes('nid.naver.com')) {
+            loggedIn = true
+            await markLoginStatus(svc, userId, 'naver_place', 'success', 'cookie')
+            log.info({ url: checkUrl }, 'naver: cookie login success ✓')
+          } else {
+            log.warn({ url: checkUrl }, 'naver: cookie expired or invalid — falling back to form login')
+          }
+        }
+      } catch (e: any) {
+        log.warn({ err: e?.message }, 'naver: cookie parse error — falling back to form login')
+      }
+    } else {
+      log.info({
+        hasProxy: useProxy,
+        proxyHost: proxyHost || '(없음 — Railway IP 직접)',
+        hasTwocaptcha: !!process.env.TWOCAPTCHA_API_KEY,
+      }, 'naver: no session cookie stored — starting fresh form login')
+    }
+
+    // ── 2) 폼 로그인 (쿠키 없거나 만료된 경우 폴백) ─────────────────────
     if (!loggedIn) {
       log.info('naver: form login (proxy + 2captcha)')
 
