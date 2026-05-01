@@ -350,17 +350,16 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
   }, [connected, fetching, placeId, loadStoresMe, loadReviews, config.supportsFetch, config.label])
 
   // ── 4) 자동 수집 ─────
-  // 37차-10: 페이지 진입 시 항상 최신 리뷰를 가져오도록 개선
-  //   · 데이터가 0건이면 무조건 수집 (기존 동작)
-  //   · 마지막 수집이 30분 이상 지났으면 자동 재수집 (최신 리뷰 누락 방지)
+  // 37차-14: 사장님이 직접 답글 단 경우도 빨리 반영되도록 5분으로 단축
+  //   · 데이터가 0건이면 무조건 수집
+  //   · 마지막 수집이 5분 이상 지났으면 자동 재수집
   useEffect(() => {
     if (!connected) return
     if (!config.supportsFetch) return
     if (autoFetchTried) return
     if (loadingReviews) return
-    // 30분 이상 지났는지 체크
     const lastMs = agg.latest_collected_at ? new Date(agg.latest_collected_at).getTime() : 0
-    const isStale = !lastMs || (Date.now() - lastMs > 30 * 60 * 1000)
+    const isStale = !lastMs || (Date.now() - lastMs > 5 * 60 * 1000)  // 5분
     if (reviews.length > 0 && !isStale) return
     setAutoFetchTried(true)
     collectNow()
@@ -1137,11 +1136,12 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
                                   </button>
                                   <button
                                     onClick={() => handleSubmit(review)}
-                                    disabled={generating || submitting || !draftText.trim() || isQueued || isSubmitted || review.hasReply}
+                                    disabled={generating || submitting || !draftText.trim() || isSubmitted || review.hasReply}
                                     className="px-4 py-1.5 rounded-lg text-xs font-bold text-white hover:opacity-90 disabled:opacity-50 shadow-sm"
                                     style={{ background: config.color }}
+                                    title="자동 발행이 실패하면 '복사 + 직접 등록' 버튼이 가장 안정적이에요"
                                   >
-                                    {submitting ? '처리 중...' : '⚡ 자동 발행'}
+                                    {submitting ? '처리 중...' : (review.replyStatus === 'queued' ? '🔁 다시 자동 발행' : '⚡ 자동 발행')}
                                   </button>
 
                                   {/* 직접 등록 버튼 — 자동 발행이 실패할 때 대안 (가장 안정적) */}
