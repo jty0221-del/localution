@@ -1030,16 +1030,17 @@ async function fetchCoupangReviews(
     }
   }
 
-  // statusType 순서: EXPOSE (공개), UNEXPOSE (비공개), REPORTED
-  const statusTypes = ['EXPOSE', 'UNEXPOSE', 'REPORTED']
+  // statusType 순서: EXPOSE (공개) 우선, 이후 UNEXPOSE
+  // 주의: nodeDirectApiGet은 Akamai TLS 차단으로 reviews/search 항상 403 → browserApiGet 직접 사용
+  const statusTypes = ['EXPOSE', 'UNEXPOSE']
 
   // Akamai가 2일 이상 날짜범위를 403으로 차단함 → 1일 단위 슬라이딩 윈도우 사용
   const fmtDate = (d: Date) => d.toISOString().split('T')[0]
-  log.info('coupangeats: using 1-day sliding windows (Akamai blocks >1day range confirmed)')
+  log.info('coupangeats: using 1-day sliding windows via browserApiGet (Chrome TLS, Akamai bypass)')
 
   for (const statusType of statusTypes) {
     let consecutiveEmpty = 0
-    for (let daysBack = 0; daysBack <= 365 && collected.length < 500 && consecutiveEmpty < 60; daysBack++) {
+    for (let daysBack = 0; daysBack <= 90 && collected.length < 500 && consecutiveEmpty < 30; daysBack++) {
       try {
         const dayEnd = new Date()
         dayEnd.setDate(dayEnd.getDate() - daysBack + 1)
@@ -1047,9 +1048,9 @@ async function fetchCoupangReviews(
         dayStart.setDate(dayStart.getDate() - daysBack)
         const dateRange = `startDateTime=${fmtDate(dayStart)}&exclusiveEndDateTime=${fmtDate(dayEnd)}`
 
-        // 첫 날에만 후보 URL 시도, 이후는 storeId 기반으로 고정
+        // reviews/search는 node-direct 항상 403 (Akamai TLS 차단) → browserApiGet(Chrome fetch) 직접
         const url = `/api/v1/merchant/reviews/search?storeId=${storeId}&page=1&statusType=${statusType}&${dateRange}&size=100`
-        const fetchResult = await apiGet(url)
+        const fetchResult = await browserApiGet(url)
 
         if (!fetchResult.ok) {
           if (daysBack === 0) {
