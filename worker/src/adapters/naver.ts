@@ -279,67 +279,8 @@ export async function runNaver(
         await page.waitForTimeout(300)
       }
 
-      // ── 인라인 CAPTCHA 체크 (해외 IP 로그인 시 PW 필드와 함께 삽입됨) ──────
-      // Railway Tokyo IP → Naver가 로그인 폼 안에 이미지 CAPTCHA("자동입력 방지 문자") 삽입
-      // URL은 그대로 nidlogin.login 이므로 URL-based 감지 불가 → INPUT FIELD + DOM 탐지
-      // 3초 대기: Naver CAPTCHA가 비동기로 렌더링되는 경우 대비
-      await page.waitForTimeout(3000)
-
-      {
-        // 페이지 내 모든 img 정보 수집 (Railway 로그에서 실제 selector 파악용)
-        const pageImgs = await page.evaluate(() =>
-          Array.from(document.querySelectorAll('img')).slice(0, 10).map((el: any) => ({
-            id: el.id || '-',
-            src: (el.getAttribute('src') || '').slice(0, 100),
-            cls: (el.className || '').slice(0, 40),
-          }))
-        ).catch(() => [] as any[])
-        log.info('naver: page-imgs: ' + JSON.stringify(pageImgs).slice(0, 400))
-
-        // CAPTCHA input 필드 존재 여부 (이미지보다 신뢰도 높은 지표)
-        const captchaInputEl = await page.$(
-          '#captcha, input[name="captcha"], input[placeholder*="자동입력"], input[placeholder*="자동"], input[class*="captcha"]'
-        ).catch(() => null)
-
-        log.info('naver: captchaInputFound=' + !!captchaInputEl)
-
-        if (captchaInputEl) {
-          log.info('naver: inline CAPTCHA input detected — solving with 2captcha')
-          // 넓은 img selector: id/src/alt/class 모두 포함
-          const captchaAnswer = await solveCaptcha({
-            page,
-            log,
-            type: 'image',
-            captchaSelector: [
-              '#captchaimg',
-              'img[id*="captcha"]',
-              'img[src*="captcha"]',
-              'img[alt*="자동"]',
-              'img[alt*="captcha"]',
-              '.captcha_area img',
-              'img.captcha_img',
-              '.captcha img',
-              '#mainContent img',
-            ].join(', '),
-          })
-          if (captchaAnswer) {
-            await captchaInputEl.click({ clickCount: 3 })
-            await captchaInputEl.type(captchaAnswer, { delay: 80 })
-            await page.waitForTimeout(300)
-            log.info('naver: CAPTCHA answer filled: ' + captchaAnswer.slice(0, 30) + ' (len=' + captchaAnswer.length + ')')
-          } else {
-            log.warn('naver: 2captcha could not solve inline CAPTCHA — login will likely fail. Check TWOCAPTCHA_API_KEY balance and img selectors above.')
-          }
-        } else {
-          // body text 에 CAPTCHA 관련 텍스트 있으면 경고 (selector 불일치 감지)
-          const hasCaptchaText = await page.evaluate(() =>
-            (document.body?.innerText || '').includes('자동입력 방지')
-          ).catch(() => false)
-          log.info('naver: no CAPTCHA input found, hasCaptchaText=' + hasCaptchaText + ' — submitting directly')
-        }
-      }
-
       // 로그인 버튼 클릭
+      // (CAPTCHA 탐지는 로그인 제출 이후에 수행 — Naver가 Tokyo IP에 CAPTCHA를 반응으로 삽입)
       await page.evaluate(() => {
         const btn = document.querySelector('#log\\.login') as HTMLElement | null
         btn?.scrollIntoView({ block: 'center' })
@@ -398,22 +339,88 @@ export async function runNaver(
       }
 
       if (urlAfterLogin.includes('nid.naver.com') || urlAfterLogin.includes('login') || urlAfterLogin.includes('signin')) {
-        // detectLoginFailure: 실제 에러 텍스트만 감지 (폼 라벨 '비밀번호','아이디'는 제외)
-        const { reason } = await detectLoginFailure(page, ['일치하지', '잘못된', '실패', '오류', 'incorrect', 'invalid', '차단', '해외'])
-        // 페이지 본문 첫 400자를 Railway 로그에서 볼 수 있도록 message 에 포함
-        const bodySnippet = await page.evaluate(() => (document.body?.innerText || '').replace(/\s+/g, ' ').slice(0, 400)).catch(() => '')
-        log.warn('naver: login failed page text: ' + bodySnippet.slice(0, 300))
-        await dumpPageDiagnostics(page, log, 'naver-login-failed')
-        await markLoginStatus(svc, userId, 'naver_place', 'failed', reason || urlAfterLogin)
-        const msg = reason
-          ? `naver login failed — ${reason}`
-          : 'naver login failed — 아이디·비밀번호 오류 또는 Railway IP 차단. PROXY_HOST/PORT 환경변수 설정 또는 아이디·비밀번호 재확인 필요'
-        if (platformReviewId) await updateReviewStatus(svc, userId, platformReviewId, 'failed', { error: msg })
-        return { status: 'failed', message: msg }
+        // ── CAPTCHA 재시도: Naver가 로그인 제출 후 인라인 CAPTCHA를 삽입하는 경우 ──────
+        // Tokyo IP에서 로그인 클릭 → Naver가 CAPTCHA를 응답으로 삽입 (제출 전에는 DOM에 없음)
+        // 따라서 CAPTCHA 탐지는 제출 이후(이 시점)에 해야 함
+        const captchaInputElRetry = await page.$(
+          '#captcha, input[name="captcha"], input[placeholder*="자동입력"], input[placeholder*="자동"], input[class*="captcha"]'
+        ).catch(() => null)
+
+        // 모든 img 정보 수집 (Railway 로그에서 실제 selector 파악용)
+        const postLoginImgs = await page.evaluate(() =>
+          Array.from(document.querySelectorAll('img')).slice(0, 10).map((el: any) => ({
+            id: el.id || '-',
+            src: (el.getAttribute('src') || '').slice(0, 100),
+            cls: (el.className || '').slice(0, 40),
+          }))
+        ).catch(() => [] as any[])
+        log.info('naver: post-login imgs: ' + JSON.stringify(postLoginImgs).slice(0, 500))
+        log.info('naver: captchaInputFoundAfterLogin=' + !!captchaInputElRetry)
+
+        if (captchaInputElRetry) {
+          log.info('naver: CAPTCHA appeared after login attempt — solving with 2captcha')
+          const captchaAnswerRetry = await solveCaptcha({
+            page,
+            log,
+            type: 'image',
+            captchaSelector: [
+              '#captchaimg',
+              'img[id*="captcha"]',
+              'img[src*="captcha"]',
+              'img[alt*="자동"]',
+              'img[alt*="captcha"]',
+              '.captcha_area img',
+              'img.captcha_img',
+              '.captcha img',
+              '#mainContent img',
+            ].join(', '),
+          })
+          if (captchaAnswerRetry) {
+            await captchaInputElRetry.click({ clickCount: 3 })
+            await captchaInputElRetry.type(captchaAnswerRetry, { delay: 80 })
+            await page.waitForTimeout(500)
+            log.info('naver: CAPTCHA filled (len=' + captchaAnswerRetry.length + ') — re-submitting login')
+            await page.evaluate(() => {
+              const btn = document.querySelector('#log\\.login') as HTMLElement | null
+              btn?.scrollIntoView({ block: 'center' })
+            }).catch(() => null)
+            await page.click(DOM_SELECTORS.loginBtn)
+            await page.waitForURL(url => !String(url).includes('nidlogin.login'), { timeout: 25000 }).catch(() => null)
+            await page.waitForTimeout(1500)
+            const urlAfterCaptcha = page.url()
+            log.info('naver: after CAPTCHA retry — url=' + urlAfterCaptcha.replace('https://nid.naver.com/', 'nid/').slice(0, 80))
+            if (!urlAfterCaptcha.includes('nid.naver.com') && !urlAfterCaptcha.includes('nidlogin.login')) {
+              await markLoginStatus(svc, userId, 'naver_place', 'success')
+              log.info('naver: login succeeded after CAPTCHA solve')
+              loggedIn = true
+            } else {
+              log.warn('naver: login still failed after CAPTCHA solve')
+            }
+          } else {
+            log.warn('naver: 2captcha could not solve CAPTCHA after login attempt')
+          }
+        }
+
+        if (!loggedIn) {
+          // detectLoginFailure: 실제 에러 텍스트만 감지 (폼 라벨 '비밀번호','아이디'는 제외)
+          const { reason } = await detectLoginFailure(page, ['일치하지', '잘못된', '실패', '오류', 'incorrect', 'invalid', '차단', '해외'])
+          // 페이지 본문 첫 400자를 Railway 로그에서 볼 수 있도록 message 에 포함
+          const bodySnippet = await page.evaluate(() => (document.body?.innerText || '').replace(/\s+/g, ' ').slice(0, 400)).catch(() => '')
+          log.warn('naver: login failed page text: ' + bodySnippet.slice(0, 300))
+          await dumpPageDiagnostics(page, log, 'naver-login-failed')
+          await markLoginStatus(svc, userId, 'naver_place', 'failed', reason || urlAfterLogin)
+          const msg = reason
+            ? `naver login failed — ${reason}`
+            : 'naver login failed — 아이디·비밀번호 오류 또는 Railway IP 차단. PROXY_HOST/PORT 환경변수 설정 또는 아이디·비밀번호 재확인 필요'
+          if (platformReviewId) await updateReviewStatus(svc, userId, platformReviewId, 'failed', { error: msg })
+          return { status: 'failed', message: msg }
+        }
       }
 
-      await markLoginStatus(svc, userId, 'naver_place', 'success')
-      log.info({ url: urlAfterLogin }, 'naver: form login success')
+      if (!loggedIn) {
+        await markLoginStatus(svc, userId, 'naver_place', 'success')
+        log.info({ url: urlAfterLogin }, 'naver: form login success')
+      }
     }
 
     if (action === 'health_check') return { status: 'ok', message: 'naver login ok' }
