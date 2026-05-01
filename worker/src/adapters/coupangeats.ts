@@ -218,7 +218,7 @@ export async function runCoupangEats(
         log.info({ directUrl, earlyCaptured: earlyCapture.length }, 'coupangeats: cookie session valid')
         await markLoginStatus(svc, userId, 'coupangeats', 'success')
         if (action === 'health_check') return { status: 'ok', message: 'coupangeats cookie session ok' }
-        return await fetchCoupangReviews(page, svc, creds, userId, action, payload, log, earlyCapture, earlyCaptureUrls, allRequestUrls, allJsonUrls)
+        return await fetchCoupangReviews(page, context, svc, creds, userId, action, payload, log, earlyCapture, earlyCaptureUrls, allRequestUrls, allJsonUrls)
       }
       log.warn('coupangeats: saved cookies expired, falling back to login')
     }
@@ -348,7 +348,7 @@ export async function runCoupangEats(
     }
 
     if (action === 'health_check') return { status: 'ok', message: 'coupangeats login ok' }
-    return await fetchCoupangReviews(page, svc, creds, userId, action, payload, log, earlyCapture, earlyCaptureUrls, allRequestUrls, allJsonUrls)
+    return await fetchCoupangReviews(page, context, svc, creds, userId, action, payload, log, earlyCapture, earlyCaptureUrls, allRequestUrls, allJsonUrls)
   } catch (e: any) {
     log.error({ err: e?.message }, 'coupangeats error')
     return { status: 'failed', message: `coupangeats: ${e?.message || e}` }
@@ -359,6 +359,7 @@ export async function runCoupangEats(
 
 async function fetchCoupangReviews(
   page: any,
+  context: any,
   svc: any,
   creds: any,
   userId: string,
@@ -427,153 +428,150 @@ async function fetchCoupangReviews(
   await page.waitForTimeout(500)
 
   const storeId = creds.platform_store_id || '738438'
-  log.info({ storeId, naturalCaptured: capturedReviews.length }, 'coupangeats: calling review API via page.evaluate')
+  log.info({ storeId, naturalCaptured: capturedReviews.length }, 'coupangeats: calling review API via context.request')
 
-  // 전체 리뷰 페이지네이션 수집 (최대 500개)
-  // 실제 확인된 API: /api/v1/merchant/reviews/search?storeId=738438&page=1&statusType=EXPOSE&size=5
-  const evalResult: { reviews: any[]; rawBodySample: string; errors: string[] } = await page.evaluate(async (sid: string) => {
-    // CSRF 토큰 추출 시도 (다양한 패턴)
-    const csrfToken: string = (window as any).__CSRF_TOKEN__
-      || (window as any).__csrf_token__
-      || document.querySelector('meta[name="csrf-token"]')?.getAttribute('content')
-      || document.querySelector('meta[name="_csrf"]')?.getAttribute('content')
-      || document.cookie.split('; ').find(c => c.startsWith('XSRF-TOKEN='))?.split('=')[1]
-      || ''
-    // 커스텀 헤더 최소화 — X-Requested-With 등이 봇탐지 트리거할 수 있음
-    const hdrs: Record<string, string> = {
-      'Accept': 'application/json, text/plain, */*',
-      ...(csrfToken ? { 'X-CSRF-Token': csrfToken, 'X-XSRF-TOKEN': csrfToken } : {}),
-    }
+  // ── context.request 로 직접 API 호출 (proxy 인증 문제 해결) ──
+  // page.evaluate 내부 fetch()는 407 Proxy Auth 실패 → Playwright APIRequestContext 사용
+  const BASE_ORIGIN = 'https://store.coupangeats.com'
 
-    function extractArr(body: any): any[] {
-      if (Array.isArray(body)) return body
-      // Spring Page 구조: { content: [...], totalPages: N }
-      if (Array.isArray(body?.content)) return body.content
-      if (Array.isArray(body?.data?.content)) return body.data.content
-      // 기타 구조
-      if (Array.isArray(body?.data?.reviews)) return body.data.reviews
-      if (Array.isArray(body?.reviews)) return body.reviews
-      if (Array.isArray(body?.data?.list)) return body.data.list
-      if (Array.isArray(body?.list)) return body.list
-      if (Array.isArray(body?.data?.items)) return body.data.items
-      if (Array.isArray(body?.items)) return body.items
-      if (Array.isArray(body?.data)) return body.data
-      if (Array.isArray(body?.result)) return body.result
-      return []
-    }
+  function extractArr(body: any): any[] {
+    if (Array.isArray(body)) return body
+    if (Array.isArray(body?.content)) return body.content
+    if (Array.isArray(body?.data?.content)) return body.data.content
+    if (Array.isArray(body?.data?.reviews)) return body.data.reviews
+    if (Array.isArray(body?.reviews)) return body.reviews
+    if (Array.isArray(body?.data?.list)) return body.data.list
+    if (Array.isArray(body?.list)) return body.list
+    if (Array.isArray(body?.data?.items)) return body.data.items
+    if (Array.isArray(body?.items)) return body.items
+    if (Array.isArray(body?.data)) return body.data
+    if (Array.isArray(body?.result)) return body.result
+    return []
+  }
 
-    function getTotalPages(body: any): number {
-      return body?.totalPages || body?.data?.totalPages
-        || body?.total_pages || body?.data?.total_pages
-        || Math.ceil((body?.totalElements || body?.data?.totalElements || body?.data?.totalCount || body?.totalCount || 0) / 100)
-        || 0
-    }
+  function getTotalPages(body: any): number {
+    return body?.totalPages || body?.data?.totalPages
+      || body?.total_pages || body?.data?.total_pages
+      || Math.ceil((body?.totalElements || body?.data?.totalElements || body?.data?.totalCount || body?.totalCount || 0) / 100)
+      || 0
+  }
 
-    // 세션 유효성 확인
-    let whoami: any = null
+  async function tryRequestGet(path: string): Promise<{ ok: boolean; body: any; status: number; errBody: string }> {
     try {
-      const wRes = await fetch('/api/v1/merchant/whoami', { credentials: 'include' })
-      if (wRes.ok) whoami = await wRes.json().catch(() => null)
-    } catch (_) { /* ignore */ }
-
-    const collected: any[] = []
-    const seenIds = new Set<string>()
-    let rawBodySample = whoami ? JSON.stringify(whoami).slice(0, 200) : '(whoami failed)'
-    const errors: string[] = []
-
-    // merchantId 추출 (whoami에서) — 다른 URL 패턴 시도용
-    const merchantId: number | null = whoami?.data?.merchantId || whoami?.merchantId || null
-
-    async function tryFetch(url: string): Promise<{ ok: boolean; body: any; status: number; errBody: string }> {
-      const r = await fetch(url, { credentials: 'include', headers: hdrs })
-      if (!r.ok) {
+      const url = path.startsWith('http') ? path : `${BASE_ORIGIN}${path}`
+      const res = await context.request.get(url, {
+        headers: { 'Accept': 'application/json, text/plain, */*' },
+        timeout: 20000,
+      })
+      const status = res.status()
+      if (!res.ok()) {
         let errBody = ''
-        try { errBody = JSON.stringify(await r.json()) } catch (_) { try { errBody = await r.text() } catch (_) { errBody = '(no body)' } }
-        return { ok: false, body: null, status: r.status, errBody: errBody.slice(0, 120) }
+        try { errBody = JSON.stringify(await res.json()) } catch (_) { try { errBody = await res.text() } catch (_) { errBody = '(no body)' } }
+        return { ok: false, body: null, status, errBody: String(errBody).slice(0, 150) }
       }
-      const body = await r.json().catch(() => null)
-      return { ok: true, body, status: r.status, errBody: '' }
+      const body = await res.json().catch(() => null)
+      return { ok: true, body, status, errBody: '' }
+    } catch (e: any) {
+      return { ok: false, body: null, status: 0, errBody: e?.message || 'request error' }
     }
+  }
 
-    // statusType 시도 순서: EXPOSE (실제 확인됨), UNEXPOSE, REPORTED
-    const statusTypes = ['EXPOSE', 'UNEXPOSE', 'REPORTED']
+  const collected: any[] = []
+  const seenIds = new Set<string>()
+  let rawBodySample = ''
+  const errors: string[] = []
 
-    for (const statusType of statusTypes) {
-      let pageNum = 1
-      let hasMore = true
-      // 첫 페이지에서 유효한 URL 패턴 탐색
-      let baseUrl = `/api/v1/merchant/reviews/search?storeId=${sid}&statusType=${statusType}&size=100`
-      let pageParam = 'page'
+  // whoami 확인 (세션 유효성 + merchantId)
+  let merchantId: number | null = null
+  try {
+    const wRes = await tryRequestGet('/api/v1/merchant/whoami')
+    if (wRes.ok && wRes.body) {
+      rawBodySample = JSON.stringify(wRes.body).slice(0, 200)
+      merchantId = wRes.body?.data?.merchantId || wRes.body?.merchantId || null
+      log.info({ whoamiOk: true, merchantId }, 'coupangeats: whoami ok')
+    } else {
+      rawBodySample = `whoami HTTP ${wRes.status}: ${wRes.errBody}`
+      log.warn({ status: wRes.status, err: wRes.errBody }, 'coupangeats: whoami failed')
+    }
+  } catch (e: any) {
+    rawBodySample = `whoami exception: ${e?.message}`
+    log.warn({ err: e?.message }, 'coupangeats: whoami exception')
+  }
 
-      while (hasMore && collected.length < 500) {
-        try {
-          let fetchResult: { ok: boolean; body: any; status: number; errBody: string }
+  // statusType 순서: EXPOSE (공개), UNEXPOSE (비공개), REPORTED
+  const statusTypes = ['EXPOSE', 'UNEXPOSE', 'REPORTED']
 
-          if (pageNum === 1) {
-            // 여러 URL 패턴 시도
-            const candidates = [
-              { url: `/api/v1/merchant/reviews/search?storeId=${sid}&page=1&statusType=${statusType}&size=100`, param: 'page' },
-              ...(merchantId ? [
-                { url: `/api/v1/merchant/reviews/search?merchantId=${merchantId}&page=1&statusType=${statusType}&size=100`, param: 'page' },
-                { url: `/api/v1/merchant/${merchantId}/reviews?page=1&statusType=${statusType}&size=100`, param: 'page' },
-              ] : []),
-            ]
-            let found = false
-            for (const c of candidates) {
-              fetchResult = await tryFetch(c.url)
-              if (fetchResult.ok) {
-                baseUrl = c.url.replace('&page=1', `&${c.param}=PAGE`).replace(`&${c.param}=1`, `&${c.param}=PAGE`)
-                pageParam = c.param
-                errors.push(`${statusType}: found working URL ${c.url.slice(0, 80)}`)
-                found = true
-                break
-              } else {
-                errors.push(`${statusType} ${c.url.slice(0, 80)}: HTTP ${fetchResult.status} ${fetchResult.errBody}`)
-              }
-            }
-            if (!found) { hasMore = false; break }
-          } else {
-            const url = baseUrl.replace(`${pageParam}=PAGE`, `${pageParam}=${pageNum}`)
-            fetchResult = await tryFetch(url)
-            if (!fetchResult.ok) {
-              errors.push(`${statusType} p${pageNum}: HTTP ${fetchResult.status} ${fetchResult.errBody}`)
-              hasMore = false; break
+  for (const statusType of statusTypes) {
+    let pageNum = 1
+    let hasMore = true
+    let baseUrl = ''
+    let pageParam = 'page'
+
+    while (hasMore && collected.length < 500) {
+      try {
+        let fetchResult: { ok: boolean; body: any; status: number; errBody: string }
+
+        if (pageNum === 1) {
+          const candidates = [
+            { url: `/api/v1/merchant/reviews/search?storeId=${storeId}&page=1&statusType=${statusType}&size=100`, param: 'page' },
+            ...(merchantId ? [
+              { url: `/api/v1/merchant/reviews/search?merchantId=${merchantId}&page=1&statusType=${statusType}&size=100`, param: 'page' },
+              { url: `/api/v1/merchant/${merchantId}/reviews?page=1&statusType=${statusType}&size=100`, param: 'page' },
+            ] : []),
+          ]
+          let found = false
+          for (const c of candidates) {
+            fetchResult = await tryRequestGet(c.url)
+            if (fetchResult.ok) {
+              baseUrl = c.url.replace('&page=1', `&${c.param}=PAGE`)
+              pageParam = c.param
+              errors.push(`${statusType}: working URL ${c.url.slice(0, 80)}`)
+              found = true
+              break
+            } else {
+              errors.push(`${statusType} ${c.url.slice(0, 60)}: HTTP ${fetchResult.status} ${fetchResult.errBody}`)
             }
           }
-
-          const body = fetchResult!.body
-          if (!body) { hasMore = false; break }
-          if (!rawBodySample) rawBodySample = JSON.stringify(body).slice(0, 600)
-          const arr = extractArr(body)
-          if (arr.length === 0) { hasMore = false; break }
-          for (const r of arr) {
-            const rid = String(r.reviewId || r.id || r.review_id || r.orderId || '')
-            if (rid && seenIds.has(rid)) continue
-            if (rid) seenIds.add(rid)
-            collected.push(r)
-          }
-          const totalPages = getTotalPages(body)
-          const isLast = body?.last === true || body?.data?.last === true
-          if (isLast || (totalPages > 0 && pageNum >= totalPages) || arr.length < 100) {
+          if (!found) { hasMore = false; break }
+        } else {
+          const url = baseUrl.replace(`${pageParam}=PAGE`, `${pageParam}=${pageNum}`)
+          fetchResult = await tryRequestGet(url)
+          if (!fetchResult.ok) {
+            errors.push(`${statusType} p${pageNum}: HTTP ${fetchResult.status} ${fetchResult.errBody}`)
             hasMore = false; break
           }
-          pageNum++
-        } catch (ex: any) {
-          errors.push(`${statusType} p${pageNum}: ${ex?.message || ex}`)
+        }
+
+        const body = fetchResult!.body
+        if (!body) { hasMore = false; break }
+        if (!rawBodySample) rawBodySample = JSON.stringify(body).slice(0, 600)
+        const arr = extractArr(body)
+        if (arr.length === 0) { hasMore = false; break }
+        for (const r of arr) {
+          const rid = String(r.reviewId || r.id || r.review_id || r.orderId || '')
+          if (rid && seenIds.has(rid)) continue
+          if (rid) seenIds.add(rid)
+          collected.push(r)
+        }
+        const totalPages = getTotalPages(body)
+        const isLast = body?.last === true || body?.data?.last === true
+        if (isLast || (totalPages > 0 && pageNum >= totalPages) || arr.length < 100) {
           hasMore = false; break
         }
+        pageNum++
+      } catch (ex: any) {
+        errors.push(`${statusType} p${pageNum}: ${ex?.message || ex}`)
+        hasMore = false; break
       }
     }
+  }
 
-    return { reviews: collected, rawBodySample, errors }
-  }, storeId)
-
-  const allApiReviews = evalResult.reviews || []
+  const allApiReviews = collected
   log.info({
     storeId,
     count: allApiReviews.length,
-    rawBodySample: evalResult.rawBodySample,
-    errors: evalResult.errors,
+    rawBodySample,
+    errors,
     firstItem: allApiReviews[0] ? JSON.stringify(allApiReviews[0]).slice(0, 400) : null,
   }, 'coupangeats: API reviews collected')
   capturedReviews.push(...allApiReviews)
@@ -665,8 +663,8 @@ async function fetchCoupangReviews(
     message: `coupangeats: collected ${res.total}, inserted ${res.inserted}`,
     data: res,
     debug: {
-      rawBodySample: evalResult.rawBodySample || '(empty)',
-      apiErrors: evalResult.errors,
+      rawBodySample: rawBodySample || '(empty)',
+      apiErrors: errors,
       capturedUrls,
       capturedCount: capturedReviews.length,
       storeId,
