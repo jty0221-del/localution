@@ -638,9 +638,13 @@ async function fetchCoupangReviews(
       })
       const status = r.status
       if (!r.ok) {
-        let errBody = ''
-        try { errBody = JSON.stringify(await r.json()) } catch (_) { try { errBody = await r.text() } catch (_) { errBody = '(no body)' } }
-        return { ok: false, body: null, status, errBody: String(errBody).slice(0, 200) }
+        let directErrBody = ''
+        try { directErrBody = JSON.stringify(await r.json()) } catch (_) { try { directErrBody = await r.text() } catch (_) { directErrBody = '(no body)' } }
+        // tunnelErr 포함 (proxy 실패 원인 노출)
+        const combined = tunnelErr
+          ? `tunnel[${tunnelErr.slice(0, 100)}] direct_http${status}[${directErrBody.slice(0, 80)}]`
+          : `HTTP${status} ${directErrBody.slice(0, 150)}`
+        return { ok: false, body: null, status, errBody: combined }
       }
       const body = await r.json().catch(() => null)
       return { ok: true, body, status, errBody: '' }
