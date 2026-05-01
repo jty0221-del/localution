@@ -315,7 +315,9 @@ export async function runCoupangEats(
       // 쿠키 만료(whoami 403) 감지 → 브라우저 재로그인 폴백
       const dbg = (result as any)?.debug?.rawBodySample || ''
       const inserted = (result as any)?.data?.inserted ?? -1
-      const cookieExpired = (dbg.includes('HTTP403') || dbg.includes('403')) && inserted === 0
+      // whoami 실패 감지: 403, Access Denied, 또는 JSON merchantId 없는 경우
+      const whoamiFailed = dbg.startsWith('whoami node:[') && !dbg.includes('"merchantId"') && !dbg.includes('"accountId"')
+      const cookieExpired = whoamiFailed && inserted === 0
       if (cookieExpired) {
         log.warn({ rawBodySample: dbg }, 'coupangeats: saved cookies expired (403), falling back to browser login')
         return await fetchCoupangReviews(page, context, svc, creds, userId, action, payload, log, earlyCapture, earlyCaptureUrls, allRequestUrls, allJsonUrls, null)
