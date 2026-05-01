@@ -13,10 +13,53 @@ import { dumpPageDiagnostics, startNetworkCapture, detectLoginFailure } from '..
 import { handleNaverCaptcha, solveCaptcha } from '../lib/captcha'
 import type { JobResult, Action } from '../jobs'
 
-const NAVER_CODE_VERSION = 'v3-timeout-20260501'
+const NAVER_CODE_VERSION = 'v6-verify-reply-20260502'
 
 const LOGIN_URL = 'https://nid.naver.com/nidlogin.login'
 const NEW_SMARTPLACE_BASE = 'https://new.smartplace.naver.com'
+
+// 등록 후 GraphQL로 실제 답글 반영 확인 (false positive 방지)
+async function verifyReplyByGraphQL(
+  placeId: string,
+  reviewId: string,
+  log: Logger,
+): Promise<boolean> {
+  const categories = ['restaurant', 'cafe', 'place', 'hairshop', 'beautyshop']
+  const ua = 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/16.6 Mobile/15E148 Safari/604.1'
+  for (const cat of categories) {
+    try {
+      const res = await fetch('https://pcmap-api.place.naver.com/graphql', {
+        method: 'POST',
+        headers: {
+          'User-Agent': ua, 'Accept': '*/*', 'Accept-Language': 'ko-KR,ko;q=0.9',
+          'Content-Type': 'application/json',
+          'Origin': 'https://m.place.naver.com',
+          'Referer': `https://m.place.naver.com/${cat}/${placeId}/review/visitor`,
+        },
+        body: JSON.stringify([{
+          operationName: 'getVisitorReviews',
+          variables: { input: { businessId: placeId, businessType: cat, item: '0', page: 1, size: 50, isPhotoUsed: false, includeContent: true, getReactions: true } },
+          query: 'query getVisitorReviews($input: VisitorReviewsInput) { visitorReviews(input: $input) { items { id reply { body } } } }',
+        }]),
+        signal: AbortSignal.timeout(10000),
+      })
+      const j = await res.json().catch(() => null) as any
+      const items = j?.[0]?.data?.visitorReviews?.items || []
+      if (items.length === 0) continue
+      const found = items.find((i: any) => i.id === reviewId)
+      if (found?.reply?.body && String(found.reply.body).length > 0) {
+        log.info({ reviewId, cat, replyLen: found.reply.body.length }, 'naver: ✅ GraphQL verify OK — 실제 답글 반영 확인')
+        return true
+      }
+      // 카테고리 매치는 됐지만 답글 미반영 (해당 카테고리가 정답)
+      log.info({ reviewId, cat, foundItem: !!found, hasReply: !!found?.reply, hasBody: !!found?.reply?.body }, 'naver: GraphQL verify — 답글 미반영')
+      return false
+    } catch (e: any) {
+      log.warn({ cat, err: String(e?.message).slice(0, 80) }, 'naver: GraphQL verify error, try next category')
+    }
+  }
+  return false
+}
 
 const DOM_SELECTORS = {
   idInput:   'input#id, input[name="id"], input[placeholder*="아이디"]',
@@ -386,109 +429,152 @@ export async function runNaver(
 
           let captchaAnswerRetry: string | null = null
 
-          // ══ 방법 1 (우선): Claude Vision via Vercel 프록시 ══════════════════════
-          // 한국어 영수증 CAPTCHA는 2captcha 비한국어 workers가 해결 못함
-          // Vercel에 ANTHROPIC_API_KEY 기설정 → Railway에 추가 설정 불필요
-          // SUPABASE_SERVICE_ROLE_KEY (Railway·Vercel 양측 공유)로 인증
+          // 37차-13: 2Captcha (lang=ko, 한국어 worker 우선) + Claude Vision (Sonnet 3.5) 병렬 race
+          // 둘 중 먼저 답하는 쪽 사용 → 정확도+속도 모두 향상
           if (captchaImgSrc.startsWith('data:')) {
             const rawB64 = captchaImgSrc.replace(/^data:[^;]+;base64,/, '')
             const mediaType = rawB64.startsWith('/9j/') ? 'image/jpeg' : 'image/png'
-            // 질문이 이미지 속에 있을 경우 포괄적인 프롬프트 사용
             const captchaInstruction = captchaQuestion
               ? captchaQuestion + '\n이미지의 영수증을 보고 답하세요. 답만 짧게 (예: 순창, 3, 15000). 설명 없이 답만.'
-              : '이 이미지를 자세히 보세요. 이미지 안에 한국어 질문이 있습니다. 그 질문을 찾아 영수증 내용 기반으로 답하세요. 답만 짧게 (예: 상품명, 숫자, 금액). 설명 없이 답만.'
+              : '이 이미지를 자세히 보세요. 이미지 안에 한국어 질문이 있습니다. 그 질문을 찾아 영수증 내용 기반으로 답하세요. 답만 짧게. 설명 없이 답만.'
 
-            const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-            if (supabaseKey) {
-              log.info('naver: calling Vercel captcha-solve proxy (Claude Vision) [timeout=30s]')
-              const proxyRes = await fetch('https://localution.vercel.app/api/captcha-solve', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + supabaseKey },
-                body: JSON.stringify({ image: rawB64, question: captchaInstruction, mediaType }),
-                signal: AbortSignal.timeout(30000),
-              }).then((r: any) => r.json()).catch((e: any) => ({ error: e?.message }))
-              const proxyAnswer = (proxyRes?.answer || '').trim()
-              log.info('naver: Vercel proxy answer: ' + (proxyAnswer || 'null').slice(0, 30)
-                + (proxyRes?.error ? ' err=' + String(proxyRes.error).slice(0, 80) : ''))
-              if (proxyAnswer) captchaAnswerRetry = proxyAnswer
-            }
-
-            // 방법 1-b: Railway ANTHROPIC_API_KEY 직접 (Vercel 프록시 실패 시)
-            if (!captchaAnswerRetry) {
-              const anthropicKey = process.env.ANTHROPIC_API_KEY
-              if (anthropicKey) {
-                log.info('naver: direct Anthropic Claude Vision for CAPTCHA')
-                const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json', 'x-api-key': anthropicKey, 'anthropic-version': '2023-06-01' },
-                  body: JSON.stringify({
-                    model: 'claude-3-haiku-20240307', max_tokens: 30,
-                    messages: [{ role: 'user', content: [
-                      { type: 'image', source: { type: 'base64', media_type: mediaType, data: rawB64 } },
-                      { type: 'text', text: captchaInstruction },
-                    ]}],
-                  }),
-                  signal: AbortSignal.timeout(30000),
-                }).then((r: any) => r.json()).catch(() => null)
-                const claudeAnswer = (claudeRes?.content?.[0]?.text || '').trim()
-                log.info('naver: direct Claude Vision answer: ' + (claudeAnswer || 'null').slice(0, 30))
-                if (claudeAnswer) captchaAnswerRetry = claudeAnswer
-              }
-            }
-          }
-
-          // ══ 방법 2 (폴백): 2captcha (한국어 영수증 CAPTCHA에 실패 빈번) ══════════
-          if (!captchaAnswerRetry) {
-            const apiKey = process.env.TWOCAPTCHA_API_KEY
-            if (apiKey && captchaImgSrc) {
-              const b64 = captchaImgSrc.startsWith('data:')
-                ? captchaImgSrc.replace(/^data:[^;]+;base64,/, '')
-                : null
-              if (b64) {
-                let instructions = captchaQuestion
+            // ── Promise A: 2Captcha (lang=ko, 한국 worker 매칭) ───────────────────
+            const twoCapKey = process.env.TWOCAPTCHA_API_KEY
+            const promiseA = (async (): Promise<{ answer: string; via: string } | null> => {
+              if (!twoCapKey) return null
+              try {
+                let instructions = captchaQuestion || '한국어 영수증 CAPTCHA. 이미지 안 한국어 질문에 답하세요.'
                 if (captchaQuestion) {
-                  let engHint = 'Korean receipt CAPTCHA. '
-                  if (captchaQuestion.includes('이름') || captchaQuestion.includes('전체')) {
-                    engHint += 'Find the brand name (Korean word) on the receipt.'
-                  } else if (captchaQuestion.includes('몇') || captchaQuestion.includes('kg') || captchaQuestion.includes('g')) {
-                    engHint += 'Find the weight/quantity number on the receipt. Type only the number.'
-                  } else if (captchaQuestion.includes('번호') || captchaQuestion.includes('숫자') || captchaQuestion.includes('금액') || captchaQuestion.includes('가격')) {
-                    engHint += 'Find the price/number on the receipt. Type only the number.'
-                  } else {
-                    engHint += 'Answer based on the receipt image.'
+                  if (captchaQuestion.includes('몇') || captchaQuestion.includes('kg') || captchaQuestion.includes('g') ||
+                      captchaQuestion.includes('번호') || captchaQuestion.includes('숫자') || captchaQuestion.includes('금액') || captchaQuestion.includes('가격')) {
+                    instructions = captchaQuestion + '\n숫자만 답하세요. 단위 빼고.'
+                  } else if (captchaQuestion.includes('이름') || captchaQuestion.includes('상품') || captchaQuestion.includes('브랜드')) {
+                    instructions = captchaQuestion + '\n한국어 이름만 답하세요.'
                   }
-                  instructions = captchaQuestion + '\n' + engHint
                 }
-                log.info('captcha: submitting base64 captcha to 2captcha' + (instructions ? ' with hint' : ''))
-                const bodyPayload: Record<string, string> = { key: apiKey, method: 'base64', body: b64, json: '1' }
-                if (instructions) bodyPayload.textinstructions = instructions
+                log.info('captcha[2captcha]: submitting (lang=ko) ...')
                 const submitRes = await fetch('https://2captcha.com/in.php', {
                   method: 'POST', headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify(bodyPayload),
+                  body: JSON.stringify({
+                    key: twoCapKey, method: 'base64', body: rawB64, json: '1',
+                    lang: 'ko',  // 한국어 worker 우선 할당
+                    textinstructions: instructions,
+                  }),
                 }).then((r: any) => r.json()).catch(() => null)
-                log.info('captcha: 2captcha submit res: ' + JSON.stringify(submitRes || 'null').slice(0, 80))
-                if (submitRes?.status === 1) {
-                  const captchaId = submitRes.request
-                  await new Promise((r) => setTimeout(r, 15000))
-                  for (let i = 0; i < 15; i++) {
-                    await new Promise((r) => setTimeout(r, 5000))
-                    const pollRes = await fetch(
-                      'https://2captcha.com/res.php?key=' + apiKey + '&action=get&id=' + captchaId + '&json=1'
-                    ).then((r: any) => r.json()).catch(() => null)
-                    if (pollRes?.status === 1) { captchaAnswerRetry = pollRes.request; log.info('captcha: 2captcha answered=' + captchaAnswerRetry); break }
-                    if (pollRes?.request !== 'CAPCHA_NOT_READY') { log.warn('captcha: 2captcha error: ' + JSON.stringify(pollRes).slice(0, 80)); break }
-                    log.info('captcha: 2captcha still solving... attempt ' + (i + 1))
+                if (submitRes?.status !== 1) {
+                  log.warn('captcha[2captcha]: submit failed: ' + JSON.stringify(submitRes || 'null').slice(0, 80))
+                  return null
+                }
+                const captchaId = submitRes.request
+                await new Promise((r) => setTimeout(r, 10000))
+                for (let i = 0; i < 18; i++) {
+                  await new Promise((r) => setTimeout(r, 4000))
+                  const pollRes = await fetch(
+                    'https://2captcha.com/res.php?key=' + twoCapKey + '&action=get&id=' + captchaId + '&json=1'
+                  ).then((r: any) => r.json()).catch(() => null)
+                  if (pollRes?.status === 1 && pollRes?.request) {
+                    log.info('captcha[2captcha]: ✅ answered=' + String(pollRes.request).slice(0, 30))
+                    return { answer: String(pollRes.request).trim(), via: '2captcha-ko' }
+                  }
+                  if (pollRes?.request && pollRes.request !== 'CAPCHA_NOT_READY') {
+                    log.warn('captcha[2captcha]: error=' + JSON.stringify(pollRes).slice(0, 80))
+                    return null
                   }
                 }
-              } else {
+                log.warn('captcha[2captcha]: timeout after 80s')
+                return null
+              } catch (e: any) {
+                log.warn('captcha[2captcha]: exception ' + String(e?.message).slice(0, 80))
+                return null
+              }
+            })()
+
+            // ── Promise B: Claude Vision Sonnet 3.5 (Vercel 프록시 또는 직접) ──
+            const promiseB = (async (): Promise<{ answer: string; via: string } | null> => {
+              const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+              if (supabaseKey) {
+                try {
+                  log.info('captcha[claude]: Vercel proxy (Claude Sonnet 3.5)')
+                  const proxyRes = await fetch('https://localution.vercel.app/api/captcha-solve', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + supabaseKey },
+                    body: JSON.stringify({ image: rawB64, question: captchaInstruction, mediaType }),
+                    signal: AbortSignal.timeout(25000),
+                  }).then((r: any) => r.json()).catch((e: any) => ({ error: e?.message }))
+                  const proxyAnswer = (proxyRes?.answer || '').trim()
+                  if (proxyAnswer) {
+                    log.info('captcha[claude]: ✅ Vercel proxy answered=' + proxyAnswer.slice(0, 30))
+                    return { answer: proxyAnswer, via: 'claude-vercel' }
+                  }
+                  log.warn('captcha[claude]: Vercel empty' + (proxyRes?.error ? ' err=' + String(proxyRes.error).slice(0, 80) : ''))
+                } catch (_) {}
+              }
+              const anthropicKey = process.env.ANTHROPIC_API_KEY
+              if (anthropicKey) {
+                try {
+                  log.info('captcha[claude]: direct Anthropic Sonnet 3.5')
+                  const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'x-api-key': anthropicKey, 'anthropic-version': '2023-06-01' },
+                    body: JSON.stringify({
+                      model: 'claude-3-5-sonnet-20241022',  // 정확도 ↑ (Haiku → Sonnet 3.5)
+                      max_tokens: 50,
+                      messages: [{ role: 'user', content: [
+                        { type: 'image', source: { type: 'base64', media_type: mediaType, data: rawB64 } },
+                        { type: 'text', text: captchaInstruction },
+                      ]}],
+                    }),
+                    signal: AbortSignal.timeout(25000),
+                  }).then((r: any) => r.json()).catch(() => null)
+                  const claudeAnswer = (claudeRes?.content?.[0]?.text || '').trim()
+                  if (claudeAnswer) {
+                    log.info('captcha[claude]: ✅ direct answered=' + claudeAnswer.slice(0, 30))
+                    return { answer: claudeAnswer, via: 'claude-direct' }
+                  }
+                } catch (_) {}
+              }
+              return null
+            })()
+
+            // 둘 중 먼저 정답 내놓는 쪽 사용 (race)
+            const winner = await Promise.race([
+              promiseA.then((r) => r ?? new Promise<never>(() => {})), // null 이면 무한 대기 (다른쪽 기다림)
+              promiseB.then((r) => r ?? new Promise<never>(() => {})),
+              new Promise<{ answer: string; via: string } | null>((resolve) => setTimeout(() => resolve(null), 90000)), // 90초 timeout
+            ]).catch(() => null)
+
+            if (winner && winner.answer) {
+              captchaAnswerRetry = winner.answer
+              log.info('captcha: 🎯 winner=' + winner.via + ' answer=' + winner.answer.slice(0, 30))
+            } else {
+              // race 실패 시 양쪽 결과 다시 확인 (둘 다 null로 끝났을 수 있음)
+              const [a, b] = await Promise.all([
+                promiseA.catch(() => null),
+                promiseB.catch(() => null),
+              ])
+              const fallback = a || b
+              if (fallback) {
+                captchaAnswerRetry = fallback.answer
+                log.info('captcha: late winner=' + fallback.via + ' answer=' + fallback.answer.slice(0, 30))
+              }
+            }
+          }
+
+          // ══ 폴백: solveCaptcha (DOM 기반) — captchaImgSrc 가 data: 가 아닌 경우 ═══
+          if (!captchaAnswerRetry && !captchaImgSrc.startsWith('data:')) {
+            const apiKey = process.env.TWOCAPTCHA_API_KEY
+            if (apiKey) {
+              try {
                 captchaAnswerRetry = await solveCaptcha({ page, log, type: 'image',
                   captchaSelector: '#captchaimg, img[id*="captcha"], img.captcha_img, .captcha_area img' })
+              } catch (e: any) {
+                log.warn('captcha[fallback]: solveCaptcha exception ' + String(e?.message).slice(0, 80))
               }
             }
           }
 
           if (!captchaAnswerRetry) {
-            log.warn('naver: 모든 CAPTCHA 풀이 방법 실패 (Vercel 프록시 + 2captcha 모두 실패)')
+            log.warn('naver: 모든 CAPTCHA 풀이 방법 실패 (2Captcha + Claude Vision 모두 실패)')
           }
 
           if (captchaAnswerRetry) {
@@ -619,7 +705,91 @@ async function postNaverReply(
       } catch {}
     })
 
-    // 1) 스토어 대시보드로 이동 → actualPlaceId 확인
+    // ── 0) 직접 답글 편집 URL 시도 (가장 안정적 — 답글 달기 버튼 클릭 단계 스킵)
+    //    GraphQL 응답에서 발견한 패턴:
+    //    https://new-m.smartplace.naver.com/bizes/place-id/{placeId}/reviews/{reviewId}
+    if (storeId && storeId !== 'unknown') {
+      const directReplyUrl = `https://new-m.smartplace.naver.com/bizes/place-id/${storeId}/reviews/${platformReviewId}`
+      log.info({ directReplyUrl }, 'naver: trying direct reply edit URL (no button click)')
+      try {
+        await page.goto(directReplyUrl, { waitUntil: 'domcontentloaded', timeout: 20000 })
+        await page.waitForTimeout(2500)
+
+        const u = page.url()
+        if (!u.includes('login') && !u.includes('nid.naver.com')) {
+          log.info({ url: u }, 'naver: direct reply page loaded, looking for textarea')
+          const taLoc = page.locator(DOM_SELECTORS.replyTextarea).first()
+          const taCnt = await taLoc.count().catch(() => 0)
+          if (taCnt > 0) {
+            // textarea 직접 입력 (버튼 클릭 없이)
+            let filled = false
+            for (let attempt = 1; attempt <= 3 && !filled; attempt++) {
+              try {
+                await taLoc.scrollIntoViewIfNeeded({ timeout: 3000 }).catch(() => null)
+                await taLoc.click({ clickCount: 3, timeout: 5000 })
+                await taLoc.fill(replyText, { timeout: 5000 })
+                filled = true
+                log.info({ attempt }, 'naver: textarea filled (direct URL)')
+              } catch (e: any) {
+                log.warn({ attempt, err: String(e?.message).slice(0, 100) }, 'naver: direct textarea fill retry')
+                await page.waitForTimeout(1500)
+              }
+            }
+            if (filled) {
+              await page.waitForTimeout(800)
+              // 등록 버튼 클릭 (locator + retry)
+              const submitTexts = ['등록', '완료', '저장', '답글 등록']
+              let submitClicked = false
+              for (const txt of submitTexts) {
+                const subLoc = page.locator(`button:has-text("${txt}")`).first()
+                const cnt = await subLoc.count().catch(() => 0)
+                if (cnt === 0) continue
+                for (let attempt = 1; attempt <= 3 && !submitClicked; attempt++) {
+                  try {
+                    await subLoc.click({ timeout: 8000, force: attempt >= 2 })
+                    submitClicked = true
+                    log.info({ platformReviewId, txt, attempt }, 'naver: direct URL submit clicked')
+                  } catch (e: any) {
+                    log.warn({ attempt, err: String(e?.message).slice(0, 100) }, 'naver: direct submit retry')
+                    await page.waitForTimeout(1500)
+                  }
+                }
+                if (submitClicked) break
+              }
+
+              // ── 실제 등록 검증 (GraphQL로 답글 반영 확인 — false positive 방지) ──
+              if (submitClicked) {
+                await page.waitForTimeout(4000)
+                const verified1 = await verifyReplyByGraphQL(storeId, platformReviewId, log)
+                if (verified1) {
+                  log.info({ platformReviewId }, 'naver: reply submitted + VERIFIED via DIRECT URL ✅')
+                  return { ok: true }
+                }
+                // 인덱스 지연 가능 → 5초 더 대기 후 재확인
+                await new Promise((r) => setTimeout(r, 5000))
+                const verified2 = await verifyReplyByGraphQL(storeId, platformReviewId, log)
+                if (verified2) {
+                  log.info({ platformReviewId }, 'naver: reply submitted + verified (delayed) ✅')
+                  return { ok: true }
+                }
+                log.warn({ platformReviewId }, 'naver: 등록 버튼은 클릭됐지만 GraphQL에 답글 미반영')
+                return { ok: false, reason: '등록 버튼은 눌렀지만 실제 네이버에 답글이 반영되지 않았어요. 네이버 SmartPlace에서 직접 등록을 권장합니다.' }
+              }
+
+              log.warn('naver: direct URL textarea filled but submit click failed — fallback to button click flow')
+            }
+          } else {
+            log.warn('naver: direct URL loaded but no textarea found — fallback to button click flow')
+          }
+        } else {
+          log.warn({ url: u }, 'naver: direct URL redirected to login — fallback to button click flow')
+        }
+      } catch (e: any) {
+        log.warn({ err: e?.message }, 'naver: direct reply URL approach failed, falling back')
+      }
+    }
+
+    // 1) 스토어 대시보드로 이동 → actualPlaceId 확인 (Direct URL 실패 시 fallback)
     const dashUrl = storeId && storeId !== 'unknown'
       ? `${NEW_SMARTPLACE_BASE}/bizes/place/${storeId}`
       : `${NEW_SMARTPLACE_BASE}/bizes`
@@ -773,44 +943,106 @@ async function postNaverReply(
     }).catch(() => ({ found: false, count: 0, texts: [] }))
     log.info({ replyBtnFound }, 'naver: JS reply button search')
 
-    // JS로 "답글" 버튼 발견 시 바로 클릭
+    // JS로 "답글" 버튼 발견 시 바로 클릭 — Locator 패턴 + retry
+    // page.locator()는 click 시점에 element를 fresh하게 재탐색 → DOM detach 면역
     if (replyBtnFound.found) {
-      const directBtn = await page.$('button:has-text("답글 달기")')
-        ?? await page.$('button:has-text("답글쓰기")')
-        ?? await page.$('button:has-text("답글 쓰기")')
-        ?? await page.$('button:has-text("답글 작성")')
-        ?? await page.$('button:has-text("답글")')
-      if (directBtn) {
-        log.info('naver: clicking reply button found via JS search')
-        await directBtn.scrollIntoViewIfNeeded()
-        await page.waitForTimeout(400)
-        await directBtn.click()
+      log.info('naver: using locator pattern with retry for reply button click')
+      // 버튼 텍스트 우선순위로 locator 빌드
+      const replyTexts = ['답글 달기', '답글쓰기', '답글 쓰기', '답글 작성', '답글']
+      let clicked = false
+      for (const txt of replyTexts) {
+        const loc = page.locator(`button:has-text("${txt}")`).first()
+        const cnt = await loc.count().catch(() => 0)
+        if (cnt === 0) continue
+        // retry 3회 (SPA 재렌더링 대비)
+        for (let attempt = 1; attempt <= 3 && !clicked; attempt++) {
+          try {
+            await loc.scrollIntoViewIfNeeded({ timeout: 3000 }).catch(() => null)
+            await page.waitForTimeout(500)
+            await loc.click({ timeout: 8000, force: attempt >= 2 })
+            clicked = true
+            log.info({ txt, attempt }, 'naver: reply button clicked successfully')
+          } catch (e: any) {
+            const msg = String(e?.message || e)
+            log.warn({ txt, attempt, err: msg.slice(0, 100) }, 'naver: reply button click failed, retrying')
+            await page.waitForTimeout(1500) // SPA 재렌더 대기
+          }
+        }
+        if (clicked) break
+      }
+
+      if (clicked) {
         await page.waitForTimeout(1500)
 
-        let textarea = await page.$(DOM_SELECTORS.replyTextarea)
-        if (!textarea) {
-          // textarea가 다른 위치에 나타날 수도 있음
-          await page.waitForTimeout(1000)
-          textarea = await page.$(DOM_SELECTORS.replyTextarea)
+        // textarea 도 locator로 (재렌더 대비)
+        let textareaFilled = false
+        for (let attempt = 1; attempt <= 3 && !textareaFilled; attempt++) {
+          try {
+            const taLoc = page.locator(DOM_SELECTORS.replyTextarea).first()
+            const taCnt = await taLoc.count().catch(() => 0)
+            if (taCnt === 0) {
+              await page.waitForTimeout(1500)
+              continue
+            }
+            await taLoc.scrollIntoViewIfNeeded({ timeout: 3000 }).catch(() => null)
+            await taLoc.click({ clickCount: 3, timeout: 5000 })
+            await taLoc.fill(replyText, { timeout: 5000 })
+            textareaFilled = true
+            log.info({ attempt }, 'naver: textarea filled successfully')
+          } catch (e: any) {
+            log.warn({ attempt, err: String(e?.message).slice(0, 100) }, 'naver: textarea fill failed, retrying')
+            await page.waitForTimeout(1500)
+          }
         }
-        if (textarea) {
-          await textarea.scrollIntoViewIfNeeded()
-          await textarea.click({ clickCount: 3 })
-          await textarea.fill(replyText)
-          await page.waitForTimeout(600)
-          const submitBtn = await page.$('button:has-text("등록")')
-            ?? await page.$('button:has-text("완료")')
-            ?? await page.$('button:has-text("저장")')
-          if (submitBtn) {
-            await submitBtn.click()
-            await page.waitForTimeout(3000)
-            log.info({ platformReviewId }, 'naver: reply submitted via JS button search')
+
+        if (!textareaFilled) {
+          return { ok: false, reason: 'textarea 입력 실패 — SmartPlace UI가 변경되었을 수 있어요. 네이버에서 직접 등록해주세요.' }
+        }
+
+        await page.waitForTimeout(800)
+
+        // 등록 버튼도 locator + retry
+        const submitTexts = ['등록', '완료', '저장']
+        let submitted = false
+        for (const txt of submitTexts) {
+          const subLoc = page.locator(`button:has-text("${txt}")`).first()
+          const cnt = await subLoc.count().catch(() => 0)
+          if (cnt === 0) continue
+          for (let attempt = 1; attempt <= 3 && !submitted; attempt++) {
+            try {
+              await subLoc.click({ timeout: 8000, force: attempt >= 2 })
+              submitted = true
+              log.info({ txt, attempt }, 'naver: submit button clicked')
+            } catch (e: any) {
+              log.warn({ txt, attempt, err: String(e?.message).slice(0, 100) }, 'naver: submit click failed, retrying')
+              await page.waitForTimeout(1500)
+            }
+          }
+          if (submitted) break
+        }
+
+        if (submitted) {
+          await page.waitForTimeout(4000)
+          // GraphQL 검증 (false positive 방지)
+          const v1 = await verifyReplyByGraphQL(storeId, platformReviewId, log)
+          if (v1) {
+            log.info({ platformReviewId }, 'naver: reply submitted + VERIFIED via button click flow ✅')
             return { ok: true }
           }
-          return { ok: false, reason: '등록 버튼 없음 (JS 버튼 방식)' }
+          await new Promise((r) => setTimeout(r, 5000))
+          const v2 = await verifyReplyByGraphQL(storeId, platformReviewId, log)
+          if (v2) {
+            log.info({ platformReviewId }, 'naver: reply verified (delayed) via button click flow ✅')
+            return { ok: true }
+          }
+          log.warn({ platformReviewId }, 'naver: button click submit done but GraphQL no reply')
+          return { ok: false, reason: '등록 버튼은 눌렀지만 실제 네이버에 답글이 반영되지 않았어요. 네이버에서 직접 등록을 권장합니다.' }
         }
-        return { ok: false, reason: 'textarea 없음 (JS 버튼 방식)' }
+        return { ok: false, reason: '등록 버튼 클릭 실패 — 네이버에서 직접 등록해주세요.' }
       }
+
+      // 버튼 클릭 실패 → 직접 등록 안내
+      return { ok: false, reason: '답글 작성 버튼 클릭 실패 (SmartPlace UI 변경 가능성). 네이버에서 직접 등록해주세요.' }
     }
 
     // 8) CSS 선택자로 카드 찾기 (기존 방식)
