@@ -68,6 +68,14 @@ function parseDateSafely(raw: string | null | undefined): string | null {
   return null
 }
 
+// GET: 디버그용 (?debug=1)만 허용 — 브라우저에서 직접 호출 가능하도록
+export async function GET(req: NextRequest) {
+  if (req.nextUrl.searchParams.get('debug') !== '1') {
+    return NextResponse.json({ ok: false, error: 'POST only (GET은 ?debug=1 디버그 모드만 허용)' }, { status: 405 })
+  }
+  return POST(req)
+}
+
 export async function POST(req: NextRequest) {
   const auth = await requireUser()
   if (!auth.ok) {
