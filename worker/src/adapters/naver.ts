@@ -408,8 +408,8 @@ export async function runNaver(
                 }
                 instructions = captchaQuestion + '\n' + engHint
               }
-              log.info('captcha: submitting base64 captcha to 2captcha lang=Korean' + (instructions ? ' with hint' : ''))
-              const bodyPayload: Record<string, string> = { key: apiKey, method: 'base64', body: b64, json: '1', lang: '5' }
+              log.info('captcha: submitting base64 captcha to 2captcha' + (instructions ? ' with hint' : ''))
+              const bodyPayload: Record<string, string> = { key: apiKey, method: 'base64', body: b64, json: '1' }
               if (instructions) bodyPayload.textinstructions = instructions
               const submitRes = await fetch('https://2captcha.com/in.php', {
                 method: 'POST',
