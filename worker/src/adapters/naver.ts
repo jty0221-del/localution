@@ -536,8 +536,8 @@ export async function runNaver(
           await dumpPageDiagnostics(page, log, 'naver-login-failed')
           await markLoginStatus(svc, userId, 'naver_place', 'failed', reason || urlAfterLogin)
           const msg = reason
-            ? `naver login failed — ${reason}`
-            : 'naver login failed — 아이디·비밀번호 오류 또는 Railway IP 차단. PROXY_HOST/PORT 환경변수 설정 또는 아이디·비밀번호 재확인 필요'
+            ? `naver login failed — ${reason} | url=${urlAfterLogin.slice(0, 80)}`
+            : `naver login failed — url=${urlAfterLogin.slice(0, 100)} | body=${bodySnippet.replace(/\s+/g, ' ').slice(0, 150)}`
           if (platformReviewId) await updateReviewStatus(svc, userId, platformReviewId, 'failed', { error: msg })
           return { status: 'failed', message: msg }
         }
