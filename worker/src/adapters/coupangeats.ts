@@ -712,18 +712,29 @@ async function fetchCoupangReviews(
     }
   }
 
-  // ── apiGet: node-direct 우선, 실패 시 browserApiGet fallback ──
-  // skipBrowser=true 이면 browserApiGet 절대 호출 금지 (page.evaluate → 브라우저 크래시 원인)
+  // Akamai 차단 감지 헬퍼
+  function isAkamaiBlock(res: { ok: boolean; status: number; errBody: string }): boolean {
+    return !res.ok && res.status === 403 && (res.errBody?.includes('Access Denied') || res.errBody?.includes('AkamaiBlock'))
+  }
+
+  // ── apiGet: node-direct 우선, Akamai 차단 시 browserApiGet 폴백 ──
+  // skipBrowser=true라도 Akamai 403 감지 시 browserApiGet 허용
+  // 이유: Akamai는 TLS 핑거프린트(JA3)로 차단 → Node.js JA3 ≠ Chrome JA3
+  //       page.evaluate(fetch)는 진짜 Chrome TLS로 요청 → Akamai 우회
+  //       쿠키는 이미 context.addCookies()로 주입됨 → credentials:'include' 작동
   let useNodeDirect = false
   async function apiGet(path: string): Promise<{ ok: boolean; body: any; status: number; errBody: string }> {
     if (skipBrowser) {
-      // directCookies 경로: node-direct 전용 (browser 렌더러 크래시 방지)
-      return nodeDirectApiGet(path)
+      const res = await nodeDirectApiGet(path)
+      if (!isAkamaiBlock(res)) return res
+      // Akamai 차단 → browserApiGet 폴백 (Chrome TLS로 우회)
+      log.info({ path: path.slice(0, 80) }, 'coupangeats: Akamai block → browserApiGet fallback (Chrome TLS)')
+      return browserApiGet(path)
     }
     if (useNodeDirect) {
       const res = await nodeDirectApiGet(path)
-      if (res.ok || res.status === 401 || res.status === 403) return res
-      // 네트워크 오류 → browser fallback
+      if (res.ok || res.status === 401 || (res.status === 403 && !isAkamaiBlock(res))) return res
+      // 네트워크 오류 또는 Akamai → browser fallback
     }
     return browserApiGet(path)
   }
@@ -743,9 +754,9 @@ async function fetchCoupangReviews(
       rawBodySample = JSON.stringify(ndRes.body).slice(0, 200)
       merchantId = ndRes.body?.data?.merchantId || ndRes.body?.merchantId || null
       log.info({ whoamiOk: true, merchantId, via: 'node-direct' }, 'coupangeats: whoami ok (node-direct)')
-    } else if (!skipBrowser) {
-      // skipBrowser=true 이면 browserApiGet 호출 금지 (렌더러 크래시)
-      log.warn({ status: ndRes.status, err: ndRes.errBody }, 'coupangeats: node-direct whoami failed, trying browser')
+    } else {
+      // node-direct 실패 → browserApiGet 시도 (skipBrowser=true여도 허용 — Akamai 우회 목적)
+      log.warn({ status: ndRes.status, err: ndRes.errBody, skipBrowser }, 'coupangeats: node-direct whoami failed, trying browser (Chrome TLS)')
       const wRes = await browserApiGet('/api/v1/merchant/whoami')
       if (wRes.ok && wRes.body) {
         rawBodySample = JSON.stringify(wRes.body).slice(0, 200)
@@ -755,10 +766,6 @@ async function fetchCoupangReviews(
         rawBodySample = `whoami node:[${ndRes.errBody?.slice(0,120)}] browser:HTTP ${wRes.status}:${wRes.errBody?.slice(0,80)}`
         log.warn({ status: wRes.status, err: wRes.errBody, nodeErr: ndRes.errBody }, 'coupangeats: whoami failed (both methods)')
       }
-    } else {
-      // skipBrowser=true: node-direct 결과만 보고함
-      rawBodySample = `whoami node:[${ndRes.errBody?.slice(0,200)}]`
-      log.warn({ status: ndRes.status, err: ndRes.errBody }, 'coupangeats: node-direct whoami failed (skipBrowser=true, no browser fallback)')
     }
   } catch (e: any) {
     rawBodySample = `whoami exception: ${e?.message}`
