@@ -279,11 +279,23 @@ export async function runCoupangEats(
         ? `${REVIEWS_BASE_URL}/${creds.platform_store_id}`
         : REVIEWS_BASE_URL
       log.info({ reviewsUrl }, 'coupangeats: trying direct reviews access with saved cookies')
-      await page.goto(reviewsUrl, { waitUntil: 'networkidle', timeout: 45000 }).catch(() =>
-        page.goto(reviewsUrl, { waitUntil: 'load', timeout: 45000 })
-      )
-      await page.waitForTimeout(4000)
 
+      // ERR_PROXY_AUTH_UNSUPPORTED 발생 시 → 브라우저 navigation 스킵, node-direct API로만 시도
+      let navErr: string | null = null
+      try {
+        await page.goto(reviewsUrl, { waitUntil: 'networkidle', timeout: 45000 }).catch(() =>
+          page.goto(reviewsUrl, { waitUntil: 'load', timeout: 45000 }).catch((e: any) => { navErr = String(e?.message || e) })
+        )
+      } catch (e: any) {
+        navErr = String(e?.message || e)
+      }
+
+      if (navErr && navErr.includes('ERR_PROXY_AUTH_UNSUPPORTED')) {
+        log.warn({ navErr }, 'coupangeats: proxy auth unsupported — skipping browser nav, using node-direct API with saved cookies')
+        return await fetchCoupangReviews(page, context, svc, creds, userId, action, payload, log, earlyCapture, earlyCaptureUrls, allRequestUrls, allJsonUrls, savedCookies)
+      }
+
+      await page.waitForTimeout(4000)
       const directUrl = page.url()
       // 리뷰 관리 페이지에 실제로 도달했는지 확인 (login/signin/auth 등 리다이렉트 방지)
       const cookieValid = directUrl.includes('/management/reviews') || directUrl.includes('/merchant/management') || directUrl.includes('/merchant/main')
@@ -291,14 +303,27 @@ export async function runCoupangEats(
         log.info({ directUrl, earlyCaptured: earlyCapture.length }, 'coupangeats: cookie session valid')
         await markLoginStatus(svc, userId, 'coupangeats', 'success')
         if (action === 'health_check') return { status: 'ok', message: 'coupangeats cookie session ok' }
-        return await fetchCoupangReviews(page, context, svc, creds, userId, action, payload, log, earlyCapture, earlyCaptureUrls, allRequestUrls, allJsonUrls)
+        return await fetchCoupangReviews(page, context, svc, creds, userId, action, payload, log, earlyCapture, earlyCaptureUrls, allRequestUrls, allJsonUrls, savedCookies)
       }
       log.warn('coupangeats: saved cookies expired, falling back to login')
     }
 
     // ── 폼 로그인 (쿠키 없거나 만료) ──
     log.info('coupangeats: attempting form login')
-    await page.goto(LOGIN_URL, { waitUntil: 'load', timeout: 45000 })
+    let loginNavErr: string | null = null
+    try {
+      await page.goto(LOGIN_URL, { waitUntil: 'load', timeout: 45000 })
+    } catch (e: any) {
+      loginNavErr = String(e?.message || e)
+    }
+    if (loginNavErr && loginNavErr.includes('ERR_PROXY_AUTH_UNSUPPORTED')) {
+      log.warn({ loginNavErr }, 'coupangeats: proxy blocks login nav — need saved cookies')
+      return {
+        status: 'failed',
+        message: 'coupangeats: Railway proxy 차단 — /my/platforms/coupangeats/connect 에서 브라우저 쿠키를 붙여넣어 주세요',
+        debug: { loginNavErr },
+      }
+    }
     await page.waitForTimeout(6000)
 
     const pwLocator = page.locator(DOM_SELECTORS.pwInput).first()
@@ -443,6 +468,7 @@ async function fetchCoupangReviews(
   earlyCaptureUrls: string[] = [],
   allRequestUrls: string[] = [],
   allJsonUrls: string[] = [],
+  directCookies: any[] | null = null,
 ): Promise<JobResult> {
   const reviewsUrl = creds.platform_store_id
     ? `${REVIEWS_BASE_URL}/${creds.platform_store_id}`
@@ -538,9 +564,10 @@ async function fetchCoupangReviews(
   // ── Node.js native fetch (직접 API 호출, 브라우저/프록시 우회) ──
   // Playwright page.evaluate fetch → 407 발생 (proxy auth 미전달)
   // globalThis.fetch (Node 18+) → Cookie 헤더 직접 주입 → 프록시 없이 CoupangEats API 직접 접근
-  const contextCookies = await context.cookies('https://store.coupangeats.com').catch(() => [] as any[])
+  const contextCookies = directCookies
+    ?? await context.cookies('https://store.coupangeats.com').catch(() => [] as any[])
   const cookieStr = contextCookies.map((c: any) => `${c.name}=${c.value}`).join('; ')
-  log.info({ cookieCount: contextCookies.length, hasCookieStr: !!cookieStr }, 'coupangeats: node-direct cookie string built')
+  log.info({ cookieCount: contextCookies.length, hasCookieStr: !!cookieStr, viaDirectCookies: !!directCookies }, 'coupangeats: node-direct cookie string built')
 
   async function nodeDirectApiGet(path: string): Promise<{ ok: boolean; body: any; status: number; errBody: string }> {
     const url = path.startsWith('http') ? path : `${BASE_ORIGIN}${path}`
