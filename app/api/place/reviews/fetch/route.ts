@@ -425,11 +425,9 @@ export async function POST(req: NextRequest) {
     photos: r.photos.length > 0 ? r.photos : null,
     posted_at: parseDateSafely(r.postedAt) || parseDateSafely(r.visitedAt),
     collected_at: now,
-    // 사장님 답글 여부: 실제 GraphQL 결과 우선 신뢰 (정확한 현재 상태)
-    // worker가 'submitted'로 마킹한 경우만 보존 (네이버 인덱싱 지연 대비)
-    // existingHasReply 보존은 제거 → 사장님이 답글 삭제 시 정확히 false 반영됨
-    has_reply: r.hasOwnerReply === true ||
-               existingReplyStatus.get(r.reviewId) === 'submitted',
+    // 사장님 답글 여부: GraphQL 실제 결과만 신뢰 (false positive 방지)
+    // worker는 등록 후 GraphQL verifyReply를 통과해야만 'submitted' 마킹 → 그래도 GraphQL이 정답
+    has_reply: r.hasOwnerReply === true,
     raw_snapshot: r,
   }))
   // 중복 reviewId가 있으면 PostgreSQL upsert 오류 발생 → 마지막 항목만 유지

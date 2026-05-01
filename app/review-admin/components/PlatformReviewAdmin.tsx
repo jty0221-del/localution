@@ -492,18 +492,16 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
         return
       }
 
-      // ── 자동 발행 모드 — Optimistic UI 업데이트 ──
-      // 즉시 답글 표시(사용자 경험), 90초 후 자동 재수집해서 실제 상태로 갱신
-      toast.success('⚡ 답글 발행 요청 완료! 네이버에 자동 등록 시도 중이에요. 90초 후 자동으로 결과 확인해드릴게요.')
+      // ── 자동 발행 모드 — 보수적 표시 ──
+      // hasReply=true 로 미리 마킹하지 않음 (워커가 실제 등록 검증 통과해야 표시됨)
+      // queued 상태로만 표시 → 90초 후 자동 재수집으로 실제 결과 반영
+      toast.success('⚡ 답글 발행 요청을 보냈어요! 네이버에 등록 시도 중 (60~90초 소요). 결과는 자동으로 갱신됩니다.')
       setReviews((prev) =>
         prev.map((r) =>
           r.id === review.id
             ? {
                 ...r,
-                hasReply: true,
-                replyStatus: 'submitted',
-                replyContent: trimmed,
-                replySubmittedAt: new Date().toISOString(),
+                replyStatus: 'queued',
                 replyQueuedAt: new Date().toISOString(),
                 draftReply: trimmed,
                 replyError: null,
@@ -515,8 +513,7 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
       setEditingId(null)
       setDraftText('')
 
-      // 90초 후 자동 재수집 — 실제 네이버 등록 상태 확인
-      // 워커 실패 시 has_reply=false 로 정확히 갱신됨 → 사용자가 직접 등록 가능
+      // 90초 후 자동 재수집 — 실제 네이버 등록 상태 확인 (GraphQL hasOwnerReply 정확히 반영)
       setTimeout(() => {
         collectNow().catch(() => null)
       }, 90000)
