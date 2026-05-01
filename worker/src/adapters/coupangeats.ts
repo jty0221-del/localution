@@ -511,7 +511,7 @@ async function fetchCoupangReviews(
   let capturedNaturalHeaders: Record<string, string> = {}
   let capturedNaturalUrl = ''
   try {
-    await page.route('**/api/v1/merchant/reviews/search**', async (route: any) => {
+    await page.route('**/api/v1/merchant/**', async (route: any) => {
       try {
         const origUrl: string = route.request().url()
         const reqHeaders: Record<string, string> = route.request().headers() || {}
