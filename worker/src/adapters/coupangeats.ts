@@ -67,30 +67,58 @@ async function tunnelFetch(
     `Host: ${parsed.hostname}`,
     `Cookie: ${cookieStr}`,
     `Accept: application/json, */*`,
+    `Accept-Encoding: identity`,   // gzip/deflate 비활성화 (raw socket에서 디코딩 불가)
     `Connection: close`,
     ...Object.entries(extraHeaders).map(([k, v]) => `${k}: ${v}`),
   ]
   tlsSock.write(`GET ${path} HTTP/1.1\r\n${hLines.join('\r\n')}\r\n\r\n`)
 
-  // 4) 응답 수신
-  let raw = ''
+  // 4) 응답 수신 (binary buffer 유지 — UTF-8 변환은 파싱 후에)
+  const chunks: Buffer[] = []
   await new Promise<void>((resolve) => {
-    tlsSock.on('data', (c: Buffer) => { raw += c.toString('utf8') })
+    tlsSock.on('data', (c: Buffer) => { chunks.push(c) })
     tlsSock.on('end', resolve)
     tlsSock.on('close', resolve)
     tlsSock.on('error', () => resolve())
-    setTimeout(() => { tlsSock.destroy(); resolve() }, 20000)
+    setTimeout(() => { tlsSock.destroy(); resolve() }, 25000)
   })
   tlsSock.destroy()
+  const rawBuf = Buffer.concat(chunks)
 
-  // 5) HTTP 응답 파싱
-  const sep = raw.indexOf('\r\n\r\n')
-  const headerStr = sep >= 0 ? raw.slice(0, sep) : raw
-  const bodyStr = sep >= 0 ? raw.slice(sep + 4) : ''
+  // 5) HTTP 응답 파싱 (헤더는 ASCII, 바디는 별도 처리)
+  const sepIdx = rawBuf.indexOf('\r\n\r\n')
+  const headerStr = sepIdx >= 0 ? rawBuf.slice(0, sepIdx).toString('ascii') : rawBuf.toString('ascii')
+  let bodyBuf = sepIdx >= 0 ? rawBuf.slice(sepIdx + 4) : Buffer.alloc(0)
   const statusCode = parseInt((headerStr.split('\r\n')[0] || '').split(' ')[1] || '0') || 0
+  const rawHeaderSample = headerStr.slice(0, 300)
+
+  // chunked transfer encoding 디코딩
+  const isChunked = headerStr.toLowerCase().includes('transfer-encoding: chunked')
+  if (isChunked && bodyBuf.length > 0) {
+    try {
+      const decoded: Buffer[] = []
+      let pos = 0
+      while (pos < bodyBuf.length) {
+        const lineEnd = bodyBuf.indexOf('\r\n', pos)
+        if (lineEnd < 0) break
+        const chunkSizeHex = bodyBuf.slice(pos, lineEnd).toString('ascii').trim().split(';')[0]
+        const chunkSize = parseInt(chunkSizeHex, 16)
+        if (isNaN(chunkSize) || chunkSize === 0) break
+        const dataStart = lineEnd + 2
+        const dataEnd = dataStart + chunkSize
+        if (dataEnd > bodyBuf.length) break
+        decoded.push(bodyBuf.slice(dataStart, dataEnd))
+        pos = dataEnd + 2  // skip trailing \r\n
+      }
+      if (decoded.length > 0) bodyBuf = Buffer.concat(decoded)
+    } catch { /* chunked 디코딩 실패 시 원본 유지 */ }
+  }
+
+  const bodyStr = bodyBuf.toString('utf8')
   let body: any = null
   try { body = JSON.parse(bodyStr) } catch { body = null }
-  return { status: statusCode, ok: statusCode >= 200 && statusCode < 400, body, errBody: body ? '' : bodyStr.slice(0, 120) }
+  const errBodyStr = body ? '' : (bodyStr.slice(0, 80) || rawHeaderSample.slice(0, 80) || '(empty)')
+  return { status: statusCode, ok: statusCode >= 200 && statusCode < 400, body, errBody: errBodyStr }
 }
 
 const LOGIN_URL = 'https://store.coupangeats.com/merchant/login'
@@ -580,13 +608,14 @@ async function fetchCoupangReviews(
           'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8',
         }
         if (csrfToken) { extraH['X-XSRF-TOKEN'] = csrfToken; extraH['X-CSRF-Token'] = csrfToken }
-        if (authToken) extraH['Authorization'] = `Bearer ${authToken}`
+        // Authorization Bearer 제거 — Cookie 헤더가 세션 인증을 담당 (Bearer 추가 시 충돌 가능)
+        // if (authToken) extraH['Authorization'] = `Bearer ${authToken}`
         const result = await tunnelFetch(
           url, cookieStr,
           proxyHost, parseInt(proxyPort, 10), proxyUser, proxyPass,
           extraH,
         )
-        log.info({ url: path.slice(0, 80), status: result.status, via: 'tunnelFetch' }, 'coupangeats: nodeDirectApiGet via proxy tunnel')
+        log.info({ url: path.slice(0, 80), status: result.status, errBody: result.errBody?.slice(0, 150), via: 'tunnelFetch' }, 'coupangeats: nodeDirectApiGet via proxy tunnel')
         return result
       } catch (e: any) {
         tunnelErr = String(e?.message || e).slice(0, 150)
