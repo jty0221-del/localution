@@ -522,7 +522,8 @@ async function fetchCoupangReviews(
       await page.goto(reviewsUrl, { waitUntil: 'domcontentloaded', timeout: 35000 })
       await page.waitForTimeout(5000)   // Akamai JS + 자연 API 호출 대기
       browserNavOk = true
-      log.info({ url: page.url(), capturedSoFar: capturedReviews.length }, 'coupangeats: reviews page loaded (savedCookies path)')
+      const finalUrl = page.url()
+      log.info({ url: finalUrl, capturedSoFar: capturedReviews.length }, `coupangeats: reviews page loaded url=${finalUrl} captured=${capturedReviews.length}`)
     } catch (navErr: any) {
       log.warn({ err: navErr?.message }, 'coupangeats: savedCookies reviews nav failed — will use node-direct only')
     }
@@ -798,14 +799,28 @@ async function fetchCoupangReviews(
   if (useNodeDirect && merchantId) {
     try {
       const storesRes = await nodeDirectApiGet(`/api/v1/merchant/${merchantId}/stores`)
-      log.info({ storesStatus: storesRes.status, storesBody: JSON.stringify(storesRes.body).slice(0, 200), storesErr: storesRes.errBody }, 'coupangeats: merchant stores check')
-      // 스토어 스위치 시도
-      const switchRes = await nodeDirectApiGet(`/api/v1/merchant/stores/${storeId}/switch`)
-      log.info({ switchStatus: switchRes.status, switchBody: JSON.stringify(switchRes.body).slice(0, 100), switchErr: switchRes.errBody }, 'coupangeats: store switch attempt')
-      // 대안 스토어 엔드포인트 시도
+      log.info({ storesStatus: storesRes.status }, `coupangeats: stores=${storesRes.status} body=${JSON.stringify(storesRes.body).slice(0,150)} err=${storesRes.errBody?.slice(0,80)}`)
+      // 다양한 스토어 스위치 endpoint 시도
+      const switchGet = await apiGet(`/api/v1/merchant/stores/${storeId}/switch`)
+      const switchPost = await (async () => {
+        // POST switch (body에 storeId)
+        try {
+          const u = `https://store.coupangeats.com/api/v1/merchant/stores/${storeId}/switch`
+          const r = await (globalThis as any).fetch(u, {
+            method: 'POST',
+            headers: { 'Cookie': cookieStr, 'Content-Type': 'application/json', 'Accept': 'application/json', 'Origin': 'https://store.coupangeats.com', 'Referer': 'https://store.coupangeats.com/merchant/management/reviews' },
+            body: JSON.stringify({ storeId: parseInt(storeId, 10) }),
+          })
+          const body = await r.json().catch(() => null)
+          return { status: r.status, body }
+        } catch (e: any) { return { status: 0, body: null } }
+      })()
+      log.info(`coupangeats: switchGET=${switchGet.status} switchPOST=${switchPost.status} switchPOSTbody=${JSON.stringify(switchPost.body).slice(0,100)}`)
+      // 리뷰 없이도 merchantId 경로 시도
+      const noStore = await apiGet(`/api/v1/merchant/reviews/search?page=1&statusType=EXPOSE&size=10`)
       const alt1 = await nodeDirectApiGet(`/api/v1/merchant/reviews/search?storeId=${storeId}&page=1&size=10`)
-      log.info({ alt1Status: alt1.status, alt1Err: alt1.errBody?.slice(0,50) }, 'coupangeats: alt1 review (no statusType)')
-      rawBodySample += ` | stores:${storesRes.status} switch:${switchRes.status} alt1:${alt1.status}`
+      log.info(`coupangeats: alt1=${alt1.status} noStore=${noStore.status} noStoreSample=${JSON.stringify(noStore.body).slice(0,80)}`)
+      rawBodySample += ` | stores:${storesRes.status} switchGET:${switchGet.status} switchPOST:${switchPost.status} alt1:${alt1.status} noStore:${noStore.status}`
     } catch (e: any) {
       log.warn({ err: e?.message }, 'coupangeats: stores/switch diagnostic failed')
     }
