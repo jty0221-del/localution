@@ -10,7 +10,7 @@ import type { Logger } from 'pino'
 import { getServiceClient } from '../lib/supabase'
 import { loadPlainCredentials, loadCookieData, markLoginStatus } from '../lib/credentials'
 import { dumpPageDiagnostics, startNetworkCapture, detectLoginFailure } from '../lib/diagnostics'
-import { handleNaverCaptcha } from '../lib/captcha'
+import { handleNaverCaptcha, solveCaptcha } from '../lib/captcha'
 import type { JobResult, Action } from '../jobs'
 
 const LOGIN_URL = 'https://nid.naver.com/nidlogin.login'
@@ -137,12 +137,10 @@ export async function runNaver(
       'sec-ch-ua-platform': '"Windows"',
     },
   }
+  // proxy는 chromium.launch() 레벨에서 설정됨 (index.ts)
+  // context 레벨에서 재설정하면 ERR_PROXY_AUTH_UNSUPPORTED 발생 → 여기서는 로그만
   if (useProxy) {
-    const proxyUrl = (proxyUser && proxyPass)
-      ? `${proxyProto}://${proxyUser}:${proxyPass}@${proxyHost}:${proxyPort}`
-      : `${proxyProto}://${proxyHost}:${proxyPort}`
-    contextOptions.proxy = { server: proxyUrl }
-    log.info({ proxy: `${proxyProto}://${proxyHost}:${proxyPort}` }, 'naver: using residential proxy')
+    log.info({ proxy: `${proxyProto}://${proxyHost}:${proxyPort}`, hasAuth: !!(proxyUser && proxyPass) }, 'naver: using residential proxy (set at browser launch level)')
   } else {
     log.warn('naver: no proxy configured (PROXY_HOST/PORT missing) — Railway IP may be blocked')
   }
@@ -152,16 +150,36 @@ export async function runNaver(
   startNetworkCapture(page, log, ['review', 'reply', 'smartplace'])
 
   try {
-    // ── 1) ID/PW 폼 로그인 (IPRoyal 프록시 + 2captcha 사용)
-    //    쿠키 방식 제거 → 매번 신선한 로그인으로 세션 문제 해결
+    let loggedIn = false
+
+    // ── 0) 프록시 alive 체크 (결제 만료 조기 감지) ─────────────────────
+    if (useProxy) {
+      try {
+        // 가벼운 HTTP 요청으로 프록시 402/407 체크
+        const proxyTestUrl = 'http://www.gstatic.com/generate_204'
+        const resp = await page.request.get(proxyTestUrl, { timeout: 10000 }).catch((e2: any) => ({ status: () => 0, _err: e2?.message }))
+        const status = typeof resp.status === 'function' ? resp.status() : 0
+        log.info({ proxyStatus: status }, 'naver: proxy alive check')
+        if (status === 402 || status === 407) {
+          const msg = `naver: 프록시 이용권 만료(HTTP ${status}) — IPRoyal 결제 후 Railway PROXY_PASS 확인 필요`
+          log.error('naver proxy expired: HTTP ' + status)
+          if (platformReviewId) await updateReviewStatus(svc, userId, platformReviewId, 'failed', { error: msg })
+          return { status: 'failed', message: msg }
+        }
+      } catch (_) {
+        // alive 체크 실패는 무시하고 계속 진행
+      }
+    }
+
+    // ── 1) 항상 ID/PW 폼 로그인 (IPRoyal 프록시 경유 한국 IP)
+    //    노트: 저장된 NID 쿠키는 다른 IP에서 사용 시 Naver가 강제 만료시킴
+    //    → 쿠키 방식 제거, 매번 신선한 폼 로그인으로 진행
     log.info({
       hasProxy: useProxy,
       proxyHost: proxyHost || '(없음 — Railway IP 직접)',
       hasTwocaptcha: !!process.env.TWOCAPTCHA_API_KEY,
-    }, 'naver: starting fresh form login')
-    let loggedIn = false
+    }, 'naver: starting 2-step form login (ID → 다음 → PW → 로그인)')
 
-    // ── 2) 폼 로그인 ─────────────────────────────────────────
     if (!loggedIn) {
       log.info('naver: form login (proxy + 2captcha)')
 
@@ -181,27 +199,137 @@ export async function runNaver(
         if (platformReviewId) await updateReviewStatus(svc, userId, platformReviewId, 'failed', { error: msg })
         return { status: 'failed', message: msg }
       }
+      // ── 네이버 2단계 로그인: ID 입력 후 "다음" 클릭 → PW 입력 후 "로그인" 클릭
+      //    (2026년 네이버 로그인 UX: #log.login 버튼이 "다음" → "로그인" 으로 바뀜)
+      //    중요: ID 입력 시 fill()보다 clear+type()이 Naver JS 이벤트 처리에 안전
       await idEl.click({ clickCount: 3 })
-      await idEl.type(creds.account_id, { delay: 60 })
-      await page.waitForTimeout(300)
+      await idEl.type(creds.account_id, { delay: 80 })
+      await page.waitForTimeout(500)
 
-      const pwEl = await page.$(DOM_SELECTORS.pwInput)
+      const step1BtnText = await page.$eval(
+        '#log\\.login .btn_text, #log\\.login span, #log\\.login',
+        (el: any) => el.textContent?.trim()
+      ).catch(() => '')
+      log.info({ step1BtnText, idValueLen: await idEl.evaluate((el: any) => el.value?.length ?? 0).catch(() => 0) }, 'naver: step1 before click')
+
+      // 1단계: ID 확인 ("다음" 클릭)
+      // scroll into view → click (container가 위에 있으면 클릭 miss 발생)
+      await page.evaluate(() => {
+        const btn = document.querySelector('#log\\.login') as HTMLElement | null
+        btn?.scrollIntoView({ block: 'center' })
+      }).catch(() => null)
+      await page.waitForTimeout(300)
+      await page.click(DOM_SELECTORS.loginBtn)
+
+      // 다음 클릭 후: PW 필드가 visible 상태가 될 때까지 대기 (최대 8초)
+      // Naver 로그인은 SPA — URL은 그대로이나 PW 필드가 hidden→visible 로 바뀜
+      const pwVisible = await page.waitForSelector(
+        'input[type="password"]:not([disabled]):not([hidden])',
+        { state: 'visible', timeout: 8000 }
+      ).then(() => true).catch(() => false)
+
+      const urlAfterStep1 = page.url()
+      const step2BtnText = await page.$eval(
+        '#log\\.login .btn_text, #log\\.login span, #log\\.login',
+        (el: any) => el.textContent?.trim()
+      ).catch(() => '')
+      log.info({ urlAfterStep1, pwVisible, step2BtnText }, 'naver: after step1 click')
+
+      if (!pwVisible) {
+        // PW 필드가 안 보이면 페이지 상태 덤프 후 상위 URL 체크로 이동
+        await dumpPageDiagnostics(page, log, 'naver-no-pw-after-step1')
+        // URL check: already off nidlogin.login� (보안인증 등) → 상위 URL 체크로 처리
+        if (!urlAfterStep1.includes('nidlogin.login')) {
+          log.warn({ urlAfterStep1 }, 'naver: navigated away after step1 — skipping PW step')
+          // below url-check logic will handle it
+        } else {
+          // 여전히 nidlogin.login 인데 PW 없음 → bot 차단 or 네이버 CAPTCHA 삽입
+          const pageText = await page.$eval('body', (el: any) => (el as HTMLElement).innerText?.slice(0, 500)).catch(() => '')
+          log.warn({ pageText }, 'naver: still on nidlogin.login but no PW field — possible bot block')
+        }
+      }
+
+      // 2단계: 비밀번호 입력 (visible & enabled 필드만 타겟)
+      const pwEl = await page.waitForSelector(
+        'input[type="password"]:not([disabled])',
+        { state: 'visible', timeout: 4000 }
+      ).catch(async () => {
+        // fallback: any pw input
+        return page.$('input#pw, input[name="pw"], input[type="password"]')
+      })
+
       if (!pwEl) {
-        const msg = 'naver: 로그인 폼 pw 입력란 없음'
+        await dumpPageDiagnostics(page, log, 'naver-no-pw-input')
+        const msg = 'naver: 비밀번호 입력란 없음 — ID 단계 이후 화면 전환 실패 또는 봇 차단'
         if (platformReviewId) await updateReviewStatus(svc, userId, platformReviewId, 'failed', { error: msg })
         return { status: 'failed', message: msg }
       }
       await pwEl.click({ clickCount: 3 })
-      await pwEl.type(creds.password, { delay: 60 })
-      await page.waitForTimeout(300)
+      await pwEl.type(creds.password, { delay: 80 })
+      await page.waitForTimeout(500)
 
-      // 로그인 버튼 클릭 후 URL 변경 대기 (networkidle 대신 URL 변경 감지로 빠르게)
+      // PW가 실제로 입력됐는지 확인
+      const pwLen = await pwEl.evaluate((el: any) => (el as HTMLInputElement).value?.length ?? 0).catch(() => 0)
+      log.info({ pwLen, step2BtnText }, 'naver: PW typed, about to click login')
+
+      if (pwLen === 0) {
+        log.warn('naver: PW field appears empty after type() — retrying with fill()')
+        await pwEl.focus()
+        await page.keyboard.type(creds.password, { delay: 80 })
+        await page.waitForTimeout(300)
+      }
+
+      // ── 인라인 CAPTCHA 체크 (해외 IP 로그인 시 PW 필드와 함께 삽입됨) ──────
+      // Railway Tokyo IP → Naver가 로그인 폼 안에 이미지 CAPTCHA("자동입력 방지 문자") 삽입
+      // URL은 그대로 nidlogin.login 이므로 URL-based 감지 불가 → DOM 직접 탐지
+      {
+        const captchaImgEl = await page.$(
+          '#captchaimg, img[src*="captcha"], .captcha_area img, img.captcha_img'
+        ).catch(() => null)
+
+        if (captchaImgEl) {
+          log.info('naver: inline CAPTCHA detected on login page — solving with 2captcha')
+          const captchaAnswer = await solveCaptcha({
+            page,
+            log,
+            type: 'image',
+            captchaSelector: '#captchaimg, img[src*="captcha"], .captcha_area img, img.captcha_img',
+          })
+          if (captchaAnswer) {
+            // CAPTCHA 답 입력 (placeholder "자동입력 방지 문자" 포함하는 input)
+            const captchaInput = await page.$(
+              '#captcha, input[name="captcha"], input[placeholder*="자동"], input[class*="captcha"]'
+            ).catch(() => null)
+            if (captchaInput) {
+              await captchaInput.click({ clickCount: 3 })
+              await captchaInput.type(captchaAnswer, { delay: 80 })
+              await page.waitForTimeout(300)
+              log.info('naver: inline CAPTCHA answer filled (len=' + captchaAnswer.length + ') — proceeding to login submit')
+            } else {
+              log.warn('naver: CAPTCHA input field not found after solving — login may fail')
+            }
+          } else {
+            log.warn('naver: 2captcha could not solve inline CAPTCHA — login will likely fail. Check TWOCAPTCHA_API_KEY balance.')
+          }
+        } else {
+          log.info('naver: no inline CAPTCHA on login page — submitting directly')
+        }
+      }
+
+      // 로그인 버튼 클릭
+      await page.evaluate(() => {
+        const btn = document.querySelector('#log\\.login') as HTMLElement | null
+        btn?.scrollIntoView({ block: 'center' })
+      }).catch(() => null)
       await page.click(DOM_SELECTORS.loginBtn)
+      // URL이 nidlogin.login 에서 벗어날 때까지 대기
       await page.waitForURL(url => !String(url).includes('nidlogin.login'), { timeout: 20000 }).catch(() => null)
       await page.waitForTimeout(1500)
 
       const urlAfterLogin = page.url()
-      log.info({ url: urlAfterLogin }, 'naver: after form login')
+      // URL을 Railway 로그에서 바로 볼 수 있도록 message 에 포함
+      const loginResultShort = urlAfterLogin.replace('https://nid.naver.com/', 'nid/').replace('https://new.smartplace.naver.com', 'smartplace').slice(0, 80)
+      log.info('naver: after form login — url=' + loginResultShort)
 
       if (urlAfterLogin.includes('captcha') || urlAfterLogin.includes('challenge')) {
         log.info({ urlAfterLogin }, 'naver: captcha detected — attempting auto-solve with 2captcha')
@@ -249,6 +377,9 @@ export async function runNaver(
       if (urlAfterLogin.includes('nid.naver.com') || urlAfterLogin.includes('login') || urlAfterLogin.includes('signin')) {
         // detectLoginFailure: 실제 에러 텍스트만 감지 (폼 라벨 '비밀번호','아이디'는 제외)
         const { reason } = await detectLoginFailure(page, ['일치하지', '잘못된', '실패', '오류', 'incorrect', 'invalid', '차단', '해외'])
+        // 페이지 본문 첫 400자를 Railway 로그에서 볼 수 있도록 message 에 포함
+        const bodySnippet = await page.evaluate(() => (document.body?.innerText || '').replace(/\s+/g, ' ').slice(0, 400)).catch(() => '')
+        log.warn('naver: login failed page text: ' + bodySnippet.slice(0, 300))
         await dumpPageDiagnostics(page, log, 'naver-login-failed')
         await markLoginStatus(svc, userId, 'naver_place', 'failed', reason || urlAfterLogin)
         const msg = reason
@@ -275,11 +406,19 @@ export async function runNaver(
     return { status: 'failed', message: `naver reply 실패: ${result.reason}` }
 
   } catch (e: any) {
-    log.error({ err: e?.message }, 'naver unhandled error')
+    const errMsg = String(e?.message || e || 'unknown')
+    // 프록시 결제 만료 / 연결 불가 → 명확한 안내
+    const isProxyErr = errMsg.includes('402') || errMsg.includes('407') || errMsg.includes('Payment') ||
+                       errMsg.includes('ERR_TUNNEL') || errMsg.includes('ERR_PROXY') || errMsg.includes('ERR_EMPTY_RESPONSE')
+    const friendlyMsg = isProxyErr
+      ? 'naver: 프록시 이용권 만료 또는 연결 실패 — IPRoyal 결제 후 Railway PROXY_PASS 확인 필요'
+      : `naver: ${errMsg.slice(0, 150)}`
+    // 에러 메시지를 Railway 로그에서 바로 볼 수 있도록 log message 에 포함
+    log.error('naver unhandled error: ' + errMsg.slice(0, 200))
     if (platformReviewId) {
-      await updateReviewStatus(svc, userId, platformReviewId, 'failed', { error: `unhandled: ${e?.message}` }).catch(() => null)
+      await updateReviewStatus(svc, userId, platformReviewId, 'failed', { error: friendlyMsg }).catch(() => null)
     }
-    return { status: 'failed', message: `naver: ${e?.message || e}` }
+    return { status: 'failed', message: friendlyMsg }
   } finally {
     await context.close().catch(() => null)
   }
