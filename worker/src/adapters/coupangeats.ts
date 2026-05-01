@@ -5,11 +5,87 @@
 // ============================================================
 import type { Browser } from 'playwright'
 import type { Logger } from 'pino'
+import * as nodeHttp from 'node:http'
+import * as nodeTls from 'node:tls'
 import { getServiceClient } from '../lib/supabase'
 import { loadPlainCredentials, markLoginStatus } from '../lib/credentials'
 import { upsertReviews, CollectedReview } from '../lib/reviews'
 import { dumpPageDiagnostics, startNetworkCapture, detectLoginFailure } from '../lib/diagnostics'
 import type { JobResult, Action } from '../jobs'
+
+// ── Node.js 네이티브 CONNECT 터널 fetch (프록시 407 우회) ──
+// page.evaluate fetch() 는 Chromium이 Proxy-Authorization 누락 → 407
+// 이 함수는 http.request CONNECT → tls.connect → HTTP/1.1 직접 작성으로 우회
+async function tunnelFetch(
+  targetUrl: string,
+  cookieStr: string,
+  ph: string, pp: number, pu: string, pw: string,
+  extraHeaders: Record<string, string> = {},
+): Promise<{ status: number; ok: boolean; body: any; errBody: string }> {
+  const parsed = new URL(targetUrl)
+  const proxyAuth = Buffer.from(`${pu}:${pw}`).toString('base64')
+
+  // 1) HTTP CONNECT 터널 생성
+  const rawSocket = await new Promise<any>((resolve, reject) => {
+    const req = nodeHttp.request({
+      hostname: ph, port: pp,
+      method: 'CONNECT',
+      path: `${parsed.hostname}:443`,
+      headers: {
+        'Host': `${parsed.hostname}:443`,
+        'Proxy-Authorization': `Basic ${proxyAuth}`,
+        'Proxy-Connection': 'keep-alive',
+      },
+      timeout: 15000,
+    })
+    req.on('connect', (res: any, sock: any) => {
+      if (res.statusCode === 200) resolve(sock)
+      else reject(new Error(`CONNECT failed: ${res.statusCode}`))
+    })
+    req.on('error', reject)
+    req.on('timeout', () => { req.destroy(); reject(new Error('CONNECT timeout')) })
+    req.end()
+  })
+
+  // 2) TLS 핸드셰이크
+  const tlsSock = nodeTls.connect({ socket: rawSocket, servername: parsed.hostname, rejectUnauthorized: false })
+  await new Promise<void>((resolve, reject) => {
+    tlsSock.on('secureConnect', resolve)
+    tlsSock.on('error', reject)
+    setTimeout(() => reject(new Error('TLS timeout')), 10000)
+  })
+
+  // 3) HTTP/1.1 요청 전송
+  const path = parsed.pathname + parsed.search
+  const hLines = [
+    `Host: ${parsed.hostname}`,
+    `Cookie: ${cookieStr}`,
+    `Accept: application/json, */*`,
+    `Connection: close`,
+    ...Object.entries(extraHeaders).map(([k, v]) => `${k}: ${v}`),
+  ]
+  tlsSock.write(`GET ${path} HTTP/1.1\r\n${hLines.join('\r\n')}\r\n\r\n`)
+
+  // 4) 응답 수신
+  let raw = ''
+  await new Promise<void>((resolve) => {
+    tlsSock.on('data', (c: Buffer) => { raw += c.toString('utf8') })
+    tlsSock.on('end', resolve)
+    tlsSock.on('close', resolve)
+    tlsSock.on('error', () => resolve())
+    setTimeout(() => { tlsSock.destroy(); resolve() }, 20000)
+  })
+  tlsSock.destroy()
+
+  // 5) HTTP 응답 파싱
+  const sep = raw.indexOf('\r\n\r\n')
+  const headerStr = sep >= 0 ? raw.slice(0, sep) : raw
+  const bodyStr = sep >= 0 ? raw.slice(sep + 4) : ''
+  const statusCode = parseInt((headerStr.split('\r\n')[0] || '').split(' ')[1] || '0') || 0
+  let body: any = null
+  try { body = JSON.parse(bodyStr) } catch { body = null }
+  return { status: statusCode, ok: statusCode >= 200 && statusCode < 400, body, errBody: body ? '' : bodyStr.slice(0, 120) }
+}
 
 const LOGIN_URL = 'https://store.coupangeats.com/merchant/login'
 const REVIEWS_BASE_URL = 'https://store.coupangeats.com/merchant/management/reviews'
@@ -375,6 +451,13 @@ async function fetchCoupangReviews(
     ? `${REVIEWS_BASE_URL}/${creds.platform_store_id}`
     : REVIEWS_BASE_URL
 
+  // proxy 환경변수 (tunnelFetch fallback 용)
+  const proxyHost = process.env.PROXY_HOST?.trim()
+  const proxyPort = process.env.PROXY_PORT?.trim()
+  const proxyUser = process.env.PROXY_USER?.trim()
+  const proxyPass = process.env.PROXY_PASS?.trim()
+  const useProxy = !!(proxyHost && proxyPort)
+
   // ── 네트워크 인터셉트: earlyCapture 배열을 그대로 사용 (같은 참조 → 리스너가 계속 push) ──
   const capturedReviews = earlyCapture       // 같은 배열 참조 (리스너 push 반영됨)
   const capturedUrls = earlyCaptureUrls      // 같은 배열 참조
@@ -456,14 +539,30 @@ async function fetchCoupangReviews(
       || 0
   }
 
+  // context.request 가 407 반환 시 → tunnelFetch(Node.js CONNECT 터널)로 fallback
+  const browserCookies = await context.cookies().catch(() => [] as any[])
+  const cookieStr = browserCookies
+    .filter((c: any) => (c.domain || '').includes('coupangeats') || (c.domain || '').includes('coupang'))
+    .map((c: any) => `${c.name}=${c.value}`)
+    .join('; ')
+
   async function tryRequestGet(path: string): Promise<{ ok: boolean; body: any; status: number; errBody: string }> {
+    const url = path.startsWith('http') ? path : `${BASE_ORIGIN}${path}`
+    // 1차 시도: context.request (Playwright APIRequestContext, 프록시+쿠키 공유)
     try {
-      const url = path.startsWith('http') ? path : `${BASE_ORIGIN}${path}`
       const res = await context.request.get(url, {
         headers: { 'Accept': 'application/json, text/plain, */*' },
         timeout: 20000,
       })
       const status = res.status()
+      if (status === 407) {
+        log.warn({ url: url.slice(0, 80), status }, 'coupangeats: context.request 407 → tunnelFetch fallback')
+        // 2차 시도: Node.js CONNECT 터널 (407 완전 우회)
+        if (useProxy && proxyHost && proxyPort) {
+          return tunnelFetch(url, cookieStr, proxyHost, parseInt(proxyPort), proxyUser || '', proxyPass || '')
+        }
+        return { ok: false, body: null, status: 407, errBody: '407 and no proxy configured' }
+      }
       if (!res.ok()) {
         let errBody = ''
         try { errBody = JSON.stringify(await res.json()) } catch (_) { try { errBody = await res.text() } catch (_) { errBody = '(no body)' } }
@@ -472,6 +571,11 @@ async function fetchCoupangReviews(
       const body = await res.json().catch(() => null)
       return { ok: true, body, status, errBody: '' }
     } catch (e: any) {
+      // context.request 예외 시에도 tunnelFetch 시도
+      log.warn({ err: e?.message, url: url.slice(0, 80) }, 'coupangeats: context.request exception → tunnelFetch fallback')
+      if (useProxy && proxyHost && proxyPort) {
+        return tunnelFetch(url, cookieStr, proxyHost, parseInt(proxyPort), proxyUser || '', proxyPass || '')
+      }
       return { ok: false, body: null, status: 0, errBody: e?.message || 'request error' }
     }
   }
