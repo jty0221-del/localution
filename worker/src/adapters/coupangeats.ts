@@ -645,6 +645,60 @@ async function fetchCoupangReviews(
           return { status: r.status, ok: r.ok }
         }, { url: `https://store.coupangeats.com/api/v1/merchant/reviews/search?storeId=${targetStoreId2}&page=1&statusType=EXPOSE&startDateTime=${testFmt(test30s)}&exclusiveEndDateTime=${testFmt(testEnd)}&size=5` })
         log.info(`coupangeats: dateWindowTest 1d=${r1.status} 7d=${r7.status} 30d=${r30.status}`)
+
+        // ── 50차: 세션이 살아있는 지금 바로 슬라이딩 윈도우 실행 ──
+        // dateWindowTest 직후 → Akamai 세션 신선 → minimalBrowserFetch 200 기대
+        // (이전 문제: 45초 후 nodeDirectApiGet 완료 → 세션 만료 → 403)
+        log.info('coupangeats: 50cha — running sliding window IMMEDIATELY after dateWindowTest (session fresh)')
+        try {
+          const storeId0 = creds.platform_store_id || '738438'
+          const fmtD = (d: Date) => d.toISOString().split('T')[0]
+          const statusTypes0 = ['EXPOSE', 'UNEXPOSE']
+          const DAYS_BACK = 30
+
+          for (const statusType0 of statusTypes0) {
+            for (let daysBack = 0; daysBack <= DAYS_BACK; daysBack++) {
+              const dayEnd = new Date(); dayEnd.setDate(dayEnd.getDate() - daysBack + 1)
+              const dayStart = new Date(); dayStart.setDate(dayStart.getDate() - daysBack)
+              const url0 = `https://store.coupangeats.com/api/v1/merchant/reviews/search?storeId=${storeId0}&page=1&statusType=${statusType0}&startDateTime=${fmtD(dayStart)}&exclusiveEndDateTime=${fmtD(dayEnd)}&size=100`
+
+              const res0 = await page.evaluate(async (args: { url: string }) => {
+                try {
+                  const r = await fetch(args.url, { credentials: 'include', headers: { 'Accept': 'application/json' } })
+                  const text = await r.text()
+                  let body: any = null
+                  try { body = JSON.parse(text) } catch { body = null }
+                  return { ok: r.ok, status: r.status, body, errBody: r.ok ? '' : text.slice(0, 200) }
+                } catch (e: any) {
+                  return { ok: false, status: 0, body: null, errBody: String(e?.message || e) }
+                }
+              }, { url: url0 })
+
+              if (!res0.ok) {
+                log.warn({ statusType: statusType0, daysBack, status: res0.status, err: res0.errBody?.slice(0, 100) }, 'coupangeats: 50cha window fetch failed')
+                if (daysBack === 0) break  // 오늘도 403이면 세션 완전 만료 — 종료
+                break  // 이 statusType 포기
+              }
+
+              const items: any[] = []
+              const rawBody = res0.body
+              if (Array.isArray(rawBody)) items.push(...rawBody)
+              else if (Array.isArray(rawBody?.content)) items.push(...rawBody.content)
+              else if (Array.isArray(rawBody?.data?.content)) items.push(...rawBody.data.content)
+              else if (Array.isArray(rawBody?.data?.reviews)) items.push(...rawBody.data.reviews)
+              else if (Array.isArray(rawBody?.reviews)) items.push(...rawBody.reviews)
+
+              log.info({ statusType: statusType0, daysBack, status: res0.status, count: items.length }, 'coupangeats: 50cha window ok')
+
+              for (const item of items) {
+                capturedReviews.push(item)
+              }
+            }
+          }
+          log.info({ total: capturedReviews.length }, 'coupangeats: 50cha sliding window done')
+        } catch (slideErr: any) {
+          log.warn({ err: slideErr?.message }, 'coupangeats: 50cha sliding window error')
+        }
       } catch (wte: any) {
         log.warn({ err: wte?.message }, 'coupangeats: dateWindowTest failed')
       }
