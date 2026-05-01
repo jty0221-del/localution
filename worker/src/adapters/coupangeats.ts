@@ -42,6 +42,12 @@ async function tunnelFetch(
       if (res.statusCode === 200) resolve(sock)
       else reject(new Error(`CONNECT failed: ${res.statusCode}`))
     })
+    // 407 등 비-200 응답은 'response' 이벤트로 들어옴 (connect 이벤트 아님)
+    req.on('response', (res: any) => {
+      let body = ''
+      res.on('data', (chunk: any) => { body += chunk.toString() })
+      res.on('end', () => reject(new Error(`CONNECT HTTP ${res.statusCode}: ${body.slice(0, 80)}`)))
+    })
     req.on('error', reject)
     req.on('timeout', () => { req.destroy(); reject(new Error('CONNECT timeout')) })
     req.end()
