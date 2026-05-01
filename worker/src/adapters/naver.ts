@@ -197,7 +197,7 @@ export async function runNaver(
 
       // 로그인 버튼 클릭 후 URL 변경 대기 (networkidle 대신 URL 변경 감지로 빠르게)
       await page.click(DOM_SELECTORS.loginBtn)
-      await page.waitForURL(url => !url.includes('nidlogin.login'), { timeout: 20000 }).catch(() => null)
+      await page.waitForURL(url => !String(url).includes('nidlogin.login'), { timeout: 20000 }).catch(() => null)
       await page.waitForTimeout(1500)
 
       const urlAfterLogin = page.url()
