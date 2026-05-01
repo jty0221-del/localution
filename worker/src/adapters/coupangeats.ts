@@ -700,8 +700,13 @@ async function fetchCoupangReviews(
   }
 
   // ── apiGet: node-direct 우선, 실패 시 browserApiGet fallback ──
+  // skipBrowser=true 이면 browserApiGet 절대 호출 금지 (page.evaluate → 브라우저 크래시 원인)
   let useNodeDirect = false
   async function apiGet(path: string): Promise<{ ok: boolean; body: any; status: number; errBody: string }> {
+    if (skipBrowser) {
+      // directCookies 경로: node-direct 전용 (browser 렌더러 크래시 방지)
+      return nodeDirectApiGet(path)
+    }
     if (useNodeDirect) {
       const res = await nodeDirectApiGet(path)
       if (res.ok || res.status === 401 || res.status === 403) return res
@@ -725,7 +730,8 @@ async function fetchCoupangReviews(
       rawBodySample = JSON.stringify(ndRes.body).slice(0, 200)
       merchantId = ndRes.body?.data?.merchantId || ndRes.body?.merchantId || null
       log.info({ whoamiOk: true, merchantId, via: 'node-direct' }, 'coupangeats: whoami ok (node-direct)')
-    } else {
+    } else if (!skipBrowser) {
+      // skipBrowser=true 이면 browserApiGet 호출 금지 (렌더러 크래시)
       log.warn({ status: ndRes.status, err: ndRes.errBody }, 'coupangeats: node-direct whoami failed, trying browser')
       const wRes = await browserApiGet('/api/v1/merchant/whoami')
       if (wRes.ok && wRes.body) {
@@ -736,6 +742,10 @@ async function fetchCoupangReviews(
         rawBodySample = `whoami node:[${ndRes.errBody?.slice(0,120)}] browser:HTTP ${wRes.status}:${wRes.errBody?.slice(0,80)}`
         log.warn({ status: wRes.status, err: wRes.errBody, nodeErr: ndRes.errBody }, 'coupangeats: whoami failed (both methods)')
       }
+    } else {
+      // skipBrowser=true: node-direct 결과만 보고함
+      rawBodySample = `whoami node:[${ndRes.errBody?.slice(0,200)}]`
+      log.warn({ status: ndRes.status, err: ndRes.errBody }, 'coupangeats: node-direct whoami failed (skipBrowser=true, no browser fallback)')
     }
   } catch (e: any) {
     rawBodySample = `whoami exception: ${e?.message}`
