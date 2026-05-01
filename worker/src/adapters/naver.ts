@@ -137,14 +137,10 @@ export async function runNaver(
       'sec-ch-ua-platform': '"Windows"',
     },
   }
+  // proxy는 chromium.launch() 레벨에서 설정됨 (index.ts)
+  // context 레벨에서 재설정하면 ERR_PROXY_AUTH_UNSUPPORTED 발생 → 여기서는 로그만
   if (useProxy) {
-    // Playwright proxy auth: 인라인 URL 방식(user:pass@host) 대신 별도 필드 사용
-    // ERR_PROXY_AUTH_UNSUPPORTED 방지
-    const proxyConfig: any = { server: `${proxyProto}://${proxyHost}:${proxyPort}` }
-    if (proxyUser) proxyConfig.username = proxyUser
-    if (proxyPass) proxyConfig.password = proxyPass
-    contextOptions.proxy = proxyConfig
-    log.info({ proxy: `${proxyProto}://${proxyHost}:${proxyPort}`, hasAuth: !!(proxyUser && proxyPass) }, 'naver: using residential proxy')
+    log.info({ proxy: `${proxyProto}://${proxyHost}:${proxyPort}`, hasAuth: !!(proxyUser && proxyPass) }, 'naver: using residential proxy (set at browser launch level)')
   } else {
     log.warn('naver: no proxy configured (PROXY_HOST/PORT missing) — Railway IP may be blocked')
   }
