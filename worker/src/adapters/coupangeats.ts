@@ -635,14 +635,19 @@ async function fetchCoupangReviews(
           extraH,
         )
         log.info({ url: path.slice(0, 80), status: result.status, errBody: result.errBody?.slice(0, 150), via: 'tunnelFetch' }, 'coupangeats: nodeDirectApiGet via proxy tunnel')
-        return result
+        // Akamai Bot Manager 차단(403 Access Denied HTML) 감지 → 직접 연결으로 폴백
+        // 이유: Akamai는 IP보다 TLS 핑거프린트(JA3)로 차단 → 프록시 경유 시 Node.js JA3가 Chrome JA3와 다름
+        const isAkamaiBlock = !result.ok && result.status === 403 && result.errBody?.includes('Access Denied')
+        if (!isAkamaiBlock) return result
+        tunnelErr = `proxy:403-AkamaiBlock`
+        log.warn({ url: path.slice(0, 80) }, 'coupangeats: Akamai blocked proxy request → falling back to direct fetch')
       } catch (e: any) {
         tunnelErr = String(e?.message || e).slice(0, 150)
         log.warn({ url: path.slice(0, 80), tunnelErr }, 'coupangeats: tunnelFetch failed, falling back to globalThis.fetch')
       }
     }
 
-    // ── 2순위: globalThis.fetch (프록시 없을 때 직접 연결) ──
+    // ── 2순위: globalThis.fetch (직접 연결 — Akamai 차단 우회용 포함) ──
     try {
       const directH: Record<string, string> = {
         'Cookie': cookieStr,
