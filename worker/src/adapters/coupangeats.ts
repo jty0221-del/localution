@@ -529,6 +529,15 @@ async function fetchCoupangReviews(
       log.info(`coupangeats: rootUrl=${rootUrl} after merchant root nav`)
       log.info(`coupangeats: allRequestUrls after root nav (last 20): ${allRequestUrls.slice(-20).join(' | ')}`)
 
+
+      // DOM 덤프: 실제 클래스 구조 파악용
+      try {
+        const bodyHtml = await page.evaluate(() => document.body.innerHTML.slice(0, 4000))
+        log.info(`coupangeats: bodyHtml[0-4000]=${bodyHtml}`)
+      } catch (htmlErr: any) {
+        log.warn(`coupangeats: bodyHtml dump failed: ${htmlErr.message}`)
+      }
+
       // 스토어 선택 버튼/링크 감지 (스토어명 또는 storeId 포함)
       const targetStoreId = creds.platform_store_id || '738438'
       const storeNameHints = ['일산닭칼국수', '부천', targetStoreId]
