@@ -536,8 +536,8 @@ export async function runNaver(
           await dumpPageDiagnostics(page, log, 'naver-login-failed')
           await markLoginStatus(svc, userId, 'naver_place', 'failed', reason || urlAfterLogin)
           const msg = reason
-            ? `naver login failed — ${reason} | url=${urlAfterLogin.slice(0, 80)}`
-            : `naver login failed — url=${urlAfterLogin.slice(0, 100)} | body=${bodySnippet.replace(/\s+/g, ' ').slice(0, 150)}`
+            ? `[v2] naver login failed — ${reason} | url=${urlAfterLogin.slice(0, 80)}`
+            : `[v2] naver login failed — url=${urlAfterLogin.slice(0, 100)} | body=${bodySnippet.replace(/\s+/g, ' ').slice(0, 150)}`
           if (platformReviewId) await updateReviewStatus(svc, userId, platformReviewId, 'failed', { error: msg })
           return { status: 'failed', message: msg }
         }

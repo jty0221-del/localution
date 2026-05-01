@@ -10,7 +10,7 @@ RUN npm install --omit=optional --no-audit --no-fund \
     && npm cache clean --force
 
 COPY tsconfig.json ./
-RUN echo "build-marker: test-ip-endpoint-socks5-v1"
+RUN echo "build-marker: diag-v2-http-proxy-kip-login"
 COPY src ./src
 
 RUN npx tsc
