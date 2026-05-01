@@ -340,22 +340,26 @@ export async function POST(req: NextRequest) {
   let inserted = 0
   let updated = 0
   try {
-    // 유니크 인덱스(platform, platform_review_id) 기반 upsert — 기존 행은 update
-    const { data, error } = await svc
-      .from('platform_reviews')
-      .upsert(rows, {
-        onConflict: 'platform,platform_review_id',
-        ignoreDuplicates: false,
-      })
-      .select('platform_review_id')
-    if (error) {
-      return NextResponse.json(
-        { ok: false, error: 'DB 저장 실패: ' + error.message },
-        { status: 500 },
-      )
+    // 37차-11: PostgREST default limit이 .select() return을 50건으로 잘라서
+    // upserted 50으로 보이던 버그 수정 → .select() 제거하면 upsert는 전체 처리됨
+    // 단, 500건 한 번에 너무 큰 페이로드는 청크로 분할 (안전)
+    const CHUNK_SIZE = 200
+    for (let i = 0; i < rows.length; i += CHUNK_SIZE) {
+      const chunk = rows.slice(i, i + CHUNK_SIZE)
+      const { error } = await svc
+        .from('platform_reviews')
+        .upsert(chunk, {
+          onConflict: 'platform,platform_review_id',
+          ignoreDuplicates: false,
+        })
+      if (error) {
+        return NextResponse.json(
+          { ok: false, error: 'DB 저장 실패 (chunk ' + i + '): ' + error.message },
+          { status: 500 },
+        )
+      }
     }
-    // upsert 는 insert/update 구분을 바로 주지 않음 → 휴리스틱: collected_at 이 now 와 근접한 행 수
-    inserted = Array.isArray(data) ? data.length : 0
+    inserted = rows.length // upsert 성공 시 전체 카운트
   } catch (e: any) {
     return NextResponse.json(
       { ok: false, error: 'upsert 예외: ' + (e?.message ?? String(e)) },
