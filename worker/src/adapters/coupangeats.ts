@@ -548,73 +548,27 @@ async function fetchCoupangReviews(
   // 로그인 URL이 아닌 리뷰 URL로 바로 가면 프록시 auth 문제 없이 동작 가능
   let browserNavOk = false
   if (skipBrowser) {
-    log.info({ reviewsUrl }, 'coupangeats: savedCookies — step1: nav to /merchant root to trigger store selection')
+    log.info({ reviewsUrl }, 'coupangeats: savedCookies — step1: nav to /merchant/management/home/{storeId} to set responsibleStoreId')
     try {
-      // ── Step 1: /merchant 루트로 이동 → 스토어 선택 UI 유도 ──
-      // 이유: responsibleStoreId=null 일 때 /merchant 에서 스토어를 클릭해야
-      //       서버 세션에 responsibleStoreId 가 설정됨
-      const merchantRoot = 'https://store.coupangeats.com/merchant'
-      await page.goto(merchantRoot, { waitUntil: 'domcontentloaded', timeout: 30000 })
-      await page.waitForTimeout(5000)
+      // ── Step 1: /merchant/management/home/{storeId}로 이동 → 서버 세션에 responsibleStoreId 설정 ──
+      // 이유: storeId가 URL path에 포함되어야 서버가 responsibleStoreId=storeId로 세션 설정
+      //       /merchant 루트는 store 선택 UI가 없으면 responsibleStoreId=null 유지
+      const targetStoreId2 = creds.platform_store_id || '738438'
+      const homeUrl = `https://store.coupangeats.com/merchant/management/home/${targetStoreId2}`
+      await page.goto(homeUrl, { waitUntil: 'domcontentloaded', timeout: 30000 })
+      await page.waitForTimeout(4000)
       const rootUrl = page.url()
-      log.info(`coupangeats: rootUrl=${rootUrl} after merchant root nav`)
-      log.info(`coupangeats: allRequestUrls after root nav (last 20): ${allRequestUrls.slice(-20).join(' | ')}`)
+      log.info(`coupangeats: homeUrl=${homeUrl} currentUrl=${rootUrl} after home nav`)
+      log.info(`coupangeats: allRequestUrls after home nav (last 20): ${allRequestUrls.slice(-20).join(' | ')}`)
 
-      // DOM 덤프: 실제 클래스 구조 파악용
+      // 홈 페이지 로드 후 whoami 재확인 (responsibleStoreId 설정 여부 체크)
       try {
-        const bodyHtml = await page.evaluate(() => document.body.innerHTML.slice(0, 4000))
-        log.info(`coupangeats: bodyHtml[0-4000]=${bodyHtml}`)
-      } catch (htmlErr: any) {
-        log.warn(`coupangeats: bodyHtml dump failed: ${htmlErr.message}`)
-      }
-
-      // 스토어 선택 버튼/링크 감지 (스토어명 또는 storeId 포함)
-      const targetStoreId = creds.platform_store_id || '738438'
-      const storeNameHints = ['일산닭칼국수', '부천', targetStoreId]
-      let storeClicked = false
-
-      // 1) 텍스트 기반 클릭 (스토어명/storeId 포함 요소)
-      for (const hint of storeNameHints) {
-        try {
-          const el = page.locator(`text=${hint}`).first()
-          const visible = await el.isVisible({ timeout: 2000 }).catch(() => false)
-          if (visible) {
-            await el.click()
-            await page.waitForTimeout(3000)
-            log.info(`coupangeats: clicked store by text hint="${hint}" url=${page.url()}`)
-            storeClicked = true
-            break
-          }
-        } catch (_) { /* ignore */ }
-      }
-
-      // 2) 스토어 목록 첫 번째 항목 클릭 (텍스트 기반 실패 시)
-      if (!storeClicked) {
-        const storeSelectSelectors = [
-          '[class*="StoreItem"]', '[class*="store-item"]', '[class*="storeItem"]',
-          '[class*="StoreCard"]', '[class*="store-card"]',
-          '[class*="StoreList"] li', '[class*="store-list"] li',
-          'ul[class*="store"] > li', '[class*="StoreSelect"] li',
-          '[data-store-id]', '[data-testid*="store"]',
-        ]
-        for (const sel of storeSelectSelectors) {
-          try {
-            const els = page.locator(sel)
-            const count = await els.count().catch(() => 0)
-            if (count > 0) {
-              await els.first().click()
-              await page.waitForTimeout(3000)
-              log.info(`coupangeats: clicked store selector sel="${sel}" count=${count} url=${page.url()}`)
-              storeClicked = true
-              break
-            }
-          } catch (_) { /* ignore */ }
-        }
-      }
-
-      if (!storeClicked) {
-        log.warn('coupangeats: store selector not found on merchant root — trying direct reviews nav')
-      }
+        const whoamiCheck = await page.evaluate(async () => {
+          const r = await fetch('https://store.coupangeats.com/api/v1/merchant/whoami', { credentials: 'include' })
+          return r.ok ? await r.json() : null
+        })
+        log.info('coupangeats: whoami after home nav responsibleStoreId=' + (whoamiCheck?.data?.responsibleStoreId ?? 'N/A'))
+      } catch (_) {}
 
       // ── Step 2: 리뷰 페이지로 이동 ──
       log.info(`coupangeats: step2 nav to reviewsUrl (allRequest before=${allRequestUrls.length})`)
