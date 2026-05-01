@@ -486,11 +486,17 @@ async function fetchCoupangReviews(
   const capturedReviews = earlyCapture       // 같은 배열 참조 (리스너 push 반영됨)
   const capturedUrls = earlyCaptureUrls      // 같은 배열 참조
 
-  const alreadyOnReviews = page.url().includes('/review')
-  log.info({ reviewsUrl, alreadyOnReviews, earlyCaptured: capturedReviews.length }, 'coupangeats: fetchCoupangReviews entry')
+  // directCookies가 있으면 브라우저가 proxy 차단으로 불능 → 페이지 조작 전체 건너뜀
+  const skipBrowser = !!directCookies
+
+  let alreadyOnReviews = false
+  if (!skipBrowser) {
+    try { alreadyOnReviews = page.url().includes('/review') } catch { /* browser dead */ }
+  }
+  log.info({ reviewsUrl, alreadyOnReviews, earlyCaptured: capturedReviews.length, skipBrowser }, 'coupangeats: fetchCoupangReviews entry')
 
   // ── 리뷰 관리 페이지로 이동 (네트워크 인터셉트 + 자연 API 호출 유도) ──
-  if (!alreadyOnReviews) {
+  if (!skipBrowser && !alreadyOnReviews) {
     log.info({ reviewsUrl }, 'coupangeats: navigating to reviews page for natural API capture')
     try {
       await page.goto(reviewsUrl, { waitUntil: 'networkidle', timeout: 30000 }).catch(() =>
@@ -503,36 +509,40 @@ async function fetchCoupangReviews(
     }
   }
 
-  // ── 페이지 상호작용으로 리뷰 API 자연 유도 ──
-  await closeAllModals(page, log)
-  // 쿠팡이츠 리뷰 페이지의 자연 API 호출 유도 (다양한 방식 시도)
-  const interactionDone = await (async () => {
-    // 1) 검색/조회 버튼 클릭
-    const triggerSelectors = [
-      'button:has-text("조회")', 'button:has-text("검색")', 'button:has-text("목록 불러오기")',
-      'button:has-text("불러오기")', '[class*="SearchButton"]', '[class*="search-button"]',
-      'form button[type="submit"]', '[class*="ReviewFilter"] button',
-    ]
-    for (const sel of triggerSelectors) {
+  // ── 페이지 상호작용으로 리뷰 API 자연 유도 (브라우저가 살아있을 때만) ──
+  if (!skipBrowser) {
+    try { await closeAllModals(page, log) } catch { /* browser dead — ignore */ }
+    // 쿠팡이츠 리뷰 페이지의 자연 API 호출 유도 (다양한 방식 시도)
+    const interactionDone = await (async () => {
+      // 1) 검색/조회 버튼 클릭
+      const triggerSelectors = [
+        'button:has-text("조회")', 'button:has-text("검색")', 'button:has-text("목록 불러오기")',
+        'button:has-text("불러오기")', '[class*="SearchButton"]', '[class*="search-button"]',
+        'form button[type="submit"]', '[class*="ReviewFilter"] button',
+      ]
+      for (const sel of triggerSelectors) {
+        try {
+          const btn = page.locator(sel).first()
+          if (await btn.isVisible({ timeout: 1500 }).catch(() => false)) {
+            await btn.click()
+            log.info({ sel }, 'coupangeats: clicked review trigger button')
+            await page.waitForTimeout(2500)
+            return true
+          }
+        } catch (_) { /* ignore */ }
+      }
+      // 2) 페이지에서 Enter 키 전송 (검색 폼 제출)
       try {
-        const btn = page.locator(sel).first()
-        if (await btn.isVisible({ timeout: 1500 }).catch(() => false)) {
-          await btn.click()
-          log.info({ sel }, 'coupangeats: clicked review trigger button')
-          await page.waitForTimeout(2500)
-          return true
-        }
+        await page.keyboard.press('Enter')
+        await page.waitForTimeout(2000)
       } catch (_) { /* ignore */ }
-    }
-    // 2) 페이지에서 Enter 키 전송 (검색 폼 제출)
-    try {
-      await page.keyboard.press('Enter')
-      await page.waitForTimeout(2000)
-    } catch (_) { /* ignore */ }
-    return false
-  })()
-  log.info({ interactionDone, capturedAfterInteraction: capturedReviews.length }, 'coupangeats: after page interaction')
-  await page.waitForTimeout(500)
+      return false
+    })()
+    log.info({ interactionDone, capturedAfterInteraction: capturedReviews.length }, 'coupangeats: after page interaction')
+    try { await page.waitForTimeout(500) } catch { /* browser dead — ignore */ }
+  } else {
+    log.info('coupangeats: skipBrowser=true — skipping all page interactions, going direct to node API')
+  }
 
   const storeId = creds.platform_store_id || '738438'
   log.info({ storeId, naturalCaptured: capturedReviews.length }, 'coupangeats: calling review API (node-direct fetch primary, browser fallback)')
