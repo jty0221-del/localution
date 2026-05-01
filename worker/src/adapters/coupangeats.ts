@@ -684,7 +684,6 @@ async function fetchCoupangReviews(
         log.info(`coupangeats: localStorage keys: ${pageState.lsKeys.join(', ')}`)
         log.info(`coupangeats: localStorage tokens: ${JSON.stringify(pageState.lsTokens).slice(0, 300)}`)
         log.info(`coupangeats: window.axios paths: ${pageState.axiosPaths.join(', ')} | vueStoreId=${pageState.vueStoreId}`)
-        rawBodySample += ` | lsKeys:${pageState.lsKeys.length} axiosPaths:${pageState.axiosPaths.join(',')} vueStoreId:${pageState.vueStoreId}`
       } catch (pse: any) {
         log.warn({ err: pse?.message }, 'coupangeats: pageState inspect failed')
       }
@@ -711,7 +710,6 @@ async function fetchCoupangReviews(
           return { status: r.status, ok: r.ok }
         }, { url: `https://store.coupangeats.com/api/v1/merchant/reviews/search?storeId=${targetStoreId2}&page=1&statusType=EXPOSE&startDateTime=${testFmt(test30s)}&exclusiveEndDateTime=${testFmt(testEnd)}&size=5` })
         log.info(`coupangeats: dateWindowTest 1d=${r1.status} 7d=${r7.status} 30d=${r30.status}`)
-        rawBodySample += ` | dateWindowTest:1d=${r1.status},7d=${r7.status},30d=${r30.status} responsibleStoreIdSet=${responsibleStoreIdSet}`
       } catch (wte: any) {
         log.warn({ err: wte?.message }, 'coupangeats: dateWindowTest failed')
       }
