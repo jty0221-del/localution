@@ -493,11 +493,8 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
       }
 
       // ── 자동 발행 모드 — Optimistic UI 업데이트 ──
-      // 발행 즉시 UI에서 답글 등록된 것처럼 표시 (사용자 경험 개선)
-      // · hasReply=true 로 마킹 → "답변완료" 배지 + 답글 박스 표시
-      // · replyContent 에 draft 즉시 표시 → 답글 박스에 내용 보임
-      // · 'queued' 배지는 안 보임 (hasReply=true 시 StatusBadge 숨김 처리됨)
-      toast.success('✅ 답글 등록 요청을 보냈어요. 네이버 반영까지 1~2분 걸려요.')
+      // 즉시 답글 표시(사용자 경험), 90초 후 자동 재수집해서 실제 상태로 갱신
+      toast.success('⚡ 답글 발행 요청 완료! 네이버에 자동 등록 시도 중이에요. 90초 후 자동으로 결과 확인해드릴게요.')
       setReviews((prev) =>
         prev.map((r) =>
           r.id === review.id
@@ -517,6 +514,12 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
 
       setEditingId(null)
       setDraftText('')
+
+      // 90초 후 자동 재수집 — 실제 네이버 등록 상태 확인
+      // 워커 실패 시 has_reply=false 로 정확히 갱신됨 → 사용자가 직접 등록 가능
+      setTimeout(() => {
+        collectNow().catch(() => null)
+      }, 90000)
     } catch (e: any) {
       toast.error('발행 오류: ' + (e?.message || e))
     } finally {
@@ -1141,8 +1144,27 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
                                     className="px-4 py-1.5 rounded-lg text-xs font-bold text-white hover:opacity-90 disabled:opacity-50 shadow-sm"
                                     style={{ background: config.color }}
                                   >
-                                    {submitting ? '처리 중...' : isQueued ? '⏳ Worker 처리 중' : '⚡ 자동 발행'}
+                                    {submitting ? '처리 중...' : '⚡ 자동 발행'}
                                   </button>
+
+                                  {/* 직접 등록 버튼 — 자동 발행이 실패할 때 대안 (가장 안정적) */}
+                                  {config.reviewAdminUrl && !review.hasReply && !isSubmitted && (
+                                    <button
+                                      onClick={() => {
+                                        try {
+                                          navigator.clipboard.writeText(draftText)
+                                          toast.info('📋 답글이 복사됐어요! 네이버에서 붙여넣기 하세요')
+                                        } catch {}
+                                        window.open(config.reviewAdminUrl!, '_blank', 'noopener')
+                                      }}
+                                      disabled={!draftText.trim() || submitting}
+                                      className="px-3 py-1.5 rounded-lg text-xs font-bold bg-white border hover:bg-[#F9FAFB] disabled:opacity-50"
+                                      style={{ borderColor: config.color + '60', color: config.textColor }}
+                                      title="답글을 복사하고 네이버 답글 작성 페이지를 새 탭으로 열어요"
+                                    >
+                                      📋 복사 + 네이버에서 직접 등록
+                                    </button>
+                                  )}
 
                                   <button
                                     onClick={() => { setEditingId(null); setDraftText('') }}
