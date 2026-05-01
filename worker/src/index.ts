@@ -54,7 +54,7 @@ async function getBrowser(): Promise<Browser> {
   const proxyPort = process.env.PROXY_PORT
   const proxyUser = process.env.PROXY_USER
   const proxyPass = process.env.PROXY_PASS
-  const proxyProto = process.env.PROXY_PROTOCOL || 'http'
+  const proxyProto = process.env.PROXY_PROTOCOL || 'socks5'  // socks5 기본값 — HTTP는 Chromium 91+ 보안 정책으로 ERR_PROXY_AUTH_UNSUPPORTED 발생
 
   const launchOptions: any = {
     headless: true,
