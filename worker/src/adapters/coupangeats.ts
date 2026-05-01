@@ -153,11 +153,13 @@ export async function runCoupangEats(
     },
   }
   if (useProxy) {
-    // credentials를 URL에 직접 포함 — ERR_PROXY_AUTH_UNSUPPORTED 우회
-    const proxyUrl = (proxyUser && proxyPass)
-      ? `${proxyProto}://${proxyUser}:${proxyPass}@${proxyHost}:${proxyPort}`
-      : `${proxyProto}://${proxyHost}:${proxyPort}`
-    contextOptions.proxy = { server: proxyUrl }
+    // username/password 별도 필드로 설정 — Playwright가 407 Challenge에 자동 응답
+    // (URL embed 방식은 navigation만 인증되고 XHR/fetch는 407 발생)
+    contextOptions.proxy = {
+      server: `${proxyProto}://${proxyHost}:${proxyPort}`,
+      ...(proxyUser ? { username: proxyUser.trim() } : {}),
+      ...(proxyPass ? { password: proxyPass.trim() } : {}),
+    }
     log.info({ proxy: `${proxyProto}://${proxyHost}:${proxyPort}` }, 'coupangeats: using proxy')
   }
 
@@ -511,7 +513,7 @@ async function fetchCoupangReviews(
   await page.waitForTimeout(500)
 
   const storeId = creds.platform_store_id || '738438'
-  log.info({ storeId, naturalCaptured: capturedReviews.length }, 'coupangeats: calling review API via page.goto (browser navigation)')
+  log.info({ storeId, naturalCaptured: capturedReviews.length }, 'coupangeats: calling review API via page.evaluate fetch (proxy username-password fix)')
 
   // ── context.request 로 직접 API 호출 (proxy 인증 문제 해결) ──
   // page.evaluate 내부 fetch()는 407 Proxy Auth 실패 → Playwright APIRequestContext 사용
@@ -539,25 +541,30 @@ async function fetchCoupangReviews(
       || 0
   }
 
-  // ── page.goto() 방식으로 API 호출 ──
-  // context.request/tunnelFetch 모두 407 (IPRoyal이 Node.js CONNECT 거부)
-  // 브라우저 navigation은 프록시+쿠키가 이미 작동하므로 page.goto(API_URL) 사용
+  // ── page.evaluate fetch() — proxy username/password 분리 설정으로 407 해결 ──
+  // Playwright가 407 Challenge를 자동 처리하므로 XHR/fetch도 프록시 인증 정상 작동
   async function browserApiGet(path: string): Promise<{ ok: boolean; body: any; status: number; errBody: string }> {
     const url = path.startsWith('http') ? path : `${BASE_ORIGIN}${path}`
     try {
-      const resp = await page.goto(url, { waitUntil: 'load', timeout: 20000 })
-      const status = (resp?.status() ?? 0) as number
-      if (status >= 400) return { ok: false, body: null, status, errBody: `HTTP ${status}` }
-      // Chrome은 JSON 응답을 <pre> 태그 안에 렌더링하거나 body.innerText로 노출
-      const text: string = await page.evaluate(() => {
-        const pre = document.querySelector('pre')
-        if (pre) return pre.innerText || pre.textContent || ''
-        return document.body?.innerText || document.body?.textContent || ''
-      }).catch(() => '') as string
-      const trimmed = text.trim()
-      if (!trimmed) return { ok: false, body: null, status, errBody: '(empty body)' }
-      const body = JSON.parse(trimmed)
-      return { ok: true, body, status, errBody: '' }
+      const result: { ok: boolean; body: any; status: number; errBody: string } = await page.evaluate(async (fetchUrl: string) => {
+        try {
+          const r = await fetch(fetchUrl, {
+            credentials: 'include',
+            headers: { 'Accept': 'application/json, text/plain, */*' },
+          })
+          const status = r.status
+          if (!r.ok) {
+            let errBody = ''
+            try { errBody = JSON.stringify(await r.json()) } catch (_) { try { errBody = await r.text() } catch (_) { errBody = '(no body)' } }
+            return { ok: false, body: null, status, errBody: String(errBody).slice(0, 150) }
+          }
+          const body = await r.json().catch(() => null)
+          return { ok: true, body, status, errBody: '' }
+        } catch (e: any) {
+          return { ok: false, body: null, status: 0, errBody: String(e?.message || e).slice(0, 150) }
+        }
+      }, url)
+      return result
     } catch (e: any) {
       return { ok: false, body: null, status: 0, errBody: String(e?.message || e).slice(0, 150) }
     }
