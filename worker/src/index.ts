@@ -321,15 +321,27 @@ const healthServer = http.createServer(async (req, res) => {
       const fs = await import('fs')
       const naverJs = fs.readFileSync('/app/dist/adapters/naver.js', 'utf-8')
       const hasVersion = naverJs.includes('NAVER_CODE_VERSION')
-      const hasDiagMsg = naverJs.includes('diagMsg')
       const versionMatch = naverJs.match(/NAVER_CODE_VERSION\s*=\s*'([^']+)'/)
+      // 주요 에러 메시지 문자열 감지
+      const hasOldMsg = naverJs.includes('Railway IP') || naverJs.includes('아이디·비밀번호 오류')
+      const hasV2Msg = naverJs.includes('[v2] naver login failed')
+      const hasV3Msg = naverJs.includes('v3-timeout')
+      const hasAbortSignal = naverJs.includes('AbortSignal.timeout')
+      // 에러 메시지 주변 30자 추출
+      const v2Idx = naverJs.indexOf('[v2] naver login failed')
+      const railwayIdx = naverJs.indexOf('Railway IP')
       res.writeHead(200, { 'Content-Type': 'application/json' })
       res.end(JSON.stringify({
         ok: true,
         naverJsSize: naverJs.length,
         hasVersionConst: hasVersion,
-        hasDiagMsg,
         versionValue: versionMatch?.[1] || null,
+        hasOldMsg,
+        hasV2Msg,
+        hasV3Msg,
+        hasAbortSignal,
+        v2MsgSnippet: v2Idx >= 0 ? naverJs.slice(Math.max(0, v2Idx - 10), v2Idx + 60) : null,
+        railwayMsgSnippet: railwayIdx >= 0 ? naverJs.slice(Math.max(0, railwayIdx - 10), railwayIdx + 80) : null,
         naverJsSnippet: naverJs.slice(0, 200),
       }))
     } catch (e: any) {
@@ -397,6 +409,29 @@ const healthServer = http.createServer(async (req, res) => {
       })
       res.writeHead(200, { 'Content-Type': 'application/json' })
       res.end(JSON.stringify({ proxy: `${ph}:${pp}`, ...connectResult }))
+    } catch (e: any) {
+      res.writeHead(500, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ ok: false, error: e?.message }))
+    }
+    return
+  }
+
+  // GET /test-ip  — Playwright 브라우저로 공개 IP 확인 (SOCKS5 프록시 검증용)
+  if (req.method === 'GET' && req.url === '/test-ip') {
+    try {
+      const browser = await getBrowser()
+      const context = await browser.newContext()
+      const page = await context.newPage()
+      const result = await page.evaluate(() =>
+        fetch('https://ipinfo.io/json').then(r => r.json()).catch((e: any) => ({ error: String(e) }))
+      ).catch((e: any) => ({ error: String(e) }))
+      await context.close().catch(() => null)
+      res.writeHead(200, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({
+        proxyProto: process.env.PROXY_PROTOCOL || 'socks5',
+        proxyHost: process.env.PROXY_HOST || '(none)',
+        ipInfo: result,
+      }))
     } catch (e: any) {
       res.writeHead(500, { 'Content-Type': 'application/json' })
       res.end(JSON.stringify({ ok: false, error: e?.message }))
