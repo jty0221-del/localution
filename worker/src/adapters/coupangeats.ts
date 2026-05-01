@@ -575,6 +575,7 @@ async function fetchCoupangReviews(
     const url = path.startsWith('http') ? path : `${BASE_ORIGIN}${path}`
 
     // ── 1순위: tunnelFetch (HTTP CONNECT 프록시 경유 — 한국 IP로 CoupangEats 접근) ──
+    let tunnelErr: string | null = null
     if (useProxy && proxyHost && proxyPort && proxyUser && proxyPass) {
       try {
         const result = await tunnelFetch(
@@ -591,7 +592,8 @@ async function fetchCoupangReviews(
         log.info({ url: path.slice(0, 80), status: result.status, via: 'tunnelFetch' }, 'coupangeats: nodeDirectApiGet via proxy tunnel')
         return result
       } catch (e: any) {
-        log.warn({ url: path.slice(0, 80), err: e?.message }, 'coupangeats: tunnelFetch failed, falling back to globalThis.fetch')
+        tunnelErr = String(e?.message || e).slice(0, 150)
+        log.warn({ url: path.slice(0, 80), tunnelErr }, 'coupangeats: tunnelFetch failed, falling back to globalThis.fetch')
       }
     }
 
@@ -617,7 +619,8 @@ async function fetchCoupangReviews(
       const body = await r.json().catch(() => null)
       return { ok: true, body, status, errBody: '' }
     } catch (e: any) {
-      return { ok: false, body: null, status: 0, errBody: String(e?.message || e).slice(0, 200) }
+      const directErr = String(e?.message || e).slice(0, 150)
+      return { ok: false, body: null, status: 0, errBody: tunnelErr ? `tunnel[${tunnelErr}] direct[${directErr}]` : directErr }
     }
   }
 
