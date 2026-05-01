@@ -707,8 +707,8 @@ async function fetchCoupangReviews(
         merchantId = wRes.body?.data?.merchantId || wRes.body?.merchantId || null
         log.info({ whoamiOk: true, merchantId, via: 'browser' }, 'coupangeats: whoami ok (browser)')
       } else {
-        rawBodySample = `whoami HTTP ${wRes.status}: ${wRes.errBody}`
-        log.warn({ status: wRes.status, err: wRes.errBody }, 'coupangeats: whoami failed (both methods)')
+        rawBodySample = `whoami node:[${ndRes.errBody?.slice(0,120)}] browser:HTTP ${wRes.status}:${wRes.errBody?.slice(0,80)}`
+        log.warn({ status: wRes.status, err: wRes.errBody, nodeErr: ndRes.errBody }, 'coupangeats: whoami failed (both methods)')
       }
     }
   } catch (e: any) {
