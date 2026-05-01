@@ -274,9 +274,22 @@ export async function runCoupangEats(
   const routeStartDate = new Date(); routeStartDate.setFullYear(routeStartDate.getFullYear() - 1)
   const routeEndStr = routeEndDate.toISOString().split('T')[0]
   const routeStartStr = routeStartDate.toISOString().split('T')[0]
+  let capturedNaturalHeaders: Record<string, string> = {}
+  let capturedNaturalUrl = ''
   await page.route('**/api/v1/merchant/reviews/search**', async (route: any) => {
     try {
       const origUrl: string = route.request().url()
+      const reqHeaders: Record<string, string> = route.request().headers() || {}
+      // 자연 요청 헤더 1회 캡처 (Bearer 토큰 탐색)
+      if (!capturedNaturalUrl) {
+        capturedNaturalUrl = origUrl
+        capturedNaturalHeaders = reqHeaders
+        const authHeader = reqHeaders['authorization'] || reqHeaders['Authorization'] || ''
+        log.info('coupangeats: natural reviews/search headers — authorization=' + authHeader.slice(0, 40) +
+          ' x-eats-store-id=' + (reqHeaders['x-eats-store-id'] || reqHeaders['X-Eats-Store-Id'] || 'none') +
+          ' origin-url=' + origUrl.slice(0, 120))
+        log.info('coupangeats: natural request ALL headers: ' + JSON.stringify(reqHeaders).slice(0, 400))
+      }
       let newUrl = origUrl
       if (newUrl.includes('startDateTime=')) {
         newUrl = newUrl.replace(/startDateTime=[^&]+/, 'startDateTime=' + routeStartStr)
@@ -290,8 +303,9 @@ export async function runCoupangEats(
       }
       newUrl = newUrl.replace(/size=\d+/, 'size=100')
       if (newUrl !== origUrl) {
-        log.info('coupangeats: route intercept reviews/search expanded date range')
-        await route.continue({ url: newUrl })
+        log.info('coupangeats: route intercept reviews/search expanded date range → ' + newUrl.slice(0, 120))
+        // 캡처한 자연 헤더를 그대로 사용해서 확장 URL 요청
+        await route.continue({ url: newUrl, headers: reqHeaders })
       } else {
         await route.continue()
       }
@@ -635,6 +649,45 @@ async function fetchCoupangReviews(
       // POST/PUT 전체 목록 (store 선택 엔드포인트 탐색)
       const postUrlsAfter = allRequestUrls.filter((u) => u.startsWith('POST') || u.startsWith('PUT'))
       log.info(`coupangeats: ALL POST/PUT urls: ${postUrlsAfter.join(' | ')}`)
+
+      // ── Step 2a: localStorage 토큰 + window.axios 경로 탐색 ──
+      try {
+        const pageState = await page.evaluate(() => {
+          // localStorage에서 인증 관련 키 탐색
+          const lsKeys: string[] = []
+          const lsTokens: Record<string, string> = {}
+          for (let i = 0; i < localStorage.length; i++) {
+            const k = localStorage.key(i) || ''
+            lsKeys.push(k)
+            if (k.toLowerCase().includes('token') || k.toLowerCase().includes('auth') ||
+                k.toLowerCase().includes('store') || k.toLowerCase().includes('merchant') ||
+                k.toLowerCase().includes('unify')) {
+              const v = localStorage.getItem(k) || ''
+              lsTokens[k] = v.slice(0, 80)
+            }
+          }
+          // window.axios 경로 탐색
+          const axiosPaths: string[] = []
+          const axCandidates = ['axios', '__axios', '_axios', 'Vue', '__vue_store__', 'store', '__store']
+          for (const key of axCandidates) {
+            if ((window as any)[key]) axiosPaths.push(key)
+          }
+          // Vue store에서 storeId 탐색
+          let vueStoreId: any = null
+          try {
+            const vueApp = (document.querySelector('#app') as any)?.__vue_app__
+            const store = vueApp?.config?.globalProperties?.$store
+            vueStoreId = store?.state?.merchant?.responsibleStoreId ?? store?.state?.store?.storeId ?? store?.getters?.storeId ?? null
+          } catch (_) { /* ignore */ }
+          return { lsKeys: lsKeys.slice(0, 30), lsTokens, axiosPaths, vueStoreId }
+        })
+        log.info(`coupangeats: localStorage keys: ${pageState.lsKeys.join(', ')}`)
+        log.info(`coupangeats: localStorage tokens: ${JSON.stringify(pageState.lsTokens).slice(0, 300)}`)
+        log.info(`coupangeats: window.axios paths: ${pageState.axiosPaths.join(', ')} | vueStoreId=${pageState.vueStoreId}`)
+        rawBodySample += ` | lsKeys:${pageState.lsKeys.length} axiosPaths:${pageState.axiosPaths.join(',')} vueStoreId:${pageState.vueStoreId}`
+      } catch (pse: any) {
+        log.warn({ err: pse?.message }, 'coupangeats: pageState inspect failed')
+      }
 
       // ── Step 2b: 리뷰 페이지 로드 후 단기 날짜 범위 테스트 ──
       // 서버가 responsibleStoreId 없이도 허용하는 최대 날짜 범위 탐색
