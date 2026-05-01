@@ -180,35 +180,93 @@ export async function runNaver(
         if (platformReviewId) await updateReviewStatus(svc, userId, platformReviewId, 'failed', { error: msg })
         return { status: 'failed', message: msg }
       }
-      await idEl.click({ clickCount: 3 })
-      await idEl.type(creds.account_id, { delay: 60 })
-      await page.waitForTimeout(400)
-
       // ── 네이버 2단계 로그인: ID 입력 후 "다음" 클릭 → PW 입력 후 "로그인" 클릭
-      //    (2026년 네이버 로그인 UX 변경: #log.login 버튼이 "다음" → "로그인" 으로 바뀜)
-      const step1BtnText = await page.$eval('#log\\.login .btn_text, #log\\.login', (el: any) => el.textContent?.trim()).catch(() => '')
-      log.info({ step1BtnText }, 'naver: step1 button text before click')
+      //    (2026년 네이버 로그인 UX: #log.login 버튼이 "다음" → "로그인" 으로 바뀜)
+      //    중요: ID 입력 시 fill()보다 clear+type()이 Naver JS 이벤트 처리에 안전
+      await idEl.click({ clickCount: 3 })
+      await idEl.type(creds.account_id, { delay: 80 })
+      await page.waitForTimeout(500)
+
+      const step1BtnText = await page.$eval(
+        '#log\\.login .btn_text, #log\\.login span, #log\\.login',
+        (el: any) => el.textContent?.trim()
+      ).catch(() => '')
+      log.info({ step1BtnText, idValueLen: await idEl.evaluate((el: any) => el.value?.length ?? 0).catch(() => 0) }, 'naver: step1 before click')
 
       // 1단계: ID 확인 ("다음" 클릭)
+      // scroll into view → click (container가 위에 있으면 클릭 miss 발생)
+      await page.evaluate(() => {
+        const btn = document.querySelector('#log\\.login') as HTMLElement | null
+        btn?.scrollIntoView({ block: 'center' })
+      }).catch(() => null)
+      await page.waitForTimeout(300)
       await page.click(DOM_SELECTORS.loginBtn)
-      await page.waitForTimeout(2000)  // 페이지 전환/DOM 업데이트 대기
 
-      const step2BtnText = await page.$eval('#log\\.login .btn_text, #log\\.login', (el: any) => el.textContent?.trim()).catch(() => '')
-      log.info({ step2BtnText, currentUrl: page.url() }, 'naver: after step1 click')
+      // 다음 클릭 후: PW 필드가 visible 상태가 될 때까지 대기 (최대 8초)
+      // Naver 로그인은 SPA — URL은 그대로이나 PW 필드가 hidden→visible 로 바뀜
+      const pwVisible = await page.waitForSelector(
+        'input[type="password"]:not([disabled]):not([hidden])',
+        { state: 'visible', timeout: 8000 }
+      ).then(() => true).catch(() => false)
 
-      // 2단계: 비밀번호 입력
-      const pwEl = await page.$(DOM_SELECTORS.pwInput)
+      const urlAfterStep1 = page.url()
+      const step2BtnText = await page.$eval(
+        '#log\\.login .btn_text, #log\\.login span, #log\\.login',
+        (el: any) => el.textContent?.trim()
+      ).catch(() => '')
+      log.info({ urlAfterStep1, pwVisible, step2BtnText }, 'naver: after step1 click')
+
+      if (!pwVisible) {
+        // PW 필드가 안 보이면 페이지 상태 덤프 후 상위 URL 체크로 이동
+        await dumpPageDiagnostics(page, log, 'naver-no-pw-after-step1')
+        // URL check: already off nidlogin.login� (보안인증 등) → 상위 URL 체크로 처리
+        if (!urlAfterStep1.includes('nidlogin.login')) {
+          log.warn({ urlAfterStep1 }, 'naver: navigated away after step1 — skipping PW step')
+          // below url-check logic will handle it
+        } else {
+          // 여전히 nidlogin.login 인데 PW 없음 → bot 차단 or 네이버 CAPTCHA 삽입
+          const pageText = await page.$eval('body', (el: any) => (el as HTMLElement).innerText?.slice(0, 500)).catch(() => '')
+          log.warn({ pageText }, 'naver: still on nidlogin.login but no PW field — possible bot block')
+        }
+      }
+
+      // 2단계: 비밀번호 입력 (visible & enabled 필드만 타겟)
+      const pwEl = await page.waitForSelector(
+        'input[type="password"]:not([disabled])',
+        { state: 'visible', timeout: 4000 }
+      ).catch(async () => {
+        // fallback: any pw input
+        return page.$('input#pw, input[name="pw"], input[type="password"]')
+      })
+
       if (!pwEl) {
-        const msg = 'naver: 로그인 폼 pw 입력란 없음'
+        await dumpPageDiagnostics(page, log, 'naver-no-pw-input')
+        const msg = 'naver: 비밀번호 입력란 없음 — ID 단계 이후 화면 전환 실패 또는 봇 차단'
         if (platformReviewId) await updateReviewStatus(svc, userId, platformReviewId, 'failed', { error: msg })
         return { status: 'failed', message: msg }
       }
       await pwEl.click({ clickCount: 3 })
-      await pwEl.type(creds.password, { delay: 60 })
-      await page.waitForTimeout(400)
+      await pwEl.type(creds.password, { delay: 80 })
+      await page.waitForTimeout(500)
 
-      // 로그인 버튼 클릭 후 URL 변경 대기 (networkidle 대신 URL 변경 감지로 빠르게)
+      // PW가 실제로 입력됐는지 확인
+      const pwLen = await pwEl.evaluate((el: any) => (el as HTMLInputElement).value?.length ?? 0).catch(() => 0)
+      log.info({ pwLen, step2BtnText }, 'naver: PW typed, about to click login')
+
+      if (pwLen === 0) {
+        log.warn('naver: PW field appears empty after type() — retrying with fill()')
+        await pwEl.focus()
+        await page.keyboard.type(creds.password, { delay: 80 })
+        await page.waitForTimeout(300)
+      }
+
+      // 로그인 버튼 클릭
+      await page.evaluate(() => {
+        const btn = document.querySelector('#log\\.login') as HTMLElement | null
+        btn?.scrollIntoView({ block: 'center' })
+      }).catch(() => null)
       await page.click(DOM_SELECTORS.loginBtn)
+      // URL이 nidlogin.login 에서 벗어날 때까지 대기
       await page.waitForURL(url => !String(url).includes('nidlogin.login'), { timeout: 20000 }).catch(() => null)
       await page.waitForTimeout(1500)
 
