@@ -296,6 +296,51 @@ const healthServer = http.createServer(async (req, res) => {
     return
   }
 
+  // GET /test-proxy  — tunnelFetch 직접 테스트 (진단용)
+  if (req.method === 'GET' && req.url === '/test-proxy') {
+    const ph = (process.env.PROXY_HOST || '').trim()
+    const pp = parseInt((process.env.PROXY_PORT || '0').trim(), 10)
+    const pu = (process.env.PROXY_USER || '').trim()
+    const pw = (process.env.PROXY_PASS || '').trim()
+    if (!ph || !pp || !pu || !pw) {
+      res.writeHead(400, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ ok: false, error: 'proxy env vars missing' }))
+      return
+    }
+    try {
+      const http = await import('node:http')
+      const tls = await import('node:tls')
+      // Test HTTP CONNECT to proxy
+      const connectResult = await new Promise<{ ok: boolean; code: number; body: string }>((resolve) => {
+        const proxyAuth = Buffer.from(`${pu}:${pw}`).toString('base64')
+        const r = http.default.request({
+          hostname: ph, port: pp, method: 'CONNECT',
+          path: 'store.coupangeats.com:443',
+          headers: { 'Host': 'store.coupangeats.com:443', 'Proxy-Authorization': `Basic ${proxyAuth}`, 'Proxy-Connection': 'keep-alive' },
+          timeout: 8000,
+        })
+        r.on('connect', (res2: any, sock: any) => {
+          sock.destroy()
+          resolve({ ok: true, code: res2.statusCode, body: '' })
+        })
+        r.on('response', (res2: any) => {
+          let b = ''
+          res2.on('data', (c: any) => { b += c.toString() })
+          res2.on('end', () => resolve({ ok: false, code: res2.statusCode, body: b.slice(0, 100) }))
+        })
+        r.on('error', (e: any) => resolve({ ok: false, code: 0, body: String(e.message) }))
+        r.on('timeout', () => { r.destroy(); resolve({ ok: false, code: -1, body: 'CONNECT timeout 8s' }) })
+        r.end()
+      })
+      res.writeHead(200, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ proxy: `${ph}:${pp}`, ...connectResult }))
+    } catch (e: any) {
+      res.writeHead(500, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ ok: false, error: e?.message }))
+    }
+    return
+  }
+
   res.writeHead(404)
   res.end()
 })
