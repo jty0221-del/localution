@@ -943,10 +943,10 @@ async function fetchCoupangReviews(
 
         if (pageNum === 1) {
           const candidates = [
-            { url: `/api/v1/merchant/reviews/search?storeId=${storeId}&page=1&statusType=${statusType}&size=100`, param: 'page' },
+            { url: `/api/v1/merchant/reviews/search?storeId=${storeId}&page=1&statusType=${statusType}&${dateRange}&size=100`, param: 'page' },
             ...(merchantId ? [
-              { url: `/api/v1/merchant/reviews/search?merchantId=${merchantId}&page=1&statusType=${statusType}&size=100`, param: 'page' },
-              { url: `/api/v1/merchant/${merchantId}/reviews?page=1&statusType=${statusType}&size=100`, param: 'page' },
+              { url: `/api/v1/merchant/reviews/search?merchantId=${merchantId}&page=1&statusType=${statusType}&${dateRange}&size=100`, param: 'page' },
+              { url: `/api/v1/merchant/${merchantId}/reviews?page=1&statusType=${statusType}&${dateRange}&size=100`, param: 'page' },
             ] : []),
           ]
           let found = false
