@@ -969,7 +969,8 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
                                 부정 리뷰
                               </span>
                             )}
-                            <StatusBadge status={review.replyStatus} />
+                            {/* 이미 답글 달린 리뷰는 status badge 숨김 (오래된 failed 배지 노출 방지) */}
+                            {!review.hasReply && <StatusBadge status={review.replyStatus} />}
                           </div>
                           <div className="flex items-center gap-2">
                             <span className="text-[11px] text-[#8B95A1]">{timeAgo(review.postedAt || review.collectedAt)}</span>
