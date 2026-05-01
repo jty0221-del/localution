@@ -153,14 +153,13 @@ export async function runCoupangEats(
     },
   }
   if (useProxy) {
-    // username/password 별도 필드로 설정 — Playwright가 407 Challenge에 자동 응답
-    // (URL embed 방식은 navigation만 인증되고 XHR/fetch는 407 발생)
-    contextOptions.proxy = {
-      server: `${proxyProto}://${proxyHost}:${proxyPort}`,
-      ...(proxyUser ? { username: proxyUser.trim() } : {}),
-      ...(proxyPass ? { password: proxyPass.trim() } : {}),
-    }
-    log.info({ proxy: `${proxyProto}://${proxyHost}:${proxyPort}` }, 'coupangeats: using proxy')
+    // Playwright proxy auth: 인라인 URL 방식(user:pass@host) → ERR_PROXY_AUTH_UNSUPPORTED 유발
+    // 별도 username/password 필드 방식으로 수정
+    const proxyConfig: any = { server: `${proxyProto}://${proxyHost}:${proxyPort}` }
+    if (proxyUser) proxyConfig.username = proxyUser.trim()
+    if (proxyPass) proxyConfig.password = proxyPass.trim()
+    contextOptions.proxy = proxyConfig
+    log.info({ proxy: `${proxyProto}://${proxyHost}:${proxyPort}`, hasAuth: !!(proxyUser && proxyPass) }, 'coupangeats: using proxy')
   }
 
   const context = await browser.newContext(contextOptions)
@@ -513,10 +512,9 @@ async function fetchCoupangReviews(
   await page.waitForTimeout(500)
 
   const storeId = creds.platform_store_id || '738438'
-  log.info({ storeId, naturalCaptured: capturedReviews.length }, 'coupangeats: calling review API via page.evaluate fetch (proxy username-password fix)')
+  log.info({ storeId, naturalCaptured: capturedReviews.length }, 'coupangeats: calling review API via page.evaluate fetch (url-embed proxy + XHR headers)')
 
-  // ── context.request 로 직접 API 호출 (proxy 인증 문제 해결) ──
-  // page.evaluate 내부 fetch()는 407 Proxy Auth 실패 → Playwright APIRequestContext 사용
+  // ── API 호출 설정 ──
   const BASE_ORIGIN = 'https://store.coupangeats.com'
 
   function extractArr(body: any): any[] {
@@ -541,8 +539,9 @@ async function fetchCoupangReviews(
       || 0
   }
 
-  // ── page.evaluate fetch() — proxy username/password 분리 설정으로 407 해결 ──
-  // Playwright가 407 Challenge를 자동 처리하므로 XHR/fetch도 프록시 인증 정상 작동
+  // ── page.evaluate fetch() — url-embed proxy + XHR headers ──
+  // navigation: url-embed proxy가 Chromium CONNECT 인증을 처리
+  // XHR/fetch: Referer+Origin+X-Requested-With 헤더로 CoupangEats API 인증
   async function browserApiGet(path: string): Promise<{ ok: boolean; body: any; status: number; errBody: string }> {
     const url = path.startsWith('http') ? path : `${BASE_ORIGIN}${path}`
     try {
@@ -550,7 +549,12 @@ async function fetchCoupangReviews(
         try {
           const r = await fetch(fetchUrl, {
             credentials: 'include',
-            headers: { 'Accept': 'application/json, text/plain, */*' },
+            headers: {
+              'Accept': 'application/json, text/plain, */*',
+              'X-Requested-With': 'XMLHttpRequest',
+              'Referer': 'https://store.coupangeats.com/merchant/management/reviews',
+              'Origin': 'https://store.coupangeats.com',
+            },
           })
           const status = r.status
           if (!r.ok) {
