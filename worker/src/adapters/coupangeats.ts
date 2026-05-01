@@ -529,7 +529,6 @@ async function fetchCoupangReviews(
       log.info(`coupangeats: rootUrl=${rootUrl} after merchant root nav`)
       log.info(`coupangeats: allRequestUrls after root nav (last 20): ${allRequestUrls.slice(-20).join(' | ')}`)
 
-
       // DOM 덤프: 실제 클래스 구조 파악용
       try {
         const bodyHtml = await page.evaluate(() => document.body.innerHTML.slice(0, 4000))
@@ -779,16 +778,27 @@ async function fetchCoupangReviews(
     try {
       const result: { ok: boolean; body: any; status: number; errBody: string } = await page.evaluate(async (fetchUrl: string) => {
         try {
-          // Read unify-token — Axios interceptor sends it as Bearer
+          // Read unify-token from cookie or localStorage — Axios interceptor sends it as Bearer header
           let unifyToken = ''
           try {
-            const cookieMap = {}
-            document.cookie.split(';').forEach(c => { const eq = c.indexOf('='); if (eq > 0) cookieMap[c.slice(0,eq).trim()] = c.slice(eq+1).trim() })
-            unifyToken = cookieMap['unify-token'] || localStorage.getItem('unify-token') || ''
+            const cookieMap: Record<string, string> = {}
+            document.cookie.split(';').forEach(c => {
+              const eq = c.indexOf('=')
+              if (eq > 0) cookieMap[c.slice(0, eq).trim()] = c.slice(eq + 1).trim()
+            })
+            unifyToken = cookieMap['unify-token'] || (window as any).localStorage?.getItem('unify-token') || ''
           } catch (_) {}
-          const hdrs = { 'Accept': 'application/json, text/plain, */*', 'X-Requested-With': 'XMLHttpRequest', 'Referer': 'https://store.coupangeats.com/merchant/management/reviews', 'Origin': 'https://store.coupangeats.com' }
-          if (unifyToken) hdrs['Authorization'] = 'Bearer ' + unifyToken
-          const r = await fetch(fetchUrl, { credentials: 'include', headers: hdrs })
+          const headers: Record<string, string> = {
+            'Accept': 'application/json, text/plain, */*',
+            'X-Requested-With': 'XMLHttpRequest',
+            'Referer': 'https://store.coupangeats.com/merchant/management/reviews',
+            'Origin': 'https://store.coupangeats.com',
+          }
+          if (unifyToken) headers['Authorization'] = 'Bearer ' + unifyToken
+          const r = await fetch(fetchUrl, {
+            credentials: 'include',
+            headers,
+          })
           const status = r.status
           if (!r.ok) {
             let errBody = ''
@@ -918,9 +928,12 @@ async function fetchCoupangReviews(
       log.info(`coupangeats: switchGET=${switchGet.status} switchPOST=${switchPost.status} switchPOSTbody=${JSON.stringify(switchPost.body).slice(0,100)} realStoreId=${realStoreId}`)
 
       // 리뷰 API 다양한 경로 시도
-      const noStore = await apiGet(`/api/v1/merchant/reviews/search?page=1&statusType=EXPOSE&size=10`)
-      const alt1 = await nodeDirectApiGet(`/api/v1/merchant/reviews/search?storeId=${realStoreId}&page=1&size=10`)
-      const alt2 = await browserApiGet(`/api/v1/merchant/reviews/search?storeId=${realStoreId}&page=1&statusType=EXPOSE&size=10`)
+      const todayStr = new Date().toISOString().split('T')[0]
+      const tomorrowStr = new Date(Date.now() + 86400000).toISOString().split('T')[0]
+      const diagDateRange = `startDateTime=${todayStr}&exclusiveEndDateTime=${tomorrowStr}`
+      const noStore = await apiGet(`/api/v1/merchant/reviews/search?page=1&statusType=EXPOSE&${diagDateRange}&size=10`)
+      const alt1 = await nodeDirectApiGet(`/api/v1/merchant/reviews/search?storeId=${realStoreId}&page=1&${diagDateRange}&size=10`)
+      const alt2 = await browserApiGet(`/api/v1/merchant/reviews/search?storeId=${realStoreId}&page=1&statusType=EXPOSE&${diagDateRange}&size=10`)
       log.info(`coupangeats: alt1=${alt1.status} alt2(browser)=${alt2.status} noStore=${noStore.status}`)
       log.info(`coupangeats: alt1body=${JSON.stringify(alt1.body).slice(0,120)} alt2body=${JSON.stringify(alt2.body).slice(0,120)}`)
       rawBodySample += ` | stores:${storesRes.status} switchGET:${switchGet.status} switchPOST:${switchPost.status} alt1:${alt1.status} alt2browser:${alt2.status} noStore:${noStore.status} realStoreId:${realStoreId}`
@@ -930,15 +943,15 @@ async function fetchCoupangReviews(
   }
 
   // statusType 순서: EXPOSE (공개), UNEXPOSE (비공개), REPORTED
-  // CoupangEats API requires date range — without them returns 403
+  const statusTypes = ['EXPOSE', 'UNEXPOSE', 'REPORTED']
+
+  // CoupangEats API requires date range params — without them, returns 403
   const endDate = new Date(); endDate.setDate(endDate.getDate() + 1)
   const startDate = new Date(); startDate.setFullYear(startDate.getFullYear() - 1)
-  const endDateStr = endDate.toISOString().split('T')[0]
-  const startDateStr = startDate.toISOString().split('T')[0]
-  const dateRange = 'startDateTime=' + startDateStr + '&exclusiveEndDateTime=' + endDateStr
-  log.info('coupangeats: dateRange=' + dateRange)
-
-  const statusTypes = ['EXPOSE', 'UNEXPOSE', 'REPORTED']
+  const endDateStr = endDate.toISOString().split('T')[0]   // tomorrow
+  const startDateStr = startDate.toISOString().split('T')[0] // 1 year ago
+  const dateRange = `startDateTime=${startDateStr}&exclusiveEndDateTime=${endDateStr}`
+  log.info(`coupangeats: dateRange=${dateRange}`)
 
   for (const statusType of statusTypes) {
     let pageNum = 1
