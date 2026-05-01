@@ -21,7 +21,7 @@ RUN npm install --omit=optional --no-audit --no-fund \
 COPY worker/tsconfig.json ./
 
 # build-marker: COPY src 앞에 위치 — 이 줄 변경 시 이후 레이어 전체 캐시 무효화
-RUN echo "build-marker: 47cha-7 broadened-interceptor-capture-any-merchant-api"
+RUN echo "build-marker: 47cha-8 minimal-fetch-no-button-click-fix-akamai-session"
 
 COPY worker/src ./src
 RUN npx tsc
