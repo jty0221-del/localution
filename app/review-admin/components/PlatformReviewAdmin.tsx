@@ -492,12 +492,25 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
         return
       }
 
-      // ── Worker 자동 발행 모드 ──
-      toast.success('⚡ Worker가 자동으로 답글을 등록해요! 1~2분 후 새로고침 해주세요.')
+      // ── 자동 발행 모드 — Optimistic UI 업데이트 ──
+      // 발행 즉시 UI에서 답글 등록된 것처럼 표시 (사용자 경험 개선)
+      // · hasReply=true 로 마킹 → "답변완료" 배지 + 답글 박스 표시
+      // · replyContent 에 draft 즉시 표시 → 답글 박스에 내용 보임
+      // · 'queued' 배지는 안 보임 (hasReply=true 시 StatusBadge 숨김 처리됨)
+      toast.success('✅ 답글 등록 요청을 보냈어요. 네이버 반영까지 1~2분 걸려요.')
       setReviews((prev) =>
         prev.map((r) =>
           r.id === review.id
-            ? { ...r, replyStatus: 'queued', replyQueuedAt: new Date().toISOString(), draftReply: trimmed }
+            ? {
+                ...r,
+                hasReply: true,
+                replyStatus: 'submitted',
+                replyContent: trimmed,
+                replySubmittedAt: new Date().toISOString(),
+                replyQueuedAt: new Date().toISOString(),
+                draftReply: trimmed,
+                replyError: null,
+              }
             : r,
         ),
       )
