@@ -267,6 +267,37 @@ export async function runCoupangEats(
     allRequestUrls.push(`${request.method()} ${url}`)
   })
 
+  // ── page.route: reviews/search 요청 날짜 범위 확장 (브라우저 XHR 가로채기) ──
+  // 브라우저가 오늘 하루만 조회 → 1년 범위로 교체하여 실제 리뷰 수집
+  // 브라우저 자체 인증(Bearer + 세션쿠키) 그대로 사용 → 403 없음
+  const routeEndDate = new Date(); routeEndDate.setDate(routeEndDate.getDate() + 1)
+  const routeStartDate = new Date(); routeStartDate.setFullYear(routeStartDate.getFullYear() - 1)
+  const routeEndStr = routeEndDate.toISOString().split('T')[0]
+  const routeStartStr = routeStartDate.toISOString().split('T')[0]
+  await page.route('**/api/v1/merchant/reviews/search**', async (route: any) => {
+    try {
+      const origUrl: string = route.request().url()
+      let newUrl = origUrl
+      if (newUrl.includes('startDateTime=')) {
+        newUrl = newUrl.replace(/startDateTime=[^&]+/, 'startDateTime=' + routeStartStr)
+      } else {
+        newUrl += (newUrl.includes('?') ? '&' : '?') + 'startDateTime=' + routeStartStr
+      }
+      if (newUrl.includes('exclusiveEndDateTime=')) {
+        newUrl = newUrl.replace(/exclusiveEndDateTime=[^&]+/, 'exclusiveEndDateTime=' + routeEndStr)
+      } else {
+        newUrl += '&exclusiveEndDateTime=' + routeEndStr
+      }
+      newUrl = newUrl.replace(/size=\d+/, 'size=100')
+      if (newUrl !== origUrl) {
+        log.info('coupangeats: route intercept reviews/search expanded date range')
+        await route.continue({ url: newUrl })
+      } else {
+        await route.continue()
+      }
+    } catch (_) { await route.continue() }
+  })
+
   // ── 네트워크 인터셉트: page 생성 직후 미리 등록 (쿠키 세션 navigation 전) ──
   // URL 필터 없이 ALL JSON 캡처 → Coupang API URL이 'review' 없어도 잡힘
   const earlyCapture: any[] = []
