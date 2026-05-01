@@ -44,8 +44,33 @@ connection.on('connect', () => log.info('redis connected'))
 connection.on('error', (err) => log.error({ err }, 'redis error'))
 
 let browserSingleton: Browser | null = null
+async function closeBrowser() {
+  if (browserSingleton) {
+    try { await browserSingleton.close() } catch {}
+    browserSingleton = null
+    log.info('chromium closed and reset')
+  }
+}
+
 async function getBrowser(): Promise<Browser> {
-  if (browserSingleton && browserSingleton.isConnected()) return browserSingleton
+  // 좀비 브라우저 감지: isConnected()=true 이어도 실제 ping 으로 확인
+  if (browserSingleton) {
+    if (!browserSingleton.isConnected()) {
+      log.warn('chromium: singleton disconnected — resetting')
+      await closeBrowser()
+    } else {
+      // 빠른 활성 확인: 새 blank 페이지 열기
+      try {
+        const testCtx = await browserSingleton.newContext()
+        await testCtx.close()
+        return browserSingleton
+      } catch (e: any) {
+        log.warn({ err: e?.message }, 'chromium: singleton alive-check failed — resetting')
+        await closeBrowser()
+      }
+    }
+  }
+
   log.info('launching chromium...')
 
   // proxy 설정은 반드시 chromium.launch() 레벨에서 해야 함
@@ -62,7 +87,18 @@ async function getBrowser(): Promise<Browser> {
       '--no-sandbox',
       '--disable-setuid-sandbox',
       '--disable-dev-shm-usage',
+      '--disable-gpu',
+      '--disable-software-rasterizer',
+      '--disable-extensions',
+      '--disable-background-networking',
+      '--disable-default-apps',
+      '--disable-sync',
+      '--disable-translate',
+      '--mute-audio',
+      '--no-first-run',
+      '--safebrowsing-disable-auto-update',
       '--disable-blink-features=AutomationControlled',
+      '--js-flags=--max-old-space-size=256',
     ],
   }
 
@@ -92,15 +128,18 @@ const worker = new Worker<PlatformJobData>(
       log.info({ jobId: job.id, result: result.status }, 'job done')
       return result
     } catch (err: any) {
-      // 43차-2: runJob 이 throw 하면 BullMQ 가 잡을 retry/fail 처리.
-      //         로깅은 여기서 한 번 명확하게 남긴다 (worker.on('failed') 도 트리거됨).
+      // runJob 이 throw 하면 BullMQ 가 잡을 retry/fail 처리.
       log.error({ jobId: job.id, err: err?.message, stack: err?.stack }, 'job exception')
       throw err
+    } finally {
+      // 매 잡 종료 후 브라우저 닫기 → 메모리 해제 (다음 잡은 새 브라우저 사용)
+      // 특히 브라우저 에러 발생 시 좀비 상태를 막기 위해 반드시 리셋
+      await closeBrowser()
     }
   },
   {
     connection,
-    concurrency: parseInt(process.env.WORKER_CONCURRENCY || '2', 10),
+    concurrency: 1,   // 브라우저 메모리 압박 방지 — 동시 실행 금지 (1GB 머신)
     removeOnComplete: { count: 500 },
     removeOnFail: { count: 1000 },
   }
