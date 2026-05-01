@@ -929,6 +929,14 @@ async function fetchCoupangReviews(
   }
 
   // statusType 순서: EXPOSE (공개), UNEXPOSE (비공개), REPORTED
+  // CoupangEats API requires date range — without them returns 403
+  const endDate = new Date(); endDate.setDate(endDate.getDate() + 1)
+  const startDate = new Date(); startDate.setFullYear(startDate.getFullYear() - 1)
+  const endDateStr = endDate.toISOString().split('T')[0]
+  const startDateStr = startDate.toISOString().split('T')[0]
+  const dateRange = 'startDateTime=' + startDateStr + '&exclusiveEndDateTime=' + endDateStr
+  log.info('coupangeats: dateRange=' + dateRange)
+
   const statusTypes = ['EXPOSE', 'UNEXPOSE', 'REPORTED']
 
   for (const statusType of statusTypes) {
