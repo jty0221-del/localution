@@ -1114,7 +1114,7 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
                                   </button>
                                   <button
                                     onClick={() => handleSubmit(review)}
-                                    disabled={generating || submitting || !draftText.trim() || isQueued || isSubmitted}
+                                    disabled={generating || submitting || !draftText.trim() || isQueued || isSubmitted || review.hasReply}
                                     className="px-4 py-1.5 rounded-lg text-xs font-bold text-white hover:opacity-90 disabled:opacity-50 shadow-sm"
                                     style={{ background: config.color }}
                                   >
@@ -1140,7 +1140,12 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
                                     ✅ {config.label}에 등록 완료 ({timeAgo(review.replySubmittedAt)})
                                   </p>
                                 )}
-                                {review.replyStatus === 'failed' && review.replyError && (
+                                {!isSubmitted && review.hasReply && (
+                                  <p className="text-[11px] mt-2 text-[#059669] bg-[#ECFDF5] rounded-lg px-2 py-1.5">
+                                    ✅ 이미 {config.label}에 답글이 달린 리뷰예요. 자동 발행은 비활성화됩니다.
+                                  </p>
+                                )}
+                                {review.replyStatus === 'failed' && review.replyError && !review.hasReply && (
                                   <p className="text-[11px] mt-2 text-[#DC2626] bg-[#FEE2E2] rounded-lg px-2 py-1.5">
                                     ❌ 등록 실패: {review.replyError}
                                     {config.reviewAdminUrl && (
@@ -1166,12 +1171,14 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
                           </div>
                         )}
 
-                        {/* 등록 완료 — 답글 내용 표시 */}
-                        {!isEditing && isSubmitted && (
+                        {/* 등록 완료 또는 네이버에 이미 달린 답글 — 답글 내용 표시 */}
+                        {!isEditing && (isSubmitted || review.hasReply) && (
                           <div className="rounded-xl p-3 mb-2 border border-[#ECFDF5] bg-[#F0FDF4]">
-                            <p className="text-[10px] font-bold text-[#059669] mb-1">✅ 사장님 답글 (등록 완료)</p>
+                            <p className="text-[10px] font-bold text-[#059669] mb-1">
+                              {isSubmitted ? `✅ 사장님 답글 (${config.label} 등록 완료)` : `✅ 사장님 답글 (${config.label}에 등록됨)`}
+                            </p>
                             <p className="text-sm text-[#374151] leading-relaxed whitespace-pre-wrap break-words">
-                              {review.draftReply || '(답글 내용 없음)'}
+                              {review.draftReply || '(로컬루션에서 작성하지 않은 답글이에요. 네이버에서 직접 확인해주세요.)'}
                             </p>
                           </div>
                         )}

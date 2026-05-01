@@ -10,7 +10,7 @@ RUN npm install --omit=optional --no-audit --no-fund \
     && npm cache clean --force
 
 COPY tsconfig.json ./
-RUN echo "build-marker: diag-v2-http-proxy-kip-login"
+RUN echo "build-marker: v3-timeout-abortcontroller-20260501"
 COPY src ./src
 
 RUN npx tsc

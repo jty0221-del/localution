@@ -13,6 +13,8 @@ import { dumpPageDiagnostics, startNetworkCapture, detectLoginFailure } from '..
 import { handleNaverCaptcha, solveCaptcha } from '../lib/captcha'
 import type { JobResult, Action } from '../jobs'
 
+const NAVER_CODE_VERSION = 'v3-timeout-20260501'
+
 const LOGIN_URL = 'https://nid.naver.com/nidlogin.login'
 const NEW_SMARTPLACE_BASE = 'https://new.smartplace.naver.com'
 
@@ -398,11 +400,12 @@ export async function runNaver(
 
             const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY
             if (supabaseKey) {
-              log.info('naver: calling Vercel captcha-solve proxy (Claude Vision)')
+              log.info('naver: calling Vercel captcha-solve proxy (Claude Vision) [timeout=30s]')
               const proxyRes = await fetch('https://localution.vercel.app/api/captcha-solve', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'Authorization': 'Bearer ' + supabaseKey },
                 body: JSON.stringify({ image: rawB64, question: captchaInstruction, mediaType }),
+                signal: AbortSignal.timeout(30000),
               }).then((r: any) => r.json()).catch((e: any) => ({ error: e?.message }))
               const proxyAnswer = (proxyRes?.answer || '').trim()
               log.info('naver: Vercel proxy answer: ' + (proxyAnswer || 'null').slice(0, 30)
@@ -425,6 +428,7 @@ export async function runNaver(
                       { type: 'text', text: captchaInstruction },
                     ]}],
                   }),
+                  signal: AbortSignal.timeout(30000),
                 }).then((r: any) => r.json()).catch(() => null)
                 const claudeAnswer = (claudeRes?.content?.[0]?.text || '').trim()
                 log.info('naver: direct Claude Vision answer: ' + (claudeAnswer || 'null').slice(0, 30))
