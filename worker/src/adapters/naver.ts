@@ -445,15 +445,47 @@ export async function runNaver(
             }
           }
 
-          // ── OpenAI Vision 폴백: 2captcha 실패 시 GPT-4o로 CAPTCHA 해결 ──────────
+          // ── Vision AI 폴백: 2captcha 실패 시 Claude/GPT-4o Vision으로 CAPTCHA 해결 ──────────
           // 한국어 영수증 CAPTCHA는 한국어를 모르는 2captcha workers가 해결 못함
-          // Railway 환경변수에 OPENAI_API_KEY 설정 시 자동 활성화
+          // Railway 환경변수에 ANTHROPIC_API_KEY (우선) 또는 OPENAI_API_KEY 설정 시 자동 활성화
           if (!captchaAnswerRetry && captchaImgSrc) {
+            const anthropicKey = process.env.ANTHROPIC_API_KEY
             const openaiKey = process.env.OPENAI_API_KEY
-            if (openaiKey) {
+            const promptText = (captchaQuestion || '이 이미지에서 질문에 답하세요')
+              + '\n한국어로 답하세요. 답만 짧게 (예: 순창, 3, 15000). 다른 설명 없이 답만.'
+
+            if (anthropicKey && captchaImgSrc.startsWith('data:')) {
+              // Anthropic Claude Vision — 프로젝트에서 이미 사용 중인 API 키로 동작
+              log.info('naver: falling back to Anthropic Claude Vision for CAPTCHA solve')
+              const rawB64 = captchaImgSrc.replace(/^data:[^;]+;base64,/, '')
+              // base64 첫 4자로 실제 파일 형식 감지: /9j/=JPEG, iVBO=PNG
+              const mediaType = rawB64.startsWith('/9j/') ? 'image/jpeg' : 'image/png'
+              const claudeRes = await fetch('https://api.anthropic.com/v1/messages', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'x-api-key': anthropicKey,
+                  'anthropic-version': '2023-06-01',
+                },
+                body: JSON.stringify({
+                  model: 'claude-3-haiku-20240307',
+                  max_tokens: 30,
+                  messages: [{
+                    role: 'user',
+                    content: [
+                      { type: 'image', source: { type: 'base64', media_type: mediaType, data: rawB64 } },
+                      { type: 'text', text: promptText },
+                    ],
+                  }],
+                }),
+              }).then((r: any) => r.json()).catch(() => null)
+              const claudeAnswer = (claudeRes?.content?.[0]?.text || '').trim()
+              log.info('naver: Claude Vision answer: ' + (claudeAnswer || 'null').slice(0, 30)
+                + (claudeRes?.error ? ' err=' + JSON.stringify(claudeRes.error).slice(0,60) : ''))
+              if (claudeAnswer) captchaAnswerRetry = claudeAnswer
+            } else if (openaiKey) {
+              // OpenAI GPT-4o-mini Vision 폴백
               log.info('naver: falling back to OpenAI Vision for CAPTCHA solve')
-              const promptText = (captchaQuestion || '이 이미지에서 질문에 답하세요')
-                + '\n한국어로 답하세요. 답만 짧게 (예: 순창, 3, 15000). 다른 설명 없이 답만.'
               const oaiRes = await fetch('https://api.openai.com/v1/chat/completions', {
                 method: 'POST',
                 headers: {
@@ -477,8 +509,7 @@ export async function runNaver(
               if (oaiAnswer) captchaAnswerRetry = oaiAnswer
             } else {
               log.warn('naver: CAPTCHA 해결 불가 — 한국어 영수증 CAPTCHA는 2captcha 풀이 불가. '
-                + '해결책: (1) 한국 주거용 프록시 구매 후 Railway PROXY_HOST/PORT 설정, '
-                + '(2) Railway 환경변수에 OPENAI_API_KEY 추가 (GPT-4o Vision으로 자동 해결)')
+                + '해결책: Railway 환경변수에 ANTHROPIC_API_KEY 추가 (Vercel에 설정된 키와 동일 키)')
             }
           }
 
