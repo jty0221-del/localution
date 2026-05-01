@@ -290,7 +290,9 @@ export async function runNaver(
       await page.waitForTimeout(1500)
 
       const urlAfterLogin = page.url()
-      log.info({ url: urlAfterLogin }, 'naver: after form login')
+      // URL을 Railway 로그에서 바로 볼 수 있도록 message 에 포함
+      const loginResultShort = urlAfterLogin.replace('https://nid.naver.com/', 'nid/').replace('https://new.smartplace.naver.com', 'smartplace').slice(0, 80)
+      log.info('naver: after form login — url=' + loginResultShort)
 
       if (urlAfterLogin.includes('captcha') || urlAfterLogin.includes('challenge')) {
         log.info({ urlAfterLogin }, 'naver: captcha detected — attempting auto-solve with 2captcha')
@@ -338,6 +340,9 @@ export async function runNaver(
       if (urlAfterLogin.includes('nid.naver.com') || urlAfterLogin.includes('login') || urlAfterLogin.includes('signin')) {
         // detectLoginFailure: 실제 에러 텍스트만 감지 (폼 라벨 '비밀번호','아이디'는 제외)
         const { reason } = await detectLoginFailure(page, ['일치하지', '잘못된', '실패', '오류', 'incorrect', 'invalid', '차단', '해외'])
+        // 페이지 본문 첫 400자를 Railway 로그에서 볼 수 있도록 message 에 포함
+        const bodySnippet = await page.evaluate(() => (document.body?.innerText || '').replace(/\s+/g, ' ').slice(0, 400)).catch(() => '')
+        log.warn('naver: login failed page text: ' + bodySnippet.slice(0, 300))
         await dumpPageDiagnostics(page, log, 'naver-login-failed')
         await markLoginStatus(svc, userId, 'naver_place', 'failed', reason || urlAfterLogin)
         const msg = reason
