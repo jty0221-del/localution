@@ -512,13 +512,29 @@ async function fetchCoupangReviews(
   log.info({ reviewsUrl, alreadyOnReviews, earlyCaptured: capturedReviews.length, skipBrowser }, 'coupangeats: fetchCoupangReviews entry')
 
   // ── 리뷰 관리 페이지로 이동 (네트워크 인터셉트 + 자연 API 호출 유도) ──
+  // savedCookies가 있으면(skipBrowser=true) 리뷰 페이지로 직접 탐색 시도
+  // 이유: Akamai JS challenge는 실제 브라우저 탐색 시에만 실행됨 → _abck 갱신 → API 허용
+  // 로그인 URL이 아닌 리뷰 URL로 바로 가면 프록시 auth 문제 없이 동작 가능
+  let browserNavOk = false
+  if (skipBrowser) {
+    log.info({ reviewsUrl }, 'coupangeats: savedCookies — attempting direct nav to reviews page for Akamai challenge')
+    try {
+      await page.goto(reviewsUrl, { waitUntil: 'domcontentloaded', timeout: 35000 })
+      await page.waitForTimeout(5000)   // Akamai JS + 자연 API 호출 대기
+      browserNavOk = true
+      log.info({ url: page.url(), capturedSoFar: capturedReviews.length }, 'coupangeats: reviews page loaded (savedCookies path)')
+    } catch (navErr: any) {
+      log.warn({ err: navErr?.message }, 'coupangeats: savedCookies reviews nav failed — will use node-direct only')
+    }
+  }
+
   if (!skipBrowser && !alreadyOnReviews) {
     log.info({ reviewsUrl }, 'coupangeats: navigating to reviews page for natural API capture')
     try {
       await page.goto(reviewsUrl, { waitUntil: 'networkidle', timeout: 30000 }).catch(() =>
         page.goto(reviewsUrl, { waitUntil: 'domcontentloaded', timeout: 25000 })
       )
-      await page.waitForTimeout(4000)   // 자연 API 호출이 완료될 때까지 대기
+      await page.waitForTimeout(4000)
       log.info({ url: page.url(), capturedSoFar: capturedReviews.length }, 'coupangeats: reviews page loaded')
     } catch (navErr: any) {
       log.warn({ err: navErr?.message }, 'coupangeats: reviews navigation failed, trying direct API')
@@ -526,7 +542,7 @@ async function fetchCoupangReviews(
   }
 
   // ── 페이지 상호작용으로 리뷰 API 자연 유도 (브라우저가 살아있을 때만) ──
-  if (!skipBrowser) {
+  if (!skipBrowser || browserNavOk) {
     try { await closeAllModals(page, log) } catch { /* browser dead — ignore */ }
     // 쿠팡이츠 리뷰 페이지의 자연 API 호출 유도 (다양한 방식 시도)
     const interactionDone = await (async () => {
@@ -592,16 +608,22 @@ async function fetchCoupangReviews(
   // Playwright page.evaluate fetch → 407 발생 (proxy auth 미전달)
   // globalThis.fetch (Node 18+) → Cookie 헤더 직접 주입 → 프록시 없이 CoupangEats API 직접 접근
   // directCookies: proxy 차단으로 browser navigation 불가 시 savedCookies를 직접 사용
-  const contextCookies = directCookies
-    ?? await context.cookies('https://store.coupangeats.com').catch(() => [] as any[])
+  // browserNavOk=true 면 Akamai JS가 실행되어 context에 fresh _abck가 있음 → context.cookies() 사용
+  // 그렇지 않으면 directCookies 사용 (browser nav 불가 경로)
+  const contextCookies = (browserNavOk || !directCookies)
+    ? await context.cookies('https://store.coupangeats.com').catch(() => directCookies ?? [] as any[])
+    : directCookies
 
-  // Akamai Bot Manager 쿠키는 IP+브라우저 핑거프린트에 묶여 있어서
-  // 다른 IP(프록시)에서 보내면 오히려 403을 유발함 → API 요청 시 제외
+  // Akamai Bot Manager 쿠키:
+  // - browserNavOk=true 면 Akamai가 이미 이 세션을 검증함 → 유지 (API 요청에도 포함)
+  // - browserNavOk=false 면 IP/fingerprint 불일치로 오히려 차단 → 제외
   const AKAMAI_COOKIE_PREFIXES = ['bm_', 'ak_', '_abck']
-  const apiCookies = contextCookies.filter((c: any) => {
-    const n = c.name.toLowerCase()
-    return !AKAMAI_COOKIE_PREFIXES.some(p => n.startsWith(p))
-  })
+  const apiCookies = browserNavOk
+    ? contextCookies   // fresh Akamai 쿠키 포함
+    : contextCookies.filter((c: any) => {
+        const n = c.name.toLowerCase()
+        return !AKAMAI_COOKIE_PREFIXES.some(p => n.startsWith(p))
+      })
   const cookieStr = apiCookies.map((c: any) => `${c.name}=${c.value}`).join('; ')
   const cookieNames = contextCookies.map((c: any) => c.name)
   log.info({ cookieCount: contextCookies.length, apiCookieCount: apiCookies.length, cookieNames, hasCookieStr: !!cookieStr, viaDirectCookies: !!directCookies }, 'coupangeats: node-direct cookie string built (akamai cookies excluded)')
