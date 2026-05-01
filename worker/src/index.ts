@@ -1,8 +1,9 @@
+// deploy-trigger: 1777617729860
 // worker/src/index.ts
 // ==================================================================
-// 42차-2: fly.io 재시작 루프 수정
-//   · ENCRYPTION_KEY_HEX → ENCRYPTION_KEK_HEX 이름 통일
-//   · 헬스서버 / 경로도 200 응답 추가
+// 42ì°¨-2: fly.io ì¬ìì ë£¨í ìì 
+//   Â· ENCRYPTION_KEY_HEX â ENCRYPTION_KEK_HEX ì´ë¦ íµì¼
+//   Â· í¬ì¤ìë² / ê²½ë¡ë 200 ìëµ ì¶ê°
 // ==================================================================
 import { Worker, Queue, Job } from 'bullmq'
 import IORedis from 'ioredis'
@@ -48,13 +49,13 @@ async function getBrowser(): Promise<Browser> {
   if (browserSingleton && browserSingleton.isConnected()) return browserSingleton
   log.info('launching chromium...')
 
-  // proxy 설정은 반드시 chromium.launch() 레벨에서 해야 함
-  // browser.newContext() 레벨에서 proxy auth 설정 시 ERR_PROXY_AUTH_UNSUPPORTED 발생
+  // proxy ì¤ì ì ë°ëì chromium.launch() ë ë²¨ìì í´ì¼ í¨
+  // browser.newContext() ë ë²¨ìì proxy auth ì¤ì  ì ERR_PROXY_AUTH_UNSUPPORTED ë°ì
   const proxyHost = process.env.PROXY_HOST
   const proxyPort = process.env.PROXY_PORT
   const proxyUser = process.env.PROXY_USER
   const proxyPass = process.env.PROXY_PASS
-  const proxyProto = process.env.PROXY_PROTOCOL || 'socks5'  // socks5 기본값 — HTTP는 Chromium 91+ 보안 정책으로 ERR_PROXY_AUTH_UNSUPPORTED 발생
+  const proxyProto = process.env.PROXY_PROTOCOL || 'socks5'  // socks5 ê¸°ë³¸ê° â HTTPë Chromium 91+ ë³´ì ì ì±ì¼ë¡ ERR_PROXY_AUTH_UNSUPPORTED ë°ì
 
   const launchOptions: any = {
     headless: true,
@@ -92,8 +93,8 @@ const worker = new Worker<PlatformJobData>(
       log.info({ jobId: job.id, result: result.status }, 'job done')
       return result
     } catch (err: any) {
-      // 43차-2: runJob 이 throw 하면 BullMQ 가 잡을 retry/fail 처리.
-      //         로깅은 여기서 한 번 명확하게 남긴다 (worker.on('failed') 도 트리거됨).
+      // 43ì°¨-2: runJob ì´ throw íë©´ BullMQ ê° ì¡ì retry/fail ì²ë¦¬.
+      //         ë¡ê¹ì ì¬ê¸°ì í ë² ëªííê² ë¨ê¸´ë¤ (worker.on('failed') ë í¸ë¦¬ê±°ë¨).
       log.error({ jobId: job.id, err: err?.message, stack: err?.stack }, 'job exception')
       throw err
     }
@@ -118,7 +119,7 @@ worker.on('error', (err) => {
   log.error({ err: err.message }, 'worker error')
 })
 
-// BullMQ Queue (enqueue 전용) — 같은 Redis connection 재사용
+// BullMQ Queue (enqueue ì ì©) â ê°ì Redis connection ì¬ì¬ì©
 const jobQueue = new Queue<PlatformJobData>(QUEUE_NAME, { connection })
 
 const TRIGGER_SECRET = process.env.TRIGGER_SECRET || ''
@@ -144,7 +145,7 @@ const healthServer = http.createServer(async (req, res) => {
     return
   }
 
-  // GET /jobs  — 최근 완료/실패 잡 조회 (디버그용)
+  // GET /jobs  â ìµê·¼ ìë£/ì¤í¨ ì¡ ì¡°í (ëë²ê·¸ì©)
   if (req.method === 'GET' && req.url && req.url.startsWith('/jobs')) {
     const auth = req.headers['authorization'] || ''
     if (TRIGGER_SECRET && auth !== `Bearer ${TRIGGER_SECRET}`) {
@@ -181,7 +182,7 @@ const healthServer = http.createServer(async (req, res) => {
     return
   }
 
-  // POST /trigger  — 수동 잡 등록 (테스트/디버그용)
+  // POST /trigger  â ìë ì¡ ë±ë¡ (íì¤í¸/ëë²ê·¸ì©)
   if (req.method === 'POST' && req.url === '/trigger') {
     // optional secret check
     const auth = req.headers['authorization'] || ''
@@ -209,7 +210,7 @@ const healthServer = http.createServer(async (req, res) => {
     return
   }
 
-  // GET /debug-creds  — platform_credentials 테이블 플랫폼별 카운트 조회
+  // GET /debug-creds  â platform_credentials íì´ë¸ íë«í¼ë³ ì¹´ì´í¸ ì¡°í
   if (req.method === 'GET' && req.url === '/debug-creds') {
     const auth = req.headers['authorization'] || ''
     if (TRIGGER_SECRET && auth !== `Bearer ${TRIGGER_SECRET}`) {
@@ -237,7 +238,7 @@ const healthServer = http.createServer(async (req, res) => {
     return
   }
 
-  // POST /run-all?platform=coupangeats  — 모든 유저 잡 일괄 등록
+  // POST /run-all?platform=coupangeats  â ëª¨ë  ì ì  ì¡ ì¼ê´ ë±ë¡
   if (req.method === 'POST' && req.url && req.url.startsWith('/run-all')) {
     const auth = req.headers['authorization'] || ''
     if (TRIGGER_SECRET && auth !== `Bearer ${TRIGGER_SECRET}`) {
@@ -284,8 +285,8 @@ healthServer.listen(port, () => {
   log.info({ port }, 'health server listening')
 })
 
-// 43차-2: 브라우저/Redis 종료가 행 걸리면 fly.io SIGKILL 까지 시간이 걸림.
-//         각 단계에 짧은 타임아웃을 둬서 빠르게 정리하고 빠져나간다.
+// 43ì°¨-2: ë¸ë¼ì°ì /Redis ì¢ë£ê° í ê±¸ë¦¬ë©´ fly.io SIGKILL ê¹ì§ ìê°ì´ ê±¸ë¦¼.
+//         ê° ë¨ê³ì ì§§ì íìììì ë¬ì ë¹ ë¥´ê² ì ë¦¬íê³  ë¹ ì ¸ëê°ë¤.
 function withTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T | null> {
   return Promise.race<T | null>([
     p.catch(() => null) as Promise<T | null>,
