@@ -292,7 +292,8 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
             replyQueuedAt: r.reply_queued_at || null,
             replySubmittedAt: r.reply_submitted_at || null,
             replyError: r.reply_error || null,
-            replyContent: r.reply_content || null,
+            // 답글 본문: raw_snapshot.ownerReplyBody (네이버에서 가져온 사장님 답글)
+            replyContent: ((r.raw_snapshot as any)?.ownerReplyBody) || null,
           }
         })
         setReviews(mapped)

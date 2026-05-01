@@ -35,7 +35,7 @@ type UpsertRow = {
   posted_at: string | null
   collected_at: string
   has_reply: boolean
-  reply_content?: string | null   // 37차-12: 사장님 답글 본문 (네이버에서 가져옴)
+  // 사장님 답글 본문은 raw_snapshot.ownerReplyBody 에 저장됨 (DB에 reply_content 컬럼 없음)
   raw_snapshot: unknown
 }
 
@@ -395,21 +395,19 @@ export async function POST(req: NextRequest) {
   const now = new Date().toISOString()
   const reviewIds = reviews.map((r) => r.reviewId)
 
-  // 기존 has_reply / reply_status / reply_content 보존 — upsert 시 덮어쓰기 방지
+  // 기존 has_reply / reply_status 보존 — upsert 시 덮어쓰기 방지
   const existingHasReply = new Map<string, boolean>()
   const existingReplyStatus = new Map<string, string | null>()
-  const existingReplyContent = new Map<string, string | null>()
   try {
     const { data: existing } = await svc
       .from('platform_reviews')
-      .select('platform_review_id, has_reply, reply_status, reply_content')
+      .select('platform_review_id, has_reply, reply_status')
       .eq('user_id', userId)
       .eq('platform', 'naver_place')
       .in('platform_review_id', reviewIds.slice(0, 500))
     for (const row of existing ?? []) {
       existingHasReply.set(row.platform_review_id, row.has_reply ?? false)
       existingReplyStatus.set(row.platform_review_id, row.reply_status ?? null)
-      existingReplyContent.set(row.platform_review_id, (row as any).reply_content ?? null)
     }
   } catch (_) {
     // 조회 실패해도 upsert는 진행 (has_reply는 false로 폴백)
@@ -431,8 +429,7 @@ export async function POST(req: NextRequest) {
     has_reply: r.hasOwnerReply === true ||
                existingHasReply.get(r.reviewId) === true ||
                existingReplyStatus.get(r.reviewId) === 'submitted',
-    // 답글 본문: 네이버에서 가져온 ownerReplyBody 우선, 없으면 기존 reply_content 보존
-    reply_content: r.ownerReplyBody ?? existingReplyContent.get(r.reviewId) ?? null,
+    // 답글 본문은 r 객체 (ownerReplyBody 포함) 자체가 raw_snapshot에 저장됨
     raw_snapshot: r,
   }))
   // 중복 reviewId가 있으면 PostgreSQL upsert 오류 발생 → 마지막 항목만 유지
