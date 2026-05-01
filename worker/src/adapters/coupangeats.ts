@@ -292,6 +292,7 @@ export async function runCoupangEats(
 
       if (navErr && navErr.includes('ERR_PROXY_AUTH_UNSUPPORTED')) {
         log.warn({ navErr }, 'coupangeats: proxy auth unsupported — skipping browser nav, using node-direct API with saved cookies')
+        // 브라우저 navigation 없이 nodeDirectApiGet 으로 직접 API 호출
         return await fetchCoupangReviews(page, context, svc, creds, userId, action, payload, log, earlyCapture, earlyCaptureUrls, allRequestUrls, allJsonUrls, savedCookies)
       }
 
@@ -468,7 +469,7 @@ async function fetchCoupangReviews(
   earlyCaptureUrls: string[] = [],
   allRequestUrls: string[] = [],
   allJsonUrls: string[] = [],
-  directCookies: any[] | null = null,
+  directCookies: any[] | null = null,   // savedCookies 직접 전달 (proxy 차단 시 context.cookies() 대신)
 ): Promise<JobResult> {
   const reviewsUrl = creds.platform_store_id
     ? `${REVIEWS_BASE_URL}/${creds.platform_store_id}`
@@ -564,6 +565,7 @@ async function fetchCoupangReviews(
   // ── Node.js native fetch (직접 API 호출, 브라우저/프록시 우회) ──
   // Playwright page.evaluate fetch → 407 발생 (proxy auth 미전달)
   // globalThis.fetch (Node 18+) → Cookie 헤더 직접 주입 → 프록시 없이 CoupangEats API 직접 접근
+  // directCookies: proxy 차단으로 browser navigation 불가 시 savedCookies를 직접 사용
   const contextCookies = directCookies
     ?? await context.cookies('https://store.coupangeats.com').catch(() => [] as any[])
   const cookieStr = contextCookies.map((c: any) => `${c.name}=${c.value}`).join('; ')
@@ -571,6 +573,29 @@ async function fetchCoupangReviews(
 
   async function nodeDirectApiGet(path: string): Promise<{ ok: boolean; body: any; status: number; errBody: string }> {
     const url = path.startsWith('http') ? path : `${BASE_ORIGIN}${path}`
+
+    // ── 1순위: tunnelFetch (HTTP CONNECT 프록시 경유 — 한국 IP로 CoupangEats 접근) ──
+    if (useProxy && proxyHost && proxyPort && proxyUser && proxyPass) {
+      try {
+        const result = await tunnelFetch(
+          url, cookieStr,
+          proxyHost, parseInt(proxyPort, 10), proxyUser, proxyPass,
+          {
+            'X-Requested-With': 'XMLHttpRequest',
+            'Referer': 'https://store.coupangeats.com/merchant/management/reviews',
+            'Origin': 'https://store.coupangeats.com',
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+            'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8',
+          },
+        )
+        log.info({ url: path.slice(0, 80), status: result.status, via: 'tunnelFetch' }, 'coupangeats: nodeDirectApiGet via proxy tunnel')
+        return result
+      } catch (e: any) {
+        log.warn({ url: path.slice(0, 80), err: e?.message }, 'coupangeats: tunnelFetch failed, falling back to globalThis.fetch')
+      }
+    }
+
+    // ── 2순위: globalThis.fetch (프록시 없을 때 직접 연결) ──
     try {
       const r = await (globalThis as any).fetch(url, {
         headers: {
