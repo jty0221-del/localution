@@ -138,11 +138,13 @@ export async function runNaver(
     },
   }
   if (useProxy) {
-    const proxyUrl = (proxyUser && proxyPass)
-      ? `${proxyProto}://${proxyUser}:${proxyPass}@${proxyHost}:${proxyPort}`
-      : `${proxyProto}://${proxyHost}:${proxyPort}`
-    contextOptions.proxy = { server: proxyUrl }
-    log.info({ proxy: `${proxyProto}://${proxyHost}:${proxyPort}` }, 'naver: using residential proxy')
+    // Playwright proxy auth: 인라인 URL 방식(user:pass@host) 대신 별도 필드 사용
+    // ERR_PROXY_AUTH_UNSUPPORTED 방지
+    const proxyConfig: any = { server: `${proxyProto}://${proxyHost}:${proxyPort}` }
+    if (proxyUser) proxyConfig.username = proxyUser
+    if (proxyPass) proxyConfig.password = proxyPass
+    contextOptions.proxy = proxyConfig
+    log.info({ proxy: `${proxyProto}://${proxyHost}:${proxyPort}`, hasAuth: !!(proxyUser && proxyPass) }, 'naver: using residential proxy')
   } else {
     log.warn('naver: no proxy configured (PROXY_HOST/PORT missing) — Railway IP may be blocked')
   }
