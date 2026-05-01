@@ -445,6 +445,43 @@ export async function runNaver(
             }
           }
 
+          // ── OpenAI Vision 폴백: 2captcha 실패 시 GPT-4o로 CAPTCHA 해결 ──────────
+          // 한국어 영수증 CAPTCHA는 한국어를 모르는 2captcha workers가 해결 못함
+          // Railway 환경변수에 OPENAI_API_KEY 설정 시 자동 활성화
+          if (!captchaAnswerRetry && captchaImgSrc) {
+            const openaiKey = process.env.OPENAI_API_KEY
+            if (openaiKey) {
+              log.info('naver: falling back to OpenAI Vision for CAPTCHA solve')
+              const promptText = (captchaQuestion || '이 이미지에서 질문에 답하세요')
+                + '\n한국어로 답하세요. 답만 짧게 (예: 순창, 3, 15000). 다른 설명 없이 답만.'
+              const oaiRes = await fetch('https://api.openai.com/v1/chat/completions', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': 'Bearer ' + openaiKey,
+                },
+                body: JSON.stringify({
+                  model: 'gpt-4o-mini',
+                  max_tokens: 20,
+                  messages: [{
+                    role: 'user',
+                    content: [
+                      { type: 'image_url', image_url: { url: captchaImgSrc } },
+                      { type: 'text', text: promptText },
+                    ],
+                  }],
+                }),
+              }).then((r: any) => r.json()).catch(() => null)
+              const oaiAnswer = (oaiRes?.choices?.[0]?.message?.content || '').trim()
+              log.info('naver: OpenAI Vision answer: ' + (oaiAnswer || 'null').slice(0, 30))
+              if (oaiAnswer) captchaAnswerRetry = oaiAnswer
+            } else {
+              log.warn('naver: CAPTCHA 해결 불가 — 한국어 영수증 CAPTCHA는 2captcha 풀이 불가. '
+                + '해결책: (1) 한국 주거용 프록시 구매 후 Railway PROXY_HOST/PORT 설정, '
+                + '(2) Railway 환경변수에 OPENAI_API_KEY 추가 (GPT-4o Vision으로 자동 해결)')
+            }
+          }
+
           if (captchaAnswerRetry) {
             // Naver가 실패한 로그인 후 PW 필드를 초기화 → 재입력 필수
             const idElRetry = await page.$(DOM_SELECTORS.idInput).catch(() => null)
