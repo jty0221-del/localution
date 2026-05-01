@@ -71,8 +71,8 @@ function parseDateSafely(raw: string | null | undefined): string | null {
 // GET: 디버그용 — ?debug=1(GraphQL 직접) / ?debug=2(함수 호출만) / ?debug=3(실제 수집+DB저장)
 export async function GET(req: NextRequest) {
   const dbg = req.nextUrl.searchParams.get('debug')
-  if (dbg !== '1' && dbg !== '2' && dbg !== '3' && dbg !== '4') {
-    return NextResponse.json({ ok: false, error: 'POST only (GET은 ?debug=1/2/3/4 만 허용)' }, { status: 405 })
+  if (!['1','2','3','4','5'].includes(dbg || '')) {
+    return NextResponse.json({ ok: false, error: 'POST only (GET은 ?debug=1~5 만 허용)' }, { status: 405 })
   }
   return POST(req)
 }
@@ -147,6 +147,62 @@ export async function POST(req: NextRequest) {
       { ok: false, error: '연결된 네이버 플레이스가 없어요. 먼저 /my/platforms 에서 연결해 주세요.' },
       { status: 400 },
     )
+  }
+
+  // 디버그 모드 5: ?debug=5 → 청크 upsert + DB 실제 row count 반환 (새 코드 검증용)
+  if (req.nextUrl.searchParams.get('debug') === '5') {
+    const t0 = Date.now()
+    let reviews: any[] = []
+    try { reviews = await fetchVisitorReviews(placeId, hint) } catch (_) {}
+    let upsertErr: string | null = null
+    if (reviews.length > 0) {
+      const reviewIds = reviews.map((r) => r.reviewId)
+      const existingHasReply = new Map<string, boolean>()
+      const existingReplyStatus = new Map<string, string | null>()
+      try {
+        const { data: existing } = await svc.from('platform_reviews')
+          .select('platform_review_id, has_reply, reply_status')
+          .eq('user_id', userId).eq('platform', 'naver_place')
+          .in('platform_review_id', reviewIds.slice(0, 500))
+        for (const row of existing ?? []) {
+          existingHasReply.set(row.platform_review_id, row.has_reply ?? false)
+          existingReplyStatus.set(row.platform_review_id, row.reply_status ?? null)
+        }
+      } catch (_) {}
+      const now = new Date().toISOString()
+      const seen = new Map<string, any>()
+      for (const r of reviews) {
+        seen.set(r.reviewId, {
+          user_id: userId, platform: 'naver_place' as const, platform_store_id: placeId!,
+          platform_review_id: r.reviewId, author_name: r.authorName ?? null,
+          author_mask: maskAuthor(r.authorName),
+          rating: typeof r.rating === 'number' && r.rating >= 1 && r.rating <= 5 ? r.rating : null,
+          content: r.body, photos: r.photos.length > 0 ? r.photos : null,
+          posted_at: parseDateSafely(r.postedAt) || parseDateSafely(r.visitedAt),
+          collected_at: now,
+          has_reply: existingHasReply.get(r.reviewId) === true || existingReplyStatus.get(r.reviewId) === 'submitted',
+          raw_snapshot: r,
+        })
+      }
+      const rows = Array.from(seen.values())
+      const CHUNK = 200
+      for (let i = 0; i < rows.length && !upsertErr; i += CHUNK) {
+        const { error } = await svc.from('platform_reviews').upsert(rows.slice(i, i + CHUNK), {
+          onConflict: 'platform,platform_review_id', ignoreDuplicates: false,
+        })
+        if (error) upsertErr = 'chunk ' + i + ': ' + error.message
+      }
+    }
+    const { count } = await svc.from('platform_reviews')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId).eq('platform', 'naver_place')
+    return NextResponse.json({
+      ok: true,
+      debug5: {
+        placeId, fetched: reviews.length, upsert_error: upsertErr,
+        db_total_for_user: count, elapsed_ms: Date.now() - t0,
+      },
+    })
   }
 
   // 디버그 모드 4: ?debug=4 → fetch + upsert 후 카운트/에러만 반환 (응답 작게)
