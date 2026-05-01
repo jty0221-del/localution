@@ -789,17 +789,18 @@ async function fetchCoupangReviews(
       } catch (_) {}
 
       // Run fetch inside Chrome renderer (Chrome TLS fingerprint) with token passed as param
+      // Use object arg to avoid TS tuple destructuring issue
       const result: { ok: boolean; body: any; status: number; errBody: string } = await page.evaluate(
-        async ([fetchUrl, token]: [string, string]) => {
+        async (args: { fetchUrl: string; token: string }) => {
           try {
-            const headers: Record<string, string> = {
+            const hdrs: Record<string, string> = {
               'Accept': 'application/json, text/plain, */*',
               'X-Requested-With': 'XMLHttpRequest',
               'Referer': 'https://store.coupangeats.com/merchant/management/reviews',
               'Origin': 'https://store.coupangeats.com',
             }
-            if (token) headers['Authorization'] = 'Bearer ' + token
-            const r = await fetch(fetchUrl, { credentials: 'include', headers })
+            if (args.token) hdrs['Authorization'] = 'Bearer ' + args.token
+            const r = await fetch(args.fetchUrl, { credentials: 'include', headers: hdrs })
             const status = r.status
             if (!r.ok) {
               let errBody = ''
@@ -812,7 +813,7 @@ async function fetchCoupangReviews(
             return { ok: false, body: null, status: 0, errBody: String(e?.message || e).slice(0, 150) }
           }
         },
-        [url, unifyToken] as [string, string]
+        { fetchUrl: url, token: unifyToken }
       )
       return result
     } catch (e: any) {
