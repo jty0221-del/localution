@@ -518,7 +518,8 @@ export type VisitorReview = {
   visitedAt: string | null    // YYYY-MM-DD or ISO
   postedAt: string | null     // ISO
   photos: string[]            // 첨부 사진 URL
-  hasOwnerReply: boolean      // 사장님 답글 여부 (replyCount>0 or ownerReply 존재)
+  hasOwnerReply: boolean      // 사장님 답글 여부 (reply.body 존재)
+  ownerReplyBody: string | null  // 사장님 답글 본문 (있으면 텍스트)
   raw?: unknown               // 디버깅용 원본
 }
 
@@ -640,6 +641,7 @@ function parseReviewObject(objStr: string, fallbackId: string): VisitorReview | 
     postedAt,
     photos: photos.slice(0, 6),
     hasOwnerReply: false, // SSR fallback에서는 답글 여부 파악 불가
+    ownerReplyBody: null,
   }
 }
 
@@ -667,10 +669,10 @@ function parseReviewObject(objStr: string, fallbackId: string): VisitorReview | 
 // ============================================================
 
 const NAVER_GRAPHQL_URL = 'https://pcmap-api.place.naver.com/graphql'
-// 37차-9: replyCount/ownerReply 필드는 네이버 GraphQL 스키마에 없어서 전체 쿼리가 거부됨 → 제거 (리뷰 0건 버그 수정)
-// has_reply 감지는 fetch/route.ts의 보존 로직(기존 has_reply=true 또는 reply_status='submitted')에 의존
+// 37차-12: reply { body } 필드는 검증 완료 — 사장님 답글 본문/존재 여부 감지
+// (이전엔 replyCount/ownerReply 잘못된 필드명으로 쿼리 거부됨 → reply 필드로 정정)
 const VISITOR_REVIEWS_QUERY =
-  'query getVisitorReviews($input: VisitorReviewsInput) { visitorReviews(input: $input) { total items { id rating body visited visitedDate created author { id nickname } originType userIdno media { type thumbnail videoId trailerUrl } } } }'
+  'query getVisitorReviews($input: VisitorReviewsInput) { visitorReviews(input: $input) { total items { id rating body visited visitedDate created author { id nickname } originType userIdno media { type thumbnail videoId trailerUrl } reply { body } } } }'
 
 type GraphQLReviewItem = {
   id: string
@@ -683,6 +685,7 @@ type GraphQLReviewItem = {
   originType: string | null
   userIdno: string | null
   media: Array<{ type: string | null; thumbnail: string | null; videoId: string | null; trailerUrl: string | null }> | null
+  reply: { body: string | null } | null  // 사장님 답글 (있으면 body, 없으면 null/body=null)
 }
 
 async function fetchVisitorReviewsGraphQL(
@@ -750,8 +753,10 @@ async function fetchVisitorReviewsGraphQL(
             .filter((u): u is string => typeof u === 'string' && u.length > 0)
             .slice(0, 6)
         : []
-      // 37차-9: GraphQL 필드 추가가 전체 쿼리 거부를 유발 → has_reply는 별도 경로로 처리
-      // (fetch/route.ts에서 기존 has_reply=true 보존 + worker가 등록한 답글은 reply_status='submitted')
+      // 37차-12: reply.body 로 사장님 답글 정확히 감지
+      const ownerReplyBody = (typeof it.reply?.body === 'string' && it.reply.body.length > 0)
+        ? it.reply.body
+        : null
       return {
         reviewId: String(it.id),
         authorName: it.author?.nickname ?? null,
@@ -760,7 +765,8 @@ async function fetchVisitorReviewsGraphQL(
         visitedAt: it.visitedDate || it.visited || null,
         postedAt: it.created || null,
         photos,
-        hasOwnerReply: false, // 별도 fetch 또는 보존 로직에서 처리
+        hasOwnerReply: !!ownerReplyBody,
+        ownerReplyBody,
       }
     })
   } catch (e) {

@@ -83,6 +83,7 @@ interface Review {
   replyQueuedAt: string | null
   replySubmittedAt: string | null
   replyError: string | null
+  replyContent: string | null  // 37차-12: 실제 등록된 답글 본문 (네이버 owner reply 또는 worker 등록 답글)
 }
 
 interface StoreMeResponse {
@@ -291,6 +292,7 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
             replyQueuedAt: r.reply_queued_at || null,
             replySubmittedAt: r.reply_submitted_at || null,
             replyError: r.reply_error || null,
+            replyContent: r.reply_content || null,
           }
         })
         setReviews(mapped)
@@ -1184,7 +1186,7 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
                               {isSubmitted ? `✅ 사장님 답글 (${config.label} 등록 완료)` : `✅ 사장님 답글 (${config.label}에 등록됨)`}
                             </p>
                             <p className="text-sm text-[#374151] leading-relaxed whitespace-pre-wrap break-words">
-                              {review.draftReply || '(로컬루션에서 작성하지 않은 답글이에요. 네이버에서 직접 확인해주세요.)'}
+                              {review.replyContent || review.draftReply || '(로컬루션에서 작성하지 않은 답글이에요. 네이버에서 직접 확인해주세요.)'}
                             </p>
                           </div>
                         )}
