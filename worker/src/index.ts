@@ -47,7 +47,16 @@ let browserSingleton: Browser | null = null
 async function getBrowser(): Promise<Browser> {
   if (browserSingleton && browserSingleton.isConnected()) return browserSingleton
   log.info('launching chromium...')
-  browserSingleton = await chromium.launch({
+
+  // proxy 설정은 반드시 chromium.launch() 레벨에서 해야 함
+  // browser.newContext() 레벨에서 proxy auth 설정 시 ERR_PROXY_AUTH_UNSUPPORTED 발생
+  const proxyHost = process.env.PROXY_HOST
+  const proxyPort = process.env.PROXY_PORT
+  const proxyUser = process.env.PROXY_USER
+  const proxyPass = process.env.PROXY_PASS
+  const proxyProto = process.env.PROXY_PROTOCOL || 'http'
+
+  const launchOptions: any = {
     headless: true,
     args: [
       '--no-sandbox',
@@ -55,7 +64,18 @@ async function getBrowser(): Promise<Browser> {
       '--disable-dev-shm-usage',
       '--disable-blink-features=AutomationControlled',
     ],
-  })
+  }
+
+  if (proxyHost && proxyPort) {
+    launchOptions.proxy = { server: `${proxyProto}://${proxyHost}:${proxyPort}` }
+    if (proxyUser) launchOptions.proxy.username = proxyUser
+    if (proxyPass) launchOptions.proxy.password = proxyPass
+    log.info({ proxy: `${proxyProto}://${proxyHost}:${proxyPort}`, hasAuth: !!(proxyUser && proxyPass) }, 'chromium: launching with proxy')
+  } else {
+    log.warn('chromium: no proxy configured (PROXY_HOST/PORT missing)')
+  }
+
+  browserSingleton = await chromium.launch(launchOptions)
   log.info('chromium launched')
   return browserSingleton
 }
