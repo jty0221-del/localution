@@ -152,14 +152,10 @@ export async function runCoupangEats(
       'sec-ch-ua-platform': '"Windows"',
     },
   }
+  // proxy는 chromium.launch() 레벨에서 설정됨 (index.ts)
+  // context 레벨에서 재설정하면 ERR_PROXY_AUTH_UNSUPPORTED 발생 → 여기서는 로그만
   if (useProxy) {
-    // Playwright proxy auth: 인라인 URL 방식(user:pass@host) → ERR_PROXY_AUTH_UNSUPPORTED 유발
-    // 별도 username/password 필드 방식으로 수정
-    const proxyConfig: any = { server: `${proxyProto}://${proxyHost}:${proxyPort}` }
-    if (proxyUser) proxyConfig.username = proxyUser.trim()
-    if (proxyPass) proxyConfig.password = proxyPass.trim()
-    contextOptions.proxy = proxyConfig
-    log.info({ proxy: `${proxyProto}://${proxyHost}:${proxyPort}`, hasAuth: !!(proxyUser && proxyPass) }, 'coupangeats: using proxy')
+    log.info({ proxy: `${proxyProto}://${proxyHost}:${proxyPort}`, hasAuth: !!(proxyUser && proxyPass) }, 'coupangeats: using proxy (set at browser launch level)')
   }
 
   const context = await browser.newContext(contextOptions)
@@ -512,7 +508,7 @@ async function fetchCoupangReviews(
   await page.waitForTimeout(500)
 
   const storeId = creds.platform_store_id || '738438'
-  log.info({ storeId, naturalCaptured: capturedReviews.length }, 'coupangeats: calling review API via page.evaluate fetch (url-embed proxy + XHR headers)')
+  log.info({ storeId, naturalCaptured: capturedReviews.length }, 'coupangeats: calling review API (node-direct fetch primary, browser fallback)')
 
   // ── API 호출 설정 ──
   const BASE_ORIGIN = 'https://store.coupangeats.com'
@@ -539,9 +535,41 @@ async function fetchCoupangReviews(
       || 0
   }
 
-  // ── page.evaluate fetch() — url-embed proxy + XHR headers ──
-  // navigation: url-embed proxy가 Chromium CONNECT 인증을 처리
-  // XHR/fetch: Referer+Origin+X-Requested-With 헤더로 CoupangEats API 인증
+  // ── Node.js native fetch (직접 API 호출, 브라우저/프록시 우회) ──
+  // Playwright page.evaluate fetch → 407 발생 (proxy auth 미전달)
+  // globalThis.fetch (Node 18+) → Cookie 헤더 직접 주입 → 프록시 없이 CoupangEats API 직접 접근
+  const contextCookies = await context.cookies('https://store.coupangeats.com').catch(() => [] as any[])
+  const cookieStr = contextCookies.map((c: any) => `${c.name}=${c.value}`).join('; ')
+  log.info({ cookieCount: contextCookies.length, hasCookieStr: !!cookieStr }, 'coupangeats: node-direct cookie string built')
+
+  async function nodeDirectApiGet(path: string): Promise<{ ok: boolean; body: any; status: number; errBody: string }> {
+    const url = path.startsWith('http') ? path : `${BASE_ORIGIN}${path}`
+    try {
+      const r = await (globalThis as any).fetch(url, {
+        headers: {
+          'Cookie': cookieStr,
+          'Accept': 'application/json, text/plain, */*',
+          'X-Requested-With': 'XMLHttpRequest',
+          'Referer': 'https://store.coupangeats.com/merchant/management/reviews',
+          'Origin': 'https://store.coupangeats.com',
+          'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+          'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8',
+        },
+      })
+      const status = r.status
+      if (!r.ok) {
+        let errBody = ''
+        try { errBody = JSON.stringify(await r.json()) } catch (_) { try { errBody = await r.text() } catch (_) { errBody = '(no body)' } }
+        return { ok: false, body: null, status, errBody: String(errBody).slice(0, 200) }
+      }
+      const body = await r.json().catch(() => null)
+      return { ok: true, body, status, errBody: '' }
+    } catch (e: any) {
+      return { ok: false, body: null, status: 0, errBody: String(e?.message || e).slice(0, 200) }
+    }
+  }
+
+  // ── browser page.evaluate fetch (fallback) ──
   async function browserApiGet(path: string): Promise<{ ok: boolean; body: any; status: number; errBody: string }> {
     const url = path.startsWith('http') ? path : `${BASE_ORIGIN}${path}`
     try {
@@ -574,22 +602,43 @@ async function fetchCoupangReviews(
     }
   }
 
+  // ── apiGet: node-direct 우선, 실패 시 browserApiGet fallback ──
+  let useNodeDirect = false
+  async function apiGet(path: string): Promise<{ ok: boolean; body: any; status: number; errBody: string }> {
+    if (useNodeDirect) {
+      const res = await nodeDirectApiGet(path)
+      if (res.ok || res.status === 401 || res.status === 403) return res
+      // 네트워크 오류 → browser fallback
+    }
+    return browserApiGet(path)
+  }
+
   const collected: any[] = []
   const seenIds = new Set<string>()
   let rawBodySample = ''
   const errors: string[] = []
 
-  // whoami 확인 (세션 유효성 + merchantId)
+  // whoami 확인 — node-direct 먼저 시도
   let merchantId: number | null = null
   try {
-    const wRes = await browserApiGet('/api/v1/merchant/whoami')
-    if (wRes.ok && wRes.body) {
-      rawBodySample = JSON.stringify(wRes.body).slice(0, 200)
-      merchantId = wRes.body?.data?.merchantId || wRes.body?.merchantId || null
-      log.info({ whoamiOk: true, merchantId }, 'coupangeats: whoami ok')
+    log.info('coupangeats: trying node-direct whoami')
+    const ndRes = await nodeDirectApiGet('/api/v1/merchant/whoami')
+    if (ndRes.ok && ndRes.body) {
+      useNodeDirect = true
+      rawBodySample = JSON.stringify(ndRes.body).slice(0, 200)
+      merchantId = ndRes.body?.data?.merchantId || ndRes.body?.merchantId || null
+      log.info({ whoamiOk: true, merchantId, via: 'node-direct' }, 'coupangeats: whoami ok (node-direct)')
     } else {
-      rawBodySample = `whoami HTTP ${wRes.status}: ${wRes.errBody}`
-      log.warn({ status: wRes.status, err: wRes.errBody }, 'coupangeats: whoami failed')
+      log.warn({ status: ndRes.status, err: ndRes.errBody }, 'coupangeats: node-direct whoami failed, trying browser')
+      const wRes = await browserApiGet('/api/v1/merchant/whoami')
+      if (wRes.ok && wRes.body) {
+        rawBodySample = JSON.stringify(wRes.body).slice(0, 200)
+        merchantId = wRes.body?.data?.merchantId || wRes.body?.merchantId || null
+        log.info({ whoamiOk: true, merchantId, via: 'browser' }, 'coupangeats: whoami ok (browser)')
+      } else {
+        rawBodySample = `whoami HTTP ${wRes.status}: ${wRes.errBody}`
+        log.warn({ status: wRes.status, err: wRes.errBody }, 'coupangeats: whoami failed (both methods)')
+      }
     }
   } catch (e: any) {
     rawBodySample = `whoami exception: ${e?.message}`
@@ -619,7 +668,7 @@ async function fetchCoupangReviews(
           ]
           let found = false
           for (const c of candidates) {
-            fetchResult = await browserApiGet(c.url)
+            fetchResult = await apiGet(c.url)
             if (fetchResult.ok) {
               baseUrl = c.url.replace('&page=1', `&${c.param}=PAGE`)
               pageParam = c.param
@@ -633,7 +682,7 @@ async function fetchCoupangReviews(
           if (!found) { hasMore = false; break }
         } else {
           const url = baseUrl.replace(`${pageParam}=PAGE`, `${pageParam}=${pageNum}`)
-          fetchResult = await browserApiGet(url)
+          fetchResult = await apiGet(url)
           if (!fetchResult.ok) {
             errors.push(`${statusType} p${pageNum}: HTTP ${fetchResult.status} ${fetchResult.errBody}`)
             hasMore = false; break
