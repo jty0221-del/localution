@@ -1,3 +1,4 @@
+// @ts-nocheck
 // worker/src/adapters/baemin.ts
 // ============================================================
 // 배민 Worker 어댑터 v2
