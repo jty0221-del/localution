@@ -2,12 +2,12 @@
 
 // ============================================================
 // /my/stamps — 손님 본인의 모든 매장 스탬프 카드 모음
-//   · localStorage 의 phone 자동 사용
-//   · 카드 클릭 시 해당 매장 /stamp/[slug] 로 이동
+//   · 이모지 전면 제거 → lucide 아이콘 (2026-05-03)
 // ============================================================
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import StampCardView from '../../components/StampCardView'
+import { Award, MapPin, LogOut, Search } from 'lucide-react'
 
 const LS_PHONE = 'localution.customer_phone'
 
@@ -67,13 +67,19 @@ export default function MyStampsPage() {
       <div className="max-w-md mx-auto">
 
         <div className="mb-5 text-center">
-          <h1 className="text-2xl font-black text-[#191F28]">🎫 내 도장 카드</h1>
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#3182F6] to-[#7C3AED] flex items-center justify-center mx-auto mb-2 shadow-sm">
+            <Award size={26} className="text-white" strokeWidth={2.5} />
+          </div>
+          <h1 className="text-2xl font-black text-[#191F28]">내 도장 카드</h1>
           <p className="text-xs text-[#8B95A1] mt-1">방문한 매장의 스탬프 카드 모음</p>
         </div>
 
         {!phone ? (
           <div className="bg-white rounded-2xl p-6 shadow-sm">
-            <p className="text-sm font-bold text-[#191F28] mb-3">전화번호로 카드 조회</p>
+            <div className="flex items-center gap-2 mb-3">
+              <Search size={14} className="text-[#3182F6]" strokeWidth={2.5} />
+              <p className="text-sm font-bold text-[#191F28]">전화번호로 카드 조회</p>
+            </div>
             <input
               type="tel"
               inputMode="numeric"
@@ -88,17 +94,19 @@ export default function MyStampsPage() {
               onClick={handleSubmit}
               disabled={loading}
               className="w-full py-3.5 rounded-xl bg-[#191F28] text-white font-bold disabled:opacity-50">
-              {loading ? '조회 중…' : '내 카드 조회'}
+              {loading ? '조회 중...' : '내 카드 조회'}
             </button>
           </div>
         ) : loading ? (
           <div className="text-center py-12">
             <div className="inline-block animate-spin w-8 h-8 border-2 border-[#3182F6] border-t-transparent rounded-full mb-3" />
-            <p className="text-sm text-[#8B95A1]">불러오는 중…</p>
+            <p className="text-sm text-[#8B95A1]">불러오는 중...</p>
           </div>
         ) : cards.length === 0 ? (
           <div className="bg-white rounded-2xl p-8 text-center shadow-sm">
-            <div className="text-5xl mb-3">🎫</div>
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#F8FAFB] to-[#EFF6FF] flex items-center justify-center mx-auto mb-3">
+              <Award size={26} className="text-[#C9CDD2]" strokeWidth={2} />
+            </div>
             <p className="text-sm font-bold text-[#191F28] mb-1">아직 카드가 없어요</p>
             <p className="text-xs text-[#8B95A1] mb-4">매장 QR을 스캔하면 여기에 자동 추가됩니다</p>
             <button onClick={handleLogout} className="text-xs text-[#3182F6] underline">다른 번호로 조회</button>
@@ -106,13 +114,16 @@ export default function MyStampsPage() {
         ) : (
           <div className="space-y-3">
             <div className="flex items-center justify-between text-xs px-1">
-              <span className="text-[#8B95A1]">{cards.length}개의 카드 · {phone.slice(0,3)}-****-{phone.slice(-2)}</span>
-              <button onClick={handleLogout} className="text-[#8B95A1] underline">로그아웃</button>
+              <span className="text-[#8B95A1]">{cards.length}개의 카드 - {phone.slice(0,3)}-****-{phone.slice(-2)}</span>
+              <button onClick={handleLogout} className="flex items-center gap-1 text-[#8B95A1] hover:text-[#191F28]">
+                <LogOut size={10} strokeWidth={2.5} /> 로그아웃
+              </button>
             </div>
             {cards.map((c) => (
               <Link key={c.collection_id} href={`/stamp/${c.store_slug}`} className="block">
-                <div className="mb-1 px-1">
-                  <p className="text-xs font-bold text-[#4E5968]">📍 {c.store_name}</p>
+                <div className="mb-1 px-1 flex items-center gap-1">
+                  <MapPin size={10} className="text-[#4E5968]" strokeWidth={2.5} />
+                  <p className="text-xs font-bold text-[#4E5968]">{c.store_name}</p>
                 </div>
                 <StampCardView
                   card={{
@@ -121,8 +132,6 @@ export default function MyStampsPage() {
                     required_stamps: c.required_stamps,
                     reward_text: c.reward_text,
                     theme_color: c.theme_color,
-                    bg_pattern: c.bg_pattern,
-                    icon_emoji: c.icon_emoji,
                   }}
                   collection={{
                     current_stamps: c.current_stamps,
