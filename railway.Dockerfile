@@ -24,7 +24,9 @@ COPY worker/tsconfig.json ./
 RUN echo "build-marker: v26-anchor-onclick-formSubmit-fallback-20260502T1600-RAILWAY"
 
 COPY worker/src ./src
-RUN rm -rf /app/dist && npx tsc && grep -c "v26-anchor-onclick-formSubmit-fallback-20260502" /app/dist/adapters/naver.js
+# 빌드 검증: tsc 성공만 확인 (grep 마커 검증은 push 순서 race로 빌드 fail 유발 → 제거)
+# 버전 확인은 런타임 /build-info 의 versionValue 로 확인
+RUN rm -rf /app/dist && npx tsc && ls -la /app/dist/adapters/naver.js
 
 ENV NODE_ENV=production
 ENV PORT=3000
