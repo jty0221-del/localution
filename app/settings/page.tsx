@@ -762,46 +762,77 @@ function NotifyTab() {
     savePrefs({ [key]: value } as any)
   }
 
-  // Web Push 구독 활성화
+  // Web Push 구독 활성화 — 단계별 inline 결과 + console 로그
+  const [pushBusy, setPushBusy] = useState(false)
+  const [pushResult, setPushResult] = useState<string | null>(null)
   async function enableWebPush() {
-    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
-      toast('이 브라우저는 알림을 지원하지 않아요')
-      return
-    }
+    if (pushBusy) return
+    setPushBusy(true)
+    setPushResult(null)
+    console.log('[push-enable] start')
     try {
+      // 1) 브라우저 지원 확인
+      if (!('serviceWorker' in navigator)) {
+        setPushResult('❌ 이 브라우저는 Service Worker 미지원')
+        return
+      }
+      if (!('PushManager' in window)) {
+        setPushResult('❌ 이 브라우저는 Push API 미지원')
+        return
+      }
+      console.log('[push-enable] browser supported')
+
+      // 2) 권한 요청
       const perm = await Notification.requestPermission()
+      console.log('[push-enable] permission =', perm)
       setPushPermission(perm as any)
-      if (perm !== 'granted') { toast('알림 권한이 거부되었어요'); return }
-
-      const reg = await navigator.serviceWorker.register('/sw-push.js')
-      await navigator.serviceWorker.ready
-
-      // VAPID public key 가져오기
-      const vRes = await fetch('/api/notify/vapid-public').then(r => r.json())
-      if (!vRes?.ok || !vRes.publicKey) {
-        toast('알림 서버 설정이 아직 준비 안 됐어요. 잠시 후 다시 시도해주세요.')
+      if (perm !== 'granted') {
+        setPushResult(perm === 'denied'
+          ? '❌ 알림 권한이 거부됨 — 브라우저 주소창 옆 자물쇠 → 알림 → 허용으로 변경'
+          : '⚠️ 알림 권한이 default 상태 (허용 안 누름)')
         return
       }
 
+      // 3) Service Worker 등록
+      const reg = await navigator.serviceWorker.register('/sw-push.js')
+      await navigator.serviceWorker.ready
+      console.log('[push-enable] sw registered')
+
+      // 4) VAPID public key 가져오기
+      const vRes = await fetch('/api/notify/vapid-public').then(r => r.json())
+      console.log('[push-enable] vapid response', vRes)
+      if (!vRes?.ok || !vRes.publicKey) {
+        setPushResult(`❌ VAPID 키 미설정 — Vercel 환경변수 (VAPID_PUBLIC_KEY, NEXT_PUBLIC_VAPID_PUBLIC_KEY 등 4개) 추가 후 Redeploy 필요. (서버 응답: ${JSON.stringify(vRes).slice(0,100)})`)
+        return
+      }
+
+      // 5) PushManager.subscribe
       const sub = await reg.pushManager.subscribe({
         userVisibleOnly: true,
         applicationServerKey: urlBase64ToUint8Array(vRes.publicKey),
       })
+      console.log('[push-enable] subscribed', sub.endpoint?.slice(-30))
 
+      // 6) DB 저장
       const saveRes = await fetch('/api/notify/web-push-subscribe', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({ subscription: sub.toJSON() }),
       })
       const saveJ = await saveRes.json()
+      console.log('[push-enable] save response', saveJ)
       if (saveJ?.ok) {
         setPrefs(p => ({ ...p, channel_web_push: true, has_web_push_sub: true }))
-        toast('알림이 켜졌어요 🔔')
+        setPushResult('✅ 브라우저 알림 켜짐 — 테스트 발송 버튼으로 확인해보세요')
       } else {
-        toast(saveJ?.error || '저장 실패')
+        setPushResult(`❌ 저장 실패: ${saveJ?.error || 'unknown'}`)
       }
     } catch (e: any) {
-      toast(e?.message || '알림 설정 실패')
+      console.error('[push-enable] error', e)
+      setPushResult(`❌ 예외: ${e?.message || e}`)
+    } finally {
+      setPushBusy(false)
     }
   }
 
@@ -908,8 +939,8 @@ function NotifyTab() {
 
         {/* Web Push */}
         <div className="border-2 border-[#E5E8EB] rounded-xl p-4 mb-3">
-          <div className="flex items-center justify-between mb-2">
-            <div>
+          <div className="flex items-center justify-between mb-2 gap-2">
+            <div className="min-w-0">
               <p className="text-sm font-bold text-[#191F28]">🔔 로컬루션 브라우저 알림</p>
               <p className="text-xs text-[#8B95A1] mt-0.5">브라우저가 닫혀있어도 알림 받음 (PC/모바일 다)</p>
             </div>
@@ -917,18 +948,31 @@ function NotifyTab() {
               <span className="text-[11px] text-[#8B95A1]">미지원</span>
             ) : prefs.has_web_push_sub && prefs.channel_web_push ? (
               <button
+                type="button"
                 onClick={disableWebPush}
-                className="px-3 py-1.5 rounded-lg text-xs font-bold border-2 border-[#3182F6] bg-[#EFF6FF] text-[#3182F6]"
+                disabled={pushBusy}
+                className="px-3 py-1.5 rounded-lg text-xs font-bold border-2 border-[#3182F6] bg-[#EFF6FF] text-[#3182F6] active:scale-95"
               >켜짐</button>
             ) : (
               <button
+                type="button"
                 onClick={enableWebPush}
-                className="px-3 py-1.5 rounded-lg text-xs font-bold border-2 border-[#E5E8EB] text-[#8B95A1]"
-              >켜기</button>
+                disabled={pushBusy}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold border-2 active:scale-95 ${
+                  pushBusy
+                    ? 'border-[#94A3B8] bg-[#F1F5F9] text-[#64748B] cursor-wait'
+                    : 'border-[#3182F6] bg-[#3182F6] text-white hover:bg-[#1E40AF]'
+                }`}
+              >{pushBusy ? '설정 중…' : '켜기'}</button>
             )}
           </div>
-          {pushPermission === 'denied' && (
-            <p className="text-[11px] text-[#DC2626] mt-2">브라우저 설정에서 알림이 차단되어 있어요. 사이트 권한을 허용해주세요.</p>
+          {pushPermission === 'denied' && !pushResult && (
+            <p className="text-[11px] text-[#DC2626] mt-2">브라우저 설정에서 알림이 차단되어 있어요. 주소창 옆 자물쇠 → 알림 → 허용으로 변경해주세요.</p>
+          )}
+          {pushResult && (
+            <p className={`text-[11px] mt-2 leading-relaxed ${
+              pushResult.startsWith('✅') ? 'text-[#059669]' : 'text-[#DC2626]'
+            }`}>{pushResult}</p>
           )}
         </div>
 
