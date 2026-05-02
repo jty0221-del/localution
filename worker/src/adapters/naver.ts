@@ -335,6 +335,42 @@ export async function runNaver(
       await page.waitForURL(url => !String(url).includes('nidlogin.login'), { timeout: 20000 }).catch(() => null)
       await page.waitForTimeout(1500)
 
+      // 37차-17: "새로운 기기 등록" 페이지 자동 통과
+      // 네이버가 새 IP/Browser 감지 시 등록 안내 페이지 보여줌 → "등록안함" 클릭하여 통과
+      try {
+        const pageBody = await page.evaluate(() => document.body?.innerText || '').catch(() => '')
+        if (pageBody.includes('새로운 기기') || pageBody.includes('자주 사용하는 기기')) {
+          log.info('naver: 새로운 기기 등록 페이지 감지 → "등록안함" 클릭')
+          // 등록안함 버튼 찾기 (다양한 selector 시도)
+          const dontRegisterClicked = await page.evaluate(() => {
+            const btns = Array.from(document.querySelectorAll('button, a, input[type="button"], input[type="submit"]'))
+            for (const b of btns) {
+              const t = ((b as any).innerText || (b as any).value || '').trim()
+              if (t === '등록안함' || t === '등록 안함' || t.includes('등록안함')) {
+                (b as HTMLElement).click()
+                return true
+              }
+            }
+            return false
+          }).catch(() => false)
+          if (dontRegisterClicked) {
+            log.info('naver: ✅ "등록안함" 클릭 성공')
+            await page.waitForTimeout(2500)
+            await page.waitForURL(url => !String(url).includes('deviceConfirm') && !String(url).includes('nidlogin'), { timeout: 10000 }).catch(() => null)
+          } else {
+            log.warn('naver: "등록안함" 버튼 못 찾음 — page evaluate로 직접 form submit 시도')
+            // form action으로 직접 submit
+            await page.evaluate(() => {
+              const dontBtn = document.querySelector('button[id*="don\'t"], button[name*="don\'t"], input[name="don\'t"], #don\'t_register, #dontregister, [name="dontRegister"]') as HTMLElement | null
+              dontBtn?.click()
+            }).catch(() => null)
+            await page.waitForTimeout(2000)
+          }
+        }
+      } catch (e: any) {
+        log.warn({ err: e?.message }, 'naver: 새 기기 등록 페이지 처리 실패 (계속 진행)')
+      }
+
       const urlAfterLogin = page.url()
       // URL을 Railway 로그에서 바로 볼 수 있도록 message 에 포함
       const loginResultShort = urlAfterLogin.replace('https://nid.naver.com/', 'nid/').replace('https://new.smartplace.naver.com', 'smartplace').slice(0, 80)
@@ -603,6 +639,23 @@ export async function runNaver(
             await page.click(DOM_SELECTORS.loginBtn)
             await page.waitForURL(url => !String(url).includes('nidlogin.login'), { timeout: 25000 }).catch(() => null)
             await page.waitForTimeout(1500)
+
+            // 37차-17: "새로운 기기 등록" 페이지 자동 통과 (CAPTCHA 후에도 발생 가능)
+            try {
+              const pgBody = await page.evaluate(() => document.body?.innerText || '').catch(() => '')
+              if (pgBody.includes('새로운 기기') || pgBody.includes('자주 사용하는 기기')) {
+                log.info('naver: (CAPTCHA 후) 새로운 기기 등록 페이지 감지 → "등록안함" 클릭')
+                await page.evaluate(() => {
+                  const btns = Array.from(document.querySelectorAll('button, a, input[type="button"], input[type="submit"]'))
+                  for (const b of btns) {
+                    const t = ((b as any).innerText || (b as any).value || '').trim()
+                    if (t === '등록안함' || t === '등록 안함' || t.includes('등록안함')) { (b as HTMLElement).click(); return }
+                  }
+                }).catch(() => null)
+                await page.waitForTimeout(2500)
+              }
+            } catch (_) {}
+
             const urlAfterCaptcha = page.url()
             log.info('naver: after CAPTCHA retry — url=' + urlAfterCaptcha.replace('https://nid.naver.com/', 'nid/').slice(0, 80))
             if (!urlAfterCaptcha.includes('nid.naver.com') && !urlAfterCaptcha.includes('nidlogin.login')) {
