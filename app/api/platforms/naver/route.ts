@@ -3,6 +3,12 @@ import { NextRequest, NextResponse } from 'next/server'
 export const dynamic = 'force-dynamic'
 
 // ── 네이버 플레이스 URL → Place ID 추출 ──────────────────────
+// 지원 URL:
+//   - https://new.smartplace.naver.com/bizes/place/1137287126/...  (사장님센터 — 가장 정확)
+//   - https://map.naver.com/p/entry/place/1234567890
+//   - https://m.place.naver.com/place/1234567890/home
+//   - https://m.place.naver.com/restaurant/1234567890/home
+//   - 1234567890  (숫자만)
 function extractPlaceId(input: string): string | null {
   if (!input) return null
   const s = input.trim()
@@ -10,10 +16,8 @@ function extractPlaceId(input: string): string | null {
   // 이미 숫자만: 플레이스 ID로 간주
   if (/^\d{5,}$/.test(s)) return s
 
-  // https://map.naver.com/p/entry/place/1234567890
-  // https://m.place.naver.com/place/1234567890/home
-  // https://place.map.kakao.com/... (카카오는 거름)
   const patterns = [
+    /smartplace\.naver\.com\/bizes\/place\/(\d{5,})/,  // 🆕 SmartPlace 사장님센터 URL (가장 정확 — owner 보증)
     /place\/(\d{5,})/,
     /entry\/place\/(\d{5,})/,
     /placeId=(\d{5,})/,
