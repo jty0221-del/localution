@@ -637,7 +637,29 @@ async function fetchCoupangReviews(
         const PAGE_SIZE = 5
         const DAYS_BACK = 30
 
-        log.info('coupangeats: 51cha — sliding window start (no dateWindowTest, size=5, 800ms delay)')
+        // ── 52차: 슬라이딩 윈도우 전에 store switch (브라우저 컨텍스트) ──
+        // 원인: responsibleStoreId가 서버 세션에 미설정 → reviews/search 200이지만 빈 결과
+        // 해결: page.evaluate로 POST /stores/{storeId}/switch → 서버 세션 storeId 설정
+        try {
+          const switchRes = await page.evaluate(async (args: { url: string; storeId: number }) => {
+            const r = await fetch(args.url, {
+              method: 'POST',
+              credentials: 'include',
+              headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+              body: JSON.stringify({ storeId: args.storeId }),
+            })
+            const text = await r.text()
+            let body: any = null
+            try { body = JSON.parse(text) } catch { body = null }
+            return { status: r.status, ok: r.ok, body }
+          }, { url: `https://store.coupangeats.com/api/v1/merchant/stores/${storeId0}/switch`, storeId: parseInt(storeId0, 10) })
+          log.info({ status: switchRes.status, body: JSON.stringify(switchRes.body).slice(0, 100) }, 'coupangeats: 52cha browser switch result')
+          await new Promise(resolve => setTimeout(resolve, 1000))  // switch 반영 대기
+        } catch (swErr: any) {
+          log.warn({ err: swErr?.message }, 'coupangeats: 52cha browser switch failed')
+        }
+
+        log.info('coupangeats: 52cha — sliding window start (after browser switch)')
 
         for (const statusType0 of statusTypes0) {
           let sessionOk = true
