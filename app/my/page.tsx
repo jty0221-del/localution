@@ -5,6 +5,8 @@ export const dynamic = 'force-dynamic'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Footer from '../components/Footer'
+import PageHeader from '../components/PageHeader'
+import { UserCircle2 } from 'lucide-react'
 
 interface AuthUser {
   id: string
@@ -161,19 +163,14 @@ export default function MyPage() {
 
   return (
     <div className="min-h-screen bg-[#F2F4F6]">
-      {/* LOCALUTION_HERO_BANNER */}
-      <section className="bg-gradient-to-r from-[#3182F6] to-[#1B64DA] text-white px-4 py-10 sm:py-14">
-        <div className="max-w-5xl mx-auto flex items-center gap-4">
-          <div className="text-4xl sm:text-5xl drop-shadow-sm">🧑‍💼</div>
-          <div className="flex-1 min-w-0">
-            <h1 className="text-xl sm:text-2xl font-black tracking-tight">내 정보</h1>
-            <p className="text-white/85 text-xs sm:text-sm mt-1 leading-relaxed">내 활동과 즐겨찾는 기능을 한눈에 — 로컬루션이 당신의 비서</p>
-          </div>
-          <div className="hidden sm:flex items-center gap-2 text-[11px] font-bold text-white/90 bg-white/15 backdrop-blur px-3 py-1.5 rounded-full border border-white/20">
-            로컬루션
-          </div>
-        </div>
-      </section>
+      {/* 통일 hero banner — PageHeader 사용 */}
+      <PageHeader
+        icon=""
+        logoNode={<UserCircle2 size={32} strokeWidth={2} className="text-white" />}
+        title="내 정보"
+        subtitle="내 활동과 즐겨찾는 기능을 한눈에 — 로컬루션이 당신의 비서"
+        variant="primary"
+      />
 
       {/* 상단 헤더 */}
       <div className="bg-white border-b border-[#E5E8EB] px-4 py-4 flex items-center gap-3">
