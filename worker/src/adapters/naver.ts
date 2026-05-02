@@ -13,7 +13,7 @@ import { dumpPageDiagnostics, startNetworkCapture, detectLoginFailure } from '..
 import { handleNaverCaptcha, solveCaptcha } from '../lib/captcha'
 import type { JobResult, Action } from '../jobs'
 
-const NAVER_CODE_VERSION = 'v27-FORBIDDEN-myBizes-diagnosis-20260502'
+const NAVER_CODE_VERSION = 'v28-inPage-fetch-with-card-click-20260502'
 
 const LOGIN_URL = 'https://nid.naver.com/nidlogin.login'
 const NEW_SMARTPLACE_BASE = 'https://new.smartplace.naver.com'
@@ -1187,30 +1187,86 @@ async function postNaverReply(
       mapped: smartplaceReviewId !== platformReviewId,
       placeId: storeId, textLen: replyText.length,
       textPreview: replyText.slice(0, 50),
-    }, 'naver: 🚀 calling SmartPlace GraphQL createReply (with mapped reviewId)')
+    }, 'naver: 🚀 calling SmartPlace GraphQL createReply (v28 in-page fetch)')
+
+    // ── v28 핵심 변경: GraphQL 호출을 page.evaluate 안에서 실행 ──
+    // 브라우저 컨텍스트 사용 → 자동 cookies + same-origin + 추가 CSRF/auth token 자동 포함
+    // 외부 fetch 로는 SmartPlace 가 빠진 토큰을 검증하여 FORBIDDEN 반환했음
+    //
+    // 추가: SmartPlace SPA 가 placeSeq/bookingBusinessId 를 SPA state 에 로드하도록
+    // 매장 카드 클릭하여 정상 URL 로 redirect 시킨 후 호출
+    try {
+      // 매장 카드를 직접 클릭하여 SPA redirect (placeSeq/bookingBusinessId 자동 매핑)
+      const navigated = await page.evaluate((targetPlaceId: string) => {
+        const card = document.querySelector(`a[href*="/bizes/place/${targetPlaceId}"], a[href*="/bizes/${targetPlaceId}"]`) as HTMLElement | null
+        if (card) { card.click(); return true }
+        return false
+      }, storeId).catch(() => false)
+      if (navigated) {
+        await page.waitForTimeout(3500)
+        await page.waitForLoadState('domcontentloaded').catch(() => null)
+        log.info({ urlAfterCardClick: page.url().slice(0, 120) }, 'naver: v28 매장 카드 click 후 URL')
+      }
+      // 리뷰 페이지로 다시 이동 — 이번엔 SPA state 가 placeSeq/bookingBusinessId 로 초기화됨
+      const reviewUrl = `${NEW_SMARTPLACE_BASE}/bizes/place/${storeId}/reviews?menu=visitor`
+      await page.goto(reviewUrl, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => null)
+      await page.waitForTimeout(3500)
+      log.info({ urlBeforeGraphQL: page.url().slice(0, 150) }, 'naver: v28 리뷰 페이지 도달')
+    } catch (e: any) {
+      log.warn({ err: e?.message }, 'naver: v28 매장 카드 navigation 실패 (계속 진행)')
+    }
 
     const t0 = Date.now()
-    const res = await fetch(graphqlUrl, {
-      method: 'POST',
-      headers: smartplaceHeaders,
+    // page.evaluate 안에서 fetch — 브라우저가 자동 cookies + headers + CSRF 처리
+    const inPageResult = await page.evaluate(async ({ url, body }: { url: string; body: string }) => {
+      try {
+        const r = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', 'Accept': '*/*', 'from-system': 'smartplace' },
+          body, credentials: 'include',
+        })
+        const text = await r.text()
+        let parsed: any = null
+        try { parsed = JSON.parse(text) } catch {}
+        return { ok: r.ok, status: r.status, text: text.slice(0, 1500), parsed }
+      } catch (e: any) {
+        return { ok: false, status: 0, text: '', parsed: null, err: String(e?.message || e) }
+      }
+    }, {
+      url: graphqlUrl,
       body: JSON.stringify({
         operationName: 'createReply',
         variables: { input: { text: replyText, reviewId: smartplaceReviewId, placeId: storeId } },
         query: mutationQuery,
       }),
-      signal: AbortSignal.timeout(15000),
-    })
+    }).catch((e: any) => ({ ok: false, status: 0, text: '', parsed: null, err: e?.message }))
     const elapsed = Date.now() - t0
-    log.info({ status: res.status, elapsed }, 'naver: GraphQL HTTP response')
+    log.info({ status: inPageResult.status, elapsed, textPreview: inPageResult.text.slice(0, 200) }, 'naver: v28 in-page GraphQL response')
 
-    if (!res.ok) {
-      const errText = await res.text().catch(() => '')
-      log.error({ status: res.status, errText: errText.slice(0, 300) }, 'naver: GraphQL HTTP error')
-      return { ok: false, reason: 'SmartPlace GraphQL HTTP ' + res.status + ': ' + errText.slice(0, 100) }
+    if (!inPageResult.ok && inPageResult.status !== 200) {
+      log.error({ inPageResult }, 'naver: v28 in-page fetch 실패 → 외부 fetch 로 fallback')
+      // 외부 fetch fallback (이전 v16 동작)
+      const res = await fetch(graphqlUrl, {
+        method: 'POST', headers: smartplaceHeaders,
+        body: JSON.stringify({
+          operationName: 'createReply',
+          variables: { input: { text: replyText, reviewId: smartplaceReviewId, placeId: storeId } },
+          query: mutationQuery,
+        }),
+        signal: AbortSignal.timeout(15000),
+      })
+      if (!res.ok) {
+        const errText = await res.text().catch(() => '')
+        return { ok: false, reason: 'SmartPlace GraphQL HTTP ' + res.status + ': ' + errText.slice(0, 100) }
+      }
+      const fallbackJson: any = await res.json().catch(() => null)
+      log.info({ fallbackJsonPreview: JSON.stringify(fallbackJson).slice(0, 400) }, 'naver: v28 fallback fetch 응답')
+      // fallback json 으로 진행
+      var json: any = fallbackJson
+    } else {
+      var json: any = inPageResult.parsed
+      log.info({ jsonPreview: JSON.stringify(json).slice(0, 400) }, 'naver: GraphQL parsed response')
     }
-
-    const json: any = await res.json().catch(() => null)
-    log.info({ jsonPreview: JSON.stringify(json).slice(0, 400) }, 'naver: GraphQL parsed response')
 
     if (json?.errors && Array.isArray(json.errors) && json.errors.length > 0) {
       const errMsg = json.errors[0]?.message || JSON.stringify(json.errors[0])
