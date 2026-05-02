@@ -182,16 +182,73 @@ export async function runNaverMenu(
     } catch (_) {}
   })
 
-  // 4) 메뉴 페이지 접근
-  const menuUrl = bookingBusinessId
-    ? `${SMARTPLACE_BASE}/bizes/place/${placeId}/details?bookingBusinessId=${bookingBusinessId}&menu=price`
-    : `${SMARTPLACE_BASE}/bizes/place/${placeId}/details?menu=price`
+  // 4) 메뉴 페이지 접근 — 다양한 URL 패턴 시도
+  const candidateUrls = [
+    bookingBusinessId
+      ? `${SMARTPLACE_BASE}/bizes/place/${placeId}/menu?bookingBusinessId=${bookingBusinessId}`
+      : `${SMARTPLACE_BASE}/bizes/place/${placeId}/menu`,
+    bookingBusinessId
+      ? `${SMARTPLACE_BASE}/bizes/place/${placeId}/menu/price?bookingBusinessId=${bookingBusinessId}`
+      : `${SMARTPLACE_BASE}/bizes/place/${placeId}/menu/price`,
+    bookingBusinessId
+      ? `${SMARTPLACE_BASE}/bizes/place/${placeId}/details?bookingBusinessId=${bookingBusinessId}&menu=price`
+      : `${SMARTPLACE_BASE}/bizes/place/${placeId}/details?menu=price`,
+    bookingBusinessId
+      ? `${SMARTPLACE_BASE}/bizes/place/${placeId}?bookingBusinessId=${bookingBusinessId}`
+      : `${SMARTPLACE_BASE}/bizes/place/${placeId}`,
+  ]
 
-  log.info({ menuUrl }, 'naver-menu: navigating to menu page')
+  // 첫 URL 로 일단 진입 (인증 확인 + 세션 활성화)
+  let menuUrl = candidateUrls[0]
+  log.info({ menuUrl }, 'naver-menu: navigating (first attempt)')
 
   try {
-    await page.goto(menuUrl, { waitUntil: 'domcontentloaded', timeout: 30000 })
-    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => null)
+    // 우선 base URL 로 진입해서 인증 확인
+    const baseUrl = bookingBusinessId
+      ? `${SMARTPLACE_BASE}/bizes/place/${placeId}?bookingBusinessId=${bookingBusinessId}`
+      : `${SMARTPLACE_BASE}/bizes/place/${placeId}`
+    await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 30000 })
+    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => null)
+
+    // 로그인 페이지로 리다이렉트 확인
+    const baseUrlAfter = page.url()
+    if (baseUrlAfter.includes('nid.naver.com/nidlogin') || baseUrlAfter.includes('login')) {
+      await context.close()
+      if (usingFreshBrowser && menuBrowser) { try { await menuBrowser.close() } catch (_) {} }
+      await updateImport({
+        status: 'failed',
+        error_code: 'session_expired',
+        error_message: '네이버 세션이 만료됐어요. 매장 연결 페이지에서 다시 로그인해주세요.',
+        completed_at: new Date().toISOString(),
+      })
+      return { status: 'failed', message: 'session_expired' }
+    }
+
+    // base 페이지 로드 대기 (SNB 등)
+    await page.waitForTimeout(5000)
+    log.info({ baseUrlAfter }, 'naver-menu: base page loaded')
+
+    // 이제 메뉴 URL 들 순차 시도
+    for (const tryUrl of candidateUrls) {
+      if (capturedMenus.length > 0) break
+      try {
+        log.info({ tryUrl }, 'naver-menu: trying menu URL')
+        await page.goto(tryUrl, { waitUntil: 'domcontentloaded', timeout: 20000 })
+        await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => null)
+        await page.waitForTimeout(3000)
+
+        const bodyLen = await page.evaluate(() => document.body?.innerText?.length || 0).catch(() => 0)
+        log.info({ tryUrl, bodyLen, captured: capturedMenus.length }, 'naver-menu: URL result')
+
+        if (bodyLen > 500 || capturedMenus.length > 0) {
+          menuUrl = tryUrl
+          break
+        }
+      } catch (e: any) {
+        log.warn({ tryUrl, err: e?.message }, 'naver-menu: URL attempt failed')
+      }
+    }
+    log.info({ finalUrl: page.url() }, 'naver-menu: final URL after trials')
 
     // 로그인 페이지로 리다이렉트 확인
     const currentUrl = page.url()
