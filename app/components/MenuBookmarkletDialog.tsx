@@ -180,9 +180,37 @@ export default function MenuBookmarkletDialog({
             <div>
               <p className="text-sm font-bold text-[#191F28] mb-1">1단계 - 북마크 등록</p>
               <p className="text-xs text-[#8B95A1] leading-relaxed mb-3">
-                아래 버튼을 PC 브라우저 북마크바에 <strong>드래그</strong>하거나, 코드를 복사해서 새 북마크로 저장하세요.
+                "북마크바" = 브라우저 상단 URL 주소창 바로 아래에 자주 쓰는 사이트 모아두는 가로 막대.<br/>
+                먼저 북마크바를 켜야 드래그 가능해요.
               </p>
 
+              {/* 북마크바 켜기 안내 */}
+              <div className="mb-3 p-3 rounded-xl bg-[#FEF3C7] border border-[#FCD34D]">
+                <p className="text-[12px] font-black text-[#92400E] mb-1.5">먼저 북마크바를 켜세요</p>
+                <p className="text-[11px] text-[#92400E] mb-2 leading-relaxed">
+                  키보드 <strong className="bg-white px-1.5 py-0.5 rounded border border-[#92400E]/30 font-mono">Ctrl + Shift + B</strong> (Mac: <strong className="bg-white px-1.5 py-0.5 rounded border border-[#92400E]/30 font-mono">⌘ + Shift + B</strong>)
+                </p>
+                <p className="text-[10px] text-[#92400E]/80 leading-relaxed">
+                  → 화면 위쪽에 즐겨찾기 막대가 나타나면 OK<br/>
+                  지원: 크롬, 엣지, 웨일, 사파리, 파이어폭스 등 모든 브라우저
+                </p>
+              </div>
+
+              {/* 시각적 안내 — 위치 표시 */}
+              <div className="mb-3 p-3 rounded-xl bg-[#F2F4F6] border border-[#E5E8EB]">
+                <p className="text-[11px] font-bold text-[#4E5968] mb-2">브라우저 화면 구조</p>
+                <div className="bg-white rounded-lg border border-[#E5E8EB] p-2 font-mono text-[10px] leading-relaxed text-[#4E5968]">
+                  <div className="px-2 py-1 border-b border-[#E5E8EB] bg-[#F8FAFB]">
+                    {'<- ->  ⟳   '}<span className="bg-[#EFF6FF] px-1.5 py-0.5 rounded">https://...주소창...</span>
+                  </div>
+                  <div className="px-2 py-1 border-b border-[#3182F6] bg-[#EFF6FF] text-[#1E40AF] font-bold">
+                    📁 ⭐네이버 ⭐유튜브 <span className="text-[#DC2626]">← 이게 "북마크바"</span>
+                  </div>
+                  <div className="px-2 py-3 text-center text-[#C9CDD2]">웹사이트 본문</div>
+                </div>
+              </div>
+
+              <p className="text-[12px] font-bold text-[#191F28] mb-2">드래그 방법</p>
               <div className="bg-[#F8FAFB] rounded-xl p-4 border border-[#E5E8EB]">
                 <a
                   href={bookmarkletUrl}
@@ -192,20 +220,31 @@ export default function MenuBookmarkletDialog({
                   <Bookmark size={14} strokeWidth={2.5} />
                   로컬루션 메뉴 가져오기
                 </a>
-                <p className="text-[10px] text-[#8B95A1] mt-2">↑ 이 버튼을 북마크바에 드래그하세요</p>
+                <ol className="text-[11px] text-[#4E5968] mt-3 space-y-1 leading-relaxed list-decimal list-inside">
+                  <li>위 파란 버튼에 마우스 커서 올리기</li>
+                  <li>마우스 <strong>왼쪽 버튼 누른 채로</strong> 화면 위쪽 북마크바로 끌어 올림</li>
+                  <li>북마크바 영역에서 마우스 버튼 <strong>놓기</strong></li>
+                  <li>→ 북마크바에 "로컬루션 메뉴 가져오기" 추가됨</li>
+                </ol>
               </div>
 
               <details className="mt-3">
-                <summary className="text-xs text-[#3182F6] cursor-pointer">드래그가 안되면 - 직접 북마크 추가 방법</summary>
-                <div className="mt-2 p-3 bg-[#F2F4F6] rounded-lg text-[11px] text-[#4E5968] leading-relaxed">
-                  1. Ctrl+D (Cmd+D) 로 북마크 추가 다이얼로그 열기<br/>
-                  2. 이름: "로컬루션 메뉴 가져오기"<br/>
-                  3. URL: 아래 "코드 복사" 버튼 누르고 복사한 내용 붙여넣기<br/>
-                  4. 저장
+                <summary className="text-xs text-[#3182F6] cursor-pointer font-bold">
+                  드래그가 안되면 - 직접 추가하는 방법 (클릭해서 펼치기)
+                </summary>
+                <div className="mt-2 p-3 bg-[#F2F4F6] rounded-lg text-[11px] text-[#4E5968] leading-relaxed space-y-1.5">
+                  <ol className="list-decimal list-inside space-y-1">
+                    <li>아래 <strong>"코드 복사"</strong> 버튼 클릭</li>
+                    <li>키보드 <strong className="bg-white px-1.5 py-0.5 rounded border font-mono">Ctrl + D</strong> (Mac: <strong className="bg-white px-1.5 py-0.5 rounded border font-mono">⌘ + D</strong>) 누르기 → 북마크 추가 창</li>
+                    <li>이름 칸: <code className="bg-white px-1.5 py-0.5 rounded">로컬루션 메뉴 가져오기</code></li>
+                    <li>URL 칸 클릭 → 기존 내용 모두 지우기 → <strong className="bg-white px-1.5 py-0.5 rounded border font-mono">Ctrl + V</strong> 로 붙여넣기</li>
+                    <li>폴더 선택: <strong>"북마크바"</strong> 또는 <strong>"즐겨찾기 모음"</strong></li>
+                    <li>저장 버튼</li>
+                  </ol>
                   <button
                     onClick={handleCopy}
                     className="mt-2 inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#191F28] text-white text-[11px] font-bold">
-                    {copied ? <><Check size={11} strokeWidth={3} /> 복사됨</> : <><Copy size={11} strokeWidth={2.5} /> 코드 복사</>}
+                    {copied ? <><Check size={11} strokeWidth={3} /> 복사됨!</> : <><Copy size={11} strokeWidth={2.5} /> 코드 복사</>}
                   </button>
                 </div>
               </details>
