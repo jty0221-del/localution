@@ -145,8 +145,26 @@ async function sendViaChannel(
     }
   }
   if (channel === 'kakao_talk') {
-    // Phase 3: Kakao SendMe API 호출 예정
-    return { ok: false, error: 'phase_3_not_yet' }
+    // Phase 3: Kakao SendMe API ("나에게 보내기")
+    // sendMemoForUser 가 자동으로 token load + refresh + send 처리
+    try {
+      const { sendMemoForUser } = await import('@/app/lib/kakao-api')
+      const targetUrl = `https://www.localution.co.kr/review-admin/${
+        review.platform === 'naver_place' ? 'naver' :
+        review.platform === 'baemin' ? 'baemin' :
+        review.platform === 'yogiyo' ? 'yogiyo' :
+        review.platform === 'coupangeats' ? 'coupangeats' : 'naver'
+      }`
+      const text = `${msg.title}\n\n${msg.body}`.slice(0, 200)
+      const r = await sendMemoForUser(prefs.user_id, text, {
+        linkWebUrl: targetUrl,
+        linkMobileUrl: targetUrl,
+        buttonTitle: '리뷰 보러 가기',
+      })
+      return r.ok ? { ok: true } : { ok: false, error: r.error.slice(0, 200) }
+    } catch (e: any) {
+      return { ok: false, error: String(e?.message || e).slice(0, 200) }
+    }
   }
   if (channel === 'email') {
     // Phase 3: Resend/SES 호출 예정
@@ -178,7 +196,9 @@ export async function triggerReviewNotifications(
 
     const channels: Array<'web_push' | 'kakao_talk' | 'email'> = []
     if (prefs.channel_web_push && prefs.web_push_subscription) channels.push('web_push')
-    if (prefs.channel_kakao_talk && prefs.kakao_access_token) channels.push('kakao_talk')
+    // kakao_talk 은 별도 kakao_tokens 테이블 — sendMemoForUser 가 알아서 처리
+    // 사용자가 talk_message scope 동의 안 했으면 send 시 'not_connected' 에러로 자동 skip
+    if (prefs.channel_kakao_talk) channels.push('kakao_talk')
     if (prefs.channel_email) channels.push('email')
 
     if (channels.length === 0) {
