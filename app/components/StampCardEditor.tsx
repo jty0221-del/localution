@@ -13,7 +13,7 @@ import { useEffect, useState } from 'react'
 import {
   Save, Users, Gift, Sparkles, Phone, MessageCircle,
   Award, QrCode, Download, FileSpreadsheet, Printer,
-  UserPlus, ExternalLink, Check, Smartphone,
+  UserPlus, ExternalLink, Check, Smartphone, X, Plus,
 } from 'lucide-react'
 import StampCardView from './StampCardView'
 import QRImage from './QRImage'
@@ -59,6 +59,7 @@ export default function StampCardEditor() {
     required_stamps: 10,
     reward_text: '음료 1잔 무료',
     theme_color: '#3182F6',
+    milestones: [] as Array<{ at: number; reward: string }>,
   })
   const [stats, setStats] = useState({ customers: 0, total_stamps: 0, rewards_claimed: 0 })
   const [store, setStore] = useState<any>(null)
@@ -88,6 +89,7 @@ export default function StampCardEditor() {
               required_stamps: j.card.required_stamps,
               reward_text: j.card.reward_text,
               theme_color: j.card.theme_color,
+              milestones: Array.isArray(j.card.milestones) ? j.card.milestones : [],
             })
           }
           setStore(j.store)
@@ -322,6 +324,65 @@ export default function StampCardEditor() {
                   {r}
                 </button>
               ))}
+            </div>
+          </div>
+
+          {/* 단계별 보상 (Milestones) */}
+          <div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-[11px] font-bold text-[#4E5968]">단계별 보상 (선택)</label>
+              <button
+                onClick={() => {
+                  if (card.milestones.length >= 5) return
+                  const next = [...card.milestones, { at: Math.min(card.required_stamps - 1, (card.milestones[card.milestones.length - 1]?.at || 0) + 5), reward: '' }]
+                  setCard({ ...card, milestones: next })
+                }}
+                disabled={card.milestones.length >= 5}
+                className="flex items-center gap-1 text-[10px] font-bold text-[#3182F6] hover:underline disabled:opacity-50">
+                <Plus size={10} strokeWidth={2.5} /> 단계 추가
+              </button>
+            </div>
+            <p className="text-[10px] text-[#8B95A1] mb-2 leading-relaxed">
+              5회 = 군만두 무료, 10회 = 탕수육 무료처럼 중간 보상을 추가하면 손님이 더 자주 찾아와요!
+            </p>
+            <div className="space-y-1.5">
+              {card.milestones.map((m, i) => (
+                <div key={i} className="flex items-center gap-1.5 p-2 rounded-lg bg-[#F8FAFB] border border-[#E5E8EB]">
+                  <select
+                    value={m.at}
+                    onChange={e => {
+                      const next = [...card.milestones]
+                      next[i] = { ...next[i], at: parseInt(e.target.value, 10) }
+                      setCard({ ...card, milestones: next })
+                    }}
+                    className="text-xs px-2 py-1 rounded bg-white border border-[#E5E8EB] focus:outline-none focus:border-[#3182F6]">
+                    {Array.from({ length: card.required_stamps - 1 }, (_, n) => n + 1).map(n => (
+                      <option key={n} value={n}>{n}회</option>
+                    ))}
+                  </select>
+                  <input
+                    value={m.reward}
+                    onChange={e => {
+                      const next = [...card.milestones]
+                      next[i] = { ...next[i], reward: e.target.value.slice(0, 60) }
+                      setCard({ ...card, milestones: next })
+                    }}
+                    placeholder="예: 군만두 무료"
+                    className="flex-1 text-xs px-2 py-1 rounded bg-white border border-[#E5E8EB] focus:outline-none focus:border-[#3182F6]"
+                  />
+                  <button
+                    onClick={() => {
+                      setCard({ ...card, milestones: card.milestones.filter((_, idx) => idx !== i) })
+                    }}
+                    className="w-7 h-7 rounded bg-[#FEE2E2] hover:bg-[#FECACA] flex items-center justify-center">
+                    <X size={12} className="text-[#991B1B]" strokeWidth={2.5} />
+                  </button>
+                </div>
+              ))}
+              <p className="text-[10px] text-[#3182F6] flex items-center gap-1">
+                <Gift size={10} strokeWidth={2.5} />
+                최종 {card.required_stamps}회 = <strong>{card.reward_text}</strong>
+              </p>
             </div>
           </div>
 
