@@ -27,6 +27,7 @@ export default function StampScanPage() {
   const [errCode, setErrCode] = useState<'no_card' | 'network' | ''>('')
   const [phase, setPhase] = useState<'input' | 'view'>('input')
   const [rewardJustClaimed, setRewardJustClaimed] = useState(false)
+  const [milestoneReached, setMilestoneReached] = useState<{ at: number; reward: string } | null>(null)
 
   useEffect(() => {
     setLoading(true)
@@ -90,6 +91,7 @@ export default function StampScanPage() {
       setCard(j.card)
       setCollection(j.collection)
       setRewardJustClaimed(j.reward_pending)
+      setMilestoneReached(j.milestone_reached || null)
       setPhase('view')
     } catch (e: any) {
       setErr('네트워크 오류')
@@ -209,8 +211,21 @@ export default function StampScanPage() {
                   <div className="w-14 h-14 rounded-2xl bg-white shadow-sm flex items-center justify-center mx-auto mb-2">
                     <Gift size={28} className="text-[#92400E]" strokeWidth={2.5} />
                   </div>
-                  <p className="text-base font-black text-[#92400E]">축하합니다!</p>
-                  <p className="text-sm text-[#92400E] mt-1">{card?.reward_text} 보상이 발급됐어요</p>
+                  <p className="text-base font-black text-[#92400E]">최종 보상 달성!</p>
+                  <p className="text-sm text-[#92400E] mt-1">{card?.reward_text}</p>
+                  <p className="text-xs text-[#92400E]/80 mt-2">사장님께 이 화면을 보여주세요</p>
+                </div>
+              </div>
+            )}
+
+            {milestoneReached && !rewardJustClaimed && (
+              <div className="bg-gradient-to-r from-[#FEF3C7] to-[#FDE68A] rounded-2xl p-5 mb-4 border-2 border-[#FCD34D]">
+                <div className="text-center">
+                  <div className="w-14 h-14 rounded-2xl bg-white shadow-sm flex items-center justify-center mx-auto mb-2">
+                    <Gift size={28} className="text-[#92400E]" strokeWidth={2.5} />
+                  </div>
+                  <p className="text-base font-black text-[#92400E]">{milestoneReached.at}회 달성!</p>
+                  <p className="text-sm text-[#92400E] mt-1">{milestoneReached.reward}</p>
                   <p className="text-xs text-[#92400E]/80 mt-2">사장님께 이 화면을 보여주세요</p>
                 </div>
               </div>
@@ -220,7 +235,7 @@ export default function StampScanPage() {
 
             <div className="mt-4 grid grid-cols-2 gap-2">
               <button
-                onClick={() => { setPhase('input'); setRewardJustClaimed(false) }}
+                onClick={() => { setPhase('input'); setRewardJustClaimed(false); setMilestoneReached(null) }}
                 className="py-3 rounded-xl bg-white text-[#4E5968] font-bold text-sm shadow-sm border border-[#E5E8EB] flex items-center justify-center gap-1">
                 <Users size={12} strokeWidth={2.5} /> 다른 번호로
               </button>
