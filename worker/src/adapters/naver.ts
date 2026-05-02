@@ -13,7 +13,7 @@ import { dumpPageDiagnostics, startNetworkCapture, detectLoginFailure } from '..
 import { handleNaverCaptcha, solveCaptcha } from '../lib/captcha'
 import type { JobResult, Action } from '../jobs'
 
-const NAVER_CODE_VERSION = 'v26-anchor-onclick-formSubmit-fallback-20260502'
+const NAVER_CODE_VERSION = 'v27-FORBIDDEN-myBizes-diagnosis-20260502'
 
 const LOGIN_URL = 'https://nid.naver.com/nidlogin.login'
 const NEW_SMARTPLACE_BASE = 'https://new.smartplace.naver.com'
@@ -1215,12 +1215,76 @@ async function postNaverReply(
     if (json?.errors && Array.isArray(json.errors) && json.errors.length > 0) {
       const errMsg = json.errors[0]?.message || JSON.stringify(json.errors[0])
       log.warn({ errors: json.errors.slice(0, 3) }, 'naver: GraphQL returned errors')
-      // 권한 관련 에러 → 사용자에게 명확한 안내
+      // 권한 관련 에러 → v27: paaron 의 실제 owner 매장 진단
       const errStr = String(errMsg)
       if (errStr.includes('플레이스 권한') || errStr.includes('권한이 없') || errStr.includes('Forbidden') || errStr.includes('Unauthorized')) {
+        // ── v27 핵심 진단: NID_AUT 정상인데 placeId 권한 없음 → 잘못된 placeId 매핑
+        // SmartPlace /bizes 페이지 방문해서 paaron 의 실제 owner 매장 목록 dump
+        let myPlaces: any[] = []
+        let bizesPageInfo: any = {}
+        try {
+          await page.goto('https://new.smartplace.naver.com/bizes', {
+            waitUntil: 'domcontentloaded', timeout: 15000,
+          }).catch(() => null)
+          await page.waitForTimeout(3500)
+          const bizesUrl = page.url()
+          log.info({ bizesUrl }, 'naver: v27 visited /bizes for owner-place diagnosis')
+          // 페이지에서 매장 정보 모두 dump
+          bizesPageInfo = await page.evaluate(() => {
+            const out: any = { url: location.href, title: document.title, places: [], hexes: [], allText: '' }
+            // 매장 카드/링크 추출 (SmartPlace UI 변동 가능성 → 광범위)
+            document.querySelectorAll('a[href*="/bizes/"], li[data-place-id], [data-business-id], [data-place-seq]').forEach((el: any) => {
+              const href = el.href || ''
+              const text = (el.innerText || el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 80)
+              const placeIdMatch = href.match(/\/bizes\/(?:place\/)?(\d+)/)
+              const dataPlaceId = el.getAttribute('data-place-id') || ''
+              const dataBizId = el.getAttribute('data-business-id') || ''
+              const dataSeq = el.getAttribute('data-place-seq') || ''
+              if (placeIdMatch || dataPlaceId || dataBizId || dataSeq) {
+                out.places.push({
+                  text, href: href.slice(-80),
+                  placeId: placeIdMatch?.[1] || dataPlaceId || '',
+                  bizId: dataBizId || '',
+                  placeSeq: dataSeq || '',
+                })
+              }
+            })
+            // 본문 모든 hex (24-char) 추출
+            const html = document.documentElement.outerHTML
+            const hexRe = /[a-f0-9]{20,30}/g
+            out.hexes = Array.from(new Set((html.match(hexRe) || []).slice(0, 20)))
+            // 페이지 본문 일부 (매장 이름 포함 가능)
+            out.allText = (document.body?.innerText || '').replace(/\s+/g, ' ').slice(0, 600)
+            return out
+          }).catch((e: any) => ({ err: e?.message }))
+          myPlaces = (bizesPageInfo as any).places || []
+          log.info({ bizesPageInfo, ownerPlacesCount: myPlaces.length }, 'naver: v27 paaron 매장 목록 진단')
+
+          // GraphQL 로 owner 매장 직접 조회 시도
+          try {
+            const myBizQuery = 'query { bizes { items { id placeId placeName placeSeq bookingBusinessId role __typename } } }'
+            const altQuery = '{"operationName":"GetMyBizes","query":"query GetMyBizes { bizes(input: {}) { items { id placeId placeName } } }"}'
+            const myBizRes = await fetch('https://new.smartplace.naver.com/graphql?opName=GetMyBizes', {
+              method: 'POST', headers: smartplaceHeaders,
+              body: altQuery,
+              signal: AbortSignal.timeout(8000),
+            }).catch(() => null)
+            if (myBizRes && myBizRes.ok) {
+              const myBizText = await myBizRes.text()
+              log.info({ myBizPreview: myBizText.slice(0, 500) }, 'naver: v27 GetMyBizes 응답')
+            }
+          } catch {}
+        } catch (e: any) {
+          log.warn({ err: e?.message }, 'naver: v27 매장 목록 진단 실패')
+        }
+
+        // 진단 결과로 사용자에게 정확한 메시지
+        const myPlacesText = myPlaces.length > 0
+          ? `이 계정의 owner 매장: ${myPlaces.slice(0, 3).map((p: any) => `${p.text || p.placeId}(${p.placeId || p.placeSeq})`).join(', ')}`
+          : '이 계정의 owner 매장이 SmartPlace 에서 발견되지 않음'
         return {
           ok: false,
-          reason: '⚠️ 사장님 계정 권한 부족: 이 계정이 해당 매장의 사장님(owner)이 아닙니다. SmartPlace에서 직접 로그인해 매장 관리가 가능한지 확인해주세요. 직원/매니저 계정은 답글 자동 등록이 불가합니다.',
+          reason: `❌ placeId ${storeId} 권한 없음 — NID_AUT 정상 발급됐지만 SmartPlace 가 권한 거부. ${myPlacesText}. DB 의 placeId 가 잘못됐거나, 이 네이버 ID 는 해당 매장의 owner 가 아닙니다 (직원/매니저 계정은 답글 자동등록 불가).`,
         }
       }
       return { ok: false, reason: '네이버 GraphQL 오류: ' + errStr.slice(0, 150) }
