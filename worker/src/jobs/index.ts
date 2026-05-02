@@ -17,6 +17,7 @@ export type Action =
   | 'post_reply'
   | 'fetch_rank'
   | 'health_check'
+  | 'fetch_menu'
 
 export interface PlatformJobData {
   platform: Platform
