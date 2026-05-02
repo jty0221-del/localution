@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
   }
   if (allowed.low_rating_threshold !== undefined) {
     const t = parseInt(allowed.low_rating_threshold, 10)
-    if (isNaN(t) || t < 1 || t > 5) return NextResponse.json({ ok: false, error: 'invalid_threshold' }, { status: 400 })
+    if (isNaN(t) || t < 0 || t > 5) return NextResponse.json({ ok: false, error: 'invalid_threshold' }, { status: 400 })
     allowed.low_rating_threshold = t
   }
 
