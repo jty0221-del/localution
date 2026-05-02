@@ -82,6 +82,19 @@ type Photo = { id: string; cat: 'receipt' | 'photo'; url: string; label: string 
 type LengthKey = 'short' | 'mid' | 'long'
 type ReceiptStatus = 'idle' | 'checking' | 'ok' | 'warning' | 'confirm'
 
+// ⭐ 2-C: 손님 활동 추적 (best-effort, 실패해도 사용자 흐름 유지)
+function trackEvent(slug: string, event: string, meta?: any) {
+  if (!slug) return
+  try {
+    fetch('/api/qr/track', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ slug, event, meta }),
+      keepalive: true,  // 페이지 닫혀도 fetch 완료 보장
+    }).catch(() => null)
+  } catch (_) {}
+}
+
 export default function ReviewPage() {
   const params = useParams<{ storeId: string }>()
   const searchParams = useSearchParams()
@@ -215,6 +228,13 @@ export default function ReviewPage() {
   const cameraRef = useRef<HTMLInputElement>(null)
   const [uploadCat, setUploadCat] = useState<'receipt' | 'photo'>('receipt')
 
+  // ⭐ 2-C: 페이지 진입 = QR 스캔 이벤트 (storeId 가 default 가 아닐 때만)
+  useEffect(() => {
+    if (!storeId || storeId === 'default') return
+    trackEvent(storeId, 'scan', { has_qp: !!(qpName || qpAddr || qpNaver || qpPid) })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [storeId])
+
   // ── 2-B: 영수증 OCR 검증 — 서버 Claude OCR 우선 + TextDetector fallback ──
   useEffect(() => {
     const receipt = photos.find(p => p.cat === 'receipt')
@@ -254,6 +274,12 @@ export default function ReviewPage() {
             )
             const ok = info.matched === true || (info.matched !== false && fuzzyMatch)
             setReceiptStatus(ok ? 'ok' : 'warning')
+            // 2-C 추적: 영수증 업로드 + 일치 여부
+            trackEvent(storeId, 'receipt_uploaded', {
+              items_count: Array.isArray(info.items) ? info.items.length : 0,
+              total: info.total || null,
+            })
+            if (ok) trackEvent(storeId, 'receipt_verified', { ocr_store: info.storeName || null })
             return
           }
         }
@@ -297,6 +323,10 @@ export default function ReviewPage() {
         if (remaining === 0) {
           setPhotos(prev => [...prev, ...buffer])
           if (uploadCat === 'receipt') setReceiptStatus('checking')
+          // 2-C 추적: 사진 업로드 (영수증 'receipt_uploaded' 는 OCR 단계에서 기록)
+          if (uploadCat === 'photo') {
+            trackEvent(storeId, 'photo_uploaded', { count: buffer.length })
+          }
         }
       }
       reader.readAsDataURL(f)
@@ -376,6 +406,13 @@ export default function ReviewPage() {
           if (Array.isArray(j.hashtags)) setAiHashtags(j.hashtags.slice(0, 5))
           setAiSource('ai')
           setDrafting(false)
+          // 2-C 추적
+          trackEvent(storeId, 'ai_generated', {
+            tone: apiTone, length, ai_source: 'ai',
+            char_count: j.review.length,
+            has_receipt: photos.some(p => p.cat === 'receipt'),
+            has_photo: photos.some(p => p.cat === 'photo'),
+          })
           setStep(3)
           return
         }
@@ -383,9 +420,13 @@ export default function ReviewPage() {
     } catch (_) {}
 
     // Fallback: 로컬 buildReview (AI 호출 실패 / API 키 없음)
-    setDraft(buildReview(store, gender, age, tone, length, photos))
+    const fallbackText = buildReview(store, gender, age, tone, length, photos)
+    setDraft(fallbackText)
     setAiSource('fallback')
     setDrafting(false)
+    trackEvent(storeId, 'ai_generated', {
+      tone, length, ai_source: 'fallback', char_count: fallbackText.length,
+    })
     setStep(3)
   }
 
@@ -405,6 +446,13 @@ export default function ReviewPage() {
     }
     setCopied(true)
     setTimeout(() => setCopied(false), 2500)
+    // 2-C 추적: 네이버 등록 클릭
+    trackEvent(storeId, 'submitted_naver', {
+      char_count: final.length,
+      tone, length, rating: 5,
+      has_receipt: photos.some(p => p.cat === 'receipt'),
+      has_photo: photos.some(p => p.cat === 'photo'),
+    })
     const reviewUrl = getNaverReviewUrl(store.naverUrl)
     setTimeout(() => window.open(reviewUrl, '_blank'), 350)
   }
