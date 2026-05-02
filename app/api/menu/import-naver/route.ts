@@ -221,24 +221,26 @@ async function fetchMenusViaSSR(placeId: string, businessType: string, debug: an
 
 // HTML 에서 메뉴 추출 — 괄호 깊이 카운팅으로 정확히 JSON 추출
 function extractMenusFromHtml(html: string, debug: any[]): MenuItem[] | null {
-  // 다양한 패턴 시도
   const markers = [
     '__APOLLO_STATE__',
-    'window.__APOLLO_STATE__',
     '__INITIAL_STATE__',
-    'window.__INITIAL_STATE__',
     '__NEXT_DATA__',
     '__PRELOADED_STATE__',
+    '__PLACE_INITIAL_STATE__',
+    '__INITIAL_DATA__',
   ]
 
-  for (const marker of markers) {
-    const startStr = marker + '='
-    const idx = html.indexOf(startStr)
-    if (idx === -1) continue
+  // HTML 안에 있는 모든 candidate marker 디버그 출력
+  const presentMarkers = markers.filter(m => html.includes(m))
+  debug.push({ marker_scan: presentMarkers })
 
-    // = 다음의 첫 { 위치 찾기
-    let braceStart = idx + startStr.length
-    while (braceStart < html.length && /\s/.test(html[braceStart])) braceStart++
+  for (const marker of markers) {
+    // 정규식으로 marker = { 패턴 찾기 (스페이스/window. 접두 허용)
+    const re = new RegExp('(?:window\\.)?' + marker.replace(/_/g, '_') + '\\s*=\\s*\\{')
+    const m = html.match(re)
+    if (!m || m.index === undefined) continue
+    const matchedAt = m.index + m[0].length - 1  // { 위치
+    let braceStart = matchedAt
     if (html[braceStart] !== '{') continue
 
     // 깊이 카운팅으로 매칭 } 찾기 (문자열 안의 } 무시)
