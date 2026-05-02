@@ -276,68 +276,53 @@ export async function runNaverMenu(
   })
 
   try {
-    // STEP 1: smartplace home 진입
+    // STEP 0: ALWAYS do fresh login first (cookies alone insufficient for menu access)
+    log.info('naver-menu: ALWAYS doing fresh login first (v3)')
+    let creds: any
+    try {
+      creds = await loadPlainCredentials(svc, userId, 'naver_place')
+    } catch (e: any) {
+      await context.close()
+      if (usingFreshBrowser && menuBrowser) { try { await menuBrowser.close() } catch (_) {} }
+      await updateImport({
+        status: 'failed',
+        error_code: 'no_credentials',
+        error_message: '네이버 비밀번호가 저장되어 있지 않아요. 매장 연결 페이지에서 등록해주세요.',
+        completed_at: new Date().toISOString(),
+      })
+      return { status: 'failed', message: 'no_credentials' }
+    }
+
+    const loginResult = await doFreshLogin(page, creds.account_id, creds.password, log)
+    log.info({ loginResult }, 'naver-menu: fresh login result')
+
+    if (!loginResult.ok) {
+      await context.close()
+      if (usingFreshBrowser && menuBrowser) { try { await menuBrowser.close() } catch (_) {} }
+      const errMessages: Record<string, string> = {
+        captcha_required: '네이버 CAPTCHA 인증이 필요해요. 사장님이 직접 nid.naver.com 한번 로그인 후 재시도해주세요.',
+        captcha_or_security: '네이버 보안 인증이 필요해요. 사장님이 직접 nid.naver.com 한번 로그인 후 재시도해주세요.',
+        login_failed: '비밀번호가 틀리거나 로그인 차단됐어요. 매장 연결 페이지에서 다시 등록해주세요.',
+        no_id_field: '네이버 로그인 페이지 구조 변경 — 관리자에게 문의',
+        no_pw_field: '네이버 로그인 페이지 구조 변경 — 관리자에게 문의',
+        exception: '로그인 중 예외 발생',
+      }
+      await updateImport({
+        status: 'failed',
+        error_code: 'fresh_login_failed_' + loginResult.error,
+        error_message: errMessages[loginResult.error || ''] || ('로그인 실패: ' + loginResult.error),
+        completed_at: new Date().toISOString(),
+      })
+      return { status: 'failed', message: 'fresh_login_failed' }
+    }
+
+    // STEP 1: smartplace home 진입 (now authenticated)
     await page.goto(`${SMARTPLACE_BASE}/`, { waitUntil: 'domcontentloaded', timeout: 30000 })
     await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => null)
     await page.waitForTimeout(5000)
 
     let homeUrl = page.url()
-    let homeBody = await page.evaluate(() => (document.body?.innerText || '').slice(0, 300)).catch(() => '')
-    log.info({ homeUrl, bodySample: homeBody.slice(0, 100) }, 'naver-menu: smartplace home initial state')
-
-    const needsFreshLogin =
-      homeUrl.includes('nid.naver.com/nidlogin') ||
-      homeUrl.includes('login.naver.com') ||
-      homeBody.includes('로그인이 필요') ||
-      homeBody.includes('로그인이 필요한')
-
-    if (needsFreshLogin) {
-      log.info('naver-menu: step-up login required, doing fresh login')
-      // 비밀번호 자격증명 로드
-      let creds: any
-      try {
-        creds = await loadPlainCredentials(svc, userId, 'naver_place')
-      } catch (e: any) {
-        await context.close()
-        if (usingFreshBrowser && menuBrowser) { try { await menuBrowser.close() } catch (_) {} }
-        await updateImport({
-          status: 'failed',
-          error_code: 'no_credentials',
-          error_message: '네이버 비밀번호가 저장되어 있지 않아요. 매장 연결 페이지에서 등록해주세요.',
-          completed_at: new Date().toISOString(),
-        })
-        return { status: 'failed', message: 'no_credentials' }
-      }
-
-      const loginResult = await doFreshLogin(page, creds.account_id, creds.password, log)
-      if (!loginResult.ok) {
-        await context.close()
-        if (usingFreshBrowser && menuBrowser) { try { await menuBrowser.close() } catch (_) {} }
-        const errMessages: Record<string, string> = {
-          captcha_required: '네이버 CAPTCHA 인증이 필요해요. 다음 시도 시 사장님이 직접 한번 로그인 후 재시도해주세요.',
-          captcha_or_security: '네이버 보안 인증이 필요해요. 다음 시도 시 사장님이 직접 한번 로그인 후 재시도해주세요.',
-          login_failed: '비밀번호가 틀리거나 로그인 차단됐어요. 매장 연결 페이지에서 다시 등록해주세요.',
-          no_id_field: '네이버 로그인 페이지 구조 변경 — 관리자에게 문의',
-          no_pw_field: '네이버 로그인 페이지 구조 변경 — 관리자에게 문의',
-          exception: '로그인 중 예외 발생',
-        }
-        await updateImport({
-          status: 'failed',
-          error_code: 'fresh_login_failed_' + loginResult.error,
-          error_message: errMessages[loginResult.error || ''] || ('로그인 실패: ' + loginResult.error),
-          completed_at: new Date().toISOString(),
-        })
-        return { status: 'failed', message: 'fresh_login_failed' }
-      }
-
-      // 로그인 후 smartplace home 으로 다시
-      await page.goto(`${SMARTPLACE_BASE}/`, { waitUntil: 'domcontentloaded', timeout: 30000 })
-      await page.waitForTimeout(5000)
-      homeUrl = page.url()
-      log.info({ homeUrl }, 'naver-menu: smartplace home after fresh login')
-    }
-
-    log.info({ homeUrl }, 'naver-menu: smartplace home loaded (auth ok)')
+    log.info({ homeUrl }, 'naver-menu: smartplace home loaded after fresh login')
 
     // STEP 2: home 에서 placeId 매칭 링크 찾기
     const businessLink = await page.evaluate((pid) => {
