@@ -118,7 +118,7 @@ export async function markLoginStatus(
   svc: SupabaseClient,
   userId: string,
   platform: Platform,
-  status: 'success' | 'failed' | 'captcha',
+  status: 'success' | 'failed' | 'captcha' | 'credentials_invalid' | 'account_locked',
   note?: string,
 ): Promise<void> {
   try {
@@ -133,4 +133,35 @@ export async function markLoginStatus(
   } catch {
     // best-effort
   }
+}
+
+// 로그인 실패 메시지를 분류 — UI 에 명확한 안내 가능
+export function classifyLoginFailure(bodyText: string): {
+  kind: 'credentials_invalid' | 'account_locked' | 'captcha_required' | 'unknown'
+  hint: string
+} {
+  const t = String(bodyText || '').replace(/\s+/g, ' ')
+  if (
+    t.includes('비밀번호가 잘못') || t.includes('아이디 또는 비밀번호') ||
+    t.includes('일치하지') || t.includes('잘못된 아이디') ||
+    t.toLowerCase().includes('incorrect') || t.toLowerCase().includes('invalid password')
+  ) {
+    return {
+      kind: 'credentials_invalid',
+      hint: '비밀번호가 변경되었거나 잘못된 정보입니다. 매장 연결 페이지에서 새 비밀번호로 다시 등록해주세요.',
+    }
+  }
+  if (
+    t.includes('보안조치') || t.includes('로그인이 제한') || t.includes('차단') ||
+    t.includes('이용 제한') || t.includes('해외에서 로그인') || t.includes('비밀번호를 변경')
+  ) {
+    return {
+      kind: 'account_locked',
+      hint: '네이버가 보안 잠금 — 본인 인증 또는 24시간 대기 후 재시도. 비번 변경 강제 시 새 비번으로 재등록.',
+    }
+  }
+  if (t.includes('자동입력 방지') || t.includes('CAPTCHA') || t.includes('captcha')) {
+    return { kind: 'captcha_required', hint: 'CAPTCHA 풀이 실패 — 잠시 후 자동 재시도됩니다.' }
+  }
+  return { kind: 'unknown', hint: '로그인 실패 — 자동 재시도 또는 매장 연결 재등록이 필요할 수 있습니다.' }
 }
