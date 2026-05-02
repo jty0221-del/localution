@@ -5,6 +5,7 @@ import QuickSlot from './components/QuickSlot'
 import BottomTabBar from './components/BottomTabBar'
 import UpdatesPopupBanner from './components/UpdatesPopupBanner'
 import ScrollToTop from './components/ScrollToTop'
+import OnboardingBanner from './components/OnboardingBanner'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -94,6 +95,8 @@ export default function RootLayout({
   return (
     <html lang="ko">
       <body className={inter.className}>
+        {/* 2-D · 매장 미등록 사용자 글로벌 onboarding 배너 (워크스페이스 한정) */}
+        <OnboardingBanner />
         {children}
         <QuickSlot />
         <BottomTabBar />
