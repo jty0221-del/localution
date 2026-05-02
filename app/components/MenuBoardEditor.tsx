@@ -42,9 +42,12 @@ export default function MenuBoardEditor() {
   const [editing, setEditing] = useState<MenuItem | null>(null)
   const [showImport, setShowImport] = useState(false)
   const [importPlaceId, setImportPlaceId] = useState('')
+  const [importBookingId, setImportBookingId] = useState('')
   const [importing, setImporting] = useState(false)
   const [importPreview, setImportPreview] = useState<MenuItem[]>([])
   const [importErr, setImportErr] = useState('')
+  const [importStatus, setImportStatus] = useState<'idle' | 'queued' | 'running' | 'success' | 'failed'>('idle')
+  const [importMessage, setImportMessage] = useState('')
   const [activeLang, setActiveLang] = useState<'ko' | 'en' | 'ja' | 'zh'>('ko')
 
   useEffect(() => {
@@ -99,22 +102,63 @@ export default function MenuBoardEditor() {
     if (!id) { setImportErr('네이버 placeId 를 입력해주세요'); return }
     setImporting(true)
     setImportErr('')
+    setImportStatus('queued')
+    setImportMessage('워커에 작업 요청 중...')
     try {
       const r = await fetch('/api/menu/import-naver', {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ placeId: id }),
+        body: JSON.stringify({ placeId: id, bookingBusinessId: importBookingId.replace(/[^0-9]/g, '') || null }),
       })
       const j = await r.json()
       if (!j.ok) {
-        setImportErr(j.message || j.error || '가져오기 실패')
+        setImportErr(j.message || j.error || '작업 요청 실패')
+        setImportStatus('failed')
+        setImporting(false)
         return
       }
-      setImportPreview(j.items || [])
+
+      const importId = j.import_id
+      setImportMessage('네이버 세션으로 메뉴 페이지 접근 중... (10~30초 소요)')
+
+      // 폴링 — 2초 간격, 최대 90초
+      const startedAt = Date.now()
+      const pollInterval = setInterval(async () => {
+        try {
+          const sr = await fetch(`/api/menu/import-status?id=${importId}`, { credentials: 'include' })
+          const sj = await sr.json()
+          if (!sj.ok) return
+
+          if (sj.status === 'running') {
+            setImportStatus('running')
+            setImportMessage('네이버 인증 + 메뉴 추출 중...')
+          } else if (sj.status === 'success') {
+            clearInterval(pollInterval)
+            setImportStatus('success')
+            setImportMessage(`${(sj.items || []).length}개 메뉴를 가져왔어요!`)
+            setImportPreview(sj.items || [])
+            setImporting(false)
+          } else if (sj.status === 'failed') {
+            clearInterval(pollInterval)
+            setImportStatus('failed')
+            setImportErr(sj.error_message || sj.error_code || '가져오기 실패')
+            setImporting(false)
+          }
+
+          if (Date.now() - startedAt > 95_000) {
+            clearInterval(pollInterval)
+            setImportStatus('failed')
+            setImportErr('시간 초과 — 다시 시도해주세요')
+            setImporting(false)
+          }
+        } catch (_) {}
+      }, 2000)
     } catch (e) {
       setImportErr('네트워크 오류')
-    } finally { setImporting(false) }
+      setImportStatus('failed')
+      setImporting(false)
+    }
   }
 
   async function handleSaveImport() {
@@ -336,15 +380,27 @@ export default function MenuBoardEditor() {
               </div>
 
               <div>
-                <label className="text-[11px] font-bold text-[#4E5968] mb-1 block">네이버 placeId</label>
+                <label className="text-[11px] font-bold text-[#4E5968] mb-1 block">네이버 placeId *</label>
                 <input value={importPlaceId} onChange={e => setImportPlaceId(e.target.value)} placeholder="10441797" className="w-full px-3 py-2.5 rounded-lg bg-[#F2F4F6] border-2 border-transparent focus:border-[#03C75A] focus:bg-white outline-none text-base" />
+              </div>
+              <div>
+                <label className="text-[11px] font-bold text-[#4E5968] mb-1 block">bookingBusinessId (선택)</label>
+                <input value={importBookingId} onChange={e => setImportBookingId(e.target.value)} placeholder="1289786" className="w-full px-3 py-2.5 rounded-lg bg-[#F2F4F6] border-2 border-transparent focus:border-[#03C75A] focus:bg-white outline-none text-base" />
+                <p className="text-[10px] text-[#8B95A1] mt-0.5">smartplace URL 의 bookingBusinessId 파라미터</p>
               </div>
 
               {importErr && <p className="text-xs text-[#DC2626]">{importErr}</p>}
 
+              {importStatus !== 'idle' && importStatus !== 'success' && importStatus !== 'failed' && (
+                <div className="flex items-center gap-2 p-3 rounded-lg bg-[#EFF6FF] border border-[#BFDBFE]">
+                  <div className="animate-spin w-4 h-4 border-2 border-[#3182F6] border-t-transparent rounded-full" />
+                  <p className="text-xs text-[#1E40AF] font-medium">{importMessage}</p>
+                </div>
+              )}
+
               {importPreview.length === 0 ? (
                 <button onClick={handleNaverImport} disabled={importing || !importPlaceId} className="w-full py-3 rounded-xl bg-[#03C75A] text-white font-bold text-sm disabled:opacity-50">
-                  {importing ? '가져오는 중…' : '네이버에서 메뉴 가져오기'}
+                  {importing ? '가져오는 중...' : '네이버에서 메뉴 가져오기'}
                 </button>
               ) : (
                 <>
