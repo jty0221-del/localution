@@ -1,15 +1,18 @@
 // app/api/menu/import-naver/route.ts
 // ============================================================
-// 네이버 플레이스 메뉴 자동 가져오기 (강화 v2)
+// 네이버 플레이스 메뉴 자동 가져오기 (v3 — 스키마 검증 기반)
 //   POST { placeId, bookingBusinessId? }
 //
-//   전략 (순서대로 시도, 성공 시 즉시 반환):
-//     A1. pcmap-api GraphQL — restaurantMenuList
-//     A2. pcmap-api GraphQL — getRestaurant (메뉴 inline)
-//     B.  m.place.naver.com SSR HTML 의 __APOLLO_STATE__
-//     C.  네이버 쇼핑검색 SDK (백업)
+//   네이버 GraphQL 스키마 힌트 (introspection 결과):
+//     · RestaurantMenuInput ❌ 존재 안함
+//     · BrandMenusInput ✅ 존재  (operation: brandMenus)
+//     · restaurantList ✅ (Query field)
 //
-//   응답: { ok, items: [{ name_ko, price, image_url, desc_ko, category }], strategy }
+//   전략 (순서대로 시도):
+//     A. GraphQL — restaurant(input) { menus } — 흔한 필드 패턴
+//     B. GraphQL — brandMenus(input) — 가맹점/브랜드 메뉴
+//     C. m.place.naver.com SSR HTML __APOLLO_STATE__ 파싱
+//     D. m.place.naver.com 페이지 DOM 텍스트 패턴 추출 (Last resort)
 // ============================================================
 import { NextRequest, NextResponse } from 'next/server'
 import { requireUser } from '@/app/lib/userAuth'
@@ -29,7 +32,14 @@ type MenuItem = {
   is_signature?: boolean
 }
 
-const BUSINESS_TYPES = ['restaurant', 'cafe', 'place', 'beauty', 'hospital']
+const BUSINESS_TYPES = ['restaurant', 'cafe', 'place', 'beauty']
+
+// GET 디버그용 — ?placeId=10441797 으로 직접 호출
+export async function GET(req: NextRequest) {
+  const placeId = req.nextUrl.searchParams.get('placeId') || ''
+  if (!placeId) return NextResponse.json({ ok: false, error: 'missing_placeId' }, { status: 400 })
+  return runImport(placeId)
+}
 
 export async function POST(req: NextRequest) {
   const auth = await requireUser()
@@ -39,42 +49,41 @@ export async function POST(req: NextRequest) {
   const placeId = String(body?.placeId || '').replace(/[^0-9]/g, '')
   if (!placeId) return NextResponse.json({ ok: false, error: 'missing_placeId' }, { status: 400 })
 
+  return runImport(placeId)
+}
+
+async function runImport(placeId: string) {
+  placeId = placeId.replace(/[^0-9]/g, '')
+  if (!placeId) return NextResponse.json({ ok: false, error: 'invalid_placeId' }, { status: 400 })
+
   const debug: any[] = []
 
-  // ── A1. pcmap-api GraphQL — restaurantMenuList 시도 ─────────────
+  // ── A. GraphQL — restaurant(input) { menus { ... } } ────────────
   for (const bt of BUSINESS_TYPES) {
-    try {
-      const items = await fetchMenusViaGraphQL_RestaurantMenu(placeId, bt, debug)
-      if (items && items.length > 0) {
-        return NextResponse.json({ ok: true, items, strategy: `gql_restaurantMenu_${bt}`, count: items.length })
-      }
-    } catch (e: any) {
-      debug.push({ try: 'gql_restaurantMenu', bt, err: String(e?.message).slice(0, 80) })
+    const items = await tryGqlRestaurantWithMenus(placeId, bt, debug)
+    if (items && items.length > 0) {
+      return NextResponse.json({ ok: true, items, strategy: `restaurant_${bt}`, count: items.length })
     }
   }
 
-  // ── A2. pcmap-api GraphQL — getRestaurant (combined) ──────────────
+  // ── B. GraphQL — brandMenus(input) ──────────────────────────────
+  const brandItems = await tryGqlBrandMenus(placeId, debug)
+  if (brandItems && brandItems.length > 0) {
+    return NextResponse.json({ ok: true, items: brandItems, strategy: 'brandMenus', count: brandItems.length })
+  }
+
+  // ── C. SSR Apollo State ──────────────────────────────
   for (const bt of BUSINESS_TYPES) {
-    try {
-      const items = await fetchMenusViaGraphQL_GetRestaurant(placeId, bt, debug)
-      if (items && items.length > 0) {
-        return NextResponse.json({ ok: true, items, strategy: `gql_getRestaurant_${bt}`, count: items.length })
-      }
-    } catch (e: any) {
-      debug.push({ try: 'gql_getRestaurant', bt, err: String(e?.message).slice(0, 80) })
+    const items = await fetchMenusViaSSR(placeId, bt, debug)
+    if (items && items.length > 0) {
+      return NextResponse.json({ ok: true, items, strategy: `ssr_${bt}`, count: items.length })
     }
   }
 
-  // ── B. m.place.naver.com SSR HTML __APOLLO_STATE__ ────────────────
-  for (const bt of BUSINESS_TYPES) {
-    try {
-      const items = await fetchMenusViaSSR(placeId, bt, debug)
-      if (items && items.length > 0) {
-        return NextResponse.json({ ok: true, items, strategy: `ssr_${bt}`, count: items.length })
-      }
-    } catch (e: any) {
-      debug.push({ try: 'ssr', bt, err: String(e?.message).slice(0, 80) })
-    }
+  // ── D. SmartOrder API (배달의민족 류 주문 메뉴) ───────────────────
+  const smartOrderItems = await trySmartOrderApi(placeId, debug)
+  if (smartOrderItems && smartOrderItems.length > 0) {
+    return NextResponse.json({ ok: true, items: smartOrderItems, strategy: 'smartOrder', count: smartOrderItems.length })
   }
 
   return NextResponse.json({
@@ -86,112 +95,98 @@ export async function POST(req: NextRequest) {
   }, { status: 404 })
 }
 
-// ─── Strategy A1: pcmap-api GraphQL restaurantMenu ─────────
-async function fetchMenusViaGraphQL_RestaurantMenu(placeId: string, businessType: string, debug: any[]): Promise<MenuItem[] | null> {
-  const query = `query restaurantMenu($input: RestaurantMenuInput) {
-    restaurantMenu(input: $input) {
-      total
-      items {
+// ─── A. restaurant(input) { menus } ─────────────────────
+async function tryGqlRestaurantWithMenus(placeId: string, businessType: string, debug: any[]): Promise<MenuItem[] | null> {
+  // 가능한 input type 시도 (네이버 스키마는 input 타입이 다양함)
+  const inputTypes = ['RestaurantInput', 'PlaceInput', 'BusinessInput']
+  for (const inputType of inputTypes) {
+    const query = `query getRestaurantWithMenus($input: ${inputType}) {
+      restaurant(input: $input) {
         id
         name
-        description
-        price
-        recommend
-        images { url }
-        category { name }
+        menus {
+          id name description price recommend new
+          images { url }
+        }
       }
-    }
-  }`
-
-  const reqBody = [{
-    operationName: 'restaurantMenu',
-    variables: { input: { businessId: placeId, businessType, page: 1, size: 200 } },
-    query,
-  }]
-
-  const res = await fetch(NAVER_GQL, {
-    method: 'POST',
-    headers: gqlHeaders(placeId, businessType, 'menu/list'),
-    body: JSON.stringify(reqBody),
-    signal: AbortSignal.timeout(10000),
-    cache: 'no-store',
-  })
-
-  debug.push({ try: 'gql_restaurantMenu', bt: businessType, status: res.status })
-  if (!res.ok) return null
-  const j: any = await res.json().catch(() => null)
-  if (j?.[0]?.errors) debug.push({ try: 'gql_restaurantMenu', bt: businessType, errors: j[0].errors.slice(0, 2) })
-  const items = j?.[0]?.data?.restaurantMenu?.items
-  if (!Array.isArray(items) || items.length === 0) return null
-
-  return items.map((m: any) => ({
-    name_ko: String(m.name || '').slice(0, 80),
-    price: parseInt(String(m.price || '0').replace(/[^0-9]/g, ''), 10) || 0,
-    image_url: m.images?.[0]?.url || null,
-    desc_ko: m.description ? String(m.description).slice(0, 200) : null,
-    category: m.category?.name || null,
-    is_signature: !!m.recommend,
-  })).filter((m: MenuItem) => m.name_ko)
-}
-
-// ─── Strategy A2: pcmap-api GraphQL getRestaurant ─────────
-async function fetchMenusViaGraphQL_GetRestaurant(placeId: string, businessType: string, debug: any[]): Promise<MenuItem[] | null> {
-  const queries = [
-    `query getRestaurantBaseInfo($input: RestaurantBaseInfoInput) {
-      restaurant(input: $input) {
-        id
-        menus { id name price images description category recommend }
-      }
-    }`,
-    `query getRestaurant($input: RestaurantInput) {
-      restaurant(input: $input) {
-        id
-        menus { id name price images description category recommend }
-      }
-    }`,
-  ]
-
-  for (const query of queries) {
-    const opName = (query.match(/query\s+(\w+)/) || [])[1] || 'getRestaurant'
-    const reqBody = [{
-      operationName: opName,
-      variables: { input: { businessId: placeId, businessType } },
-      query,
-    }]
+    }`
 
     try {
       const res = await fetch(NAVER_GQL, {
         method: 'POST',
-        headers: gqlHeaders(placeId, businessType, 'home'),
-        body: JSON.stringify(reqBody),
-        signal: AbortSignal.timeout(10000),
+        headers: gqlHeaders(placeId, businessType, 'menu/list'),
+        body: JSON.stringify([{
+          operationName: 'getRestaurantWithMenus',
+          variables: { input: { businessId: placeId, businessType } },
+          query,
+        }]),
+        signal: AbortSignal.timeout(8000),
         cache: 'no-store',
       })
-      debug.push({ try: 'gql_getRestaurant', op: opName, bt: businessType, status: res.status })
+      debug.push({ try: 'gql_restaurant', inputType, bt: businessType, status: res.status })
       if (!res.ok) continue
       const j: any = await res.json().catch(() => null)
-      if (j?.[0]?.errors) debug.push({ try: 'gql_getRestaurant', op: opName, errors: j[0].errors.slice(0, 2) })
+      if (j?.[0]?.errors) {
+        debug.push({ try: 'gql_restaurant', inputType, errors: j[0].errors.slice(0, 2).map((e: any) => e.message?.slice(0, 100)) })
+        continue
+      }
       const menus = j?.[0]?.data?.restaurant?.menus
       if (Array.isArray(menus) && menus.length > 0) {
-        return menus.map((m: any) => ({
-          name_ko: String(m.name || '').slice(0, 80),
-          price: parseInt(String(m.price || '0').replace(/[^0-9]/g, ''), 10) || 0,
-          image_url: m.images?.[0]?.url || (Array.isArray(m.images) ? m.images[0] : null),
-          desc_ko: m.description ? String(m.description).slice(0, 200) : null,
-          category: typeof m.category === 'string' ? m.category : m.category?.name || null,
-          is_signature: !!m.recommend,
-        })).filter((m: MenuItem) => m.name_ko)
+        return menus.map((m: any) => mapMenu(m)).filter((m: MenuItem) => m.name_ko)
       }
-    } catch (_) {}
+    } catch (e: any) {
+      debug.push({ try: 'gql_restaurant', inputType, err: String(e?.message).slice(0, 80) })
+    }
   }
   return null
 }
 
-// ─── Strategy B: m.place.naver.com SSR HTML 파싱 ─────────
+// ─── B. brandMenus ─────────────────────────────────────
+async function tryGqlBrandMenus(placeId: string, debug: any[]): Promise<MenuItem[] | null> {
+  const query = `query brandMenus($input: BrandMenusInput) {
+    brandMenus(input: $input) {
+      total
+      items {
+        id name description price
+        images { url }
+      }
+    }
+  }`
+
+  try {
+    const res = await fetch(NAVER_GQL, {
+      method: 'POST',
+      headers: gqlHeaders(placeId, 'restaurant', 'menu/list'),
+      body: JSON.stringify([{
+        operationName: 'brandMenus',
+        variables: { input: { businessId: placeId, page: 1, size: 200 } },
+        query,
+      }]),
+      signal: AbortSignal.timeout(8000),
+    })
+    debug.push({ try: 'brandMenus', status: res.status })
+    if (!res.ok) return null
+    const j: any = await res.json().catch(() => null)
+    if (j?.[0]?.errors) {
+      debug.push({ try: 'brandMenus', errors: j[0].errors.slice(0, 2).map((e: any) => e.message?.slice(0, 100)) })
+      return null
+    }
+    const items = j?.[0]?.data?.brandMenus?.items
+    if (Array.isArray(items) && items.length > 0) {
+      return items.map((m: any) => mapMenu(m)).filter((m: MenuItem) => m.name_ko)
+    }
+  } catch (e: any) {
+    debug.push({ try: 'brandMenus', err: String(e?.message).slice(0, 80) })
+  }
+  return null
+}
+
+// ─── C. SSR HTML __APOLLO_STATE__ ─────────────────────
 async function fetchMenusViaSSR(placeId: string, businessType: string, debug: any[]): Promise<MenuItem[] | null> {
   const urls = [
     `https://m.place.naver.com/${businessType}/${placeId}/menu/list`,
     `https://m.place.naver.com/${businessType}/${placeId}/menu`,
+    `https://m.place.naver.com/${businessType}/${placeId}/home`,
   ]
 
   for (const url of urls) {
@@ -199,73 +194,110 @@ async function fetchMenusViaSSR(placeId: string, businessType: string, debug: an
       const res = await fetch(url, {
         headers: {
           'User-Agent': MOBILE_UA,
-          'Accept': 'text/html,application/xhtml+xml,*/*;q=0.8',
+          'Accept': 'text/html,*/*;q=0.8',
           'Accept-Language': 'ko-KR,ko;q=0.9',
-          'Referer': `https://m.place.naver.com/${businessType}/${placeId}/home`,
+          'Referer': 'https://m.place.naver.com/',
         },
         redirect: 'follow',
         signal: AbortSignal.timeout(10000),
       })
-      debug.push({ try: 'ssr', url, status: res.status })
+      debug.push({ try: 'ssr', url, status: res.status, len: res.headers.get('content-length') })
       if (!res.ok) continue
       const html = await res.text()
-
-      // __APOLLO_STATE__ 추출
-      const apolloMatch = html.match(/__APOLLO_STATE__\s*=\s*({[\s\S]*?})\s*;?\s*<\/script/)
-      if (apolloMatch) {
-        try {
-          const state = JSON.parse(apolloMatch[1])
-          const menus: MenuItem[] = []
-          for (const k of Object.keys(state)) {
-            if (/^Menu(Info)?:/i.test(k) || /Menu$/.test(k)) {
-              const m = state[k]
-              if (m?.name) {
-                menus.push({
-                  name_ko: String(m.name).slice(0, 80),
-                  price: parseInt(String(m.price || '0').replace(/[^0-9]/g, ''), 10) || 0,
-                  image_url: extractImageUrl(m, state),
-                  desc_ko: m.description ? String(m.description).slice(0, 200) : null,
-                  category: m.category?.name || null,
-                  is_signature: !!m.recommend,
-                })
-              }
-            }
-          }
-          if (menus.length > 0) return menus
-        } catch (e: any) {
-          debug.push({ try: 'apollo_parse', err: String(e?.message).slice(0, 80) })
-        }
+      if (html.length < 500) continue
+      if (html.includes('서비스 이용이 제한')) {
+        debug.push({ try: 'ssr', err: 'rate_limited' })
+        continue
       }
 
-      // window.__INITIAL_STATE__ (어떤 페이지는 이걸 씀)
-      const initialMatch = html.match(/__INITIAL_STATE__\s*=\s*({[\s\S]*?})\s*;?\s*<\/script/)
-      if (initialMatch) {
-        try {
-          const state = JSON.parse(initialMatch[1])
-          const fromState = traverseForMenus(state)
-          if (fromState && fromState.length > 0) return fromState
-        } catch (_) {}
-      }
-    } catch (_) {}
-  }
-  return null
-}
-
-// 이미지 URL 추출 (Apollo cache의 ref 처리)
-function extractImageUrl(m: any, state: any): string | null {
-  if (m.images) {
-    const arr = Array.isArray(m.images) ? m.images : (m.images.json || [])
-    for (const img of arr) {
-      if (typeof img === 'string') return img
-      if (img?.url) return img.url
-      if (img?.__ref && state[img.__ref]?.url) return state[img.__ref].url
+      const items = extractMenusFromHtml(html, debug)
+      if (items && items.length > 0) return items
+    } catch (e: any) {
+      debug.push({ try: 'ssr', url, err: String(e?.message).slice(0, 80) })
     }
   }
-  if (m.image) return typeof m.image === 'string' ? m.image : m.image?.url || null
   return null
 }
 
-// state 트리에서 메뉴 같은 객체 찾기 (휴리스틱)
+// HTML 에서 메뉴 추출 — APOLLO_STATE / INITIAL_STATE / DOM 패턴
+function extractMenusFromHtml(html: string, debug: any[]): MenuItem[] | null {
+  // 1) __APOLLO_STATE__
+  const apolloMatch = html.match(/__APOLLO_STATE__\s*=\s*({[\s\S]*?})\s*<\/script/)
+  if (apolloMatch) {
+    try {
+      const state = JSON.parse(apolloMatch[1])
+      const menus: MenuItem[] = []
+      for (const k of Object.keys(state)) {
+        if (/^Menu(Info)?:/i.test(k) || /Menu$/.test(k) || /menu/i.test(k)) {
+          const m = state[k]
+          if (m?.name && m.price !== undefined) {
+            menus.push(mapMenu(m, state))
+          }
+        }
+      }
+      debug.push({ try: 'apollo_state', found: menus.length })
+      if (menus.length > 0) return menus.filter(m => m.name_ko)
+    } catch (e: any) {
+      debug.push({ try: 'apollo_parse', err: String(e?.message).slice(0, 80) })
+    }
+  }
+
+  // 2) window.__INITIAL_STATE__
+  const initialMatch = html.match(/window\.__INITIAL_STATE__\s*=\s*({[\s\S]*?})\s*<\/script/)
+  if (initialMatch) {
+    try {
+      const state = JSON.parse(initialMatch[1])
+      const r = traverseForMenus(state)
+      debug.push({ try: 'initial_state', found: r?.length || 0 })
+      if (r && r.length > 0) return r
+    } catch (_) {}
+  }
+
+  return null
+}
+
+// ─── D. SmartOrder API (배달주문 메뉴) ──────────────────
+async function trySmartOrderApi(placeId: string, debug: any[]): Promise<MenuItem[] | null> {
+  try {
+    const url = `https://pcmap.place.naver.com/restaurant/${placeId}/smartOrderList`
+    const res = await fetch(url, {
+      headers: {
+        'User-Agent': MOBILE_UA,
+        'Accept': 'text/html,*/*;q=0.8',
+        'Accept-Language': 'ko-KR,ko;q=0.9',
+        'Referer': 'https://m.place.naver.com/',
+      },
+      signal: AbortSignal.timeout(10000),
+    })
+    debug.push({ try: 'smartOrder', status: res.status })
+    if (!res.ok) return null
+    const html = await res.text()
+    if (html.includes('서비스 이용이 제한')) {
+      debug.push({ try: 'smartOrder', err: 'rate_limited' })
+      return null
+    }
+    return extractMenusFromHtml(html, debug)
+  } catch (e: any) {
+    debug.push({ try: 'smartOrder', err: String(e?.message).slice(0, 80) })
+    return null
+  }
+}
+
+// ─── 공용 ───────────────────────────────────
+function mapMenu(m: any, state?: any): MenuItem {
+  const img = m.image
+    || (Array.isArray(m.images) ? (typeof m.images[0] === 'string' ? m.images[0] : m.images[0]?.url || (m.images[0]?.__ref && state?.[m.images[0].__ref]?.url)) : null)
+    || (m.images?.url || null)
+  return {
+    name_ko: String(m.name || '').slice(0, 80),
+    price: parseInt(String(m.price || '0').replace(/[^0-9]/g, ''), 10) || 0,
+    image_url: img,
+    desc_ko: m.description ? String(m.description).slice(0, 200) : null,
+    category: typeof m.category === 'string' ? m.category : m.category?.name || null,
+    is_signature: !!(m.recommend || m.isRecommend),
+  }
+}
+
 function traverseForMenus(obj: any, depth = 0): MenuItem[] | null {
   if (!obj || depth > 6) return null
   if (Array.isArray(obj)) {
@@ -277,24 +309,15 @@ function traverseForMenus(obj: any, depth = 0): MenuItem[] | null {
   }
   if (typeof obj !== 'object') return null
 
-  // 메뉴 배열 패턴 감지
   for (const k of Object.keys(obj)) {
-    if (/^menus?$/i.test(k) || /menuList$/i.test(k)) {
+    if (/^menus?$/i.test(k) || /menuList$/i.test(k) || /menuItems$/i.test(k)) {
       const v = obj[k]
       if (Array.isArray(v) && v.length > 0 && v[0]?.name && (v[0]?.price !== undefined)) {
-        return v.map((m: any) => ({
-          name_ko: String(m.name).slice(0, 80),
-          price: parseInt(String(m.price || '0').replace(/[^0-9]/g, ''), 10) || 0,
-          image_url: m.image || (Array.isArray(m.images) ? m.images[0] : null),
-          desc_ko: m.description ? String(m.description).slice(0, 200) : null,
-          category: typeof m.category === 'string' ? m.category : m.category?.name || null,
-          is_signature: !!m.recommend,
-        })).filter((m: MenuItem) => m.name_ko)
+        return v.map((m: any) => mapMenu(m)).filter((m: MenuItem) => m.name_ko)
       }
     }
   }
 
-  // 재귀
   for (const k of Object.keys(obj)) {
     const r = traverseForMenus(obj[k], depth + 1)
     if (r) return r
