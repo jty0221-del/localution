@@ -21,10 +21,29 @@ import { loadPlainCredentials, loadCookieData } from '../lib/credentials'
 async function doFreshLogin(page: Page, accountId: string, password: string, log: Logger): Promise<{ ok: boolean; error?: string }> {
   try {
     log.info('naver-menu: fresh login start')
-    await page.goto('https://nid.naver.com/nidlogin.login', {
-      waitUntil: 'domcontentloaded',
-      timeout: 30000,
-    })
+
+    // 프록시 일시 장애 대비: nid.naver.com 접근을 최대 3회 재시도
+    let navOk = false
+    let lastErr = ''
+    for (let attempt = 1; attempt <= 3; attempt++) {
+      try {
+        await page.goto('https://nid.naver.com/nidlogin.login', {
+          waitUntil: 'domcontentloaded',
+          timeout: 30000,
+        })
+        navOk = true
+        log.info({ attempt }, 'naver-menu: nid login page reached')
+        break
+      } catch (e: any) {
+        lastErr = String(e?.message || e).slice(0, 200)
+        log.warn({ attempt, err: lastErr }, 'naver-menu: nid goto attempt failed')
+        if (attempt < 3) await page.waitForTimeout(3000 * attempt)  // 3s, 6s 백오프
+      }
+    }
+    if (!navOk) {
+      log.error({ lastErr }, 'naver-menu: all nid goto attempts failed')
+      return { ok: false, error: 'tunnel_failed' }
+    }
     await page.waitForTimeout(1500)
 
     // ID 입력
@@ -285,6 +304,7 @@ export async function runNaverMenu(
       await context.close()
       if (usingFreshBrowser && menuBrowser) { try { await menuBrowser.close() } catch (_) {} }
       const errMessages: Record<string, string> = {
+        tunnel_failed: '프록시 일시 장애. 30초 후 다시 시도해주세요. (반복되면 답글 시스템도 막혔을 가능성 — 잠시 후 자동 복구)',
         captcha_required: '네이버 CAPTCHA 인증이 필요해요. 사장님이 직접 nid.naver.com 한번 로그인 후 재시도해주세요.',
         captcha_or_security: '네이버 보안 인증이 필요해요. 사장님이 직접 nid.naver.com 한번 로그인 후 재시도해주세요.',
         login_failed: '비밀번호가 틀리거나 로그인 차단됐어요. 매장 연결 페이지에서 다시 등록해주세요.',
