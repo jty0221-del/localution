@@ -42,8 +42,9 @@ export function getPlatformQueue(): Queue<PlatformJobData> {
   const opts: QueueOptions = {
     connection,
     defaultJobOptions: {
-      attempts: 2,
-      backoff: { type: 'exponential', delay: 15_000 },
+      // 37차-19: CAPTCHA 풀이 실패 등 transient error 자동 재시도 (총 3회 시도)
+      attempts: 3,
+      backoff: { type: 'exponential', delay: 8_000 },  // 8s, 16s, 32s
       removeOnComplete: { count: 500 },
       removeOnFail: { count: 1000 },
     },

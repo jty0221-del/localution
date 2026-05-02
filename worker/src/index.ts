@@ -125,11 +125,29 @@ const worker = new Worker<PlatformJobData>(
     try {
       const browser = await getBrowser()
       const result = await runJob(job.data, log, browser)
-      log.info({ jobId: job.id, result: result.status }, 'job done')
+      log.info({ jobId: job.id, result: result.status, msg: result.message?.slice(0, 100) }, 'job done')
+
+      // 37차-19: transient failure (CAPTCHA, 새기기등록, timeout, proxy 등) 시 throw → BullMQ 자동 retry
+      // 권한/ID/PW 영구 에러는 그냥 return → retry 안 함
+      if (result.status === 'failed') {
+        const msg = String(result.message || '')
+        const isTransient =
+          msg.includes('CAPTCHA') || msg.includes('captcha') ||
+          msg.includes('자동입력') || msg.includes('자동 입력') ||
+          msg.includes('새로운 기기') || msg.includes('자주 사용하는') ||
+          msg.includes('timeout') || msg.includes('Timeout') ||
+          msg.includes('proxy') || msg.includes('Proxy') ||
+          msg.includes('Target page') || msg.includes('has been closed') ||
+          msg.includes('navigation') || msg.includes('Navigation')
+        if (isTransient) {
+          log.warn({ jobId: job.id, msg: msg.slice(0, 150) }, 'job transient failure → BullMQ retry trigger')
+          throw new Error('TRANSIENT: ' + msg.slice(0, 200))
+        }
+      }
       return result
     } catch (err: any) {
       // runJob 이 throw 하면 BullMQ 가 잡을 retry/fail 처리.
-      log.error({ jobId: job.id, err: err?.message, stack: err?.stack }, 'job exception')
+      log.error({ jobId: job.id, err: err?.message, stack: err?.stack?.slice(0, 300) }, 'job exception')
       throw err
     } finally {
       // 매 잡 종료 후 브라우저 닫기 → 메모리 해제 (다음 잡은 새 브라우저 사용)
@@ -315,6 +333,39 @@ const healthServer = http.createServer(async (req, res) => {
     return
   }
 
+  // GET /workers — BullMQ에 연결된 worker 목록 (다중 worker 진단용)
+  if (req.method === 'GET' && req.url === '/workers') {
+    try {
+      const workersInfo = await jobQueue.getWorkers()
+      const counts = await jobQueue.getJobCounts('active', 'waiting', 'completed', 'failed', 'delayed')
+      const recentFailed = await jobQueue.getFailed(0, 5)
+      res.writeHead(200, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({
+        ok: true,
+        workerCount: workersInfo.length,
+        workers: workersInfo.map((w: any) => ({
+          id: w.id,
+          name: w.name,
+          addr: w.addr,
+          age: w.age,
+          idle: w.idle,
+        })),
+        counts,
+        recentFailed: recentFailed.map((j: any) => ({
+          id: j.id,
+          name: j.name,
+          failedReason: String(j.failedReason || '').slice(0, 200),
+          attemptsMade: j.attemptsMade,
+          finishedOn: j.finishedOn,
+        })),
+      }))
+    } catch (e: any) {
+      res.writeHead(500, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ ok: false, error: e?.message }))
+    }
+    return
+  }
+
   // GET /build-info  — 런타임 빌드 정보 확인 (naver.ts 버전 검증용)
   if (req.method === 'GET' && req.url === '/build-info') {
     try {
@@ -332,6 +383,18 @@ const healthServer = http.createServer(async (req, res) => {
       const hasOldButtonClick = naverJs.includes('trying direct reply edit URL') || naverJs.includes('reply buttons not found after 35s')
       const hasReplyInputErr = naverJs.includes('답글 입력란 없음')
       const hasReviewCardNotFound = naverJs.includes('review card not found')
+      const hasUniqueMarker = naverJs.includes('UNIQUE_MARKER_v13_FRESH_BUILD_20260502_1145')
+      const cardIdx = naverJs.indexOf('review card not found')
+      const cardSnippet = cardIdx >= 0 ? naverJs.slice(Math.max(0, cardIdx - 50), cardIdx + 100) : null
+      // 모든 "card" 들어간 부분 모두 검색
+      const allCardIdxs: number[] = []
+      let pos = 0
+      while ((pos = naverJs.indexOf('card', pos)) !== -1) { allCardIdxs.push(pos); pos++; if (allCardIdxs.length > 20) break }
+      const allCardSnippets = allCardIdxs.slice(0, 10).map(i => naverJs.slice(Math.max(0, i - 30), i + 50))
+      // postNaverReply 함수의 끝부분 (return 들어간 부분)도 출력
+      const postReplyIdx = naverJs.indexOf('async function postNaverReply')
+      const postReplyEnd = naverJs.indexOf('async function', postReplyIdx + 30)
+      const postReplyFull = postReplyIdx >= 0 ? naverJs.slice(postReplyIdx, Math.min(postReplyEnd, postReplyIdx + 8000)) : 'NOT_FOUND'
       const hasInputBox = naverJs.includes('입력란')
       const hasInputBoxBytes = naverJs.includes('입력란')  // 입력란 unicode
       const hasReviewIdMapping = naverJs.includes('opName=getReviews') && naverJs.includes('reviewId 매핑')
@@ -356,6 +419,12 @@ const healthServer = http.createServer(async (req, res) => {
         hasOldButtonClick,
         hasReplyInputErr,
         hasReviewCardNotFound,
+        hasUniqueMarker,
+        cardSnippet,
+        allCardSnippets,
+        postReplyFullLen: postReplyFull.length,
+        postReplyHasCardNotFound: postReplyFull.includes('review card not found'),
+        postReplyHasGraphQL: postReplyFull.includes('🚀 calling SmartPlace GraphQL'),
         hasInputBox,
         hasReviewIdMapping,
         replyInputSnippet,
