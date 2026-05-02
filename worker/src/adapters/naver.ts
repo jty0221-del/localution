@@ -13,7 +13,7 @@ import { dumpPageDiagnostics, startNetworkCapture, detectLoginFailure } from '..
 import { handleNaverCaptcha, solveCaptcha } from '../lib/captcha'
 import type { JobResult, Action } from '../jobs'
 
-const NAVER_CODE_VERSION = 'v30-bookingBusinessId-Int-type-20260502'
+const NAVER_CODE_VERSION = 'v31-no-overwrite-correctURL-20260502'
 
 const LOGIN_URL = 'https://nid.naver.com/nidlogin.login'
 const NEW_SMARTPLACE_BASE = 'https://new.smartplace.naver.com'
@@ -1258,26 +1258,13 @@ async function postNaverReply(
     //
     // 추가: SmartPlace SPA 가 placeSeq/bookingBusinessId 를 SPA state 에 로드하도록
     // 매장 카드 클릭하여 정상 URL 로 redirect 시킨 후 호출
-    try {
-      // 매장 카드를 직접 클릭하여 SPA redirect (placeSeq/bookingBusinessId 자동 매핑)
-      const navigated = await page.evaluate((targetPlaceId: string) => {
-        const card = document.querySelector(`a[href*="/bizes/place/${targetPlaceId}"], a[href*="/bizes/${targetPlaceId}"]`) as HTMLElement | null
-        if (card) { card.click(); return true }
-        return false
-      }, storeId).catch(() => false)
-      if (navigated) {
-        await page.waitForTimeout(3500)
-        await page.waitForLoadState('domcontentloaded').catch(() => null)
-        log.info({ urlAfterCardClick: page.url().slice(0, 120) }, 'naver: v28 매장 카드 click 후 URL')
-      }
-      // 리뷰 페이지로 다시 이동 — 이번엔 SPA state 가 placeSeq/bookingBusinessId 로 초기화됨
-      const reviewUrl = `${NEW_SMARTPLACE_BASE}/bizes/place/${storeId}/reviews?menu=visitor`
-      await page.goto(reviewUrl, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => null)
-      await page.waitForTimeout(3500)
-      log.info({ urlBeforeGraphQL: page.url().slice(0, 150) }, 'naver: v28 리뷰 페이지 도달')
-    } catch (e: any) {
-      log.warn({ err: e?.message }, 'naver: v28 매장 카드 navigation 실패 (계속 진행)')
-    }
+    // v31: v28 의 page.goto 가 bookingBusinessId 없는 URL 로 덮어쓰던 버그 수정
+    //      이미 v29 단계에서 정확한 URL (`?bookingBusinessId=...&menu=visitor`) 로 이동 완료
+    //      → 추가 navigation 불필요. 현재 URL 만 로깅하여 검증
+    log.info({
+      urlBeforeGraphQL: page.url().slice(0, 200),
+      hasBookingBusinessIdInUrl: page.url().includes('bookingBusinessId='),
+    }, 'naver: v31 GraphQL 직전 URL 검증 (bookingBusinessId 유지 확인)')
 
     const t0 = Date.now()
     // page.evaluate 안에서 fetch — 브라우저가 자동 cookies + headers + CSRF 처리
