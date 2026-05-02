@@ -685,6 +685,8 @@ async function postNaverReply(
   replyText: string,
   log: Logger,
 ): Promise<{ ok: true } | { ok: false; reason: string }> {
+  // UNIQUE_MARKER_v13_FRESH_BUILD_20260502_1145
+  log.info({ marker: 'UNIQUE_MARKER_v13_FRESH_BUILD_20260502_1145' }, 'naver: postNaverReply v13 GraphQL entry')
   try {
     // 1) SmartPlace 페이지 한 번 방문 → 인증 쿠키 (NID_AUT, BSP_*, MM_NEW_DVC) 확보
     try {
@@ -843,7 +845,15 @@ async function postNaverReply(
     if (json?.errors && Array.isArray(json.errors) && json.errors.length > 0) {
       const errMsg = json.errors[0]?.message || JSON.stringify(json.errors[0])
       log.warn({ errors: json.errors.slice(0, 3) }, 'naver: GraphQL returned errors')
-      return { ok: false, reason: '네이버 GraphQL 오류: ' + String(errMsg).slice(0, 150) }
+      // 권한 관련 에러 → 사용자에게 명확한 안내
+      const errStr = String(errMsg)
+      if (errStr.includes('플레이스 권한') || errStr.includes('권한이 없') || errStr.includes('Forbidden') || errStr.includes('Unauthorized')) {
+        return {
+          ok: false,
+          reason: '⚠️ 사장님 계정 권한 부족: 이 계정이 해당 매장의 사장님(owner)이 아닙니다. SmartPlace에서 직접 로그인해 매장 관리가 가능한지 확인해주세요. 직원/매니저 계정은 답글 자동 등록이 불가합니다.',
+        }
+      }
+      return { ok: false, reason: '네이버 GraphQL 오류: ' + errStr.slice(0, 150) }
     }
 
     const reply = json?.data?.createReviewReply?.reply
