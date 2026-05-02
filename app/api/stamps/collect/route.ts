@@ -74,10 +74,15 @@ export async function POST(req: NextRequest) {
   }
 
   // 4) 적립 처리 — 보상 임계치 도달 시 자동 리셋 + reward_pending 반환
-  const willCompleteReward = existing && (existing.current_stamps + 1) >= card.required_stamps
-  const newStamps = willCompleteReward ? 0 : ((existing?.current_stamps || 0) + 1)
+  const newCount = (existing?.current_stamps || 0) + 1
+  const willCompleteReward = existing && newCount >= card.required_stamps
+  const newStamps = willCompleteReward ? 0 : newCount
   const totalCollected = (existing?.total_collected || 0) + 1
   const rewardsClaimed = willCompleteReward ? (existing?.rewards_claimed || 0) + 1 : (existing?.rewards_claimed || 0)
+
+  // 단계별 보상 (milestone) 도달 감지
+  const milestones = Array.isArray(card.milestones) ? card.milestones : []
+  const hitMilestone = milestones.find((m: any) => m && newCount === m.at)
 
   let collectionId = existing?.id
 
@@ -172,9 +177,12 @@ export async function POST(req: NextRequest) {
     card,
     collection: updated,
     reward_pending: willCompleteReward,
+    milestone_reached: hitMilestone || null,
     message: willCompleteReward
-      ? `🎉 ${card.reward_text} 보상이 발급됐어요! 사장님께 보여주세요.`
-      : `+1 스탬프 적립 완료! ${updated?.current_stamps}/${card.required_stamps}`,
+      ? `최종 보상 ${card.reward_text} 발급됐어요! 사장님께 보여주세요.`
+      : hitMilestone
+        ? `${hitMilestone.at}회 달성! ${hitMilestone.reward} 받으세요. 사장님께 화면을 보여주세요.`
+        : `+1 스탬프 적립 완료! ${updated?.current_stamps}/${card.required_stamps}`,
   }, { headers: CORS })
 }
 
