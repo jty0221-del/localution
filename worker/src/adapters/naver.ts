@@ -13,7 +13,7 @@ import { dumpPageDiagnostics, startNetworkCapture, detectLoginFailure } from '..
 import { handleNaverCaptcha, solveCaptcha } from '../lib/captcha'
 import type { JobResult, Action } from '../jobs'
 
-const NAVER_CODE_VERSION = 'v25-postCAPTCHA-register-priority-20260502'
+const NAVER_CODE_VERSION = 'v26-anchor-onclick-formSubmit-fallback-20260502'
 
 const LOGIN_URL = 'https://nid.naver.com/nidlogin.login'
 const NEW_SMARTPLACE_BASE = 'https://new.smartplace.naver.com'
@@ -766,76 +766,109 @@ export async function runNaver(
                 }).catch(() => ({ buttons: [], links: [], forms: [] }))
                 log.info({ url: pgUrl.slice(0, 100), dump }, 'naver: 새기기 페이지 DUMP')
 
-                // ⭐ v24/v25 핵심 변경: "등록" 우선 클릭 (NID_AUT/NID_SES 정상 발급)
-                // "등록안함" 누르면 임시 세션만 발급 → SmartPlace owner API 차단됨
+                // ⭐ v26: anchor onclick 추출 + click + form-submit triple-fallback
+                // "등록" anchor 가 JS onclick 으로 form 을 submit 하므로, click 실패 시 추출한 JS 직접 실행
                 const clickResult = await page.evaluate(() => {
                   const all = Array.from(document.querySelectorAll('button, a, input[type="button"], input[type="submit"], [role="button"]'))
-                  const candidates: string[] = []
+                  const candidates: any[] = []
                   for (const el of all) {
-                    candidates.push(((el as any).innerText || (el as any).value || '').trim().slice(0, 30))
+                    candidates.push({
+                      tag: el.tagName,
+                      text: ((el as any).innerText || (el as any).value || '').trim().slice(0, 30),
+                      onclick: (el as any).getAttribute?.('onclick')?.slice(0, 100) || '',
+                      href: ((el as any).href || '').slice(-30),
+                    })
                   }
-                  // 1순위: "등록" 텍스트 정확 매칭 (단, "등록안함"·"안함"은 제외)
+                  // 1순위: "등록" anchor — text 정확 매칭 후 click + onclick JS 직접 호출
+                  let registerEl: HTMLElement | null = null
+                  let registerText = ''
+                  let registerOnclick = ''
                   for (const el of all) {
                     const t = ((el as any).innerText || (el as any).value || (el as any).textContent || '').trim()
                     if ((t === '등록' || t === 'Register' || t === 'Yes' || t === '확인' || t === '예') &&
                         !t.includes('안함') && !t.includes('안 함') && !t.includes("Don't") && !t.includes('Cancel')) {
-                      (el as HTMLElement).click()
-                      return { clicked: true, by: 'register-priority', text: t, candidates: candidates.slice(0, 20) }
+                      registerEl = el as HTMLElement
+                      registerText = t
+                      registerOnclick = (el as any).getAttribute?.('onclick') || ''
+                      break
                     }
                   }
-                  // 2순위: 속성 매칭 (register/confirm/yes/save/check, dont/cancel/skip 제외)
-                  for (const el of all) {
-                    const nm = ((el as any).name || '').toLowerCase()
-                    const id = ((el as any).id || '').toLowerCase()
-                    const cls = ((el as any).className || '').toLowerCase()
-                    const isExclude = nm.includes('dont') || nm.includes('cancel') || nm.includes('skip') ||
-                                       id.includes('dont') || id.includes('cancel') || id.includes('skip') ||
-                                       cls.includes('btn_cancel') || cls.includes('btn_no') || cls.includes('btn_skip')
-                    if (isExclude) continue
-                    if (nm.includes('register') || nm.includes('confirm') || nm.includes('yes') || nm.includes('save') ||
-                        id.includes('register') || id.includes('confirm') || id.includes('yes') || id.includes('save') ||
-                        cls.includes('btn_register') || cls.includes('btn_confirm') || cls.includes('btn_yes') || cls.includes('btn_check')) {
-                      (el as HTMLElement).click()
-                      return { clicked: true, by: 'register-attr', name: nm, id, cls, candidates: candidates.slice(0, 20) }
+                  if (registerEl) {
+                    // 1) 표준 click event 발생
+                    registerEl.click()
+                    // 2) onclick attribute 가 있으면 직접 evaluate (해커 트릭)
+                    let onclickRan = false
+                    if (registerOnclick) {
+                      try {
+                        // onclick 안의 함수 직접 실행 (eval은 위험하니 Function 객체 사용)
+                        const fn = new Function(registerOnclick)
+                        fn.call(registerEl)
+                        onclickRan = true
+                      } catch (e) {}
+                    }
+                    // 3) anchor href 가 javascript: 면 그것도 실행
+                    const href = (registerEl as HTMLAnchorElement).href || ''
+                    let hrefRan = false
+                    if (href.startsWith('javascript:')) {
+                      try {
+                        const code = href.replace(/^javascript:/, '')
+                        const fn = new Function(code)
+                        fn.call(registerEl)
+                        hrefRan = true
+                      } catch (e) {}
+                    }
+                    return {
+                      clicked: true, by: 'register-priority', text: registerText,
+                      onclickHas: !!registerOnclick, onclickRan, hrefStartsJs: href.startsWith('javascript:'), hrefRan,
+                      candidates: candidates.slice(0, 15),
                     }
                   }
-                  // 3순위: form 안 첫 번째 submit (보통 "등록"이 primary action = 첫 버튼)
-                  const forms = Array.from(document.querySelectorAll('form'))
-                  for (const f of forms) {
-                    const action = ((f as HTMLFormElement).action || '').toLowerCase()
-                    if (action.includes('device') || action.includes('register') || action.includes('login')) {
-                      const fbtns = Array.from(f.querySelectorAll('button, input[type="submit"]'))
-                      if (fbtns.length >= 1) {
-                        (fbtns[0] as HTMLElement).click()
-                        return { clicked: true, by: 'form-first-submit', actionEnd: action.slice(-60), candidates: candidates.slice(0, 20) }
-                      }
-                    }
-                  }
-                  // 4순위: a 태그 중 "등록" (이전 dump에서 anchor 였음)
-                  const anchors = Array.from(document.querySelectorAll('a'))
-                  for (const a of anchors) {
-                    const t = ((a as any).innerText || '').trim()
-                    if (t === '등록' && !t.includes('안')) {
-                      (a as HTMLElement).click()
-                      return { clicked: true, by: 'anchor-register', text: t, candidates: candidates.slice(0, 20) }
-                    }
-                  }
-                  return { clicked: false, candidates: candidates.slice(0, 20) }
+                  return { clicked: false, candidates: candidates.slice(0, 15) }
                 }).catch((e: any) => ({ clicked: false, err: e?.message, candidates: [] }))
-                log.info({ clickResult }, 'naver: deviceAdd 페이지 click 시도 결과 (v25 register-priority)')
+                log.info({ clickResult }, 'naver: deviceAdd click 결과 (v26 anchor+onclick fallback)')
 
                 if (clickResult.clicked) {
-                  // 등록 후 navigation 대기 (deviceAdd POST → redirect 처리)
                   await Promise.race([
                     page.waitForURL(u => !String(u).includes('deviceAdd') && !String(u).includes('deviceConfirm'), { timeout: 12000 }).catch(() => null),
                     page.waitForTimeout(5000),
                   ])
                 }
 
-                // URL이 여전히 deviceAdd 면 SmartPlace 직접 이동 (etcc fallback)
-                const stillUrl = page.url()
+                // URL still on deviceAdd → form 직접 submit 시도 (마지막 fallback)
+                let stillUrl = page.url()
                 if (stillUrl.includes('deviceAdd') || stillUrl.includes('deviceConfirm')) {
-                  log.warn({ stillUrl: stillUrl.slice(0, 100) }, 'naver: 여전히 deviceAdd → SmartPlace 직접 navigate (skip)')
+                  log.warn({ stillUrl: stillUrl.slice(0, 100) }, 'naver: deviceAdd 여전 → form 직접 submit 시도')
+                  const submitResult = await page.evaluate(() => {
+                    const f = document.querySelector('form') as HTMLFormElement | null
+                    if (!f) return { ok: false, reason: 'no-form' }
+                    // hidden input 모두 dump
+                    const hiddens: any[] = []
+                    f.querySelectorAll('input[type="hidden"]').forEach((h: any) => {
+                      hiddens.push({ name: h.name, value: String(h.value || '').slice(0, 30) })
+                    })
+                    // 'register' / 'deviceConfirm' 비슷한 hidden 찾기 → 'Y' 로 강제 설정
+                    f.querySelectorAll('input').forEach((i: any) => {
+                      const n = (i.name || '').toLowerCase()
+                      if (n.includes('register') || n.includes('confirm') || n.includes('save') || n === 'todo') {
+                        if (i.value === 'N' || i.value === 'no' || i.value === '' || i.value === 'cancel') {
+                          i.value = 'Y'
+                        }
+                      }
+                    })
+                    f.submit()
+                    return { ok: true, action: f.action, hiddens }
+                  }).catch((e: any) => ({ ok: false, reason: e?.message }))
+                  log.info({ submitResult }, 'naver: deviceAdd form 직접 submit 결과')
+
+                  await Promise.race([
+                    page.waitForURL(u => !String(u).includes('deviceAdd') && !String(u).includes('deviceConfirm'), { timeout: 10000 }).catch(() => null),
+                    page.waitForTimeout(5000),
+                  ])
+                  stillUrl = page.url()
+                }
+
+                if (stillUrl.includes('deviceAdd') || stillUrl.includes('deviceConfirm')) {
+                  log.warn({ stillUrl: stillUrl.slice(0, 100) }, 'naver: 모든 deviceAdd 통과 시도 실패 → SmartPlace 직접 navigate')
                   const target = bizId && bizId !== 'unknown'
                     ? `${NEW_SMARTPLACE_BASE}/bizes/place/${bizId}`
                     : 'https://www.naver.com/'
