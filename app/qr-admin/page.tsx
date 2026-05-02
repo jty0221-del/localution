@@ -719,7 +719,10 @@ export default function QRAdmin() {
 
         {/* ── 업체 설정 탭 ── */}
         {activeTab === 'settings' && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          <div className="space-y-6">
+
+            {/* Row 1: 네이버 업체 연동 + 고객 보상 설정 (PC 2-col) */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
             {/* 좌측: 네이버 업체 연동 */}
             <div>
@@ -885,74 +888,8 @@ export default function QRAdmin() {
               </div>
             </div>
 
-            {/* 우측: QR 미리보기 + 보상 설정 + 저장 */}
-            <div className="space-y-5">
-
-              {/* QR 코드 (큼직, 카메라 인식 최적화) */}
-              {storeInfo.connected && previewReviewUrl && (
-                <div className="bg-white rounded-2xl p-6 shadow-sm">
-                  <div className="flex items-center justify-between gap-2 mb-4">
-                    <div className="flex items-center gap-2">
-                      <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#3182F6] to-[#7C3AED] flex items-center justify-center shadow-sm">
-                        <QrCode size={16} className="text-white" strokeWidth={2.5} />
-                      </div>
-                      <div>
-                        <h3 className="font-bold text-[#191F28]">매장 QR 코드</h3>
-                        <p className="text-xs text-[#8B95A1]">{storeInfo.name} 리뷰 유도 QR</p>
-                      </div>
-                    </div>
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#ECFDF5] text-[#059669] whitespace-nowrap">
-                      ECC-H 고복원
-                    </span>
-                  </div>
-
-                  {/* 큰 QR — 화면에 직접 카메라로 찍어도 인식 가능 */}
-                  <div className="flex flex-col items-center gap-3">
-                    <div className="p-5 bg-white border-2 border-[#191F28] rounded-2xl shadow-md">
-                      <QRImage url={previewReviewUrl} size={240} />
-                    </div>
-                    <p className="text-[11px] text-[#4E5968] text-center leading-relaxed max-w-[280px]">
-                      스캔하면 <span className="font-bold text-[#191F28]">{storeInfo.name}</span>의<br />
-                      리뷰 작성 페이지로 바로 이동해요
-                    </p>
-                  </div>
-
-                  {/* 액션 버튼 */}
-                  <div className="grid grid-cols-2 gap-2 mt-4">
-                    <button
-                      onClick={() => handleCopy('preview', previewReviewUrl)}
-                      className="py-2.5 rounded-xl bg-[#EFF6FF] border border-[#BFDBFE] text-[#3182F6] text-xs font-bold hover:bg-[#DBEAFE] transition-colors">
-                      {copiedId === 'preview' ? '✅ 복사됨' : '🔗 링크 복사'}
-                    </button>
-                    <button
-                      onClick={async () => {
-                        setDownloading('preview')
-                        await downloadQR(previewReviewUrl, storeInfo.name)
-                        setDownloading(null)
-                      }}
-                      disabled={downloading === 'preview'}
-                      className="py-2.5 rounded-xl bg-[#191F28] text-white text-xs font-bold hover:bg-[#333D4B] transition-colors disabled:opacity-50">
-                      {downloading === 'preview' ? '⏳ 다운로드 중…' : '⬇️ PNG 다운로드 (1000px)'}
-                    </button>
-                  </div>
-
-                  {/* 인식률 안내 */}
-                  <div className="mt-4 p-3 rounded-xl bg-[#FFFBEB] border border-[#FDE68A]">
-                    <p className="text-[11px] text-[#92400E] font-bold mb-1.5">📸 카메라 인식 잘 안 될 때</p>
-                    <ul className="text-[10px] text-[#9A3412] space-y-0.5 leading-relaxed pl-3 list-disc">
-                      <li>밝은 조명 + 손떨림 없이 (10~30cm 거리)</li>
-                      <li>화면이 너무 어둡거나 빛 반사되면 다운로드 받아 인쇄 후 스캔</li>
-                      <li>이 QR 은 <strong>ECC-H 30% 복원</strong> — 일부 가려져도 인식됩니다</li>
-                      <li>인쇄 시 최소 <strong>2cm × 2cm</strong> 권장 (작으면 인식 어려움)</li>
-                    </ul>
-                  </div>
-                </div>
-              )}
-
-              {/* Wi-Fi QR 코드 (매장 QR 옆에 나란히) */}
-              <WifiQRBox />
-
-              {/* 고객 보상 설정 */}
+            {/* 우측 (Top row): 고객 보상 설정 */}
+            <div>
               <div className="bg-white rounded-2xl p-6 shadow-sm">
                 <div className="flex items-center gap-2 mb-4">
                   <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#F59E0B] to-[#DC2626] flex items-center justify-center shadow-sm">
@@ -1003,15 +940,89 @@ export default function QRAdmin() {
                   </div>
                 )}
               </div>
-
-              {/* 저장 */}
-              <button onClick={handleSaveSettings}
-                className={`w-full py-3.5 rounded-xl font-bold text-base transition-colors ${
-                  saved ? 'bg-green-500 text-white' : 'bg-[#191F28] text-white hover:bg-[#333D4B]'
-                }`}>
-                {saved ? '✅ 저장됨' : '설정 저장하기'}
-              </button>
             </div>
+
+            </div> {/* /Row 1 */}
+
+            {/* Row 2: 매장 QR + Wi-Fi QR (PC 2-col, 모바일 stack) */}
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* 매장 QR 코드 */}
+              {storeInfo.connected && previewReviewUrl ? (
+                <div className="bg-white rounded-2xl p-6 shadow-sm">
+                  <div className="flex items-center justify-between gap-2 mb-4">
+                    <div className="flex items-center gap-2">
+                      <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#3182F6] to-[#7C3AED] flex items-center justify-center shadow-sm">
+                        <QrCode size={16} className="text-white" strokeWidth={2.5} />
+                      </div>
+                      <div>
+                        <h3 className="font-bold text-[#191F28]">매장 QR 코드</h3>
+                        <p className="text-xs text-[#8B95A1]">{storeInfo.name} 리뷰 유도 QR</p>
+                      </div>
+                    </div>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#ECFDF5] text-[#059669] whitespace-nowrap">
+                      ECC-H 고복원
+                    </span>
+                  </div>
+
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="p-5 bg-white border-2 border-[#191F28] rounded-2xl shadow-md">
+                      <QRImage url={previewReviewUrl} size={240} />
+                    </div>
+                    <p className="text-[11px] text-[#4E5968] text-center leading-relaxed max-w-[280px]">
+                      스캔하면 <span className="font-bold text-[#191F28]">{storeInfo.name}</span>의<br />
+                      리뷰 작성 페이지로 바로 이동해요
+                    </p>
+                  </div>
+
+                  <div className="grid grid-cols-2 gap-2 mt-4">
+                    <button
+                      onClick={() => handleCopy('preview', previewReviewUrl)}
+                      className="py-2.5 rounded-xl bg-[#EFF6FF] border border-[#BFDBFE] text-[#3182F6] text-xs font-bold hover:bg-[#DBEAFE] transition-colors">
+                      {copiedId === 'preview' ? '✅ 복사됨' : '🔗 링크 복사'}
+                    </button>
+                    <button
+                      onClick={async () => {
+                        setDownloading('preview')
+                        await downloadQR(previewReviewUrl, storeInfo.name)
+                        setDownloading(null)
+                      }}
+                      disabled={downloading === 'preview'}
+                      className="py-2.5 rounded-xl bg-[#191F28] text-white text-xs font-bold hover:bg-[#333D4B] transition-colors disabled:opacity-50">
+                      {downloading === 'preview' ? '⏳ 다운로드 중…' : '⬇️ PNG 다운로드'}
+                    </button>
+                  </div>
+
+                  <div className="mt-4 p-3 rounded-xl bg-[#FFFBEB] border border-[#FDE68A]">
+                    <p className="text-[11px] text-[#92400E] font-bold mb-1.5">📸 카메라 인식 잘 안 될 때</p>
+                    <ul className="text-[10px] text-[#9A3412] space-y-0.5 leading-relaxed pl-3 list-disc">
+                      <li>밝은 조명 + 손떨림 없이 (10~30cm 거리)</li>
+                      <li>이 QR 은 <strong>ECC-H 30% 복원</strong> — 일부 가려져도 인식됩니다</li>
+                      <li>인쇄 시 최소 <strong>2cm × 2cm</strong> 권장</li>
+                    </ul>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-gradient-to-br from-[#F8FAFB] to-[#EFF6FF] rounded-2xl p-6 border border-[#E5E8EB] flex flex-col items-center justify-center text-center min-h-[400px]">
+                  <div className="w-16 h-16 rounded-2xl bg-white shadow-sm flex items-center justify-center mb-3">
+                    <QrCode size={28} className="text-[#C9CDD2]" strokeWidth={2} />
+                  </div>
+                  <p className="text-sm font-bold text-[#191F28] mb-1">매장 QR 코드</p>
+                  <p className="text-xs text-[#8B95A1] leading-relaxed">왼쪽 "네이버 업체 연동" 에서<br/>매장 정보를 등록하면<br/>QR 이 여기에 자동 생성돼요</p>
+                </div>
+              )}
+
+              {/* Wi-Fi QR */}
+              <WifiQRBox />
+            </div>
+
+            {/* 저장 */}
+            <button onClick={handleSaveSettings}
+              className={`w-full py-3.5 rounded-xl font-bold text-base transition-colors ${
+                saved ? 'bg-green-500 text-white' : 'bg-[#191F28] text-white hover:bg-[#333D4B]'
+              }`}>
+              {saved ? '✅ 저장됨' : '설정 저장하기'}
+            </button>
+
           </div>
         )}
         {/* 광고: QR 인쇄물 추천 (네이버 쇼핑 커넥트) — settings 탭 하단 */}
