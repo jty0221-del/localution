@@ -146,7 +146,7 @@ export default function MenuBoardEditor() {
             setImporting(false)
           }
 
-          if (Date.now() - startedAt > 95_000) {
+          if (Date.now() - startedAt > 130_000) {
             clearInterval(pollInterval)
             setImportStatus('failed')
             setImportErr('시간 초과 — 다시 시도해주세요')
