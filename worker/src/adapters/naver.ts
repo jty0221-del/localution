@@ -13,7 +13,7 @@ import { dumpPageDiagnostics, startNetworkCapture, detectLoginFailure } from '..
 import { handleNaverCaptcha, solveCaptcha } from '../lib/captcha'
 import type { JobResult, Action } from '../jobs'
 
-const NAVER_CODE_VERSION = 'v32-humanlike-stealth-20260502'
+const NAVER_CODE_VERSION = 'v33-typing-once-not-charByChar-20260502'
 
 const LOGIN_URL = 'https://nid.naver.com/nidlogin.login'
 const NEW_SMARTPLACE_BASE = 'https://new.smartplace.naver.com'
@@ -290,16 +290,13 @@ export async function runNaver(
       // ── 네이버 2단계 로그인: ID 입력 후 "다음" 클릭 → PW 입력 후 "로그인" 클릭
       //    (2026년 네이버 로그인 UX: #log.login 버튼이 "다음" → "로그인" 으로 바뀜)
       //    중요: ID 입력 시 fill()보다 clear+type()이 Naver JS 이벤트 처리에 안전
-      // v32 humanlike: 마우스 jitter + 클릭 전 짧은 대기 + 글자별 변동 delay
+      // v33: 글자별 type loop 제거 (입력 깨짐 의심) — Playwright type() 한번에 + delay 변동만
       await (page as any).__jitter()
-      await (page as any).__humanDelay(400, 900)
+      await (page as any).__humanDelay(300, 600)
       await idEl.click({ clickCount: 3 })
-      await (page as any).__humanDelay(150, 350)
-      // 사람같은 타이핑: 글자마다 50~180ms 랜덤 (평균 ~115ms, 사람 약간 빠른 타자)
-      for (const ch of creds.account_id) {
-        await idEl.type(ch, { delay: 50 + Math.floor(Math.random() * 130) })
-      }
-      await (page as any).__humanDelay(500, 1100)
+      await (page as any).__humanDelay(100, 250)
+      await idEl.type(creds.account_id, { delay: 70 + Math.floor(Math.random() * 50) })
+      await (page as any).__humanDelay(400, 800)
 
       const step1BtnText = await page.$eval(
         '#log\\.login .btn_text, #log\\.login span, #log\\.login',
@@ -359,15 +356,13 @@ export async function runNaver(
         if (platformReviewId) await updateReviewStatus(svc, userId, platformReviewId, 'failed', { error: msg })
         return { status: 'failed', message: msg }
       }
-      // v32 humanlike: PW 입력도 글자별 변동 delay + 클릭 전 마우스 jitter
+      // v33: PW 입력도 한번에 type + delay 변동 (글자별 loop 제거 — 입력 깨짐 방지)
       await (page as any).__jitter()
-      await (page as any).__humanDelay(300, 700)
+      await (page as any).__humanDelay(250, 550)
       await pwEl.click({ clickCount: 3 })
-      await (page as any).__humanDelay(150, 350)
-      for (const ch of creds.password) {
-        await pwEl.type(ch, { delay: 60 + Math.floor(Math.random() * 140) })
-      }
-      await (page as any).__humanDelay(500, 1100)
+      await (page as any).__humanDelay(100, 250)
+      await pwEl.type(creds.password, { delay: 70 + Math.floor(Math.random() * 50) })
+      await (page as any).__humanDelay(400, 800)
 
       // PW가 실제로 입력됐는지 확인
       const pwLen = await pwEl.evaluate((el: any) => (el as HTMLInputElement).value?.length ?? 0).catch(() => 0)
