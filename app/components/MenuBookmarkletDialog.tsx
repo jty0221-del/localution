@@ -287,78 +287,33 @@ export default function MenuBookmarkletDialog({
                   네이버가 보안상 북마클릿을 차단하면 작동 안 할 수 있어요.<br/>
                   안되면 <strong>콘솔 모드</strong> 로 전환하세요.
                 </p>
-
-              {/* 북마크바 켜기 안내 */}
-              <div className="mb-3 p-3 rounded-xl bg-[#FEF3C7] border border-[#FCD34D]">
-                <p className="text-[12px] font-black text-[#92400E] mb-1.5">먼저 북마크바를 켜세요</p>
-                <p className="text-[11px] text-[#92400E] mb-2 leading-relaxed">
-                  키보드 <strong className="bg-white px-1.5 py-0.5 rounded border border-[#92400E]/30 font-mono">Ctrl + Shift + B</strong> (Mac: <strong className="bg-white px-1.5 py-0.5 rounded border border-[#92400E]/30 font-mono">⌘ + Shift + B</strong>)
-                </p>
-                <p className="text-[10px] text-[#92400E]/80 leading-relaxed">
-                  → 화면 위쪽에 즐겨찾기 막대가 나타나면 OK<br/>
-                  지원: 크롬, 엣지, 웨일, 사파리, 파이어폭스 등 모든 브라우저
-                </p>
-              </div>
-
-              {/* 시각적 안내 — 위치 표시 */}
-              <div className="mb-3 p-3 rounded-xl bg-[#F2F4F6] border border-[#E5E8EB]">
-                <p className="text-[11px] font-bold text-[#4E5968] mb-2">브라우저 화면 구조</p>
-                <div className="bg-white rounded-lg border border-[#E5E8EB] p-2 font-mono text-[10px] leading-relaxed text-[#4E5968]">
-                  <div className="px-2 py-1 border-b border-[#E5E8EB] bg-[#F8FAFB]">
-                    {'<- ->  ⟳   '}<span className="bg-[#EFF6FF] px-1.5 py-0.5 rounded">https://...주소창...</span>
-                  </div>
-                  <div className="px-2 py-1 border-b border-[#3182F6] bg-[#EFF6FF] text-[#1E40AF] font-bold">
-                    📁 ⭐네이버 ⭐유튜브 <span className="text-[#DC2626]">← 이게 "북마크바"</span>
-                  </div>
-                  <div className="px-2 py-3 text-center text-[#C9CDD2]">웹사이트 본문</div>
+                <div className="mb-3 p-3 rounded-xl bg-[#FEF3C7] border border-[#FCD34D]">
+                  <p className="text-[12px] font-black text-[#92400E] mb-1.5">먼저 북마크바를 켜세요</p>
+                  <p className="text-[11px] text-[#92400E] leading-relaxed">
+                    키보드 Ctrl + Shift + B (Mac: ⌘ + Shift + B) 눌러서 북마크바 표시
+                  </p>
                 </div>
-              </div>
-
-              <p className="text-[12px] font-bold text-[#191F28] mb-2">드래그 방법</p>
-              <div className="bg-[#F8FAFB] rounded-xl p-4 border border-[#E5E8EB]">
-                <a
-                  href={bookmarkletUrl}
-                  onClick={(e) => e.preventDefault()}
-                  className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-br from-[#3182F6] to-[#7C3AED] text-white font-bold text-sm shadow-md hover:shadow-lg transition-shadow cursor-grab active:cursor-grabbing"
-                  draggable>
-                  <Bookmark size={14} strokeWidth={2.5} />
-                  로컬루션 메뉴 가져오기
-                </a>
-                <ol className="text-[11px] text-[#4E5968] mt-3 space-y-1 leading-relaxed list-decimal list-inside">
-                  <li>위 파란 버튼에 마우스 커서 올리기</li>
-                  <li>마우스 <strong>왼쪽 버튼 누른 채로</strong> 화면 위쪽 북마크바로 끌어 올림</li>
-                  <li>북마크바 영역에서 마우스 버튼 <strong>놓기</strong></li>
-                  <li>→ 북마크바에 "로컬루션 메뉴 가져오기" 추가됨</li>
-                </ol>
-              </div>
-
-              <details className="mt-3">
-                <summary className="text-xs text-[#3182F6] cursor-pointer font-bold">
-                  드래그가 안되면 - 직접 추가하는 방법 (클릭해서 펼치기)
-                </summary>
-                <div className="mt-2 p-3 bg-[#F2F4F6] rounded-lg text-[11px] text-[#4E5968] leading-relaxed space-y-1.5">
-                  <ol className="list-decimal list-inside space-y-1">
-                    <li>아래 <strong>"코드 복사"</strong> 버튼 클릭</li>
-                    <li>키보드 <strong className="bg-white px-1.5 py-0.5 rounded border font-mono">Ctrl + D</strong> (Mac: <strong className="bg-white px-1.5 py-0.5 rounded border font-mono">⌘ + D</strong>) 누르기 → 북마크 추가 창</li>
-                    <li>이름 칸: <code className="bg-white px-1.5 py-0.5 rounded">로컬루션 메뉴 가져오기</code></li>
-                    <li>URL 칸 클릭 → 기존 내용 모두 지우기 → <strong className="bg-white px-1.5 py-0.5 rounded border font-mono">Ctrl + V</strong> 로 붙여넣기</li>
-                    <li>폴더 선택: <strong>"북마크바"</strong> 또는 <strong>"즐겨찾기 모음"</strong></li>
-                    <li>저장 버튼</li>
-                  </ol>
-                  <button
-                    onClick={handleCopy}
-                    className="mt-2 inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-[#191F28] text-white text-[11px] font-bold">
-                    {copied ? <><Check size={11} strokeWidth={3} /> 복사됨!</> : <><Copy size={11} strokeWidth={2.5} /> 코드 복사</>}
-                  </button>
+                <div className="bg-[#F8FAFB] rounded-xl p-4 border border-[#E5E8EB]">
+                  <a
+                    href={bookmarkletUrl}
+                    onClick={(e) => e.preventDefault()}
+                    className="inline-flex items-center gap-2 px-5 py-3 rounded-xl bg-gradient-to-br from-[#3182F6] to-[#7C3AED] text-white font-bold text-sm shadow-md cursor-grab"
+                    draggable>
+                    <Bookmark size={14} strokeWidth={2.5} />
+                    로컬루션 메뉴 가져오기
+                  </a>
+                  <p className="text-[11px] text-[#4E5968] mt-2">↑ 이 버튼을 북마크바로 드래그</p>
                 </div>
-              </details>
-            </div>
-
-            <button
-              onClick={() => setStep(2)}
-              className="w-full py-3 rounded-xl bg-[#191F28] text-white font-bold text-sm flex items-center justify-center gap-2">
-              북마크 등록 완료 <ArrowRight size={14} strokeWidth={2.5} />
-            </button>
+                <button
+                  onClick={handleCopy}
+                  className="mt-3 w-full py-2 rounded-lg bg-[#F2F4F6] text-[#4E5968] text-xs font-bold flex items-center justify-center gap-1">
+                  {copied ? <><Check size={11} strokeWidth={3} /> 복사됨</> : <><Copy size={11} strokeWidth={2.5} /> 또는 코드 복사 (직접 북마크 추가)</>}
+                </button>
+                <button
+                  onClick={() => setStep(2)}
+                  className="w-full mt-3 py-3 rounded-xl bg-[#191F28] text-white font-bold text-sm flex items-center justify-center gap-2">
+                  북마크 등록 완료 <ArrowRight size={14} strokeWidth={2.5} />
+                </button>
               </div>
             )}
           </div>
