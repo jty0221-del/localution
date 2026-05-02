@@ -613,74 +613,253 @@ function StoreTab() {
   )
 }
 
+// urlBase64ToUint8Array — VAPID public key 변환 (브라우저 PushManager.subscribe 용)
+function urlBase64ToUint8Array(base64String: string): Uint8Array {
+  const padding = '='.repeat((4 - base64String.length % 4) % 4)
+  const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
+  const rawData = typeof window !== 'undefined' ? window.atob(base64) : Buffer.from(base64, 'base64').toString('binary')
+  const out = new Uint8Array(rawData.length)
+  for (let i = 0; i < rawData.length; i++) out[i] = rawData.charCodeAt(i)
+  return out
+}
+
 function NotifyTab() {
-  const [alerts, setAlerts] = useState({ review: true, customer: true, report: false, payment7: true, payment3: true })
-  const [channels, setChannels] = useState({ kakao: true, email: false, sms: false })
-  const [payChannels, setPayChannels] = useState({ kakao: true, email: true, sms: false })
-  const CH = [
-    { key: 'kakao' as const, label: '카카오톡' },
-    { key: 'email' as const, label: '이메일' },
-    { key: 'sms' as const, label: 'SMS' },
-  ]
+  const [loading, setLoading] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [prefs, setPrefs] = useState({
+    review_alerts_enabled: true,
+    customer_alerts_enabled: true,
+    report_alerts_enabled: false,
+    low_rating_force_alert: true,
+    low_rating_threshold: 3,
+    channel_web_push: true,
+    channel_kakao_talk: false,
+    channel_email: false,
+    has_web_push_sub: false,
+    has_kakao_token: false,
+  })
+  const [pushPermission, setPushPermission] = useState<'default' | 'granted' | 'denied' | 'unsupported'>('default')
+
+  // 초기 로드
+  useEffect(() => {
+    let ignore = false
+    fetch('/api/notify/prefs').then(r => r.json()).then(j => {
+      if (ignore || !j?.ok) return
+      setPrefs((p) => ({ ...p, ...j.prefs }))
+    }).catch(() => null).finally(() => setLoading(false))
+
+    if (typeof window !== 'undefined' && 'Notification' in window) {
+      setPushPermission(Notification.permission as any)
+    } else {
+      setPushPermission('unsupported')
+    }
+    return () => { ignore = true }
+  }, [])
+
+  // 변경 시 자동 저장 (debounce 없이 즉시 — UX 단순)
+  async function savePrefs(partial: Partial<typeof prefs>) {
+    setSaving(true)
+    try {
+      const res = await fetch('/api/notify/prefs', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(partial),
+      })
+      const j = await res.json()
+      if (!j?.ok) toast(j?.error || '저장 실패')
+    } catch (e: any) {
+      toast(e?.message || '저장 실패')
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  function update(key: keyof typeof prefs, value: any) {
+    setPrefs(p => ({ ...p, [key]: value }))
+    savePrefs({ [key]: value } as any)
+  }
+
+  // Web Push 구독 활성화
+  async function enableWebPush() {
+    if (!('serviceWorker' in navigator) || !('PushManager' in window)) {
+      toast('이 브라우저는 알림을 지원하지 않아요')
+      return
+    }
+    try {
+      const perm = await Notification.requestPermission()
+      setPushPermission(perm as any)
+      if (perm !== 'granted') { toast('알림 권한이 거부되었어요'); return }
+
+      const reg = await navigator.serviceWorker.register('/sw-push.js')
+      await navigator.serviceWorker.ready
+
+      // VAPID public key 가져오기
+      const vRes = await fetch('/api/notify/vapid-public').then(r => r.json())
+      if (!vRes?.ok || !vRes.publicKey) {
+        toast('알림 서버 설정이 아직 준비 안 됐어요. 잠시 후 다시 시도해주세요.')
+        return
+      }
+
+      const sub = await reg.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: urlBase64ToUint8Array(vRes.publicKey),
+      })
+
+      const saveRes = await fetch('/api/notify/web-push-subscribe', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ subscription: sub.toJSON() }),
+      })
+      const saveJ = await saveRes.json()
+      if (saveJ?.ok) {
+        setPrefs(p => ({ ...p, channel_web_push: true, has_web_push_sub: true }))
+        toast('알림이 켜졌어요 🔔')
+      } else {
+        toast(saveJ?.error || '저장 실패')
+      }
+    } catch (e: any) {
+      toast(e?.message || '알림 설정 실패')
+    }
+  }
+
+  async function disableWebPush() {
+    try {
+      if ('serviceWorker' in navigator) {
+        const reg = await navigator.serviceWorker.getRegistration('/sw-push.js')
+        const sub = await reg?.pushManager.getSubscription()
+        if (sub) await sub.unsubscribe()
+      }
+      await fetch('/api/notify/web-push-subscribe', { method: 'DELETE' })
+      setPrefs(p => ({ ...p, channel_web_push: false, has_web_push_sub: false }))
+      toast('알림이 꺼졌어요')
+    } catch (e: any) {
+      toast(e?.message || '알림 해제 실패')
+    }
+  }
+
+  if (loading) {
+    return <div className="max-w-xl py-8 text-center text-sm text-[#8B95A1]">불러오는 중…</div>
+  }
 
   return (
     <div className="max-w-xl space-y-6">
+      {/* 알림 받을 항목 */}
       <div className="bg-white rounded-2xl p-6 shadow-sm">
         <h3 className="font-bold text-[#191F28] mb-4">알림 받을 항목</h3>
         <div className="space-y-4">
-          {[
-            { key: 'review' as const, label: '새 리뷰 알림', desc: '새로운 리뷰가 등록되면 알려드려요' },
-            { key: 'customer' as const, label: '신규 고객 알림', desc: '새 고객이 등록되면 알려드려요' },
-            { key: 'report' as const, label: '주간 리포트 알림', desc: '매주 월요일 성과 리포트를 발송해요' },
-          ].map(item => (
-            <div key={item.key} className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-[#191F28]">{item.label}</p>
-                <p className="text-xs text-[#8B95A1] mt-0.5">{item.desc}</p>
-              </div>
-              <Toggle checked={alerts[item.key]} onChange={v => setAlerts(p => ({ ...p, [item.key]: v }))} />
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-[#191F28]">새 리뷰 알림</p>
+              <p className="text-xs text-[#8B95A1] mt-0.5">새 리뷰가 등록되면 15분 이내 알려드려요</p>
             </div>
-          ))}
-        </div>
-      </div>
-      <div className="bg-white rounded-2xl p-6 shadow-sm border-l-4 border-[#3182F6]">
-        <h3 className="font-bold text-[#191F28] mb-1">결제 알림</h3>
-        <p className="text-xs text-[#8B95A1] mb-5">결제일 전 미리 알림을 받아 놓치지 마세요</p>
-        <div className="space-y-4 mb-5">
-          {[
-            { key: 'payment7' as const, label: '결제 7일 전 알림', desc: '결제 예정 7일 전 안내' },
-            { key: 'payment3' as const, label: '결제 3일 전 알림', desc: '결제 예정 3일 전 최종 안내' },
-          ].map(item => (
-            <div key={item.key} className="flex items-center justify-between">
-              <div>
-                <p className="text-sm font-medium text-[#191F28]">{item.label}</p>
-                <p className="text-xs text-[#8B95A1] mt-0.5">{item.desc}</p>
-              </div>
-              <Toggle checked={alerts[item.key]} onChange={v => setAlerts(p => ({ ...p, [item.key]: v }))} />
+            <Toggle checked={prefs.review_alerts_enabled} onChange={v => update('review_alerts_enabled', v)} />
+          </div>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-[#191F28]">신규 고객 알림</p>
+              <p className="text-xs text-[#8B95A1] mt-0.5">새 고객이 등록되면 알려드려요</p>
             </div>
-          ))}
-        </div>
-        <div className="pt-4 border-t border-[#F2F4F6]">
-          <p className="text-sm font-medium text-[#191F28] mb-3">결제 알림 채널</p>
-          <div className="flex gap-2">
-            {CH.map(ch => (
-              <button key={ch.key} onClick={() => setPayChannels(p => ({ ...p, [ch.key]: !p[ch.key] }))} className={`px-3 py-2 rounded-xl text-sm font-medium border-2 transition-colors ${payChannels[ch.key] ? 'border-[#3182F6] bg-[#EFF6FF] text-[#3182F6]' : 'border-[#E5E8EB] text-[#8B95A1]'}`}>
-                {ch.label}
-              </button>
-            ))}
+            <Toggle checked={prefs.customer_alerts_enabled} onChange={v => update('customer_alerts_enabled', v)} />
+          </div>
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-medium text-[#191F28]">주간 리포트 알림</p>
+              <p className="text-xs text-[#8B95A1] mt-0.5">매주 월요일 성과 리포트를 발송해요</p>
+            </div>
+            <Toggle checked={prefs.report_alerts_enabled} onChange={v => update('report_alerts_enabled', v)} />
           </div>
         </div>
       </div>
+
+      {/* 낮은 별점 강제 알림 */}
+      <div className="bg-[#FEF3C7] border border-[#FDE68A] rounded-2xl p-5">
+        <div className="flex items-center justify-between mb-3">
+          <div>
+            <p className="text-sm font-bold text-[#92400E]">⚠️ 낮은 별점 강제 알림</p>
+            <p className="text-xs text-[#9A3412] mt-0.5">위 알림을 꺼도 낮은 별점은 무조건 알려드려요</p>
+          </div>
+          <Toggle checked={prefs.low_rating_force_alert} onChange={v => update('low_rating_force_alert', v)} />
+        </div>
+        {prefs.low_rating_force_alert && (
+          <div className="flex items-center gap-2">
+            <span className="text-xs text-[#9A3412]">기준:</span>
+            {[1, 2, 3, 4].map(t => (
+              <button
+                key={t}
+                onClick={() => update('low_rating_threshold', t)}
+                className={`px-3 py-1.5 rounded-lg text-xs font-bold border ${
+                  prefs.low_rating_threshold === t
+                    ? 'border-[#F59E0B] bg-white text-[#92400E]'
+                    : 'border-[#FDE68A] text-[#9A3412]'
+                }`}
+              >
+                {t}점 이하
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* 알림 채널 */}
       <div className="bg-white rounded-2xl p-6 shadow-sm">
-        <h3 className="font-bold text-[#191F28] mb-4">기본 알림 채널</h3>
-        <div className="flex gap-2">
-          {CH.map(ch => (
-            <button key={ch.key} onClick={() => setChannels(p => ({ ...p, [ch.key]: !p[ch.key] }))} className={`px-3 py-2.5 rounded-xl text-sm font-medium border-2 transition-colors ${channels[ch.key] ? 'border-[#3182F6] bg-[#EFF6FF] text-[#3182F6]' : 'border-[#E5E8EB] text-[#8B95A1]'}`}>
-              {ch.label}
-            </button>
-          ))}
+        <h3 className="font-bold text-[#191F28] mb-1">알림 받을 방식</h3>
+        <p className="text-xs text-[#8B95A1] mb-5">여러 개를 켜면 모든 채널로 발송돼요</p>
+
+        {/* Web Push */}
+        <div className="border-2 border-[#E5E8EB] rounded-xl p-4 mb-3">
+          <div className="flex items-center justify-between mb-2">
+            <div>
+              <p className="text-sm font-bold text-[#191F28]">🔔 로컬루션 브라우저 알림</p>
+              <p className="text-xs text-[#8B95A1] mt-0.5">브라우저가 닫혀있어도 알림 받음 (PC/모바일 다)</p>
+            </div>
+            {pushPermission === 'unsupported' ? (
+              <span className="text-[11px] text-[#8B95A1]">미지원</span>
+            ) : prefs.has_web_push_sub && prefs.channel_web_push ? (
+              <button
+                onClick={disableWebPush}
+                className="px-3 py-1.5 rounded-lg text-xs font-bold border-2 border-[#3182F6] bg-[#EFF6FF] text-[#3182F6]"
+              >켜짐</button>
+            ) : (
+              <button
+                onClick={enableWebPush}
+                className="px-3 py-1.5 rounded-lg text-xs font-bold border-2 border-[#E5E8EB] text-[#8B95A1]"
+              >켜기</button>
+            )}
+          </div>
+          {pushPermission === 'denied' && (
+            <p className="text-[11px] text-[#DC2626] mt-2">브라우저 설정에서 알림이 차단되어 있어요. 사이트 권한을 허용해주세요.</p>
+          )}
+        </div>
+
+        {/* 카카오톡 */}
+        <div className="border-2 border-[#E5E8EB] rounded-xl p-4 mb-3">
+          <div className="flex items-center justify-between mb-2">
+            <div>
+              <p className="text-sm font-bold text-[#191F28]">💬 카카오톡 알림</p>
+              <p className="text-xs text-[#8B95A1] mt-0.5">본인 카카오톡으로 메시지 발송 (무료)</p>
+            </div>
+            {prefs.has_kakao_token && prefs.channel_kakao_talk ? (
+              <span className="px-3 py-1.5 rounded-lg text-xs font-bold border-2 border-[#FEE500] bg-[#FFFBEB] text-[#92400E]">켜짐</span>
+            ) : (
+              <span className="px-3 py-1.5 rounded-lg text-xs font-bold border border-[#E5E8EB] text-[#8B95A1]">곧 출시</span>
+            )}
+          </div>
+          <p className="text-[11px] text-[#8B95A1] mt-1">카카오 로그인 + 알림 동의 필요 (Phase 3 예정)</p>
+        </div>
+
+        {/* 이메일 */}
+        <div className="border-2 border-[#E5E8EB] rounded-xl p-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-sm font-bold text-[#191F28]">📧 이메일 알림</p>
+              <p className="text-xs text-[#8B95A1] mt-0.5">가입 이메일로 발송</p>
+            </div>
+            <Toggle checked={prefs.channel_email} onChange={v => update('channel_email', v)} />
+          </div>
         </div>
       </div>
+
+      {saving && <p className="text-[11px] text-[#8B95A1] text-center">저장 중…</p>}
     </div>
   )
 }
