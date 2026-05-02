@@ -21,7 +21,7 @@ RUN npm install --omit=optional --no-audit --no-fund \
 COPY worker/tsconfig.json ./
 
 # build-marker: COPY src 앞에 위치 — 이 줄 변경 시 이후 레이어 전체 캐시 무효화
-RUN echo "build-marker: v26-anchor-onclick-formSubmit-fallback-20260502T1600-RAILWAY"
+RUN echo "build-marker: v27-coupangeats-reply-REST-API-53cha-20260502T2100-RAILWAY"
 
 COPY worker/src ./src
 # 빌드 검증: tsc 성공만 확인 (grep 마커 검증은 push 순서 race로 빌드 fail 유발 → 제거)
