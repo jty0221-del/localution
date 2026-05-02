@@ -13,7 +13,7 @@ import { dumpPageDiagnostics, startNetworkCapture, detectLoginFailure } from '..
 import { handleNaverCaptcha, solveCaptcha } from '../lib/captcha'
 import type { JobResult, Action } from '../jobs'
 
-const NAVER_CODE_VERSION = 'v33-typing-once-credentials-classify-20260502'
+const NAVER_CODE_VERSION = 'v34-spa-friendly-nav-csrf-headers-20260502'
 
 const LOGIN_URL = 'https://nid.naver.com/nidlogin.login'
 const NEW_SMARTPLACE_BASE = 'https://new.smartplace.naver.com'
@@ -1045,46 +1045,73 @@ async function postNaverReply(
       })
       await page.waitForTimeout(4000)  // 매장 목록 로딩 대기
 
-      // 매장 카드 직접 클릭 → SPA 가 bookingBusinessId 자동 hydration
-      const clicked = await page.evaluate((targetPlaceId: string) => {
-        const card = document.querySelector(`a[href*="/bizes/place/${targetPlaceId}"]`) as HTMLElement | null
-        if (card) { card.click(); return true }
-        return false
-      }, storeId).catch(() => false)
-      log.info({ clicked }, 'naver: v29 매장 카드 클릭 (SPA 진입)')
-      if (clicked) {
-        await page.waitForTimeout(7000)  // SPA redirect + bookingBusinessId hydration 충분히 대기
-      }
+      // ─── v34: 매장 카드 클릭 성공/실패 둘 다 동일하게 처리 ───
+      // 카드 클릭 성공 → SPA 부분 hydration 후 page.goto 하면 state 충돌 (소금정원 OK / 일산닭칼국수 FAIL 차이)
+      // 해결: 클릭 안 하고 곧바로 /bizes/place/{storeId} 직접 진입 → SPA 처음부터 init → bookingBusinessId 자동 추가 (소금정원 fallback 흐름)
+      // 그 후 reviews 탭은 SPA 안에서 자연스럽게 클릭 (page.goto 안 함 → state 손상 방지)
+      log.info({ approach: 'v34-direct-place-then-tab-click' }, 'naver: v34 SPA-friendly navigation 시작')
+      await page.goto(`https://new.smartplace.naver.com/bizes/place/${storeId}`, {
+        waitUntil: 'domcontentloaded', timeout: 15000,
+      }).catch(() => null)
+      await page.waitForTimeout(8000)  // SPA 가 bookingBusinessId 추가하고 dashboard hydration 까지
 
-      // 현재 URL 에서 bookingBusinessId 추출
+      // bookingBusinessId 추출
       let currUrl = page.url()
       let m = currUrl.match(/bookingBusinessId=(\d+)/)
       if (m) {
         bookingBusinessId = m[1]
-        log.info({ bookingBusinessId, urlAfterClick: currUrl.slice(0, 200) }, 'naver: ✅ v29 bookingBusinessId 추출 성공 (매장 카드 redirect)')
+        log.info({ bookingBusinessId, urlAfterPlaceVisit: currUrl.slice(0, 200) }, 'naver: ✅ v34 bookingBusinessId 추출 성공 (place 직접 진입)')
       } else {
-        log.warn({ urlAfterClick: currUrl.slice(0, 200) }, 'naver: v29 bookingBusinessId 자동 추출 실패 → reviews 페이지로 강제 이동 시도')
-        // /bizes/place/{placeId} 직접 진입 → SPA 가 bookingBusinessId 추가하길 기대
-        await page.goto(`https://new.smartplace.naver.com/bizes/place/${storeId}`, {
+        log.warn({ urlAfterPlaceVisit: currUrl.slice(0, 200) }, 'naver: v34 bookingBusinessId 추출 실패 — fallback 시도')
+        // fallback: /bizes 메인에서 카드 클릭 (이전 방식)
+        await page.goto('https://new.smartplace.naver.com/bizes', {
           waitUntil: 'domcontentloaded', timeout: 15000,
         }).catch(() => null)
+        await page.waitForTimeout(4000)
+        await page.evaluate((targetPlaceId: string) => {
+          const card = document.querySelector(`a[href*="/bizes/place/${targetPlaceId}"]`) as HTMLElement | null
+          if (card) (card as HTMLElement).click()
+        }, storeId).catch(() => null)
         await page.waitForTimeout(7000)
         currUrl = page.url()
         m = currUrl.match(/bookingBusinessId=(\d+)/)
         if (m) {
           bookingBusinessId = m[1]
-          log.info({ bookingBusinessId, urlAfterPlaceVisit: currUrl.slice(0, 200) }, 'naver: ✅ v29 bookingBusinessId 추출 성공 (place 직접 진입)')
+          log.info({ bookingBusinessId, urlAfterFallback: currUrl.slice(0, 200) }, 'naver: ✅ v34 bookingBusinessId 추출 (fallback 카드 클릭)')
         }
       }
 
-      // Step 2) 추출된 bookingBusinessId 로 정식 reviews URL 구성하여 진입
-      const reviewsUrl = bookingBusinessId
-        ? `https://new.smartplace.naver.com/bizes/place/${storeId}/reviews?bookingBusinessId=${bookingBusinessId}&menu=visitor`
-        : `https://new.smartplace.naver.com/bizes/place/${storeId}/reviews?menu=visitor`
-      await page.goto(reviewsUrl, { waitUntil: 'domcontentloaded', timeout: 15000 })
-      await page.waitForTimeout(4000)
+      // ─── v34: SPA 안에서 reviews 탭 자연스럽게 클릭 (page.goto 회피) ───
+      // SmartPlace 사이드바/탭 네비게이션의 reviews 링크 click — SPA history.pushState 사용 → state 보존
+      const reviewsTabClicked = await page.evaluate(() => {
+        // 다양한 selector 로 reviews 탭 찾기
+        const candidates = Array.from(document.querySelectorAll('a, button, [role="link"], [role="tab"]'))
+        for (const el of candidates) {
+          const text = (el as HTMLElement).innerText || ''
+          const href = (el as HTMLAnchorElement).href || ''
+          if ((href.includes('/reviews') && href.includes(location.host)) ||
+              text === '리뷰' || text === '리뷰 관리') {
+            ;(el as HTMLElement).click()
+            return { clicked: true, text: text.slice(0, 20), href: href.slice(-60) }
+          }
+        }
+        return { clicked: false }
+      }).catch(() => ({ clicked: false }))
+      log.info({ reviewsTabClicked }, 'naver: v34 reviews 탭 SPA 클릭 시도')
+      await page.waitForTimeout(5000)
+
+      // 만약 SPA 클릭 후에도 reviews 페이지가 아니면 page.goto 보조 (필수일 때만)
+      let urlNow = page.url()
+      if (!urlNow.includes('/reviews')) {
+        const reviewsUrl = bookingBusinessId
+          ? `https://new.smartplace.naver.com/bizes/place/${storeId}/reviews?bookingBusinessId=${bookingBusinessId}&menu=visitor`
+          : `https://new.smartplace.naver.com/bizes/place/${storeId}/reviews?menu=visitor`
+        log.warn({ reviewsUrl }, 'naver: v34 SPA 탭 클릭 실패 → page.goto fallback')
+        await page.goto(reviewsUrl, { waitUntil: 'domcontentloaded', timeout: 15000 })
+        await page.waitForTimeout(4000)
+      }
       const u = page.url()
-      log.info({ url: u, hasBookingBusinessId: !!bookingBusinessId }, 'naver: visited SmartPlace reviews page')
+      log.info({ url: u, hasBookingBusinessId: !!bookingBusinessId, viaSpaTab: reviewsTabClicked.clicked }, 'naver: v34 visited SmartPlace reviews page')
       if (u.includes('nid.naver.com') || u.includes('login')) {
         return { ok: false, reason: 'SmartPlace 접근 시 로그인 redirect — 세션 만료' }
       }
@@ -1172,14 +1199,20 @@ async function postNaverReply(
           const bid = parseInt(bookingBusinessId, 10)
           if (!isNaN(bid)) grInput.bookingBusinessId = bid  // GraphQL Int 타입
         }
-        // page.evaluate 로 호출하여 브라우저 컨텍스트 사용 (자동 cookies/CSRF)
+        // v34: getReviews 에도 동일한 SPA-style 헤더 (x-csrf-token, apollo headers)
         const reviewsResult = await page.evaluate(async ({ url, body }: any) => {
           try {
-            const r = await fetch(url, {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json', 'Accept': '*/*', 'from-system': 'smartplace' },
-              body, credentials: 'include',
-            })
+            const headers: Record<string, string> = {
+              'Content-Type': 'application/json',
+              'Accept': '*/*',
+              'from-system': 'smartplace',
+              'x-requested-with': 'XMLHttpRequest',
+              'apollographql-client-name': 'smartplace-web',
+              'apollographql-client-version': '1.0.0',
+            }
+            const csrfMatch = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]+)/)
+            if (csrfMatch && csrfMatch[1]) headers['x-csrf-token'] = csrfMatch[1]
+            const r = await fetch(url, { method: 'POST', headers, body, credentials: 'include' })
             const text = await r.text()
             return { ok: r.ok, status: r.status, text: text.slice(0, 3000) }
           } catch (e: any) { return { ok: false, status: 0, text: '', err: e?.message } }
@@ -1336,15 +1369,23 @@ async function postNaverReply(
 
     const inPageResult = await page.evaluate(async ({ url, body }: { url: string; body: string }) => {
       try {
-        const r = await fetch(url, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Accept': '*/*', 'from-system': 'smartplace' },
-          body, credentials: 'include',
-        })
+        // v34: SPA 가 보내는 추가 헤더 모두 포함 — SmartPlace 가 bot 인지 검증할 때 누락 시 FORBIDDEN
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+          'Accept': '*/*',
+          'from-system': 'smartplace',
+          'x-requested-with': 'XMLHttpRequest',
+          'apollographql-client-name': 'smartplace-web',
+          'apollographql-client-version': '1.0.0',
+        }
+        // csrf_token cookie 값을 헤더로 별도 전송 (SmartPlace 의 표준 CSRF 검증 패턴)
+        const csrfMatch = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]+)/)
+        if (csrfMatch && csrfMatch[1]) headers['x-csrf-token'] = csrfMatch[1]
+        const r = await fetch(url, { method: 'POST', headers, body, credentials: 'include' })
         const text = await r.text()
         let parsed: any = null
         try { parsed = JSON.parse(text) } catch {}
-        return { ok: r.ok, status: r.status, text: text.slice(0, 1500), parsed }
+        return { ok: r.ok, status: r.status, text: text.slice(0, 1500), parsed, sentHeaders: Object.keys(headers) }
       } catch (e: any) {
         return { ok: false, status: 0, text: '', parsed: null, err: String(e?.message || e) }
       }
