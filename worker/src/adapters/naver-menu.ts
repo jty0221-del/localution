@@ -166,27 +166,12 @@ export async function runNaverMenu(
     return { status: 'failed', message: 'no_cookies' }
   }
 
-  // 2) 프록시 우회용 별도 Chromium 인스턴스 launch
-  // 메뉴는 사장님 인증 쿠키로 접근하므로 프록시 불필요 (오히려 ERR_TUNNEL_CONNECTION_FAILED 유발)
-  let menuBrowser: Browser | null = null
-  let usingFreshBrowser = false
-  try {
-    menuBrowser = await chromium.launch({
-      headless: true,
-      args: [
-        '--no-sandbox',
-        '--disable-setuid-sandbox',
-        '--disable-dev-shm-usage',
-        '--disable-gpu',
-        '--disable-blink-features=AutomationControlled',
-      ],
-    })
-    usingFreshBrowser = true
-    log.info('naver-menu: launched fresh chromium (no proxy) for menu fetch')
-  } catch (e: any) {
-    log.warn({ err: e?.message }, 'naver-menu: fresh chromium launch failed, falling back to shared browser')
-    menuBrowser = browser
-  }
+  // 2) 답글 시스템과 동일한 SHARED browser 사용 (iproyal 한국 주거 프록시)
+  // 이전 fresh chromium 시도는 Railway IP 노출 → CAPTCHA 강제됨
+  // 답글 시스템이 작동하는 이유 = 같은 프록시 + 한국 IP → CAPTCHA 우회
+  const menuBrowser: Browser = browser
+  const usingFreshBrowser = false
+  log.info('naver-menu: using shared browser (with proxy) — same as reply system')
 
   const context = await menuBrowser.newContext({
     userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36',
