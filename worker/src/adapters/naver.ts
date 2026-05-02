@@ -675,25 +675,85 @@ export async function runNaver(
             await page.waitForURL(url => !String(url).includes('nidlogin.login'), { timeout: 25000 }).catch(() => null)
             await page.waitForTimeout(1500)
 
-            // 37차-17: "새로운 기기 등록" 페이지 자동 통과 (CAPTCHA 후에도 발생 가능)
+            // 37차-21: "새로운 기기 등록" 페이지 자동 통과 - 페이지 dump + 모든 버튼 시도
             try {
+              const pgUrl = page.url()
               const pgBody = await page.evaluate(() => document.body?.innerText || '').catch(() => '')
-              if (pgBody.includes('새로운 기기') || pgBody.includes('자주 사용하는 기기')) {
-                log.info('naver: (CAPTCHA 후) 새로운 기기 등록 페이지 감지 → "등록안함" 클릭')
-                await page.evaluate(() => {
-                  const btns = Array.from(document.querySelectorAll('button, a, input[type="button"], input[type="submit"]'))
-                  for (const b of btns) {
-                    const t = ((b as any).innerText || (b as any).value || '').trim()
-                    if (t === '등록안함' || t === '등록 안함' || t.includes('등록안함')) { (b as HTMLElement).click(); return }
+              const isDevicePage = pgBody.includes('새로운 기기') || pgBody.includes('자주 사용하는 기기') ||
+                                    pgBody.includes('기기를 등록') || pgUrl.includes('deviceAdd') || pgUrl.includes('deviceConfirm')
+              if (isDevicePage) {
+                // 페이지 모든 버튼/링크/form 정보 dump (정확한 selector 진단)
+                const dump = await page.evaluate(() => {
+                  const out: any = { buttons: [], links: [], forms: [] }
+                  document.querySelectorAll('button, input[type="submit"], input[type="button"]').forEach((b: any) => {
+                    out.buttons.push({
+                      text: (b.innerText || b.value || '').trim().slice(0, 40),
+                      id: b.id || '',
+                      cls: (b.className || '').slice(0, 60),
+                      name: b.name || '',
+                      type: b.type || '',
+                    })
+                  })
+                  document.querySelectorAll('a').forEach((a: any) => {
+                    const t = (a.innerText || '').trim()
+                    if (t.length > 0 && t.length < 30) {
+                      out.links.push({ text: t.slice(0, 40), href: (a.href || '').slice(-50) })
+                    }
+                  })
+                  document.querySelectorAll('form').forEach((f: any) => {
+                    out.forms.push({ id: f.id || '', action: (f.action || '').slice(-60), method: f.method || '' })
+                  })
+                  return out
+                }).catch(() => ({ buttons: [], links: [], forms: [] }))
+                log.info({ url: pgUrl.slice(0, 100), dump }, 'naver: 새기기 페이지 DUMP')
+
+                // 다양한 매칭으로 "등록 안 함" / "건너뛰기" 클릭
+                const clickResult = await page.evaluate(() => {
+                  const all = Array.from(document.querySelectorAll('button, a, input[type="button"], input[type="submit"], [role="button"]'))
+                  const candidates: string[] = []
+                  for (const el of all) {
+                    const t = ((el as any).innerText || (el as any).value || '').trim()
+                    candidates.push(t)
+                    // 광범위 매칭
+                    if (t.includes('등록 안 함') || t.includes('등록안함') || t === '안함' || t === 'No' ||
+                        t === '취소' || t === '건너뛰기' || t === '나중에' || t === '아니요' ||
+                        t.includes('나중에') || t.includes('건너') ||
+                        t.toLowerCase().includes('skip') || t.toLowerCase().includes('cancel') ||
+                        t.toLowerCase().includes("don't")) {
+                      (el as HTMLElement).click()
+                      return { clicked: true, text: t, candidates: candidates.slice(0, 20) }
+                    }
                   }
-                }).catch(() => null)
-                await page.waitForTimeout(2500)
+                  return { clicked: false, candidates: candidates.slice(0, 20) }
+                }).catch(() => ({ clicked: false, candidates: [] }))
+                log.info({ clickResult }, 'naver: deviceAdd 페이지 click 시도 결과')
+
+                if (clickResult.clicked) {
+                  await page.waitForTimeout(3500)
+                }
+
+                // URL이 여전히 deviceAdd 면 직접 https://www.naver.com 으로 이동 (deviceAdd skip)
+                const stillUrl = page.url()
+                if (stillUrl.includes('deviceAdd') || stillUrl.includes('deviceConfirm')) {
+                  log.warn('naver: 여전히 deviceAdd → 직접 naver.com 으로 navigate (skip)')
+                  await page.goto('https://www.naver.com/', { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => null)
+                  await page.waitForTimeout(2000)
+                }
               }
-            } catch (_) {}
+            } catch (e: any) {
+              log.warn({ err: e?.message }, 'naver: deviceAdd 처리 exception')
+            }
 
             const urlAfterCaptcha = page.url()
             log.info('naver: after CAPTCHA retry — url=' + urlAfterCaptcha.replace('https://nid.naver.com/', 'nid/').slice(0, 80))
-            if (!urlAfterCaptcha.includes('nid.naver.com') && !urlAfterCaptcha.includes('nidlogin.login')) {
+            // 성공 판정: nid.naver.com 떠나거나, naver.com 메인이거나, smartplace 등으로 이동
+            const isLoggedIn = (
+              !urlAfterCaptcha.includes('nid.naver.com') &&
+              !urlAfterCaptcha.includes('nidlogin.login') &&
+              !urlAfterCaptcha.includes('deviceAdd') &&
+              !urlAfterCaptcha.includes('deviceConfirm')
+            ) || urlAfterCaptcha.includes('www.naver.com')
+            if (isLoggedIn) {
               await markLoginStatus(svc, userId, 'naver_place', 'success')
               log.info('naver: login succeeded after CAPTCHA solve')
               loggedIn = true
