@@ -10,12 +10,12 @@ RUN npm install --omit=optional --no-audit --no-fund \
     && npm cache clean --force
 
 COPY tsconfig.json ./
-# v22 FRESH BUILD — deviceAdd-v22-dump-formAware-skip 강제 무효화
-RUN echo "build-marker: v22-deviceAdd-dump-formAware-skip-20260502T1100" && rm -rf /app/dist /app/src
+# v25 FRESH BUILD — post-CAPTCHA deviceAdd "등록" 우선 (실제 paaron 플로우 핸들러)
+RUN echo "build-marker: v25-postCAPTCHA-register-priority-20260502T1400" && rm -rf /app/dist /app/src
 COPY src ./src
 
-# 컴파일 전 dist 강제 제거 (cache 우회) + v22 마커 검증
-RUN rm -rf /app/dist && npx tsc && ls -la /app/dist/adapters/naver.js && grep -c "v22-deviceAdd-dump-formAware-skip-20260502" /app/dist/adapters/naver.js
+# 컴파일 전 dist 강제 제거 (cache 우회) + v25 마커 검증
+RUN rm -rf /app/dist && npx tsc && ls -la /app/dist/adapters/naver.js && grep -c "v25-postCAPTCHA-register-priority-20260502" /app/dist/adapters/naver.js
 
 ENV NODE_ENV=production
 ENV PORT=8080
