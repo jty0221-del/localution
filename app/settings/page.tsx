@@ -639,6 +639,7 @@ function NotifyTab() {
     has_kakao_token: false,
   })
   const [pushPermission, setPushPermission] = useState<'default' | 'granted' | 'denied' | 'unsupported'>('default')
+  const [kakaoConnected, setKakaoConnected] = useState<boolean | null>(null)
 
   // 초기 로드
   useEffect(() => {
@@ -648,6 +649,11 @@ function NotifyTab() {
       setPrefs((p) => ({ ...p, ...j.prefs }))
     }).catch(() => null).finally(() => setLoading(false))
 
+    fetch('/api/notify/kakao-status').then(r => r.json()).then(j => {
+      if (ignore || !j?.ok) return
+      setKakaoConnected(!!j.connected)
+    }).catch(() => null)
+
     if (typeof window !== 'undefined' && 'Notification' in window) {
       setPushPermission(Notification.permission as any)
     } else {
@@ -655,6 +661,14 @@ function NotifyTab() {
     }
     return () => { ignore = true }
   }, [])
+
+  // 카카오 OAuth 시작 — 동의 후 /settings?tab=notify&connected=kakao 로 돌아옴
+  function startKakaoConnect() {
+    const returnUrl = typeof window !== 'undefined'
+      ? `${window.location.pathname}?tab=notify&connected=kakao`
+      : '/settings?tab=notify&connected=kakao'
+    window.location.href = `/api/auth/kakao/start?redirect=${encodeURIComponent(returnUrl)}`
+  }
 
   // 변경 시 자동 저장 (debounce 없이 즉시 — UX 단순)
   async function savePrefs(partial: Partial<typeof prefs>) {
@@ -781,21 +795,39 @@ function NotifyTab() {
           <Toggle checked={prefs.low_rating_force_alert} onChange={v => update('low_rating_force_alert', v)} />
         </div>
         {prefs.low_rating_force_alert && (
-          <div className="flex items-center gap-2">
-            <span className="text-xs text-[#9A3412]">기준:</span>
-            {[1, 2, 3, 4].map(t => (
-              <button
-                key={t}
-                onClick={() => update('low_rating_threshold', t)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-bold border ${
-                  prefs.low_rating_threshold === t
-                    ? 'border-[#F59E0B] bg-white text-[#92400E]'
-                    : 'border-[#FDE68A] text-[#9A3412]'
-                }`}
-              >
-                {t}점 이하
-              </button>
-            ))}
+          <div>
+            <p className="text-[11px] text-[#9A3412] mb-2">강제 알림 기준 별점</p>
+            <div className="flex flex-wrap gap-2">
+              {[
+                { v: 0, label: '0점 이하', desc: '거의 안 옴' },
+                { v: 1, label: '1점 이하', desc: '심각한 리뷰만' },
+                { v: 2, label: '2점 이하', desc: '낮은 별점' },
+                { v: 3, label: '3점 이하', desc: '권장' },
+                { v: 4, label: '4점 이하', desc: '보통 별점도' },
+                { v: 5, label: '5점 이하', desc: '모든 리뷰' },
+              ].map(opt => (
+                <button
+                  key={opt.v}
+                  onClick={() => update('low_rating_threshold', opt.v)}
+                  title={opt.desc}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-bold border transition-colors ${
+                    prefs.low_rating_threshold === opt.v
+                      ? 'border-[#F59E0B] bg-white text-[#92400E]'
+                      : 'border-[#FDE68A] text-[#9A3412] hover:bg-white/50'
+                  }`}
+                >
+                  {opt.label}
+                </button>
+              ))}
+            </div>
+            <p className="text-[11px] text-[#9A3412] mt-2 leading-relaxed">
+              {prefs.low_rating_threshold === 0 && '강제 알림 거의 받지 않음 (별점 0점 이하 리뷰는 사실상 없음)'}
+              {prefs.low_rating_threshold === 1 && '⭐ 1점 짜리 리뷰만 강제 알림'}
+              {prefs.low_rating_threshold === 2 && '⭐⭐ 2점 이하 리뷰 강제 알림'}
+              {prefs.low_rating_threshold === 3 && '⭐⭐⭐ 3점 이하 — 사장님 신경써야 할 리뷰'}
+              {prefs.low_rating_threshold === 4 && '⭐⭐⭐⭐ 4점 이하 — 거의 모든 리뷰 알림'}
+              {prefs.low_rating_threshold === 5 && '⭐⭐⭐⭐⭐ 모든 리뷰가 강제 알림 (위 토글과 동일 효과)'}
+            </p>
           </div>
         )}
       </div>
@@ -838,13 +870,29 @@ function NotifyTab() {
               <p className="text-sm font-bold text-[#191F28]">💬 카카오톡 알림</p>
               <p className="text-xs text-[#8B95A1] mt-0.5">본인 카카오톡으로 메시지 발송 (무료)</p>
             </div>
-            {prefs.has_kakao_token && prefs.channel_kakao_talk ? (
-              <span className="px-3 py-1.5 rounded-lg text-xs font-bold border-2 border-[#FEE500] bg-[#FFFBEB] text-[#92400E]">켜짐</span>
+            {kakaoConnected && prefs.channel_kakao_talk ? (
+              <button
+                onClick={() => update('channel_kakao_talk', false)}
+                className="px-3 py-1.5 rounded-lg text-xs font-bold border-2 border-[#FEE500] bg-[#FFFBEB] text-[#92400E]"
+              >켜짐</button>
+            ) : kakaoConnected ? (
+              <button
+                onClick={() => update('channel_kakao_talk', true)}
+                className="px-3 py-1.5 rounded-lg text-xs font-bold border-2 border-[#E5E8EB] text-[#8B95A1] hover:border-[#FEE500] hover:text-[#92400E]"
+              >켜기</button>
             ) : (
-              <span className="px-3 py-1.5 rounded-lg text-xs font-bold border border-[#E5E8EB] text-[#8B95A1]">곧 출시</span>
+              <button
+                onClick={startKakaoConnect}
+                className="px-3 py-1.5 rounded-lg text-xs font-bold border-2 border-[#FEE500] bg-[#FEE500] text-[#3B1E1E] hover:brightness-95"
+              >카카오 연결</button>
             )}
           </div>
-          <p className="text-[11px] text-[#8B95A1] mt-1">카카오 로그인 + 알림 동의 필요 (Phase 3 예정)</p>
+          {kakaoConnected === false && (
+            <p className="text-[11px] text-[#8B95A1] mt-1">카카오 로그인 + 알림 동의 1회만 하면 됩니다 (무료)</p>
+          )}
+          {kakaoConnected && (
+            <p className="text-[11px] text-[#059669] mt-1">✓ 카카오 연결됨 — 알림 받을 준비 완료</p>
+          )}
         </div>
 
         {/* 이메일 */}
