@@ -14,8 +14,9 @@ COPY tsconfig.json ./
 RUN echo "build-marker: v26-anchor-onclick-formSubmit-fallback-20260502T1600" && rm -rf /app/dist /app/src
 COPY src ./src
 
-# 컴파일 전 dist 강제 제거 (cache 우회) + v26 마커 검증
-RUN rm -rf /app/dist && npx tsc && ls -la /app/dist/adapters/naver.js && grep -c "v26-anchor-onclick-formSubmit-fallback-20260502" /app/dist/adapters/naver.js
+# 컴파일 전 dist 강제 제거 (cache 우회) — grep 마커 검증은 push 순서 race fail 유발 → 제거
+# 버전 확인은 런타임 /build-info 의 versionValue 로 함
+RUN rm -rf /app/dist && npx tsc && ls -la /app/dist/adapters/naver.js
 
 ENV NODE_ENV=production
 ENV PORT=8080
