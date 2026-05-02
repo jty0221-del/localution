@@ -10,6 +10,7 @@ import { runBaemin } from '../adapters/baemin'
 import { runYogiyo } from '../adapters/yogiyo'
 import { runCoupangEats } from '../adapters/coupangeats'
 import { runNaver } from '../adapters/naver'
+import { runNaverMenu } from '../adapters/naver-menu'
 
 export type Platform = 'naver_place' | 'baemin' | 'yogiyo' | 'coupangeats' | 'kakao_map'
 export type Action =
@@ -52,6 +53,10 @@ export async function runJob(
     case 'naver_place':
       // 41차-10: post_reply 는 NaverAdapter 가 SmartPlace Playwright 로 처리
       // fetch_reviews 는 Vercel /api/place/reviews/fetch 로 수집 (공개 GraphQL)
+      // fetch_menu (43차): 사장님 인증 세션으로 smartplace 메뉴 페이지 접근
+      if (action === 'fetch_menu') {
+        return runNaverMenu(opts, payload)
+      }
       return runNaver(opts, action, payload)
     case 'kakao_map':
       // 카카오맵은 Vercel 쪽 /api/place/kakao/collect 공개 panel3 으로 수집.
