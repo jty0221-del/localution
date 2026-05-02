@@ -20,13 +20,15 @@
     "html-to-image": "^1.11.11",
     "bullmq": "^5.12.0",
     "ioredis": "^5.4.1",
-    "web-push": "^3.6.7"
+    "web-push": "^3.6.7",
+    "qrcode": "^1.5.4"
   },
   "devDependencies": {
     "@types/node": "^20",
     "@types/react": "^18",
     "@types/react-dom": "^18",
     "@types/web-push": "^3.6.4",
+    "@types/qrcode": "^1.5.5",
     "autoprefixer": "^10.0.1",
     "eslint": "^8",
     "eslint-config-next": "14.0.0",
