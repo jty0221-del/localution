@@ -21,6 +21,11 @@ interface StoreInfo {
   location: string
   naverUrl: string
   connected: boolean
+  // ⭐ 네이버 연동 자동 로드 추적용 (사용자 수동입력과 구분)
+  source?: 'manual' | 'naver_synced'
+  // 네이버 연동 시 추가 정보
+  naverPlaceId?: string       // internal SmartPlace placeId (10441797 같은)
+  naverExternalPlaceId?: string  // external m.place.naver.com placeId (1137287126 같은)
 }
 
 interface QRCode {
@@ -143,7 +148,6 @@ export default function QRAdmin() {
       const raw = localStorage.getItem(LS_QR_SETTINGS)
       if (raw) {
         const parsed = JSON.parse(raw)
-        // 구 버전 데이터에서 필요한 필드만 추출
         setSettings({
           rewardType:  parsed.rewardType  || 'none',
           rewardValue: parsed.rewardValue || '',
@@ -151,9 +155,46 @@ export default function QRAdmin() {
       }
       const rawList = localStorage.getItem(LS_QR_LIST)
       if (rawList) setQrList(JSON.parse(rawList))
+      // localStorage 의 매장 정보 — DB 로드 실패 시 fallback 으로 사용
       const rawStore = localStorage.getItem(LS_STORE_INFO)
       if (rawStore) setStoreInfo(JSON.parse(rawStore))
     } catch (_) {}
+
+    // ⭐ /api/stores/me 에서 네이버 연동 매장 정보 자동 로드
+    // 사장님이 /my/platforms/naver_place/connect 에서 등록한 정보 → qr-admin 자동 채움
+    // localStorage 우선순위 < DB (네이버 연동된 정보가 source of truth)
+    let cancelled = false
+    fetch('/api/stores/me', { credentials: 'include' })
+      .then(r => r.json())
+      .then(j => {
+        if (cancelled) return
+        const store = j?.store
+        if (!store?.name) return  // 네이버 연동 안 된 사용자 — localStorage 그대로 유지
+
+        // m.place.naver.com URL 에서 외부 placeId 추출 (1137287126 같은)
+        const naverUrl = store.naver_url || store.naver_place_url || ''
+        let externalId = ''
+        if (naverUrl) {
+          const m = naverUrl.match(/place\/(\d{5,})/)
+          if (m) externalId = m[1]
+        }
+
+        const synced: StoreInfo = {
+          name:     store.name || '',
+          category: store.category || '',
+          location: store.address || store.location || '',
+          naverUrl: naverUrl,
+          connected: true,
+          source: 'naver_synced',
+          naverPlaceId: store.naver_place_id || '',
+          naverExternalPlaceId: externalId,
+        }
+        setStoreInfo(synced)
+        // localStorage 도 sync (오프라인 캐시)
+        try { localStorage.setItem(LS_STORE_INFO, JSON.stringify(synced)) } catch (_) {}
+      })
+      .catch(() => null)
+    return () => { cancelled = true }
   }, [])
 
   function saveSettings(next: QRSettings) {
@@ -267,7 +308,9 @@ export default function QRAdmin() {
             <div className="bg-[#F0FDF4] rounded-2xl px-5 py-3.5 shadow-sm flex items-center gap-2 border border-[#BBF7D0]">
               <span className="text-lg">🟢</span>
               <div>
-                <p className="text-xs text-[#059669] font-semibold">업체 연동됨</p>
+                <p className="text-xs text-[#059669] font-semibold">
+                  {storeInfo.source === 'naver_synced' ? '네이버 자동 연동' : '업체 연동됨'}
+                </p>
                 <p className="text-xs text-[#4E5968] truncate max-w-[140px]">{storeInfo.name}</p>
               </div>
             </div>
@@ -328,13 +371,19 @@ export default function QRAdmin() {
 
                 {!storeEdit && !storeInfo.connected ? (
                   <div>
-                    <p className="text-sm text-[#4E5968] mb-4 leading-relaxed">
-                      업체 정보를 입력하면 QR 스캔 시 바로 리뷰 페이지로 연결돼요.
+                    <p className="text-sm text-[#4E5968] mb-3 leading-relaxed">
+                      네이버 플레이스를 연결하면 매장 정보가 <strong>자동으로 채워져요</strong>.
+                      QR 스캔 시 바로 리뷰 페이지로 연결돼요.
                     </p>
+                    <a
+                      href="/my/platforms/naver_place/connect"
+                      className="block w-full py-3 mb-2 rounded-xl bg-[#03C75A] text-white font-bold text-sm text-center hover:bg-[#02A04A] transition-colors">
+                      🟢 네이버 플레이스 연결하기 →
+                    </a>
                     <button
                       onClick={() => { setStoreDraft(DEFAULT_STORE); setStoreEdit(true) }}
-                      className="w-full py-3 rounded-xl border-2 border-dashed border-[#BFDBFE] text-[#3182F6] font-semibold text-sm hover:bg-[#EFF6FF] transition-colors">
-                      + 업체 정보 입력하기
+                      className="w-full py-2.5 rounded-xl border-2 border-dashed border-[#BFDBFE] text-[#3182F6] font-semibold text-xs hover:bg-[#EFF6FF] transition-colors">
+                      또는 직접 입력하기
                     </button>
                   </div>
                 ) : storeEdit ? (
@@ -409,9 +458,16 @@ export default function QRAdmin() {
                 ) : (
                   <div className="space-y-3">
                     <div className="p-3.5 bg-[#F0FDF4] rounded-xl border border-[#BBF7D0]">
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="w-2 h-2 rounded-full bg-[#059669] flex-shrink-0" />
-                        <span className="font-bold text-[#191F28] text-sm">{storeInfo.name}</span>
+                      <div className="flex items-center justify-between gap-2 mb-1">
+                        <div className="flex items-center gap-2 min-w-0">
+                          <span className="w-2 h-2 rounded-full bg-[#059669] flex-shrink-0" />
+                          <span className="font-bold text-[#191F28] text-sm truncate">{storeInfo.name}</span>
+                        </div>
+                        {storeInfo.source === 'naver_synced' && (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#03C75A] text-white whitespace-nowrap">
+                            네이버 자동 연동
+                          </span>
+                        )}
                       </div>
                       <p className="text-xs text-[#4E5968] pl-4">
                         {[storeInfo.category, storeInfo.location].filter(Boolean).join(' · ')}
@@ -421,6 +477,11 @@ export default function QRAdmin() {
                           className="text-xs text-[#3182F6] pl-4 hover:underline block mt-0.5">
                           네이버 플레이스 보기 →
                         </a>
+                      )}
+                      {storeInfo.source === 'naver_synced' && (
+                        <p className="text-[10px] text-[#059669] pl-4 mt-1.5 leading-relaxed">
+                          ✓ 매장 정보는 <a href="/my/platforms/naver_place/connect" className="underline font-bold">매장 연결 페이지</a>에서 관리돼요
+                        </p>
                       )}
                     </div>
                     <div className="p-3 bg-[#EFF6FF] rounded-xl border border-[#BFDBFE]">
