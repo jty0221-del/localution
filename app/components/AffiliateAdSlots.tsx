@@ -87,6 +87,8 @@ function AdCard({ product }: { product: AffiliateProduct }) {
   const image = product.overrideImage || preview.image || null
   const title = product.overrideTitle || preview.title || (fallback.mall ? `${fallback.mall} 추천 상품` : '상품 보기')
   const price = product.overridePrice || preview.price || null
+  const originalPrice = product.overrideOriginalPrice || null
+  const discountRate = product.overrideDiscountRate ?? null
   const rating = product.overrideRating ?? preview.rating ?? null
   const reviewCount = product.overrideReviewCount ?? preview.reviewCount ?? null
 
@@ -136,7 +138,17 @@ function AdCard({ product }: { product: AffiliateProduct }) {
           {title}
         </p>
         {price && (
-          <p className="text-sm font-black text-[#191F28]">{price}</p>
+          <div className="space-y-0.5">
+            {originalPrice && (
+              <p className="text-[10px] text-[#C9CDD2] line-through leading-none">{originalPrice}</p>
+            )}
+            <div className="flex items-baseline gap-1">
+              {discountRate != null && discountRate > 0 && (
+                <span className="text-xs font-black text-[#DC2626]">{discountRate}%</span>
+              )}
+              <span className="text-sm font-black text-[#191F28]">{price}</span>
+            </div>
+          </div>
         )}
         {(rating != null || reviewCount != null) && (
           <div className="flex items-center gap-1 text-[10px] text-[#4E5968]">
