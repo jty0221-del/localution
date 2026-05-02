@@ -335,36 +335,71 @@ export async function runNaver(
       await page.waitForURL(url => !String(url).includes('nidlogin.login'), { timeout: 20000 }).catch(() => null)
       await page.waitForTimeout(1500)
 
-      // 37차-17: "새로운 기기 등록" 페이지 자동 통과
+      // 37차-17: "새로운 기기 등록" 페이지 자동 통과 (강화 v18)
       // 네이버가 새 IP/Browser 감지 시 등록 안내 페이지 보여줌 → "등록안함" 클릭하여 통과
+      // navigation 대기 추가 + 모든 selector + form submit + URL 변화 검증
       try {
         const pageBody = await page.evaluate(() => document.body?.innerText || '').catch(() => '')
-        if (pageBody.includes('새로운 기기') || pageBody.includes('자주 사용하는 기기')) {
-          log.info('naver: 새로운 기기 등록 페이지 감지 → "등록안함" 클릭')
-          // 등록안함 버튼 찾기 (다양한 selector 시도)
-          const dontRegisterClicked = await page.evaluate(() => {
-            const btns = Array.from(document.querySelectorAll('button, a, input[type="button"], input[type="submit"]'))
-            for (const b of btns) {
-              const t = ((b as any).innerText || (b as any).value || '').trim()
-              if (t === '등록안함' || t === '등록 안함' || t.includes('등록안함')) {
-                (b as HTMLElement).click()
-                return true
+        if (pageBody.includes('새로운 기기') || pageBody.includes('자주 사용하는 기기') || pageBody.includes('기기를 등록')) {
+          log.info({ bodyPreview: pageBody.slice(0, 200) }, 'naver: 새로운 기기 등록 페이지 감지')
+
+          // 모든 가능한 selector + 텍스트 매칭으로 등록안함 버튼 클릭 + navigation 대기
+          const clickResult = await Promise.all([
+            page.waitForNavigation({ timeout: 12000 }).catch(() => null),
+            page.evaluate(() => {
+              // 1) 텍스트 기반 검색
+              const els = Array.from(document.querySelectorAll('button, a, input[type="button"], input[type="submit"], [role="button"]'))
+              for (const el of els) {
+                const t = ((el as any).innerText || (el as any).value || (el as any).textContent || '').trim()
+                if (t === '등록안함' || t === '등록 안함' || t.includes('등록안함') || t.includes('등록 안 함') || t === '안함') {
+                  (el as HTMLElement).click()
+                  return { clicked: true, by: 'text', text: t }
+                }
               }
+              // 2) name/id 기반 검색
+              const byAttr = document.querySelector('[name*="dont"], [id*="dont"], [name="register"][value="N"], [name="action"][value="don\'tRegister"]') as HTMLElement | null
+              if (byAttr) { byAttr.click(); return { clicked: true, by: 'attr' } }
+              // 3) form action에 'register' 또는 'deviceConfirm' 있으면 직접 form submit (등록 안 함은 보통 cancel/skip URL)
+              const forms = Array.from(document.querySelectorAll('form'))
+              for (const f of forms) {
+                const action = (f as HTMLFormElement).action || ''
+                if (action.includes('deviceConfirm') || action.includes('register')) {
+                  // form 안의 두 번째 button (등록안함이 보통 두 번째)
+                  const fbtns = Array.from(f.querySelectorAll('button, input[type="submit"]'))
+                  if (fbtns.length >= 2) {
+                    (fbtns[fbtns.length - 1] as HTMLElement).click()  // 마지막 버튼 (등록안함)
+                    return { clicked: true, by: 'form-last-btn' }
+                  }
+                }
+              }
+              return { clicked: false }
+            }).catch(() => ({ clicked: false })),
+          ])
+          log.info({ clickResult: clickResult[1] }, 'naver: 등록안함 클릭 시도 결과')
+
+          // 추가 대기 + URL/body 안정화
+          await page.waitForTimeout(5000)
+          await page.waitForLoadState('domcontentloaded').catch(() => null)
+          const afterDeviceUrl = page.url()
+          log.info({ afterDeviceUrl }, 'naver: after device-confirm URL')
+
+          // 그래도 deviceConfirm 페이지면 한번 더 시도
+          if (afterDeviceUrl.includes('deviceConfirm') || afterDeviceUrl.includes('nidlogin')) {
+            const stillBody = await page.evaluate(() => document.body?.innerText || '').catch(() => '')
+            if (stillBody.includes('새로운 기기') || stillBody.includes('등록안함')) {
+              log.warn('naver: 여전히 새 기기 등록 페이지 — 한번 더 클릭 시도')
+              await page.evaluate(() => {
+                const els = Array.from(document.querySelectorAll('button, a, input'))
+                for (const el of els) {
+                  const t = ((el as any).innerText || (el as any).value || '').trim()
+                  if (t === '등록안함' || t === '등록 안함' || t === '안함' || t === 'No' || t === '취소') {
+                    (el as HTMLElement).click()
+                    return
+                  }
+                }
+              }).catch(() => null)
+              await page.waitForTimeout(3000)
             }
-            return false
-          }).catch(() => false)
-          if (dontRegisterClicked) {
-            log.info('naver: ✅ "등록안함" 클릭 성공')
-            await page.waitForTimeout(2500)
-            await page.waitForURL(url => !String(url).includes('deviceConfirm') && !String(url).includes('nidlogin'), { timeout: 10000 }).catch(() => null)
-          } else {
-            log.warn('naver: "등록안함" 버튼 못 찾음 — page evaluate로 직접 form submit 시도')
-            // form action으로 직접 submit
-            await page.evaluate(() => {
-              const dontBtn = document.querySelector('button[id*="don\'t"], button[name*="don\'t"], input[name="don\'t"], #don\'t_register, #dontregister, [name="dontRegister"]') as HTMLElement | null
-              dontBtn?.click()
-            }).catch(() => null)
-            await page.waitForTimeout(2000)
           }
         }
       } catch (e: any) {
