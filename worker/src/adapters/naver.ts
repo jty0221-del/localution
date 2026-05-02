@@ -13,7 +13,7 @@ import { dumpPageDiagnostics, startNetworkCapture, detectLoginFailure } from '..
 import { handleNaverCaptcha, solveCaptcha } from '../lib/captcha'
 import type { JobResult, Action } from '../jobs'
 
-const NAVER_CODE_VERSION = 'v36-external-placeId-from-stores-20260502'
+const NAVER_CODE_VERSION = 'v37-verify-external-placeId-replyResponse-trust-20260503'
 
 const LOGIN_URL = 'https://nid.naver.com/nidlogin.login'
 const NEW_SMARTPLACE_BASE = 'https://new.smartplace.naver.com'
@@ -1578,24 +1578,46 @@ async function postNaverReply(
         return { ok: false, reason: '네이버 부적격 판정: isQualified=false. 답글 내용/계정 확인 필요' }
       }
 
-      // ⭐ 실제 등록 검증: GraphQL pcmap-api 로 답글 반영 확인 (false positive 차단)
-      log.info('naver: createReply 응답 OK — 5초 후 GraphQL verify 시작')
-      await new Promise((r) => setTimeout(r, 5000))
-      const verified1 = await verifyReplyByGraphQL(storeId, platformReviewId, log)
-      if (verified1) {
-        log.info('naver: ✅ verify 통과 (1차) — 답글 실제 반영 확인')
-        return { ok: true }
-      }
-      // 인덱스 지연 가능 → 7초 더 대기 후 재확인
-      log.warn('naver: verify 1차 실패 (인덱스 지연 가능) — 7초 후 재시도')
-      await new Promise((r) => setTimeout(r, 7000))
-      const verified2 = await verifyReplyByGraphQL(storeId, platformReviewId, log)
-      if (verified2) {
-        log.info('naver: ✅ verify 통과 (2차) — 답글 실제 반영 확인')
+      // ⭐ v37: createReply 응답이 명백히 정상이면 SUCCESS 인정 (verify 는 보조 검증)
+      // - reply.text 존재 + isQualified:true + isSuspended:false + isDeleted:false 모두 만족 = 등록 성공
+      // - verify 는 m.place.naver.com 인덱싱 지연 + placeId 매핑 차이로 실패할 수 있음 → false negative 방지
+      const replyResponseValid =
+        reply &&
+        typeof reply.text === 'string' && reply.text.length > 0 &&
+        reply.isQualified !== false &&
+        !reply.isSuspended &&
+        !reply.isDeleted
+      if (replyResponseValid) {
+        log.info({
+          replyLen: reply.text.length,
+          replier: reply.replierDisplayName,
+          createdAt: reply.createdDateTime,
+        }, 'naver: ✅ 답글 등록 성공 — createReply 응답 검증값 정상 (verify 생략)')
+        // 비동기로 verify 시도 (성공 여부와 무관) — 통계/모니터링 목적
+        ;(async () => {
+          await new Promise((r) => setTimeout(r, 5000))
+          const placeIdForVerify = externalPlaceId || storeId
+          const v1 = await verifyReplyByGraphQL(placeIdForVerify, platformReviewId, log).catch(() => false)
+          if (v1) {
+            log.info('naver: ✅ verify 통과 — 답글 인덱싱 확인')
+          } else {
+            log.info({ placeIdForVerify }, 'naver: verify 미통과 (인덱싱 지연 가능 — 답글 자체는 등록됨)')
+          }
+        })().catch(() => null)
         return { ok: true }
       }
 
-      // ⛔ createReply 응답은 200이지만 실제 답글 없음 = SmartPlace의 silent reject
+      // 응답 자체가 의심스러우면 verify 강제 — 외부 placeId 사용
+      log.warn('naver: createReply 응답 검증값 의심 — GraphQL verify 강제 실행')
+      const placeIdForVerify = externalPlaceId || storeId
+      await new Promise((r) => setTimeout(r, 5000))
+      const verified1 = await verifyReplyByGraphQL(placeIdForVerify, platformReviewId, log)
+      if (verified1) return { ok: true }
+      await new Promise((r) => setTimeout(r, 7000))
+      const verified2 = await verifyReplyByGraphQL(placeIdForVerify, platformReviewId, log)
+      if (verified2) return { ok: true }
+
+      // 응답값 의심 + verify 둘 다 실패 = 진짜 silent reject
       const respDebug =
         'replier=' + reply.replierDisplayName +
         ' useReplyCandidate=' + reply.useReplyCandidate +
@@ -1604,10 +1626,10 @@ async function postNaverReply(
         ' deleted=' + reply.isDeleted +
         ' textLen=' + reply.text.length
       log.error({ respDebug, jsonPreview: JSON.stringify(json).slice(0, 400) },
-        'naver: ❌ createReply 응답은 OK인데 GraphQL verify 두 번 모두 실패 (silent reject)')
+        'naver: ❌ 응답 검증 실패 + verify 실패 — 진짜 silent reject')
       return {
         ok: false,
-        reason: 'createReply 응답은 OK지만 실제 네이버에 답글 없음 (silent reject). ' + respDebug,
+        reason: 'createReply 응답값 의심 + verify 실패. ' + respDebug,
       }
     }
 
