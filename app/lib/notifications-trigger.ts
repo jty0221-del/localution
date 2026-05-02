@@ -101,7 +101,7 @@ async function alreadySent(
   }
 }
 
-// 실제 발송 hook (Phase 2 에서 채워짐 — 지금은 log 만 기록)
+// 실제 발송 — Phase 2: Web Push 구현, KakaoTalk/Email 은 Phase 3
 async function sendViaChannel(
   svc: SupabaseClient,
   prefs: Prefs,
@@ -109,9 +109,50 @@ async function sendViaChannel(
   channel: 'web_push' | 'kakao_talk' | 'email',
   msg: { title: string; body: string },
 ): Promise<{ ok: boolean; error?: string }> {
-  // Phase 2 에서 실제 webpush.sendNotification / Kakao API / SES 호출 추가
-  // 지금은 log 만 — 발송 큐는 Phase 2 에서 처리
-  return { ok: true }
+  if (channel === 'web_push') {
+    if (!prefs.web_push_subscription) return { ok: false, error: 'no_subscription' }
+    try {
+      // dynamic import — web-push 는 Node 전용
+      const webpush = (await import('web-push')).default || (await import('web-push'))
+      const vapidPub = process.env.VAPID_PUBLIC_KEY || process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY
+      const vapidPriv = process.env.VAPID_PRIVATE_KEY
+      const vapidSub = process.env.VAPID_SUBJECT || 'mailto:jty0221@gmail.com'
+      if (!vapidPub || !vapidPriv) return { ok: false, error: 'vapid_not_configured' }
+      ;(webpush as any).setVapidDetails(vapidSub, vapidPub, vapidPriv)
+
+      const targetUrl = `/review-admin/${review.platform === 'naver_place' ? 'naver' : review.platform}`
+      const payload = JSON.stringify({
+        title: msg.title,
+        body: msg.body,
+        url: targetUrl,
+        tag: 'review-' + review.platform_review_id,
+        requireInteraction: typeof review.rating === 'number' && review.rating <= 2,
+      })
+      await (webpush as any).sendNotification(prefs.web_push_subscription, payload)
+      return { ok: true }
+    } catch (e: any) {
+      // 410/404 → 구독 만료 → DB 에서 제거
+      if (e?.statusCode === 410 || e?.statusCode === 404) {
+        try {
+          await svc.from('user_notification_prefs').update({
+            web_push_subscription: null,
+            channel_web_push: false,
+          }).eq('user_id', prefs.user_id)
+        } catch {}
+        return { ok: false, error: 'subscription_expired' }
+      }
+      return { ok: false, error: String(e?.message || e).slice(0, 200) }
+    }
+  }
+  if (channel === 'kakao_talk') {
+    // Phase 3: Kakao SendMe API 호출 예정
+    return { ok: false, error: 'phase_3_not_yet' }
+  }
+  if (channel === 'email') {
+    // Phase 3: Resend/SES 호출 예정
+    return { ok: false, error: 'phase_3_not_yet' }
+  }
+  return { ok: false, error: 'unknown_channel' }
 }
 
 export async function triggerReviewNotifications(
