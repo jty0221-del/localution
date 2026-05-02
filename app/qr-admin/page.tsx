@@ -10,6 +10,7 @@ import QRReportPanel from '../components/QRReportPanel'
 import StampCardEditor from '../components/StampCardEditor'
 import MenuBoardEditor from '../components/MenuBoardEditor'
 import WifiQRBox from '../components/WifiQRBox'
+import QRImage from '../components/QRImage'
 import PageHeader from '../components/PageHeader'
 import {
   QrCode, CheckCircle2, Sparkles,
@@ -109,71 +110,6 @@ function generateReviewUrl(store: StoreInfo): string {
 //   · margin 4 modules (quiet zone 충분 — 카메라 자동초점 대상)
 //   · SVG 렌더링 (확대해도 깨끗, 인쇄·고해상도 모두 OK)
 //   · 고대비 색상 (#191F28 검정 + 순백 #FFFFFF)
-function QRImage({ url, size = 120 }: { url: string; size?: number }) {
-  const [svg, setSvg] = useState<string>('')
-  const [err, setErr] = useState<string | null>(null)
-
-  useEffect(() => {
-    let cancelled = false
-    if (!url) { setSvg(''); return }
-    setErr(null)
-    // dynamic import — 클라이언트 번들 분할
-    import('qrcode').then(async (mod) => {
-      try {
-        const QRCode = (mod as any).default || mod
-        const out = await QRCode.toString(url, {
-          type: 'svg',
-          errorCorrectionLevel: 'H',  // ⭐ 인식률 핵심 — 30% 복원
-          margin: 4,                  // quiet zone 4 modules (카메라 자동인식 안정)
-          width: size * 2,            // 2배 해상도 (모바일 retina 대비)
-          color: { dark: '#191F28', light: '#FFFFFF' },
-        })
-        if (!cancelled) setSvg(out)
-      } catch (e: any) {
-        if (!cancelled) setErr(e?.message || 'QR 생성 실패')
-      }
-    }).catch((e) => { if (!cancelled) setErr(String(e?.message || e)) })
-    return () => { cancelled = true }
-  }, [url, size])
-
-  if (!url) {
-    return (
-      <div
-        style={{ width: size, height: size }}
-        className="bg-[#F2F4F6] rounded-xl flex flex-col items-center justify-center gap-1 text-[#8B95A1]">
-        <span className="text-2xl">📵</span>
-        <span className="text-[10px] font-medium text-center leading-tight px-1">업체 연동 후<br />QR 생성됩니다</span>
-      </div>
-    )
-  }
-  if (err) {
-    return (
-      <div
-        style={{ width: size, height: size }}
-        className="bg-[#FEF2F2] rounded-xl flex items-center justify-center text-[10px] text-[#DC2626] p-2 text-center">
-        QR 생성 실패: {err.slice(0, 40)}
-      </div>
-    )
-  }
-  if (!svg) {
-    return (
-      <div
-        style={{ width: size, height: size }}
-        className="bg-[#F2F4F6] rounded-xl flex items-center justify-center text-[10px] text-[#8B95A1] animate-pulse">
-        생성 중…
-      </div>
-    )
-  }
-  return (
-    <div
-      style={{ width: size, height: size }}
-      className="block rounded bg-white overflow-hidden"
-      // SVG inline 렌더링 — 확대해도 깨지지 않음
-      dangerouslySetInnerHTML={{ __html: svg.replace(/<svg/, `<svg width="${size}" height="${size}"`) }}
-    />
-  )
-}
-
 // ─── QR 다운로드 — 고해상도 PNG (로컬 생성, 외부 의존 0) ─────────
 async function downloadQR(reviewUrl: string, qrName: string) {
   if (!reviewUrl) return
