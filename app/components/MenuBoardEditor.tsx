@@ -5,7 +5,8 @@
 //   · 메뉴 CRUD + 네이버 자동 가져오기 + 다국어 입력
 // ============================================================
 import { useEffect, useState } from 'react'
-import { Plus, Trash2, Edit3, Save, Globe, Download, Image as ImageIcon, Star, Sparkles } from 'lucide-react'
+import { Plus, Trash2, Edit3, Save, Globe, Download, Image as ImageIcon, Star, Sparkles, Bookmark } from 'lucide-react'
+import MenuBookmarkletDialog from './MenuBookmarkletDialog'
 
 type MenuItem = {
   id?: string
@@ -49,6 +50,56 @@ export default function MenuBoardEditor() {
   const [importStatus, setImportStatus] = useState<'idle' | 'queued' | 'running' | 'success' | 'failed'>('idle')
   const [importMessage, setImportMessage] = useState('')
   const [activeLang, setActiveLang] = useState<'ko' | 'en' | 'ja' | 'zh'>('ko')
+
+  // 북마클릿 모드
+  const [showBookmarklet, setShowBookmarklet] = useState(false)
+  const [bmkToken, setBmkToken] = useState<string | null>(null)
+  const [bmkImportId, setBmkImportId] = useState<string | null>(null)
+  const [bmkPolling, setBmkPolling] = useState(false)
+
+  async function startBookmarkletFlow() {
+    setImportErr('')
+    try {
+      const r = await fetch('/api/menu/import-bookmarklet/init', {
+        method: 'POST',
+        credentials: 'include',
+      })
+      const j = await r.json()
+      if (!j.ok) {
+        setImportErr(j.message || j.error || '토큰 생성 실패')
+        return
+      }
+      setBmkToken(j.token)
+      setBmkImportId(j.import_id)
+      setShowBookmarklet(true)
+    } catch (e) {
+      setImportErr('네트워크 오류')
+    }
+  }
+
+  function pollBookmarkletResult() {
+    if (!bmkImportId || bmkPolling) return
+    setBmkPolling(true)
+
+    const startedAt = Date.now()
+    const interval = setInterval(async () => {
+      try {
+        const r = await fetch('/api/menu/import-status?id=' + bmkImportId, { credentials: 'include' })
+        const j = await r.json()
+        if (j.ok && j.status === 'success' && Array.isArray(j.items) && j.items.length > 0) {
+          clearInterval(interval)
+          setBmkPolling(false)
+          setShowBookmarklet(false)
+          setImportPreview(j.items)
+          setShowImport(true)  // 미리보기 모달로
+        }
+        if (Date.now() - startedAt > 30 * 60 * 1000) {  // 30분 후 종료
+          clearInterval(interval)
+          setBmkPolling(false)
+        }
+      } catch (_) {}
+    }, 3000)
+  }
 
   useEffect(() => {
     fetchItems()
@@ -213,11 +264,16 @@ export default function MenuBoardEditor() {
             <p className="text-[11px] text-[#8B95A1]">QR 스캔 → 모바일 메뉴 (다국어 지원)</p>
           </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
+          <button
+            onClick={startBookmarkletFlow}
+            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gradient-to-br from-[#3182F6] to-[#7C3AED] text-white text-xs font-bold hover:opacity-90 shadow-sm">
+            <Bookmark size={12} strokeWidth={2.5} /> 북마클릿으로 가져오기
+          </button>
           <button
             onClick={() => setShowImport(true)}
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#03C75A] text-white text-xs font-bold hover:opacity-90">
-            <Download size={12} strokeWidth={2.5} /> 네이버에서 가져오기
+            <Download size={12} strokeWidth={2.5} /> 워커 자동 (불안정)
           </button>
           <button
             onClick={() => startEdit()}
@@ -444,6 +500,15 @@ export default function MenuBoardEditor() {
           </div>
         </div>
       </div>
+
+      {/* 북마클릿 다이얼로그 */}
+      <MenuBookmarkletDialog
+        open={showBookmarklet}
+        onClose={() => { setShowBookmarklet(false); setBmkPolling(false) }}
+        importId={bmkImportId}
+        token={bmkToken}
+        pollSuccess={pollBookmarkletResult}
+      />
     </div>
   )
 }
