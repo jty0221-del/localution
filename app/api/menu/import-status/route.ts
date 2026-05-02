@@ -31,18 +31,18 @@ export async function GET(req: NextRequest) {
   // 너무 오래 걸리면 (60초 이상 running) timeout 처리
   if (data.status === 'running' || data.status === 'queued') {
     const ageMs = Date.now() - new Date(data.created_at).getTime()
-    if (ageMs > 90_000) {
+    if (ageMs > 120_000) {
       await svc.from('menu_imports').update({
         status: 'failed',
         error_code: 'timeout',
-        error_message: '워커가 90초 안에 응답하지 않았어요. 다시 시도해주세요.',
+        error_message: '워커가 120초 안에 응답하지 않았어요. 다시 시도해주세요.',
         completed_at: new Date().toISOString(),
       }).eq('id', id)
       return NextResponse.json({
         ok: true,
         status: 'failed',
         error_code: 'timeout',
-        error_message: '워커가 90초 안에 응답하지 않았어요. 다시 시도해주세요.',
+        error_message: '워커가 120초 안에 응답하지 않았어요. 다시 시도해주세요.',
       })
     }
   }
