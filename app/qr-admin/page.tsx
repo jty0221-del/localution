@@ -205,6 +205,220 @@ async function copyToClipboard(text: string): Promise<boolean> {
 }
 
 // ─── 메인 ─────────────────────────────────────────────────────────
+// ⭐ 2-C: QR 활동 통계 패널 — DB 기반 실시간 데이터
+function QRStatsPanel() {
+  const [stats, setStats] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
+  const [days, setDays] = useState<7 | 30>(7)
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    fetch(`/api/qr/stats?days=${days}`, { credentials: 'include' })
+      .then(r => r.json())
+      .then(j => { if (!cancelled && j?.ok) setStats(j) })
+      .catch(() => null)
+      .finally(() => { if (!cancelled) setLoading(false) })
+    return () => { cancelled = true }
+  }, [days])
+
+  if (loading) {
+    return <div className="bg-white rounded-2xl p-12 text-center text-sm text-[#8B95A1] shadow-sm">통계 불러오는 중…</div>
+  }
+
+  const counts = stats?.counts || {}
+  const funnel = stats?.funnel || { scan: 0, ai_generated: 0, submitted: 0, scan_to_ai_rate: 0, ai_to_submit_rate: 0, overall_rate: 0 }
+  const daily = stats?.daily || []
+  const recent = stats?.recent || []
+  const devices = stats?.devices || { mobile: 0, tablet: 0, desktop: 0 }
+  const uniqueVisitors = stats?.unique_visitors || 0
+  const totalDevice = (devices.mobile || 0) + (devices.tablet || 0) + (devices.desktop || 0)
+
+  const eventLabel = (e: string) => {
+    if (e === 'scan') return { icon: '👁', txt: 'QR 스캔', color: '#3182F6' }
+    if (e === 'receipt_uploaded') return { icon: '🧾', txt: '영수증 업로드', color: '#F59E0B' }
+    if (e === 'receipt_verified') return { icon: '✅', txt: '영수증 매장 일치', color: '#059669' }
+    if (e === 'photo_uploaded') return { icon: '📸', txt: '사진 업로드', color: '#7C3AED' }
+    if (e === 'ai_generated') return { icon: '✨', txt: 'AI 리뷰 생성', color: '#7C3AED' }
+    if (e === 'submitted_naver') return { icon: '🟢', txt: '네이버 등록', color: '#03C75A' }
+    if (e === 'submitted_google') return { icon: '🔵', txt: '구글 등록', color: '#4285F4' }
+    if (e === 'submitted_kakao') return { icon: '🟡', txt: '카카오 등록', color: '#FEE500' }
+    return { icon: '•', txt: e, color: '#8B95A1' }
+  }
+  const timeAgo = (iso: string) => {
+    const ms = Date.now() - new Date(iso).getTime()
+    if (ms < 60_000) return '방금'
+    if (ms < 3_600_000) return Math.floor(ms / 60_000) + '분 전'
+    if (ms < 86_400_000) return Math.floor(ms / 3_600_000) + '시간 전'
+    return Math.floor(ms / 86_400_000) + '일 전'
+  }
+
+  return (
+    <div className="space-y-5">
+      {/* 기간 선택 */}
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="font-black text-[#191F28]">실시간 QR 활동 통계</h2>
+          <p className="text-xs text-[#8B95A1]">최근 {days}일 — 손님이 QR 스캔 ~ 리뷰 등록까지의 활동</p>
+        </div>
+        <div className="flex gap-1 bg-[#F2F4F6] rounded-xl p-1">
+          {[7, 30].map(d => (
+            <button key={d} onClick={() => setDays(d as 7 | 30)}
+              className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+                days === d ? 'bg-white text-[#3182F6] shadow-sm' : 'text-[#8B95A1]'
+              }`}>{d}일</button>
+          ))}
+        </div>
+      </div>
+
+      {/* 핵심 KPI 카드 */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+        <div className="bg-white rounded-2xl p-4 shadow-sm">
+          <p className="text-[11px] text-[#8B95A1] mb-1">총 스캔</p>
+          <p className="text-2xl font-black text-[#3182F6]">{funnel.scan}</p>
+          <p className="text-[10px] text-[#8B95A1] mt-1">고유 방문자 {uniqueVisitors}명</p>
+        </div>
+        <div className="bg-white rounded-2xl p-4 shadow-sm">
+          <p className="text-[11px] text-[#8B95A1] mb-1">AI 리뷰 생성</p>
+          <p className="text-2xl font-black text-[#7C3AED]">{funnel.ai_generated}</p>
+          <p className="text-[10px] text-[#8B95A1] mt-1">전환율 {funnel.scan_to_ai_rate}%</p>
+        </div>
+        <div className="bg-white rounded-2xl p-4 shadow-sm">
+          <p className="text-[11px] text-[#8B95A1] mb-1">실제 등록</p>
+          <p className="text-2xl font-black text-[#059669]">{funnel.submitted}</p>
+          <p className="text-[10px] text-[#8B95A1] mt-1">전환율 {funnel.ai_to_submit_rate}%</p>
+        </div>
+        <div className="bg-white rounded-2xl p-4 shadow-sm">
+          <p className="text-[11px] text-[#8B95A1] mb-1">전체 전환율</p>
+          <p className="text-2xl font-black text-[#191F28]">{funnel.overall_rate}%</p>
+          <p className="text-[10px] text-[#8B95A1] mt-1">스캔 → 등록</p>
+        </div>
+      </div>
+
+      {/* 퍼널 */}
+      <div className="bg-white rounded-2xl p-5 shadow-sm">
+        <h3 className="font-bold text-[#191F28] mb-4">📊 손님 활동 흐름 (퍼널)</h3>
+        <div className="space-y-2">
+          {[
+            { label: '👁 QR 스캔', value: funnel.scan, max: funnel.scan, color: '#3182F6' },
+            { label: '✨ AI 리뷰 생성', value: funnel.ai_generated, max: funnel.scan, color: '#7C3AED' },
+            { label: '✅ 실제 등록', value: funnel.submitted, max: funnel.scan, color: '#059669' },
+          ].map(s => {
+            const pct = s.max > 0 ? Math.round((s.value / s.max) * 100) : 0
+            return (
+              <div key={s.label} className="flex items-center gap-3">
+                <div className="w-32 text-xs text-[#4E5968] font-medium">{s.label}</div>
+                <div className="flex-1 bg-[#F2F4F6] rounded-full h-6 relative overflow-hidden">
+                  <div
+                    className="h-full rounded-full flex items-center justify-end pr-2 transition-all"
+                    style={{ width: pct + '%', background: s.color, minWidth: s.value > 0 ? '40px' : 0 }}>
+                    {s.value > 0 && <span className="text-[10px] font-bold text-white">{s.value}</span>}
+                  </div>
+                </div>
+                <div className="w-12 text-right text-xs text-[#8B95A1]">{pct}%</div>
+              </div>
+            )
+          })}
+        </div>
+      </div>
+
+      {/* 일별 추이 + 디바이스 */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="md:col-span-2 bg-white rounded-2xl p-5 shadow-sm">
+          <h3 className="font-bold text-[#191F28] mb-4">📅 일별 활동</h3>
+          <div className="flex items-end gap-1 h-32">
+            {daily.map((d: any, i: number) => {
+              const max = Math.max(1, ...daily.map((x: any) => Math.max(x.scan, x.submit, x.ai)))
+              const scanH = (d.scan / max) * 100
+              const aiH = (d.ai / max) * 100
+              const submitH = (d.submit / max) * 100
+              return (
+                <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                  <div className="w-full flex gap-0.5 h-full items-end">
+                    <div className="flex-1 bg-[#3182F6] rounded-t transition-all" style={{ height: scanH + '%', minHeight: d.scan > 0 ? '2px' : 0 }} title={`스캔 ${d.scan}`} />
+                    <div className="flex-1 bg-[#7C3AED] rounded-t transition-all" style={{ height: aiH + '%', minHeight: d.ai > 0 ? '2px' : 0 }} title={`AI ${d.ai}`} />
+                    <div className="flex-1 bg-[#059669] rounded-t transition-all" style={{ height: submitH + '%', minHeight: d.submit > 0 ? '2px' : 0 }} title={`등록 ${d.submit}`} />
+                  </div>
+                  <span className="text-[9px] text-[#8B95A1]">{d.date.slice(5)}</span>
+                </div>
+              )
+            })}
+          </div>
+          <div className="flex gap-3 mt-3 text-[11px]">
+            <span className="flex items-center gap-1"><span className="w-2 h-2 bg-[#3182F6] rounded-sm"/>스캔</span>
+            <span className="flex items-center gap-1"><span className="w-2 h-2 bg-[#7C3AED] rounded-sm"/>AI</span>
+            <span className="flex items-center gap-1"><span className="w-2 h-2 bg-[#059669] rounded-sm"/>등록</span>
+          </div>
+        </div>
+
+        <div className="bg-white rounded-2xl p-5 shadow-sm">
+          <h3 className="font-bold text-[#191F28] mb-4">📱 디바이스</h3>
+          {totalDevice === 0 ? (
+            <p className="text-xs text-[#8B95A1] text-center py-6">아직 데이터 없음</p>
+          ) : (
+            <div className="space-y-3">
+              {[
+                { k: 'mobile', l: '모바일', icon: '📱', color: '#3182F6' },
+                { k: 'tablet', l: '태블릿', icon: '📱', color: '#7C3AED' },
+                { k: 'desktop', l: 'PC', icon: '💻', color: '#059669' },
+              ].map(d => {
+                const v = devices[d.k] || 0
+                const pct = totalDevice > 0 ? Math.round((v / totalDevice) * 100) : 0
+                return (
+                  <div key={d.k}>
+                    <div className="flex justify-between text-xs mb-1">
+                      <span className="text-[#4E5968] font-medium">{d.icon} {d.l}</span>
+                      <span className="text-[#8B95A1]">{v} ({pct}%)</span>
+                    </div>
+                    <div className="h-1.5 bg-[#F2F4F6] rounded-full overflow-hidden">
+                      <div className="h-full rounded-full" style={{ width: pct + '%', background: d.color }} />
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+        </div>
+      </div>
+
+      {/* 최근 활동 타임라인 */}
+      <div className="bg-white rounded-2xl p-5 shadow-sm">
+        <h3 className="font-bold text-[#191F28] mb-4">🕐 최근 활동</h3>
+        {recent.length === 0 ? (
+          <p className="text-sm text-[#8B95A1] text-center py-6">최근 {days}일 동안 활동이 없어요. QR 코드를 매장에 비치해 보세요.</p>
+        ) : (
+          <div className="space-y-2 max-h-80 overflow-y-auto">
+            {recent.map((r: any, i: number) => {
+              const lbl = eventLabel(r.event_type)
+              return (
+                <div key={i} className="flex items-center gap-3 py-2 border-b border-[#F2F4F6] last:border-0">
+                  <span className="text-base flex-shrink-0">{lbl.icon}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-[#191F28]">{lbl.txt}</p>
+                    {r.meta && Object.keys(r.meta).length > 0 && (
+                      <p className="text-[11px] text-[#8B95A1] truncate">
+                        {r.meta.items_count !== undefined && `메뉴 ${r.meta.items_count}개 · `}
+                        {r.meta.tone && `${r.meta.tone} 말투 · `}
+                        {r.meta.char_count && `${r.meta.char_count}자 · `}
+                        {r.meta.has_receipt && '영수증 ✓ '}
+                        {r.meta.has_photo && '사진 ✓'}
+                      </p>
+                    )}
+                  </div>
+                  <div className="flex flex-col items-end">
+                    <span className="text-[11px] text-[#8B95A1]">{timeAgo(r.created_at)}</span>
+                    {r.device_kind && <span className="text-[10px] text-[#C9CDD2]">{r.device_kind}</span>}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 export default function QRAdmin() {
   const [activeTab, setActiveTab]   = useState<'settings' | 'list' | 'stats'>('settings')
   const [settings, setSettings]     = useState<QRSettings>(DEFAULT_SETTINGS)
@@ -841,21 +1055,11 @@ export default function QRAdmin() {
           </div>
         )}
 
-        {/* ── 성과 리포트 탭 ── */}
+        {/* ── 성과 리포트 탭 (2-C: 실제 DB 통계) ── */}
         {activeTab === 'stats' && (
           <div className="space-y-6">
-            <div className="bg-gradient-to-br from-[#FFFBEB] to-[#FEF3C7] rounded-2xl p-6 border border-[#FDE68A]">
-              <div className="flex items-start gap-3">
-                <span className="text-2xl flex-shrink-0">📊</span>
-                <div>
-                  <h3 className="font-bold text-[#191F28] mb-1">실시간 스캔 트래킹 준비 중</h3>
-                  <p className="text-sm text-[#78350F] leading-relaxed">
-                    실제 QR 스캔 수 트래킹 기능은 곧 업데이트 예정입니다.
-                    현재는 QR 코드 생성 및 링크 설정에 집중해주세요.
-                  </p>
-                </div>
-              </div>
-            </div>
+            <QRStatsPanel />
+            <div className="hidden">{/* placeholder — 이전 안내 카드 자리 */}</div>
 
             <div className="bg-white rounded-2xl p-6 shadow-sm">
               <h3 className="font-bold text-[#191F28] mb-5">📱 QR 코드 현황</h3>
