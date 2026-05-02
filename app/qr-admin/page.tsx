@@ -6,6 +6,7 @@ import { useState, useEffect } from 'react'
 import Sidebar from '../components/Sidebar'
 import Footer from '../components/Footer'
 import AffiliateAdSlots from '../components/AffiliateAdSlots'
+import QRReportPanel from '../components/QRReportPanel'
 import { QrCode, CheckCircle2, Sparkles } from 'lucide-react'
 
 const LS_QR_SETTINGS = 'localution.qr_settings'
@@ -423,7 +424,7 @@ function QRStatsPanel() {
 }
 
 export default function QRAdmin() {
-  const [activeTab, setActiveTab]   = useState<'settings' | 'stats'>('settings')
+  const [activeTab, setActiveTab]   = useState<'settings' | 'stats' | 'report'>('settings')
   const [settings, setSettings]     = useState<QRSettings>(DEFAULT_SETTINGS)
   const [storeInfo, setStoreInfo]   = useState<StoreInfo>(DEFAULT_STORE)
   const [storeEdit, setStoreEdit]   = useState(false)
@@ -671,9 +672,10 @@ export default function QRAdmin() {
               {[
                 { key: 'settings', label: '업체 설정' },
                 { key: 'stats',    label: '성과 리포트' },
+                { key: 'report',   label: '분석 리포트' },
               ].map(tab => (
                 <button key={tab.key}
-                  onClick={() => setActiveTab(tab.key as 'settings' | 'stats')}
+                  onClick={() => setActiveTab(tab.key as 'settings' | 'stats' | 'report')}
                   className={`flex-shrink-0 md:flex-1 min-w-fit py-2 px-3 rounded-xl text-sm font-semibold transition-colors whitespace-nowrap ${
                     activeTab === tab.key
                       ? 'bg-[#3182F6] text-white shadow-sm'
@@ -1038,6 +1040,15 @@ export default function QRAdmin() {
         )}
         {/* 광고: QR 인쇄물 추천 (네이버 쇼핑 커넥트) — stats 탭 하단 */}
         {activeTab === 'stats' && <AffiliateAdSlots />}
+
+        {/* ── 분석 리포트 탭 (2-F: recharts 인포그래픽 + PDF 저장) ── */}
+        {activeTab === 'report' && (
+          <div className="space-y-6">
+            <QRReportPanel storeName={storeInfo.name} />
+          </div>
+        )}
+        {/* 광고: QR 인쇄물 추천 (네이버 쇼핑 커넥트) — report 탭 하단 */}
+        {activeTab === 'report' && <AffiliateAdSlots />}
 
           </div>
         </main>
