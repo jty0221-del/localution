@@ -513,9 +513,22 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
       setDraftText('')
 
       // 90초 후 자동 재수집 — 실제 네이버 등록 상태 확인 (GraphQL hasOwnerReply 정확히 반영)
+      // 모바일에서 페이지 떠나도 다시 돌아왔을 때 visibility change 시 fetch
       setTimeout(() => {
-        collectNow().catch(() => null)
+        if (document.visibilityState === 'visible') {
+          collectNow().catch(() => null)
+        }
       }, 90000)
+      // 모바일 대응: 페이지 visibility 복귀 시 자동 fetch (페이지 백그라운드 후 재진입)
+      const onVisibility = () => {
+        if (document.visibilityState === 'visible') {
+          collectNow().catch(() => null)
+          document.removeEventListener('visibilitychange', onVisibility)
+        }
+      }
+      document.addEventListener('visibilitychange', onVisibility)
+      // 5분 후 cleanup
+      setTimeout(() => document.removeEventListener('visibilitychange', onVisibility), 5 * 60 * 1000)
     } catch (e: any) {
       toast.error('발행 오류: ' + (e?.message || e))
     } finally {
