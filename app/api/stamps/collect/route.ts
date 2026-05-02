@@ -125,6 +125,41 @@ export async function POST(req: NextRequest) {
     })
   } catch (_) {}
 
+  // 6) /customers CRM 자동 동기화 — 사장님 user_id 매칭
+  // · 신규 손님: customers insert (단골 태그)
+  // · 기존 손님: visits_count 증분 + last_visit_at 갱신
+  try {
+    if (card.user_id && phone) {
+      const { data: existingCustomer } = await svc
+        .from('customers')
+        .select('id, visits_count, tags')
+        .eq('user_id', card.user_id)
+        .eq('phone', phone)
+        .maybeSingle()
+
+      if (existingCustomer) {
+        const tags = existingCustomer.tags || []
+        if (!tags.includes('단골')) tags.push('단골')
+        await svc.from('customers').update({
+          visits_count: (existingCustomer.visits_count || 0) + 1,
+          last_visit_at: new Date().toISOString(),
+          tags,
+          name: name || undefined,
+        }).eq('id', existingCustomer.id)
+      } else {
+        await svc.from('customers').insert({
+          user_id: card.user_id,
+          name: name || ('손님 ' + phone.slice(-4)),
+          phone,
+          memo: '스탬프 카드 자동 등록',
+          tags: ['단골'],
+          visits_count: 1,
+          last_visit_at: new Date().toISOString(),
+        })
+      }
+    }
+  } catch (_) {}
+
   // 6) 응답
   const { data: updated } = await svc
     .from('stamp_collections')
