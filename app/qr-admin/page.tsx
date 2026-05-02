@@ -26,6 +26,10 @@ interface StoreInfo {
   // 네이버 연동 시 추가 정보
   naverPlaceId?: string       // internal SmartPlace placeId (10441797 같은)
   naverExternalPlaceId?: string  // external m.place.naver.com placeId (1137287126 같은)
+  // ⭐ 2-A: stores 테이블의 unique slug — QR URL 식별자
+  // 사장님이 정보 변경해도 slug 는 유지 → QR 인쇄물 그대로 사용 가능
+  slug?: string
+  storeId?: string  // stores.id (uuid) — 백엔드 조회용
 }
 
 interface QRCode {
@@ -59,17 +63,28 @@ const PURPOSE_OPTIONS = [
   { value: 'sns',    label: 'SNS 팔로우',  icon: '📸', desc: '인스타·카카오 연결' },
 ]
 
-// ─── 리뷰 URL 생성 ────────────────────────────────────────────────
-// /review/[storeId] 쿼리 파라미터 규격: n=상호명 / t=업종 / a=지역 / naver=URL
+// ─── 리뷰 URL 생성 (2-A: stores.slug 기반) ────────────────────────
+// 우선순위:
+//   1) store.slug (DB unique slug — 사장님 정보 변경해도 URL 유지) — 권장
+//   2) fallback: 매장명 slug + 쿼리 파라미터 (DB 미등록 사용자 호환)
 function generateReviewUrl(store: StoreInfo): string {
   const name = store.name.trim()
   if (!name) return ''
+
+  // ⭐ stores.slug 가 있으면 깔끔한 URL: /review/{slug}
+  // 손님 페이지가 진입 시 /api/qr/store/{slug} 로 매장 정보 조회
+  // → 사장님이 정보 변경해도 자동 반영 (QR 인쇄물 그대로 사용 가능)
+  if (store.slug) {
+    return `${BASE_URL}/review/${encodeURIComponent(store.slug)}`
+  }
+
+  // Fallback: stores 등록 안 된 사용자 — 쿼리 파라미터로 정보 전달 (legacy)
   const slug = name.replace(/\s+/g, '-')
   const params = new URLSearchParams()
   params.set('n', name)
   if (store.category) params.set('t', store.category)
-  if (store.location)  params.set('a', store.location)
-  if (store.naverUrl)  params.set('naver', store.naverUrl.trim())
+  if (store.location) params.set('a', store.location)
+  if (store.naverUrl) params.set('naver', store.naverUrl.trim())
   return `${BASE_URL}/review/${encodeURIComponent(slug)}?${params.toString()}`
 }
 
@@ -251,6 +266,9 @@ export default function QRAdmin() {
           source: 'naver_synced',
           naverPlaceId: store.naver_place_id || '',
           naverExternalPlaceId: externalId,
+          // ⭐ 2-A: stores.slug + id — QR URL 식별자
+          slug:    store.slug || '',
+          storeId: store.id   || '',
         }
         setStoreInfo(synced)
         // localStorage 도 sync (오프라인 캐시)
@@ -296,6 +314,9 @@ export default function QRAdmin() {
         setStoreSaving(false)
         return
       }
+      // 2-A: 응답의 slug + id 를 next 에 반영 → QR URL 즉시 정상 생성
+      if (data.store?.slug) next.slug = data.store.slug
+      if (data.store?.id)   next.storeId = data.store.id
     } catch (e: any) {
       setStoreSaveErr(e?.message || '저장 실패')
       setStoreSaving(false)
