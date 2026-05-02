@@ -9,7 +9,7 @@ import { Queue, QueueOptions } from 'bullmq'
 import IORedis from 'ioredis'
 
 export type Platform = 'naver_place' | 'baemin' | 'yogiyo' | 'coupangeats' | 'kakao_map'
-export type Action = 'fetch_reviews' | 'post_reply' | 'fetch_rank' | 'health_check'
+export type Action = 'fetch_reviews' | 'post_reply' | 'fetch_rank' | 'health_check' | 'fetch_menu'
 
 export interface PlatformJobData {
   platform: Platform
