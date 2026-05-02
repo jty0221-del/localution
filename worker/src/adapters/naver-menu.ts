@@ -370,26 +370,35 @@ export async function runNaverMenu(
         log.info({ url: page.url() }, 'naver-menu: after menu click')
       }
 
-      // 메뉴 캡처 안 됐으면 — bookingBusinessId 기반 URL 들 시도 (SNB 데이터에서 발견된 패턴)
+      // 메뉴 캡처 안 됐으면 — #edit_price 해시 포함 URL 우선 + 폴백
       if (capturedMenus.length === 0 && bookingBusinessId) {
         const bookingUrls = [
+          // 사용자 제공 URL — #edit_price 해시로 메뉴 편집 모달 자동 활성
+          `${SMARTPLACE_BASE}/bizes/place/${placeId}/details?bookingBusinessId=${bookingBusinessId}&menu=price#edit_price`,
           `${SMARTPLACE_BASE}/bizes/${bookingBusinessId}/menu`,
           `${SMARTPLACE_BASE}/bizes/${bookingBusinessId}/menu/list`,
           `${SMARTPLACE_BASE}/bizes/${bookingBusinessId}/booking-list-view`,
           `${SMARTPLACE_BASE}/bizes/${bookingBusinessId}/booking-list-view/menu`,
           `${SMARTPLACE_BASE}/bizes/place/${placeId}/menu`,
-          `${SMARTPLACE_BASE}/bizes/place/${placeId}/menus`,
-          `${SMARTPLACE_BASE}/bizes/place/${placeId}/details?bookingBusinessId=${bookingBusinessId}&menu=price`,
         ]
         for (const u of bookingUrls) {
           if (capturedMenus.length > 0) break
           try {
             await page.goto(u, { waitUntil: 'domcontentloaded', timeout: 20000 })
-            await page.waitForTimeout(8000)
+            await page.waitForTimeout(5000)
+            // 해시 명시적 트리거 (React Router hashchange 이벤트)
+            if (u.includes('#')) {
+              try {
+                await page.evaluate((hash) => {
+                  if (window.location.hash !== hash) window.location.hash = hash
+                  window.dispatchEvent(new HashChangeEvent('hashchange'))
+                }, u.split('#')[1] ? '#' + u.split('#')[1] : '')
+                await page.waitForTimeout(3000)
+              } catch (_) {}
+            }
             const bodyLen = await page.evaluate(() => document.body?.innerText?.length || 0).catch(() => 0)
             const finalU = page.url()
             log.info({ tryUrl: u, finalUrl: finalU, bodyLen, captured: capturedMenus.length }, 'naver-menu: booking URL')
-            // 리다이렉트 안 됐고 본문이 풍부하면 추가 대기
             if (bodyLen > 1000 && finalU.includes(bookingBusinessId)) {
               await page.waitForTimeout(5000)
             }
