@@ -13,7 +13,7 @@ import { dumpPageDiagnostics, startNetworkCapture, detectLoginFailure } from '..
 import { handleNaverCaptcha, solveCaptcha } from '../lib/captcha'
 import type { JobResult, Action } from '../jobs'
 
-const NAVER_CODE_VERSION = 'v6-verify-reply-20260502'
+const NAVER_CODE_VERSION = 'v22-deviceAdd-dump-formAware-skip-20260502'
 
 const LOGIN_URL = 'https://nid.naver.com/nidlogin.login'
 const NEW_SMARTPLACE_BASE = 'https://new.smartplace.naver.com'
@@ -335,75 +335,123 @@ export async function runNaver(
       await page.waitForURL(url => !String(url).includes('nidlogin.login'), { timeout: 20000 }).catch(() => null)
       await page.waitForTimeout(1500)
 
-      // 37차-17: "새로운 기기 등록" 페이지 자동 통과 (강화 v18)
-      // 네이버가 새 IP/Browser 감지 시 등록 안내 페이지 보여줌 → "등록안함" 클릭하여 통과
-      // navigation 대기 추가 + 모든 selector + form submit + URL 변화 검증
+      // 37차-22: "새로운 기기 등록" 페이지 자동 통과 (v22 — DUMP + form-aware submit + skip-navigate)
+      // v22 MARKER: deviceAdd-v22-dump-formAware-skip-20260502
+      // 1) 페이지 전체 dump (form action, hidden inputs, 모든 button/a 텍스트)
+      // 2) 우선순위: don'tSaveId / cancel / 등록안함 텍스트 → 이후 마지막 버튼 → form submit
+      // 3) 클릭 후 navigation 대기, 그래도 deviceAdd 면 직접 SmartPlace 메인으로 navigate (skip)
       try {
+        const pgUrl0 = page.url()
         const pageBody = await page.evaluate(() => document.body?.innerText || '').catch(() => '')
-        if (pageBody.includes('새로운 기기') || pageBody.includes('자주 사용하는 기기') || pageBody.includes('기기를 등록')) {
-          log.info({ bodyPreview: pageBody.slice(0, 200) }, 'naver: 새로운 기기 등록 페이지 감지')
+        const isDevicePage0 = pageBody.includes('새로운 기기') || pageBody.includes('자주 사용하는 기기') ||
+                              pageBody.includes('기기를 등록') || pgUrl0.includes('deviceAdd') || pgUrl0.includes('deviceConfirm')
+        if (isDevicePage0) {
+          // 전체 dump (정확한 selector 진단용)
+          const dump = await page.evaluate(() => {
+            const out: any = { buttons: [], links: [], forms: [], hiddens: [] }
+            document.querySelectorAll('button, input[type="submit"], input[type="button"]').forEach((b: any) => {
+              out.buttons.push({
+                text: (b.innerText || b.value || b.textContent || '').trim().slice(0, 40),
+                id: b.id || '', cls: (b.className || '').slice(0, 80),
+                name: b.name || '', value: (b.value || '').slice(0, 40), type: b.type || '',
+              })
+            })
+            document.querySelectorAll('a').forEach((a: any) => {
+              const t = (a.innerText || '').trim()
+              if (t.length > 0 && t.length < 30) out.links.push({ text: t.slice(0, 40), href: (a.href || '').slice(-80) })
+            })
+            document.querySelectorAll('form').forEach((f: any) => {
+              out.forms.push({ id: f.id || '', action: (f.action || '').slice(-100), method: f.method || '' })
+            })
+            document.querySelectorAll('input[type="hidden"]').forEach((h: any) => {
+              out.hiddens.push({ name: h.name || '', value: (h.value || '').slice(0, 40) })
+            })
+            return out
+          }).catch(() => ({ buttons: [], links: [], forms: [], hiddens: [] }))
+          log.info({ url: pgUrl0.slice(0, 100), dump }, 'naver: v22 deviceAdd DUMP')
 
-          // 모든 가능한 selector + 텍스트 매칭으로 등록안함 버튼 클릭 + navigation 대기
-          const clickResult = await Promise.all([
-            page.waitForNavigation({ timeout: 12000 }).catch(() => null),
-            page.evaluate(() => {
-              // 1) 텍스트 기반 검색
-              const els = Array.from(document.querySelectorAll('button, a, input[type="button"], input[type="submit"], [role="button"]'))
-              for (const el of els) {
-                const t = ((el as any).innerText || (el as any).value || (el as any).textContent || '').trim()
-                if (t === '등록안함' || t === '등록 안함' || t.includes('등록안함') || t.includes('등록 안 함') || t === '안함') {
-                  (el as HTMLElement).click()
-                  return { clicked: true, by: 'text', text: t }
-                }
-              }
-              // 2) name/id 기반 검색
-              const byAttr = document.querySelector('[name*="dont"], [id*="dont"], [name="register"][value="N"], [name="action"][value="don\'tRegister"]') as HTMLElement | null
-              if (byAttr) { byAttr.click(); return { clicked: true, by: 'attr' } }
-              // 3) form action에 'register' 또는 'deviceConfirm' 있으면 직접 form submit (등록 안 함은 보통 cancel/skip URL)
-              const forms = Array.from(document.querySelectorAll('form'))
-              for (const f of forms) {
-                const action = (f as HTMLFormElement).action || ''
-                if (action.includes('deviceConfirm') || action.includes('register')) {
-                  // form 안의 두 번째 button (등록안함이 보통 두 번째)
-                  const fbtns = Array.from(f.querySelectorAll('button, input[type="submit"]'))
-                  if (fbtns.length >= 2) {
-                    (fbtns[fbtns.length - 1] as HTMLElement).click()  // 마지막 버튼 (등록안함)
-                    return { clicked: true, by: 'form-last-btn' }
-                  }
-                }
-              }
-              return { clicked: false }
-            }).catch(() => ({ clicked: false })),
-          ])
-          log.info({ clickResult: clickResult[1] }, 'naver: 등록안함 클릭 시도 결과')
-
-          // 추가 대기 + URL/body 안정화
-          await page.waitForTimeout(5000)
-          await page.waitForLoadState('domcontentloaded').catch(() => null)
-          const afterDeviceUrl = page.url()
-          log.info({ afterDeviceUrl }, 'naver: after device-confirm URL')
-
-          // 그래도 deviceConfirm 페이지면 한번 더 시도
-          if (afterDeviceUrl.includes('deviceConfirm') || afterDeviceUrl.includes('nidlogin')) {
-            const stillBody = await page.evaluate(() => document.body?.innerText || '').catch(() => '')
-            if (stillBody.includes('새로운 기기') || stillBody.includes('등록안함')) {
-              log.warn('naver: 여전히 새 기기 등록 페이지 — 한번 더 클릭 시도')
-              await page.evaluate(() => {
-                const els = Array.from(document.querySelectorAll('button, a, input'))
-                for (const el of els) {
-                  const t = ((el as any).innerText || (el as any).value || '').trim()
-                  if (t === '등록안함' || t === '등록 안함' || t === '안함' || t === 'No' || t === '취소') {
-                    (el as HTMLElement).click()
-                    return
-                  }
-                }
-              }).catch(() => null)
-              await page.waitForTimeout(3000)
+          // 우선순위 매칭으로 click — 등록안함/취소/skip 후보 광범위
+          const clickResult = await page.evaluate(() => {
+            const all = Array.from(document.querySelectorAll('button, a, input[type="button"], input[type="submit"], [role="button"]'))
+            const candidates: Array<{ text: string; cls: string; id: string; name: string }> = []
+            // 후보 수집
+            for (const el of all) {
+              candidates.push({
+                text: ((el as any).innerText || (el as any).value || (el as any).textContent || '').trim().slice(0, 30),
+                cls: ((el as any).className || '').slice(0, 80),
+                id: (el as any).id || '',
+                name: (el as any).name || '',
+              })
             }
+            // 1순위: text 정확/포함 매칭
+            for (const el of all) {
+              const t = ((el as any).innerText || (el as any).value || (el as any).textContent || '').trim()
+              if (t === '등록 안 함' || t === '등록안함' || t === '등록 안함' || t === '안함' ||
+                  t.includes('등록 안 함') || t.includes('등록안함') || t.includes('나중에') || t.includes('건너뛰기') ||
+                  t === '취소' || t === '아니요' || t === 'No' || t === 'Cancel' || t === 'Skip' ||
+                  t.toLowerCase() === "don't save" || t.toLowerCase().includes("don't")) {
+                (el as HTMLElement).click()
+                return { clicked: true, by: 'text-priority', text: t, candidates: candidates.slice(0, 30) }
+              }
+            }
+            // 2순위: name/id 속성 매칭
+            for (const el of all) {
+              const nm = ((el as any).name || '').toLowerCase()
+              const id = ((el as any).id || '').toLowerCase()
+              const cls = ((el as any).className || '').toLowerCase()
+              if (nm.includes('dont') || nm.includes('cancel') || nm.includes('skip') ||
+                  id.includes('dont') || id.includes('cancel') || id.includes('skip') ||
+                  cls.includes('btn_cancel') || cls.includes('btn_no') || cls.includes('btn_skip')) {
+                (el as HTMLElement).click()
+                return { clicked: true, by: 'attr', name: nm, id, cls, candidates: candidates.slice(0, 30) }
+              }
+            }
+            // 3순위: form 안 마지막 submit (보통 등록안함이 두 번째 = 마지막)
+            const forms = Array.from(document.querySelectorAll('form'))
+            for (const f of forms) {
+              const action = ((f as HTMLFormElement).action || '').toLowerCase()
+              if (action.includes('device') || action.includes('register') || action.includes('login')) {
+                const fbtns = Array.from(f.querySelectorAll('button, input[type="submit"]'))
+                if (fbtns.length >= 2) {
+                  (fbtns[fbtns.length - 1] as HTMLElement).click()
+                  return { clicked: true, by: 'form-last-submit', actionEnd: action.slice(-60), candidates: candidates.slice(0, 30) }
+                }
+                if (fbtns.length === 1) {
+                  // 단일 submit이면 그것을 클릭 (취소 단일 버튼 케이스)
+                  (fbtns[0] as HTMLElement).click()
+                  return { clicked: true, by: 'form-only-submit', actionEnd: action.slice(-60), candidates: candidates.slice(0, 30) }
+                }
+              }
+            }
+            return { clicked: false, candidates: candidates.slice(0, 30) }
+          }).catch((e: any) => ({ clicked: false, err: e?.message, candidates: [] }))
+          log.info({ clickResult }, 'naver: v22 deviceAdd click 시도 결과')
+
+          // navigation 대기
+          if (clickResult.clicked) {
+            await Promise.race([
+              page.waitForURL(u => !String(u).includes('deviceAdd') && !String(u).includes('deviceConfirm'), { timeout: 12000 }).catch(() => null),
+              page.waitForTimeout(5000),
+            ])
+          } else {
+            await page.waitForTimeout(2500)
+          }
+
+          // 여전히 deviceAdd → SmartPlace 직접 이동 (NID_AUT 쿠키가 셋된 상태면 통과)
+          const stillUrl = page.url()
+          log.info({ stillUrl: stillUrl.slice(0, 100) }, 'naver: v22 deviceAdd post-click URL')
+          if (stillUrl.includes('deviceAdd') || stillUrl.includes('deviceConfirm')) {
+            log.warn('naver: v22 여전히 deviceAdd → SmartPlace 직접 navigate (skip)')
+            const skipTarget = bizId && bizId !== 'unknown'
+              ? `${NEW_SMARTPLACE_BASE}/bizes/place/${bizId}`
+              : `${NEW_SMARTPLACE_BASE}/bizes`
+            await page.goto(skipTarget, { waitUntil: 'domcontentloaded', timeout: 20000 }).catch(() => null)
+            await page.waitForTimeout(2500)
+            log.info({ afterSkipUrl: page.url().slice(0, 100) }, 'naver: v22 SmartPlace navigate 결과')
           }
         }
       } catch (e: any) {
-        log.warn({ err: e?.message }, 'naver: 새 기기 등록 페이지 처리 실패 (계속 진행)')
+        log.warn({ err: e?.message }, 'naver: v22 deviceAdd 처리 exception')
       }
 
       const urlAfterLogin = page.url()
