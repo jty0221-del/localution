@@ -21,10 +21,10 @@ RUN npm install --omit=optional --no-audit --no-fund \
 COPY worker/tsconfig.json ./
 
 # build-marker: COPY src 앞에 위치 — 이 줄 변경 시 이후 레이어 전체 캐시 무효화
-RUN echo "build-marker: 51cha-1 no-dateWindowTest-size5-800ms-delay-akamai-rate-fix"
+RUN echo "build-marker: v25-postCAPTCHA-register-priority-20260502T1500-RAILWAY"
 
 COPY worker/src ./src
-RUN npx tsc
+RUN rm -rf /app/dist && npx tsc && grep -c "v25-postCAPTCHA-register-priority-20260502" /app/dist/adapters/naver.js
 
 ENV NODE_ENV=production
 ENV PORT=3000
