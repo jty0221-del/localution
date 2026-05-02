@@ -158,6 +158,66 @@ function timeAgo(iso: string | null): string {
   return d.toLocaleDateString('ko-KR')
 }
 
+// ─── 사용자 친화적 에러 메시지 변환 ───
+// 워커가 보내는 기술적 에러를 사장님이 이해할 수 있는 메시지로 변환
+// 기술 정보 (placeId, NID_AUT, GraphQL 등) 노출 금지
+type FriendlyError = { msg: string; action: 'retry' | 'reconnect' | 'wait' | 'support' }
+function makeFriendlyError(raw: string | null | undefined): FriendlyError {
+  const e = String(raw || '').toLowerCase()
+  // 비밀번호 변경
+  if (e.includes('비밀번호') && (e.includes('잘못') || e.includes('변경') || e.includes('credentials_invalid')) ||
+      e.includes('password')) {
+    return {
+      msg: '네이버 비밀번호가 변경된 것 같아요. 매장 연결을 다시 해주세요.',
+      action: 'reconnect',
+    }
+  }
+  // 계정 잠금 / 보안조치
+  if (e.includes('보안조치') || e.includes('차단') || e.includes('account_locked') ||
+      e.includes('해외') || e.includes('locked')) {
+    return {
+      msg: '네이버 계정에 일시 보안조치가 적용되어 있어요. 시크릿 모드로 직접 로그인해 본인 인증을 완료해주세요.',
+      action: 'wait',
+    }
+  }
+  // 프록시 / 인프라
+  if (e.includes('프록시') || e.includes('proxy') || e.includes('402') || e.includes('407')) {
+    return {
+      msg: '잠시 시스템 점검 중이에요. 잠시 후 자동으로 다시 시도할게요.',
+      action: 'wait',
+    }
+  }
+  // CAPTCHA
+  if (e.includes('captcha') || e.includes('자동입력') || e.includes('영수증')) {
+    return {
+      msg: 'CAPTCHA 풀이가 어려워서 잠시 후 자동으로 다시 시도할게요.',
+      action: 'retry',
+    }
+  }
+  // 권한 / placeId / forbidden — 일반화
+  if (e.includes('권한') || e.includes('forbidden') || e.includes('owner') ||
+      e.includes('placeid') || e.includes('nid_aut') || e.includes('smartplace')) {
+    return {
+      msg: '네이버 사장님센터가 잠시 답글 등록을 막은 것 같아요. 잠시 후 자동으로 다시 시도하거나, 매장 연결을 다시 해주세요.',
+      action: 'reconnect',
+    }
+  }
+  // 매핑 / GraphQL / 기술 메시지
+  if (e.includes('graphql') || e.includes('reviewid') || e.includes('mapping') ||
+      e.includes('mutation') || e.includes('null') || e.includes('undefined') ||
+      e.includes('http')) {
+    return {
+      msg: '잠시 등록이 지연되고 있어요. 잠시 후 자동으로 다시 시도할게요.',
+      action: 'retry',
+    }
+  }
+  // 미지정 폴백
+  return {
+    msg: '답글 등록이 지연되고 있어요. 잠시 후 자동으로 다시 시도할게요.',
+    action: 'retry',
+  }
+}
+
 function StatusBadge({ status }: { status: ReplyStatus }) {
   if (status === 'none') return null
   const map: Record<ReplyStatus, { label: string; bg: string; fg: string }> = {
@@ -1200,15 +1260,31 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
                                     ✅ 이미 {config.label}에 답글이 달린 리뷰예요. 자동 발행은 비활성화됩니다.
                                   </p>
                                 )}
-                                {review.replyStatus === 'failed' && review.replyError && !review.hasReply && (
-                                  <p className="text-[11px] mt-2 text-[#DC2626] bg-[#FEE2E2] rounded-lg px-2 py-1.5">
-                                    ❌ 등록 실패: {review.replyError}
-                                    {config.reviewAdminUrl && (
-                                      <a href={config.reviewAdminUrl} target="_blank" rel="noopener noreferrer"
-                                        className="ml-2 underline">직접 등록 →</a>
-                                    )}
-                                  </p>
-                                )}
+                                {review.replyStatus === 'failed' && review.replyError && !review.hasReply && (() => {
+                                  const fe = makeFriendlyError(review.replyError)
+                                  return (
+                                    <div className="mt-2 rounded-lg px-3 py-2 bg-[#FFF7ED] border border-[#FED7AA]">
+                                      <p className="text-[12px] text-[#9A3412] leading-relaxed">
+                                        ⏳ {fe.msg}
+                                      </p>
+                                      <div className="mt-1.5 flex gap-2 flex-wrap">
+                                        {fe.action === 'reconnect' && noCredentialsHref && (
+                                          <Link
+                                            href={noCredentialsHref}
+                                            className="text-[11px] px-2 py-1 rounded font-bold text-white bg-[#F97316] hover:bg-[#EA580C]"
+                                          >매장 다시 연결 →</Link>
+                                        )}
+                                        {config.reviewAdminUrl && (
+                                          <a
+                                            href={config.reviewAdminUrl}
+                                            target="_blank" rel="noopener noreferrer"
+                                            className="text-[11px] px-2 py-1 rounded text-[#9A3412] underline"
+                                          >직접 등록하기 ↗</a>
+                                        )}
+                                      </div>
+                                    </div>
+                                  )
+                                })()}
                                 {noCredentialsHref && (
                                   <div className="mt-2 flex items-center gap-2 bg-[#FFF7ED] border border-[#FED7AA] rounded-lg px-3 py-2">
                                     <span className="text-xs text-[#92400E] flex-1">🔗 자동 발행하려면 {config.label} 계정을 연결해주세요</span>
