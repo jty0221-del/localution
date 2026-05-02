@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic'
 import { useState, useEffect } from 'react'
 import Sidebar from '../components/Sidebar'
 import Footer from '../components/Footer'
+import AffiliateAdSlots from '../components/AffiliateAdSlots'
 import { QrCode, CheckCircle2, Sparkles } from 'lucide-react'
 
 const LS_QR_SETTINGS = 'localution.qr_settings'
@@ -971,6 +972,8 @@ export default function QRAdmin() {
             </div>
           </div>
         )}
+        {/* 광고: QR 인쇄물 추천 (네이버 쇼핑 커넥트) — settings 탭 하단 */}
+        {activeTab === 'settings' && <AffiliateAdSlots />}
 
         {/* ── 성과 리포트 탭 (2-C: 실제 DB 통계) ── */}
         {activeTab === 'stats' && (
@@ -1033,6 +1036,8 @@ export default function QRAdmin() {
             </div>
           </div>
         )}
+        {/* 광고: QR 인쇄물 추천 (네이버 쇼핑 커넥트) — stats 탭 하단 */}
+        {activeTab === 'stats' && <AffiliateAdSlots />}
 
           </div>
         </main>
