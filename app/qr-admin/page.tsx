@@ -901,7 +901,9 @@ export default function QRAdmin() {
                   </div>
 
                   <div className="flex flex-col items-center gap-3">
-                    <div className="p-5 bg-white border-2 border-[#191F28] rounded-2xl shadow-md">
+                    <div
+                      className="bg-white border-2 border-[#191F28] rounded-2xl shadow-md flex-shrink-0 flex items-center justify-center"
+                      style={{ width: 280, height: 280 }}>
                       <QRImage url={previewReviewUrl} size={240} />
                     </div>
                     <p className="text-[11px] text-[#4E5968] text-center leading-relaxed max-w-[280px]">
