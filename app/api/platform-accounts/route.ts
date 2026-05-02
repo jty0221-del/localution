@@ -189,14 +189,19 @@ export async function POST(req: NextRequest) {
       if (existing?.id) {
         await svc.from('stores').update(payload).eq('id', existing.id)
       } else {
-        // slug 없으면 간단히 생성
-        const slug = storeName
+        // 37차-15: stores.slug 가 user_id 무관 unique → user_id 8자 suffix로 충돌 방지
+        const slugBase = storeName
           .toLowerCase()
           .replace(/[^a-z0-9가-힣]+/g, '-')
-          .replace(/^-+|-+$/g, '') || `store-${Date.now()}`
-        payload.slug = slug
+          .replace(/^-+|-+$/g, '') || 'store'
+        payload.slug = slugBase + '-' + auth.userId.slice(0, 8)
         payload.created_at = new Date().toISOString()
-        await svc.from('stores').insert(payload)
+        const { error: insErr } = await svc.from('stores').insert(payload)
+        if (insErr && String(insErr.message || '').includes('duplicate')) {
+          // 충돌 시 timestamp 추가 재시도
+          payload.slug = slugBase + '-' + auth.userId.slice(0, 8) + '-' + Date.now().toString(36)
+          await svc.from('stores').insert(payload)
+        }
       }
     }
   } catch (e) {
@@ -340,14 +345,23 @@ export async function PATCH(req: NextRequest) {
     if (existing?.id) {
       await svc.from('stores').update(storePayload).eq('id', existing.id)
     } else if (body.platform_store_name) {
-      const slug = (body.platform_store_name || '')
-        .toLowerCase().replace(/[^a-z0-9가-힣]+/g, '-').replace(/^-+|-+$/g, '') || ('store-' + Date.now())
-      await svc.from('stores').insert({
+      // 37차-15: stores.slug 가 user_id 무관 unique → user_id 8자 suffix로 충돌 방지
+      const slugBase = (body.platform_store_name || '')
+        .toLowerCase().replace(/[^a-z0-9가-힣]+/g, '-').replace(/^-+|-+$/g, '') || 'store'
+      const slug = slugBase + '-' + auth.userId.slice(0, 8)
+      const insertPayload = {
         ...storePayload,
         user_id: auth.userId,
         slug,
         created_at: new Date().toISOString(),
-      })
+      }
+      const { error: insErr } = await svc.from('stores').insert(insertPayload)
+      if (insErr && String(insErr.message || '').includes('duplicate')) {
+        await svc.from('stores').insert({
+          ...insertPayload,
+          slug: slug + '-' + Date.now().toString(36),
+        })
+      }
     }
   } catch (e) {
     console.warn('[platform-accounts PATCH] stores sync failed (non-fatal):', e)

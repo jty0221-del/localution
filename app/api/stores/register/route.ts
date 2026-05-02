@@ -12,8 +12,8 @@ import { createServiceClient } from '@/app/lib/adminAuth'
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-function makeSlug(name: string): string {
-  if (!name) return ''
+function makeSlug(name: string, userId?: string): string {
+  if (!name) return userId ? 'store-' + userId.slice(0, 8) : 'store-' + Date.now()
   let result = ''
   const lower = name.toLowerCase()
   for (let i = 0; i < lower.length; i++) {
@@ -26,7 +26,10 @@ function makeSlug(name: string): string {
   while (result.includes('--')) result = result.split('--').join('-')
   if (result.startsWith('-')) result = result.slice(1)
   if (result.endsWith('-')) result = result.slice(0, -1)
-  return result || 'store-' + Date.now()
+  // 37차-15: stores.slug 가 user_id 무관 unique → 다른 user가 같은 매장명이면 충돌
+  // user_id 앞 8자리를 suffix로 추가하여 유저별 unique 보장
+  const base = result || 'store'
+  return userId ? base + '-' + userId.slice(0, 8) : base
 }
 
 function extractPlaceIdFromUrl(url: string | null | undefined): string | null {
@@ -96,7 +99,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: 'name 필수' }, { status: 400 })
     }
 
-    const slug = (slugIn && typeof slugIn === 'string' ? slugIn : makeSlug(name)) || makeSlug(name)
+    const slug = (slugIn && typeof slugIn === 'string' ? slugIn : makeSlug(name, userId)) || makeSlug(name, userId)
     const placeId = naver_place_id || extractPlaceIdFromUrl(naver_url)
     const descText = (typeof description === 'string' && description.trim())
       ? description.trim()
