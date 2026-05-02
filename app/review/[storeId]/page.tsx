@@ -205,21 +205,61 @@ export default function ReviewPage() {
   const [advancing, setAdvancing] = useState(false)
   const [draft, setDraft]     = useState('')
   const [final, setFinal]     = useState('')
+  // ⭐ 2-B: 영수증 OCR 결과 + AI 진행 상태
+  const [receiptInfo, setReceiptInfo] = useState<{ items: string[]; storeName?: string; total?: string; matched?: boolean } | null>(null)
+  const [aiSource, setAiSource] = useState<'ai' | 'fallback' | null>(null)
+  const [aiHashtags, setAiHashtags] = useState<string[]>([])
   const [copied, setCopied]   = useState(false)
 
   const albumRef  = useRef<HTMLInputElement>(null)
   const cameraRef = useRef<HTMLInputElement>(null)
   const [uploadCat, setUploadCat] = useState<'receipt' | 'photo'>('receipt')
 
-  // ── 영수증 OCR 검증 (TextDetector API + 수동 확인 폴백) ──────────
+  // ── 2-B: 영수증 OCR 검증 — 서버 Claude OCR 우선 + TextDetector fallback ──
   useEffect(() => {
     const receipt = photos.find(p => p.cat === 'receipt')
-    if (!receipt) { setReceiptStatus('idle'); return }
+    if (!receipt) { setReceiptStatus('idle'); setReceiptInfo(null); return }
     if (receiptStatus === 'ok') return // 이미 확인됨
     setReceiptStatus('checking')
 
     let alive = true
     ;(async () => {
+      // 1차: 서버 Claude Vision OCR (정확도 최고, items 추출도 가능)
+      try {
+        const ocrRes = await fetch('/api/qr-review-generate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'ocr',
+            receiptImage: receipt.url,
+            expectedStoreName: store.name,
+          }),
+        })
+        if (ocrRes.ok) {
+          const j = await ocrRes.json()
+          const info = j?.receiptInfo
+          if (alive && info) {
+            setReceiptInfo({
+              items: Array.isArray(info.items) ? info.items.slice(0, 5) : [],
+              storeName: info.storeName || undefined,
+              total: info.total || undefined,
+              matched: !!info.matched,
+            })
+            // matched 가 명시되면 그것 우선, 아니면 storeName 비교
+            const ocrName = String(info.storeName || '').toLowerCase()
+            const ourName = store.name.toLowerCase()
+            const fuzzyMatch = ocrName && ourName && (
+              ocrName.includes(ourName.split(' ')[0]) ||
+              ourName.includes(ocrName.split(' ')[0])
+            )
+            const ok = info.matched === true || (info.matched !== false && fuzzyMatch)
+            setReceiptStatus(ok ? 'ok' : 'warning')
+            return
+          }
+        }
+      } catch (_) {}
+
+      // 2차 fallback: 클라이언트 TextDetector (Chrome 만 지원)
       if (typeof window !== 'undefined' && 'TextDetector' in window) {
         try {
           const detector = new (window as any).TextDetector()
@@ -235,6 +275,8 @@ export default function ReviewPage() {
           return
         } catch (_) {}
       }
+
+      // 3차 fallback: 사용자에게 수동 확인 요청
       if (!alive) return
       setReceiptStatus('confirm')
     })()
@@ -285,14 +327,66 @@ export default function ReviewPage() {
     } catch (_) {}
   }
 
-  const startGenerate = () => {
+  // ⭐ 2-B: 서버 AI 리뷰 생성 우선 + 실패 시 buildReview fallback
+  // tone 매핑: page.tsx 의 'warm/short/detail/casual/funny' → API 의 'mom/honest/insta/friend/z'
+  const TONE_MAP: Record<string, string> = {
+    warm: 'mom',       // 따뜻한 → 맘카페 스타일
+    detail: 'gourmet', // 상세 → 미식가 (전문)
+    short: 'honest',   // 짧고 정확 → 솔직담백
+    casual: 'z',       // 캐주얼 → Z세대
+    funny: 'friend',   // 유쾌한 → 친구 카톡
+  }
+  const startGenerate = async () => {
     setDrafting(true)
+    setAiSource(null)
+    setAiHashtags([])
     recordSubmission()
-    setTimeout(() => {
-      setDraft(buildReview(store, gender, age, tone, length, photos))
-      setDrafting(false)
-      setStep(3)
-    }, 1800)
+
+    try {
+      // 사진 url (data:base64 형식) 모음 — 서버에 sample 3장만
+      const photoUrls = photos
+        .filter(p => p.cat === 'photo')
+        .map(p => p.url)
+        .slice(0, 3)
+      const receiptUrl = photos.find(p => p.cat === 'receipt')?.url
+
+      const apiTone = TONE_MAP[tone] || 'mom'
+      const rating = 5 // 손님이 QR 통해 자발적 리뷰 — 일반적으로 긍정
+
+      const res = await fetch('/api/qr-review-generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'generate',
+          images: receiptUrl ? [receiptUrl, ...photoUrls].slice(0, 3) : photoUrls,
+          storeName: store.name,
+          storeType: store.category,
+          mainKeyword: store.keywords?.[0] || '',
+          comment: '',
+          tone: apiTone,
+          rating,
+          receiptItems: receiptInfo?.items || [],
+        }),
+      })
+
+      if (res.ok) {
+        const j = await res.json()
+        if (j?.review && typeof j.review === 'string' && j.review.length > 20) {
+          setDraft(j.review)
+          if (Array.isArray(j.hashtags)) setAiHashtags(j.hashtags.slice(0, 5))
+          setAiSource('ai')
+          setDrafting(false)
+          setStep(3)
+          return
+        }
+      }
+    } catch (_) {}
+
+    // Fallback: 로컬 buildReview (AI 호출 실패 / API 키 없음)
+    setDraft(buildReview(store, gender, age, tone, length, photos))
+    setAiSource('fallback')
+    setDrafting(false)
+    setStep(3)
   }
 
   const advance = () => {
@@ -452,9 +546,23 @@ export default function ReviewPage() {
                   </div>
                 )}
                 {receiptStatus === 'ok' && (
-                  <div className="p-3.5 rounded-2xl flex items-center gap-3" style={{ background: '#F0FDF4', border: '1px solid #BBF7D0' }}>
-                    <span className="text-lg flex-shrink-0">✅</span>
-                    <p className="text-xs font-bold" style={{ color: '#059669' }}>{store.name} 영수증 확인됐어요! AI가 메뉴를 자동으로 분석할게요.</p>
+                  <div className="p-3.5 rounded-2xl" style={{ background: '#F0FDF4', border: '1px solid #BBF7D0' }}>
+                    <div className="flex items-center gap-3">
+                      <span className="text-lg flex-shrink-0">✅</span>
+                      <p className="text-xs font-bold" style={{ color: '#059669' }}>
+                        {store.name} 영수증 확인됐어요!
+                        {receiptInfo?.items && receiptInfo.items.length > 0 ? ' 메뉴 자동 인식 완료' : ' AI 가 분석할게요'}
+                      </p>
+                    </div>
+                    {receiptInfo?.items && receiptInfo.items.length > 0 && (
+                      <div className="mt-2 pl-7 flex flex-wrap gap-1">
+                        {receiptInfo.items.slice(0, 4).map((it, i) => (
+                          <span key={i} className="text-[10px] px-2 py-0.5 rounded-full bg-white border border-[#BBF7D0] text-[#059669] font-medium">
+                            🍽 {it}
+                          </span>
+                        ))}
+                      </div>
+                    )}
                   </div>
                 )}
                 {receiptStatus === 'warning' && (
@@ -605,13 +713,38 @@ export default function ReviewPage() {
         {step === 3 && (
           <div className="space-y-4">
             <div>
-              <h2 className="text-lg font-black mb-1">AI 초안이 완성됐어요</h2>
+              <h2 className="text-lg font-black mb-1">
+                {aiSource === 'ai' ? '✨ AI가 사진과 영수증을 분석했어요' : 'AI 초안이 완성됐어요'}
+              </h2>
               <p className="text-xs" style={{ color: GRAY }}>내용을 직접 수정할 수도 있어요. 다 됐으면 아래 다음 버튼을 눌러주세요</p>
             </div>
+
+            {/* 영수증 OCR 결과 — AI 가 메뉴 인식 시 노출 */}
+            {receiptInfo && receiptInfo.items && receiptInfo.items.length > 0 && (
+              <div className="bg-[#FFFBEB] border border-[#FDE68A] rounded-xl p-3">
+                <p className="text-[11px] font-bold mb-1.5 text-[#92400E]">🧾 영수증에서 인식된 메뉴</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {receiptInfo.items.map((it, i) => (
+                    <span key={i} className="text-[11px] px-2.5 py-0.5 rounded-full bg-white text-[#92400E] font-medium border border-[#FDE68A]">
+                      {it}
+                    </span>
+                  ))}
+                </div>
+                {receiptInfo.total && (
+                  <p className="text-[11px] text-[#9A3412] mt-1.5">합계: <strong>{receiptInfo.total}</strong></p>
+                )}
+              </div>
+            )}
+
             <div className="bg-white rounded-2xl p-5 shadow-sm">
-              <div className="flex items-center gap-2 mb-3">
-                <span className="text-[11px] font-bold px-2 py-1 rounded-full text-white" style={{ background: BLUE }}>AI 초안</span>
+              <div className="flex items-center gap-2 mb-3 flex-wrap">
+                <span className="text-[11px] font-bold px-2 py-1 rounded-full text-white" style={{ background: aiSource === 'ai' ? '#7C3AED' : BLUE }}>
+                  {aiSource === 'ai' ? '✨ AI 작성' : 'AI 초안'}
+                </span>
                 <span className="text-[11px]" style={{ color: GRAY }}>{draft.length}자 · 직접 수정 가능</span>
+                {aiSource === 'ai' && (
+                  <span className="text-[10px] text-[#7C3AED] font-medium">사진 · 영수증 · 매장 정보 분석 완료</span>
+                )}
               </div>
               <textarea
                 value={draft}
@@ -620,6 +753,36 @@ export default function ReviewPage() {
                 style={{ color: BLACK }}
               />
             </div>
+
+            {/* AI 가 만든 해시태그 */}
+            {aiHashtags.length > 0 && (
+              <div className="bg-white rounded-xl p-3" style={{ border: '1px solid ' + BORDER }}>
+                <p className="text-[11px] font-bold mb-2 text-[#7C3AED]">✨ AI 추천 해시태그 (선택)</p>
+                <div className="flex flex-wrap gap-1.5">
+                  {aiHashtags.map(h => (
+                    <button
+                      key={h}
+                      onClick={() => {
+                        // 클릭 시 본문 끝에 해시태그 토글 추가/제거
+                        if (draft.includes(h)) {
+                          setDraft(draft.replace(new RegExp(`\\s*${h.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}`, 'g'), ''))
+                        } else {
+                          setDraft(draft.trim() + '\n\n' + h)
+                        }
+                      }}
+                      className={`text-[11px] px-2.5 py-1 rounded-full font-bold transition-colors ${
+                        draft.includes(h)
+                          ? 'bg-[#7C3AED] text-white'
+                          : 'bg-[#F3E8FF] text-[#7C3AED] hover:bg-[#E9D5FF]'
+                      }`}>
+                      {h}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-[10px] text-[#8B95A1] mt-1.5">탭하면 본문에 추가/제거됩니다</p>
+              </div>
+            )}
+
             <div className="bg-white rounded-xl p-3" style={{ border: '1px solid ' + BORDER }}>
               <p className="text-[11px] font-bold mb-2" style={{ color: BLUE }}>포함된 SEO 키워드</p>
               <div className="flex flex-wrap gap-1.5">
