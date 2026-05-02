@@ -249,7 +249,12 @@ export default function ConnectPlatformPage() {
         <div className="flex-1 max-w-sm w-full mx-auto px-6 pt-6 pb-8 flex flex-col">
           <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl font-black mb-6 shadow-sm" style={{ background: '#03C75A', color: '#fff' }}>N</div>
           <h1 className="text-[22px] font-black text-[#191F28] leading-snug mb-1">내 매장을 찾아볼게요</h1>
-          <p className="text-[13px] text-[#4E5968] mb-2 leading-relaxed">매장명 또는 네이버 플레이스 URL을 입력하면<br />플레이스 ID와 주소가 자동으로 연동돼요.</p>
+          <p className="text-[13px] text-[#4E5968] mb-2 leading-relaxed">사장님센터 URL을 직접 붙여넣으면 가장 정확해요.<br />매장명 검색은 동명 매장이 있을 때 잘못 매칭될 수 있어요.</p>
+          <div className="mb-3 rounded-lg bg-[#FEF3C7] border border-[#FDE68A] p-3 text-[12px] text-[#92400E] leading-relaxed">
+            ⚠️ <strong>중요</strong>: 같은 이름의 매장이 여러 곳일 때 검색 결과가 다를 수 있어요. <br />
+            본인이 사장님 권한 있는 정확한 매장이 맞는지 꼭 확인해주세요. <br />
+            <strong>가장 정확한 방법</strong>: 사장님센터(<code>new.smartplace.naver.com/bizes/place/...</code>) 또는 본인 매장의 네이버 플레이스 URL 붙여넣기.
+          </div>
           <div className="mb-6 rounded-lg bg-[#F0FFF7] border border-[#A7F3D0] p-3 text-[12px] text-[#059669]">
             ✓ 찾은 매장 정보는 <strong>설정 페이지</strong>에도 자동으로 반영돼요
           </div>
@@ -262,7 +267,7 @@ export default function ConnectPlatformPage() {
               type="text" value={storeQuery}
               onChange={(e) => setStoreQuery(e.target.value)}
               onKeyDown={(e) => e.key === 'Enter' && searchStore()}
-              placeholder="예: 일산닭갈국수 부천점 또는 플레이스 URL"
+              placeholder="권장: 사장님센터 URL 또는 1137287126 (Place ID 숫자)"
               className="flex-1 px-4 py-3 rounded-2xl bg-[#F5F6F8] border border-transparent text-[14px] placeholder-[#B0B8C1] focus:outline-none focus:border-[#191F28] focus:bg-white"
             />
             <button onClick={searchStore} disabled={searching || !storeQuery.trim()} className="px-4 py-3 rounded-2xl bg-[#03C75A] text-white text-[13px] font-bold disabled:opacity-50 whitespace-nowrap">
