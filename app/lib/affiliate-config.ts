@@ -49,7 +49,7 @@ export const AFFILIATE_PRODUCTS: AffiliateProduct[] = [
     url: 'https://naver.me/FkadzuRw',
     previewSourceUrl: 'https://smartstore.naver.com/ongigonggan/products/9984511568',
     enabled: true,
-    overrideImage: 'https://shop-phinf.pstatic.net/20250205_186/1738713730809NOVln_JPEG/12068510598706092_79327913.jpg?type=o1000',
+    overrideImage: 'https://shop-phinf.pstatic.net/20240222_20/17085859910681VBsn_JPEG/1.jpg?type=w848',
     overrideTitle: '이벤트배너 큐알 코드 네이버 영수증리뷰QR 아치형 (S size)',
     overridePrice: '6,400원',
     overrideOriginalPrice: '7,000원',
