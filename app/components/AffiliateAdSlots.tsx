@@ -55,12 +55,23 @@ export default function AffiliateAdSlots() {
   )
 }
 
+// URL 에서 mallName + productId 추출 — 메타 추출 실패 시 안내용 fallback
+function extractFallback(sourceUrl: string): { mall: string; productId: string } {
+  const m = sourceUrl.match(/smartstore\.naver\.com\/([^/]+)\/products\/(\d+)/)
+  return m ? { mall: m[1], productId: m[2] } : { mall: '', productId: '' }
+}
+
 function AdCard({ product }: { product: AffiliateProduct }) {
   const [preview, setPreview] = useState<Preview>({ loading: true })
 
+  // 모든 override 가 채워져 있으면 fetch 자체 skip (불필요한 API 호출 방지)
+  const fullyOverridden = !!(product.overrideImage && product.overrideTitle)
+
   useEffect(() => {
+    if (fullyOverridden) { setPreview({ loading: false }); return }
+    const sourceUrl = product.previewSourceUrl || product.url
     let cancelled = false
-    fetch('/api/affiliate/preview?url=' + encodeURIComponent(product.url))
+    fetch('/api/affiliate/preview?url=' + encodeURIComponent(sourceUrl))
       .then(r => r.json())
       .then(j => {
         if (cancelled) return
@@ -69,12 +80,15 @@ function AdCard({ product }: { product: AffiliateProduct }) {
       })
       .catch(() => { if (!cancelled) setPreview({ loading: false, error: true }) })
     return () => { cancelled = true }
-  }, [product.url])
+  }, [product.previewSourceUrl, product.url, fullyOverridden])
 
-  // override 우선 적용
+  // 우선순위: override > preview > fallback (mall name)
+  const fallback = extractFallback(product.previewSourceUrl || '')
   const image = product.overrideImage || preview.image || null
-  const title = product.overrideTitle || preview.title || '상품 정보 불러오는 중'
-  const desc = product.overrideDesc || preview.description || ''
+  const title = product.overrideTitle || preview.title || (fallback.mall ? `${fallback.mall} 추천 상품` : '상품 보기')
+  const price = product.overridePrice || preview.price || null
+  const rating = product.overrideRating ?? preview.rating ?? null
+  const reviewCount = product.overrideReviewCount ?? preview.reviewCount ?? null
 
   return (
     <a
@@ -83,8 +97,8 @@ function AdCard({ product }: { product: AffiliateProduct }) {
       rel="noopener noreferrer sponsored"
       className="group block bg-white rounded-xl overflow-hidden shadow-sm border border-[#E5E8EB] hover:border-[#3182F6] hover:shadow-md transition-all">
       {/* 이미지 */}
-      <div className="aspect-square bg-[#F8FAFB] relative overflow-hidden">
-        {preview.loading ? (
+      <div className="aspect-square bg-gradient-to-br from-[#F8FAFB] to-[#EFF6FF] relative overflow-hidden">
+        {preview.loading && !fullyOverridden ? (
           <div className="absolute inset-0 flex items-center justify-center text-[10px] text-[#C9CDD2] animate-pulse">불러오는 중…</div>
         ) : image ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -96,16 +110,22 @@ function AdCard({ product }: { product: AffiliateProduct }) {
             onError={(e) => { (e.target as HTMLImageElement).style.display = 'none' }}
           />
         ) : (
-          <div className="absolute inset-0 flex items-center justify-center text-[10px] text-[#C9CDD2]">📦</div>
+          // 이미지 추출 실패 시 — 큰 아이콘 + 가게명 placeholder
+          <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 text-[#3182F6]">
+            <span className="text-3xl">🛒</span>
+            <span className="text-[9px] font-medium text-[#8B95A1] truncate max-w-[80%] text-center">
+              {fallback.mall || 'naver shopping'}
+            </span>
+          </div>
         )}
         {product.badge && (
           <span
-            className="absolute top-2 left-2 px-1.5 py-0.5 rounded text-[9px] font-bold text-white"
+            className="absolute top-2 left-2 px-1.5 py-0.5 rounded text-[9px] font-bold text-white shadow"
             style={{ background: product.badgeColor || '#DC2626' }}>
             {product.badge}
           </span>
         )}
-        <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-white/90 flex items-center justify-center text-[#3182F6] opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="absolute top-2 right-2 w-6 h-6 rounded-full bg-white/90 flex items-center justify-center text-[#3182F6] opacity-0 group-hover:opacity-100 transition-opacity shadow-sm">
           <ExternalLink size={12} strokeWidth={2.5} />
         </div>
       </div>
@@ -115,19 +135,19 @@ function AdCard({ product }: { product: AffiliateProduct }) {
         <p className="text-[11px] font-semibold text-[#191F28] leading-snug line-clamp-2 min-h-[28px]">
           {title}
         </p>
-        {preview.price && (
-          <p className="text-sm font-black text-[#191F28]">{preview.price}</p>
+        {price && (
+          <p className="text-sm font-black text-[#191F28]">{price}</p>
         )}
-        {(preview.rating != null || preview.reviewCount != null) && (
+        {(rating != null || reviewCount != null) && (
           <div className="flex items-center gap-1 text-[10px] text-[#4E5968]">
-            {preview.rating != null && (
+            {rating != null && (
               <span className="flex items-center gap-0.5">
                 <Star size={10} fill="#F59E0B" stroke="#F59E0B" />
-                <span className="font-bold">{preview.rating.toFixed(1)}</span>
+                <span className="font-bold">{rating.toFixed(1)}</span>
               </span>
             )}
-            {preview.reviewCount != null && (
-              <span className="text-[#8B95A1]">리뷰 {preview.reviewCount.toLocaleString('ko-KR')}</span>
+            {reviewCount != null && (
+              <span className="text-[#8B95A1]">리뷰 {reviewCount.toLocaleString('ko-KR')}</span>
             )}
           </div>
         )}
