@@ -8,12 +8,12 @@
 import type { Browser } from 'playwright'
 import type { Logger } from 'pino'
 import { getServiceClient } from '../lib/supabase'
-import { loadPlainCredentials, loadCookieData, markLoginStatus } from '../lib/credentials'
+import { loadPlainCredentials, loadCookieData, markLoginStatus, classifyLoginFailure } from '../lib/credentials'
 import { dumpPageDiagnostics, startNetworkCapture, detectLoginFailure } from '../lib/diagnostics'
 import { handleNaverCaptcha, solveCaptcha } from '../lib/captcha'
 import type { JobResult, Action } from '../jobs'
 
-const NAVER_CODE_VERSION = 'v33-typing-once-not-charByChar-20260502'
+const NAVER_CODE_VERSION = 'v33-typing-once-credentials-classify-20260502'
 
 const LOGIN_URL = 'https://nid.naver.com/nidlogin.login'
 const NEW_SMARTPLACE_BASE = 'https://new.smartplace.naver.com'
@@ -954,15 +954,21 @@ export async function runNaver(
 
         if (!loggedIn) {
           // detectLoginFailure: 실제 에러 텍스트만 감지 (폼 라벨 '비밀번호','아이디'는 제외)
-          const { reason } = await detectLoginFailure(page, ['일치하지', '잘못된', '실패', '오류', 'incorrect', 'invalid', '차단', '해외'])
-          // 페이지 본문 첫 400자를 Railway 로그에서 볼 수 있도록 message 에 포함
+          const { reason } = await detectLoginFailure(page, ['일치하지', '잘못된', '실패', '오류', 'incorrect', 'invalid', '차단', '해외', '비밀번호가 잘못', '비밀번호를 변경'])
           const bodySnippet = await page.evaluate(() => (document.body?.innerText || '').replace(/\s+/g, ' ').slice(0, 400)).catch(() => '')
           log.warn('naver: login failed page text: ' + bodySnippet.slice(0, 300))
           await dumpPageDiagnostics(page, log, 'naver-login-failed')
-          await markLoginStatus(svc, userId, 'naver_place', 'failed', reason || urlAfterLogin)
-          const msg = reason
-            ? `[v2] naver login failed — ${reason} | url=${urlAfterLogin.slice(0, 80)}`
-            : `[v2] naver login failed — url=${urlAfterLogin.slice(0, 100)} | body=${bodySnippet.replace(/\s+/g, ' ').slice(0, 150)}`
+
+          // v33: 실패 사유 분류 → DB 에 명시적 status 저장 + 사용자 안내 메시지 강화
+          const cls = classifyLoginFailure(bodySnippet || reason || '')
+          log.info({ kind: cls.kind, hint: cls.hint }, 'naver: login failure classified')
+          const dbStatus: 'credentials_invalid' | 'account_locked' | 'failed' =
+            cls.kind === 'credentials_invalid' ? 'credentials_invalid' :
+            cls.kind === 'account_locked' ? 'account_locked' :
+            'failed'
+          await markLoginStatus(svc, userId, 'naver_place', dbStatus, reason || urlAfterLogin)
+
+          const msg = `${cls.hint} | url=${urlAfterLogin.slice(0, 80)}${reason ? ` | reason=${reason.slice(0, 60)}` : ''}`
           if (platformReviewId) await updateReviewStatus(svc, userId, platformReviewId, 'failed', { error: msg })
           return { status: 'failed', message: msg }
         }
