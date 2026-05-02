@@ -13,7 +13,7 @@ import { dumpPageDiagnostics, startNetworkCapture, detectLoginFailure } from '..
 import { handleNaverCaptcha, solveCaptcha } from '../lib/captcha'
 import type { JobResult, Action } from '../jobs'
 
-const NAVER_CODE_VERSION = 'v22-deviceAdd-dump-formAware-skip-20260502'
+const NAVER_CODE_VERSION = 'v25-postCAPTCHA-register-priority-20260502'
 
 const LOGIN_URL = 'https://nid.naver.com/nidlogin.login'
 const NEW_SMARTPLACE_BASE = 'https://new.smartplace.naver.com'
@@ -383,44 +383,55 @@ export async function runNaver(
                 name: (el as any).name || '',
               })
             }
-            // 1순위: text 정확/포함 매칭
+            // ⭐ v24 핵심 변경: "등록" 우선 클릭 (NID_AUT/NID_SES 쿠키 정상 발급 위해)
+            // "등록안함"을 누르면 임시 세션만 발급 → SmartPlace owner API 권한 차단됨
+            // → "등록"을 눌러 trusted device로 등록해야 사장님 권한이 정상 작동
+            // 1순위: "등록" 텍스트 정확 매칭 (단, "등록안함"은 제외)
             for (const el of all) {
               const t = ((el as any).innerText || (el as any).value || (el as any).textContent || '').trim()
-              if (t === '등록 안 함' || t === '등록안함' || t === '등록 안함' || t === '안함' ||
-                  t.includes('등록 안 함') || t.includes('등록안함') || t.includes('나중에') || t.includes('건너뛰기') ||
-                  t === '취소' || t === '아니요' || t === 'No' || t === 'Cancel' || t === 'Skip' ||
-                  t.toLowerCase() === "don't save" || t.toLowerCase().includes("don't")) {
+              // "등록"만 매칭, "등록안함"/"등록 안 함"은 제외
+              if ((t === '등록' || t === 'Register' || t === 'Yes' || t === '확인' || t === '예') &&
+                  !t.includes('안함') && !t.includes('안 함') && !t.includes("Don't") && !t.includes('Cancel')) {
                 (el as HTMLElement).click()
-                return { clicked: true, by: 'text-priority', text: t, candidates: candidates.slice(0, 30) }
+                return { clicked: true, by: 'register-priority', text: t, candidates: candidates.slice(0, 30) }
               }
             }
-            // 2순위: name/id 속성 매칭
+            // 2순위: 속성으로 "register" / "yes" / "confirm" 매칭 (단, dont/cancel은 제외)
             for (const el of all) {
               const nm = ((el as any).name || '').toLowerCase()
               const id = ((el as any).id || '').toLowerCase()
               const cls = ((el as any).className || '').toLowerCase()
-              if (nm.includes('dont') || nm.includes('cancel') || nm.includes('skip') ||
-                  id.includes('dont') || id.includes('cancel') || id.includes('skip') ||
-                  cls.includes('btn_cancel') || cls.includes('btn_no') || cls.includes('btn_skip')) {
+              const isExclude = nm.includes('dont') || nm.includes('cancel') || nm.includes('skip') ||
+                                 id.includes('dont') || id.includes('cancel') || id.includes('skip') ||
+                                 cls.includes('btn_cancel') || cls.includes('btn_no') || cls.includes('btn_skip')
+              if (isExclude) continue
+              if (nm.includes('register') || nm.includes('confirm') || nm.includes('yes') || nm.includes('save') ||
+                  id.includes('register') || id.includes('confirm') || id.includes('yes') || id.includes('save') ||
+                  cls.includes('btn_register') || cls.includes('btn_confirm') || cls.includes('btn_yes') || cls.includes('btn_check')) {
                 (el as HTMLElement).click()
-                return { clicked: true, by: 'attr', name: nm, id, cls, candidates: candidates.slice(0, 30) }
+                return { clicked: true, by: 'register-attr', name: nm, id, cls, candidates: candidates.slice(0, 30) }
               }
             }
-            // 3순위: form 안 마지막 submit (보통 등록안함이 두 번째 = 마지막)
+            // 3순위: form 안 첫 번째 submit (보통 "등록"이 첫 번째 = primary action)
             const forms = Array.from(document.querySelectorAll('form'))
             for (const f of forms) {
               const action = ((f as HTMLFormElement).action || '').toLowerCase()
               if (action.includes('device') || action.includes('register') || action.includes('login')) {
                 const fbtns = Array.from(f.querySelectorAll('button, input[type="submit"]'))
-                if (fbtns.length >= 2) {
-                  (fbtns[fbtns.length - 1] as HTMLElement).click()
-                  return { clicked: true, by: 'form-last-submit', actionEnd: action.slice(-60), candidates: candidates.slice(0, 30) }
-                }
-                if (fbtns.length === 1) {
-                  // 단일 submit이면 그것을 클릭 (취소 단일 버튼 케이스)
+                if (fbtns.length >= 1) {
+                  // 첫 번째 버튼 = "등록" (primary action)
                   (fbtns[0] as HTMLElement).click()
-                  return { clicked: true, by: 'form-only-submit', actionEnd: action.slice(-60), candidates: candidates.slice(0, 30) }
+                  return { clicked: true, by: 'form-first-submit', actionEnd: action.slice(-60), candidates: candidates.slice(0, 30) }
                 }
+              }
+            }
+            // 4순위 (fallback): a 태그 중 "등록" 텍스트 (이전 dump에서 anchor 였음)
+            const anchors = Array.from(document.querySelectorAll('a'))
+            for (const a of anchors) {
+              const t = ((a as any).innerText || '').trim()
+              if (t === '등록' && !t.includes('안')) {
+                (a as HTMLElement).click()
+                return { clicked: true, by: 'anchor-register', text: t, candidates: candidates.slice(0, 30) }
               }
             }
             return { clicked: false, candidates: candidates.slice(0, 30) }
@@ -755,36 +766,80 @@ export async function runNaver(
                 }).catch(() => ({ buttons: [], links: [], forms: [] }))
                 log.info({ url: pgUrl.slice(0, 100), dump }, 'naver: 새기기 페이지 DUMP')
 
-                // 다양한 매칭으로 "등록 안 함" / "건너뛰기" 클릭
+                // ⭐ v24/v25 핵심 변경: "등록" 우선 클릭 (NID_AUT/NID_SES 정상 발급)
+                // "등록안함" 누르면 임시 세션만 발급 → SmartPlace owner API 차단됨
                 const clickResult = await page.evaluate(() => {
                   const all = Array.from(document.querySelectorAll('button, a, input[type="button"], input[type="submit"], [role="button"]'))
                   const candidates: string[] = []
                   for (const el of all) {
-                    const t = ((el as any).innerText || (el as any).value || '').trim()
-                    candidates.push(t)
-                    // 광범위 매칭
-                    if (t.includes('등록 안 함') || t.includes('등록안함') || t === '안함' || t === 'No' ||
-                        t === '취소' || t === '건너뛰기' || t === '나중에' || t === '아니요' ||
-                        t.includes('나중에') || t.includes('건너') ||
-                        t.toLowerCase().includes('skip') || t.toLowerCase().includes('cancel') ||
-                        t.toLowerCase().includes("don't")) {
+                    candidates.push(((el as any).innerText || (el as any).value || '').trim().slice(0, 30))
+                  }
+                  // 1순위: "등록" 텍스트 정확 매칭 (단, "등록안함"·"안함"은 제외)
+                  for (const el of all) {
+                    const t = ((el as any).innerText || (el as any).value || (el as any).textContent || '').trim()
+                    if ((t === '등록' || t === 'Register' || t === 'Yes' || t === '확인' || t === '예') &&
+                        !t.includes('안함') && !t.includes('안 함') && !t.includes("Don't") && !t.includes('Cancel')) {
                       (el as HTMLElement).click()
-                      return { clicked: true, text: t, candidates: candidates.slice(0, 20) }
+                      return { clicked: true, by: 'register-priority', text: t, candidates: candidates.slice(0, 20) }
+                    }
+                  }
+                  // 2순위: 속성 매칭 (register/confirm/yes/save/check, dont/cancel/skip 제외)
+                  for (const el of all) {
+                    const nm = ((el as any).name || '').toLowerCase()
+                    const id = ((el as any).id || '').toLowerCase()
+                    const cls = ((el as any).className || '').toLowerCase()
+                    const isExclude = nm.includes('dont') || nm.includes('cancel') || nm.includes('skip') ||
+                                       id.includes('dont') || id.includes('cancel') || id.includes('skip') ||
+                                       cls.includes('btn_cancel') || cls.includes('btn_no') || cls.includes('btn_skip')
+                    if (isExclude) continue
+                    if (nm.includes('register') || nm.includes('confirm') || nm.includes('yes') || nm.includes('save') ||
+                        id.includes('register') || id.includes('confirm') || id.includes('yes') || id.includes('save') ||
+                        cls.includes('btn_register') || cls.includes('btn_confirm') || cls.includes('btn_yes') || cls.includes('btn_check')) {
+                      (el as HTMLElement).click()
+                      return { clicked: true, by: 'register-attr', name: nm, id, cls, candidates: candidates.slice(0, 20) }
+                    }
+                  }
+                  // 3순위: form 안 첫 번째 submit (보통 "등록"이 primary action = 첫 버튼)
+                  const forms = Array.from(document.querySelectorAll('form'))
+                  for (const f of forms) {
+                    const action = ((f as HTMLFormElement).action || '').toLowerCase()
+                    if (action.includes('device') || action.includes('register') || action.includes('login')) {
+                      const fbtns = Array.from(f.querySelectorAll('button, input[type="submit"]'))
+                      if (fbtns.length >= 1) {
+                        (fbtns[0] as HTMLElement).click()
+                        return { clicked: true, by: 'form-first-submit', actionEnd: action.slice(-60), candidates: candidates.slice(0, 20) }
+                      }
+                    }
+                  }
+                  // 4순위: a 태그 중 "등록" (이전 dump에서 anchor 였음)
+                  const anchors = Array.from(document.querySelectorAll('a'))
+                  for (const a of anchors) {
+                    const t = ((a as any).innerText || '').trim()
+                    if (t === '등록' && !t.includes('안')) {
+                      (a as HTMLElement).click()
+                      return { clicked: true, by: 'anchor-register', text: t, candidates: candidates.slice(0, 20) }
                     }
                   }
                   return { clicked: false, candidates: candidates.slice(0, 20) }
-                }).catch(() => ({ clicked: false, candidates: [] }))
-                log.info({ clickResult }, 'naver: deviceAdd 페이지 click 시도 결과')
+                }).catch((e: any) => ({ clicked: false, err: e?.message, candidates: [] }))
+                log.info({ clickResult }, 'naver: deviceAdd 페이지 click 시도 결과 (v25 register-priority)')
 
                 if (clickResult.clicked) {
-                  await page.waitForTimeout(3500)
+                  // 등록 후 navigation 대기 (deviceAdd POST → redirect 처리)
+                  await Promise.race([
+                    page.waitForURL(u => !String(u).includes('deviceAdd') && !String(u).includes('deviceConfirm'), { timeout: 12000 }).catch(() => null),
+                    page.waitForTimeout(5000),
+                  ])
                 }
 
-                // URL이 여전히 deviceAdd 면 직접 https://www.naver.com 으로 이동 (deviceAdd skip)
+                // URL이 여전히 deviceAdd 면 SmartPlace 직접 이동 (etcc fallback)
                 const stillUrl = page.url()
                 if (stillUrl.includes('deviceAdd') || stillUrl.includes('deviceConfirm')) {
-                  log.warn('naver: 여전히 deviceAdd → 직접 naver.com 으로 navigate (skip)')
-                  await page.goto('https://www.naver.com/', { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => null)
+                  log.warn({ stillUrl: stillUrl.slice(0, 100) }, 'naver: 여전히 deviceAdd → SmartPlace 직접 navigate (skip)')
+                  const target = bizId && bizId !== 'unknown'
+                    ? `${NEW_SMARTPLACE_BASE}/bizes/place/${bizId}`
+                    : 'https://www.naver.com/'
+                  await page.goto(target, { waitUntil: 'domcontentloaded', timeout: 15000 }).catch(() => null)
                   await page.waitForTimeout(2000)
                 }
               }
@@ -915,11 +970,27 @@ async function postNaverReply(
     )
     const cookieHeader = naverCookies.map((c: any) => c.name + '=' + c.value).join('; ')
 
+    // ⭐ v24: NID_AUT / NID_SES 검증 — owner API 권한 핵심 쿠키
+    const cookieNames = naverCookies.map((c: any) => String(c.name))
+    const hasNidAut = cookieNames.includes('NID_AUT')
+    const hasNidSes = cookieNames.includes('NID_SES')
+    const allCookieNames = cookieNames.slice(0, 30)
     log.info({
       total: allCookies.length, naver: naverCookies.length,
       cookieLen: cookieHeader.length,
-      sample: naverCookies.slice(0, 8).map((c: any) => c.name),
-    }, 'naver: cookies captured')
+      sample: cookieNames.slice(0, 12),
+      hasNidAut, hasNidSes,
+      allNames: allCookieNames,
+    }, 'naver: cookies captured (v24 with NID_AUT check)')
+
+    if (!hasNidAut || !hasNidSes) {
+      log.error({ hasNidAut, hasNidSes, cookieNames: allCookieNames },
+        'naver: ❌ NID_AUT/NID_SES 누락 — deviceAdd "등록안함" 클릭으로 발생한 임시 세션 (owner 권한 차단됨)')
+      return {
+        ok: false,
+        reason: 'NID_AUT/NID_SES 쿠키 미발급 — 새 기기 등록 화면에서 "등록"이 정상 처리되지 않아 사장님 권한이 풀리지 않음. 다시 시도해주세요 (3-5회 시도 후 재발급될 수 있음).',
+      }
+    }
 
     if (!cookieHeader || cookieHeader.length < 50) {
       return { ok: false, reason: '로그인 쿠키 캡처 실패 (쿠키 부족) — 로그인 재확인 필요' }
@@ -946,6 +1017,8 @@ async function postNaverReply(
     const reviewsQuery = 'fragment CommonReviewReplyFields on ReviewReply { text isSuspended isQualified createdDateTime updatedDateTime isDeleted useReplyCandidate replierDisplayName suspendPostingReason __typename } fragment CommonReviewFields on Review { author { displayName reviewCount imageCount profileImage visitCount userId __typename } placeDetail { id __typename } bookingDetail { bookingUserDetail business bizItem items __typename } content { text mediaItems { id type thumbnail url trailer metadata __typename } rating tags { votedKeywords { category keywords { code emojiCode emojiUrl label { ko __typename } __typename } __typename } __typename } textGradeInspection { grade __typename } __typename } reply { ...CommonReviewReplyFields __typename } reactionStat { id targetId totalCount sortedTypeCountEntries __typename } createdDateTime displayUpdatedDateTime id rating isSuspended suspendPostingReason isQualified source mainPov visitCount visitDateTime cp hasReply hasText hasVotedKeyword hasNegativeTextGrade __typename } query getReviews($input: GetReviewsInput!) { reviews(input: $input) { totalCount items { ...CommonReviewFields __typename } __typename } }'
 
     let smartplaceReviewId: string | null = null
+    // v23: getReviews 매핑 강화 — full body 로깅 + fuzzy match + DOM fallback
+    let ourContent = ''
     try {
       // 우리 review의 content 가져오기 (DB) — 매칭 fallback 용
       const svcLocal = getServiceClient()
@@ -955,11 +1028,12 @@ async function postNaverReply(
         .eq('platform_review_id', platformReviewId)
         .eq('platform_store_id', storeId)
         .maybeSingle()
-      const ourContent = String(ourReviewRow?.content || '').trim()
-      log.info({ ourContentLen: ourContent.length, ourContentPreview: ourContent.slice(0, 50) }, 'naver: our review content loaded')
+      ourContent = String(ourReviewRow?.content || '').trim()
+      log.info({ ourContentLen: ourContent.length, ourContentPreview: ourContent.slice(0, 80) }, 'naver: our review content loaded')
 
       // SmartPlace getReviews 호출 (페이지네이션 — 최대 5페이지)
       let foundOnPage = -1
+      const seenItemsSummary: any[] = []
       for (let p = 1; p <= 5 && !smartplaceReviewId; p++) {
         const reviewsRes = await fetch('https://new.smartplace.naver.com/graphql?opName=getReviews', {
           method: 'POST',
@@ -972,15 +1046,24 @@ async function postNaverReply(
           signal: AbortSignal.timeout(10000),
         })
         if (!reviewsRes.ok) {
-          log.warn({ status: reviewsRes.status, page: p }, 'naver: getReviews HTTP error')
+          const errBody = await reviewsRes.text().catch(() => '')
+          log.warn({ status: reviewsRes.status, page: p, errBody: errBody.slice(0, 300) }, 'naver: getReviews HTTP error')
           break
         }
-        const reviewsJson: any = await reviewsRes.json().catch(() => null)
-        const items = reviewsJson?.data?.reviews?.items || []
-        log.info({ page: p, count: items.length, totalCount: reviewsJson?.data?.reviews?.totalCount }, 'naver: getReviews page loaded')
+        const rawText = await reviewsRes.text()
+        let reviewsJson: any = null
+        try { reviewsJson = JSON.parse(rawText) } catch {}
+        const items: any[] = reviewsJson?.data?.reviews?.items || []
+        const totalCount = reviewsJson?.data?.reviews?.totalCount
+        const errs = reviewsJson?.errors
+        log.info({
+          page: p, count: items.length, totalCount,
+          errors: errs ? JSON.stringify(errs).slice(0, 200) : null,
+          rawPreview: items.length === 0 ? rawText.slice(0, 400) : null,
+        }, 'naver: getReviews page loaded')
         if (items.length === 0) break
 
-        // 1) 직접 ID 매치 (혹시 같은 형식이면)
+        // 직접 ID 매치
         const directMatch = items.find((it: any) => it.id === platformReviewId)
         if (directMatch) {
           smartplaceReviewId = directMatch.id
@@ -988,24 +1071,73 @@ async function postNaverReply(
           log.info({ smartplaceReviewId, page: p }, 'naver: ✅ directID match')
           break
         }
-        // 2) content text 매치 (가장 신뢰할 만한 매칭)
+        // content text 매치 (정확/부분/접두 모두 시도)
         if (ourContent.length > 0) {
+          const ourNorm = ourContent.replace(/\s+/g, ' ').trim()
+          const ourPrefix = ourNorm.slice(0, Math.min(ourNorm.length, 40))
           const contentMatch = items.find((it: any) => {
-            const t = String(it.content?.text || '').trim()
-            return t.length > 0 && t === ourContent
+            const t = String(it.content?.text || '').replace(/\s+/g, ' ').trim()
+            if (t.length === 0) return false
+            return t === ourNorm || t.startsWith(ourPrefix) || ourNorm.startsWith(t.slice(0, 40))
           })
           if (contentMatch) {
             smartplaceReviewId = contentMatch.id
             foundOnPage = p
-            log.info({ smartplaceReviewId, page: p, ourContentPreview: ourContent.slice(0, 30) }, 'naver: ✅ content match')
+            log.info({
+              smartplaceReviewId, page: p,
+              ourPreview: ourNorm.slice(0, 40),
+              matchedPreview: String(contentMatch.content?.text || '').slice(0, 40),
+            }, 'naver: ✅ content match')
             break
           }
         }
+        // 매치 안 되면 페이지의 모든 review id+content preview 저장 (진단용)
+        for (const it of items) {
+          seenItemsSummary.push({
+            id: String(it.id || '').slice(0, 30),
+            preview: String(it.content?.text || '').slice(0, 30),
+            createdAt: String(it.createdDateTime || '').slice(0, 16),
+          })
+        }
+        if (seenItemsSummary.length >= 30) break
       }
 
       if (!smartplaceReviewId) {
-        log.warn({ platformReviewId, foundOnPage }, 'naver: SmartPlace reviewId 매핑 실패 — 기존 platformReviewId로 시도')
-        smartplaceReviewId = platformReviewId
+        log.warn({
+          platformReviewId, foundOnPage,
+          ourContentPreview: ourContent.slice(0, 80),
+          seenItems: seenItemsSummary.slice(0, 30),
+        }, 'naver: SmartPlace reviewId 매핑 실패 — DOM fallback 시도 중')
+
+        // ── v23 DOM fallback: SmartPlace 페이지 안에서 reviewId 스크랩 ──
+        try {
+          const domIds = await page.evaluate((needle: string) => {
+            const out: any[] = []
+            // SmartPlace 페이지에는 review.id가 data-* 또는 element.id 속성에 박혀있음
+            // 모든 가능한 selector 시도
+            document.querySelectorAll('[data-review-id], [data-id], [id^="review_"], [id^="review-"]').forEach((el: any) => {
+              const rid = el.getAttribute('data-review-id') || el.getAttribute('data-id') || el.id || ''
+              const txt = (el.innerText || el.textContent || '').replace(/\s+/g, ' ').trim().slice(0, 200)
+              if (rid && rid.length > 8) out.push({ rid, txt: txt.slice(0, 60) })
+            })
+            // 본문에서 24-char hex (mongoDB 형식 reviewId) 모두 추출
+            const html = document.documentElement.outerHTML
+            const hexRe = /[a-f0-9]{24}/g
+            const hexes = Array.from(new Set((html.match(hexRe) || []).slice(0, 30)))
+            return { domIds: out.slice(0, 20), hexes, hasContent: html.indexOf(needle) >= 0 }
+          }, ourContent.slice(0, 30)).catch(() => ({ domIds: [], hexes: [], hasContent: false }))
+          log.info({ domScrape: domIds }, 'naver: DOM fallback scrape result')
+          // hexes 중 우리 platformReviewId와 일치 또는 비슷한 것 시도
+          const hexes: string[] = (domIds as any).hexes || []
+          if (hexes.includes(platformReviewId)) {
+            smartplaceReviewId = platformReviewId
+            log.info({ smartplaceReviewId }, 'naver: ✅ DOM hex match — platformReviewId is valid SmartPlace id')
+          }
+        } catch (de: any) {
+          log.warn({ err: de?.message }, 'naver: DOM fallback exception')
+        }
+
+        if (!smartplaceReviewId) smartplaceReviewId = platformReviewId
       }
     } catch (e: any) {
       log.warn({ err: e?.message }, 'naver: getReviews 호출 실패 — platformReviewId fallback')
