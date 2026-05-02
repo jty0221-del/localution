@@ -65,8 +65,6 @@ export const AFFILIATE_PRODUCTS: AffiliateProduct[] = [
     overridePrice: '15,900원',
     overrideOriginalPrice: '39,000원',
     overrideDiscountRate: 59,
-    badge: '추천',
-    badgeColor: '#3182F6',
   },
   {
     slot: 4,
@@ -78,6 +76,8 @@ export const AFFILIATE_PRODUCTS: AffiliateProduct[] = [
     overridePrice: '4,900원',
     overrideOriginalPrice: '5,500원',
     overrideDiscountRate: 10,
+    badge: '추천',
+    badgeColor: '#3182F6',
   },
   {
     slot: 5,
@@ -89,8 +89,6 @@ export const AFFILIATE_PRODUCTS: AffiliateProduct[] = [
     overridePrice: '4,500원',
     overrideOriginalPrice: '5,500원',
     overrideDiscountRate: 18,
-    badge: '신상',
-    badgeColor: '#7C3AED',
   },
 ]
 
