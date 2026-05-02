@@ -101,6 +101,12 @@ export type CredentialLabel = {
   account_id: string
   platform_store_name: string | null
   connected_at: string
+  /** v33: 마지막 로그인 시도 결과 — UI 에서 비번 변경/잠금 감지 시 안내 배너 노출 */
+  last_login_status?: string | null
+  last_login_at?: string | null
+  /** UI 가 즉시 분기 가능한 상태 플래그 */
+  needs_re_register?: boolean   // 비번 변경 감지 시 true
+  needs_attention?: boolean     // 보안 잠금 등 사용자 액션 필요
 }
 
 export async function listPlatformCredentialLabels(
@@ -110,19 +116,28 @@ export async function listPlatformCredentialLabels(
   const { data, error } = await svc
     .from('platform_credentials')
     .select(
-      'platform, account_id, platform_store_name, connected_at'
+      'platform, account_id, platform_store_name, connected_at, last_login_status, last_login_at'
     )
     .eq('user_id', userId)
 
   if (error || !data) return []
 
-  return data.map((r) => ({
-    platform: r.platform as PlatformSlug,
-    platform_label: PLATFORM_LABELS[r.platform as PlatformSlug] ?? r.platform,
-    account_id: r.account_id,
-    platform_store_name: r.platform_store_name ?? null,
-    connected_at: r.connected_at,
-  }))
+  return data.map((r) => {
+    const status = String(r.last_login_status || '')
+    const isCredsInvalid = status.startsWith('credentials_invalid')
+    const isLocked = status.startsWith('account_locked')
+    return {
+      platform: r.platform as PlatformSlug,
+      platform_label: PLATFORM_LABELS[r.platform as PlatformSlug] ?? r.platform,
+      account_id: r.account_id,
+      platform_store_name: r.platform_store_name ?? null,
+      connected_at: r.connected_at,
+      last_login_status: r.last_login_status ?? null,
+      last_login_at: r.last_login_at ?? null,
+      needs_re_register: isCredsInvalid,
+      needs_attention: isCredsInvalid || isLocked,
+    }
+  })
 }
 
 // ─────────────────────────────────────────────
