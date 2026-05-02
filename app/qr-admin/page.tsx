@@ -73,8 +73,39 @@ function generateReviewUrl(store: StoreInfo): string {
   return `${BASE_URL}/review/${encodeURIComponent(slug)}?${params.toString()}`
 }
 
-// ─── 실제 QR 이미지 (api.qrserver.com) ───────────────────────────
+// ─── 로컬 QR 생성 (qrcode lib) — 카메라 인식률 최적화 ───────────
+// 변경 이유: api.qrserver.com 외부 의존성 제거 + 인식률 개선
+//   · errorCorrectionLevel 'H' (30% 복원 — 흔들림/지문/오염에 강함)
+//   · margin 4 modules (quiet zone 충분 — 카메라 자동초점 대상)
+//   · SVG 렌더링 (확대해도 깨끗, 인쇄·고해상도 모두 OK)
+//   · 고대비 색상 (#191F28 검정 + 순백 #FFFFFF)
 function QRImage({ url, size = 120 }: { url: string; size?: number }) {
+  const [svg, setSvg] = useState<string>('')
+  const [err, setErr] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    if (!url) { setSvg(''); return }
+    setErr(null)
+    // dynamic import — 클라이언트 번들 분할
+    import('qrcode').then(async (mod) => {
+      try {
+        const QRCode = (mod as any).default || mod
+        const out = await QRCode.toString(url, {
+          type: 'svg',
+          errorCorrectionLevel: 'H',  // ⭐ 인식률 핵심 — 30% 복원
+          margin: 4,                  // quiet zone 4 modules (카메라 자동인식 안정)
+          width: size * 2,            // 2배 해상도 (모바일 retina 대비)
+          color: { dark: '#191F28', light: '#FFFFFF' },
+        })
+        if (!cancelled) setSvg(out)
+      } catch (e: any) {
+        if (!cancelled) setErr(e?.message || 'QR 생성 실패')
+      }
+    }).catch((e) => { if (!cancelled) setErr(String(e?.message || e)) })
+    return () => { cancelled = true }
+  }, [url, size])
+
   if (!url) {
     return (
       <div
@@ -85,34 +116,66 @@ function QRImage({ url, size = 120 }: { url: string; size?: number }) {
       </div>
     )
   }
-  const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=${size}x${size}&data=${encodeURIComponent(url)}&margin=8&color=191F28`
+  if (err) {
+    return (
+      <div
+        style={{ width: size, height: size }}
+        className="bg-[#FEF2F2] rounded-xl flex items-center justify-center text-[10px] text-[#DC2626] p-2 text-center">
+        QR 생성 실패: {err.slice(0, 40)}
+      </div>
+    )
+  }
+  if (!svg) {
+    return (
+      <div
+        style={{ width: size, height: size }}
+        className="bg-[#F2F4F6] rounded-xl flex items-center justify-center text-[10px] text-[#8B95A1] animate-pulse">
+        생성 중…
+      </div>
+    )
+  }
   return (
-    <img
-      src={qrApiUrl}
-      alt="QR Code"
-      width={size}
-      height={size}
-      className="block rounded"
-      style={{ imageRendering: 'pixelated' }}
+    <div
+      style={{ width: size, height: size }}
+      className="block rounded bg-white overflow-hidden"
+      // SVG inline 렌더링 — 확대해도 깨지지 않음
+      dangerouslySetInnerHTML={{ __html: svg.replace(/<svg/, `<svg width="${size}" height="${size}"`) }}
     />
   )
 }
 
-// ─── QR 다운로드 ─────────────────────────────────────────────────
+// ─── QR 다운로드 — 고해상도 PNG (로컬 생성, 외부 의존 0) ─────────
 async function downloadQR(reviewUrl: string, qrName: string) {
   if (!reviewUrl) return
-  const apiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=600x600&data=${encodeURIComponent(reviewUrl)}&margin=20&color=191F28`
   try {
-    const res = await fetch(apiUrl)
-    const blob = await res.blob()
-    const href = URL.createObjectURL(blob)
+    const mod = await import('qrcode')
+    const QRCode = (mod as any).default || mod
+    // 고해상도 PNG (1000x1000) — 인쇄·전단지 인식률 최고
+    const dataUrl = await QRCode.toDataURL(reviewUrl, {
+      errorCorrectionLevel: 'H',
+      margin: 4,
+      width: 1000,
+      color: { dark: '#191F28', light: '#FFFFFF' },
+    })
     const a = document.createElement('a')
-    a.href = href
-    a.download = qrName.replace(/\s+/g, '_') + '_QR.png'
+    a.href = dataUrl
+    a.download = (qrName || 'localution').replace(/\s+/g, '_') + '_QR.png'
     a.click()
-    URL.revokeObjectURL(href)
-  } catch {
-    window.open(apiUrl, '_blank')
+  } catch (e) {
+    // qrcode 라이브러리 로드 실패 시 fallback (외부 API)
+    const fallback = `https://api.qrserver.com/v1/create-qr-code/?size=1000x1000&data=${encodeURIComponent(reviewUrl)}&margin=20&ecc=H&color=191F28`
+    try {
+      const res = await fetch(fallback)
+      const blob = await res.blob()
+      const href = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = href
+      a.download = qrName.replace(/\s+/g, '_') + '_QR.png'
+      a.click()
+      URL.revokeObjectURL(href)
+    } catch {
+      window.open(fallback, '_blank')
+    }
   }
 }
 
@@ -550,39 +613,61 @@ export default function QRAdmin() {
             {/* 우측: QR 미리보기 + 보상 설정 + 저장 */}
             <div className="space-y-5">
 
-              {/* QR 미리보기 */}
+              {/* QR 코드 (큼직, 카메라 인식 최적화) */}
               {storeInfo.connected && previewReviewUrl && (
                 <div className="bg-white rounded-2xl p-6 shadow-sm">
-                  <div className="flex items-center gap-2 mb-4">
-                    <div className="w-8 h-8 rounded-xl bg-[#EFF6FF] flex items-center justify-center text-base">📱</div>
-                    <div>
-                      <h3 className="font-bold text-[#191F28]">QR 코드 미리보기</h3>
-                      <p className="text-xs text-[#8B95A1]">{storeInfo.name} 리뷰 유도 QR</p>
+                  <div className="flex items-center justify-between gap-2 mb-4">
+                    <div className="flex items-center gap-2">
+                      <div className="w-8 h-8 rounded-xl bg-[#EFF6FF] flex items-center justify-center text-base">📱</div>
+                      <div>
+                        <h3 className="font-bold text-[#191F28]">매장 QR 코드</h3>
+                        <p className="text-xs text-[#8B95A1]">{storeInfo.name} 리뷰 유도 QR</p>
+                      </div>
                     </div>
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#ECFDF5] text-[#059669] whitespace-nowrap">
+                      ECC-H 고복원
+                    </span>
                   </div>
-                  <div className="flex items-center gap-5">
-                    <div className="p-3 bg-white border-2 border-[#E5E8EB] rounded-2xl flex-shrink-0">
-                      <QRImage url={previewReviewUrl} size={120} />
+
+                  {/* 큰 QR — 화면에 직접 카메라로 찍어도 인식 가능 */}
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="p-5 bg-white border-2 border-[#191F28] rounded-2xl shadow-md">
+                      <QRImage url={previewReviewUrl} size={240} />
                     </div>
-                    <div className="flex-1 space-y-2">
-                      <p className="text-xs text-[#8B95A1] leading-relaxed">
-                        스캔하면 <span className="font-semibold text-[#191F28]">{storeInfo.name}</span>의 리뷰 페이지로 바로 이동해요
-                      </p>
-                      <button
-                        onClick={() => handleCopy('preview', previewReviewUrl)}
-                        className="text-xs px-3 py-1.5 bg-[#EFF6FF] rounded-lg border border-[#BFDBFE] text-[#3182F6] font-semibold hover:bg-[#DBEAFE] transition-colors">
-                        {copiedId === 'preview' ? '✅ 복사됨' : '🔗 링크 복사'}
-                      </button>
-                      <button
-                        onClick={async () => {
-                          setDownloading('preview')
-                          await downloadQR(previewReviewUrl, storeInfo.name)
-                          setDownloading(null)
-                        }}
-                        className="block text-xs px-3 py-1.5 bg-[#191F28] rounded-lg text-white font-semibold hover:bg-[#333D4B] transition-colors">
-                        {downloading === 'preview' ? '⏳ 다운로드 중...' : '⬇️ PNG 다운로드'}
-                      </button>
-                    </div>
+                    <p className="text-[11px] text-[#4E5968] text-center leading-relaxed max-w-[280px]">
+                      스캔하면 <span className="font-bold text-[#191F28]">{storeInfo.name}</span>의<br />
+                      리뷰 작성 페이지로 바로 이동해요
+                    </p>
+                  </div>
+
+                  {/* 액션 버튼 */}
+                  <div className="grid grid-cols-2 gap-2 mt-4">
+                    <button
+                      onClick={() => handleCopy('preview', previewReviewUrl)}
+                      className="py-2.5 rounded-xl bg-[#EFF6FF] border border-[#BFDBFE] text-[#3182F6] text-xs font-bold hover:bg-[#DBEAFE] transition-colors">
+                      {copiedId === 'preview' ? '✅ 복사됨' : '🔗 링크 복사'}
+                    </button>
+                    <button
+                      onClick={async () => {
+                        setDownloading('preview')
+                        await downloadQR(previewReviewUrl, storeInfo.name)
+                        setDownloading(null)
+                      }}
+                      disabled={downloading === 'preview'}
+                      className="py-2.5 rounded-xl bg-[#191F28] text-white text-xs font-bold hover:bg-[#333D4B] transition-colors disabled:opacity-50">
+                      {downloading === 'preview' ? '⏳ 다운로드 중…' : '⬇️ PNG 다운로드 (1000px)'}
+                    </button>
+                  </div>
+
+                  {/* 인식률 안내 */}
+                  <div className="mt-4 p-3 rounded-xl bg-[#FFFBEB] border border-[#FDE68A]">
+                    <p className="text-[11px] text-[#92400E] font-bold mb-1.5">📸 카메라 인식 잘 안 될 때</p>
+                    <ul className="text-[10px] text-[#9A3412] space-y-0.5 leading-relaxed pl-3 list-disc">
+                      <li>밝은 조명 + 손떨림 없이 (10~30cm 거리)</li>
+                      <li>화면이 너무 어둡거나 빛 반사되면 다운로드 받아 인쇄 후 스캔</li>
+                      <li>이 QR 은 <strong>ECC-H 30% 복원</strong> — 일부 가려져도 인식됩니다</li>
+                      <li>인쇄 시 최소 <strong>2cm × 2cm</strong> 권장 (작으면 인식 어려움)</li>
+                    </ul>
                   </div>
                 </div>
               )}
