@@ -319,15 +319,18 @@ export async function runCoupangEats(
     if (savedCookies && savedCookies.length > 0) {
       log.info({ cookieCount: savedCookies.length }, 'coupangeats: saved cookies found → skip browser nav, use direct API')
       const result = await fetchCoupangReviews(page, context, svc, creds, userId, action, payload, log, earlyCapture, earlyCaptureUrls, allRequestUrls, allJsonUrls, savedCookies)
-      // 쿠키 만료(whoami 403) 감지 → 브라우저 재로그인 폴백
+      // 쿠키 만료(401/403) 감지 → 브라우저 재로그인 자동 폴백
       const dbg = (result as any)?.debug?.rawBodySample || ''
       const inserted = (result as any)?.data?.inserted ?? -1
-      // whoami 실패 또는 browser도 403 → fresh login 폴백
-      const whoamiFailed = dbg.startsWith('whoami node:[') && !dbg.includes('"merchantId"') && !dbg.includes('"accountId"')
-      const browserBlocked = dbg.includes('alt2browser:403') && inserted === 0
-      const cookieExpired = (whoamiFailed || browserBlocked) && inserted === 0
-      if (cookieExpired) {
-        log.warn({ rawBodySample: dbg }, 'coupangeats: saved cookies expired (403), falling back to browser login')
+      const currentUrl = (result as any)?.debug?.currentUrl || ''
+      // 401 Unauthorized 또는 login 페이지 리다이렉트 = 세션 만료
+      const sessionExpired = (
+        dbg.includes('401') || dbg.includes('Unauthorized') ||
+        currentUrl.includes('/login') ||
+        (dbg.startsWith('whoami node:[') && !dbg.includes('"merchantId"') && !dbg.includes('"accountId"'))
+      ) && inserted === 0
+      if (sessionExpired) {
+        log.warn({ rawBodySample: dbg.slice(0, 100), currentUrl }, 'coupangeats: 세션 만료 감지 → 자동 재로그인 시도')
         return await fetchCoupangReviews(page, context, svc, creds, userId, action, payload, log, earlyCapture, earlyCaptureUrls, allRequestUrls, allJsonUrls, null)
       }
       return result
@@ -335,21 +338,16 @@ export async function runCoupangEats(
 
     // ── 폼 로그인 (쿠키 없거나 만료) ──
     log.info('coupangeats: attempting form login')
+    // ── 자동 로그인 (53차: ERR_PROXY_AUTH_UNSUPPORTED 체크 제거 — 프록시는 launch 레벨에서 설정) ──
+    log.info('coupangeats: 폼 로그인 시작 (stealth + residential proxy)')
     let loginNavErr: string | null = null
     try {
-      await page.goto(LOGIN_URL, { waitUntil: 'load', timeout: 45000 })
+      await page.goto(LOGIN_URL, { waitUntil: 'domcontentloaded', timeout: 45000 })
     } catch (e: any) {
       loginNavErr = String(e?.message || e)
+      log.warn({ loginNavErr: loginNavErr.slice(0, 100) }, 'coupangeats: login page nav error (계속 진행)')
     }
-    if (loginNavErr && loginNavErr.includes('ERR_PROXY_AUTH_UNSUPPORTED')) {
-      log.warn({ loginNavErr }, 'coupangeats: proxy blocks login nav — need saved cookies')
-      return {
-        status: 'failed',
-        message: 'coupangeats: Railway proxy 차단 — /my/platforms/coupangeats/connect 에서 브라우저 쿠키를 붙여넣어 주세요',
-        debug: { loginNavErr },
-      }
-    }
-    await page.waitForTimeout(6000)
+    await page.waitForTimeout(4000)
 
     const pwLocator = page.locator(DOM_SELECTORS.pwInput).first()
     const pwVisible = await pwLocator.waitFor({ state: 'visible', timeout: 15000 }).then(() => true).catch(() => false)
@@ -442,16 +440,16 @@ export async function runCoupangEats(
       await markLoginStatus(svc, userId, 'coupangeats', 'captcha', currentUrl)
       return { status: 'failed', message: 'coupangeats captcha — 수동 로그인 필요' }
     }
-    // 로그인 성공 여부: /merchant/ 페이지여야 함 (단순히 /login을 벗어난 것만으로는 불충분)
-    const loginSucceeded = currentUrl.includes('/merchant/') || currentUrl.includes('/management/')
+    // 로그인 성공 여부: /merchant/ 페이지거나 /login을 벗어났으면 성공으로 간주
+    const loginSucceeded = currentUrl.includes('/merchant/') || currentUrl.includes('/management/') || !currentUrl.includes('/login')
     if (!loginSucceeded) {
       await dumpPageDiagnostics(page, log, 'coupangeats-login-failed')
       const { failed, reason } = await detectLoginFailure(page)
       await markLoginStatus(svc, userId, 'coupangeats', 'failed', reason || `blocked at ${currentUrl.slice(0, 60)}`)
       return {
         status: 'failed',
-        message: 'coupangeats: Railway IP 차단으로 로그인 불가 — /my/platforms/coupangeats/connect 에서 브라우저 쿠키를 붙여넣어 주세요',
-        debug: { currentUrl },
+        message: `coupangeats: 로그인 실패 — 아이디/비밀번호를 다시 확인해주세요 (url=${currentUrl.slice(0, 60)})`,
+        debug: { currentUrl, reason },
       }
     }
 
