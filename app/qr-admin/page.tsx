@@ -7,6 +7,7 @@ import Sidebar from '../components/Sidebar'
 import Footer from '../components/Footer'
 import AffiliateAdSlots from '../components/AffiliateAdSlots'
 import QRReportPanel from '../components/QRReportPanel'
+import StampCardEditor from '../components/StampCardEditor'
 import PageHeader from '../components/PageHeader'
 import {
   QrCode, CheckCircle2, Sparkles,
@@ -457,7 +458,7 @@ function QRStatsPanel() {
 }
 
 export default function QRAdmin() {
-  const [activeTab, setActiveTab]   = useState<'settings' | 'stats' | 'report'>('settings')
+  const [activeTab, setActiveTab]   = useState<'settings' | 'stats' | 'report' | 'stamps'>('settings')
   const [settings, setSettings]     = useState<QRSettings>(DEFAULT_SETTINGS)
   const [storeInfo, setStoreInfo]   = useState<StoreInfo>(DEFAULT_STORE)
   const [storeEdit, setStoreEdit]   = useState(false)
@@ -697,11 +698,12 @@ export default function QRAdmin() {
             <div className="flex gap-1 mb-6 bg-white rounded-2xl p-1.5 shadow-sm overflow-x-auto scrollbar-hide -mx-1 px-1">
               {[
                 { key: 'settings', label: '업체 설정' },
+                { key: 'stamps',   label: '스탬프 카드' },
                 { key: 'stats',    label: '성과 리포트' },
                 { key: 'report',   label: '분석 리포트' },
               ].map(tab => (
                 <button key={tab.key}
-                  onClick={() => setActiveTab(tab.key as 'settings' | 'stats' | 'report')}
+                  onClick={() => setActiveTab(tab.key as 'settings' | 'stats' | 'report' | 'stamps')}
                   className={`flex-shrink-0 md:flex-1 min-w-fit py-2 px-3 rounded-xl text-sm font-semibold transition-colors whitespace-nowrap ${
                     activeTab === tab.key
                       ? 'bg-[#3182F6] text-white shadow-sm'
@@ -1076,6 +1078,14 @@ export default function QRAdmin() {
         )}
         {/* 광고: QR 인쇄물 추천 (네이버 쇼핑 커넥트) — stats 탭 하단 */}
         {activeTab === 'stats' && <AffiliateAdSlots />}
+
+        {/* ── 스탬프 카드 탭 (Phase 1: 디지털 스탬프) ── */}
+        {activeTab === 'stamps' && (
+          <div className="space-y-6">
+            <StampCardEditor />
+          </div>
+        )}
+        {activeTab === 'stamps' && <AffiliateAdSlots />}
 
         {/* ── 분석 리포트 탭 (2-F: recharts 인포그래픽 + PDF 저장) ── */}
         {activeTab === 'report' && (
