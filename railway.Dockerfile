@@ -21,10 +21,10 @@ RUN npm install --omit=optional --no-audit --no-fund \
 COPY worker/tsconfig.json ./
 
 # build-marker: COPY src 앞에 위치 — 이 줄 변경 시 이후 레이어 전체 캐시 무효화
-RUN echo "build-marker: v25-postCAPTCHA-register-priority-20260502T1500-RAILWAY"
+RUN echo "build-marker: v26-anchor-onclick-formSubmit-fallback-20260502T1600-RAILWAY"
 
 COPY worker/src ./src
-RUN rm -rf /app/dist && npx tsc && grep -c "v25-postCAPTCHA-register-priority-20260502" /app/dist/adapters/naver.js
+RUN rm -rf /app/dist && npx tsc && grep -c "v26-anchor-onclick-formSubmit-fallback-20260502" /app/dist/adapters/naver.js
 
 ENV NODE_ENV=production
 ENV PORT=3000
