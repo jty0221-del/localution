@@ -11,7 +11,7 @@
 //
 // 입력 payload: { import_id, place_id, booking_business_id? }
 // ============================================================
-import type { Browser } from 'playwright'
+import { chromium, type Browser } from 'playwright'
 import type { Logger } from 'pino'
 import { getServiceClient } from '../lib/supabase'
 import { loadPlainCredentials, loadCookieData } from '../lib/credentials'
@@ -86,8 +86,29 @@ export async function runNaverMenu(
     return { status: 'failed', message: 'no_cookies' }
   }
 
-  // 2) Playwright context 생성 + 쿠키 주입
-  const context = await browser.newContext({
+  // 2) 프록시 우회용 별도 Chromium 인스턴스 launch
+  // 메뉴는 사장님 인증 쿠키로 접근하므로 프록시 불필요 (오히려 ERR_TUNNEL_CONNECTION_FAILED 유발)
+  let menuBrowser: Browser | null = null
+  let usingFreshBrowser = false
+  try {
+    menuBrowser = await chromium.launch({
+      headless: true,
+      args: [
+        '--no-sandbox',
+        '--disable-setuid-sandbox',
+        '--disable-dev-shm-usage',
+        '--disable-gpu',
+        '--disable-blink-features=AutomationControlled',
+      ],
+    })
+    usingFreshBrowser = true
+    log.info('naver-menu: launched fresh chromium (no proxy) for menu fetch')
+  } catch (e: any) {
+    log.warn({ err: e?.message }, 'naver-menu: fresh chromium launch failed, falling back to shared browser')
+    menuBrowser = browser
+  }
+
+  const context = await menuBrowser.newContext({
     userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36',
     viewport: { width: 1280, height: 900 },
     locale: 'ko-KR',
@@ -166,6 +187,9 @@ export async function runNaverMenu(
     const currentUrl = page.url()
     if (currentUrl.includes('nid.naver.com/nidlogin') || currentUrl.includes('login')) {
       await context.close()
+  if (usingFreshBrowser && menuBrowser) {
+    try { await menuBrowser.close() } catch (_) {}
+  }
       await updateImport({
         status: 'failed',
         error_code: 'session_expired',
@@ -245,6 +269,9 @@ export async function runNaverMenu(
   } catch (e: any) {
     log.error({ err: e?.message }, 'naver-menu: navigation failed')
     await context.close()
+  if (usingFreshBrowser && menuBrowser) {
+    try { await menuBrowser.close() } catch (_) {}
+  }
     await updateImport({
       status: 'failed',
       error_code: 'navigation_failed',
@@ -255,6 +282,9 @@ export async function runNaverMenu(
   }
 
   await context.close()
+  if (usingFreshBrowser && menuBrowser) {
+    try { await menuBrowser.close() } catch (_) {}
+  }
 
   // 6) 결과 저장
   if (capturedMenus.length === 0) {
