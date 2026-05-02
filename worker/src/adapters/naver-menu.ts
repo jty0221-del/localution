@@ -209,10 +209,26 @@ export async function runNaverMenu(
       return { status: 'failed', message: 'session_expired' }
     }
 
-    // 추가 대기 (lazy load + GraphQL 응답 캡처)
-    await page.waitForTimeout(5000)
+    // 페이지 인터랙티브 대기 (smartplace SPA)
+    log.info('naver-menu: waiting for SPA hydration...')
+    await page.waitForTimeout(8000)  // 초기 GraphQL (placeBusiness, getSnbLnb) 대기
 
-    // "전체보기" 또는 유사 버튼 클릭 (여러 텍스트 패턴 시도)
+    // 메뉴 페이지가 비어있으면 — 메뉴 탭 클릭 시도
+    const menuTabTexts = ['메뉴 가격', '메뉴', '메뉴 정보', '대표메뉴', '메뉴 관리']
+    for (const btnText of menuTabTexts) {
+      if (capturedMenus.length > 0) break
+      try {
+        const tab = page.locator(`text=/^${btnText}$/`).first()
+        if (await tab.isVisible({ timeout: 2000 })) {
+          await tab.click({ timeout: 2000 })
+          await page.waitForTimeout(3000)
+          log.info({ btnText }, 'naver-menu: clicked menu tab')
+          break
+        }
+      } catch (_) {}
+    }
+
+    // "전체보기" 또는 유사 버튼 클릭
     const allButtonTexts = ['전체보기', '전체 메뉴', '더보기', '전체', '메뉴 전체']
     for (const btnText of allButtonTexts) {
       try {
@@ -230,10 +246,30 @@ export async function runNaverMenu(
     try {
       await page.evaluate(() => {
         window.scrollTo(0, document.body.scrollHeight)
-        return new Promise(r => setTimeout(r, 1500))
       })
-      await page.waitForTimeout(2500)
+      await page.waitForTimeout(2000)
     } catch (_) {}
+
+    // 본문이 채워질 때까지 폴링 (SPA hydration 대기)
+    const startedHydration = Date.now()
+    let lastBodyLen = 0
+    while (Date.now() - startedHydration < 30_000) {
+      const bodyLen = await page.evaluate(() => document.body?.innerText?.length || 0).catch(() => 0)
+      if (bodyLen > 500 && bodyLen === lastBodyLen) {
+        log.info({ bodyLen }, 'naver-menu: body text stabilized')
+        break
+      }
+      lastBodyLen = bodyLen
+      await page.waitForTimeout(2000)
+
+      // 메뉴 캡처됐으면 즉시 종료
+      if (capturedMenus.length > 0) break
+    }
+
+    log.info({ bodyLen: lastBodyLen, captured: capturedMenus.length }, 'naver-menu: hydration phase complete')
+
+    // 최종 대기 (응답 listener 추가 시간)
+    await page.waitForTimeout(2000)
 
     // 5) DOM 폴백 — 응답에서 못 잡았으면 DOM 에서 직접 추출
     if (capturedMenus.length === 0) {
