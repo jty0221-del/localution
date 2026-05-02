@@ -13,7 +13,7 @@ import { dumpPageDiagnostics, startNetworkCapture, detectLoginFailure } from '..
 import { handleNaverCaptcha, solveCaptcha } from '../lib/captcha'
 import type { JobResult, Action } from '../jobs'
 
-const NAVER_CODE_VERSION = 'v34-spa-friendly-nav-csrf-headers-20260502'
+const NAVER_CODE_VERSION = 'v35-spa-prereq-queries-20260502'
 
 const LOGIN_URL = 'https://nid.naver.com/nidlogin.login'
 const NEW_SMARTPLACE_BASE = 'https://new.smartplace.naver.com'
@@ -1341,6 +1341,52 @@ async function postNaverReply(
       placeId: storeId, textLen: replyText.length,
       textPreview: replyText.slice(0, 50),
     }, 'naver: 🚀 calling SmartPlace GraphQL createReply (v28 in-page fetch)')
+
+    // ── v35: SPA prerequisite query 시뮬 (createReply 전에 me/persona 활성화) ──
+    // 네이버가 sequential GraphQL flow (me → persona → candidates → createReply) 를 기대할 가능성
+    // 답글 발행 직전에 brief query 로 server-side session context 활성화
+    try {
+      const bidInt = bookingBusinessId ? parseInt(bookingBusinessId, 10) : undefined
+      const prereqResults = await page.evaluate(async ({ placeId, bookingBusinessId }: any) => {
+        const headers: Record<string, string> = {
+          'Content-Type': 'application/json',
+          'Accept': '*/*',
+          'from-system': 'smartplace',
+          'x-requested-with': 'XMLHttpRequest',
+          'apollographql-client-name': 'smartplace-web',
+          'apollographql-client-version': '1.0.0',
+        }
+        const csrfMatch = document.cookie.match(/(?:^|;\s*)csrf_token=([^;]+)/)
+        if (csrfMatch && csrfMatch[1]) headers['x-csrf-token'] = csrfMatch[1]
+
+        const callOp = async (opName: string, body: string) => {
+          try {
+            const r = await fetch('https://new.smartplace.naver.com/graphql?opName=' + opName, {
+              method: 'POST', headers, body, credentials: 'include',
+            })
+            const t = await r.text()
+            return { op: opName, status: r.status, preview: t.slice(0, 200) }
+          } catch (e: any) { return { op: opName, status: 0, err: String(e?.message || e) } }
+        }
+        // 1) me query — 사용자 컨텍스트 활성화
+        const meRes = await callOp('me', JSON.stringify({
+          operationName: 'me',
+          variables: {},
+          query: 'query me { me { id name email __typename } }',
+        }))
+        // 2) PlaceReviewPersona — 매장 답글 페르소나 컨텍스트 활성화
+        const personaRes = await callOp('PlaceReviewPersona', JSON.stringify({
+          operationName: 'PlaceReviewPersona',
+          variables: { input: { placeId, bookingBusinessId } },
+          query: 'query PlaceReviewPersona($input: PlaceReviewPersonaInput!) { placeReviewPersona(input: $input) { displayName __typename } }',
+        }))
+        return [meRes, personaRes]
+      }, { placeId: storeId, bookingBusinessId: bidInt }).catch((e: any) => [{ err: e?.message }])
+      log.info({ prereqResults }, 'naver: v35 SPA prereq queries 실행')
+      await page.waitForTimeout(1500)  // server-side session context 활성화 대기
+    } catch (e: any) {
+      log.warn({ err: e?.message }, 'naver: v35 prereq queries 실패 (계속 진행)')
+    }
 
     // ── v28 핵심 변경: GraphQL 호출을 page.evaluate 안에서 실행 ──
     // 브라우저 컨텍스트 사용 → 자동 cookies + same-origin + 추가 CSRF/auth token 자동 포함
