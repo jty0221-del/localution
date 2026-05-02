@@ -18,14 +18,15 @@ export type AffiliateProduct = {
   badgeColor?: string        // hex 색상
 }
 
-// 사용자가 실제 affiliate URL 5개 주시면 아래 url 5줄만 교체하시면 됩니다.
-// (또는 빈 배열로 두고 필요 시 채우기)
+// 네이버 쇼핑 커넥트 affiliate URL 5개 (2026-05-03)
+// 미리보기(이미지/가격/평점/리뷰수)는 /api/affiliate/preview 가 자동 추출 + 5분 캐시
+// 자동 추출 안 되는 항목은 overrideImage / overrideTitle / overrideDesc 로 보강 가능
 export const AFFILIATE_PRODUCTS: AffiliateProduct[] = [
-  // { slot: 1, url: 'https://...', enabled: true, badge: 'BEST', badgeColor: '#DC2626' },
-  // { slot: 2, url: 'https://...', enabled: true },
-  // { slot: 3, url: 'https://...', enabled: true, badge: '추천', badgeColor: '#3182F6' },
-  // { slot: 4, url: 'https://...', enabled: true },
-  // { slot: 5, url: 'https://...', enabled: true, badge: '신상', badgeColor: '#7C3AED' },
+  { slot: 1, url: 'https://naver.me/xtNHROhY', enabled: true, badge: 'BEST',  badgeColor: '#DC2626' },
+  { slot: 2, url: 'https://naver.me/FkadzuRw', enabled: true },
+  { slot: 3, url: 'https://naver.me/x0OhoNFH', enabled: true, badge: '추천',   badgeColor: '#3182F6' },
+  { slot: 4, url: 'https://naver.me/x1ugY8C7', enabled: true },
+  { slot: 5, url: 'https://naver.me/5l2CQyBP', enabled: true, badge: '신상',   badgeColor: '#7C3AED' },
 ]
 
 // 광고 슬롯이 비어있으면 안내 placeholder 보여줄지 여부
