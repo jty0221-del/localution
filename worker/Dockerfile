@@ -10,12 +10,12 @@ RUN npm install --omit=optional --no-audit --no-fund \
     && npm cache clean --force
 
 COPY tsconfig.json ./
-# v14 FRESH BUILD — 이전 dist가 image에 잔존하지 않도록 명시적 제거 + UNIQUE_MARKER 추가
-RUN echo "build-marker: v21-deviceAdd-skip-naver-fallback-20260502" && rm -rf /app/dist /app/src
+# v22 FRESH BUILD — deviceAdd-v22-dump-formAware-skip 강제 무효화
+RUN echo "build-marker: v22-deviceAdd-dump-formAware-skip-20260502T1100" && rm -rf /app/dist /app/src
 COPY src ./src
 
-# 컴파일 전 dist 강제 제거 (cache 우회) + 새 마커 검증
-RUN rm -rf /app/dist && npx tsc && ls -la /app/dist/adapters/naver.js && grep -c "UNIQUE_MARKER_v16_REFERER_FIX" /app/dist/adapters/naver.js
+# 컴파일 전 dist 강제 제거 (cache 우회) + v22 마커 검증
+RUN rm -rf /app/dist && npx tsc && ls -la /app/dist/adapters/naver.js && grep -c "v22-deviceAdd-dump-formAware-skip-20260502" /app/dist/adapters/naver.js
 
 ENV NODE_ENV=production
 ENV PORT=8080
