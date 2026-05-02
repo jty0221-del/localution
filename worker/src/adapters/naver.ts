@@ -13,7 +13,7 @@ import { dumpPageDiagnostics, startNetworkCapture, detectLoginFailure } from '..
 import { handleNaverCaptcha, solveCaptcha } from '../lib/captcha'
 import type { JobResult, Action } from '../jobs'
 
-const NAVER_CODE_VERSION = 'v28-inPage-fetch-with-card-click-20260502'
+const NAVER_CODE_VERSION = 'v29-bookingBusinessId-extraction-20260502'
 
 const LOGIN_URL = 'https://nid.naver.com/nidlogin.login'
 const NEW_SMARTPLACE_BASE = 'https://new.smartplace.naver.com'
@@ -975,25 +975,66 @@ async function postNaverReply(
   //   → final URL을 capture하여 referer로 사용 (placeSeq + bookingBusinessId 자동 포함)
   //   → PC 도메인 (new.smartplace) + Desktop UA 사용
   let finalRefererUrl = 'https://new.smartplace.naver.com/bizes/place/' + storeId + '/reviews?menu=visitor'
+  let bookingBusinessId = ''
   try {
-    // 1) SmartPlace 페이지 방문 → redirect 후 final URL 캡처 (placeSeq + bookingBusinessId 포함)
+    // ── v29 핵심: bookingBusinessId 자동 추출 ──
+    // 정식 owner URL: /bizes/place/{placeId}/reviews?bookingBusinessId={...}&menu=visitor
+    // 이게 없으면 SmartPlace GraphQL 이 FORBIDDEN 반환
+    //
+    // Step 1) /bizes 메인 진입 → 매장 카드 클릭 → SPA redirect → URL 에 bookingBusinessId 포함
     try {
-      await page.goto('https://new.smartplace.naver.com/bizes/place/' + storeId + '/reviews?menu=visitor', {
+      await page.goto('https://new.smartplace.naver.com/bizes', {
         waitUntil: 'domcontentloaded', timeout: 15000,
       })
-      await page.waitForTimeout(3500)  // SPA redirect 시간 확보
+      await page.waitForTimeout(4000)  // 매장 목록 로딩 대기
+
+      // 매장 카드 직접 클릭 → SPA 가 bookingBusinessId 자동 hydration
+      const clicked = await page.evaluate((targetPlaceId: string) => {
+        const card = document.querySelector(`a[href*="/bizes/place/${targetPlaceId}"]`) as HTMLElement | null
+        if (card) { card.click(); return true }
+        return false
+      }, storeId).catch(() => false)
+      log.info({ clicked }, 'naver: v29 매장 카드 클릭 (SPA 진입)')
+      if (clicked) {
+        await page.waitForTimeout(7000)  // SPA redirect + bookingBusinessId hydration 충분히 대기
+      }
+
+      // 현재 URL 에서 bookingBusinessId 추출
+      let currUrl = page.url()
+      let m = currUrl.match(/bookingBusinessId=(\d+)/)
+      if (m) {
+        bookingBusinessId = m[1]
+        log.info({ bookingBusinessId, urlAfterClick: currUrl.slice(0, 200) }, 'naver: ✅ v29 bookingBusinessId 추출 성공 (매장 카드 redirect)')
+      } else {
+        log.warn({ urlAfterClick: currUrl.slice(0, 200) }, 'naver: v29 bookingBusinessId 자동 추출 실패 → reviews 페이지로 강제 이동 시도')
+        // /bizes/place/{placeId} 직접 진입 → SPA 가 bookingBusinessId 추가하길 기대
+        await page.goto(`https://new.smartplace.naver.com/bizes/place/${storeId}`, {
+          waitUntil: 'domcontentloaded', timeout: 15000,
+        }).catch(() => null)
+        await page.waitForTimeout(7000)
+        currUrl = page.url()
+        m = currUrl.match(/bookingBusinessId=(\d+)/)
+        if (m) {
+          bookingBusinessId = m[1]
+          log.info({ bookingBusinessId, urlAfterPlaceVisit: currUrl.slice(0, 200) }, 'naver: ✅ v29 bookingBusinessId 추출 성공 (place 직접 진입)')
+        }
+      }
+
+      // Step 2) 추출된 bookingBusinessId 로 정식 reviews URL 구성하여 진입
+      const reviewsUrl = bookingBusinessId
+        ? `https://new.smartplace.naver.com/bizes/place/${storeId}/reviews?bookingBusinessId=${bookingBusinessId}&menu=visitor`
+        : `https://new.smartplace.naver.com/bizes/place/${storeId}/reviews?menu=visitor`
+      await page.goto(reviewsUrl, { waitUntil: 'domcontentloaded', timeout: 15000 })
+      await page.waitForTimeout(4000)
       const u = page.url()
-      log.info({ url: u }, 'naver: visited SmartPlace reviews page')
+      log.info({ url: u, hasBookingBusinessId: !!bookingBusinessId }, 'naver: visited SmartPlace reviews page')
       if (u.includes('nid.naver.com') || u.includes('login')) {
         return { ok: false, reason: 'SmartPlace 접근 시 로그인 redirect — 세션 만료' }
       }
-      // redirect된 URL에 placeSeq + bookingBusinessId 포함 → 그대로 referer로 사용
-      if (u.includes('smartplace.naver.com') && u.includes('/reviews')) {
-        finalRefererUrl = u
-        log.info({ finalRefererUrl }, 'naver: ✅ captured final referer with placeSeq/bookingBusinessId')
-      }
+      finalRefererUrl = u  // SPA 가 hydration 완료한 URL 그대로 사용
+      log.info({ finalRefererUrl, bookingBusinessId }, 'naver: ✅ v29 captured final referer (with bookingBusinessId)')
     } catch (e: any) {
-      log.warn({ err: e?.message }, 'naver: SmartPlace reviews page visit failed (using fallback referer)')
+      log.warn({ err: e?.message }, 'naver: v29 SmartPlace navigation failed (using fallback)')
     }
 
     // 2) 쿠키 캡처 (네이버 + smartplace 도메인)
@@ -1068,16 +1109,35 @@ async function postNaverReply(
       let foundOnPage = -1
       const seenItemsSummary: any[] = []
       for (let p = 1; p <= 5 && !smartplaceReviewId; p++) {
-        const reviewsRes = await fetch('https://new.smartplace.naver.com/graphql?opName=getReviews', {
-          method: 'POST',
-          headers: smartplaceHeaders,
+        // v29: getReviews input 에 bookingBusinessId 포함 (정식 owner 흐름)
+        const grInput: any = { sort: 'CreatedDesc', placeId: storeId, page: p }
+        if (bookingBusinessId) grInput.bookingBusinessId = bookingBusinessId
+        // page.evaluate 로 호출하여 브라우저 컨텍스트 사용 (자동 cookies/CSRF)
+        const reviewsResult = await page.evaluate(async ({ url, body }: any) => {
+          try {
+            const r = await fetch(url, {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json', 'Accept': '*/*', 'from-system': 'smartplace' },
+              body, credentials: 'include',
+            })
+            const text = await r.text()
+            return { ok: r.ok, status: r.status, text: text.slice(0, 3000) }
+          } catch (e: any) { return { ok: false, status: 0, text: '', err: e?.message } }
+        }, {
+          url: 'https://new.smartplace.naver.com/graphql?opName=getReviews',
           body: JSON.stringify({
             operationName: 'getReviews',
-            variables: { input: { sort: 'CreatedDesc', placeId: storeId, page: p } },
+            variables: { input: grInput },
             query: reviewsQuery,
           }),
-          signal: AbortSignal.timeout(10000),
-        })
+        }).catch((e: any) => ({ ok: false, status: 0, text: '', err: e?.message }))
+        // shim: 기존 코드 호환을 위해 reviewsRes 객체 형태로 변환
+        const reviewsRes = {
+          ok: reviewsResult.ok && reviewsResult.status === 200,
+          status: reviewsResult.status,
+          text: async () => reviewsResult.text,
+          json: async () => { try { return JSON.parse(reviewsResult.text) } catch { return null } },
+        } as any
         if (!reviewsRes.ok) {
           const errBody = await reviewsRes.text().catch(() => '')
           log.warn({ status: reviewsRes.status, page: p, errBody: errBody.slice(0, 300) }, 'naver: getReviews HTTP error')
@@ -1218,6 +1278,11 @@ async function postNaverReply(
 
     const t0 = Date.now()
     // page.evaluate 안에서 fetch — 브라우저가 자동 cookies + headers + CSRF 처리
+    // v29: input 에 bookingBusinessId 포함 (있을 때만)
+    const createReplyInput: any = { text: replyText, reviewId: smartplaceReviewId, placeId: storeId }
+    if (bookingBusinessId) createReplyInput.bookingBusinessId = bookingBusinessId
+    log.info({ createReplyInput: { ...createReplyInput, text: createReplyInput.text.slice(0, 30) } }, 'naver: v29 createReply input')
+
     const inPageResult = await page.evaluate(async ({ url, body }: { url: string; body: string }) => {
       try {
         const r = await fetch(url, {
@@ -1236,7 +1301,7 @@ async function postNaverReply(
       url: graphqlUrl,
       body: JSON.stringify({
         operationName: 'createReply',
-        variables: { input: { text: replyText, reviewId: smartplaceReviewId, placeId: storeId } },
+        variables: { input: createReplyInput },
         query: mutationQuery,
       }),
     }).catch((e: any) => ({ ok: false, status: 0, text: '', parsed: null, err: e?.message }))
