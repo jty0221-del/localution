@@ -255,7 +255,9 @@ export default function StampCardEditor() {
               </div>
             </div>
             <div className="flex flex-col items-center gap-3">
-              <div className="p-3 bg-white border-2 border-[#191F28] rounded-xl shadow-md">
+              <div
+                className="bg-white border-2 border-[#191F28] rounded-xl shadow-md flex-shrink-0 flex items-center justify-center"
+                style={{ width: 204, height: 204 }}>
                 <QRImage url={stampUrl} size={180} />
               </div>
               <div className="w-full p-2.5 rounded-lg bg-[#F8FAFB] border border-[#E5E8EB]">
