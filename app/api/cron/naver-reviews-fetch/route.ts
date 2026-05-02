@@ -1,22 +1,15 @@
 // app/api/cron/naver-reviews-fetch/route.ts
 // ============================================================
-// 30차-15-D · 네이버 공개 리뷰 자동 수집 크론 (4시간마다)
-//
-//   매 UTC 00:00 / 04:00 / 08:00 / 12:00 / 16:00 / 20:00
-//   = KST 09:00 / 13:00 / 17:00 / 21:00 / 01:00 / 05:00 호출.
-//
-//   Authorization: Bearer <CRON_SECRET> 검증 후
-//   naver_place 연결된 전체 유저(platform_credentials 또는 place_targets)를
-//   축차 루프 돌며 fetchVisitorReviews() → platform_reviews UPSERT.
-//
-//   수동 테스트:
-//     curl -H "Authorization: Bearer $CRON_SECRET" \
-//          https://www.localution.co.kr/api/cron/naver-reviews-fetch
+// v37+: 네이버 공개 리뷰 자동 수집 크론 (15분마다 — 사용자 요청)
+//   · 매 15분 → KST 거의 실시간 리뷰 수집
+//   · 새 리뷰 감지 시 알림 발송 trigger (Phase 1: 발송 큐 적재만)
+//   · 별점 ≤ low_rating_threshold 면 사용자 알림 끄도 강제 발송
 // ============================================================
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/app/lib/adminAuth'
 import { verifyCronAuth } from '@/app/lib/cron-auth'
 import { fetchVisitorReviews } from '@/app/lib/naver-place'
+import { triggerReviewNotifications } from '@/app/lib/notifications-trigger'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -191,14 +184,28 @@ export async function GET(req: NextRequest) {
         } else {
           okUsers += 1
           totalCollected += reviews.length
-          totalUpserted += Array.isArray(upData) ? upData.length : 0
+          const upsertedCount = Array.isArray(upData) ? upData.length : 0
+          totalUpserted += upsertedCount
           results.push({
             user_id: t.user_id,
             place_id: t.place_id,
             source: t.source,
             collected: reviews.length,
-            upserted: Array.isArray(upData) ? upData.length : 0,
+            upserted: upsertedCount,
           })
+
+          // ⭐ 알림 trigger — 새로 upsert 된 리뷰가 있으면 사용자 알림 설정 확인 후 발송
+          // upserted_id 가 있는 리뷰만 (DB 에 처음 들어왔거나 변경된) 알림 후보
+          if (Array.isArray(upData) && upData.length > 0) {
+            try {
+              const newReviewIds = new Set(upData.map(r => r.platform_review_id).filter(Boolean))
+              const newReviews = rows.filter(r => newReviewIds.has(r.platform_review_id))
+              // eslint-disable-next-line no-await-in-loop
+              await triggerReviewNotifications(svc, t.user_id, newReviews).catch((e) => {
+                console.warn('[notify-trigger] failed user=' + t.user_id, e?.message)
+              })
+            } catch (_) {}
+          }
         }
       }
     } catch (e: any) {
