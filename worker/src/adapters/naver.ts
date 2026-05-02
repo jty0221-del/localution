@@ -13,7 +13,7 @@ import { dumpPageDiagnostics, startNetworkCapture, detectLoginFailure } from '..
 import { handleNaverCaptcha, solveCaptcha } from '../lib/captcha'
 import type { JobResult, Action } from '../jobs'
 
-const NAVER_CODE_VERSION = 'v31-no-overwrite-correctURL-20260502'
+const NAVER_CODE_VERSION = 'v32-humanlike-stealth-20260502'
 
 const LOGIN_URL = 'https://nid.naver.com/nidlogin.login'
 const NEW_SMARTPLACE_BASE = 'https://new.smartplace.naver.com'
@@ -170,9 +170,13 @@ export async function runNaver(
   const proxyProto = process.env.PROXY_PROTOCOL || 'http'
   const useProxy = !!(proxyHost && proxyPort)
 
+  // ── v32 humanlike: viewport 미세 랜덤화 (1280±32, 900±48) ──
+  // 같은 fingerprint 반복 방지 (네이버 봇 탐지 회피)
+  const vw = 1248 + Math.floor(Math.random() * 64)  // 1248~1311
+  const vh = 868 + Math.floor(Math.random() * 96)   // 868~963
   const contextOptions: any = {
     userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36',
-    viewport: { width: 1280, height: 900 },
+    viewport: { width: vw, height: vh },
     locale: 'ko-KR',
     timezoneId: 'Asia/Seoul',
     extraHTTPHeaders: {
@@ -181,6 +185,8 @@ export async function runNaver(
       'sec-ch-ua-mobile': '?0',
       'sec-ch-ua-platform': '"Windows"',
     },
+    // v32: navigator.webdriver 차단 (자동화 탐지 우회)
+    bypassCSP: true,
   }
   // proxy는 chromium.launch() 레벨에서 설정됨 (index.ts)
   // context 레벨에서 재설정하면 ERR_PROXY_AUTH_UNSUPPORTED 발생 → 여기서는 로그만
@@ -191,8 +197,45 @@ export async function runNaver(
   }
 
   const context = await browser.newContext(contextOptions)
+
+  // ── v32 humanlike: 브라우저 fingerprint 위장 (stealth) ──
+  // 모든 page 에서 자동화 탐지 흔적 제거
+  await context.addInitScript(() => {
+    // navigator.webdriver = false (가장 흔한 자동화 신호)
+    Object.defineProperty(navigator, 'webdriver', { get: () => false })
+    // navigator.plugins / languages 정상화
+    Object.defineProperty(navigator, 'languages', { get: () => ['ko-KR', 'ko', 'en-US', 'en'] })
+    Object.defineProperty(navigator, 'plugins', {
+      get: () => [{ name: 'Chrome PDF Plugin' }, { name: 'Chrome PDF Viewer' }, { name: 'Native Client' }],
+    })
+    // chrome 객체 stub
+    if (!(window as any).chrome) (window as any).chrome = { runtime: {} }
+    // permissions API stub
+    const origQuery = (window.navigator as any).permissions?.query
+    if (origQuery) {
+      ;(window.navigator as any).permissions.query = (params: any) =>
+        params.name === 'notifications'
+          ? Promise.resolve({ state: 'default' } as any)
+          : origQuery(params)
+    }
+  })
+
   const page = await context.newPage()
   startNetworkCapture(page, log, ['review', 'reply', 'smartplace'])
+
+  // v32 humanlike helper 함수들 (이 페이지 컨텍스트 안에서만 사용)
+  const humanDelay = (min = 600, max = 1400) =>
+    new Promise<void>((r) => setTimeout(r, min + Math.floor(Math.random() * (max - min))))
+  const jitter = async () => {
+    // 사람처럼 마우스 살짝 움직임 (각도/거리 랜덤)
+    try {
+      const x = 200 + Math.floor(Math.random() * 800)
+      const y = 200 + Math.floor(Math.random() * 500)
+      await page.mouse.move(x, y, { steps: 8 + Math.floor(Math.random() * 12) }).catch(() => null)
+    } catch {}
+  }
+  ;(page as any).__humanDelay = humanDelay
+  ;(page as any).__jitter = jitter
 
   try {
     let loggedIn = false
@@ -247,9 +290,16 @@ export async function runNaver(
       // ── 네이버 2단계 로그인: ID 입력 후 "다음" 클릭 → PW 입력 후 "로그인" 클릭
       //    (2026년 네이버 로그인 UX: #log.login 버튼이 "다음" → "로그인" 으로 바뀜)
       //    중요: ID 입력 시 fill()보다 clear+type()이 Naver JS 이벤트 처리에 안전
+      // v32 humanlike: 마우스 jitter + 클릭 전 짧은 대기 + 글자별 변동 delay
+      await (page as any).__jitter()
+      await (page as any).__humanDelay(400, 900)
       await idEl.click({ clickCount: 3 })
-      await idEl.type(creds.account_id, { delay: 80 })
-      await page.waitForTimeout(500)
+      await (page as any).__humanDelay(150, 350)
+      // 사람같은 타이핑: 글자마다 50~180ms 랜덤 (평균 ~115ms, 사람 약간 빠른 타자)
+      for (const ch of creds.account_id) {
+        await idEl.type(ch, { delay: 50 + Math.floor(Math.random() * 130) })
+      }
+      await (page as any).__humanDelay(500, 1100)
 
       const step1BtnText = await page.$eval(
         '#log\\.login .btn_text, #log\\.login span, #log\\.login',
@@ -309,9 +359,15 @@ export async function runNaver(
         if (platformReviewId) await updateReviewStatus(svc, userId, platformReviewId, 'failed', { error: msg })
         return { status: 'failed', message: msg }
       }
+      // v32 humanlike: PW 입력도 글자별 변동 delay + 클릭 전 마우스 jitter
+      await (page as any).__jitter()
+      await (page as any).__humanDelay(300, 700)
       await pwEl.click({ clickCount: 3 })
-      await pwEl.type(creds.password, { delay: 80 })
-      await page.waitForTimeout(500)
+      await (page as any).__humanDelay(150, 350)
+      for (const ch of creds.password) {
+        await pwEl.type(ch, { delay: 60 + Math.floor(Math.random() * 140) })
+      }
+      await (page as any).__humanDelay(500, 1100)
 
       // PW가 실제로 입력됐는지 확인
       const pwLen = await pwEl.evaluate((el: any) => (el as HTMLInputElement).value?.length ?? 0).catch(() => 0)
