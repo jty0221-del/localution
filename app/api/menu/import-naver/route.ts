@@ -219,41 +219,114 @@ async function fetchMenusViaSSR(placeId: string, businessType: string, debug: an
   return null
 }
 
-// HTML 에서 메뉴 추출 — APOLLO_STATE / INITIAL_STATE / DOM 패턴
+// HTML 에서 메뉴 추출 — 괄호 깊이 카운팅으로 정확히 JSON 추출
 function extractMenusFromHtml(html: string, debug: any[]): MenuItem[] | null {
-  // 1) __APOLLO_STATE__
-  const apolloMatch = html.match(/__APOLLO_STATE__\s*=\s*({[\s\S]*?})\s*<\/script/)
-  if (apolloMatch) {
+  // 다양한 패턴 시도
+  const markers = [
+    '__APOLLO_STATE__',
+    'window.__APOLLO_STATE__',
+    '__INITIAL_STATE__',
+    'window.__INITIAL_STATE__',
+    '__NEXT_DATA__',
+    '__PRELOADED_STATE__',
+  ]
+
+  for (const marker of markers) {
+    const startStr = marker + '='
+    const idx = html.indexOf(startStr)
+    if (idx === -1) continue
+
+    // = 다음의 첫 { 위치 찾기
+    let braceStart = idx + startStr.length
+    while (braceStart < html.length && /\s/.test(html[braceStart])) braceStart++
+    if (html[braceStart] !== '{') continue
+
+    // 깊이 카운팅으로 매칭 } 찾기 (문자열 안의 } 무시)
+    let depth = 0
+    let inString = false
+    let escape = false
+    let end = -1
+    for (let i = braceStart; i < html.length; i++) {
+      const c = html[i]
+      if (escape) { escape = false; continue }
+      if (c === '\\') { escape = true; continue }
+      if (c === '"') { inString = !inString; continue }
+      if (inString) continue
+      if (c === '{') depth++
+      else if (c === '}') {
+        depth--
+        if (depth === 0) { end = i + 1; break }
+      }
+    }
+    if (end === -1) continue
+
+    const jsonStr = html.slice(braceStart, end)
     try {
-      const state = JSON.parse(apolloMatch[1])
+      const state = JSON.parse(jsonStr)
+      // 평면 검색: state 의 key 들 중 Menu 패턴
       const menus: MenuItem[] = []
-      for (const k of Object.keys(state)) {
-        if (/^Menu(Info)?:/i.test(k) || /Menu$/.test(k) || /menu/i.test(k)) {
-          const m = state[k]
-          if (m?.name && m.price !== undefined) {
-            menus.push(mapMenu(m, state))
+      const seen = new Set<string>()
+
+      const visit = (obj: any, depth = 0) => {
+        if (!obj || depth > 8 || typeof obj !== 'object') return
+        if (Array.isArray(obj)) {
+          for (const v of obj) visit(v, depth + 1)
+          return
+        }
+        // 메뉴 객체 패턴 감지: name + price 가 모두 있으면 후보
+        if (obj.name && (obj.price !== undefined || obj.priceText) && !obj.email && !obj.phone) {
+          const key = String(obj.name) + '|' + (obj.price || obj.priceText || '')
+          if (!seen.has(key)) {
+            seen.add(key)
+            menus.push(mapMenu(obj, state))
           }
         }
+        for (const k of Object.keys(obj)) visit(obj[k], depth + 1)
       }
-      debug.push({ try: 'apollo_state', found: menus.length })
-      if (menus.length > 0) return menus.filter(m => m.name_ko)
+      visit(state)
+
+      debug.push({ try: marker, found: menus.length, jsonLen: jsonStr.length })
+      const valid = menus.filter(m => m.name_ko && m.name_ko.length > 0)
+      if (valid.length > 0) return valid
     } catch (e: any) {
-      debug.push({ try: 'apollo_parse', err: String(e?.message).slice(0, 80) })
+      debug.push({ try: marker, err: String(e?.message).slice(0, 80), jsonLen: jsonStr.length })
     }
   }
 
-  // 2) window.__INITIAL_STATE__
-  const initialMatch = html.match(/window\.__INITIAL_STATE__\s*=\s*({[\s\S]*?})\s*<\/script/)
-  if (initialMatch) {
-    try {
-      const state = JSON.parse(initialMatch[1])
-      const r = traverseForMenus(state)
-      debug.push({ try: 'initial_state', found: r?.length || 0 })
-      if (r && r.length > 0) return r
-    } catch (_) {}
+  // Fallback: HTML 자체에서 메뉴 박스 추출 (DOM 패턴)
+  const domMenus = extractMenusFromDom(html)
+  if (domMenus.length > 0) {
+    debug.push({ try: 'dom_pattern', found: domMenus.length })
+    return domMenus
   }
 
   return null
+}
+
+// HTML DOM 패턴에서 메뉴 추출 (Apollo state 가 막혔을 때 fallback)
+function extractMenusFromDom(html: string): MenuItem[] {
+  const menus: MenuItem[] = []
+  // 네이버 플레이스 메뉴 박스 패턴: <li class="..."><div class="lPzHi">메뉴명</div>...<em>가격</em>
+  const liRegex = /<li[^>]*>([\s\S]*?)<\/li>/g
+  let match
+  while ((match = liRegex.exec(html)) !== null) {
+    const block = match[1]
+    if (!block || block.length < 50) continue
+    const nameM = block.match(/class="[^"]*lPzHi[^"]*"[^>]*>([^<]+)</)
+        || block.match(/class="[^"]*menu[^"]*name[^"]*"[^>]*>([^<]+)</i)
+    const priceM = block.match(/<em[^>]*>([\d,]+)/) || block.match(/(\d{3,7})원/)
+    const imgM = block.match(/<img[^>]+src="([^"]+)"/)
+    const descM = block.match(/class="[^"]*menu[^"]*desc[^"]*"[^>]*>([^<]+)</i)
+    if (nameM) {
+      menus.push({
+        name_ko: nameM[1].trim().slice(0, 80),
+        price: priceM ? parseInt(priceM[1].replace(/,/g, ''), 10) || 0 : 0,
+        image_url: imgM?.[1] || null,
+        desc_ko: descM?.[1]?.trim().slice(0, 200) || null,
+      })
+    }
+  }
+  return menus
 }
 
 // ─── D. SmartOrder API (배달주문 메뉴) ──────────────────
