@@ -98,8 +98,10 @@ export default function ConnectPlatformPage() {
       if (!data.ok) { setError(data.message || data.error || 'save_failed'); return }
       setPassword('')
       if (platform === 'naver_place') { setStep(3) }
-      else if (platform === 'coupangeats') { setStep(3) }
-      else { setSuccess(meta.label + ' 연결이 완료되었습니다.'); setTimeout(() => router.push('/my/platforms'), 1100) }
+      else {
+        setSuccess(meta.label + ' 연결 완료! 리뷰 자동 수집이 곧 시작돼요 🎉')
+        setTimeout(() => router.push('/my/platforms'), 1400)
+      }
     } catch (e) { setError(e instanceof Error ? e.message : String(e)) }
     finally { setSaving(false) }
   }
@@ -178,64 +180,6 @@ export default function ConnectPlatformPage() {
       setTimeout(() => router.push('/my/platforms'), 1400)
     } catch (e) { setError(e instanceof Error ? e.message : String(e)) }
     finally { setSavingStore(false) }
-  }
-
-  // ── STEP 3: CoupangEats 쿠키 등록 ──
-  if (step === 3 && platform === 'coupangeats') {
-    return (
-      <main className="min-h-screen bg-white flex flex-col">
-        <div className="flex items-center justify-between px-5 pt-4 pb-2">
-          <div className="text-[11px] text-[#8B95A1]">STEP 3 / 3</div>
-          <Link href="/my/platforms" aria-label="닫기" className="w-8 h-8 flex items-center justify-center text-[#191F28] text-2xl leading-none hover:bg-[#F2F4F6] rounded-lg">✕</Link>
-        </div>
-        <div className="flex-1 max-w-sm w-full mx-auto px-6 pt-6 pb-8 flex flex-col">
-          <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl font-black mb-5 shadow-sm" style={{ background: '#FF4B30', color: '#fff' }}>쿠</div>
-          <h1 className="text-[20px] font-black text-[#191F28] leading-snug mb-2">브라우저 쿠키 등록</h1>
-          <p className="text-[13px] text-[#4E5968] mb-4 leading-relaxed">
-            쿠팡이츠는 보안상 서버 자동로그인이 차단돼요.<br />
-            브라우저에서 직접 로그인 후 쿠키를 복사해 붙여넣으면 돼요.
-          </p>
-          <div className="rounded-xl bg-[#FFF3E0] border border-[#FFB74D] p-4 mb-5 text-[12px] text-[#E65100] leading-relaxed space-y-2">
-            <div className="font-bold text-[13px]">📋 쿠키 추출 방법</div>
-            <div>① <a href="https://store.coupangeats.com/merchant/login" target="_blank" rel="noopener noreferrer" className="underline font-medium">쿠팡이츠 사장님 사이트</a> 접속 후 로그인</div>
-            <div>② Chrome에서 <kbd className="bg-white px-1.5 py-0.5 rounded border font-mono text-[11px]">F12</kbd> → Application 탭 → Cookies → store.coupangeats.com</div>
-            <div>③ 아무 쿠키 우클릭 → "Copy all as JSON" (또는 아래 스니펫 사용)</div>
-            <div className="mt-2 bg-white rounded p-2 font-mono text-[10px] text-[#333] break-all select-all border border-[#FFB74D]">
-              {"copy(JSON.stringify([...document.querySelectorAll || []])"}
-            </div>
-            <div className="mt-1 text-[11px]">
-              또는 <strong>EditThisCookie</strong> 확장 프로그램 → Export 버튼으로도 추출 가능해요
-            </div>
-          </div>
-          <div className="rounded-xl bg-[#F0F4FF] border border-[#BFDBFE] p-3 mb-4 text-[12px] text-[#1E40AF] leading-relaxed">
-            <div className="font-bold mb-1">💡 더 쉬운 방법: 개발자 도구 콘솔</div>
-            <div>F12 → Console 탭에 아래 코드 붙여넣기 후 Enter:</div>
-            <div className="mt-1 bg-white rounded p-2 font-mono text-[10px] text-[#333] break-all select-all border border-[#BFDBFE]">
-              {"copy(document.cookie.split('; ').map(p=>{const[n,...v]=p.split('=');return{name:n,value:v.join('='),domain:'store.coupangeats.com',path:'/'}}).filter(c=>c.name))"}
-            </div>
-            <div className="mt-1 text-[11px]">※ httpOnly 쿠키는 포함 안 됨 — EditThisCookie 사용 권장</div>
-          </div>
-          {error && <div className="mb-3 rounded-lg bg-[#FEF2F2] border border-[#FECACA] p-3 text-[13px] text-[#DC2626]">{error}</div>}
-          {success && <div className="mb-3 rounded-lg bg-[#ECFDF5] border border-[#A7F3D0] p-3 text-[13px] text-[#059669]">✓ {success}</div>}
-          <textarea
-            value={cookieText}
-            onChange={(e) => setCookieText(e.target.value)}
-            placeholder={'복사한 쿠키 JSON 을 여기에 붙여넣어 주세요\n예: [{"name":"auth_token","value":"...","domain":"store.coupangeats.com",...}]'}
-            className="w-full h-32 px-4 py-3 rounded-2xl bg-[#F5F6F8] border border-transparent text-[12px] font-mono placeholder-[#B0B8C1] focus:outline-none focus:border-[#FF4B30] focus:bg-white mb-4 resize-none"
-          />
-          <button onClick={saveCoupangCookies} disabled={cookieSaving || !cookieText.trim() || cookieSaved}
-            className="w-full py-4 rounded-2xl text-[15px] font-bold text-white disabled:opacity-50 mb-3" style={{ background: '#FF4B30' }}>
-            {cookieSaving ? '저장 중…' : cookieSaved ? '✓ 저장 완료' : '쿠키 저장 후 자동 수집 시작'}
-          </button>
-          <button onClick={() => router.push('/my/platforms')} className="w-full py-3 rounded-2xl text-[14px] text-[#6B7280] hover:bg-[#F5F6F8]">
-            나중에 등록하기
-          </button>
-          <div className="mt-5 text-[11px] text-[#8B95A1] leading-relaxed text-center">
-            쿠키는 서버에 암호화 저장되며 리뷰 수집에만 사용돼요 🔐
-          </div>
-        </div>
-      </main>
-    )
   }
 
   // ── STEP 3: 네이버 플레이스 매장 등록 ──
