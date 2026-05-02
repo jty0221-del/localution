@@ -11,206 +11,134 @@ import { Bookmark, Copy, Check, X, ExternalLink, ArrowRight, Smartphone } from '
 const APP_ORIGIN = 'https://www.localution.co.kr'
 
 // 북마클릿 JS 코드 — 사장님이 네이버 페이지에서 클릭 시 실행됨
-// 콘솔에 붙여넣기용 raw JS (javascript: 프리픽스 없음)
+// 콘솔에 붙여넣기용 raw JS — template literal 안에 정규식 사용 금지 (CLAUDE.md 규칙)
+// 정규식 대신 string methods + new RegExp() 사용
 function buildRawJs(token: string): string {
-  return `(async function(){
-  try {
-    var TOKEN = '${token}';
-    var APP = '${APP_ORIGIN}';
-    var items = [];
-    var html = document.documentElement.innerHTML;
-    var s = html.indexOf('__APOLLO_STATE__');
-    if (s !== -1) {
-      try {
-        var braceStart = html.indexOf('{', s);
-        var depth = 0, end = -1, inStr = false, esc = false;
-        for (var i = braceStart; i < html.length; i++) {
-          var c = html[i];
-          if (esc) { esc = false; continue; }
-          if (c === '\\\\') { esc = true; continue; }
-          if (c === '"') { inStr = !inStr; continue; }
-          if (inStr) continue;
-          if (c === '{') depth++;
-          else if (c === '}') { depth--; if (depth === 0) { end = i + 1; break; } }
-        }
-        if (end > braceStart) {
-          var state = JSON.parse(html.slice(braceStart, end));
-          for (var k in state) {
-            var m = state[k];
-            if (m && m.name && (m.price !== undefined || m.priceText)) {
-              items.push({
-                name_ko: String(m.name).slice(0, 80),
-                price: parseInt(String(m.price || '0').replace(/[^0-9]/g, ''), 10) || 0,
-                image_url: m.image || (m.images && m.images[0] && (m.images[0].url || m.images[0])) || null,
-                desc_ko: m.description ? String(m.description).slice(0, 200) : null,
-                is_signature: !!(m.recommend || m.featured),
-              });
-            }
-          }
-        }
-      } catch(e){ console.warn('apollo parse error:', e); }
-    }
-    if (items.length === 0) {
-      var allEls = Array.from(document.querySelectorAll('div, li, article, section'));
-      var candidates = allEls.filter(function(n){
-        var t = n.textContent || '';
-        if (t.length > 800) return false;
-        return /\\d{3,7}\\s?원/.test(t);
-      });
-      var smallest = candidates.filter(function(n){
-        return !candidates.some(function(o){ return o !== n && o.contains(n); });
-      });
-      var seen = {};
-      smallest.forEach(function(node){
-        var nameEl = node.querySelector('[class*="name"], [class*="Name"], [class*="title"], [class*="Title"], strong, h3, h4, b');
-        var priceMatch = (node.textContent || '').match(/(\\d{1,3}(?:,\\d{3})*|\\d+)\\s?원/);
-        var imgEl = node.querySelector('img');
-        var descEl = node.querySelector('[class*="desc"], [class*="Desc"], p');
-        var name = (nameEl && nameEl.textContent) ? nameEl.textContent.trim() : null;
-        if (!name) {
-          var lines = (node.textContent || '').split('\\n').map(function(l){ return l.trim(); }).filter(Boolean);
-          name = lines[0] && lines[0].slice(0, 60);
-        }
-        if (name && priceMatch && !seen[name]) {
-          seen[name] = true;
-          items.push({
-            name_ko: name.slice(0, 80),
-            price: parseInt(priceMatch[1].replace(/,/g, ''), 10) || 0,
-            image_url: imgEl ? imgEl.src : null,
-            desc_ko: descEl ? (descEl.textContent || '').trim().slice(0, 200) : null,
-          });
-        }
-      });
-    }
-    console.log('extracted', items.length, 'items', items);
-    if (items.length === 0) {
-      alert('메뉴를 찾지 못했어요. 메뉴 페이지에서 실행하셨나요?');
-      return;
-    }
-    var ok = confirm(items.length + '개 메뉴를 찾았어요.\\n로컬루션으로 전송할까요?');
-    if (!ok) return;
-    var res = await fetch(APP + '/api/menu/import-bookmarklet/submit', {
-      method: 'POST',
-      mode: 'cors',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token: TOKEN, items: items })
-    });
-    var json = await res.json();
-    if (json.ok) alert('성공! ' + json.count + '개 메뉴 전송 완료.\\n로컬루션 페이지로 돌아가세요.');
-    else alert('전송 실패: ' + (json.message || json.error));
-  } catch(e) {
-    console.error(e);
-    alert('오류: ' + e.message);
-  }
-})();`
+  // JS 코드를 배열로 분리 후 join — template literal 정규식 회피
+  const lines = [
+    "(async function(){",
+    "  try {",
+    "    var TOKEN = " + JSON.stringify(token) + ";",
+    "    var APP = " + JSON.stringify(APP_ORIGIN) + ";",
+    "    var items = [];",
+    "    function digitsOnly(s){ return String(s).replace(new RegExp('[^0-9]','g'), ''); }",
+    "    function hasWonPrice(t){",
+    "      var idx = t.indexOf('원');",
+    "      if (idx < 1) return false;",
+    "      var i = idx - 1;",
+    "      while (i >= 0 && (t[i] === ' ' || t[i] === ',')) i--;",
+    "      var hasDigit = false, count = 0;",
+    "      while (i >= 0 && (t[i] >= '0' && t[i] <= '9' || t[i] === ',')) { if (t[i] !== ',') hasDigit = true; count++; i--; if (count > 12) break; }",
+    "      return hasDigit && count >= 3;",
+    "    }",
+    "    function extractPrice(t){",
+    "      var idx = t.indexOf('원');",
+    "      if (idx < 1) return 0;",
+    "      var end = idx;",
+    "      while (end > 0 && t[end-1] === ' ') end--;",
+    "      var start = end;",
+    "      while (start > 0 && ((t[start-1] >= '0' && t[start-1] <= '9') || t[start-1] === ',')) start--;",
+    "      var num = t.slice(start, end).replace(new RegExp(',','g'), '');",
+    "      var n = parseInt(num, 10);",
+    "      return isNaN(n) ? 0 : n;",
+    "    }",
+    "    var html = document.documentElement.innerHTML;",
+    "    var s = html.indexOf('__APOLLO_STATE__');",
+    "    if (s !== -1) {",
+    "      try {",
+    "        var braceStart = html.indexOf('{', s);",
+    "        var depth = 0, end = -1, inStr = false, esc = false;",
+    "        for (var i = braceStart; i < html.length; i++) {",
+    "          var c = html[i];",
+    "          if (esc) { esc = false; continue; }",
+    "          if (c === String.fromCharCode(92)) { esc = true; continue; }",
+    "          if (c === '\"') { inStr = !inStr; continue; }",
+    "          if (inStr) continue;",
+    "          if (c === '{') depth++;",
+    "          else if (c === '}') { depth--; if (depth === 0) { end = i + 1; break; } }",
+    "        }",
+    "        if (end > braceStart) {",
+    "          var state = JSON.parse(html.slice(braceStart, end));",
+    "          for (var k in state) {",
+    "            var m = state[k];",
+    "            if (m && m.name && (m.price !== undefined || m.priceText)) {",
+    "              items.push({",
+    "                name_ko: String(m.name).slice(0, 80),",
+    "                price: parseInt(digitsOnly(m.price || '0'), 10) || 0,",
+    "                image_url: m.image || (m.images && m.images[0] && (m.images[0].url || m.images[0])) || null,",
+    "                desc_ko: m.description ? String(m.description).slice(0, 200) : null,",
+    "                is_signature: !!(m.recommend || m.featured),",
+    "              });",
+    "            }",
+    "          }",
+    "        }",
+    "      } catch(e){ console.warn('apollo parse error:', e); }",
+    "    }",
+    "    if (items.length === 0) {",
+    "      var allEls = Array.from(document.querySelectorAll('div, li, article, section'));",
+    "      var candidates = allEls.filter(function(n){",
+    "        var t = n.textContent || '';",
+    "        if (t.length > 800) return false;",
+    "        return hasWonPrice(t);",
+    "      });",
+    "      var smallest = candidates.filter(function(n){",
+    "        return !candidates.some(function(o){ return o !== n && o.contains(n); });",
+    "      });",
+    "      var seen = {};",
+    "      smallest.forEach(function(node){",
+    "        var nameEl = node.querySelector('[class*=\"name\"], [class*=\"Name\"], [class*=\"title\"], [class*=\"Title\"], strong, h3, h4, b');",
+    "        var t = node.textContent || '';",
+    "        var priceVal = extractPrice(t);",
+    "        var imgEl = node.querySelector('img');",
+    "        var descEl = node.querySelector('[class*=\"desc\"], [class*=\"Desc\"], p');",
+    "        var name = (nameEl && nameEl.textContent) ? nameEl.textContent.trim() : null;",
+    "        if (!name) {",
+    "          var lines = t.split(String.fromCharCode(10)).map(function(l){ return l.trim(); }).filter(Boolean);",
+    "          name = lines[0] && lines[0].slice(0, 60);",
+    "        }",
+    "        if (name && priceVal > 0 && !seen[name]) {",
+    "          seen[name] = true;",
+    "          items.push({",
+    "            name_ko: name.slice(0, 80),",
+    "            price: priceVal,",
+    "            image_url: imgEl ? imgEl.src : null,",
+    "            desc_ko: descEl ? (descEl.textContent || '').trim().slice(0, 200) : null,",
+    "          });",
+    "        }",
+    "      });",
+    "    }",
+    "    console.log('extracted', items.length, 'items', items);",
+    "    if (items.length === 0) {",
+    "      alert('메뉴를 찾지 못했어요. 메뉴 페이지에서 실행하셨나요?');",
+    "      return;",
+    "    }",
+    "    var newline = String.fromCharCode(10);",
+    "    var ok = confirm(items.length + '개 메뉴를 찾았어요.' + newline + '로컬루션으로 전송할까요?');",
+    "    if (!ok) return;",
+    "    var res = await fetch(APP + '/api/menu/import-bookmarklet/submit', {",
+    "      method: 'POST',",
+    "      mode: 'cors',",
+    "      headers: { 'Content-Type': 'application/json' },",
+    "      body: JSON.stringify({ token: TOKEN, items: items })",
+    "    });",
+    "    var json = await res.json();",
+    "    if (json.ok) alert('성공! ' + json.count + '개 메뉴 전송 완료.' + newline + '로컬루션 페이지로 돌아가세요.');",
+    "    else alert('전송 실패: ' + (json.message || json.error));",
+    "  } catch(e) {",
+    "    console.error(e);",
+    "    alert('오류: ' + e.message);",
+    "  }",
+    "})();",
+  ]
+  return lines.join('\n')
 }
 
 function buildBookmarkletJs(token: string): string {
-  // 한 줄 압축 (북마크 URL 호환)
-  const code = `
-(async function(){
-  try {
-    var TOKEN = '${token}';
-    var APP = '${APP_ORIGIN}';
-    var items = [];
-
-    // 1) Apollo State 시도 (m.place.naver.com)
-    var html = document.documentElement.innerHTML;
-    var apolloMatch = html.match(/__APOLLO_STATE__\\s*=\\s*(\\{[\\s\\S]*?\\})\\s*<\\/script/);
-    if (apolloMatch) {
-      try {
-        var depth = 0, end = -1, inStr = false, esc = false;
-        var s = html.indexOf('__APOLLO_STATE__');
-        var braceStart = html.indexOf('{', s);
-        for (var i = braceStart; i < html.length; i++) {
-          var c = html[i];
-          if (esc) { esc = false; continue; }
-          if (c === '\\\\') { esc = true; continue; }
-          if (c === '"') { inStr = !inStr; continue; }
-          if (inStr) continue;
-          if (c === '{') depth++;
-          else if (c === '}') { depth--; if (depth === 0) { end = i + 1; break; } }
-        }
-        if (end > braceStart) {
-          var state = JSON.parse(html.slice(braceStart, end));
-          for (var k in state) {
-            var m = state[k];
-            if (m && m.name && (m.price !== undefined || m.priceText)) {
-              items.push({
-                name_ko: String(m.name).slice(0, 80),
-                price: parseInt(String(m.price || '0').replace(/[^0-9]/g, ''), 10) || 0,
-                image_url: m.image || (m.images && m.images[0] && (m.images[0].url || m.images[0])) || null,
-                desc_ko: m.description ? String(m.description).slice(0, 200) : null,
-                is_signature: !!(m.recommend || m.featured),
-              });
-            }
-          }
-        }
-      } catch(e){}
-    }
-
-    // 2) DOM 폴백 — 가격 패턴 가진 박스 추출
-    if (items.length === 0) {
-      var allEls = Array.from(document.querySelectorAll('div, li, article, section'));
-      var candidates = allEls.filter(function(n){
-        var t = n.textContent || '';
-        if (t.length > 800) return false;
-        return /\\d{3,7}\\s?원/.test(t) || /\\d{3,7}\\s?KRW/i.test(t);
-      });
-      var smallest = candidates.filter(function(n){
-        return !candidates.some(function(o){ return o !== n && o.contains(n); });
-      });
-      var seen = {};
-      smallest.forEach(function(node){
-        var nameEl = node.querySelector('[class*="name"], [class*="Name"], [class*="title"], [class*="Title"], strong, h3, h4, b');
-        var priceMatch = (node.textContent || '').match(/(\\d{1,3}(?:,\\d{3})*|\\d+)\\s?원/);
-        var imgEl = node.querySelector('img');
-        var descEl = node.querySelector('[class*="desc"], [class*="Desc"], p');
-        var name = (nameEl && nameEl.textContent) ? nameEl.textContent.trim() : null;
-        if (!name) {
-          var lines = (node.textContent || '').split('\\n').map(function(l){ return l.trim(); }).filter(Boolean);
-          name = lines[0] && lines[0].slice(0, 60);
-        }
-        if (name && priceMatch && !seen[name]) {
-          seen[name] = true;
-          items.push({
-            name_ko: name.slice(0, 80),
-            price: parseInt(priceMatch[1].replace(/,/g, ''), 10) || 0,
-            image_url: imgEl ? imgEl.src : null,
-            desc_ko: descEl ? (descEl.textContent || '').trim().slice(0, 200) : null,
-          });
-        }
-      });
-    }
-
-    if (items.length === 0) {
-      alert('메뉴를 찾지 못했어요.\\n\\n네이버 메뉴 페이지에서 클릭하셨는지 확인하고 다시 시도해주세요.\\n(예: smartplace.naver.com 메뉴 가격 페이지, 또는 m.place.naver.com 메뉴 페이지)');
-      return;
-    }
-
-    var ok = confirm(items.length + '개 메뉴를 찾았어요.\\n로컬루션으로 전송할까요?');
-    if (!ok) return;
-
-    var res = await fetch(APP + '/api/menu/import-bookmarklet/submit', {
-      method: 'POST',
-      mode: 'cors',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ token: TOKEN, items: items })
-    });
-    var json = await res.json();
-    if (json.ok) {
-      alert('성공! ' + json.count + '개 메뉴 전송 완료.\\n로컬루션 페이지로 돌아가세요.');
-    } else {
-      alert('전송 실패: ' + (json.message || json.error));
-    }
-  } catch(e) {
-    alert('오류: ' + e.message);
-  }
-})();
-`.replace(/\n\s+/g, ' ').trim()
-
+  // raw JS 를 한 줄로 압축 + javascript: 프리픽스
+  const code = buildRawJs(token).split('\n').join(' ')
   return 'javascript:' + encodeURIComponent(code)
 }
+
 
 export default function MenuBookmarkletDialog({
   open,
