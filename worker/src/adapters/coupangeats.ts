@@ -330,7 +330,14 @@ export async function runCoupangEats(
         (dbg.startsWith('whoami node:[') && !dbg.includes('"merchantId"') && !dbg.includes('"accountId"'))
       ) && inserted === 0
       if (sessionExpired) {
-        log.warn({ rawBodySample: dbg.slice(0, 100), currentUrl }, 'coupangeats: 세션 만료 감지 → 자동 재로그인 시도')
+        log.warn({ rawBodySample: dbg.slice(0, 100), currentUrl }, 'coupangeats: 세션 만료 감지 → DB 쿠키 삭제 후 form login 시도')
+        // DB에서 만료된 쿠키 삭제 → 다음 run에서도 form login으로 진입
+        try {
+          await svc.from('platform_connections').update({ session_cookies: null }).eq('user_id', userId).eq('platform', 'coupangeats')
+          log.info('coupangeats: 만료 쿠키 DB에서 삭제 완료')
+        } catch (ce: any) {
+          log.warn({ err: String(ce?.message || ce) }, 'coupangeats: 쿠키 삭제 실패 (계속 진행)')
+        }
         return await fetchCoupangReviews(page, context, svc, creds, userId, action, payload, log, earlyCapture, earlyCaptureUrls, allRequestUrls, allJsonUrls, null)
       }
       return result
@@ -569,6 +576,15 @@ async function fetchCoupangReviews(
         log.info('coupangeats: whoami after home nav responsibleStoreId=' + (rid ?? 'N/A'))
         if (rid) responsibleStoreIdSet = true
       } catch (_) {}
+
+      // ── 세션 만료 조기 감지: /login 리다이렉트 → Step2 건너뜀 (브라우저 보존) ──
+      if (rootUrl.includes('/login') || !responsibleStoreIdSet) {
+        log.warn({ rootUrl }, 'coupangeats: 55cha — home nav → login redirect, session expired. skipping step2 to preserve browser for form login')
+        return {
+          data: { inserted: 0, updated: 0 },
+          debug: { rawBodySample: 'session-expired:/login-redirect', currentUrl: rootUrl }
+        }
+      }
 
       // POST URL 로그 (어떤 POST 요청들이 발생했는지)
       const postUrls = allRequestUrls.filter((u) => u.startsWith('POST') || u.startsWith('PUT'))
