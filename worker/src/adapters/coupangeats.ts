@@ -581,8 +581,10 @@ async function fetchCoupangReviews(
       if (rootUrl.includes('/login') || !responsibleStoreIdSet) {
         log.warn({ rootUrl }, 'coupangeats: 55cha — home nav → login redirect, session expired. skipping step2 to preserve browser for form login')
         return {
+          status: 'skipped',
+          message: 'coupangeats: session expired (login redirect) — skipping step2',
           data: { inserted: 0, updated: 0 },
-          debug: { rawBodySample: 'session-expired:/login-redirect', currentUrl: rootUrl }
+          debug: { rawBodySample: 'session-expired:/login-redirect', currentUrl: rootUrl },
         }
       }
 
