@@ -147,18 +147,28 @@ export async function runNaverMenu(
   const capturedMenus: MenuItem[] = []
   const networkLog: any[] = []
 
-  // 3) 네트워크 응답 가로채기 — 메뉴 GraphQL/JSON 찾기
+  // 3) 네트워크 응답 가로채기 — 모든 JSON 응답 검사 (smartplace partner API 구조 미지정)
+  const allJsonUrls: string[] = []
   page.on('response', async (resp) => {
     try {
       const url = resp.url()
-      if (!url.includes('graphql') && !url.includes('menu') && !url.includes('Menu')) return
       const ct = resp.headers()['content-type'] || ''
+
+      // JSON 응답만 (HTML/CSS/img 제외)
       if (!ct.includes('json')) return
+      // 명백한 무관 URL 필터 (analytics, ads 등)
+      if (url.includes('google-analytics') || url.includes('doubleclick') || url.includes('analytics')) return
+
+      allJsonUrls.push(url.slice(0, 200))
 
       const json = await resp.json().catch(() => null)
       if (!json) return
 
-      networkLog.push({ url: url.slice(0, 120), status: resp.status() })
+      networkLog.push({
+        url: url.slice(0, 200),
+        status: resp.status(),
+        sample: JSON.stringify(json).slice(0, 300),
+      })
 
       const found = extractMenusDeep(json)
       if (found && found.length > 0) {
@@ -199,59 +209,124 @@ export async function runNaverMenu(
       return { status: 'failed', message: 'session_expired' }
     }
 
-    // "전체보기" 버튼 클릭 시도
-    try {
-      const seeAllBtn = await page.locator('text=/전체보기/').first()
-      if (await seeAllBtn.isVisible({ timeout: 3000 })) {
-        await seeAllBtn.click({ timeout: 3000 })
-        await page.waitForTimeout(2000)
-        log.info('naver-menu: clicked 전체보기')
-      }
-    } catch (_) {}
+    // 추가 대기 (lazy load + GraphQL 응답 캡처)
+    await page.waitForTimeout(5000)
 
-    // 추가 대기 (lazy load)
-    await page.waitForTimeout(3000)
+    // "전체보기" 또는 유사 버튼 클릭 (여러 텍스트 패턴 시도)
+    const allButtonTexts = ['전체보기', '전체 메뉴', '더보기', '전체', '메뉴 전체']
+    for (const btnText of allButtonTexts) {
+      try {
+        const btn = page.locator(`text=/${btnText}/`).first()
+        if (await btn.isVisible({ timeout: 1500 })) {
+          await btn.click({ timeout: 2000 })
+          await page.waitForTimeout(2500)
+          log.info({ btnText }, 'naver-menu: clicked button')
+          break
+        }
+      } catch (_) {}
+    }
+
+    // 추가 스크롤 (lazy load 트리거)
+    try {
+      await page.evaluate(() => {
+        window.scrollTo(0, document.body.scrollHeight)
+        return new Promise(r => setTimeout(r, 1500))
+      })
+      await page.waitForTimeout(2500)
+    } catch (_) {}
 
     // 5) DOM 폴백 — 응답에서 못 잡았으면 DOM 에서 직접 추출
     if (capturedMenus.length === 0) {
       log.info('naver-menu: no captured menus from network, trying DOM scrape')
       try {
-        const domMenus = await page.evaluate(() => {
-          const items: any[] = []
-          // 다양한 메뉴 박스 셀렉터 시도
-          const selectors = [
-            '[class*="menu_box"]',
-            '[class*="MenuItem"]',
-            '[class*="menuList"] > li',
-            '[class*="menu-item"]',
-            'li[class*="menu"]',
-          ]
-          let nodes: NodeListOf<Element> | null = null
-          for (const s of selectors) {
-            const found = document.querySelectorAll(s)
-            if (found.length > 0) { nodes = found; break }
+        const { domMenus, domDebug } = await page.evaluate(() => {
+          const debug: any = {
+            url: window.location.href,
+            title: document.title,
+            bodyTextLen: document.body?.innerText?.length || 0,
           }
-          if (!nodes) return []
+          const items: any[] = []
+
+          // 광범위한 셀렉터 시도
+          const selectorGroups = [
+            ['[class*="menu_box"]', '[class*="MenuItem"]', '[class*="menuList"] > li', '[class*="menu-item"]'],
+            ['li[class*="menu"]', 'div[class*="menu"][class*="item"]'],
+            ['[role="row"]', 'tr', 'tbody > tr'],
+            ['[data-testid*="menu"]', '[data-test*="menu"]'],
+            ['li', 'div[class*="item"]'],
+          ]
+
+          let nodes: Element[] = []
+          for (const group of selectorGroups) {
+            for (const s of group) {
+              const found = Array.from(document.querySelectorAll(s))
+              // 메뉴처럼 생긴 노드만 (가격/원 텍스트 포함)
+              const candidates = found.filter(n => {
+                const t = n.textContent || ''
+                return /\d{3,7}[\s,]?원/.test(t) || /₩[\s]?\d/.test(t)
+              })
+              if (candidates.length > 0) {
+                nodes = candidates
+                debug.matchedSelector = s
+                debug.matchedCount = candidates.length
+                break
+              }
+            }
+            if (nodes.length > 0) break
+          }
+
+          // 폴백: 가격 패턴 가진 모든 부모 요소 추출
+          if (nodes.length === 0) {
+            const allEls = Array.from(document.querySelectorAll('div, li, article, section'))
+            const candidates = allEls.filter(n => {
+              const txt = n.textContent || ''
+              if (txt.length > 500) return false  // 너무 큰 컨테이너 제외
+              return /\d{3,7}[\s,]?원/.test(txt)
+            })
+            // 중복/포함 관계 제거 (가장 작은 단위만)
+            nodes = candidates.filter(n => !candidates.some(other => other !== n && other.contains(n)))
+            debug.fallbackUsed = true
+            debug.fallbackCount = nodes.length
+          }
 
           nodes.forEach((node: any) => {
-            const nameEl = node.querySelector('[class*="name"], [class*="Name"], [class*="title"]') as HTMLElement
-            const priceEl = node.querySelector('[class*="price"], [class*="Price"], em') as HTMLElement
+            const nameEl = node.querySelector('[class*="name"], [class*="Name"], [class*="title"], [class*="Title"], strong, b, h3, h4')
+            const priceMatch = (node.textContent || '').match(/(\d{1,3}(?:,\d{3})*|\d+)\s?원/)
             const imgEl = node.querySelector('img') as HTMLImageElement
-            const descEl = node.querySelector('[class*="desc"], [class*="Desc"]') as HTMLElement
+            const descEl = node.querySelector('[class*="desc"], [class*="Desc"], p')
 
-            const name = nameEl?.textContent?.trim()
-            const priceText = priceEl?.textContent?.trim()
-            if (name && priceText) {
+            let name = nameEl?.textContent?.trim()
+            // name 이 없으면 첫 줄에서 추출
+            if (!name) {
+              const lines = (node.textContent || '').split('\n').map((s: string) => s.trim()).filter(Boolean)
+              name = lines[0]?.slice(0, 60)
+            }
+
+            if (name && priceMatch) {
               items.push({
-                name,
-                price: priceText,
+                name: name.slice(0, 80),
+                price: priceMatch[0],
                 image_url: imgEl?.src || null,
-                description: descEl?.textContent?.trim() || null,
+                description: descEl?.textContent?.trim().slice(0, 200) || null,
               })
             }
           })
-          return items
+
+          // 중복 제거 (이름 기준)
+          const seen = new Set()
+          const unique = items.filter(it => {
+            if (seen.has(it.name)) return false
+            seen.add(it.name)
+            return true
+          })
+
+          debug.extractedCount = unique.length
+          debug.htmlLen = document.documentElement.outerHTML.length
+          return { domMenus: unique, domDebug: debug }
         })
+
+        log.info({ domDebug }, 'naver-menu: DOM scrape result')
+        networkLog.push({ dom: domDebug })
 
         for (const d of domMenus) {
           capturedMenus.push({
@@ -261,11 +336,13 @@ export async function runNaverMenu(
             desc_ko: d.description?.slice(0, 200) || null,
           })
         }
-        log.info({ count: domMenus.length }, 'naver-menu: DOM scrape result')
       } catch (e: any) {
         log.warn({ err: e?.message }, 'naver-menu: DOM scrape failed')
       }
     }
+
+    // 디버그용: 캡처된 모든 JSON URL 로그
+    log.info({ jsonUrlCount: allJsonUrls.length, urls: allJsonUrls.slice(0, 30) }, 'naver-menu: all captured JSON URLs')
   } catch (e: any) {
     log.error({ err: e?.message }, 'naver-menu: navigation failed')
     await context.close()
@@ -288,10 +365,18 @@ export async function runNaverMenu(
 
   // 6) 결과 저장
   if (capturedMenus.length === 0) {
+    // 디버그 정보를 error_message 에 포함 (UI 에서 보여서 진단 가능)
+    const debugSummary = JSON.stringify({
+      jsonResponseCount: allJsonUrls.length,
+      sampleUrls: allJsonUrls.slice(0, 10),
+      domDebug: networkLog.find(x => x.dom)?.dom,
+      lastJsonResponses: networkLog.filter(x => !x.dom).slice(-3),
+    }).slice(0, 1500)
+
     await updateImport({
       status: 'failed',
       error_code: 'no_menus_found',
-      error_message: '메뉴가 등록되지 않았거나 페이지에서 찾을 수 없어요. 네이버 플레이스에 메뉴를 등록한 후 다시 시도해주세요.',
+      error_message: '메뉴를 추출하지 못했어요. 디버그: ' + debugSummary,
       completed_at: new Date().toISOString(),
     })
     return { status: 'failed', message: 'no_menus_found', data: { networkLog } }
