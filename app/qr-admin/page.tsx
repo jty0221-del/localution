@@ -9,13 +9,14 @@ import AffiliateAdSlots from '../components/AffiliateAdSlots'
 import QRReportPanel from '../components/QRReportPanel'
 import StampCardEditor from '../components/StampCardEditor'
 import MenuBoardEditor from '../components/MenuBoardEditor'
+import WifiQRBox from '../components/WifiQRBox'
 import PageHeader from '../components/PageHeader'
 import {
   QrCode, CheckCircle2, Sparkles,
   Eye, ReceiptText, Camera, Send,
   Smartphone, Tablet, Monitor,
   BarChart3, TrendingUp, Clock,
-  Store, Printer, Link2,
+  Store, Printer, Link2, Gift, Wifi,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -725,7 +726,9 @@ export default function QRAdmin() {
               <div className="bg-white rounded-2xl p-6 shadow-sm">
                 <div className="flex items-center justify-between mb-4">
                   <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-xl bg-[#F0FDF4] flex items-center justify-center text-base">🟢</div>
+                    <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#03C75A] to-[#059669] flex items-center justify-center shadow-sm">
+                      <Link2 size={16} className="text-white" strokeWidth={2.5} />
+                    </div>
                     <div>
                       <h3 className="font-bold text-[#191F28]">네이버 업체 연동</h3>
                       <p className="text-xs text-[#8B95A1]">연동 시 QR 리뷰 링크 자동 생성</p>
@@ -890,7 +893,9 @@ export default function QRAdmin() {
                 <div className="bg-white rounded-2xl p-6 shadow-sm">
                   <div className="flex items-center justify-between gap-2 mb-4">
                     <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-xl bg-[#EFF6FF] flex items-center justify-center text-base">📱</div>
+                      <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#3182F6] to-[#7C3AED] flex items-center justify-center shadow-sm">
+                        <QrCode size={16} className="text-white" strokeWidth={2.5} />
+                      </div>
                       <div>
                         <h3 className="font-bold text-[#191F28]">매장 QR 코드</h3>
                         <p className="text-xs text-[#8B95A1]">{storeInfo.name} 리뷰 유도 QR</p>
@@ -944,10 +949,15 @@ export default function QRAdmin() {
                 </div>
               )}
 
+              {/* Wi-Fi QR 코드 (매장 QR 옆에 나란히) */}
+              <WifiQRBox />
+
               {/* 고객 보상 설정 */}
               <div className="bg-white rounded-2xl p-6 shadow-sm">
                 <div className="flex items-center gap-2 mb-4">
-                  <div className="w-8 h-8 rounded-xl bg-[#FFF7ED] flex items-center justify-center text-base">🎁</div>
+                  <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#F59E0B] to-[#DC2626] flex items-center justify-center shadow-sm">
+                    <Gift size={16} className="text-white" strokeWidth={2.5} />
+                  </div>
                   <div>
                     <h3 className="font-bold text-[#191F28]">고객 보상 설정</h3>
                     <p className="text-xs text-[#8B95A1]">리뷰 작성 시 제공할 혜택</p>
