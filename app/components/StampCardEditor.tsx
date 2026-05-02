@@ -331,7 +331,7 @@ export default function StampCardEditor() {
                     </div>
                   </div>
                   <div className="text-right flex-shrink-0">
-                    <p className="text-sm font-black text-[#3182F6]">{c.current_stamps}<span className="text-[10px] text-[#8B95A1] ml-0.5">/{stats.customers > 0 ? c.required_stamps || '-' : '-'}</span></p>
+                    <p className="text-sm font-black text-[#3182F6]">{c.current_stamps}<span className="text-[10px] text-[#8B95A1] ml-0.5">/{card.required_stamps}</span></p>
                     <p className="text-[10px] text-[#8B95A1]">
                       {c.days_since_last_visit === 0 ? '오늘' :
                        c.days_since_last_visit === 1 ? '어제' :
