@@ -13,6 +13,7 @@ type Card = {
   required_stamps: number
   reward_text: string
   theme_color: string
+  milestones?: Array<{ at: number; reward: string }> | null
 }
 
 type Collection = {
@@ -63,26 +64,67 @@ export default function StampCardView({
         </div>
       </div>
 
-      {/* 스탬프 그리드 — 체크마크만 */}
+      {/* 스탬프 그리드 — 체크마크 + milestone 골드 테두리 */}
       <div className={`grid gap-2 ${total <= 5 ? 'grid-cols-5' : total <= 10 ? 'grid-cols-5' : 'grid-cols-6'}`}>
-        {stamps.map((filled, i) => (
-          <div
-            key={i}
-            className="aspect-square rounded-full flex items-center justify-center transition-all"
-            style={{
-              background: filled ? themeColor : themeColor + '15',
-              boxShadow: filled ? `0 4px 8px -2px ${themeColor}50` : 'none',
-            }}>
-            {filled ? (
-              <Check size={compact ? 14 : 18} className="text-white" strokeWidth={3} />
-            ) : (
-              <span className="text-[10px] font-bold" style={{ color: themeColor + '60' }}>
-                {i + 1}
-              </span>
-            )}
-          </div>
-        ))}
+        {stamps.map((filled, i) => {
+          const milestone = card.milestones?.find(m => m.at === i + 1)
+          return (
+            <div
+              key={i}
+              className="aspect-square rounded-full flex items-center justify-center transition-all relative"
+              style={{
+                background: filled ? themeColor : themeColor + '15',
+                boxShadow: filled ? `0 4px 8px -2px ${themeColor}50` : 'none',
+                border: milestone ? `2px solid #F59E0B` : 'none',
+              }}
+              title={milestone ? `${milestone.at}회: ${milestone.reward}` : undefined}>
+              {filled ? (
+                <Check size={compact ? 14 : 18} className="text-white" strokeWidth={3} />
+              ) : (
+                <span className="text-[10px] font-bold" style={{ color: themeColor + '60' }}>
+                  {i + 1}
+                </span>
+              )}
+              {milestone && (
+                <div className="absolute -top-1 -right-1 w-3.5 h-3.5 rounded-full bg-[#F59E0B] border-2 border-white flex items-center justify-center">
+                  <Gift size={7} className="text-white" strokeWidth={3} />
+                </div>
+              )}
+            </div>
+          )
+        })}
       </div>
+
+      {/* milestone 안내 */}
+      {card.milestones && card.milestones.length > 0 && (
+        <div className="mt-3 space-y-1">
+          {card.milestones.map((m, i) => {
+            const reached = current >= m.at
+            return (
+              <div
+                key={i}
+                className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[11px] ${
+                  reached ? 'bg-[#FEF3C7] text-[#92400E]' : 'bg-[#F8FAFB] text-[#8B95A1]'
+                }`}>
+                <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 ${reached ? 'bg-[#F59E0B]' : 'bg-[#E5E8EB]'}`}>
+                  <Gift size={10} className="text-white" strokeWidth={3} />
+                </div>
+                <span className="font-bold">{m.at}회 - {m.reward}</span>
+                {reached && <span className="ml-auto text-[10px] font-bold">달성!</span>}
+              </div>
+            )
+          })}
+          <div className={`flex items-center gap-2 px-2.5 py-1.5 rounded-lg text-[11px] ${
+            current >= total ? 'bg-[#FEF3C7] text-[#92400E]' : 'bg-[#F8FAFB] text-[#8B95A1]'
+          }`}>
+            <div className={`w-5 h-5 rounded-full flex items-center justify-center flex-shrink-0 ${current >= total ? 'bg-[#F59E0B]' : 'bg-[#E5E8EB]'}`}>
+              <Award size={10} className="text-white" strokeWidth={3} />
+            </div>
+            <span className="font-bold">최종 {total}회 - {card.reward_text}</span>
+            {current >= total && <span className="ml-auto text-[10px] font-bold">달성!</span>}
+          </div>
+        </div>
+      )}
 
       {/* 진행 상태 */}
       <div className="mt-4 flex items-center justify-between">
