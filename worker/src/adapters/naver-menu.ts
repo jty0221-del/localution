@@ -252,24 +252,35 @@ export async function runNaverMenu(
       log.info({ menuClicked }, 'naver-menu: menu link click result')
 
       if (menuClicked.clicked) {
-        await page.waitForTimeout(3000)
-        await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => null)
-        await page.waitForTimeout(3000)
+        await page.waitForTimeout(8000)  // 충분히 기다림 (SPA hydration)
+        await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => null)
+        await page.waitForTimeout(5000)
         log.info({ url: page.url() }, 'naver-menu: after menu click')
-      } else {
-        // 메뉴 링크 못 찾았으면 직접 goto 시도 (다양한 URL)
-        const candidateUrls = [
+      }
+
+      // 메뉴 캡처 안 됐으면 — bookingBusinessId 기반 URL 들 시도 (SNB 데이터에서 발견된 패턴)
+      if (capturedMenus.length === 0 && bookingBusinessId) {
+        const bookingUrls = [
+          `${SMARTPLACE_BASE}/bizes/${bookingBusinessId}/menu`,
+          `${SMARTPLACE_BASE}/bizes/${bookingBusinessId}/menu/list`,
+          `${SMARTPLACE_BASE}/bizes/${bookingBusinessId}/booking-list-view`,
+          `${SMARTPLACE_BASE}/bizes/${bookingBusinessId}/booking-list-view/menu`,
           `${SMARTPLACE_BASE}/bizes/place/${placeId}/menu`,
           `${SMARTPLACE_BASE}/bizes/place/${placeId}/menus`,
-          `${SMARTPLACE_BASE}/bizes/place/${placeId}/menu/price`,
+          `${SMARTPLACE_BASE}/bizes/place/${placeId}/details?bookingBusinessId=${bookingBusinessId}&menu=price`,
         ]
-        for (const u of candidateUrls) {
+        for (const u of bookingUrls) {
+          if (capturedMenus.length > 0) break
           try {
             await page.goto(u, { waitUntil: 'domcontentloaded', timeout: 20000 })
-            await page.waitForTimeout(3000)
+            await page.waitForTimeout(8000)
             const bodyLen = await page.evaluate(() => document.body?.innerText?.length || 0).catch(() => 0)
-            log.info({ tryUrl: u, finalUrl: page.url(), bodyLen }, 'naver-menu: fallback URL')
-            if (bodyLen > 500 && !page.url().endsWith('/')) break
+            const finalU = page.url()
+            log.info({ tryUrl: u, finalUrl: finalU, bodyLen, captured: capturedMenus.length }, 'naver-menu: booking URL')
+            // 리다이렉트 안 됐고 본문이 풍부하면 추가 대기
+            if (bodyLen > 1000 && finalU.includes(bookingBusinessId)) {
+              await page.waitForTimeout(5000)
+            }
           } catch (_) {}
         }
       }
@@ -487,9 +498,15 @@ export async function runNaverMenu(
     return { status: 'failed', message: 'navigation_failed' }
   }
 
-  // close 전 URL 캡처
+  // close 전 URL + 본문 + iframe 정보 캡처
   let finalUrlSaved = ''
-  try { finalUrlSaved = page.url() } catch (_) {}
+  let bodyTextSample = ''
+  let iframeCount = 0
+  try {
+    finalUrlSaved = page.url()
+    bodyTextSample = await page.evaluate(() => (document.body?.innerText || '').slice(0, 500)).catch(() => '')
+    iframeCount = await page.evaluate(() => document.querySelectorAll('iframe').length).catch(() => 0)
+  } catch (_) {}
 
   await context.close()
   if (usingFreshBrowser && menuBrowser) {
@@ -502,10 +519,12 @@ export async function runNaverMenu(
     const debugSummary = JSON.stringify({
       jsonResponseCount: allJsonUrls.length,
       finalUrl: finalUrlSaved,
+      bodyTextSample,
+      iframeCount,
       sampleUrls: allJsonUrls.filter(u => u.includes('graphql') || u.includes('menu') || u.includes('place') || u.includes('biz')).slice(0, 12),
       domDebug: networkLog.find(x => x.dom)?.dom,
-      snblnb: snblnbResponses[0] ? JSON.stringify(snblnbResponses[0]).slice(0, 800) : null,
-    }).slice(0, 2200)
+      snblnb: snblnbResponses[0] ? JSON.stringify(snblnbResponses[0]).slice(0, 1500) : null,
+    }).slice(0, 3000)
 
     await updateImport({
       status: 'failed',
