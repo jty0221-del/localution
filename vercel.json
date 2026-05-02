@@ -15,11 +15,11 @@
     },
     {
       "path": "/api/cron/naver-reviews-fetch",
-      "schedule": "0 */4 * * *"
+      "schedule": "*/15 * * * *"
     },
     {
       "path": "/api/cron/delivery-reviews-fetch",
-      "schedule": "0 */6 * * *"
+      "schedule": "*/15 * * * *"
     },
     {
       "path": "/api/cron/naver-reply-generate",
