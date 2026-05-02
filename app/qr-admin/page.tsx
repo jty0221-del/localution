@@ -7,7 +7,15 @@ import Sidebar from '../components/Sidebar'
 import Footer from '../components/Footer'
 import AffiliateAdSlots from '../components/AffiliateAdSlots'
 import QRReportPanel from '../components/QRReportPanel'
-import { QrCode, CheckCircle2, Sparkles } from 'lucide-react'
+import PageHeader from '../components/PageHeader'
+import {
+  QrCode, CheckCircle2, Sparkles,
+  Eye, ReceiptText, Camera, Send,
+  Smartphone, Tablet, Monitor,
+  BarChart3, TrendingUp, Clock,
+  Store, Printer, Link2,
+  type LucideIcon,
+} from 'lucide-react'
 
 const LS_QR_SETTINGS = 'localution.qr_settings'
 const LS_QR_LIST     = 'localution.qr_list'
@@ -238,16 +246,16 @@ function QRStatsPanel() {
   const uniqueVisitors = stats?.unique_visitors || 0
   const totalDevice = (devices.mobile || 0) + (devices.tablet || 0) + (devices.desktop || 0)
 
-  const eventLabel = (e: string) => {
-    if (e === 'scan') return { icon: '👁', txt: 'QR 스캔', color: '#3182F6' }
-    if (e === 'receipt_uploaded') return { icon: '🧾', txt: '영수증 업로드', color: '#F59E0B' }
-    if (e === 'receipt_verified') return { icon: '✅', txt: '영수증 매장 일치', color: '#059669' }
-    if (e === 'photo_uploaded') return { icon: '📸', txt: '사진 업로드', color: '#7C3AED' }
-    if (e === 'ai_generated') return { icon: '✨', txt: 'AI 리뷰 생성', color: '#7C3AED' }
-    if (e === 'submitted_naver') return { icon: '🟢', txt: '네이버 등록', color: '#03C75A' }
-    if (e === 'submitted_google') return { icon: '🔵', txt: '구글 등록', color: '#4285F4' }
-    if (e === 'submitted_kakao') return { icon: '🟡', txt: '카카오 등록', color: '#FEE500' }
-    return { icon: '•', txt: e, color: '#8B95A1' }
+  const eventLabel = (e: string): { Icon: LucideIcon; txt: string; color: string } => {
+    if (e === 'scan') return { Icon: Eye, txt: 'QR 스캔', color: '#3182F6' }
+    if (e === 'receipt_uploaded') return { Icon: ReceiptText, txt: '영수증 업로드', color: '#F59E0B' }
+    if (e === 'receipt_verified') return { Icon: CheckCircle2, txt: '영수증 매장 일치', color: '#059669' }
+    if (e === 'photo_uploaded') return { Icon: Camera, txt: '사진 업로드', color: '#7C3AED' }
+    if (e === 'ai_generated') return { Icon: Sparkles, txt: 'AI 리뷰 생성', color: '#7C3AED' }
+    if (e === 'submitted_naver') return { Icon: Send, txt: '네이버 등록', color: '#03C75A' }
+    if (e === 'submitted_google') return { Icon: Send, txt: '구글 등록', color: '#4285F4' }
+    if (e === 'submitted_kakao') return { Icon: Send, txt: '카카오 등록', color: '#A16207' }
+    return { Icon: Eye, txt: e, color: '#8B95A1' }
   }
   const timeAgo = (iso: string) => {
     const ms = Date.now() - new Date(iso).getTime()
@@ -301,25 +309,34 @@ function QRStatsPanel() {
 
       {/* 퍼널 */}
       <div className="bg-white rounded-2xl p-5 shadow-sm">
-        <h3 className="font-bold text-[#191F28] mb-4">📊 손님 활동 흐름 (퍼널)</h3>
-        <div className="space-y-2">
+        <div className="flex items-center gap-2 mb-4">
+          <BarChart3 size={16} className="text-[#3182F6]" strokeWidth={2.5} />
+          <h3 className="font-bold text-[#191F28]">손님 활동 흐름 (퍼널)</h3>
+        </div>
+        <div className="space-y-2.5">
           {[
-            { label: '👁 QR 스캔', value: funnel.scan, max: funnel.scan, color: '#3182F6' },
-            { label: '✨ AI 리뷰 생성', value: funnel.ai_generated, max: funnel.scan, color: '#7C3AED' },
-            { label: '✅ 실제 등록', value: funnel.submitted, max: funnel.scan, color: '#059669' },
+            { Icon: Eye,           label: 'QR 스캔',      value: funnel.scan,         max: funnel.scan, color: '#3182F6' },
+            { Icon: Sparkles,      label: 'AI 리뷰 생성', value: funnel.ai_generated, max: funnel.scan, color: '#7C3AED' },
+            { Icon: CheckCircle2,  label: '실제 등록',    value: funnel.submitted,    max: funnel.scan, color: '#059669' },
           ].map(s => {
             const pct = s.max > 0 ? Math.round((s.value / s.max) * 100) : 0
+            const Icon = s.Icon
             return (
-              <div key={s.label} className="flex items-center gap-3">
-                <div className="w-32 text-xs text-[#4E5968] font-medium">{s.label}</div>
+              <div key={s.label} className="flex items-center gap-2 md:gap-3">
+                <div className="flex items-center gap-1.5 w-24 md:w-32 flex-shrink-0">
+                  <div className="w-6 h-6 rounded-md flex items-center justify-center flex-shrink-0" style={{ background: s.color + '15' }}>
+                    <Icon size={12} style={{ color: s.color }} strokeWidth={2.5} />
+                  </div>
+                  <span className="text-[11px] md:text-xs text-[#4E5968] font-medium truncate">{s.label}</span>
+                </div>
                 <div className="flex-1 bg-[#F2F4F6] rounded-full h-6 relative overflow-hidden">
                   <div
                     className="h-full rounded-full flex items-center justify-end pr-2 transition-all"
-                    style={{ width: pct + '%', background: s.color, minWidth: s.value > 0 ? '40px' : 0 }}>
+                    style={{ width: pct + '%', background: s.color, minWidth: s.value > 0 ? '36px' : 0 }}>
                     {s.value > 0 && <span className="text-[10px] font-bold text-white">{s.value}</span>}
                   </div>
                 </div>
-                <div className="w-12 text-right text-xs text-[#8B95A1]">{pct}%</div>
+                <div className="w-10 md:w-12 text-right text-xs text-[#8B95A1] flex-shrink-0">{pct}%</div>
               </div>
             )
           })}
@@ -329,7 +346,10 @@ function QRStatsPanel() {
       {/* 일별 추이 + 디바이스 */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div className="md:col-span-2 bg-white rounded-2xl p-5 shadow-sm">
-          <h3 className="font-bold text-[#191F28] mb-4">📅 일별 활동</h3>
+          <div className="flex items-center gap-2 mb-4">
+            <TrendingUp size={16} className="text-[#3182F6]" strokeWidth={2.5} />
+            <h3 className="font-bold text-[#191F28]">일별 활동</h3>
+          </div>
           <div className="flex items-end gap-1 h-32">
             {daily.map((d: any, i: number) => {
               const max = Math.max(1, ...daily.map((x: any) => Math.max(x.scan, x.submit, x.ai)))
@@ -356,22 +376,29 @@ function QRStatsPanel() {
         </div>
 
         <div className="bg-white rounded-2xl p-5 shadow-sm">
-          <h3 className="font-bold text-[#191F28] mb-4">📱 디바이스</h3>
+          <div className="flex items-center gap-2 mb-4">
+            <Smartphone size={16} className="text-[#7C3AED]" strokeWidth={2.5} />
+            <h3 className="font-bold text-[#191F28]">디바이스</h3>
+          </div>
           {totalDevice === 0 ? (
             <p className="text-xs text-[#8B95A1] text-center py-6">아직 데이터 없음</p>
           ) : (
             <div className="space-y-3">
               {[
-                { k: 'mobile', l: '모바일', icon: '📱', color: '#3182F6' },
-                { k: 'tablet', l: '태블릿', icon: '📱', color: '#7C3AED' },
-                { k: 'desktop', l: 'PC', icon: '💻', color: '#059669' },
+                { k: 'mobile',  l: '모바일', Icon: Smartphone, color: '#3182F6' },
+                { k: 'tablet',  l: '태블릿', Icon: Tablet,     color: '#7C3AED' },
+                { k: 'desktop', l: 'PC',     Icon: Monitor,    color: '#059669' },
               ].map(d => {
                 const v = devices[d.k] || 0
                 const pct = totalDevice > 0 ? Math.round((v / totalDevice) * 100) : 0
+                const Icon = d.Icon
                 return (
                   <div key={d.k}>
                     <div className="flex justify-between text-xs mb-1">
-                      <span className="text-[#4E5968] font-medium">{d.icon} {d.l}</span>
+                      <span className="flex items-center gap-1.5 text-[#4E5968] font-medium">
+                        <Icon size={13} style={{ color: d.color }} strokeWidth={2.25} />
+                        {d.l}
+                      </span>
                       <span className="text-[#8B95A1]">{v} ({pct}%)</span>
                     </div>
                     <div className="h-1.5 bg-[#F2F4F6] rounded-full overflow-hidden">
@@ -387,16 +414,22 @@ function QRStatsPanel() {
 
       {/* 최근 활동 타임라인 */}
       <div className="bg-white rounded-2xl p-5 shadow-sm">
-        <h3 className="font-bold text-[#191F28] mb-4">🕐 최근 활동</h3>
+        <div className="flex items-center gap-2 mb-4">
+          <Clock size={16} className="text-[#F59E0B]" strokeWidth={2.5} />
+          <h3 className="font-bold text-[#191F28]">최근 활동</h3>
+        </div>
         {recent.length === 0 ? (
           <p className="text-sm text-[#8B95A1] text-center py-6">최근 {days}일 동안 활동이 없어요. QR 코드를 매장에 비치해 보세요.</p>
         ) : (
-          <div className="space-y-2 max-h-80 overflow-y-auto">
+          <div className="space-y-1.5 max-h-80 overflow-y-auto">
             {recent.map((r: any, i: number) => {
               const lbl = eventLabel(r.event_type)
+              const Icon = lbl.Icon
               return (
                 <div key={i} className="flex items-center gap-3 py-2 border-b border-[#F2F4F6] last:border-0">
-                  <span className="text-base flex-shrink-0">{lbl.icon}</span>
+                  <div className="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: lbl.color + '15' }}>
+                    <Icon size={14} style={{ color: lbl.color }} strokeWidth={2.5} />
+                  </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-[#191F28]">{lbl.txt}</p>
                     {r.meta && Object.keys(r.meta).length > 0 && (
@@ -614,21 +647,14 @@ export default function QRAdmin() {
         <Sidebar />
         <main className="flex-1 min-w-0 max-w-full md:ml-[220px] pt-14 md:pt-0">
 
-          {/* 통일 hero banner — settings 와 동일 형식 */}
-          <section className="bg-gradient-to-br from-[#3182F6] to-[#7C3AED] text-white">
-            <div className="max-w-5xl mx-auto px-4 md:px-8 py-6 md:py-10 flex items-center gap-3 md:gap-4">
-              <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center flex-shrink-0">
-                <QrCode size={28} strokeWidth={2.5} />
-              </div>
-              <div className="flex-1 min-w-0">
-                <h1 className="text-xl md:text-2xl font-black tracking-tight truncate">QR 관리</h1>
-                <p className="text-white/85 text-xs md:text-sm mt-1 leading-relaxed">QR 스캔 → 리뷰 페이지로 바로 이동해 리뷰를 늘려보세요</p>
-              </div>
-              <div className="hidden md:flex items-center gap-1.5 text-[11px] font-bold text-white/90 bg-white/15 backdrop-blur px-3 py-1.5 rounded-full border border-white/20 flex-shrink-0">
-                로컬루션
-              </div>
-            </div>
-          </section>
+          {/* 통일 hero banner — 전체 페이지와 동일한 PageHeader 사용 */}
+          <PageHeader
+            icon=""
+            logoNode={<QrCode size={32} strokeWidth={2.25} className="text-white" />}
+            title="QR 관리"
+            subtitle="QR 스캔 → 리뷰 페이지로 바로 이동해 리뷰를 늘려보세요"
+            variant="primary"
+          />
 
           <div className="max-w-5xl mx-auto p-4 md:p-8">
 
@@ -984,7 +1010,10 @@ export default function QRAdmin() {
             <div className="hidden">{/* placeholder — 이전 안내 카드 자리 */}</div>
 
             <div className="bg-white rounded-2xl p-6 shadow-sm">
-              <h3 className="font-bold text-[#191F28] mb-5">📱 QR 코드 현황</h3>
+              <div className="flex items-center gap-2 mb-5">
+                <QrCode size={16} className="text-[#3182F6]" strokeWidth={2.5} />
+                <h3 className="font-bold text-[#191F28]">QR 코드 현황</h3>
+              </div>
               <div className="space-y-3">
                 {qrList.length === 0 ? (
                   <p className="text-sm text-[#8B95A1] text-center py-6">생성된 QR이 없어요</p>
@@ -1017,23 +1046,30 @@ export default function QRAdmin() {
 
             <div className="bg-gradient-to-br from-[#EFF6FF] to-[#F8FBFF] rounded-2xl p-6 border border-[#BFDBFE]">
               <div className="flex items-center gap-2 mb-4">
-                <span className="text-xl">✨</span>
+                <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#3182F6] to-[#7C3AED] flex items-center justify-center shadow-sm">
+                  <Sparkles size={14} className="text-white" strokeWidth={2.5} />
+                </div>
                 <h3 className="font-bold text-[#191F28]">다음 액션 가이드</h3>
               </div>
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 {[
-                  { icon: '🏪', title: '업체 연동', desc: storeInfo.connected ? `'${storeInfo.name}' 연동 완료! QR을 만들어 매장에 비치해보세요.` : '업체 설정 탭에서 업체 정보를 먼저 입력해주세요.' },
-                  { icon: '📱', title: 'QR 생성',   desc: qrList.length > 0 ? `현재 ${qrList.length}개의 QR이 있어요. 활성 QR: ${activeCount}개` : '새 QR 만들기 버튼으로 첫 QR을 생성해보세요!' },
-                  { icon: '🖨️', title: '인쇄·비치', desc: 'QR을 PNG로 다운로드해 매장 테이블·입구·계산대에 비치하면 리뷰가 늘어나요.' },
-                ].map((item, i) => (
-                  <div key={i} className="bg-white rounded-xl p-4">
-                    <div className="flex items-center gap-2 mb-2">
-                      <span className="text-base">{item.icon}</span>
-                      <span className="text-sm font-bold text-[#191F28]">{item.title}</span>
+                  { Icon: Store,   color: '#3182F6', title: '업체 연동', desc: storeInfo.connected ? `'${storeInfo.name}' 연동 완료! QR을 만들어 매장에 비치해보세요.` : '업체 설정 탭에서 업체 정보를 먼저 입력해주세요.' },
+                  { Icon: QrCode,  color: '#7C3AED', title: 'QR 생성',   desc: qrList.length > 0 ? `현재 ${qrList.length}개의 QR이 있어요. 활성 QR: ${activeCount}개` : '새 QR 만들기 버튼으로 첫 QR을 생성해보세요!' },
+                  { Icon: Printer, color: '#059669', title: '인쇄·비치', desc: 'QR을 PNG로 다운로드해 매장 테이블·입구·계산대에 비치하면 리뷰가 늘어나요.' },
+                ].map((item, i) => {
+                  const Icon = item.Icon
+                  return (
+                    <div key={i} className="bg-white rounded-xl p-4">
+                      <div className="flex items-center gap-2 mb-2">
+                        <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: item.color + '15' }}>
+                          <Icon size={14} style={{ color: item.color }} strokeWidth={2.5} />
+                        </div>
+                        <span className="text-sm font-bold text-[#191F28]">{item.title}</span>
+                      </div>
+                      <p className="text-xs text-[#4E5968] leading-relaxed">{item.desc}</p>
                     </div>
-                    <p className="text-xs text-[#4E5968] leading-relaxed">{item.desc}</p>
-                  </div>
-                ))}
+                  )
+                })}
               </div>
             </div>
           </div>
