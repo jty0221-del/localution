@@ -8,12 +8,12 @@
 import type { Browser } from 'playwright'
 import type { Logger } from 'pino'
 import { getServiceClient } from '../lib/supabase'
-import { loadPlainCredentials, loadCookieData, markLoginStatus, classifyLoginFailure } from '../lib/credentials'
+import { loadPlainCredentials, loadCookieData, markLoginStatus, classifyLoginFailure, loadExternalPlaceId } from '../lib/credentials'
 import { dumpPageDiagnostics, startNetworkCapture, detectLoginFailure } from '../lib/diagnostics'
 import { handleNaverCaptcha, solveCaptcha } from '../lib/captcha'
 import type { JobResult, Action } from '../jobs'
 
-const NAVER_CODE_VERSION = 'v35-spa-prereq-queries-20260502'
+const NAVER_CODE_VERSION = 'v36-external-placeId-from-stores-20260502'
 
 const LOGIN_URL = 'https://nid.naver.com/nidlogin.login'
 const NEW_SMARTPLACE_BASE = 'https://new.smartplace.naver.com'
@@ -983,7 +983,10 @@ export async function runNaver(
     if (action === 'health_check') return { status: 'ok', message: 'naver login ok' }
 
     // ── 3) SmartPlace 답글 등록 ───────────────────────────────────
-    const result = await postNaverReply(page, bizId, platformReviewId, replyText, log)
+    // v36: 외부 placeId 로드 (stores.naver_url 에서 추출) — createReply input.placeId 용
+    const externalPlaceId = await loadExternalPlaceId(svc, userId)
+    log.info({ externalPlaceId, internalPlaceId: bizId }, 'naver: v36 외부 placeId 로드 완료')
+    const result = await postNaverReply(page, bizId, platformReviewId, replyText, log, externalPlaceId)
     if (result.ok) {
       await updateReviewStatus(svc, userId, platformReviewId, 'submitted', { replyContent: replyText })
       return { status: 'ok', message: `naver: reply posted for ${platformReviewId}` }
@@ -1025,6 +1028,7 @@ async function postNaverReply(
   platformReviewId: string,
   replyText: string,
   log: Logger,
+  externalPlaceId?: string | null,  // v36: m.place.naver.com 형식 외부 ID — input.placeId 용
 ): Promise<{ ok: true } | { ok: false; reason: string }> {
   // UNIQUE_MARKER_v16_REFERER_FIX_20260502
   log.info({ marker: 'UNIQUE_MARKER_v16_REFERER_FIX_20260502' }, 'naver: postNaverReply v16 PC domain + correct referer')
@@ -1192,12 +1196,13 @@ async function postNaverReply(
       // SmartPlace getReviews 호출 (페이지네이션 — 최대 5페이지)
       let foundOnPage = -1
       const seenItemsSummary: any[] = []
+      // v36: getReviews input.placeId 도 외부 placeId 사용
+      const inputPlaceIdForGetReviews = externalPlaceId || storeId
       for (let p = 1; p <= 5 && !smartplaceReviewId; p++) {
-        // v30: getReviews input 에 bookingBusinessId 포함 — Int 타입 (parseInt 변환)
-        const grInput: any = { sort: 'CreatedDesc', placeId: storeId, page: p }
+        const grInput: any = { sort: 'CreatedDesc', placeId: inputPlaceIdForGetReviews, page: p }
         if (bookingBusinessId) {
           const bid = parseInt(bookingBusinessId, 10)
-          if (!isNaN(bid)) grInput.bookingBusinessId = bid  // GraphQL Int 타입
+          if (!isNaN(bid)) grInput.bookingBusinessId = bid
         }
         // v34: getReviews 에도 동일한 SPA-style 헤더 (x-csrf-token, apollo headers)
         const reviewsResult = await page.evaluate(async ({ url, body }: any) => {
@@ -1404,14 +1409,21 @@ async function postNaverReply(
 
     const t0 = Date.now()
     // page.evaluate 안에서 fetch — 브라우저가 자동 cookies + headers + CSRF 처리
-    // v30: input 에 bookingBusinessId 포함 — Int 타입 (parseInt 변환)
-    // GraphQL schema 가 Int 요구 → "1289786" string 으로 보내면 INTERNAL_SERVER_ERROR
-    const createReplyInput: any = { text: replyText, reviewId: smartplaceReviewId, placeId: storeId }
+    // v36: input.placeId = 외부 m.place.naver.com placeId (cURL 분석 결과 확정)
+    // - 내부 SmartPlace placeId (storeId, 예: 10441797) → URL/referer 용
+    // - 외부 placeId (externalPlaceId, 예: 1137287126) → GraphQL input.placeId 용
+    // 두 ID 가 다른 매장에서 내부 ID 를 보내면 FORBIDDEN. cURL 검증 완료.
+    const inputPlaceId = externalPlaceId || storeId  // 외부 ID 우선, fallback 내부 ID
+    const createReplyInput: any = { text: replyText, reviewId: smartplaceReviewId, placeId: inputPlaceId }
     if (bookingBusinessId) {
       const bid = parseInt(bookingBusinessId, 10)
       if (!isNaN(bid)) createReplyInput.bookingBusinessId = bid
     }
-    log.info({ createReplyInput: { ...createReplyInput, text: createReplyInput.text.slice(0, 30) } }, 'naver: v30 createReply input (bookingBusinessId as Int)')
+    log.info({
+      createReplyInput: { ...createReplyInput, text: createReplyInput.text.slice(0, 30) },
+      externalPlaceIdUsed: !!externalPlaceId,
+      internalPlaceId: storeId,
+    }, 'naver: v36 createReply input (외부 placeId 사용)')
 
     const inPageResult = await page.evaluate(async ({ url, body }: { url: string; body: string }) => {
       try {
