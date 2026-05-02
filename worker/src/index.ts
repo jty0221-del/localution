@@ -127,16 +127,14 @@ const worker = new Worker<PlatformJobData>(
       const result = await runJob(job.data, log, browser)
       log.info({ jobId: job.id, result: result.status, msg: result.message?.slice(0, 100) }, 'job done')
 
-      // 37차-19: transient failure (CAPTCHA, 새기기등록, timeout, proxy 등) 시 throw → BullMQ 자동 retry
-      // 권한/ID/PW 영구 에러는 그냥 return → retry 안 함
-      if (result.status === 'failed') {
+      // 37차-19: transient failure (CAPTCHA, 새기기등록, navigation 등) 만 retry
+      // 37차-20: post_reply 만 retry 대상. fetch_reviews 는 retry 의미 없음 (큐 적체 방지)
+      if (result.status === 'failed' && job.data.action === 'post_reply') {
         const msg = String(result.message || '')
         const isTransient =
           msg.includes('CAPTCHA') || msg.includes('captcha') ||
           msg.includes('자동입력') || msg.includes('자동 입력') ||
           msg.includes('새로운 기기') || msg.includes('자주 사용하는') ||
-          msg.includes('timeout') || msg.includes('Timeout') ||
-          msg.includes('proxy') || msg.includes('Proxy') ||
           msg.includes('Target page') || msg.includes('has been closed') ||
           msg.includes('navigation') || msg.includes('Navigation')
         if (isTransient) {
@@ -327,6 +325,34 @@ const healthServer = http.createServer(async (req, res) => {
       res.end(JSON.stringify({ ok: true, platform, queued, total: queued.length }))
     } catch (e: any) {
       log.error({ err: e?.message }, '/run-all error')
+      res.writeHead(500, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ ok: false, error: e?.message }))
+    }
+    return
+  }
+
+  // POST /clean-queue — 큐 정리 (대기 중인 fetch_reviews 잡 모두 제거)
+  if (req.method === 'POST' && req.url === '/clean-queue') {
+    try {
+      const waiting = await jobQueue.getWaiting(0, 999)
+      const failed = await jobQueue.getFailed(0, 999)
+      const removed: string[] = []
+      for (const j of waiting) {
+        if (j.data?.action === 'fetch_reviews' || j.name?.includes('fetch_reviews')) {
+          await j.remove()
+          removed.push(`waiting:${j.id}:${j.name}`)
+        }
+      }
+      for (const j of failed) {
+        // 실패한 fetch_reviews 잡도 제거 (재시도 방지)
+        if (j.data?.action === 'fetch_reviews' || j.name?.includes('fetch_reviews')) {
+          await j.remove()
+          removed.push(`failed:${j.id}:${j.name}`)
+        }
+      }
+      res.writeHead(200, { 'Content-Type': 'application/json' })
+      res.end(JSON.stringify({ ok: true, removedCount: removed.length, removed: removed.slice(0, 50) }))
+    } catch (e: any) {
       res.writeHead(500, { 'Content-Type': 'application/json' })
       res.end(JSON.stringify({ ok: false, error: e?.message }))
     }

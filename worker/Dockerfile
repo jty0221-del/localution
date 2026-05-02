@@ -11,7 +11,7 @@ RUN npm install --omit=optional --no-audit --no-fund \
 
 COPY tsconfig.json ./
 # v14 FRESH BUILD — 이전 dist가 image에 잔존하지 않도록 명시적 제거 + UNIQUE_MARKER 추가
-RUN echo "build-marker: v19-bullmq-retry-transient-20260502" && rm -rf /app/dist /app/src
+RUN echo "build-marker: v20-priority-postreply-clean-20260502" && rm -rf /app/dist /app/src
 COPY src ./src
 
 # 컴파일 전 dist 강제 제거 (cache 우회) + 새 마커 검증

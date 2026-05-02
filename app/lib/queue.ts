@@ -59,9 +59,13 @@ export async function enqueuePlatformJob(
 ): Promise<{ ok: true; jobId: string } | { ok: false; error: string }> {
   try {
     const q = getPlatformQueue()
+    // 37차-20: post_reply (사용자 즉시 발행 요청)는 priority 1 (최상위) 부여
+    // → 큐에 fetch_reviews 등 다른 job이 쌓여있어도 즉시 처리
+    // BullMQ priority: 낮을수록 우선 (1 = 최우선, undefined = 일반)
+    const priority = opts.priority ?? (data.action === 'post_reply' ? 1 : undefined)
     const job = await q.add(`${data.platform}:${data.action}`, data, {
       jobId: opts.jobId,
-      priority: opts.priority,
+      priority,
     })
     return { ok: true, jobId: String(job.id) }
   } catch (e: any) {
