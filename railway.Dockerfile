@@ -21,7 +21,7 @@ RUN npm install --omit=optional --no-audit --no-fund \
 COPY worker/tsconfig.json ./
 
 # build-marker: COPY src 앞에 위치 — 이 줄 변경 시 이후 레이어 전체 캐시 무효화
-RUN echo "build-marker: v29-coupangeats-55cha-session-expired-early-return-20260502T2330-RAILWAY"
+RUN echo "build-marker: v36-naver-external-placeId-coupangeats-status-fix-20260503T0000-RAILWAY"
 
 COPY worker/src ./src
 # 빌드 검증: tsc 성공만 확인 (grep 마커 검증은 push 순서 race로 빌드 fail 유발 → 제거)
