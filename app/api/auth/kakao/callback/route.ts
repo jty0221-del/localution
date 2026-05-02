@@ -87,6 +87,18 @@ export async function GET(req: NextRequest) {
       return errRedirect(req, returnTo, `persist_${encodeURIComponent(upErr.message)}`)
     }
 
+    // (3-b) 알림 흐름에서 들어온 경우 channel_kakao_talk 자동 활성화
+    //       returnTo 가 /settings 면 사용자가 알림용으로 동의한 것 → 자동 켜기
+    if (returnTo.includes('/settings') && (tok.scope || '').includes('talk_message')) {
+      try {
+        await svc.from('user_notification_prefs').upsert({
+          user_id: uid,
+          channel_kakao_talk: true,
+          updated_at: new Date().toISOString(),
+        }, { onConflict: 'user_id' })
+      } catch { /* best-effort */ }
+    }
+
     // (4) 성공 리다이렉트
     const url = new URL(returnTo, req.nextUrl.origin)
     url.searchParams.set('connected', 'kakao')
