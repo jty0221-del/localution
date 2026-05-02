@@ -907,6 +907,39 @@ function NotifyTab() {
         </div>
       </div>
 
+      {/* 테스트 발송 */}
+      <div className="bg-[#EFF6FF] border border-[#BFDBFE] rounded-2xl p-5">
+        <div className="flex items-center justify-between gap-4">
+          <div>
+            <p className="text-sm font-bold text-[#1E40AF]">🧪 테스트 알림 받아보기</p>
+            <p className="text-xs text-[#3B82F6] mt-0.5">활성화된 모든 채널로 본인에게 테스트 알림 1개 발송</p>
+          </div>
+          <button
+            onClick={async () => {
+              try {
+                const r = await fetch('/api/notify/test', { method: 'POST' })
+                const j = await r.json()
+                if (!j?.ok) { toast(j?.error || '테스트 실패'); return }
+                const ok: string[] = []
+                const fail: string[] = []
+                for (const [ch, res] of Object.entries(j.results || {})) {
+                  const r2 = res as { ok: boolean; error?: string }
+                  const label = ch === 'kakao_talk' ? '카카오톡' : ch === 'web_push' ? '브라우저 알림' : ch
+                  if (r2.ok) ok.push(label)
+                  else fail.push(`${label}: ${r2.error}`)
+                }
+                if (ok.length > 0 && fail.length === 0) toast(`✅ ${ok.join(', ')} 발송 완료`)
+                else if (ok.length > 0) toast(`✅ ${ok.join(', ')} 발송 / ⚠️ ${fail.join(' | ')}`)
+                else toast(`⚠️ ${fail.join(' | ')}`)
+              } catch (e: any) {
+                toast(e?.message || '테스트 실패')
+              }
+            }}
+            className="px-4 py-2 rounded-xl bg-[#3182F6] text-white text-xs font-bold hover:bg-[#1E40AF] whitespace-nowrap"
+          >테스트 발송</button>
+        </div>
+      </div>
+
       {saving && <p className="text-[11px] text-[#8B95A1] text-center">저장 중…</p>}
     </div>
   )
