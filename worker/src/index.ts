@@ -409,7 +409,8 @@ const healthServer = http.createServer(async (req, res) => {
       const hasOldButtonClick = naverJs.includes('trying direct reply edit URL') || naverJs.includes('reply buttons not found after 35s')
       const hasReplyInputErr = naverJs.includes('답글 입력란 없음')
       const hasReviewCardNotFound = naverJs.includes('review card not found')
-      const hasUniqueMarker = naverJs.includes('UNIQUE_MARKER_v13_FRESH_BUILD_20260502_1145')
+      const hasUniqueMarker = naverJs.includes('UNIQUE_MARKER_v16_REFERER_FIX_20260502')
+      const hasV21DeviceDump = naverJs.includes('새기기 페이지 DUMP') && naverJs.includes('deviceAdd 페이지 click 시도 결과')
       const cardIdx = naverJs.indexOf('review card not found')
       const cardSnippet = cardIdx >= 0 ? naverJs.slice(Math.max(0, cardIdx - 50), cardIdx + 100) : null
       // 모든 "card" 들어간 부분 모두 검색
@@ -446,6 +447,7 @@ const healthServer = http.createServer(async (req, res) => {
         hasReplyInputErr,
         hasReviewCardNotFound,
         hasUniqueMarker,
+        hasV21DeviceDump,
         cardSnippet,
         allCardSnippets,
         postReplyFullLen: postReplyFull.length,
