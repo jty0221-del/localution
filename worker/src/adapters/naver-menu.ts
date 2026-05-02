@@ -11,10 +11,90 @@
 //
 // 입력 payload: { import_id, place_id, booking_business_id? }
 // ============================================================
-import { chromium, type Browser } from 'playwright'
+import { chromium, type Browser, type Page } from 'playwright'
 import type { Logger } from 'pino'
 import { getServiceClient } from '../lib/supabase'
 import { loadPlainCredentials, loadCookieData } from '../lib/credentials'
+
+// ── 간소화된 네이버 2단계 로그인 ────────────────────
+// step-up 인증 요구 시 사용 (cookie 만으론 부족할 때)
+async function doFreshLogin(page: Page, accountId: string, password: string, log: Logger): Promise<{ ok: boolean; error?: string }> {
+  try {
+    log.info('naver-menu: fresh login start')
+    await page.goto('https://nid.naver.com/nidlogin.login', {
+      waitUntil: 'domcontentloaded',
+      timeout: 30000,
+    })
+    await page.waitForTimeout(1500)
+
+    // ID 입력
+    const idField = await page.waitForSelector('#id', { timeout: 6000 }).catch(() => null)
+    if (!idField) return { ok: false, error: 'no_id_field' }
+    await idField.click()
+    await page.waitForTimeout(300)
+    await page.keyboard.type(accountId, { delay: 60 + Math.floor(Math.random() * 40) })
+    await page.waitForTimeout(500)
+
+    // 1단계: 다음(또는 로그인) 클릭
+    await page.click('#log\\.login').catch(() => null)
+    await page.waitForTimeout(2000)
+
+    // PW 필드 visible 대기
+    const pwField = await page.waitForSelector(
+      'input[type="password"]:not([disabled])',
+      { state: 'visible', timeout: 6000 }
+    ).catch(() => null)
+
+    if (!pwField) {
+      const pageText = await page.evaluate(() => (document.body?.innerText || '').slice(0, 300)).catch(() => '')
+      log.warn({ pageText }, 'naver-menu: no PW field after step 1')
+      // CAPTCHA 또는 보안 알림?
+      if (pageText.includes('보안') || pageText.includes('인증') || pageText.includes('CAPTCHA') || pageText.includes('로봇')) {
+        return { ok: false, error: 'captcha_or_security' }
+      }
+      return { ok: false, error: 'no_pw_field' }
+    }
+
+    await pwField.click({ clickCount: 3 })
+    await page.waitForTimeout(200)
+    await pwField.type(password, { delay: 70 + Math.floor(Math.random() * 40) })
+    await page.waitForTimeout(700)
+
+    // 2단계: 로그인 제출
+    await page.click('#log\\.login').catch(() => null)
+    await page.waitForTimeout(4000)
+
+    // 결과 확인
+    const finalUrl = page.url()
+    log.info({ finalUrl }, 'naver-menu: post-login URL')
+
+    if (finalUrl.includes('nidlogin.login') || finalUrl.includes('nidlogin.captcha')) {
+      const text = await page.evaluate(() => (document.body?.innerText || '').slice(0, 300)).catch(() => '')
+      if (text.includes('자동') || text.includes('로봇') || text.includes('보안') || text.includes('CAPTCHA')) {
+        return { ok: false, error: 'captcha_required' }
+      }
+      return { ok: false, error: 'login_failed' }
+    }
+
+    // 새 기기 등 알림 처리
+    if (finalUrl.includes('deviceConfirm') || finalUrl.includes('device.naver.com')) {
+      // 등록 버튼 클릭 시도
+      try {
+        const registerBtn = page.locator('text=/등록/').first()
+        if (await registerBtn.isVisible({ timeout: 2000 })) {
+          await registerBtn.click()
+          await page.waitForTimeout(3000)
+        }
+      } catch (_) {}
+    }
+
+    log.info('naver-menu: fresh login success')
+    return { ok: true }
+  } catch (e: any) {
+    log.error({ err: e?.message }, 'naver-menu: fresh login exception')
+    return { ok: false, error: 'exception' }
+  }
+}
 
 const SMARTPLACE_BASE = 'https://new.smartplace.naver.com'
 
@@ -201,21 +281,63 @@ export async function runNaverMenu(
     await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => null)
     await page.waitForTimeout(5000)
 
-    // 로그인 리다이렉트 확인
-    const homeUrl = page.url()
-    if (homeUrl.includes('nid.naver.com/nidlogin') || homeUrl.includes('login.naver.com')) {
-      await context.close()
-      if (usingFreshBrowser && menuBrowser) { try { await menuBrowser.close() } catch (_) {} }
-      await updateImport({
-        status: 'failed',
-        error_code: 'session_expired',
-        error_message: '네이버 세션이 만료됐어요. 매장 연결 페이지에서 다시 로그인해주세요.',
-        completed_at: new Date().toISOString(),
-      })
-      return { status: 'failed', message: 'session_expired' }
+    let homeUrl = page.url()
+    let homeBody = await page.evaluate(() => (document.body?.innerText || '').slice(0, 300)).catch(() => '')
+    log.info({ homeUrl, bodySample: homeBody.slice(0, 100) }, 'naver-menu: smartplace home initial state')
+
+    const needsFreshLogin =
+      homeUrl.includes('nid.naver.com/nidlogin') ||
+      homeUrl.includes('login.naver.com') ||
+      homeBody.includes('로그인이 필요') ||
+      homeBody.includes('로그인이 필요한')
+
+    if (needsFreshLogin) {
+      log.info('naver-menu: step-up login required, doing fresh login')
+      // 비밀번호 자격증명 로드
+      let creds: any
+      try {
+        creds = await loadPlainCredentials(svc, userId, 'naver_place')
+      } catch (e: any) {
+        await context.close()
+        if (usingFreshBrowser && menuBrowser) { try { await menuBrowser.close() } catch (_) {} }
+        await updateImport({
+          status: 'failed',
+          error_code: 'no_credentials',
+          error_message: '네이버 비밀번호가 저장되어 있지 않아요. 매장 연결 페이지에서 등록해주세요.',
+          completed_at: new Date().toISOString(),
+        })
+        return { status: 'failed', message: 'no_credentials' }
+      }
+
+      const loginResult = await doFreshLogin(page, creds.account_id, creds.password, log)
+      if (!loginResult.ok) {
+        await context.close()
+        if (usingFreshBrowser && menuBrowser) { try { await menuBrowser.close() } catch (_) {} }
+        const errMessages: Record<string, string> = {
+          captcha_required: '네이버 CAPTCHA 인증이 필요해요. 다음 시도 시 사장님이 직접 한번 로그인 후 재시도해주세요.',
+          captcha_or_security: '네이버 보안 인증이 필요해요. 다음 시도 시 사장님이 직접 한번 로그인 후 재시도해주세요.',
+          login_failed: '비밀번호가 틀리거나 로그인 차단됐어요. 매장 연결 페이지에서 다시 등록해주세요.',
+          no_id_field: '네이버 로그인 페이지 구조 변경 — 관리자에게 문의',
+          no_pw_field: '네이버 로그인 페이지 구조 변경 — 관리자에게 문의',
+          exception: '로그인 중 예외 발생',
+        }
+        await updateImport({
+          status: 'failed',
+          error_code: 'fresh_login_failed_' + loginResult.error,
+          error_message: errMessages[loginResult.error || ''] || ('로그인 실패: ' + loginResult.error),
+          completed_at: new Date().toISOString(),
+        })
+        return { status: 'failed', message: 'fresh_login_failed' }
+      }
+
+      // 로그인 후 smartplace home 으로 다시
+      await page.goto(`${SMARTPLACE_BASE}/`, { waitUntil: 'domcontentloaded', timeout: 30000 })
+      await page.waitForTimeout(5000)
+      homeUrl = page.url()
+      log.info({ homeUrl }, 'naver-menu: smartplace home after fresh login')
     }
 
-    log.info({ homeUrl }, 'naver-menu: smartplace home loaded')
+    log.info({ homeUrl }, 'naver-menu: smartplace home loaded (auth ok)')
 
     // STEP 2: home 에서 placeId 매칭 링크 찾기
     const businessLink = await page.evaluate((pid) => {
