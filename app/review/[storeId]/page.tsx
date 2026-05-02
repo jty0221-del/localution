@@ -142,12 +142,37 @@ export default function ReviewPage() {
     } catch (_) {}
   }, [storeId, qpName, qpAddr, qpNaver, qpPid])
 
+  // 2-A: 공개 매장 정보 API 우선 — 손님 페이지에서 정확한 매장 식별
+  // /api/qr/store/{slug} (인증 불필요, 공개 정보만)
+  // → 사장님이 매장 정보 변경해도 QR URL 그대로 자동 반영
   useEffect(() => {
-    if (qpName || qpAddr || qpNaver || qpPid) return
     if (!storeId || storeId === 'default') return
     let alive = true
     ;(async () => {
       try {
+        // 1차: 새 공개 API (slug 기반, 인증 X)
+        const qrRes = await fetch('/api/qr/store/' + encodeURIComponent(storeId), { cache: 'no-store' })
+        if (qrRes.ok) {
+          const qj = await qrRes.json()
+          if (!alive || !qj?.ok || !qj.store) return
+          const s = qj.store
+          setStore(prev => ({
+            ...prev,
+            name:     s.name     || prev.name,
+            category: s.category || prev.category,
+            address:  s.address  || prev.address,
+            naverUrl: s.naverUrl || (s.naverPlaceId
+              ? `https://m.place.naver.com/place/${s.naverPlaceId}/review/visitor/write`
+              : (s.naverExternalPlaceId
+                ? `https://m.place.naver.com/place/${s.naverExternalPlaceId}/review/visitor/write`
+                : prev.naverUrl)),
+            greeting: s.name ? (s.name + '을(를) 방문해주셔서 감사합니다') : prev.greeting,
+          }))
+          return
+        }
+
+        // 2차 fallback: 기존 (인증된 사장님 자기 매장 조회 — 호환용)
+        if (qpName || qpAddr || qpNaver || qpPid) return
         const res = await fetch('/api/stores/' + encodeURIComponent(storeId), { cache: 'no-store' })
         if (!res.ok) return
         const j = await res.json()
