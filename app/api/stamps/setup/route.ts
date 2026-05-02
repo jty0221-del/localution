@@ -63,6 +63,19 @@ export async function POST(req: NextRequest) {
 
   const themeColor = (body.theme_color || '').match(/^#[0-9A-Fa-f]{6}$/) ? body.theme_color : '#3182F6'
 
+  // 단계별 보상 (milestones) — 5회 = 군만두, 10회 = 탕수육 같은 패턴
+  let milestones: Array<{ at: number; reward: string }> = []
+  if (Array.isArray(body.milestones)) {
+    milestones = body.milestones
+      .filter((m: any) => m && m.reward && m.at)
+      .map((m: any) => ({
+        at: Math.max(1, Math.min(30, parseInt(String(m.at), 10))),
+        reward: String(m.reward).slice(0, 100),
+      }))
+      .sort((a: any, b: any) => a.at - b.at)
+      .slice(0, 5)
+  }
+
   const payload: any = {
     user_id: auth.userId,
     store_id: store?.id || null,
@@ -72,8 +85,9 @@ export async function POST(req: NextRequest) {
     required_stamps: Math.max(3, Math.min(30, parseInt(String(body.required_stamps || '10'), 10))),
     reward_text: String(body.reward_text || '음료 1잔 무료').slice(0, 100),
     theme_color: themeColor,
-    bg_pattern: 'solid',  // 사용 안 함, 호환성 위해 기본값 유지
-    icon_emoji: '·',       // 사용 안 함
+    bg_pattern: 'solid',
+    icon_emoji: '·',
+    milestones,
     active: true,
     updated_at: new Date().toISOString(),
   }
