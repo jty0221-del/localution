@@ -4,6 +4,7 @@ import './globals.css'
 import QuickSlot from './components/QuickSlot'
 import BottomTabBar from './components/BottomTabBar'
 import UpdatesPopupBanner from './components/UpdatesPopupBanner'
+import ScrollToTop from './components/ScrollToTop'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -98,6 +99,8 @@ export default function RootLayout({
         <BottomTabBar />
         {/* 19차-2 · 새 업데이트 팝업 배너 (클라이언트 컴포넌트, 공개 랜딩 제외) */}
         <UpdatesPopupBanner />
+        {/* 스크롤 최상단 이동 버튼 (모바일/PC, 워크스페이스에서만 노출) */}
+        <ScrollToTop />
       </body>
     </html>
   )
