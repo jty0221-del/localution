@@ -613,6 +613,75 @@ function StoreTab() {
   )
 }
 
+// 알림 테스트 발송 버튼 — local state 로 시각 피드백 + alert fallback
+function NotifyTestButton() {
+  const [busy, setBusy] = useState(false)
+  const [result, setResult] = useState<string | null>(null)
+
+  async function runTest() {
+    if (busy) return
+    setBusy(true)
+    setResult(null)
+    console.log('[notify-test] start')
+    try {
+      const r = await fetch('/api/notify/test', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+      })
+      console.log('[notify-test] http', r.status)
+      const j = await r.json().catch(() => null)
+      console.log('[notify-test] response', j)
+      if (!j) { setResult('응답 파싱 실패 (서버 오류 가능성)'); return }
+      if (!j.ok) { setResult(`실패: ${j.error || 'unknown'}`); return }
+      const ok: string[] = []
+      const fail: string[] = []
+      for (const [ch, res] of Object.entries(j.results || {})) {
+        const r2 = res as { ok: boolean; error?: string }
+        const label = ch === 'kakao_talk' ? '카카오톡' : ch === 'web_push' ? '브라우저 알림' : ch
+        if (r2.ok) ok.push(label)
+        else fail.push(`${label}: ${r2.error}`)
+      }
+      if (ok.length > 0 && fail.length === 0) setResult(`✅ ${ok.join(', ')} 발송 완료`)
+      else if (ok.length > 0) setResult(`✅ ${ok.join(', ')} 발송 | ⚠️ ${fail.join(' | ')}`)
+      else setResult(`⚠️ ${fail.join(' | ')}`)
+    } catch (e: any) {
+      console.error('[notify-test] error', e)
+      setResult(`예외: ${e?.message || e}`)
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  return (
+    <div className="bg-[#EFF6FF] border border-[#BFDBFE] rounded-2xl p-5">
+      <div className="flex items-center justify-between gap-4 flex-wrap">
+        <div className="min-w-0">
+          <p className="text-sm font-bold text-[#1E40AF]">🧪 테스트 알림 받아보기</p>
+          <p className="text-xs text-[#3B82F6] mt-0.5">활성 채널로 본인에게 테스트 1개 발송</p>
+        </div>
+        <button
+          type="button"
+          onClick={runTest}
+          disabled={busy}
+          className={`px-4 py-2 rounded-xl text-xs font-bold whitespace-nowrap transition-colors ${
+            busy
+              ? 'bg-[#94A3B8] text-white cursor-wait'
+              : 'bg-[#3182F6] text-white hover:bg-[#1E40AF] active:scale-95'
+          }`}
+        >
+          {busy ? '발송 중…' : '테스트 발송'}
+        </button>
+      </div>
+      {result && (
+        <p className={`mt-3 text-[12px] font-medium ${
+          result.startsWith('✅') ? 'text-[#059669]' : 'text-[#DC2626]'
+        }`}>{result}</p>
+      )}
+    </div>
+  )
+}
+
 // urlBase64ToUint8Array — VAPID public key 변환 (브라우저 PushManager.subscribe 용)
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
   const padding = '='.repeat((4 - base64String.length % 4) % 4)
@@ -908,37 +977,7 @@ function NotifyTab() {
       </div>
 
       {/* 테스트 발송 */}
-      <div className="bg-[#EFF6FF] border border-[#BFDBFE] rounded-2xl p-5">
-        <div className="flex items-center justify-between gap-4">
-          <div>
-            <p className="text-sm font-bold text-[#1E40AF]">🧪 테스트 알림 받아보기</p>
-            <p className="text-xs text-[#3B82F6] mt-0.5">활성화된 모든 채널로 본인에게 테스트 알림 1개 발송</p>
-          </div>
-          <button
-            onClick={async () => {
-              try {
-                const r = await fetch('/api/notify/test', { method: 'POST' })
-                const j = await r.json()
-                if (!j?.ok) { toast(j?.error || '테스트 실패'); return }
-                const ok: string[] = []
-                const fail: string[] = []
-                for (const [ch, res] of Object.entries(j.results || {})) {
-                  const r2 = res as { ok: boolean; error?: string }
-                  const label = ch === 'kakao_talk' ? '카카오톡' : ch === 'web_push' ? '브라우저 알림' : ch
-                  if (r2.ok) ok.push(label)
-                  else fail.push(`${label}: ${r2.error}`)
-                }
-                if (ok.length > 0 && fail.length === 0) toast(`✅ ${ok.join(', ')} 발송 완료`)
-                else if (ok.length > 0) toast(`✅ ${ok.join(', ')} 발송 / ⚠️ ${fail.join(' | ')}`)
-                else toast(`⚠️ ${fail.join(' | ')}`)
-              } catch (e: any) {
-                toast(e?.message || '테스트 실패')
-              }
-            }}
-            className="px-4 py-2 rounded-xl bg-[#3182F6] text-white text-xs font-bold hover:bg-[#1E40AF] whitespace-nowrap"
-          >테스트 발송</button>
-        </div>
-      </div>
+      <NotifyTestButton />
 
       {saving && <p className="text-[11px] text-[#8B95A1] text-center">저장 중…</p>}
     </div>
