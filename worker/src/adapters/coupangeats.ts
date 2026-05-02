@@ -1,7 +1,11 @@
 // worker/src/adapters/coupangeats.ts
 // ============================================================
-// 32차-2 · CoupangEatsAdapter (store.coupangeats.com)
+// 53차-1 · CoupangEatsAdapter (store.coupangeats.com)
 // ── IP 차단 대응: extra_data.session_cookies 쿠키 세션 방식 우선 ──
+// ── 53차: post_reply → REST API 직접 호출 (UI 자동화 제거) ──
+//    POST /api/v1/merchant/reviews/reply
+//    body: {storeId: Int, orderReviewId: Int, comment: String}
+//    헤더: x-request-meta (btoa JSON), x-requested-with: XMLHttpRequest
 // ============================================================
 import type { Browser } from 'playwright'
 import type { Logger } from 'pino'
@@ -1202,21 +1206,12 @@ async function fetchCoupangReviews(
   if (action === 'post_reply' && payload?.platform_review_id && payload?.reply_text) {
     const targetId = String(payload.platform_review_id)
     const replyText = String(payload.reply_text)
-    const replied = await postCoupangEatsReply(page, targetId, replyText, log)
+    const replied = await postCoupangEatsReply(page, storeId, targetId, replyText, log)
     if (replied.ok) {
-      await svc
-        .from('platform_reviews')
-        .update({
-          has_reply: true,
-          reply_content: replyText,
-          reply_status: 'submitted',
-          reply_submitted_at: new Date().toISOString(),
-        })
-        .eq('user_id', userId)
-        .eq('platform', 'coupangeats')
-        .eq('platform_review_id', targetId)
+      await updateCoupangReviewStatus(svc, userId, targetId, 'submitted', { replyContent: replyText })
       return { status: 'ok', message: `coupangeats: reply posted for ${targetId}` }
     }
+    await updateCoupangReviewStatus(svc, userId, targetId, 'failed', { error: replied.reason })
     return { status: 'failed', message: `coupangeats reply 실패: ${replied.reason}` }
   }
 
@@ -1288,34 +1283,110 @@ async function saveCoupangSessionCookies(
   }
 }
 
+// ── 53차: platform_reviews DB 상태 업데이트 헬퍼 ──
+async function updateCoupangReviewStatus(
+  svc: any,
+  userId: string,
+  platformReviewId: string,
+  status: 'submitted' | 'failed',
+  extra: { replyContent?: string; error?: string },
+): Promise<void> {
+  const now = new Date().toISOString()
+  const update: Record<string, unknown> = { reply_status: status, reply_error: null }
+  if (status === 'submitted') {
+    update.has_reply = true
+    update.reply_submitted_at = now
+    if (extra.replyContent) update.reply_content = extra.replyContent
+  } else {
+    update.reply_error = (extra.error || 'unknown error').slice(0, 200)
+  }
+  try {
+    const { error } = await svc
+      .from('platform_reviews')
+      .update(update)
+      .eq('user_id', userId)
+      .eq('platform', 'coupangeats')
+      .eq('platform_review_id', platformReviewId)
+    if (error) console.error('[coupangeats][updateReviewStatus] supabase error:', error.message)
+  } catch (e: any) {
+    console.error('[coupangeats][updateReviewStatus] exception:', e?.message)
+  }
+}
+
+// ── 53차: UI 자동화 → REST API 직접 호출 ──
+// cURL 분석: POST https://store.coupangeats.com/api/v1/merchant/reviews/reply
+// Body: { storeId: Int, orderReviewId: Int, comment: String }
+// 특수 헤더: x-request-meta (btoa JSON), x-requested-with: XMLHttpRequest
+// 인증: credentials:'include' → 브라우저 컨텍스트 쿠키 자동 포함 (Akamai 통과)
 async function postCoupangEatsReply(
   page: any,
+  storeId: string,
   platformReviewId: string,
   replyText: string,
   log: Logger,
 ): Promise<{ ok: true } | { ok: false; reason: string }> {
+  const storeIdInt = parseInt(storeId, 10)
+  const orderReviewIdInt = parseInt(platformReviewId, 10)
+
+  if (isNaN(storeIdInt) || isNaN(orderReviewIdInt)) {
+    return { ok: false, reason: `invalid storeId(${storeId}) or orderReviewId(${platformReviewId})` }
+  }
+
+  log.info({ storeIdInt, orderReviewIdInt, textLen: replyText.length }, 'coupangeats: 53cha POST /reviews/reply (REST API)')
+
   try {
-    const card = await page.$(`[data-review-id="${platformReviewId}"], [data-id="${platformReviewId}"]`)
-    if (!card) return { ok: false, reason: `card not found for ${platformReviewId}` }
+    const result = await page.evaluate(async (args: { url: string; body: string }) => {
+      try {
+        // x-request-meta: 동적 생성 (timestamp 포함 — Akamai 세션 검증용)
+        const meta = {
+          o: 'https://store.coupangeats.com',
+          ua: navigator.userAgent,
+          r: 'https://store.coupangeats.com/merchant/management/reviews',
+          t: Date.now(),
+          sr: String(screen.width) + 'x' + String(screen.height),
+          l: navigator.language || 'ko-KR',
+        }
+        const xRequestMeta = btoa(unescape(encodeURIComponent(JSON.stringify(meta))))
 
-    const replyBtn = await card.$(DOM_SELECTORS.replyButton)
-    if (!replyBtn) return { ok: false, reason: 'reply button not found' }
-    await replyBtn.click()
-    await page.waitForTimeout(1200)
+        const r = await fetch(args.url, {
+          method: 'POST',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json;charset=UTF-8',
+            'Accept': 'application/json',
+            'Accept-Language': 'ko-KR',
+            'x-request-meta': xRequestMeta,
+            'x-requested-with': 'XMLHttpRequest',
+            'Origin': 'https://store.coupangeats.com',
+            'Referer': 'https://store.coupangeats.com/merchant/management/reviews',
+          },
+          body: args.body,
+        })
+        const text = await r.text()
+        let parsed: any = null
+        try { parsed = JSON.parse(text) } catch {}
+        return { ok: r.ok, status: r.status, text: text.slice(0, 500), parsed }
+      } catch (e: any) {
+        return { ok: false, status: 0, text: '', parsed: null, err: String(e?.message || e) }
+      }
+    }, {
+      url: 'https://store.coupangeats.com/api/v1/merchant/reviews/reply',
+      body: JSON.stringify({
+        storeId: storeIdInt,
+        orderReviewId: orderReviewIdInt,
+        comment: replyText,
+      }),
+    })
 
-    const textarea = await page.$(DOM_SELECTORS.replyTextarea)
-    if (!textarea) return { ok: false, reason: 'reply textarea not found' }
-    await textarea.fill(replyText)
-    await page.waitForTimeout(500)
+    log.info({ status: result.status, ok: result.ok, textPreview: result.text.slice(0, 200) }, 'coupangeats: 53cha reply API response')
 
-    const submit = await page.$(DOM_SELECTORS.replySubmit)
-    if (!submit) return { ok: false, reason: 'reply submit button not found' }
-    await submit.click()
-    await page.waitForTimeout(2500)
-
-    return { ok: true }
+    if (result.ok) return { ok: true }
+    if (result.status === 401) return { ok: false, reason: '세션 만료(401) — 쿠팡이츠 재연결 필요' }
+    if (result.status === 403) return { ok: false, reason: `Akamai 차단(403) — 잠시 후 재시도: ${result.text.slice(0, 80)}` }
+    if (result.status === 400) return { ok: false, reason: `요청 오류(400): ${result.text.slice(0, 150)}` }
+    return { ok: false, reason: `HTTP ${result.status}: ${result.text.slice(0, 100)}` }
   } catch (e: any) {
-    log.error({ err: e?.message }, 'coupangeats reply error')
+    log.error({ err: e?.message }, 'coupangeats: postCoupangEatsReply exception')
     return { ok: false, reason: e?.message || 'unknown' }
   }
 }
