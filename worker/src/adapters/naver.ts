@@ -13,7 +13,7 @@ import { dumpPageDiagnostics, startNetworkCapture, detectLoginFailure } from '..
 import { handleNaverCaptcha, solveCaptcha } from '../lib/captcha'
 import type { JobResult, Action } from '../jobs'
 
-const NAVER_CODE_VERSION = 'v29-bookingBusinessId-extraction-20260502'
+const NAVER_CODE_VERSION = 'v30-bookingBusinessId-Int-type-20260502'
 
 const LOGIN_URL = 'https://nid.naver.com/nidlogin.login'
 const NEW_SMARTPLACE_BASE = 'https://new.smartplace.naver.com'
@@ -1109,9 +1109,12 @@ async function postNaverReply(
       let foundOnPage = -1
       const seenItemsSummary: any[] = []
       for (let p = 1; p <= 5 && !smartplaceReviewId; p++) {
-        // v29: getReviews input 에 bookingBusinessId 포함 (정식 owner 흐름)
+        // v30: getReviews input 에 bookingBusinessId 포함 — Int 타입 (parseInt 변환)
         const grInput: any = { sort: 'CreatedDesc', placeId: storeId, page: p }
-        if (bookingBusinessId) grInput.bookingBusinessId = bookingBusinessId
+        if (bookingBusinessId) {
+          const bid = parseInt(bookingBusinessId, 10)
+          if (!isNaN(bid)) grInput.bookingBusinessId = bid  // GraphQL Int 타입
+        }
         // page.evaluate 로 호출하여 브라우저 컨텍스트 사용 (자동 cookies/CSRF)
         const reviewsResult = await page.evaluate(async ({ url, body }: any) => {
           try {
@@ -1278,10 +1281,14 @@ async function postNaverReply(
 
     const t0 = Date.now()
     // page.evaluate 안에서 fetch — 브라우저가 자동 cookies + headers + CSRF 처리
-    // v29: input 에 bookingBusinessId 포함 (있을 때만)
+    // v30: input 에 bookingBusinessId 포함 — Int 타입 (parseInt 변환)
+    // GraphQL schema 가 Int 요구 → "1289786" string 으로 보내면 INTERNAL_SERVER_ERROR
     const createReplyInput: any = { text: replyText, reviewId: smartplaceReviewId, placeId: storeId }
-    if (bookingBusinessId) createReplyInput.bookingBusinessId = bookingBusinessId
-    log.info({ createReplyInput: { ...createReplyInput, text: createReplyInput.text.slice(0, 30) } }, 'naver: v29 createReply input')
+    if (bookingBusinessId) {
+      const bid = parseInt(bookingBusinessId, 10)
+      if (!isNaN(bid)) createReplyInput.bookingBusinessId = bid
+    }
+    log.info({ createReplyInput: { ...createReplyInput, text: createReplyInput.text.slice(0, 30) } }, 'naver: v30 createReply input (bookingBusinessId as Int)')
 
     const inPageResult = await page.evaluate(async ({ url, body }: { url: string; body: string }) => {
       try {
