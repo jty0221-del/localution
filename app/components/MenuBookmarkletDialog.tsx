@@ -11,6 +11,100 @@ import { Bookmark, Copy, Check, X, ExternalLink, ArrowRight, Smartphone } from '
 const APP_ORIGIN = 'https://www.localution.co.kr'
 
 // 북마클릿 JS 코드 — 사장님이 네이버 페이지에서 클릭 시 실행됨
+// 콘솔에 붙여넣기용 raw JS (javascript: 프리픽스 없음)
+function buildRawJs(token: string): string {
+  return `(async function(){
+  try {
+    var TOKEN = '${token}';
+    var APP = '${APP_ORIGIN}';
+    var items = [];
+    var html = document.documentElement.innerHTML;
+    var s = html.indexOf('__APOLLO_STATE__');
+    if (s !== -1) {
+      try {
+        var braceStart = html.indexOf('{', s);
+        var depth = 0, end = -1, inStr = false, esc = false;
+        for (var i = braceStart; i < html.length; i++) {
+          var c = html[i];
+          if (esc) { esc = false; continue; }
+          if (c === '\\\\') { esc = true; continue; }
+          if (c === '"') { inStr = !inStr; continue; }
+          if (inStr) continue;
+          if (c === '{') depth++;
+          else if (c === '}') { depth--; if (depth === 0) { end = i + 1; break; } }
+        }
+        if (end > braceStart) {
+          var state = JSON.parse(html.slice(braceStart, end));
+          for (var k in state) {
+            var m = state[k];
+            if (m && m.name && (m.price !== undefined || m.priceText)) {
+              items.push({
+                name_ko: String(m.name).slice(0, 80),
+                price: parseInt(String(m.price || '0').replace(/[^0-9]/g, ''), 10) || 0,
+                image_url: m.image || (m.images && m.images[0] && (m.images[0].url || m.images[0])) || null,
+                desc_ko: m.description ? String(m.description).slice(0, 200) : null,
+                is_signature: !!(m.recommend || m.featured),
+              });
+            }
+          }
+        }
+      } catch(e){ console.warn('apollo parse error:', e); }
+    }
+    if (items.length === 0) {
+      var allEls = Array.from(document.querySelectorAll('div, li, article, section'));
+      var candidates = allEls.filter(function(n){
+        var t = n.textContent || '';
+        if (t.length > 800) return false;
+        return /\\d{3,7}\\s?원/.test(t);
+      });
+      var smallest = candidates.filter(function(n){
+        return !candidates.some(function(o){ return o !== n && o.contains(n); });
+      });
+      var seen = {};
+      smallest.forEach(function(node){
+        var nameEl = node.querySelector('[class*="name"], [class*="Name"], [class*="title"], [class*="Title"], strong, h3, h4, b');
+        var priceMatch = (node.textContent || '').match(/(\\d{1,3}(?:,\\d{3})*|\\d+)\\s?원/);
+        var imgEl = node.querySelector('img');
+        var descEl = node.querySelector('[class*="desc"], [class*="Desc"], p');
+        var name = (nameEl && nameEl.textContent) ? nameEl.textContent.trim() : null;
+        if (!name) {
+          var lines = (node.textContent || '').split('\\n').map(function(l){ return l.trim(); }).filter(Boolean);
+          name = lines[0] && lines[0].slice(0, 60);
+        }
+        if (name && priceMatch && !seen[name]) {
+          seen[name] = true;
+          items.push({
+            name_ko: name.slice(0, 80),
+            price: parseInt(priceMatch[1].replace(/,/g, ''), 10) || 0,
+            image_url: imgEl ? imgEl.src : null,
+            desc_ko: descEl ? (descEl.textContent || '').trim().slice(0, 200) : null,
+          });
+        }
+      });
+    }
+    console.log('extracted', items.length, 'items', items);
+    if (items.length === 0) {
+      alert('메뉴를 찾지 못했어요. 메뉴 페이지에서 실행하셨나요?');
+      return;
+    }
+    var ok = confirm(items.length + '개 메뉴를 찾았어요.\\n로컬루션으로 전송할까요?');
+    if (!ok) return;
+    var res = await fetch(APP + '/api/menu/import-bookmarklet/submit', {
+      method: 'POST',
+      mode: 'cors',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ token: TOKEN, items: items })
+    });
+    var json = await res.json();
+    if (json.ok) alert('성공! ' + json.count + '개 메뉴 전송 완료.\\n로컬루션 페이지로 돌아가세요.');
+    else alert('전송 실패: ' + (json.message || json.error));
+  } catch(e) {
+    console.error(e);
+    alert('오류: ' + e.message);
+  }
+})();`
+}
+
 function buildBookmarkletJs(token: string): string {
   // 한 줄 압축 (북마크 URL 호환)
   const code = `
@@ -132,11 +226,20 @@ export default function MenuBookmarkletDialog({
   pollSuccess: () => void
 }) {
   const [copied, setCopied] = useState(false)
+  const [copiedRaw, setCopiedRaw] = useState(false)
   const [step, setStep] = useState<1 | 2 | 3>(1)
+  const [mode, setMode] = useState<'bookmark' | 'console'>('console')  // 콘솔 모드 기본 (더 안정적)
 
   if (!open || !token) return null
 
   const bookmarkletUrl = buildBookmarkletJs(token)
+  const rawJs = buildRawJs(token)
+
+  function handleCopyRaw() {
+    navigator.clipboard.writeText(rawJs)
+    setCopiedRaw(true)
+    setTimeout(() => setCopiedRaw(false), 2500)
+  }
 
   function handleCopy() {
     navigator.clipboard.writeText(bookmarkletUrl)
@@ -174,15 +277,88 @@ export default function MenuBookmarkletDialog({
           ))}
         </div>
 
-        {/* STEP 1: 북마클릿 코드 복사 / 드래그 */}
+        {/* STEP 1: 콘솔 또는 북마크 모드 */}
         {step === 1 && (
           <div className="space-y-4">
-            <div>
-              <p className="text-sm font-bold text-[#191F28] mb-1">1단계 - 북마크 등록</p>
-              <p className="text-xs text-[#8B95A1] leading-relaxed mb-3">
-                "북마크바" = 브라우저 상단 URL 주소창 바로 아래에 자주 쓰는 사이트 모아두는 가로 막대.<br/>
-                먼저 북마크바를 켜야 드래그 가능해요.
-              </p>
+            {/* 모드 선택 */}
+            <div className="flex gap-2 p-1 bg-[#F2F4F6] rounded-xl">
+              <button
+                onClick={() => setMode('console')}
+                className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-colors ${
+                  mode === 'console' ? 'bg-white text-[#3182F6] shadow-sm' : 'text-[#8B95A1]'
+                }`}>
+                콘솔 모드 (추천)
+              </button>
+              <button
+                onClick={() => setMode('bookmark')}
+                className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-colors ${
+                  mode === 'bookmark' ? 'bg-white text-[#3182F6] shadow-sm' : 'text-[#8B95A1]'
+                }`}>
+                북마크 모드
+              </button>
+            </div>
+
+            {/* CONSOLE 모드 — 더 안정적 */}
+            {mode === 'console' && (
+              <div>
+                <p className="text-sm font-bold text-[#191F28] mb-1">1단계 - 코드 복사 (콘솔 모드)</p>
+                <p className="text-xs text-[#8B95A1] leading-relaxed mb-3">
+                  네이버 페이지가 북마클릿을 차단할 수 있어요. <strong>콘솔 모드는 100% 작동</strong>.<br/>
+                  코드 복사 → 네이버 메뉴 페이지 F12 → Console 탭에 붙여넣기.
+                </p>
+
+                <div className="mb-3 p-3 rounded-xl bg-[#FEF3C7] border border-[#FCD34D]">
+                  <p className="text-[12px] font-black text-[#92400E] mb-1.5">콘솔 모드 사용법</p>
+                  <ol className="text-[11px] text-[#92400E] space-y-1 list-decimal list-inside leading-relaxed">
+                    <li>아래 <strong>"코드 복사"</strong> 버튼 클릭</li>
+                    <li>네이버 메뉴 페이지로 이동 (smartplace 또는 m.place)</li>
+                    <li>키보드 <strong className="bg-white px-1.5 py-0.5 rounded border border-[#92400E]/30 font-mono">F12</strong> 누름 (개발자 도구 열림)</li>
+                    <li>상단 탭 중 <strong>"Console"</strong> 또는 <strong>"콘솔"</strong> 클릭</li>
+                    <li>경고 메시지 (붙여넣기 위험) 뜨면 <strong>"붙여넣기 허용"</strong> 입력 후 엔터</li>
+                    <li>맨 아래 입력 칸에 <strong className="bg-white px-1.5 py-0.5 rounded border border-[#92400E]/30 font-mono">Ctrl + V</strong> 붙여넣기</li>
+                    <li><strong className="bg-white px-1.5 py-0.5 rounded border border-[#92400E]/30 font-mono">Enter</strong> 누름</li>
+                    <li>"N개 메뉴 찾았어요" 알림 → 확인 → 자동 전송</li>
+                  </ol>
+                </div>
+
+                <button
+                  onClick={handleCopyRaw}
+                  className={`w-full py-3 rounded-xl text-white font-bold text-sm flex items-center justify-center gap-2 ${
+                    copiedRaw ? 'bg-green-500' : 'bg-gradient-to-br from-[#3182F6] to-[#7C3AED]'
+                  }`}>
+                  {copiedRaw ? (
+                    <><Check size={14} strokeWidth={3} /> 복사됨!</>
+                  ) : (
+                    <><Copy size={14} strokeWidth={2.5} /> 콘솔 코드 복사</>
+                  )}
+                </button>
+
+                <details className="mt-3">
+                  <summary className="text-xs text-[#8B95A1] cursor-pointer">개발자 도구 (F12) 가 뭐예요?</summary>
+                  <div className="mt-2 p-3 bg-[#F2F4F6] rounded-lg text-[11px] text-[#4E5968] leading-relaxed">
+                    크롬/엣지/웨일/사파리 등 모든 브라우저에 내장된 개발자용 도구.<br/>
+                    F12 키 누르면 화면 오른쪽이나 아래에 패널이 열림.<br/>
+                    "Console" 탭이 그 안에 있는데, 거기에 JS 코드를 붙여넣어 실행할 수 있어요.<br/>
+                    Mac 사파리는 먼저 환경설정 → 고급 → "메뉴 막대에 개발자용 메뉴 보기" 켜야 해요.
+                  </div>
+                </details>
+
+                <button
+                  onClick={() => setStep(2)}
+                  className="w-full mt-3 py-3 rounded-xl bg-[#191F28] text-white font-bold text-sm flex items-center justify-center gap-2">
+                  코드 복사했어요 <ArrowRight size={14} strokeWidth={2.5} />
+                </button>
+              </div>
+            )}
+
+            {/* BOOKMARK 모드 — 안되면 콘솔 모드 */}
+            {mode === 'bookmark' && (
+              <div>
+                <p className="text-sm font-bold text-[#191F28] mb-1">1단계 - 북마크 등록</p>
+                <p className="text-xs text-[#8B95A1] leading-relaxed mb-3">
+                  네이버가 보안상 북마클릿을 차단하면 작동 안 할 수 있어요.<br/>
+                  안되면 <strong>콘솔 모드</strong> 로 전환하세요.
+                </p>
 
               {/* 북마크바 켜기 안내 */}
               <div className="mb-3 p-3 rounded-xl bg-[#FEF3C7] border border-[#FCD34D]">
@@ -255,16 +431,20 @@ export default function MenuBookmarkletDialog({
               className="w-full py-3 rounded-xl bg-[#191F28] text-white font-bold text-sm flex items-center justify-center gap-2">
               북마크 등록 완료 <ArrowRight size={14} strokeWidth={2.5} />
             </button>
+              </div>
+            )}
           </div>
         )}
 
-        {/* STEP 2: 네이버 페이지 열고 클릭 안내 */}
+        {/* STEP 2: 네이버 페이지 열고 실행 안내 */}
         {step === 2 && (
           <div className="space-y-4">
             <div>
-              <p className="text-sm font-bold text-[#191F28] mb-1">2단계 - 네이버 메뉴 페이지에서 클릭</p>
+              <p className="text-sm font-bold text-[#191F28] mb-1">2단계 - 네이버 메뉴 페이지에서 실행</p>
               <p className="text-xs text-[#8B95A1] leading-relaxed mb-3">
-                새 탭에서 네이버 메뉴 페이지를 연 후, 방금 등록한 북마크를 <strong>한 번 클릭</strong>하세요.
+                {mode === 'console'
+                  ? '네이버 메뉴 페이지에서 F12 → Console → 복사한 코드 붙여넣고 Enter.'
+                  : '새 탭에서 네이버 메뉴 페이지를 연 후, 방금 등록한 북마크를 한 번 클릭하세요.'}
               </p>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
@@ -298,10 +478,21 @@ export default function MenuBookmarkletDialog({
 
               <div className="mt-3 p-3 rounded-xl bg-[#FEF3C7] border border-[#FCD34D]">
                 <p className="text-[11px] text-[#92400E] leading-relaxed">
-                  <strong>북마크 클릭</strong>하면 자동으로:<br/>
-                  1. 페이지에서 메뉴 추출<br/>
-                  2. "N개 메뉴를 찾았어요. 전송할까요?" 확인 창<br/>
-                  3. 확인 시 로컬루션으로 전송
+                  {mode === 'console' ? (
+                    <>
+                      <strong>F12 → Console → Ctrl+V → Enter</strong> 하면 자동으로:<br/>
+                      1. 페이지에서 메뉴 추출<br/>
+                      2. "N개 메뉴를 찾았어요. 전송할까요?" 확인 창<br/>
+                      3. 확인 시 로컬루션으로 전송
+                    </>
+                  ) : (
+                    <>
+                      <strong>북마크 클릭</strong>하면 자동으로:<br/>
+                      1. 페이지에서 메뉴 추출<br/>
+                      2. "N개 메뉴를 찾았어요. 전송할까요?" 확인 창<br/>
+                      3. 확인 시 로컬루션으로 전송
+                    </>
+                  )}
                 </p>
               </div>
             </div>
@@ -315,7 +506,7 @@ export default function MenuBookmarkletDialog({
               <button
                 onClick={() => { setStep(3); pollSuccess() }}
                 className="py-3 rounded-xl bg-[#191F28] text-white font-bold text-sm flex items-center justify-center gap-2">
-                북마크 클릭했어요 <ArrowRight size={14} strokeWidth={2.5} />
+                {mode === 'console' ? '실행했어요' : '북마크 클릭했어요'} <ArrowRight size={14} strokeWidth={2.5} />
               </button>
             </div>
           </div>
