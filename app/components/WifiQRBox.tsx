@@ -172,12 +172,20 @@ export default function WifiQRBox() {
       ) : (
         <>
           <div className="flex flex-col items-center gap-3">
-            <div className="p-5 bg-white border-2 border-[#06B6D4] rounded-2xl shadow-md">
+            <div
+              className="bg-white border-2 border-[#06B6D4] rounded-2xl shadow-md flex-shrink-0 flex items-center justify-center"
+              style={{ width: 280, height: 280 }}>
               {qrDataUrl ? (
                 /* eslint-disable-next-line @next/next/no-img-element */
-                <img src={qrDataUrl} alt="Wi-Fi QR" width={240} height={240} />
+                <img
+                  src={qrDataUrl}
+                  alt="Wi-Fi QR"
+                  width={240}
+                  height={240}
+                  style={{ width: 240, height: 240, display: 'block', flexShrink: 0 }}
+                />
               ) : (
-                <div className="w-[240px] h-[240px] flex items-center justify-center text-xs text-[#8B95A1]">QR 생성 중…</div>
+                <div className="text-xs text-[#8B95A1]" style={{ width: 240, height: 240, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>QR 생성 중...</div>
               )}
             </div>
             <div className="text-center">
