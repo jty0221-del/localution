@@ -8,6 +8,7 @@ import Footer from '../components/Footer'
 import AffiliateAdSlots from '../components/AffiliateAdSlots'
 import QRReportPanel from '../components/QRReportPanel'
 import StampCardEditor from '../components/StampCardEditor'
+import MenuBoardEditor from '../components/MenuBoardEditor'
 import PageHeader from '../components/PageHeader'
 import {
   QrCode, CheckCircle2, Sparkles,
@@ -458,7 +459,7 @@ function QRStatsPanel() {
 }
 
 export default function QRAdmin() {
-  const [activeTab, setActiveTab]   = useState<'settings' | 'stats' | 'report' | 'stamps'>('settings')
+  const [activeTab, setActiveTab]   = useState<'settings' | 'stats' | 'report' | 'stamps' | 'menu'>('settings')
   const [settings, setSettings]     = useState<QRSettings>(DEFAULT_SETTINGS)
   const [storeInfo, setStoreInfo]   = useState<StoreInfo>(DEFAULT_STORE)
   const [storeEdit, setStoreEdit]   = useState(false)
@@ -699,11 +700,12 @@ export default function QRAdmin() {
               {[
                 { key: 'settings', label: '업체 설정' },
                 { key: 'stamps',   label: '스탬프 카드' },
+                { key: 'menu',     label: '메뉴판' },
                 { key: 'stats',    label: '성과 리포트' },
                 { key: 'report',   label: '분석 리포트' },
               ].map(tab => (
                 <button key={tab.key}
-                  onClick={() => setActiveTab(tab.key as 'settings' | 'stats' | 'report' | 'stamps')}
+                  onClick={() => setActiveTab(tab.key as 'settings' | 'stats' | 'report' | 'stamps' | 'menu')}
                   className={`flex-shrink-0 md:flex-1 min-w-fit py-2 px-3 rounded-xl text-sm font-semibold transition-colors whitespace-nowrap ${
                     activeTab === tab.key
                       ? 'bg-[#3182F6] text-white shadow-sm'
@@ -1086,6 +1088,14 @@ export default function QRAdmin() {
           </div>
         )}
         {activeTab === 'stamps' && <AffiliateAdSlots />}
+
+        {/* ── 메뉴판 탭 (Phase 2: 디지털 메뉴판) ── */}
+        {activeTab === 'menu' && (
+          <div className="space-y-6">
+            <MenuBoardEditor />
+          </div>
+        )}
+        {activeTab === 'menu' && <AffiliateAdSlots />}
 
         {/* ── 분석 리포트 탭 (2-F: recharts 인포그래픽 + PDF 저장) ── */}
         {activeTab === 'report' && (
