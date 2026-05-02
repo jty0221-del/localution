@@ -10,12 +10,12 @@ RUN npm install --omit=optional --no-audit --no-fund \
     && npm cache clean --force
 
 COPY tsconfig.json ./
-# v25 FRESH BUILD — post-CAPTCHA deviceAdd "등록" 우선 (실제 paaron 플로우 핸들러)
-RUN echo "build-marker: v25-postCAPTCHA-register-priority-20260502T1400" && rm -rf /app/dist /app/src
+# v26 FRESH BUILD — anchor onclick + form-submit triple-fallback
+RUN echo "build-marker: v26-anchor-onclick-formSubmit-fallback-20260502T1600" && rm -rf /app/dist /app/src
 COPY src ./src
 
-# 컴파일 전 dist 강제 제거 (cache 우회) + v25 마커 검증
-RUN rm -rf /app/dist && npx tsc && ls -la /app/dist/adapters/naver.js && grep -c "v25-postCAPTCHA-register-priority-20260502" /app/dist/adapters/naver.js
+# 컴파일 전 dist 강제 제거 (cache 우회) + v26 마커 검증
+RUN rm -rf /app/dist && npx tsc && ls -la /app/dist/adapters/naver.js && grep -c "v26-anchor-onclick-formSubmit-fallback-20260502" /app/dist/adapters/naver.js
 
 ENV NODE_ENV=production
 ENV PORT=8080
