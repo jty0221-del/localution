@@ -182,37 +182,28 @@ export async function runNaverMenu(
     } catch (_) {}
   })
 
-  // 4) 메뉴 페이지 접근 — 다양한 URL 패턴 시도
-  const candidateUrls = [
-    bookingBusinessId
-      ? `${SMARTPLACE_BASE}/bizes/place/${placeId}/menu?bookingBusinessId=${bookingBusinessId}`
-      : `${SMARTPLACE_BASE}/bizes/place/${placeId}/menu`,
-    bookingBusinessId
-      ? `${SMARTPLACE_BASE}/bizes/place/${placeId}/menu/price?bookingBusinessId=${bookingBusinessId}`
-      : `${SMARTPLACE_BASE}/bizes/place/${placeId}/menu/price`,
-    bookingBusinessId
-      ? `${SMARTPLACE_BASE}/bizes/place/${placeId}/details?bookingBusinessId=${bookingBusinessId}&menu=price`
-      : `${SMARTPLACE_BASE}/bizes/place/${placeId}/details?menu=price`,
-    bookingBusinessId
-      ? `${SMARTPLACE_BASE}/bizes/place/${placeId}?bookingBusinessId=${bookingBusinessId}`
-      : `${SMARTPLACE_BASE}/bizes/place/${placeId}`,
-  ]
+  // 4) 사장님 실제 흐름 그대로: home → 매장 링크 클릭 → SNB 메뉴 클릭
+  const snblnbResponses: any[] = []
 
-  // 첫 URL 로 일단 진입 (인증 확인 + 세션 활성화)
-  let menuUrl = candidateUrls[0]
-  log.info({ menuUrl }, 'naver-menu: navigating (first attempt)')
+  // snblnb 응답 추가 캡처 (전체)
+  page.on('response', async (resp) => {
+    try {
+      if (resp.url().includes('snblnb') || resp.url().includes('SnbLnb')) {
+        const j = await resp.json().catch(() => null)
+        if (j) snblnbResponses.push(j)
+      }
+    } catch (_) {}
+  })
 
   try {
-    // 우선 base URL 로 진입해서 인증 확인
-    const baseUrl = bookingBusinessId
-      ? `${SMARTPLACE_BASE}/bizes/place/${placeId}?bookingBusinessId=${bookingBusinessId}`
-      : `${SMARTPLACE_BASE}/bizes/place/${placeId}`
-    await page.goto(baseUrl, { waitUntil: 'domcontentloaded', timeout: 30000 })
-    await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => null)
+    // STEP 1: smartplace home 진입
+    await page.goto(`${SMARTPLACE_BASE}/`, { waitUntil: 'domcontentloaded', timeout: 30000 })
+    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => null)
+    await page.waitForTimeout(5000)
 
-    // 로그인 페이지로 리다이렉트 확인
-    const baseUrlAfter = page.url()
-    if (baseUrlAfter.includes('nid.naver.com/nidlogin') || baseUrlAfter.includes('login')) {
+    // 로그인 리다이렉트 확인
+    const homeUrl = page.url()
+    if (homeUrl.includes('nid.naver.com/nidlogin') || homeUrl.includes('login.naver.com')) {
       await context.close()
       if (usingFreshBrowser && menuBrowser) { try { await menuBrowser.close() } catch (_) {} }
       await updateImport({
@@ -224,31 +215,76 @@ export async function runNaverMenu(
       return { status: 'failed', message: 'session_expired' }
     }
 
-    // base 페이지 로드 대기 (SNB 등)
-    await page.waitForTimeout(5000)
-    log.info({ baseUrlAfter }, 'naver-menu: base page loaded')
+    log.info({ homeUrl }, 'naver-menu: smartplace home loaded')
 
-    // 이제 메뉴 URL 들 순차 시도
-    for (const tryUrl of candidateUrls) {
-      if (capturedMenus.length > 0) break
-      try {
-        log.info({ tryUrl }, 'naver-menu: trying menu URL')
-        await page.goto(tryUrl, { waitUntil: 'domcontentloaded', timeout: 20000 })
-        await page.waitForLoadState('networkidle', { timeout: 8000 }).catch(() => null)
-        await page.waitForTimeout(3000)
+    // STEP 2: home 에서 placeId 매칭 링크 찾기
+    const businessLink = await page.evaluate((pid) => {
+      const links = Array.from(document.querySelectorAll('a[href]')) as HTMLAnchorElement[]
+      const match = links.find(a => a.href.includes(`/place/${pid}`) || a.href.includes(`placeId=${pid}`) || a.href.includes(`/${pid}`))
+      return match?.href || null
+    }, placeId)
 
-        const bodyLen = await page.evaluate(() => document.body?.innerText?.length || 0).catch(() => 0)
-        log.info({ tryUrl, bodyLen, captured: capturedMenus.length }, 'naver-menu: URL result')
+    log.info({ businessLink }, 'naver-menu: matched business link')
 
-        if (bodyLen > 500 || capturedMenus.length > 0) {
-          menuUrl = tryUrl
-          break
+    if (businessLink) {
+      // STEP 3: 매장 페이지로 이동
+      await page.goto(businessLink, { waitUntil: 'domcontentloaded', timeout: 30000 })
+      await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => null)
+      await page.waitForTimeout(5000)
+      log.info({ url: page.url(), bodyLen: await page.evaluate(() => document.body?.innerText?.length || 0) }, 'naver-menu: business page loaded')
+
+      // STEP 4: SNB/페이지 안에서 "메뉴" 링크 찾아 클릭
+      const menuClicked = await page.evaluate(() => {
+        const allEls = Array.from(document.querySelectorAll('a, button, [role="button"], [role="link"], [role="tab"]'))
+        // 메뉴 텍스트 패턴
+        const menuPatterns = ['메뉴', '메뉴 가격', '메뉴 정보', '메뉴 관리', 'Menu']
+        for (const el of allEls as HTMLElement[]) {
+          const text = (el.innerText || el.textContent || '').trim()
+          if (menuPatterns.some(p => text === p || text.startsWith(p))) {
+            // href 가 있으면 click 시 React Router 가 처리
+            el.click()
+            return { clicked: true, text, href: (el as HTMLAnchorElement).href || null }
+          }
         }
-      } catch (e: any) {
-        log.warn({ tryUrl, err: e?.message }, 'naver-menu: URL attempt failed')
+        return { clicked: false }
+      })
+
+      log.info({ menuClicked }, 'naver-menu: menu link click result')
+
+      if (menuClicked.clicked) {
+        await page.waitForTimeout(3000)
+        await page.waitForLoadState('networkidle', { timeout: 10000 }).catch(() => null)
+        await page.waitForTimeout(3000)
+        log.info({ url: page.url() }, 'naver-menu: after menu click')
+      } else {
+        // 메뉴 링크 못 찾았으면 직접 goto 시도 (다양한 URL)
+        const candidateUrls = [
+          `${SMARTPLACE_BASE}/bizes/place/${placeId}/menu`,
+          `${SMARTPLACE_BASE}/bizes/place/${placeId}/menus`,
+          `${SMARTPLACE_BASE}/bizes/place/${placeId}/menu/price`,
+        ]
+        for (const u of candidateUrls) {
+          try {
+            await page.goto(u, { waitUntil: 'domcontentloaded', timeout: 20000 })
+            await page.waitForTimeout(3000)
+            const bodyLen = await page.evaluate(() => document.body?.innerText?.length || 0).catch(() => 0)
+            log.info({ tryUrl: u, finalUrl: page.url(), bodyLen }, 'naver-menu: fallback URL')
+            if (bodyLen > 500 && !page.url().endsWith('/')) break
+          } catch (_) {}
+        }
       }
+    } else {
+      log.warn({ placeId }, 'naver-menu: could not find business link in home page')
+
+      // 폴백: 직접 goto
+      const directUrl = bookingBusinessId
+        ? `${SMARTPLACE_BASE}/bizes/place/${placeId}?bookingBusinessId=${bookingBusinessId}`
+        : `${SMARTPLACE_BASE}/bizes/place/${placeId}`
+      await page.goto(directUrl, { waitUntil: 'domcontentloaded', timeout: 20000 })
+      await page.waitForTimeout(5000)
     }
-    log.info({ finalUrl: page.url() }, 'naver-menu: final URL after trials')
+
+    log.info({ finalUrl: page.url() }, 'naver-menu: navigation phase complete')
 
     // 로그인 페이지로 리다이렉트 확인
     const currentUrl = page.url()
@@ -451,6 +487,10 @@ export async function runNaverMenu(
     return { status: 'failed', message: 'navigation_failed' }
   }
 
+  // close 전 URL 캡처
+  let finalUrlSaved = ''
+  try { finalUrlSaved = page.url() } catch (_) {}
+
   await context.close()
   if (usingFreshBrowser && menuBrowser) {
     try { await menuBrowser.close() } catch (_) {}
@@ -461,10 +501,11 @@ export async function runNaverMenu(
     // 디버그 정보를 error_message 에 포함 (UI 에서 보여서 진단 가능)
     const debugSummary = JSON.stringify({
       jsonResponseCount: allJsonUrls.length,
-      sampleUrls: allJsonUrls.slice(0, 10),
+      finalUrl: finalUrlSaved,
+      sampleUrls: allJsonUrls.filter(u => u.includes('graphql') || u.includes('menu') || u.includes('place') || u.includes('biz')).slice(0, 12),
       domDebug: networkLog.find(x => x.dom)?.dom,
-      lastJsonResponses: networkLog.filter(x => !x.dom).slice(-3),
-    }).slice(0, 1500)
+      snblnb: snblnbResponses[0] ? JSON.stringify(snblnbResponses[0]).slice(0, 800) : null,
+    }).slice(0, 2200)
 
     await updateImport({
       status: 'failed',
