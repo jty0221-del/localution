@@ -62,9 +62,8 @@ export async function POST(req: NextRequest) {
     .maybeSingle()
 
   const themeColor = (body.theme_color || '').match(/^#[0-9A-Fa-f]{6}$/) ? body.theme_color : '#3182F6'
-  const bgPattern = ['dots', 'stripes', 'solid', 'gradient'].includes(body.bg_pattern) ? body.bg_pattern : 'dots'
 
-  const payload = {
+  const payload: any = {
     user_id: auth.userId,
     store_id: store?.id || null,
     store_slug: store?.slug || body.slug || null,
@@ -73,8 +72,8 @@ export async function POST(req: NextRequest) {
     required_stamps: Math.max(3, Math.min(30, parseInt(String(body.required_stamps || '10'), 10))),
     reward_text: String(body.reward_text || '음료 1잔 무료').slice(0, 100),
     theme_color: themeColor,
-    bg_pattern: bgPattern,
-    icon_emoji: String(body.icon_emoji || '☕').slice(0, 8),
+    bg_pattern: 'solid',  // 사용 안 함, 호환성 위해 기본값 유지
+    icon_emoji: '·',       // 사용 안 함
     active: true,
     updated_at: new Date().toISOString(),
   }
