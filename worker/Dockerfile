@@ -10,10 +10,12 @@ RUN npm install --omit=optional --no-audit --no-fund \
     && npm cache clean --force
 
 COPY tsconfig.json ./
-RUN echo "build-marker: v13c-cardnotfound-search-20260502"
+# v14 FRESH BUILD — 이전 dist가 image에 잔존하지 않도록 명시적 제거 + UNIQUE_MARKER 추가
+RUN echo "build-marker: v16-PC-domain-referer-fix-20260502" && rm -rf /app/dist /app/src
 COPY src ./src
 
-RUN npx tsc
+# 컴파일 전 dist 강제 제거 (cache 우회)
+RUN rm -rf /app/dist && npx tsc && ls -la /app/dist/adapters/naver.js && grep -c "UNIQUE_MARKER_v13_FRESH_BUILD" /app/dist/adapters/naver.js
 
 ENV NODE_ENV=production
 ENV PORT=8080

@@ -685,22 +685,31 @@ async function postNaverReply(
   replyText: string,
   log: Logger,
 ): Promise<{ ok: true } | { ok: false; reason: string }> {
-  // UNIQUE_MARKER_v13_FRESH_BUILD_20260502_1145
-  log.info({ marker: 'UNIQUE_MARKER_v13_FRESH_BUILD_20260502_1145' }, 'naver: postNaverReply v13 GraphQL entry')
+  // UNIQUE_MARKER_v16_REFERER_FIX_20260502
+  log.info({ marker: 'UNIQUE_MARKER_v16_REFERER_FIX_20260502' }, 'naver: postNaverReply v16 PC domain + correct referer')
+  // 37차-16: 사용자 cURL 분석 결과 — SmartPlace는 referer 검증 + placeSeq/bookingBusinessId 매칭
+  //   → final URL을 capture하여 referer로 사용 (placeSeq + bookingBusinessId 자동 포함)
+  //   → PC 도메인 (new.smartplace) + Desktop UA 사용
+  let finalRefererUrl = 'https://new.smartplace.naver.com/bizes/place/' + storeId + '/reviews?menu=visitor'
   try {
-    // 1) SmartPlace 페이지 한 번 방문 → 인증 쿠키 (NID_AUT, BSP_*, MM_NEW_DVC) 확보
+    // 1) SmartPlace 페이지 방문 → redirect 후 final URL 캡처 (placeSeq + bookingBusinessId 포함)
     try {
-      await page.goto('https://new.smartplace.naver.com/bizes/place/' + storeId, {
+      await page.goto('https://new.smartplace.naver.com/bizes/place/' + storeId + '/reviews?menu=visitor', {
         waitUntil: 'domcontentloaded', timeout: 15000,
       })
-      await page.waitForTimeout(2500)
+      await page.waitForTimeout(3500)  // SPA redirect 시간 확보
       const u = page.url()
-      log.info({ url: u }, 'naver: visited SmartPlace dashboard for cookies')
+      log.info({ url: u }, 'naver: visited SmartPlace reviews page')
       if (u.includes('nid.naver.com') || u.includes('login')) {
         return { ok: false, reason: 'SmartPlace 접근 시 로그인 redirect — 세션 만료' }
       }
+      // redirect된 URL에 placeSeq + bookingBusinessId 포함 → 그대로 referer로 사용
+      if (u.includes('smartplace.naver.com') && u.includes('/reviews')) {
+        finalRefererUrl = u
+        log.info({ finalRefererUrl }, 'naver: ✅ captured final referer with placeSeq/bookingBusinessId')
+      }
     } catch (e: any) {
-      log.warn({ err: e?.message }, 'naver: SmartPlace dashboard visit failed (cookies may still be OK)')
+      log.warn({ err: e?.message }, 'naver: SmartPlace reviews page visit failed (using fallback referer)')
     }
 
     // 2) 쿠키 캡처 (네이버 + smartplace 도메인)
@@ -720,18 +729,18 @@ async function postNaverReply(
       return { ok: false, reason: '로그인 쿠키 캡처 실패 (쿠키 부족) — 로그인 재확인 필요' }
     }
 
-    // 공통 SmartPlace 헤더 (모바일 도메인 사용)
+    // 37차-16: PC 도메인 + Desktop UA + 캡처된 finalRefererUrl 사용 (placeSeq + bookingBusinessId 포함)
     const smartplaceHeaders = {
       'Content-Type': 'application/json',
       'Accept': '*/*',
       'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8,en;q=0.7',
-      'User-Agent': 'Mozilla/5.0 (Linux; Android 6.0; Nexus 5 Build/MRA58N) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Mobile Safari/537.36',
+      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/148.0.0.0 Safari/537.36',
       'Cookie': cookieHeader,
-      'Referer': 'https://new-m.smartplace.naver.com/bizes/place/' + storeId + '/reviews?menu=visitor',
-      'Origin': 'https://new-m.smartplace.naver.com',
+      'Referer': finalRefererUrl,  // 워커가 redirect로 캡처한 실제 URL (placeSeq/bookingBusinessId 포함)
+      'Origin': 'https://new.smartplace.naver.com',
       'from-system': 'smartplace',
-      'sec-ch-ua-platform': '"Android"',
-      'sec-ch-ua-mobile': '?1',
+      'sec-ch-ua-platform': '"Windows"',
+      'sec-ch-ua-mobile': '?0',
       'sec-ch-ua': '"Chromium";v="148", "Google Chrome";v="148", "Not/A)Brand";v="99"',
     }
 
@@ -756,7 +765,7 @@ async function postNaverReply(
       // SmartPlace getReviews 호출 (페이지네이션 — 최대 5페이지)
       let foundOnPage = -1
       for (let p = 1; p <= 5 && !smartplaceReviewId; p++) {
-        const reviewsRes = await fetch('https://new-m.smartplace.naver.com/graphql?opName=getReviews', {
+        const reviewsRes = await fetch('https://new.smartplace.naver.com/graphql?opName=getReviews', {
           method: 'POST',
           headers: smartplaceHeaders,
           body: JSON.stringify({
@@ -808,7 +817,7 @@ async function postNaverReply(
     }
 
     // 4) GraphQL createReply mutation 호출
-    const graphqlUrl = 'https://new-m.smartplace.naver.com/graphql?opName=createReply'
+    const graphqlUrl = 'https://new.smartplace.naver.com/graphql?opName=createReply'
     const mutationQuery = 'fragment CommonReviewReplyFields on ReviewReply {\n  text\n  isSuspended\n  isQualified\n  createdDateTime\n  updatedDateTime\n  isDeleted\n  useReplyCandidate\n  replierDisplayName\n  suspendPostingReason\n  __typename\n}\n\nmutation createReply($input: CreateReviewReplyInput!) {\n  createReviewReply(input: $input) {\n    reply {\n      ...CommonReviewReplyFields\n      __typename\n    }\n    __typename\n  }\n}\n'
 
     log.info({
