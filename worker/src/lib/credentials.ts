@@ -135,6 +135,41 @@ export async function markLoginStatus(
   }
 }
 
+// stores 테이블의 naver_url 에서 외부 placeId (m.place.naver.com 의 ID) 추출
+// 내부 SmartPlace placeId 와 외부 placeId 가 다른 매장이 있음 (예: 일산닭칼국수 = 내부 10441797 / 외부 1137287126)
+// createReply mutation 은 **외부 placeId** 를 input 으로 요구
+export async function loadExternalPlaceId(
+  svc: SupabaseClient,
+  userId: string,
+): Promise<string | null> {
+  try {
+    const { data } = await svc
+      .from('stores')
+      .select('naver_url, naver_place_url')
+      .eq('user_id', userId)
+      .order('updated_at', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (!data) return null
+    const candidates = [data.naver_url, data.naver_place_url].filter(Boolean) as string[]
+    for (const url of candidates) {
+      // map.naver.com/p/entry/place/{id} | m.place.naver.com/place/{id} | place.map.naver.com/{id}
+      const patterns = [
+        /m\.place\.naver\.com\/(?:[a-z]+\/)?(\d{5,})/,
+        /map\.naver\.com\/[^\/]*\/[^\/]*\/place\/(\d{5,})/,
+        /place\/(\d{5,})/,
+      ]
+      for (const p of patterns) {
+        const m = url.match(p)
+        if (m && m[1]) return m[1]
+      }
+    }
+    return null
+  } catch {
+    return null
+  }
+}
+
 // 로그인 실패 메시지를 분류 — UI 에 명확한 안내 가능
 export function classifyLoginFailure(bodyText: string): {
   kind: 'credentials_invalid' | 'account_locked' | 'captcha_required' | 'unknown'
