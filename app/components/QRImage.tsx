@@ -62,11 +62,21 @@ export default function QRImage({ url, size = 120 }: { url: string; size?: numbe
       </div>
     )
   }
+  // 1) 내부 SVG 에 명시적 width/height 강제 (왜곡 방지)
+  // 2) preserveAspectRatio 추가 (정사각형 유지)
+  // 3) 부모 div flex-shrink-0 (좁은 컬럼에서 squeeze 방지)
+  const fixedSvg = svg
+    .replace(/<svg([^>]*)>/, (_m, attrs) => {
+      // 기존 width/height 속성 제거
+      const cleaned = attrs.replace(/\s(width|height)="[^"]*"/g, '')
+      return `<svg${cleaned} width="${size}" height="${size}" preserveAspectRatio="xMidYMid meet" style="display:block">`
+    })
+
   return (
     <div
-      style={{ width: size, height: size }}
+      style={{ width: size, height: size, flexShrink: 0 }}
       className="block rounded bg-white overflow-hidden"
-      dangerouslySetInnerHTML={{ __html: svg }}
+      dangerouslySetInnerHTML={{ __html: fixedSvg }}
     />
   )
 }
