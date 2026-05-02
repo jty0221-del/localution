@@ -202,10 +202,46 @@ export default function QRAdmin() {
     try { localStorage.setItem(LS_QR_SETTINGS, JSON.stringify(next)) } catch (_) {}
   }
 
-  const saveStoreInfo = () => {
-    const next = { ...storeDraft, connected: !!(storeDraft.name && storeDraft.location) }
+  const [storeSaving, setStoreSaving] = useState(false)
+  const [storeSaveErr, setStoreSaveErr] = useState<string | null>(null)
+  const saveStoreInfo = async () => {
+    setStoreSaveErr(null)
+    setStoreSaving(true)
+    const next: StoreInfo = {
+      ...storeDraft,
+      connected: !!(storeDraft.name && storeDraft.location),
+      // 사용자 수동 편집은 'manual' source 로 표시 (다음 자동 로드 시에도 보존)
+      source: storeDraft.source === 'naver_synced' ? 'naver_synced' : 'manual',
+    }
+
+    // ⭐ stores 테이블에도 저장 — settings, profile, connect 등 모든 페이지에서 자동 반영되게
+    try {
+      const res = await fetch('/api/stores/register', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name: next.name,
+          category: next.category,
+          address: next.location,
+          naver_url: next.naverUrl,
+        }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok || !data?.ok) {
+        setStoreSaveErr(data?.error || `저장 실패 (status ${res.status})`)
+        setStoreSaving(false)
+        return
+      }
+    } catch (e: any) {
+      setStoreSaveErr(e?.message || '저장 실패')
+      setStoreSaving(false)
+      return
+    }
+
     setStoreInfo(next)
     try { localStorage.setItem(LS_STORE_INFO, JSON.stringify(next)) } catch (_) {}
+    setStoreSaving(false)
     setStoreEdit(false)
   }
 
@@ -437,21 +473,32 @@ export default function QRAdmin() {
                         </p>
                       </div>
                     )}
+                    {storeSaveErr && (
+                      <p className="text-[11px] text-[#DC2626] bg-[#FEF2F2] rounded-lg px-2 py-1.5 leading-relaxed">
+                        ❌ {storeSaveErr}
+                      </p>
+                    )}
+                    <p className="text-[11px] text-[#3182F6] leading-relaxed">
+                      💡 여기서 저장하면 <strong>설정 / 프로필 / 매장 연결</strong> 페이지에도 자동 반영돼요
+                    </p>
                     <div className="flex gap-2 pt-1">
                       <button
                         onClick={() => setStoreEdit(false)}
-                        className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-[#F2F4F6] text-[#4E5968] hover:bg-[#E5E8EB] transition-colors">
+                        disabled={storeSaving}
+                        className="flex-1 py-2.5 rounded-xl text-sm font-semibold bg-[#F2F4F6] text-[#4E5968] hover:bg-[#E5E8EB] transition-colors disabled:opacity-50">
                         취소
                       </button>
                       <button
                         onClick={saveStoreInfo}
-                        disabled={!storeDraft.name || !storeDraft.location}
+                        disabled={!storeDraft.name || !storeDraft.location || storeSaving}
                         className={`flex-1 py-2.5 rounded-xl text-sm font-semibold transition-colors ${
-                          storeDraft.name && storeDraft.location
+                          storeSaving
+                            ? 'bg-[#94A3B8] text-white cursor-wait'
+                            : storeDraft.name && storeDraft.location
                             ? 'bg-[#059669] text-white hover:bg-[#047857]'
                             : 'bg-[#F2F4F6] text-[#8B95A1] cursor-not-allowed'
                         }`}>
-                        연동하기
+                        {storeSaving ? '저장 중…' : '연동하기'}
                       </button>
                     </div>
                   </div>
