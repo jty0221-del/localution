@@ -9,7 +9,7 @@
 //   · 하단 고지 문구: "이 포스팅은 네이버 쇼핑 커넥트 활동의 일환으로..."
 // ============================================================
 import { useEffect, useState } from 'react'
-import { Star, ExternalLink, Tag } from 'lucide-react'
+import { Star, ExternalLink, Tag, Sparkles } from 'lucide-react'
 import { AFFILIATE_PRODUCTS, type AffiliateProduct } from '../lib/affiliate-config'
 
 type Preview = {
@@ -34,9 +34,14 @@ export default function AffiliateAdSlots() {
   return (
     <div className="mt-8 mb-2">
       <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
-        <div>
-          <h3 className="text-base font-black text-[#191F28]">📦 매장에 비치할 QR 인쇄물 추천</h3>
-          <p className="text-[11px] text-[#8B95A1] mt-0.5">테이블 텐트, 스티커, 아크릴 스탠드 등 — 네이버 쇼핑에서 바로 주문</p>
+        <div className="flex items-start gap-2">
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#3182F6] to-[#7C3AED] flex items-center justify-center flex-shrink-0 shadow-sm">
+            <Sparkles size={16} className="text-white" strokeWidth={2.5} />
+          </div>
+          <div>
+            <h3 className="text-base font-black text-[#191F28] leading-tight">매장에 비치할 QR 인쇄물 추천</h3>
+            <p className="text-[11px] text-[#8B95A1] mt-0.5">테이블 텐트 · 스티커 · 아크릴 스탠드 — 네이버 쇼핑에서 바로 주문</p>
+          </div>
         </div>
         <span className="text-[10px] text-[#C9CDD2] flex items-center gap-1">
           <Tag size={10} /> 광고
