@@ -6,6 +6,7 @@
 // ============================================================
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/app/lib/adminAuth'
+import { rateLimitByIp } from '@/app/lib/rateLimit'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -21,8 +22,18 @@ export async function OPTIONS() {
 }
 
 export async function GET(req: NextRequest) {
+  // Rate limit: IP당 분당 5회 (phone enumerate 공격 1차 방어)
+  const rl = rateLimitByIp(req, 'stamps-my', 5, 60)
+  if (!rl.ok) {
+    return NextResponse.json(
+      { ok: false, error: 'rate_limited', message: `${rl.resetIn}초 후 다시 시도해주세요.` },
+      { status: 429, headers: CORS }
+    )
+  }
+
   const phone = String(req.nextUrl.searchParams.get('phone') || '').replace(/[^0-9]/g, '').slice(0, 11)
-  if (phone.length < 10) {
+  // 한국 휴대전화 형식 검증 (010/011/016~019)
+  if (!/^01[016-9][0-9]{7,8}$/.test(phone)) {
     return NextResponse.json({ ok: false, error: 'invalid_phone' }, { status: 400, headers: CORS })
   }
 
