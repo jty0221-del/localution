@@ -60,6 +60,7 @@ export async function POST(req: NextRequest) {
           ],
         }],
       }),
+      signal: AbortSignal.timeout(30000),  // 30초 timeout (Vision은 더 오래 걸림)
     })
 
     const claudeJson = await claudeRes.json()
