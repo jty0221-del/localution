@@ -147,30 +147,31 @@ const FLOAT_CARDS = [
   { bg: '#2AC1BC', letter: 'B', label: '배민',   stars: 5, text: '재주문 했어요',  delay: '0.8s', dur: '4s',   anim: 'float2' },
 ]
 
-// ── 상수 ───────────────────────────────────────────────────
+// ── 데모 화면용 가상 매장 (실제 매장 아님 — 서비스 흐름 시연 전용) ──
 const SAMPLE_STORE = {
-  name: '타이백스트릿 해운대점',
-  category: '태국 음식점',
-  address: '부산광역시 해운대구 우동 1468-1',
-  rating: 4.3,
-  reviewCount: 1675,
+  name: '예시 매장',
+  category: '음식점',
+  address: '서울시 OO구 OO동',
+  rating: 4.5,
+  reviewCount: 0,
 }
 
+// 서비스 흐름 시연용 가상 후기 (실제 후기 아님)
 const SAMPLE_REVIEWS = [
   {
-    id: 'r1', platform: 'naver', author: '김민준', rating: 5,
-    date: '04.10',
-    text: '해운대에서 태국 음식 찾다가 우연히 들어갔는데 정말 맛있었어요. 팟타이가 특히 인상적이었고 직원분들도 친절했습니다.',
+    id: 'r1', platform: 'naver', author: '예시 손님 1', rating: 5,
+    date: '예시',
+    text: '음식 정말 맛있었어요. 직원분들도 친절하시고 분위기도 좋았어요. (예시 후기 — 실제 후기 아님)',
   },
   {
-    id: 'r2', platform: 'google', author: 'Sarah K.', rating: 4,
-    date: '04.08',
-    text: 'Great Thai food in Haeundae. The green curry was amazing and the ocean view is beautiful. Will definitely come back.',
+    id: 'r2', platform: 'google', author: '예시 손님 2', rating: 4,
+    date: '예시',
+    text: 'Great food and service. The atmosphere was wonderful. (Sample review — for service demo only)',
   },
   {
-    id: 'r3', platform: 'coupang', author: '박지현', rating: 5,
-    date: '04.06',
-    text: '분위기도 너무 좋고 음식도 정말 맛있었어요. 망고스티키라이스가 최고. 해운대 뷰 보면서 먹으니까 더 맛있는 것 같아요.',
+    id: 'r3', platform: 'coupang', author: '예시 손님 3', rating: 5,
+    date: '예시',
+    text: '분위기도 너무 좋고 음식도 정말 맛있었어요. (예시 후기 — 서비스 흐름 시연용)',
   },
 ]
 
