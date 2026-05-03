@@ -9,6 +9,7 @@
 // ============================================================
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/app/lib/adminAuth'
+import { rateLimitByIp } from '@/app/lib/rateLimit'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -119,6 +120,15 @@ export async function POST(req: NextRequest) {
   const lang = String(body?.lang || '').trim() as SupportedLang
 
   if (!slug) return NextResponse.json({ ok: false, error: 'missing_slug' }, { status: 400, headers: CORS })
+
+  // Rate limit: IP+slug 단위 분당 3회 (Claude 비용 폭주 방지)
+  const rl = rateLimitByIp(req, `menu-translate:${slug}`, 3, 60)
+  if (!rl.ok) {
+    return NextResponse.json(
+      { ok: false, error: 'rate_limited', message: `${rl.resetIn}초 후 다시 시도해주세요.` },
+      { status: 429, headers: CORS }
+    )
+  }
   if (!SUPPORTED_LANGS.includes(lang)) {
     return NextResponse.json({ ok: false, error: 'unsupported_lang', supported: SUPPORTED_LANGS }, { status: 400, headers: CORS })
   }
