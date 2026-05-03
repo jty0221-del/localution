@@ -5,7 +5,7 @@
 //   · 아이콘·배경 패턴 제거 (사용자 요청 2026-05-03)
 //   · 체크마크 기반 단순 그리드
 // ============================================================
-import { Check, Gift, Award } from 'lucide-react'
+import { Check, Gift, Award, Phone, User } from 'lucide-react'
 
 type Card = {
   title: string
@@ -14,6 +14,8 @@ type Card = {
   reward_text: string
   theme_color: string
   milestones?: Array<{ at: number; reward: string }> | null
+  owner_name?: string | null
+  owner_phone?: string | null
 }
 
 type Collection = {
@@ -123,6 +125,24 @@ export default function StampCardView({
             <span className="font-bold">최종 {total}회 - {card.reward_text}</span>
             {current >= total && <span className="ml-auto text-[10px] font-bold">달성!</span>}
           </div>
+        </div>
+      )}
+
+      {/* 사장님 연락처 (있으면) */}
+      {(card.owner_name || card.owner_phone) && (
+        <div className="mt-3 p-2.5 rounded-lg bg-[#F8FAFB] border border-[#E5E8EB] flex items-center gap-2 text-[11px]">
+          {card.owner_name && (
+            <span className="flex items-center gap-1 text-[#4E5968]">
+              <User size={11} strokeWidth={2.5} />
+              <span className="font-bold">{card.owner_name}</span>
+            </span>
+          )}
+          {card.owner_phone && (
+            <a href={`tel:${card.owner_phone}`} className="flex items-center gap-1 text-[#3182F6] font-bold ml-auto">
+              <Phone size={11} strokeWidth={2.5} />
+              {card.owner_phone}
+            </a>
+          )}
         </div>
       )}
 
