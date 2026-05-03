@@ -6,7 +6,7 @@ import Link from 'next/link'
 import Sidebar from '../../components/Sidebar'
 import PageHeader from '../../components/PageHeader'
 import Footer from '../../components/Footer'
-import { ArrowRight } from 'lucide-react'
+import { ArrowRight, Camera } from 'lucide-react'
 
 type Tone = 'info' | 'empathy' | 'warning' | 'action'
 type Ratio = '1:1' | '4:5'
@@ -139,7 +139,7 @@ export default function CardNewsPage() {
       <Sidebar />
       <main className="flex-1 ml-0 md:ml-[220px] pt-16 md:pt-0 min-w-0">
         <PageHeader
-          icon="📸"
+          icon={<Camera size={28} className="text-white" strokeWidth={2.5} />}
           title="인스타 캐러셀 카드뉴스"
           subtitle="주제 1문장 → Claude가 10장 슬라이드 + 캡션 + 해시태그 + 디자인 비평까지 자동 생성"
           variant="pink"
