@@ -8,7 +8,7 @@ import Link from 'next/link'
 import {
   Search, TrendingUp, ClipboardCheck, Users, Sparkles, ArrowRight, FileText,
   ArrowUp, ArrowDown, Minus, CheckCircle2, AlertTriangle, XCircle,
-  Layers, Zap,
+  Layers, Zap, Rocket,
 } from 'lucide-react'
 import Footer from '../components/Footer'
 
@@ -106,7 +106,7 @@ function RankTab() {
   return (
     <div>
       <div className="flex items-center gap-2 mb-3">
-        <span className="inline-block text-[10px] font-semibold bg-[#FEF9E8] text-[#CA8A04] border border-[#FCD34D] px-2 py-0.5 rounded-full">📊 예시 데이터 — 실제 연동 시 내 매장 순위가 표시됩니다</span>
+        <span className="inline-block text-[10px] font-semibold bg-[#FEF9E8] text-[#CA8A04] border border-[#FCD34D] px-2 py-0.5 rounded-full">예시 데이터 — 실제 연동 시 내 매장 순위가 표시됩니다</span>
       </div>
       <div className="flex items-center justify-between mb-4">
         <div className="flex items-center gap-2">
@@ -499,7 +499,7 @@ export default function MarketingPage() {
         <Sidebar/>
         <main className="flex-1 ml-0 md:ml-[220px] pt-14 md:pt-0 min-w-0">
         <PageHeader
-          icon="🚀"
+          icon={<Rocket size={28} className="text-white" strokeWidth={2.5} />}
           title="마케팅"
           subtitle="네이버 플레이스·블로그·인스타를 한 곳에서 — 자영업자 올인원"
           variant="accent"
