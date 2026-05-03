@@ -4,6 +4,7 @@ export const dynamic = 'force-dynamic'
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { Lightbulb, Clipboard, Check, Sparkles } from 'lucide-react'
 import Sidebar from '../../components/Sidebar'
 import Footer from '../../components/Footer'
 import PageHeader from '../../components/PageHeader'
@@ -107,7 +108,7 @@ export default function GoogleReviewPage() {
       setTimeout(() => setCopied(false), 2000)
       window.open('https://business.google.com/reviews/', '_blank', 'noopener,noreferrer')
     } catch {
-      toast.warn('자동 복사가 안 돼요. 답글을 직접 드래그해서 복사해주세요 ✍️')
+      toast.warn('자동 복사가 안 돼요. 답글을 직접 드래그해서 복사해주세요')
     }
   }
 
@@ -255,15 +256,20 @@ export default function GoogleReviewPage() {
                           <span className="text-[9px] text-[#8B95A1] ml-0.5">· 클릭하면 재생성</span>
                         </div>
                         <p className="text-[10px] text-[#8B95A1] mb-1.5 flex items-center gap-1">
-                          💡 복사 후 구글 비즈니스 프로필에 붙여넣기
+                          <Lightbulb size={10} strokeWidth={2.5} />
+                          복사 후 구글 비즈니스 프로필에 붙여넣기
                         </p>
                         <p className="text-sm text-[#191F28] leading-relaxed">{aiReply}</p>
                       </div>
                       <div className="flex gap-2 flex-wrap">
                         <button onClick={handleSubmit}
-                          className="px-3 py-1.5 rounded-lg text-xs font-bold text-white hover:opacity-90"
+                          className="px-3 py-1.5 rounded-lg text-xs font-bold text-white hover:opacity-90 flex items-center gap-1.5"
                           style={{ background: PLATFORM.color }}>
-                          {copied ? '✓ 복사됨! 붙여넣기' : '📋 복사 + 구글 열기'}
+                          {copied ? (
+                            <><Check size={11} strokeWidth={3} /> 복사됨, 붙여넣기</>
+                          ) : (
+                            <><Clipboard size={11} strokeWidth={2.5} /> 복사 + 구글 열기</>
+                          )}
                         </button>
                         <button onClick={() => handleAiReply(review)}
                           className="px-3 py-1.5 rounded-lg text-xs font-bold bg-[#F2F4F6] text-[#4E5968]">재생성</button>
@@ -277,9 +283,10 @@ export default function GoogleReviewPage() {
 
               {!review.replied && replyingId !== review.id && (
                 <button onClick={() => handleAiReply(review)}
-                  className="px-4 py-2 rounded-xl text-xs font-bold text-white hover:opacity-90"
+                  className="px-4 py-2 rounded-xl text-xs font-bold text-white hover:opacity-90 flex items-center gap-1.5"
                   style={{ background: PLATFORM.color }}>
-                  ✨ AI 답글 생성
+                  <Sparkles size={12} strokeWidth={2.5} />
+                  AI 답글 생성
                 </button>
               )}
             </div>
