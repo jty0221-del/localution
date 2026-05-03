@@ -26,6 +26,7 @@ import {
   removePlatformCredentials,
   type PlatformSlug,
 } from '@/app/lib/platform-credentials'
+import { enqueuePlatformJob } from '@/app/lib/queue'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -208,11 +209,40 @@ export async function POST(req: NextRequest) {
     console.warn('[platform-accounts] stores auto-upsert failed (non-fatal):', e)
   }
 
+  // ── 쿠팡이츠 자동 큐잉 (장사닥터 패턴) ─────────────────────────
+  // 자격증명 저장 직후 워커 큐에 fetch_reviews job 추가.
+  // UI STEP 3 에서 jobId 로 진행 상황 폴링.
+  // 워커가 stealth login → 리뷰 1년치 수집 → 완료 시 Web Push 알림.
+  let coupang_job_id: string | null = null
+  if (body.platform === 'coupangeats') {
+    try {
+      const enq = await enqueuePlatformJob(
+        {
+          platform: 'coupangeats',
+          action: 'fetch_reviews',
+          userId: auth.userId,
+          storeId: body.platform_store_id || 'pending',
+          payload: {
+            initial_sync: true,
+            range_days: 365,
+            triggered_by: 'connect_flow',
+          },
+        },
+        // 연결 직후 즉시 처리 — priority 1 (post_reply 와 동일 우선순위)
+        { priority: 1 }
+      )
+      if (enq.ok) coupang_job_id = enq.jobId
+    } catch (e) {
+      console.warn('[platform-accounts] coupang enqueue failed (non-fatal):', e)
+    }
+  }
+
   return NextResponse.json({
     ok: true,
     id: result.id,
     platform: body.platform,
     label: PLATFORM_LABELS[body.platform as PlatformSlug],
+    coupang_job_id,
   })
 }
 
