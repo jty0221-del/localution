@@ -59,6 +59,7 @@ export async function POST(req: NextRequest) {
             ],
           }],
         }),
+        signal: AbortSignal.timeout(30000),  // 30초 timeout (Vision)
       })
 
       if (!resp.ok) return NextResponse.json({ receiptInfo: { items: [], matched: false } })
@@ -152,6 +153,7 @@ export async function POST(req: NextRequest) {
         max_tokens: 600,
         messages: [{ role: 'user', content }],
       }),
+      signal: AbortSignal.timeout(45000),  // 45초 timeout (장문 생성)
     })
 
     if (!resp.ok) {
