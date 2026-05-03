@@ -2,6 +2,7 @@
 // app/my/platforms/baemin/session/page.tsx
 import { useState } from 'react'
 import Link from 'next/link'
+import { CheckCircle2, AlertCircle, Link2, Lock } from 'lucide-react'
 
 export default function BaeminSessionPage() {
   const [baeminId, setBaeminId]   = useState('')
@@ -62,7 +63,9 @@ export default function BaeminSessionPage() {
         {/* 결과 메시지 */}
         {status === 'ok' && (
           <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-2xl flex items-start gap-3">
-            <span className="text-2xl">✅</span>
+            <div className="w-9 h-9 rounded-xl bg-green-100 flex items-center justify-center flex-shrink-0">
+              <CheckCircle2 size={18} className="text-green-600" strokeWidth={2.5} />
+            </div>
             <div>
               <p className="font-semibold text-green-800">연동 완료!</p>
               <p className="text-sm text-green-700 mt-1">{msg}</p>
@@ -74,7 +77,7 @@ export default function BaeminSessionPage() {
         )}
         {status === 'error' && (
           <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-2xl">
-            <p className="text-sm font-medium text-red-700">❌ {msg}</p>
+            <p className="text-sm font-medium text-red-700 flex items-center gap-1.5"><AlertCircle size={14} strokeWidth={2.5} /> {msg}</p>
           </div>
         )}
 
@@ -142,14 +145,14 @@ export default function BaeminSessionPage() {
               disabled={status === 'loading' || !baeminId.trim() || !baeminPw.trim()}
               className="w-full py-3 bg-[#FFBE00] hover:bg-[#f0b000] disabled:opacity-50 text-gray-900 font-semibold rounded-xl transition-colors text-sm"
             >
-              {status === 'loading' ? '연동 중...' : '🔗 배민 연동 시작'}
+              {status === 'loading' ? '연동 중...' : (<span className="inline-flex items-center gap-1.5"><Link2 size={14} strokeWidth={2.5} /> 배민 연동 시작</span>)}
             </button>
           </div>
         )}
 
         {/* 안전 안내 */}
         <div className="mt-6 p-4 bg-blue-50 border border-blue-100 rounded-2xl">
-          <p className="text-xs font-semibold text-blue-700 mb-2">🔒 보안 안내</p>
+          <p className="text-xs font-semibold text-blue-700 mb-2 flex items-center gap-1"><Lock size={11} strokeWidth={2.5} /> 보안 안내</p>
           <ul className="text-xs text-blue-600 space-y-1">
             <li>• 로그인 정보는 AES-256-GCM으로 암호화해 저장돼요</li>
             <li>• 비밀번호는 복호화 불가 형태로만 보관해요</li>
