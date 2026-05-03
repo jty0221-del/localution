@@ -54,6 +54,17 @@ const GENDERS: { id: Gender; label: string }[] = [
   { id: 'female', label: '여성' },
 ]
 
+// ── 연령대 (클릭 선택) ──
+type AgeRange = 'any' | '20s' | '30s' | '40s' | '50s' | '60plus'
+const AGE_RANGES: { id: AgeRange; label: string }[] = [
+  { id: 'any',     label: '무관' },
+  { id: '20s',     label: '20대' },
+  { id: '30s',     label: '30대' },
+  { id: '40s',     label: '40대' },
+  { id: '50s',     label: '50대' },
+  { id: '60plus',  label: '60대 이상' },
+]
+
 // ── 프리셋: 업종만 채움 (키워드는 작성자가 직접) ──
 const INDUSTRY_PRESETS = [
   { id: 'cafe',       label: '카페' },
@@ -77,7 +88,7 @@ export default function BlogPostGeneratorPage() {
   const [industry, setIndustry] = useState('')
   const [track, setTrack] = useState<Track>('A')
   const [personaName, setPersonaName] = useState('')
-  const [personaAge, setPersonaAge]   = useState('')
+  const [personaAge, setPersonaAge]   = useState<AgeRange>('any')
   const [personaGender, setPersonaGender] = useState<Gender>('any')
   const [personaTone, setPersonaTone] = useState<Tone>('friendly')
   const [coreTarget, setCoreTarget] = useState('')
@@ -86,9 +97,8 @@ export default function BlogPostGeneratorPage() {
   const [reviewKwInput, setReviewKwInput] = useState('')
   const [reviewKeywords, setReviewKeywords] = useState<string[]>([])
   const [draft, setDraft] = useState('')
-  const [ctaPhone, setCtaPhone] = useState('')
-  const [ctaKakao, setCtaKakao] = useState('')
-  const [ctaReservation, setCtaReservation] = useState('')
+  // CTA: 마무리 메시지 (행동 유도 글) — 입력 폼 대신 자유 텍스트
+  const [closingMessage, setClosingMessage] = useState('')
   const [length, setLength] = useState<1500 | 2000 | 2500 | 3000>(2000)
   const [photoNames, setPhotoNames] = useState<string[]>([])
   const fileRef = useRef<HTMLInputElement | null>(null)
@@ -120,9 +130,7 @@ export default function BlogPostGeneratorPage() {
         if (s.coreTarget)               setCoreTarget(s.coreTarget)
         if (Array.isArray(s.keywords))  setKeywords(s.keywords)
         if (Array.isArray(s.reviewKeywords)) setReviewKeywords(s.reviewKeywords)
-        if (s.ctaPhone)                 setCtaPhone(s.ctaPhone)
-        if (s.ctaKakao)                 setCtaKakao(s.ctaKakao)
-        if (s.ctaReservation)           setCtaReservation(s.ctaReservation)
+        if (s.closingMessage)           setClosingMessage(s.closingMessage)
         if (s.length)                   setLength(s.length)
       }
     } catch (_) {}
@@ -134,10 +142,10 @@ export default function BlogPostGeneratorPage() {
       window.localStorage.setItem(LS_KEY, JSON.stringify({
         industry, track, personaName, personaAge, personaGender, personaTone,
         coreTarget, keywords, reviewKeywords,
-        ctaPhone, ctaKakao, ctaReservation, length,
+        closingMessage, length,
       }))
     } catch (_) {}
-  }, [industry, track, personaName, personaAge, personaGender, personaTone, coreTarget, keywords, reviewKeywords, ctaPhone, ctaKakao, ctaReservation, length])
+  }, [industry, track, personaName, personaAge, personaGender, personaTone, coreTarget, keywords, reviewKeywords, closingMessage, length])
 
   const addKeyword = (k?: string) => {
     const target = (k ?? keywordInput).trim()
@@ -189,7 +197,7 @@ export default function BlogPostGeneratorPage() {
           track,
           persona: {
             name:   personaName.trim(),
-            age:    personaAge.trim(),
+            age:    personaAge,
             gender: personaGender,
             tone:   personaTone,
           },
@@ -197,11 +205,7 @@ export default function BlogPostGeneratorPage() {
           keywords: keywords.filter(Boolean),
           reviewKeywords: reviewKeywords.filter(Boolean),
           draft: draft.trim(),
-          cta: {
-            phone:        ctaPhone.trim(),
-            kakao:        ctaKakao.trim(),
-            reservation:  ctaReservation.trim(),
-          },
+          closingMessage: closingMessage.trim(),
           length,
           photoNames,
         }),
@@ -243,7 +247,7 @@ export default function BlogPostGeneratorPage() {
           icon={<PenLine size={28} className="text-white" strokeWidth={2.5} />}
           title="네이버 블로그 글 작성"
           subtitle="2026 AI 검색 최적화 · SEO+AEO 혼합 · 상위 노출과 전환율 동시 설계"
-          variant="green"
+          variant="naver"
         />
 
         <div className="flex-1 p-4 md:p-6 max-w-4xl mx-auto w-full space-y-4">
@@ -341,18 +345,22 @@ export default function BlogPostGeneratorPage() {
               </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
-              <div>
-                <label className="text-[11px] font-bold text-[#4E5968] mb-1 block">이름 또는 닉네임</label>
-                <input value={personaName} onChange={e => setPersonaName(e.target.value)}
-                  placeholder="예: 박원장, 김실장, 강선생, 카페지기"
-                  className="w-full border border-[#E5E8EB] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#3182F6]" />
-              </div>
-              <div>
-                <label className="text-[11px] font-bold text-[#4E5968] mb-1 block">연령대</label>
-                <input value={personaAge} onChange={e => setPersonaAge(e.target.value)}
-                  placeholder="예: 30대 후반, 40대 초반, 20대 중반"
-                  className="w-full border border-[#E5E8EB] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#3182F6]" />
+            <div className="mb-3">
+              <label className="text-[11px] font-bold text-[#4E5968] mb-1 block">이름 또는 닉네임</label>
+              <input value={personaName} onChange={e => setPersonaName(e.target.value)}
+                placeholder="예: 박원장, 김실장, 강선생, 카페지기"
+                className="w-full border border-[#E5E8EB] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#3182F6]" />
+            </div>
+
+            <div className="mb-3">
+              <label className="text-[11px] font-bold text-[#4E5968] mb-1.5 block">연령대</label>
+              <div className="grid grid-cols-3 md:grid-cols-6 gap-1.5">
+                {AGE_RANGES.map(a => (
+                  <button key={a.id} onClick={() => setPersonaAge(a.id)}
+                    className={`py-2 rounded-lg text-xs font-bold border ${personaAge === a.id ? 'border-[#3182F6] bg-[#EFF6FF] text-[#3182F6]' : 'border-[#E5E8EB] bg-white text-[#4E5968]'}`}>
+                    {a.label}
+                  </button>
+                ))}
               </div>
             </div>
 
@@ -486,25 +494,21 @@ export default function BlogPostGeneratorPage() {
               className="w-full border border-[#E5E8EB] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#0EA5E9] resize-none" />
           </section>
 
-          {/* 8. CTA */}
+          {/* 8. 마무리 메시지 (행동 유도 글) */}
           <section className="bg-white rounded-2xl shadow-sm border border-[#E5E8EB] p-4 md:p-5">
             <div className="flex items-start gap-2 mb-3">
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#16A34A] to-[#15803D] flex items-center justify-center shadow-sm">
                 <LinkIcon size={15} className="text-white" strokeWidth={2.5} />
               </div>
               <div>
-                <p className="text-sm font-black text-[#191F28]">8. CTA (행동 유도)</p>
-                <p className="text-[11px] text-[#8B95A1]">하나만 입력해도 됨 · 부담 없는 첫 걸음 4단계 자동 설계</p>
+                <p className="text-sm font-black text-[#191F28]">8. 마무리 메시지 (행동 유도)</p>
+                <p className="text-[11px] text-[#8B95A1]">글을 읽은 후 자연스럽게 다음 행동으로 연결되는 글로 표현 · 빈칸 가능</p>
               </div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-              <input value={ctaPhone} onChange={e => setCtaPhone(e.target.value)} placeholder="전화번호"
-                className="border border-[#E5E8EB] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#16A34A]" />
-              <input value={ctaKakao} onChange={e => setCtaKakao(e.target.value)} placeholder="카카오 채널"
-                className="border border-[#E5E8EB] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#16A34A]" />
-              <input value={ctaReservation} onChange={e => setCtaReservation(e.target.value)} placeholder="예약 링크"
-                className="border border-[#E5E8EB] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#16A34A]" />
-            </div>
+            <textarea value={closingMessage} onChange={e => setClosingMessage(e.target.value)}
+              rows={4}
+              placeholder={'예시 (자유롭게 작성):\n· 망설이지 마시고 가벼운 마음으로 한 번 들러주세요\n· 처음 오시는 분들을 위해 첫 방문 안내 도와드리고 있어요\n· 평일 오후 시간대가 한가하니 천천히 둘러보기 좋습니다\n· 궁금하신 점은 언제든 편하게 물어봐 주시면 자세히 알려드릴게요\n\n빈칸으로 두면 글 트랙·타겟에 맞춰 자동 작성됩니다'}
+              className="w-full border border-[#E5E8EB] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#16A34A] resize-none" />
           </section>
 
           {/* 9. 길이 + 사진 */}
