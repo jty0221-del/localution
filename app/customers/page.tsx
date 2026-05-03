@@ -164,7 +164,7 @@ export default function CustomersPage() {
         <Sidebar />
         <main className="flex-1 ml-0 md:ml-[220px] pt-14 md:pt-0 min-w-0">
           <PageHeader
-            icon="🫶"
+            icon={<Heart size={28} className="text-white" strokeWidth={2.5} />}
             title="고객 관리"
             subtitle="단골을 데이터로 키운다 — 재방문·리뷰·쿠폰이 연결되는 CRM"
             variant="warn"
