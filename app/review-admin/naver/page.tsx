@@ -7,6 +7,7 @@
 
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
+import { AlertTriangle } from 'lucide-react'
 import PlatformReviewAdmin, { PlatformConfig } from '../components/PlatformReviewAdmin'
 
 export const dynamic = 'force-dynamic'
@@ -57,7 +58,9 @@ function CredentialsAlert() {
   return (
     <div className="mx-4 mt-3 p-4 rounded-xl bg-[#FFF7ED] border border-[#FED7AA]">
       <div className="flex items-start gap-3">
-        <span className="text-2xl">⚠️</span>
+        <div className="w-9 h-9 rounded-xl bg-[#FED7AA] flex items-center justify-center flex-shrink-0">
+          <AlertTriangle size={18} className="text-[#9A3412]" strokeWidth={2.5} />
+        </div>
         <div className="flex-1">
           <div className="font-bold text-[#9A3412] text-[14px] mb-1">계정 보안 잠금 감지</div>
           <div className="text-[12px] text-[#7C2D12] leading-relaxed mb-3">
