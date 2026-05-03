@@ -17,6 +17,7 @@ import {
   TrendingUp, TrendingDown, Eye, Sparkles, CheckCircle2,
   Download, Calendar, Smartphone, Monitor, Tablet,
   Lightbulb, Trophy, Activity, Users, Target,
+  Flame, ThumbsUp, Star, type LucideIcon,
 } from 'lucide-react'
 
 const COLOR = {
@@ -95,25 +96,25 @@ export default function QRReportPanel({ storeName }: { storeName?: string }) {
   // ── 자동 인사이트 ─────────────────────────
   const insights = useMemo(() => {
     if (!stats) return []
-    const list: { icon: string; text: string; tone: 'good' | 'warn' | 'info' }[] = []
+    const list: { Icon: LucideIcon; text: string; tone: 'good' | 'warn' | 'info' }[] = []
     const m = metrics
     if (m.scan === 0) {
-      list.push({ icon: '🆕', text: '아직 스캔 활동이 없어요. QR을 매장에 비치하고 손님께 안내해보세요!', tone: 'info' })
+      list.push({ Icon: Sparkles, text: '아직 스캔 활동이 없어요. QR을 매장에 비치하고 손님께 안내해보세요', tone: 'info' })
       return list
     }
-    if (m.overall_rate >= 30) list.push({ icon: '🔥', text: `전체 전환율 ${m.overall_rate}% — 우수해요! (업계 평균 15-20%)`, tone: 'good' })
-    else if (m.overall_rate >= 15) list.push({ icon: '👍', text: `전체 전환율 ${m.overall_rate}% — 양호한 수준입니다.`, tone: 'good' })
-    else list.push({ icon: '💡', text: `전체 전환율 ${m.overall_rate}% — 리워드 강화 또는 QR 위치 개선을 고려해보세요.`, tone: 'warn' })
+    if (m.overall_rate >= 30) list.push({ Icon: Flame, text: `전체 전환율 ${m.overall_rate}% — 우수해요 (업계 평균 15-20%)`, tone: 'good' })
+    else if (m.overall_rate >= 15) list.push({ Icon: ThumbsUp, text: `전체 전환율 ${m.overall_rate}% — 양호한 수준입니다`, tone: 'good' })
+    else list.push({ Icon: Lightbulb, text: `전체 전환율 ${m.overall_rate}% — 리워드 강화 또는 QR 위치 개선을 고려해보세요`, tone: 'warn' })
 
-    if (m.trend > 10) list.push({ icon: '📈', text: `최근 활동이 ${m.trend}% 증가하고 있어요!`, tone: 'good' })
-    else if (m.trend < -10) list.push({ icon: '📉', text: `최근 활동이 ${Math.abs(m.trend)}% 감소했어요. 재방문 이벤트를 진행해보세요.`, tone: 'warn' })
+    if (m.trend > 10) list.push({ Icon: TrendingUp, text: `최근 활동이 ${m.trend}% 증가하고 있어요`, tone: 'good' })
+    else if (m.trend < -10) list.push({ Icon: TrendingDown, text: `최근 활동이 ${Math.abs(m.trend)}% 감소했어요. 재방문 이벤트를 진행해보세요`, tone: 'warn' })
 
-    if (m.peakDay.scan > 0) list.push({ icon: '⭐', text: `${m.peakDay.date.slice(5)}일이 가장 활발했어요 (스캔 ${m.peakDay.scan}회).`, tone: 'info' })
+    if (m.peakDay.scan > 0) list.push({ Icon: Star, text: `${m.peakDay.date.slice(5)}일이 가장 활발했어요 (스캔 ${m.peakDay.scan}회)`, tone: 'info' })
 
     const mobilePct = stats.devices.mobile && metrics.totalEvents
       ? Math.round((stats.devices.mobile / Object.values(stats.devices).reduce((a, b) => a + b, 0)) * 100)
       : 0
-    if (mobilePct >= 80) list.push({ icon: '📱', text: `모바일 사용자가 ${mobilePct}% — QR 위주 마케팅이 효과적이에요.`, tone: 'info' })
+    if (mobilePct >= 80) list.push({ Icon: Smartphone, text: `모바일 사용자가 ${mobilePct}% — QR 위주 마케팅이 효과적이에요`, tone: 'info' })
 
     return list
   }, [stats, metrics])
@@ -197,7 +198,7 @@ export default function QRReportPanel({ storeName }: { storeName?: string }) {
           <div className="space-y-2">
             {insights.map((ins, i) => (
               <div key={i} className="flex items-start gap-2 text-sm">
-                <span className="text-base flex-shrink-0">{ins.icon}</span>
+                <ins.Icon size={14} className="flex-shrink-0" strokeWidth={2.5} />
                 <p className={`leading-relaxed ${ins.tone === 'good' ? 'text-[#065F46]' : ins.tone === 'warn' ? 'text-[#92400E]' : 'text-[#1E40AF]'}`}>
                   {ins.text}
                 </p>
@@ -359,15 +360,17 @@ export default function QRReportPanel({ storeName }: { storeName?: string }) {
         </div>
         <div className="grid grid-cols-3 gap-3">
           {[
-            { k: 'submitted_naver', l: '네이버', emoji: '🟢', color: '#03C75A' },
-            { k: 'submitted_google', l: '구글', emoji: '🔵', color: '#4285F4' },
-            { k: 'submitted_kakao', l: '카카오', emoji: '🟡', color: '#FEE500' },
+            { k: 'submitted_naver', l: '네이버', color: '#03C75A' },
+            { k: 'submitted_google', l: '구글', color: '#4285F4' },
+            { k: 'submitted_kakao', l: '카카오', color: '#FEE500' },
           ].map(p => {
             const v = stats.counts[p.k] || 0
             const pct = metrics.submitted > 0 ? Math.round((v / metrics.submitted) * 100) : 0
             return (
               <div key={p.k} className="text-center p-4 rounded-xl border-2" style={{ borderColor: p.color + '30', background: p.color + '08' }}>
-                <p className="text-2xl mb-1">{p.emoji}</p>
+                <div className="w-9 h-9 rounded-lg mx-auto mb-1.5 flex items-center justify-center" style={{ background: p.color === '#FEE500' ? '#FEF3C7' : p.color + '20' }}>
+                  <CheckCircle2 size={18} style={{ color: p.color === '#FEE500' ? '#A16207' : p.color }} strokeWidth={2.5} />
+                </div>
                 <p className="text-xs font-bold text-[#191F28]">{p.l}</p>
                 <p className="text-2xl font-black mt-1" style={{ color: p.color === '#FEE500' ? '#A16207' : p.color }}>{v}</p>
                 <p className="text-[10px] text-[#8B95A1]">{pct}%</p>
