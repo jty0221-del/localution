@@ -5,7 +5,7 @@
 //   · 메뉴 CRUD + 네이버 자동 가져오기 + 다국어 입력
 // ============================================================
 import { useEffect, useState } from 'react'
-import { Plus, Trash2, Edit3, Save, Globe, Download, Image as ImageIcon, Star, Sparkles, Bookmark } from 'lucide-react'
+import { Plus, Trash2, Edit3, Save, Globe, Download, Image as ImageIcon, Star, Sparkles, Bookmark, Link2, FolderOpen, ClipboardList, Languages } from 'lucide-react'
 import MenuBookmarkletDialog from './MenuBookmarkletDialog'
 
 type MenuItem = {
@@ -50,6 +50,111 @@ export default function MenuBoardEditor() {
   const [importStatus, setImportStatus] = useState<'idle' | 'queued' | 'running' | 'success' | 'failed'>('idle')
   const [importMessage, setImportMessage] = useState('')
   const [activeLang, setActiveLang] = useState<'ko' | 'en' | 'ja' | 'zh'>('ko')
+  const [translating, setTranslating] = useState(false)
+  const [translateMsg, setTranslateMsg] = useState('')
+
+  // Papago 자동 번역 — 한국어 → 영/일/중 동시
+  async function autoTranslateAll() {
+    if (!editing) return
+    const koName = (editing as any).name_ko
+    const koDesc = (editing as any).desc_ko
+    if (!koName) {
+      setTranslateMsg('한국어 메뉴 이름을 먼저 입력해주세요')
+      setTimeout(() => setTranslateMsg(''), 3000)
+      return
+    }
+    setTranslating(true)
+    setTranslateMsg('Papago 번역 중...')
+
+    const targets: { lang: 'en' | 'ja' | 'zh'; papago: string }[] = [
+      { lang: 'en', papago: 'en' },
+      { lang: 'ja', papago: 'ja' },
+      { lang: 'zh', papago: 'zh-CN' },
+    ]
+
+    const updates: any = { ...editing }
+    let okCount = 0
+
+    for (const t of targets) {
+      try {
+        // 메뉴 이름
+        const r1 = await fetch('/api/translate/papago', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: koName, source: 'ko', target: t.papago }),
+        })
+        const j1 = await r1.json()
+        if (j1.ok) {
+          updates['name_' + t.lang] = j1.translated
+          okCount++
+        }
+
+        // 설명 (있으면)
+        if (koDesc) {
+          const r2 = await fetch('/api/translate/papago', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: koDesc, source: 'ko', target: t.papago }),
+          })
+          const j2 = await r2.json()
+          if (j2.ok) {
+            updates['desc_' + t.lang] = j2.translated
+          }
+        }
+      } catch (_) {}
+    }
+
+    setEditing(updates)
+    setTranslating(false)
+    setTranslateMsg(okCount > 0 ? `번역 완료 (${okCount}/3 언어)` : '번역 실패 — 잠시 후 재시도')
+    setTimeout(() => setTranslateMsg(''), 4000)
+  }
+
+  // 단일 언어 번역
+  async function autoTranslateOne(targetLang: 'en' | 'ja' | 'zh') {
+    if (!editing) return
+    const koName = (editing as any).name_ko
+    const koDesc = (editing as any).desc_ko
+    if (!koName) {
+      setTranslateMsg('한국어 메뉴 이름 먼저 입력')
+      setTimeout(() => setTranslateMsg(''), 3000)
+      return
+    }
+    setTranslating(true)
+    setTranslateMsg('번역 중...')
+    const papagoTarget = targetLang === 'zh' ? 'zh-CN' : targetLang
+    const updates: any = { ...editing }
+    try {
+      const r1 = await fetch('/api/translate/papago', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ text: koName, source: 'ko', target: papagoTarget }),
+      })
+      const j1 = await r1.json()
+      if (j1.ok) updates['name_' + targetLang] = j1.translated
+
+      if (koDesc) {
+        const r2 = await fetch('/api/translate/papago', {
+          method: 'POST',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text: koDesc, source: 'ko', target: papagoTarget }),
+        })
+        const j2 = await r2.json()
+        if (j2.ok) updates['desc_' + targetLang] = j2.translated
+      }
+      setEditing(updates)
+      setTranslateMsg('번역 완료')
+    } catch (_) {
+      setTranslateMsg('번역 실패')
+    } finally {
+      setTranslating(false)
+      setTimeout(() => setTranslateMsg(''), 3000)
+    }
+  }
 
   // 북마클릿 모드
   const [showBookmarklet, setShowBookmarklet] = useState(false)
@@ -273,7 +378,7 @@ export default function MenuBoardEditor() {
           <button
             onClick={() => setShowImport(true)}
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#03C75A] text-white text-xs font-bold hover:opacity-90">
-            <Download size={12} strokeWidth={2.5} /> 워커 자동 (불안정)
+            <Download size={12} strokeWidth={2.5} /> 네이버 플레이스 메뉴 가져오기
           </button>
           <button
             onClick={() => startEdit()}
@@ -285,21 +390,29 @@ export default function MenuBoardEditor() {
 
       {/* URL 안내 */}
       <div className="p-3 rounded-xl bg-[#F8FAFB] border border-[#E5E8EB]">
-        <p className="text-[10px] text-[#8B95A1] mb-1">📱 손님이 스캔할 메뉴판 URL</p>
+        <div className="flex items-center gap-1.5 mb-1">
+          <Link2 size={11} className="text-[#3182F6]" strokeWidth={2.5} />
+          <p className="text-[10px] text-[#8B95A1]">손님이 스캔할 메뉴판 URL</p>
+        </div>
         <p className="text-xs font-mono text-[#191F28] break-all">{menuUrl}</p>
       </div>
 
       {/* 메뉴 리스트 */}
       {items.length === 0 ? (
         <div className="bg-gradient-to-br from-[#F8FAFB] to-[#EFF6FF] rounded-2xl p-10 text-center border border-[#E5E8EB]">
-          <div className="text-5xl mb-3">📋</div>
+          <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#F8FAFB] to-[#EFF6FF] flex items-center justify-center mx-auto mb-3">
+            <ClipboardList size={26} className="text-[#C9CDD2]" strokeWidth={2} />
+          </div>
           <p className="text-sm font-bold text-[#191F28] mb-1">아직 메뉴가 없어요</p>
           <p className="text-xs text-[#8B95A1] mb-4">"네이버에서 가져오기" 또는 "메뉴 추가" 버튼으로 시작하세요</p>
         </div>
       ) : (
         Object.entries(grouped).map(([cat, list]) => (
           <div key={cat} className="bg-white rounded-2xl p-5 shadow-sm">
-            <p className="text-sm font-black text-[#191F28] mb-3">📂 {cat}</p>
+            <div className="flex items-center gap-1.5 mb-3">
+              <FolderOpen size={14} className="text-[#3182F6]" strokeWidth={2.5} />
+              <p className="text-sm font-black text-[#191F28]">{cat}</p>
+            </div>
             <div className="space-y-2">
               {list.map(it => (
                 <div key={it.id} className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-[#F8FAFB] transition-colors">
@@ -362,26 +475,48 @@ export default function MenuBoardEditor() {
                 <input value={editing.image_url || ''} onChange={e => setEditing({ ...editing, image_url: e.target.value })} placeholder="https://..." className="w-full px-3 py-2 rounded-lg bg-[#F2F4F6] border-2 border-transparent focus:border-[#3182F6] focus:bg-white outline-none text-sm" />
               </div>
 
-              {/* 다국어 탭 */}
+              {/* 다국어 탭 + Papago 자동 번역 */}
               <div>
-                <div className="flex gap-1 mb-2 bg-[#F2F4F6] rounded-lg p-1 w-fit">
-                  {[
-                    { k: 'ko', l: '🇰🇷 한국어' },
-                    { k: 'en', l: '🇺🇸 EN' },
-                    { k: 'ja', l: '🇯🇵 日本' },
-                    { k: 'zh', l: '🇨🇳 中文' },
-                  ].map(t => (
-                    <button key={t.k} onClick={() => setActiveLang(t.k as any)}
-                      className={`px-2.5 py-1 rounded text-[11px] font-bold transition-colors ${activeLang === t.k ? 'bg-white text-[#3182F6] shadow-sm' : 'text-[#8B95A1]'}`}>
-                      {t.l}
+                <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
+                  <div className="flex gap-1 bg-[#F2F4F6] rounded-lg p-1 w-fit">
+                    {[
+                      { k: 'ko', l: '한국어' },
+                      { k: 'en', l: 'EN' },
+                      { k: 'ja', l: '日本' },
+                      { k: 'zh', l: '中文' },
+                    ].map(t => (
+                      <button key={t.k} onClick={() => setActiveLang(t.k as any)}
+                        className={`px-2.5 py-1 rounded text-[11px] font-bold transition-colors ${activeLang === t.k ? 'bg-white text-[#3182F6] shadow-sm' : 'text-[#8B95A1]'}`}>
+                        {t.l}
+                      </button>
+                    ))}
+                  </div>
+                  {activeLang === 'ko' ? (
+                    <button
+                      onClick={autoTranslateAll}
+                      disabled={translating || !editing.name_ko}
+                      className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-gradient-to-br from-[#03C75A] to-[#059669] text-white text-[11px] font-bold disabled:opacity-50">
+                      <Languages size={11} strokeWidth={2.5} />
+                      {translating ? '번역 중...' : '영/일/중 자동 번역'}
                     </button>
-                  ))}
+                  ) : (
+                    <button
+                      onClick={() => autoTranslateOne(activeLang as 'en' | 'ja' | 'zh')}
+                      disabled={translating || !editing.name_ko}
+                      className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-gradient-to-br from-[#03C75A] to-[#059669] text-white text-[11px] font-bold disabled:opacity-50">
+                      <Languages size={11} strokeWidth={2.5} />
+                      {translating ? '번역 중...' : '한국어에서 번역'}
+                    </button>
+                  )}
                 </div>
+                {translateMsg && (
+                  <p className="text-[10px] text-[#3182F6] mb-2 px-1">{translateMsg}</p>
+                )}
                 <div className="space-y-2">
                   <input
                     value={(editing as any)['name_' + activeLang] || ''}
                     onChange={e => setEditing({ ...editing, ['name_' + activeLang]: e.target.value })}
-                    placeholder={activeLang === 'ko' ? '메뉴 이름 *' : '번역 (선택)'}
+                    placeholder={activeLang === 'ko' ? '메뉴 이름 *' : '번역 (자동 번역 가능)'}
                     className="w-full px-3 py-2 rounded-lg bg-[#F2F4F6] border-2 border-transparent focus:border-[#3182F6] focus:bg-white outline-none text-sm"
                   />
                   <textarea
