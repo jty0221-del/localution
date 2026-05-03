@@ -1,32 +1,29 @@
 'use client'
 
 // ============================================================
-// 메뉴판 테마 에디터 — 업종별 프리셋 + 커스텀 색상
+// 메뉴판 디자인 — 단일 프리미엄 디자인 (옵션 최소화)
+//   · 이미 멋있게 디자인되어 있음
+//   · 사장님은 매장 분위기에 맞는 색상만 살짝 조정
 // ============================================================
 import { useEffect, useState } from 'react'
-import { Palette, Check, Save, Eye, ExternalLink, LayoutTemplate } from 'lucide-react'
+import { Sparkles, Check, Save, Eye, ExternalLink } from 'lucide-react'
 import { THEME_PRESETS, type MenuTheme } from '../lib/menu-themes'
-import { MENU_TEMPLATES, type MenuTemplateId } from '../lib/menu-templates'
 
 export default function MenuThemeEditor({ storeSlug }: { storeSlug?: string | null }) {
-  const [presetId, setPresetId] = useState<string>('default-clean')
-  const [templateId, setTemplateId] = useState<MenuTemplateId>('list-default')
+  const [presetId, setPresetId] = useState<string>('korean-traditional')
   const [custom, setCustom] = useState<Partial<MenuTheme>>({})
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
-  const [showCustom, setShowCustom] = useState(false)
 
   useEffect(() => {
     fetch('/api/menu/theme', { credentials: 'include' })
       .then(r => r.json())
       .then(j => {
         if (j.ok && j.menu_theme) {
-          setPresetId(j.menu_theme.preset || 'default-clean')
+          setPresetId(j.menu_theme.preset || 'korean-traditional')
           if (j.menu_theme.custom) setCustom(j.menu_theme.custom)
-          if (j.menu_theme.template_id) setTemplateId(j.menu_theme.template_id)
         }
-        if (j.ok && j.template_id) setTemplateId(j.template_id)
       })
       .finally(() => setLoading(false))
   }, [])
@@ -40,7 +37,7 @@ export default function MenuThemeEditor({ storeSlug }: { storeSlug?: string | nu
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           preset: presetId,
-          template_id: templateId,
+          template_id: 'list-default',
           custom: Object.keys(custom).length > 0 ? custom : null,
         }),
       })
@@ -69,88 +66,32 @@ export default function MenuThemeEditor({ storeSlug }: { storeSlug?: string | nu
 
   return (
     <div className="space-y-4">
-      {/* 헤더 */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
-        <div className="flex items-start gap-2">
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#7C3AED] to-[#EC4899] flex items-center justify-center shadow-sm">
-            <Palette size={16} className="text-white" strokeWidth={2.5} />
+      {/* 헤더 — 안내 메시지 */}
+      <div className="rounded-2xl p-5" style={{ background: 'linear-gradient(135deg, #FAF6F0 0%, #FDF4E7 100%)', border: '1px solid #E7DCC9' }}>
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#92400E] to-[#78350F] flex items-center justify-center shadow-sm flex-shrink-0">
+            <Sparkles size={18} className="text-white" strokeWidth={2.5} />
           </div>
-          <div>
-            <h3 className="font-black text-[#191F28]">메뉴판 디자인</h3>
-            <p className="text-[11px] text-[#8B95A1]">업종에 맞는 테마 선택 + 색상 커스텀</p>
+          <div className="flex-1">
+            <h3 className="font-black text-[#1F1612] mb-1">메뉴판은 이미 프리미엄으로 디자인됐어요</h3>
+            <p className="text-[11px] leading-relaxed text-[#78716C]">
+              진짜 인쇄 메뉴판처럼 — 큰 매장 헤더, 장식 라인, 시그니처 사진 카드, 점선 가격 leader, 한식 정갈한 레이아웃까지.
+              사장님은 매장 분위기에 맞춰 <strong className="text-[#92400E]">색상만 살짝</strong> 골라주시면 돼요.
+            </p>
+            {previewUrl && (
+              <a href={previewUrl} target="_blank" rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 mt-3 px-3 py-2 rounded-xl bg-white text-[#1F1612] text-xs font-bold hover:bg-[#F5F5F4] border border-[#D6D3D1]">
+                <Eye size={12} strokeWidth={2.5} /> 메뉴판 미리보기
+                <ExternalLink size={10} strokeWidth={2.5} />
+              </a>
+            )}
           </div>
-        </div>
-        {previewUrl && (
-          <a href={previewUrl} target="_blank" rel="noopener noreferrer"
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#F2F4F6] text-[#4E5968] text-xs font-bold hover:bg-[#E5E8EB]">
-            <Eye size={12} strokeWidth={2.5} /> 미리보기
-            <ExternalLink size={10} strokeWidth={2.5} />
-          </a>
-        )}
-      </div>
-
-      {/* 메뉴판 템플릿 (레이아웃) */}
-      <div>
-        <div className="flex items-center gap-2 mb-2">
-          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#0E7490] to-[#0891B2] flex items-center justify-center shadow-sm">
-            <LayoutTemplate size={13} className="text-white" strokeWidth={2.5} />
-          </div>
-          <div>
-            <p className="text-xs font-black text-[#191F28]">메뉴판 레이아웃</p>
-            <p className="text-[10px] text-[#8B95A1]">진짜 인쇄 메뉴판 같은 5가지 디자인</p>
-          </div>
-        </div>
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-2.5">
-          {MENU_TEMPLATES.map(tpl => {
-            const isActive = tpl.id === templateId
-            return (
-              <button
-                key={tpl.id}
-                onClick={() => {
-                  setTemplateId(tpl.id)
-                  // 템플릿이 추천하는 기본 색상 적용 (presetId는 그대로 두되 custom으로 override)
-                  if (tpl.id !== 'list-default') {
-                    setCustom(c => ({ ...c, ...tpl.default_theme }))
-                  }
-                }}
-                className={`text-left p-3 rounded-xl transition-all ${
-                  isActive ? 'ring-2 ring-[#3182F6] ring-offset-2' : 'hover:scale-105'
-                }`}
-                style={{
-                  background: tpl.default_theme.bg_color,
-                  border: `2px solid ${isActive ? tpl.preview_color : tpl.default_theme.border_color}`,
-                }}>
-                {/* 미니 프리뷰 */}
-                <div className="flex items-center gap-1.5 mb-2">
-                  <div className="w-3 h-3 rounded-full" style={{ background: tpl.preview_color }} />
-                  <div className="w-3 h-3 rounded-full" style={{ background: tpl.default_theme.accent_color }} />
-                  {isActive && <Check size={12} className="ml-auto" style={{ color: tpl.preview_color }} strokeWidth={3} />}
-                </div>
-                {/* 템플릿 미니 모형 */}
-                <div className="space-y-1 mb-2">
-                  <div className="h-1.5 rounded" style={{ background: tpl.preview_color, width: '60%' }} />
-                  <div className="h-0.5 rounded opacity-50" style={{ background: tpl.default_theme.text_muted, width: '90%' }} />
-                  <div className="h-0.5 rounded opacity-50" style={{ background: tpl.default_theme.text_muted, width: '70%' }} />
-                </div>
-                <p className="text-xs font-black mb-0.5" style={{ color: tpl.default_theme.text_color }}>{tpl.label}</p>
-                <p className="text-[10px] leading-tight" style={{ color: tpl.default_theme.text_muted }}>{tpl.desc}</p>
-                <div className="mt-1.5 flex flex-wrap gap-1">
-                  {tpl.industries.slice(0, 3).map(ind => (
-                    <span key={ind} className="text-[9px] px-1.5 py-0.5 rounded-full font-bold"
-                      style={{ background: tpl.preview_color + '15', color: tpl.preview_color }}>
-                      {ind}
-                    </span>
-                  ))}
-                </div>
-              </button>
-            )
-          })}
         </div>
       </div>
 
-      {/* 프리셋 그리드 */}
+      {/* 색상 톤 선택 — 9가지 중 분위기 */}
       <div>
-        <p className="text-xs font-bold text-[#4E5968] mb-2">업종별 색상 프리셋</p>
+        <p className="text-xs font-bold text-[#4E5968] mb-2">매장 분위기에 맞는 색상 톤</p>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-2.5">
           {THEME_PRESETS.map(p => {
             const isActive = p.id === presetId
@@ -165,7 +106,6 @@ export default function MenuThemeEditor({ storeSlug }: { storeSlug?: string | nu
                   background: p.theme.bg_color,
                   border: `2px solid ${isActive ? p.theme.primary_color : p.theme.border_color}`,
                 }}>
-                {/* 미리 보기 미니 카드 */}
                 <div className="flex items-center gap-1.5 mb-2">
                   <div className="w-3 h-3 rounded-full" style={{ background: p.theme.primary_color }} />
                   <div className="w-3 h-3 rounded-full" style={{ background: p.theme.accent_color }} />
@@ -187,100 +127,32 @@ export default function MenuThemeEditor({ storeSlug }: { storeSlug?: string | nu
         </div>
       </div>
 
-      {/* 커스텀 토글 */}
-      <button
-        onClick={() => setShowCustom(s => !s)}
-        className="w-full text-left text-xs font-bold text-[#3182F6] hover:underline flex items-center justify-between p-3 rounded-xl bg-[#F8FAFB] border border-[#E5E8EB]">
-        <span>색상 직접 커스텀 (선택)</span>
-        <span>{showCustom ? '접기 ▲' : '펼치기 ▼'}</span>
-      </button>
-
-      {showCustom && (
-        <div className="bg-white rounded-2xl p-4 shadow-sm space-y-3 border border-[#E5E8EB]">
-          {(['primary_color', 'accent_color', 'bg_color', 'surface_color'] as const).map(k => (
-            <div key={k} className="flex items-center gap-3">
-              <label className="text-xs font-bold text-[#4E5968] w-32 flex-shrink-0">
-                {k === 'primary_color' && '메인 색상'}
-                {k === 'accent_color' && '강조 색상'}
-                {k === 'bg_color' && '배경 색상'}
-                {k === 'surface_color' && '카드 배경'}
-              </label>
-              <input
-                type="color"
-                value={custom[k] || effective[k]}
-                onChange={e => setCustom(c => ({ ...c, [k]: e.target.value }))}
-                className="w-12 h-9 rounded cursor-pointer"
-              />
-              <input
-                type="text"
-                value={custom[k] || effective[k]}
-                onChange={e => setCustom(c => ({ ...c, [k]: e.target.value }))}
-                className="flex-1 px-2 py-1.5 rounded-lg bg-[#F2F4F6] border border-transparent focus:border-[#3182F6] focus:bg-white outline-none text-xs font-mono"
-              />
-            </div>
-          ))}
-
-          <div className="flex items-center gap-3">
-            <label className="text-xs font-bold text-[#4E5968] w-32 flex-shrink-0">카드 스타일</label>
-            <select
-              value={custom.card_style || effective.card_style}
-              onChange={e => setCustom(c => ({ ...c, card_style: e.target.value as any }))}
-              className="flex-1 px-2 py-1.5 rounded-lg bg-[#F2F4F6] border border-transparent focus:border-[#3182F6] focus:bg-white outline-none text-xs">
-              <option value="minimal">미니멀 (테두리 얇게)</option>
-              <option value="bordered">테두리 강조</option>
-              <option value="shadow">그림자 강조</option>
-              <option value="photo-large">사진 크게 (고급)</option>
-            </select>
+      {/* 프리뷰 미니 카드 */}
+      <div className="rounded-2xl overflow-hidden" style={{ background: effective.bg_color, border: `1px solid ${effective.border_color}` }}>
+        <div className="px-5 py-6 text-center" style={{ borderBottom: `1px solid ${effective.border_color}` }}>
+          <div className="flex items-center justify-center gap-2 mb-2">
+            <span className="w-8 h-[1px]" style={{ background: effective.text_muted, opacity: 0.4 }} />
+            <span className="text-[9px] tracking-[0.4em] font-bold" style={{ color: effective.accent_color }}>MENU</span>
+            <span className="w-8 h-[1px]" style={{ background: effective.text_muted, opacity: 0.4 }} />
           </div>
-
-          <div className="flex items-center gap-3">
-            <label className="text-xs font-bold text-[#4E5968] w-32 flex-shrink-0">헤더 스타일</label>
-            <select
-              value={custom.header_style || effective.header_style}
-              onChange={e => setCustom(c => ({ ...c, header_style: e.target.value as any }))}
-              className="flex-1 px-2 py-1.5 rounded-lg bg-[#F2F4F6] border border-transparent focus:border-[#3182F6] focus:bg-white outline-none text-xs">
-              <option value="gradient">그라데이션</option>
-              <option value="solid">단색</option>
-              <option value="image">이미지 배경 (URL 별도 설정)</option>
-            </select>
-          </div>
-
-          <button
-            onClick={() => setCustom({})}
-            className="w-full py-2 rounded-lg bg-[#FEE2E2] text-[#991B1B] text-xs font-bold">
-            커스텀 초기화 (프리셋 기본값으로)
-          </button>
+          <p className="text-lg font-black" style={{ color: effective.text_color, fontFamily: 'serif' }}>우리 매장</p>
+          <p className="text-[10px] italic mt-0.5" style={{ color: effective.text_muted }}>오늘도 정성껏 준비했습니다</p>
         </div>
-      )}
-
-      {/* 미리보기 */}
-      <div className="rounded-2xl overflow-hidden border-2" style={{ borderColor: effective.border_color }}>
-        <div className="px-4 py-3" style={{
-          background: effective.header_style === 'gradient'
-            ? `linear-gradient(135deg, ${effective.primary_color}, ${effective.accent_color})`
-            : effective.header_style === 'solid' ? effective.primary_color : effective.surface_color,
-        }}>
-          <p className="text-sm font-black"
-            style={{ color: effective.header_style === 'gradient' || effective.header_style === 'solid' ? '#fff' : effective.text_color }}>
-            우리 매장 메뉴판 미리보기
-          </p>
-          <p className="text-[10px]"
-            style={{ color: effective.header_style === 'gradient' || effective.header_style === 'solid' ? 'rgba(255,255,255,0.8)' : effective.text_muted }}>
-            테마: {selectedPreset.label}
-          </p>
-        </div>
-        <div className="p-3 space-y-2" style={{ background: effective.bg_color }}>
-          <div className="p-3 rounded-xl"
-            style={{ background: effective.surface_color, border: `1px solid ${effective.border_color}` }}>
-            <p className="text-sm font-bold" style={{ color: effective.text_color }}>샘플 메뉴 1</p>
-            <p className="text-[11px]" style={{ color: effective.text_muted }}>맛있는 설명 한 줄</p>
-            <p className="text-base font-black mt-1" style={{ color: effective.primary_color }}>15,000원</p>
+        <div className="p-4 space-y-3" style={{ fontFamily: 'serif' }}>
+          <div className="flex items-baseline gap-2">
+            <span className="font-bold text-sm" style={{ color: effective.text_color }}>샘플 메뉴 1</span>
+            <span className="flex-1 border-b border-dotted mx-1" style={{ borderColor: effective.text_muted, opacity: 0.5 }} />
+            <span className="font-black text-sm" style={{ color: effective.accent_color }}>15,000원</span>
           </div>
-          <div className="p-3 rounded-xl"
-            style={{ background: effective.surface_color, border: `1px solid ${effective.border_color}` }}>
-            <p className="text-sm font-bold" style={{ color: effective.text_color }}>샘플 메뉴 2</p>
-            <p className="text-[11px]" style={{ color: effective.text_muted }}>다른 메뉴 설명</p>
-            <p className="text-base font-black mt-1" style={{ color: effective.primary_color }}>22,000원</p>
+          <div className="flex items-baseline gap-2">
+            <span className="font-bold text-sm" style={{ color: effective.text_color }}>샘플 메뉴 2</span>
+            <span className="flex-1 border-b border-dotted mx-1" style={{ borderColor: effective.text_muted, opacity: 0.5 }} />
+            <span className="font-black text-sm" style={{ color: effective.accent_color }}>22,000원</span>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <span className="font-bold text-sm" style={{ color: effective.text_color }}>샘플 메뉴 3</span>
+            <span className="flex-1 border-b border-dotted mx-1" style={{ borderColor: effective.text_muted, opacity: 0.5 }} />
+            <span className="font-black text-sm" style={{ color: effective.accent_color }}>9,500원</span>
           </div>
         </div>
       </div>
@@ -294,7 +166,7 @@ export default function MenuThemeEditor({ storeSlug }: { storeSlug?: string | nu
         {saved ? (
           <><Check size={14} strokeWidth={3} /> 저장됨</>
         ) : (
-          <><Save size={14} strokeWidth={2.5} /> 테마 저장</>
+          <><Save size={14} strokeWidth={2.5} /> 색상 저장</>
         )}
       </button>
     </div>
