@@ -63,7 +63,7 @@ Return ONLY a valid JSON array (no markdown, no extra text) with this exact stru
         'content-type': 'application/json',
       },
       body: JSON.stringify({
-        model: 'claude-3-5-haiku-20241022',  // 빠르고 저렴, 번역 품질 충분
+        model: 'claude-haiku-4-5-20251001',  // 빠르고 저렴, 번역 품질 충분 (다른 곳에서도 사용 중)
         max_tokens: 4096,
         system: systemPrompt,
         messages: [{ role: 'user', content: userPrompt }],
@@ -213,6 +213,6 @@ export async function POST(req: NextRequest) {
     total_to_translate: toTranslate.length,
     successes: successes.slice(0, 3),
     errors: errors.slice(0, 5),
-    debug: { slug, lang, model: 'claude-3-5-haiku', store_id: store.id },
+    debug: { slug, lang, model: 'claude-haiku-4-5', store_id: store.id },
   }, { headers: CORS })
 }
