@@ -5,7 +5,7 @@
 //   · 메뉴 CRUD + 네이버 자동 가져오기 + 다국어 입력
 // ============================================================
 import { useEffect, useState } from 'react'
-import { Plus, Trash2, Edit3, Save, Globe, Download, Image as ImageIcon, Star, Sparkles, Link2, FolderOpen, ClipboardList, Languages, AlertTriangle, MapPin, Check, CheckCircle2, RefreshCw, Clock } from 'lucide-react'
+import { Plus, Trash2, Edit3, Save, Globe, Download, Image as ImageIcon, Star, Sparkles, Link2, FolderOpen, ClipboardList, Languages, AlertTriangle, MapPin, Check, CheckCircle2, RefreshCw, Clock, ChevronUp, ChevronDown, GripVertical } from 'lucide-react'
 import MenuBookmarkletDialog from './MenuBookmarkletDialog'
 import MenuThemeEditor from './MenuThemeEditor'
 
@@ -313,6 +313,55 @@ export default function MenuBoardEditor() {
     alert(`번역 완료: ${okCount}개 메뉴 업데이트됨`)
   }
 
+  // 메뉴 순서 변경 (카테고리 안에서 위/아래로 이동)
+  // optimistic update + 서버 reorder 호출
+  const [reordering, setReordering] = useState(false)
+  async function handleMove(itemId: string, direction: 'up' | 'down') {
+    if (reordering) return
+    // 같은 카테고리 안에서 인덱스 계산
+    const it = items.find(x => x.id === itemId)
+    if (!it) return
+    const sameCat = items.filter(x => (x.category || '메뉴') === (it.category || '메뉴'))
+    const idx = sameCat.findIndex(x => x.id === itemId)
+    if (idx < 0) return
+    const newIdx = direction === 'up' ? idx - 1 : idx + 1
+    if (newIdx < 0 || newIdx >= sameCat.length) return
+
+    // 카테고리 안에서 swap
+    const reorderedSame = [...sameCat]
+    const [moved] = reorderedSame.splice(idx, 1)
+    reorderedSame.splice(newIdx, 0, moved)
+
+    // 전체 items에서 해당 카테고리 부분만 교체 (다른 카테고리 순서 유지)
+    const newItems: MenuItem[] = []
+    let p = 0
+    for (const x of items) {
+      if ((x.category || '메뉴') === (it.category || '메뉴')) {
+        newItems.push(reorderedSame[p++])
+      } else {
+        newItems.push(x)
+      }
+    }
+
+    // optimistic UI 업데이트
+    setItems(newItems)
+    setReordering(true)
+    try {
+      const ids = newItems.map(x => x.id).filter(Boolean) as string[]
+      await fetch('/api/menu/reorder', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ids }),
+      })
+    } catch (_) {
+      // 실패 시 rollback (재조회)
+      await fetchItems()
+    } finally {
+      setReordering(false)
+    }
+  }
+
   useEffect(() => {
     fetchItems()
   }, [])
@@ -565,37 +614,71 @@ export default function MenuBoardEditor() {
               <p className="text-sm font-black text-[#191F28]">{cat}</p>
             </div>
             <div className="space-y-2">
-              {list.map(it => (
-                <div key={it.id} className="flex items-center gap-3 p-2.5 rounded-xl hover:bg-[#F8FAFB] transition-colors">
-                  {it.image_url ? (
-                    /* eslint-disable-next-line @next/next/no-img-element */
-                    <img src={it.image_url} alt={it.name_ko} className="w-14 h-14 rounded-lg object-cover flex-shrink-0" />
-                  ) : (
-                    <div className="w-14 h-14 rounded-lg bg-[#F2F4F6] flex items-center justify-center flex-shrink-0">
-                      <ImageIcon size={20} className="text-[#C9CDD2]" />
+              {list.map((it, idx) => {
+                const isFirst = idx === 0
+                const isLast = idx === list.length - 1
+                return (
+                  <div key={it.id} className="flex items-center gap-2 md:gap-3 p-2.5 rounded-xl hover:bg-[#F8FAFB] transition-colors">
+                    {/* 순서 조정 버튼 (위/아래) */}
+                    <div className="flex flex-col gap-0.5 flex-shrink-0">
+                      <button
+                        onClick={() => it.id && handleMove(it.id, 'up')}
+                        disabled={isFirst || reordering}
+                        title="위로 이동"
+                        className={`w-7 h-6 rounded-md flex items-center justify-center transition-colors ${
+                          isFirst || reordering ? 'bg-[#F8FAFB] text-[#C9CDD2] cursor-not-allowed' : 'bg-[#F2F4F6] text-[#4E5968] hover:bg-[#3182F6] hover:text-white'
+                        }`}>
+                        <ChevronUp size={13} strokeWidth={3} />
+                      </button>
+                      <button
+                        onClick={() => it.id && handleMove(it.id, 'down')}
+                        disabled={isLast || reordering}
+                        title="아래로 이동"
+                        className={`w-7 h-6 rounded-md flex items-center justify-center transition-colors ${
+                          isLast || reordering ? 'bg-[#F8FAFB] text-[#C9CDD2] cursor-not-allowed' : 'bg-[#F2F4F6] text-[#4E5968] hover:bg-[#3182F6] hover:text-white'
+                        }`}>
+                        <ChevronDown size={13} strokeWidth={3} />
+                      </button>
                     </div>
-                  )}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-1 flex-wrap">
-                      <p className="text-sm font-bold text-[#191F28] truncate">{it.name_ko}</p>
-                      {it.is_signature && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-[#FEF3C7] text-[#92400E]">대표</span>}
-                      {it.is_new && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-[#DBEAFE] text-[#1E40AF]">NEW</span>}
-                      {it.is_soldout && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-[#FEE2E2] text-[#991B1B]">품절</span>}
+
+                    {it.image_url ? (
+                      /* eslint-disable-next-line @next/next/no-img-element */
+                      <img src={it.image_url} alt={it.name_ko} className="w-12 h-12 md:w-14 md:h-14 rounded-lg object-cover flex-shrink-0" />
+                    ) : (
+                      <div className="w-12 h-12 md:w-14 md:h-14 rounded-lg bg-[#F2F4F6] flex items-center justify-center flex-shrink-0">
+                        <ImageIcon size={18} className="text-[#C9CDD2]" />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-center gap-1 flex-wrap">
+                        <p className="text-sm font-bold text-[#191F28] truncate">{it.name_ko}</p>
+                        {it.is_signature && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-[#FEF3C7] text-[#92400E]">대표</span>}
+                        {it.is_new && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-[#DBEAFE] text-[#1E40AF]">NEW</span>}
+                        {it.is_soldout && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-[#FEE2E2] text-[#991B1B]">품절</span>}
+                      </div>
+                      {it.desc_ko && <p className="text-[11px] text-[#8B95A1] truncate">{it.desc_ko}</p>}
+                      <p className="text-xs font-bold text-[#3182F6]">{it.price.toLocaleString('ko-KR')}원</p>
                     </div>
-                    {it.desc_ko && <p className="text-[11px] text-[#8B95A1] truncate">{it.desc_ko}</p>}
-                    <p className="text-xs font-bold text-[#3182F6]">{it.price.toLocaleString('ko-KR')}원</p>
+                    <div className="flex gap-1 flex-shrink-0">
+                      <button onClick={() => startEdit(it)} title="수정" className="w-8 h-8 rounded-lg bg-[#F2F4F6] hover:bg-[#E5E8EB] flex items-center justify-center">
+                        <Edit3 size={12} className="text-[#4E5968]" />
+                      </button>
+                      <button onClick={() => it.id && handleDelete(it.id)} title="삭제" className="w-8 h-8 rounded-lg bg-[#FEE2E2] hover:bg-[#FECACA] flex items-center justify-center">
+                        <Trash2 size={12} className="text-[#991B1B]" />
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex gap-1 flex-shrink-0">
-                    <button onClick={() => startEdit(it)} className="w-8 h-8 rounded-lg bg-[#F2F4F6] hover:bg-[#E5E8EB] flex items-center justify-center">
-                      <Edit3 size={12} className="text-[#4E5968]" />
-                    </button>
-                    <button onClick={() => it.id && handleDelete(it.id)} className="w-8 h-8 rounded-lg bg-[#FEE2E2] hover:bg-[#FECACA] flex items-center justify-center">
-                      <Trash2 size={12} className="text-[#991B1B]" />
-                    </button>
-                  </div>
-                </div>
-              ))}
+                )
+              })}
             </div>
+
+            {/* 안내 문구 */}
+            {list.length > 1 && (
+              <p className="text-[10px] text-[#8B95A1] mt-2 px-1 flex items-center gap-1">
+                <GripVertical size={10} strokeWidth={2.5} />
+                위·아래 화살표로 메뉴 순서를 조정할 수 있어요. 손님 메뉴판에 즉시 반영돼요.
+              </p>
+            )}
           </div>
         ))
       )}
