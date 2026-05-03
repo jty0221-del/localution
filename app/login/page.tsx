@@ -258,19 +258,19 @@ export default function LoginPage() {
 
             <div className='statCards'>
               <div className='statCard'>
-                <div className='statNum'>{counters.visitors.toLocaleString()}</div>
-                <div className='statLabel'>이번 달 방문자</div>
-                <div className='statChange'>▲ +12.4%</div>
+                <div className='statNum'>BETA</div>
+                <div className='statLabel'>로컬루션 베타 운영 중</div>
+                <div className='statChange'>로그인 후 실제 데이터 확인</div>
               </div>
               <div className='statCard'>
-                <div className='statNum'>{counters.reviews}건</div>
-                <div className='statLabel'>총 리뷰 수</div>
-                <div className='statChange'>▲ +34건 이번 주</div>
+                <div className='statNum'>6개</div>
+                <div className='statLabel'>연동 플랫폼</div>
+                <div className='statChange'>네이버 · 구글 · 배민 · 요기요 · 쿠팡 · 카카오</div>
               </div>
               <div className='statCard'>
-                <div className='statNum'>TOP {counters.rank}</div>
-                <div className='statLabel'>지역 내 순위</div>
-                <div className='statChange'>▲ 12위 상승</div>
+                <div className='statNum'>4종</div>
+                <div className='statLabel'>AI 답글 톤</div>
+                <div className='statChange'>친근 · 전문 · 유쾌 · 심플</div>
               </div>
             </div>
 
