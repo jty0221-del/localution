@@ -1,4 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireUser } from '@/app/lib/userAuth'
+import { rateLimitByIp } from '@/app/lib/rateLimit'
 
 function stripHtml(s: string) { return s.replace(/<[^>]*>/g, '').trim() }
 
@@ -10,6 +12,14 @@ function isMatch(title: string, biz: string): boolean {
 }
 
 export async function GET(req: NextRequest) {
+  // 인증 + rate limit (네이버 검색 API 보호 — 일일 호출 한도)
+  const auth = await requireUser()
+  if (!auth.ok) return NextResponse.json({ error: '로그인이 필요합니다' }, { status: auth.status })
+  const rl = rateLimitByIp(req, `naver-rank:${auth.userId}`, 20, 60)
+  if (!rl.ok) {
+    return NextResponse.json({ error: 'rate_limited', message: `${rl.resetIn}초 후 다시 시도해주세요.` }, { status: 429 })
+  }
+
   const { searchParams } = new URL(req.url)
   const keyword      = searchParams.get('keyword') || ''
   const businessName = searchParams.get('businessName') || ''
