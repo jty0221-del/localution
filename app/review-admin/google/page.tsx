@@ -4,7 +4,7 @@ export const dynamic = 'force-dynamic'
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Lightbulb, Clipboard, Check, Sparkles } from 'lucide-react'
+import { Lightbulb, Clipboard, Check, Sparkles, Globe } from 'lucide-react'
 import Sidebar from '../../components/Sidebar'
 import Footer from '../../components/Footer'
 import PageHeader from '../../components/PageHeader'
@@ -93,9 +93,9 @@ export default function GoogleReviewPage() {
         }),
       })
       const data = await res.json()
-      setAiReply(data.reply || data.message || '답글을 만들지 못했어요. 재생성을 눌러주세요 🔁')
+      setAiReply(data.reply || data.message || '답글을 만들지 못했어요. 재생성을 눌러주세요.')
     } catch {
-      setAiReply('연결이 잠깐 불안정했어요. 다시 시도해주세요 🙏')
+      setAiReply('연결이 잠깐 불안정했어요. 다시 시도해주세요.')
     } finally {
       setGenerating(false)
     }
@@ -131,7 +131,7 @@ export default function GoogleReviewPage() {
         <Sidebar />
         <main className="flex-1 ml-0 md:ml-[220px] pt-14 md:pt-0 min-w-0">
           <PageHeader
-            icon="🔷"
+            icon={<Globe size={28} className="text-white" strokeWidth={2.5} />}
             title="구글 리뷰 관리"
             subtitle={connected ? `${storeName} · 실시간 리뷰 자동 수집` : 'Google Business Profile 리뷰 · AI 답글 초안 자동 생성'}
             variant="google"
@@ -216,7 +216,7 @@ export default function GoogleReviewPage() {
         <div className="space-y-3">
           {filtered.length === 0 ? (
             <div className="bg-white rounded-2xl p-8 text-center text-sm text-[#8B95A1] border border-[#E5E8EB]">
-              선택하신 조건에 맞는 리뷰는 아직 없어요 😊
+              선택하신 조건에 맞는 리뷰는 아직 없어요
             </div>
           ) : filtered.map(review => (
             <div key={review.id} className="bg-white rounded-2xl border border-[#E5E8EB] p-4 md:p-5">
@@ -242,7 +242,7 @@ export default function GoogleReviewPage() {
                         <div className="flex items-center gap-1.5 mb-2 flex-wrap">
                           <span className="text-[10px] text-[#8B95A1] font-semibold">톤</span>
                           {(['warm','polite','formal'] as const).map(t => {
-                            const label = t === 'warm' ? '😊 친근' : t === 'polite' ? '🙂 정중' : '🧑‍💼 공식'
+                            const label = t === 'warm' ? '친근' : t === 'polite' ? '정중' : '공식'
                             const active = tone === t
                             return (
                               <button key={t}
