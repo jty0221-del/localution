@@ -4,11 +4,13 @@
 // 메뉴판 테마 에디터 — 업종별 프리셋 + 커스텀 색상
 // ============================================================
 import { useEffect, useState } from 'react'
-import { Palette, Check, Save, Eye, ExternalLink } from 'lucide-react'
+import { Palette, Check, Save, Eye, ExternalLink, LayoutTemplate } from 'lucide-react'
 import { THEME_PRESETS, type MenuTheme } from '../lib/menu-themes'
+import { MENU_TEMPLATES, type MenuTemplateId } from '../lib/menu-templates'
 
 export default function MenuThemeEditor({ storeSlug }: { storeSlug?: string | null }) {
   const [presetId, setPresetId] = useState<string>('default-clean')
+  const [templateId, setTemplateId] = useState<MenuTemplateId>('list-default')
   const [custom, setCustom] = useState<Partial<MenuTheme>>({})
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -22,7 +24,9 @@ export default function MenuThemeEditor({ storeSlug }: { storeSlug?: string | nu
         if (j.ok && j.menu_theme) {
           setPresetId(j.menu_theme.preset || 'default-clean')
           if (j.menu_theme.custom) setCustom(j.menu_theme.custom)
+          if (j.menu_theme.template_id) setTemplateId(j.menu_theme.template_id)
         }
+        if (j.ok && j.template_id) setTemplateId(j.template_id)
       })
       .finally(() => setLoading(false))
   }, [])
@@ -36,6 +40,7 @@ export default function MenuThemeEditor({ storeSlug }: { storeSlug?: string | nu
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           preset: presetId,
+          template_id: templateId,
           custom: Object.keys(custom).length > 0 ? custom : null,
         }),
       })
@@ -84,9 +89,68 @@ export default function MenuThemeEditor({ storeSlug }: { storeSlug?: string | nu
         )}
       </div>
 
+      {/* 메뉴판 템플릿 (레이아웃) */}
+      <div>
+        <div className="flex items-center gap-2 mb-2">
+          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#0E7490] to-[#0891B2] flex items-center justify-center shadow-sm">
+            <LayoutTemplate size={13} className="text-white" strokeWidth={2.5} />
+          </div>
+          <div>
+            <p className="text-xs font-black text-[#191F28]">메뉴판 레이아웃</p>
+            <p className="text-[10px] text-[#8B95A1]">진짜 인쇄 메뉴판 같은 5가지 디자인</p>
+          </div>
+        </div>
+        <div className="grid grid-cols-2 md:grid-cols-3 gap-2.5">
+          {MENU_TEMPLATES.map(tpl => {
+            const isActive = tpl.id === templateId
+            return (
+              <button
+                key={tpl.id}
+                onClick={() => {
+                  setTemplateId(tpl.id)
+                  // 템플릿이 추천하는 기본 색상 적용 (presetId는 그대로 두되 custom으로 override)
+                  if (tpl.id !== 'list-default') {
+                    setCustom(c => ({ ...c, ...tpl.default_theme }))
+                  }
+                }}
+                className={`text-left p-3 rounded-xl transition-all ${
+                  isActive ? 'ring-2 ring-[#3182F6] ring-offset-2' : 'hover:scale-105'
+                }`}
+                style={{
+                  background: tpl.default_theme.bg_color,
+                  border: `2px solid ${isActive ? tpl.preview_color : tpl.default_theme.border_color}`,
+                }}>
+                {/* 미니 프리뷰 */}
+                <div className="flex items-center gap-1.5 mb-2">
+                  <div className="w-3 h-3 rounded-full" style={{ background: tpl.preview_color }} />
+                  <div className="w-3 h-3 rounded-full" style={{ background: tpl.default_theme.accent_color }} />
+                  {isActive && <Check size={12} className="ml-auto" style={{ color: tpl.preview_color }} strokeWidth={3} />}
+                </div>
+                {/* 템플릿 미니 모형 */}
+                <div className="space-y-1 mb-2">
+                  <div className="h-1.5 rounded" style={{ background: tpl.preview_color, width: '60%' }} />
+                  <div className="h-0.5 rounded opacity-50" style={{ background: tpl.default_theme.text_muted, width: '90%' }} />
+                  <div className="h-0.5 rounded opacity-50" style={{ background: tpl.default_theme.text_muted, width: '70%' }} />
+                </div>
+                <p className="text-xs font-black mb-0.5" style={{ color: tpl.default_theme.text_color }}>{tpl.label}</p>
+                <p className="text-[10px] leading-tight" style={{ color: tpl.default_theme.text_muted }}>{tpl.desc}</p>
+                <div className="mt-1.5 flex flex-wrap gap-1">
+                  {tpl.industries.slice(0, 3).map(ind => (
+                    <span key={ind} className="text-[9px] px-1.5 py-0.5 rounded-full font-bold"
+                      style={{ background: tpl.preview_color + '15', color: tpl.preview_color }}>
+                      {ind}
+                    </span>
+                  ))}
+                </div>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+
       {/* 프리셋 그리드 */}
       <div>
-        <p className="text-xs font-bold text-[#4E5968] mb-2">업종별 프리셋</p>
+        <p className="text-xs font-bold text-[#4E5968] mb-2">업종별 색상 프리셋</p>
         <div className="grid grid-cols-2 md:grid-cols-3 gap-2.5">
           {THEME_PRESETS.map(p => {
             const isActive = p.id === presetId
