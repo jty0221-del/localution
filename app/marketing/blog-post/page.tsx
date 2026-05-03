@@ -7,7 +7,7 @@ import PageHeader from '../../components/PageHeader'
 import {
   Sparkles, Copy, Check, Image as ImageIcon, X, Plus,
   User, Phone, Tag, FileText, MessageCircle, Link as LinkIcon,
-  Loader2, AlertCircle, ArrowRight, RefreshCw, Download,
+  Loader2, AlertCircle, ArrowRight, RefreshCw, Download, PenLine,
 } from 'lucide-react'
 import Footer from '../../components/Footer'
 
@@ -194,7 +194,7 @@ export default function BlogPostGeneratorPage() {
       <Sidebar />
       <main className="flex-1 ml-0 md:ml-[220px] pt-16 md:pt-0 min-w-0">
         <PageHeader
-          icon="✍️"
+          icon={<PenLine size={28} className="text-white" strokeWidth={2.5} />}
           title="블로그 글 작성"
           subtitle="네이버 SEO 최적화 3,000자 원고 — 키워드·사진만 주면 완성본"
           variant="emerald"
@@ -512,7 +512,7 @@ export default function BlogPostGeneratorPage() {
                   { title: '체류시간 후킹', desc: '섹션마다 볼드 2~3개로 스크롤 속도 조절' },
                   { title: '사진 분산 배치', desc: '한 곳 몰아넣기 금지 — 본문 전체에 고르게 배치' },
                   { title: 'CTA 구조화', desc: '부담 낮추는 멘트 → 예상 질문 3개 → 희소성 클로징' },
-                  { title: '이모티콘 배제', desc: '📷, ✅, 🚗 등 일체 사용 안 함 — 브랜딩 톤 유지' },
+                  { title: '이모티콘 배제', desc: '카메라·체크·자동차 등 이모지 일체 사용 안 함 — 브랜딩 톤 유지' },
                   { title: '페르소나 신뢰감', desc: '담당자 이름·연락처로 1인칭 작성 — 독자와 직접 소통하는 느낌' },
                 ].map(f => (
                   <div key={f.title} className="flex items-start gap-2 p-3 rounded-lg bg-[#F8F9FB] border border-[#E5E8EB]">
