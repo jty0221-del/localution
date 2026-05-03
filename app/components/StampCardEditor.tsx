@@ -17,6 +17,7 @@ import {
 } from 'lucide-react'
 import StampCardView from './StampCardView'
 import QRImage from './QRImage'
+import StampNotifyDialog from './StampNotifyDialog'
 
 const COLOR_PALETTE = [
   { name: '블루',   value: '#3182F6' },
@@ -78,6 +79,7 @@ export default function StampCardEditor() {
   const [manualBusy, setManualBusy] = useState(false)
   const [manualErr, setManualErr] = useState('')
   const [downloadingQR, setDownloadingQR] = useState(false)
+  const [showNotify, setShowNotify] = useState(false)
 
   useEffect(() => {
     fetch('/api/stamps/setup', { credentials: 'include' })
@@ -327,91 +329,132 @@ export default function StampCardEditor() {
             </div>
           </div>
 
+          {/* 통합 보상 단계 — 모든 회수 + 보상을 한 리스트로 */}
           <div>
-            <label className="text-[11px] font-bold text-[#4E5968] mb-1 block">필요 스탬프 수</label>
-            <select
-              value={card.required_stamps}
-              onChange={e => setCard({ ...card, required_stamps: parseInt(e.target.value, 10) })}
-              className="w-full px-3 py-2.5 rounded-lg bg-[#F2F4F6] border-2 border-transparent focus:border-[#3182F6] focus:bg-white outline-none text-sm">
-              {[5, 8, 10, 12, 15, 20].map(n => <option key={n} value={n}>{n}개 방문 시 보상</option>)}
-            </select>
-          </div>
+            <div className="flex items-center justify-between mb-1.5">
+              <label className="text-[11px] font-bold text-[#4E5968]">보상 단계</label>
+              <button
+                onClick={() => {
+                  // 모든 단계 = milestones + (required_stamps, reward_text)
+                  const allStages = [
+                    ...card.milestones.map(m => ({ at: m.at, reward: m.reward })),
+                    { at: card.required_stamps, reward: card.reward_text },
+                  ].sort((a, b) => a.at - b.at)
 
-          <div>
-            <label className="text-[11px] font-bold text-[#4E5968] mb-1 block">보상 내용</label>
-            <input
-              value={card.reward_text}
-              onChange={e => setCard({ ...card, reward_text: e.target.value.slice(0, 50) })}
-              placeholder="예: 음료 1잔 무료"
-              className="w-full px-3 py-2.5 rounded-lg bg-[#F2F4F6] border-2 border-transparent focus:border-[#3182F6] focus:bg-white outline-none text-sm mb-1.5"
-            />
-            <div className="flex flex-wrap gap-1">
-              {REWARD_PRESETS.map(r => (
+                  // 새 단계 추가 = 가장 높은 회수 + 5
+                  const lastAt = allStages[allStages.length - 1]?.at || 0
+                  const newAt = Math.min(30, lastAt + 5)
+
+                  // 새 단계 = milestones 에 추가, required_stamps 는 가장 높은 회수로 자동 설정
+                  const newAllStages = [...allStages, { at: newAt, reward: '' }].sort((a, b) => a.at - b.at)
+                  const newRequired = newAllStages[newAllStages.length - 1].at
+                  const newRewardText = newAllStages[newAllStages.length - 1].reward
+                  const newMilestones = newAllStages.slice(0, -1)
+
+                  setCard({
+                    ...card,
+                    required_stamps: newRequired,
+                    reward_text: newRewardText,
+                    milestones: newMilestones,
+                  })
+                }}
+                disabled={card.milestones.length >= 9}
+                className="flex items-center gap-1 text-[10px] font-bold text-[#3182F6] hover:underline disabled:opacity-50">
+                <Plus size={10} strokeWidth={2.5} /> 단계 추가
+              </button>
+            </div>
+            <p className="text-[10px] text-[#8B95A1] mb-2 leading-relaxed">
+              예: 5회=군만두 무료, 10회=탕수육 무료, 15회=사이드 무료, 20회=코스 요리.<br/>
+              가장 높은 회수가 <strong>최종 보상</strong> = 사이클 리셋 시점.
+            </p>
+            <div className="space-y-1.5">
+              {(() => {
+                // 전체 단계 통합 리스트
+                const allStages = [
+                  ...card.milestones.map((m, idx) => ({ at: m.at, reward: m.reward, originIdx: idx, isFinal: false })),
+                  { at: card.required_stamps, reward: card.reward_text, originIdx: -1, isFinal: true },
+                ].sort((a, b) => a.at - b.at)
+                const finalIdx = allStages.length - 1
+
+                const updateStage = (i: number, patch: { at?: number; reward?: string }) => {
+                  const next = allStages.map((s, idx) => idx === i ? { ...s, ...patch } : s)
+                  // re-sort
+                  next.sort((a, b) => a.at - b.at)
+                  // 가장 큰 at = required_stamps + reward_text
+                  const newRequired = next[next.length - 1].at
+                  const newRewardText = next[next.length - 1].reward
+                  const newMilestones = next.slice(0, -1).map(s => ({ at: s.at, reward: s.reward }))
+                  setCard({
+                    ...card,
+                    required_stamps: newRequired,
+                    reward_text: newRewardText,
+                    milestones: newMilestones,
+                  })
+                }
+
+                const removeStage = (i: number) => {
+                  if (allStages.length <= 1) return  // 최소 1개는 유지
+                  const next = allStages.filter((_, idx) => idx !== i)
+                  next.sort((a, b) => a.at - b.at)
+                  const newRequired = next[next.length - 1].at
+                  const newRewardText = next[next.length - 1].reward
+                  const newMilestones = next.slice(0, -1).map(s => ({ at: s.at, reward: s.reward }))
+                  setCard({
+                    ...card,
+                    required_stamps: newRequired,
+                    reward_text: newRewardText,
+                    milestones: newMilestones,
+                  })
+                }
+
+                return allStages.map((s, i) => (
+                  <div key={i}
+                    className={`flex items-center gap-1.5 p-2 rounded-lg border-2 ${
+                      i === finalIdx
+                        ? 'bg-gradient-to-br from-[#FEF3C7] to-[#FDE68A] border-[#FCD34D]'
+                        : 'bg-[#F8FAFB] border-[#E5E8EB]'
+                    }`}>
+                    <select
+                      value={s.at}
+                      onChange={e => updateStage(i, { at: parseInt(e.target.value, 10) })}
+                      className="text-xs px-2 py-1 rounded bg-white border border-[#E5E8EB] focus:outline-none focus:border-[#3182F6]">
+                      {Array.from({ length: 30 }, (_, n) => n + 1).map(n => (
+                        <option key={n} value={n}>{n}회</option>
+                      ))}
+                    </select>
+                    <input
+                      value={s.reward}
+                      onChange={e => updateStage(i, { reward: e.target.value.slice(0, 60) })}
+                      placeholder="예: 군만두 무료"
+                      className="flex-1 text-xs px-2 py-1 rounded bg-white border border-[#E5E8EB] focus:outline-none focus:border-[#3182F6]"
+                    />
+                    {i === finalIdx && (
+                      <span className="flex items-center gap-0.5 text-[9px] font-black px-1.5 py-0.5 rounded bg-[#92400E] text-white">
+                        <Gift size={9} strokeWidth={3} /> 최종
+                      </span>
+                    )}
+                    {allStages.length > 1 && (
+                      <button
+                        onClick={() => removeStage(i)}
+                        className="w-7 h-7 rounded bg-[#FEE2E2] hover:bg-[#FECACA] flex items-center justify-center">
+                        <X size={12} className="text-[#991B1B]" strokeWidth={2.5} />
+                      </button>
+                    )}
+                  </div>
+                ))
+              })()}
+            </div>
+
+            {/* 보상 프리셋 빠른 입력 */}
+            <div className="mt-2 flex flex-wrap gap-1">
+              <span className="text-[10px] text-[#8B95A1] mr-1">최종 보상 빠른 선택:</span>
+              {REWARD_PRESETS.slice(0, 4).map(r => (
                 <button key={r}
                   onClick={() => setCard({ ...card, reward_text: r })}
                   className="text-[10px] px-2 py-0.5 rounded-full bg-[#F2F4F6] hover:bg-[#3182F6] hover:text-white transition-colors text-[#4E5968]">
                   {r}
                 </button>
               ))}
-            </div>
-          </div>
-
-          {/* 단계별 보상 (Milestones) */}
-          <div>
-            <div className="flex items-center justify-between mb-1.5">
-              <label className="text-[11px] font-bold text-[#4E5968]">단계별 보상 (선택)</label>
-              <button
-                onClick={() => {
-                  if (card.milestones.length >= 5) return
-                  const next = [...card.milestones, { at: Math.min(20, (card.milestones[card.milestones.length - 1]?.at || 0) + 5), reward: '' }]
-                  setCard({ ...card, milestones: next })
-                }}
-                disabled={card.milestones.length >= 5}
-                className="flex items-center gap-1 text-[10px] font-bold text-[#3182F6] hover:underline disabled:opacity-50">
-                <Plus size={10} strokeWidth={2.5} /> 단계 추가
-              </button>
-            </div>
-            <p className="text-[10px] text-[#8B95A1] mb-2 leading-relaxed">
-              5회 = 군만두 무료, 10회 = 탕수육 무료처럼 중간 보상을 추가하면 손님이 더 자주 찾아와요!
-            </p>
-            <div className="space-y-1.5">
-              {card.milestones.map((m, i) => (
-                <div key={i} className="flex items-center gap-1.5 p-2 rounded-lg bg-[#F8FAFB] border border-[#E5E8EB]">
-                  <select
-                    value={m.at}
-                    onChange={e => {
-                      const next = [...card.milestones]
-                      next[i] = { ...next[i], at: parseInt(e.target.value, 10) }
-                      setCard({ ...card, milestones: next })
-                    }}
-                    className="text-xs px-2 py-1 rounded bg-white border border-[#E5E8EB] focus:outline-none focus:border-[#3182F6]">
-                    {Array.from({ length: 20 }, (_, n) => n + 1).map(n => (
-                      <option key={n} value={n}>{n}회</option>
-                    ))}
-                  </select>
-                  <input
-                    value={m.reward}
-                    onChange={e => {
-                      const next = [...card.milestones]
-                      next[i] = { ...next[i], reward: e.target.value.slice(0, 60) }
-                      setCard({ ...card, milestones: next })
-                    }}
-                    placeholder="예: 군만두 무료"
-                    className="flex-1 text-xs px-2 py-1 rounded bg-white border border-[#E5E8EB] focus:outline-none focus:border-[#3182F6]"
-                  />
-                  <button
-                    onClick={() => {
-                      setCard({ ...card, milestones: card.milestones.filter((_, idx) => idx !== i) })
-                    }}
-                    className="w-7 h-7 rounded bg-[#FEE2E2] hover:bg-[#FECACA] flex items-center justify-center">
-                    <X size={12} className="text-[#991B1B]" strokeWidth={2.5} />
-                  </button>
-                </div>
-              ))}
-              <p className="text-[10px] text-[#3182F6] flex items-center gap-1">
-                <Gift size={10} strokeWidth={2.5} />
-                최종 {card.required_stamps}회 = <strong>{card.reward_text}</strong>
-              </p>
             </div>
           </div>
 
@@ -555,19 +598,31 @@ export default function StampCardEditor() {
         )}
       </div>
 
-      {/* 재방문 알림 안내 */}
+      {/* 재방문 알림 발송 */}
       <div className="bg-gradient-to-br from-[#EFF6FF] to-[#F8FBFF] rounded-2xl p-5 border border-[#BFDBFE]">
-        <div className="flex items-start gap-3">
+        <div className="flex items-start gap-3 mb-3">
           <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#3182F6] to-[#7C3AED] flex items-center justify-center flex-shrink-0 shadow-sm">
             <MessageCircle size={16} className="text-white" strokeWidth={2.5} />
           </div>
           <div className="flex-1">
-            <p className="text-sm font-bold text-[#191F28] mb-1">재방문 알림 (개발 중)</p>
+            <p className="text-sm font-bold text-[#191F28] mb-1">재방문 알림 발송</p>
             <p className="text-xs text-[#4E5968] leading-relaxed">
-              마케팅 동의한 손님께 카카오톡-문자로 재방문 알림을 보낼 수 있는 기능이 곧 추가됩니다.
-              지금은 <a href="/customers" className="underline font-bold">고객관리</a> 에서 단체 메시지를 발송할 수 있어요.
+              일정 기간 안 온 단골 손님께 SMS/카톡으로 재방문 알림을 보낼 수 있어요.<br/>
+              7일/14일/30일 이상 휴면 손님 자동 추출 → 일괄 선택 → 발송.
             </p>
           </div>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          <button
+            onClick={() => setShowNotify(true)}
+            className="py-2.5 rounded-xl bg-gradient-to-br from-[#3182F6] to-[#7C3AED] text-white text-xs font-bold flex items-center justify-center gap-1.5">
+            <MessageCircle size={12} strokeWidth={2.5} /> 휴면 손님 알림 보내기
+          </button>
+          <a
+            href="/customers"
+            className="py-2.5 rounded-xl bg-white border border-[#BFDBFE] text-[#3182F6] text-xs font-bold flex items-center justify-center gap-1.5 hover:bg-[#EFF6FF]">
+            <ExternalLink size={12} strokeWidth={2.5} /> 전체 고객관리
+          </a>
         </div>
       </div>
 
@@ -635,6 +690,9 @@ export default function StampCardEditor() {
           </div>
         </div>
       )}
+
+      {/* 재방문 알림 다이얼로그 */}
+      <StampNotifyDialog open={showNotify} onClose={() => setShowNotify(false)} />
     </div>
   )
 }
