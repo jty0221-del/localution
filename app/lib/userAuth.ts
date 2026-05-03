@@ -1,31 +1,25 @@
 // app/lib/userAuth.ts
 // ============================================================
 // 일반 로그인 사용자 인증 (관리자 전용이 아닌 사용자별 리소스용)
-//   · localution_user (OAuth) 쿠키 우선
+//   · localution_user (OAuth) 쿠키 — HMAC 서명 검증 (위조 방지)
 //   · Authorization: Bearer <token> 또는 sb-*-auth-token 쿠키 폴백
 //   · adminAuth.ts 와 쿠키/토큰 해석 로직 공유 (사실상 same pattern)
 // ============================================================
 import { cookies, headers } from 'next/headers'
 import { createServiceClient } from './adminAuth'
+import { verifyCookie, type LocalutionUser } from './cookieSigning'
 
 export type UserResult =
   | { ok: true; userId: string; email: string | null; source: 'localution' | 'supabase' }
   | { ok: false; status: number; message: string }
-
-type LocalutionUser = {
-  id?: string
-  email?: string
-  provider?: string
-}
 
 async function readLocalutionUser(): Promise<LocalutionUser | null> {
   try {
     const store = await cookies()
     const raw = store.get('localution_user')?.value
     if (!raw) return null
-    let decoded = raw
-    try { decoded = decodeURIComponent(raw) } catch {}
-    return JSON.parse(decoded) as LocalutionUser
+    // HMAC 서명 검증 — 서명 없거나 위조된 cookie는 null 반환
+    return verifyCookie(raw)
   } catch {
     return null
   }
