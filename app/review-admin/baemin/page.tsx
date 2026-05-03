@@ -50,9 +50,9 @@ function SystemHealthBar() {
     try {
       const res = await fetch('/api/baemin/auto-login', { method: 'POST', credentials: 'include' })
       const data = await res.json()
-      if (data.ok) { setMsg('✅ 로그인 성공! 쿠키 갱신됨'); check() }
-      else setMsg('❌ ' + (data.error || '로그인 실패'))
-    } catch (e: any) { setMsg('❌ ' + e.message) }
+      if (data.ok) { setMsg('로그인 성공 - 쿠키 갱신됨'); check() }
+      else setMsg(data.error || '로그인 실패')
+    } catch (e: any) { setMsg(e.message) }
     setLoginLoading(false)
   }
 
@@ -92,18 +92,18 @@ function SystemHealthBar() {
           </button>
         </div>
       </div>
-      {msg && <p className={"mt-2 font-medium " + (msg.startsWith('✅') ? 'text-green-700' : 'text-red-600')}>{msg}</p>}
+      {msg && <p className={"mt-2 font-medium " + (msg.includes('성공') ? 'text-green-700' : 'text-red-600')}>{msg}</p>}
       {!health.proxy.ok && (
         <p className="mt-1 text-amber-700">
-          ⚠️ 프록시 미설정 — Vercel/Railway에 WEBSHARE_API_KEY 추가 필요
+          프록시 미설정 — Vercel/Railway에 WEBSHARE_API_KEY 추가 필요
           <a href="https://proxy.webshare.io" target="_blank" rel="noopener" className="ml-1 underline">Webshare 무료 가입 ↗</a>
         </p>
       )}
       {health.cookie.stale && (
-        <p className="mt-1 text-amber-700">⚠️ 쿠키 만료 ({health.cookie.age_hours}시간 경과) — "자동 로그인" 버튼으로 갱신하세요</p>
+        <p className="mt-1 text-amber-700">쿠키 만료 ({health.cookie.age_hours}시간 경과) — "자동 로그인" 버튼으로 갱신하세요</p>
       )}
       {!health.creds.ok && (
-        <p className="mt-1 text-amber-700">⚠️ 배민 계정 미연결 —
+        <p className="mt-1 text-amber-700">배민 계정 미연결 —
           <a href="/my/platforms/baemin/connect" className="ml-1 underline">계정 연결 ↗</a>
         </p>
       )}
