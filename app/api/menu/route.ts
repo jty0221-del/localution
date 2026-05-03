@@ -29,8 +29,9 @@ export async function GET() {
     .select('*')
     .eq('user_id', auth.userId)
     .eq('active', true)
-    .order('category')
-    .order('display_order')
+    .order('display_order', { ascending: true })
+    .order('created_at', { ascending: true, nullsFirst: false })
+    .order('id', { ascending: true })
 
   return NextResponse.json({ ok: true, items: items || [], store })
 }
