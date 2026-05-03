@@ -1,6 +1,21 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { requireUser } from '@/app/lib/userAuth'
+import { rateLimitByIp } from '@/app/lib/rateLimit'
 
 export async function GET(req: NextRequest) {
+  // 인증 + rate limit (외부 BLAI/scraping 호출 보호)
+  const auth = await requireUser()
+  if (!auth.ok) {
+    return NextResponse.json({ error: '로그인이 필요합니다' }, { status: auth.status })
+  }
+  const rl = rateLimitByIp(req, `blog-index:${auth.userId}`, 20, 60)
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: 'rate_limited', message: `${rl.resetIn}초 후 다시 시도해주세요.` },
+      { status: 429 }
+    )
+  }
+
   const { searchParams } = new URL(req.url)
   const url = searchParams.get('url') || ''
 
