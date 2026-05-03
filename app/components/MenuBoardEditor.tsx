@@ -467,9 +467,9 @@ export default function MenuBoardEditor() {
     : `/menu/${store.slug}`
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 max-w-4xl mx-auto">
       {/* 헤더 */}
-      <div className="flex items-center justify-between flex-wrap gap-3">
+      <div className="flex items-center justify-between flex-wrap gap-3 px-1">
         <div className="flex items-start gap-2">
           <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#059669] to-[#3182F6] flex items-center justify-center shadow-sm">
             <Globe size={16} className="text-white" strokeWidth={2.5} />
