@@ -114,7 +114,6 @@ const PERSONAS = [
   {
     key: 'cafe-owner',
     title: '음식점·카페 사장님',
-    emoji: '🍜',
     desc: '리뷰 답글 자동화 + QR 손님 유도 + 고객 DB',
     Icon: ChefHat,
     color: '#FF6B35',
@@ -123,7 +122,6 @@ const PERSONAS = [
   {
     key: 'small-biz',
     title: '소상공인',
-    emoji: '🏪',
     desc: '동네 검색 노출 + 리뷰 관리 + 월 성과 확인',
     Icon: Store,
     color: '#3182F6',
@@ -132,7 +130,6 @@ const PERSONAS = [
   {
     key: 'marketer',
     title: '마케터·마케팅 대행사',
-    emoji: '📊',
     desc: '키워드·블로그·SNS·카드뉴스 클라이언트 풀세트',
     Icon: Megaphone,
     color: '#8B5CF6',
@@ -141,7 +138,6 @@ const PERSONAS = [
   {
     key: 'blogger-freelancer',
     title: '블로거·프리랜서',
-    emoji: '✍️',
     desc: '내 글 순위 추적 + AI 콘텐츠 생성 + SNS 자동화',
     Icon: PenLine,
     color: '#059669',
