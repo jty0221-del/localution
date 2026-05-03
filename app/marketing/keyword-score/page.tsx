@@ -5,6 +5,7 @@ import { useState, useEffect, useMemo } from 'react'
 import Sidebar from '../../components/Sidebar'
 import PageHeader from '../../components/PageHeader'
 import Footer from '../../components/Footer'
+import { Target } from 'lucide-react'
 
 // ── 업체 컨텍스트 ─────────────────────────────────────
 interface BizContext {
@@ -282,7 +283,7 @@ export default function KeywordScorePage() {
       <Sidebar />
       <main className="flex-1 ml-0 md:ml-[220px] pt-16 md:pt-0 min-w-0">
         <PageHeader
-          icon="🎯"
+          icon={<Target size={28} className="text-white" strokeWidth={2.5} />}
           title="키워드 스코어"
           subtitle="조회수·경쟁도·전환가치를 한 번에 — 진짜 돈 되는 키워드만"
           variant="orange"
