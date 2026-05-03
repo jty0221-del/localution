@@ -149,11 +149,12 @@ const PERSONAS = [
 ] as const
 
 // ── 무료 제공 기능 ─────────────────────────────────────────
+import { MessageSquare as MsgIcon, Gift as GiftIcon, BarChart3, Link2 as LinkIcon } from 'lucide-react'
 const FREE_FEATURES = [
-  { emoji: '💬', label: '사장님 커뮤니티', desc: '지역·업종별 사장님들과 정보 공유 · 공동구매' },
-  { emoji: '🎁', label: '파트너 포인트', desc: '지인 추천 시 포인트 적립 · 구독료 할인 전환' },
-  { emoji: '📊', label: '기본 대시보드', desc: '리뷰 현황·방문 추이 · 실시간 알림 기본 제공' },
-  { emoji: '🔗', label: '매장 프로필 관리', desc: '매장 정보·플랫폼 연동 설정 · 무제한 무료' },
+  { Icon: MsgIcon,   color: '#3182F6', label: '사장님 커뮤니티', desc: '지역·업종별 사장님들과 정보 공유 · 공동구매' },
+  { Icon: GiftIcon,  color: '#F59E0B', label: '파트너 포인트', desc: '지인 추천 시 포인트 적립 · 구독료 할인 전환' },
+  { Icon: BarChart3, color: '#7C3AED', label: '기본 대시보드', desc: '리뷰 현황·방문 추이 · 실시간 알림 기본 제공' },
+  { Icon: LinkIcon,  color: '#059669', label: '매장 프로필 관리', desc: '매장 정보·플랫폼 연동 설정 · 무제한 무료' },
 ]
 
 // ── FAQ ────────────────────────────────────────────────────
@@ -412,7 +413,9 @@ export default function PricingPage() {
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
                 {FREE_FEATURES.map(f => (
                   <div key={f.label} className="flex items-start gap-2.5 p-3 rounded-xl bg-[#F8F9FA]">
-                    <span className="text-lg leading-none mt-0.5">{f.emoji}</span>
+                    <div className="w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: f.color + '15' }}>
+                      <f.Icon size={14} style={{ color: f.color }} strokeWidth={2.5} />
+                    </div>
                     <div>
                       <p className="text-xs font-black text-[#191F28] mb-0.5">{f.label}</p>
                       <p className="text-[11px] text-[#8B95A1] leading-relaxed break-keep">{f.desc}</p>
@@ -459,7 +462,7 @@ export default function PricingPage() {
                   )}
                   {discountRate > 0 && (
                     <div className="mb-3 inline-flex items-center gap-1.5 bg-[#EFF6FF] text-[#3182F6] text-[10px] font-black px-2.5 py-1 rounded-full">
-                      🎉 번들 {Math.round(discountRate * 100)}% 할인 적용 중
+                      번들 {Math.round(discountRate * 100)}% 할인 적용 중
                     </div>
                   )}
 
@@ -517,15 +520,15 @@ export default function PricingPage() {
               </div>
               <div className="space-y-2 text-[11px] text-[#065F46]">
                 <div className="flex items-center gap-1.5">
-                  <span>🍜</span>
+                  <Store size={11} strokeWidth={2.5} />
                   <span>사장님 기본 4종 <b className="text-[#10B981]">베타 무료</b></span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span>📊</span>
+                  <Megaphone size={11} strokeWidth={2.5} />
                   <span>마케터 6종 풀세트 <b className="text-[#10B981]">베타 무료</b></span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <span>✍️</span>
+                  <PenLine size={11} strokeWidth={2.5} />
                   <span>블로거·프리랜서 5종 <b className="text-[#10B981]">베타 무료</b></span>
                 </div>
               </div>
