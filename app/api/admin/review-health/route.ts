@@ -234,10 +234,12 @@ export async function GET() {
   }
 
   // ── 5. GraphQL 실시간 테스트 ──────────────────────────────
-  // 테스트용 place_id: 연결된 유저 중 첫 번째 가져오기, 없으면 공개 장소 ID
-  const testPlaceId = connectedUsers.find(u => u.platform_store_id)?.platform_store_id
-    ?? '1161293731' // 스타벅스 강남점 (공개 장소)
-  const graphqlTest = await testGraphQL(testPlaceId)
+  // 테스트용 place_id: 환경변수 우선, 없으면 연결된 유저 첫 번째
+  // (하드코딩 제거 — 특정 매장 의존성 차단)
+  const testPlaceId = process.env.HEALTH_TEST_PLACE_ID
+    ?? connectedUsers.find(u => u.platform_store_id)?.platform_store_id
+    ?? null
+  const graphqlTest = testPlaceId ? await testGraphQL(testPlaceId) : { ok: false, error_code: 'no_test_place_id', message: '테스트용 placeId 없음 — HEALTH_TEST_PLACE_ID 환경변수 또는 연결된 사용자 필요' }
 
   // ── 6. 미답변 리뷰 상위 5건 ──────────────────────────────
   const { data: unrepliedSample } = await svc
