@@ -131,6 +131,7 @@ export default function BlogPostGeneratorPage() {
     try {
       const res = await fetch('/api/naver-blog-post', {
         method: 'POST',
+        credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           industry: industry.trim(),
