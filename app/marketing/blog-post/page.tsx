@@ -1,99 +1,137 @@
 'use client'
 export const dynamic = 'force-dynamic'
 
+// ============================================================
+// /marketing/blog-post — 네이버 블로그 포스팅 자동 생성 (2026 AI 검색 최적화)
+//   · 글 트랙 3종 (순위용/신뢰용/관심사형)
+//   · 페르소나: 이름·나이·성별·말투 (굵직한 타입)
+//   · 프리셋: 누르면 업종만 채워줌 (키워드는 작성자 직접 입력)
+//   · 리뷰 연동 키워드, CTA 4단계, 25자 제목, 사진 분산
+// ============================================================
+
 import { useState, useEffect, useRef } from 'react'
 import Sidebar from '../../components/Sidebar'
 import PageHeader from '../../components/PageHeader'
 import {
   Sparkles, Copy, Check, Image as ImageIcon, X, Plus,
-  User, Phone, Tag, FileText, MessageCircle, Link as LinkIcon,
-  Loader2, AlertCircle, ArrowRight, RefreshCw, Download, PenLine,
+  User, Tag, FileText, MessageCircle, Link as LinkIcon,
+  Loader2, AlertCircle, RefreshCw, PenLine, Target,
+  TrendingUp, Heart, Award,
 } from 'lucide-react'
 import Footer from '../../components/Footer'
 
-type Persona = { name: string; phone: string }
-type CTA = { phone: string; kakao: string; reservation: string }
+const LS_KEY = 'localution.naver_blog_post_inputs_v2'
 
-// localStorage 키
-const LS_KEY = 'localution.naver_blog_post_inputs'
+// ── 글 유형 3트랙 ──
+type Track = 'A' | 'B' | 'C'
+const TRACKS: { id: Track; label: string; desc: string; lengthHint: string; icon: any; color: string }[] = [
+  { id: 'A', label: '순위용', desc: '플레이스 연동·키워드 상위 노출 (정보형/리스트형)', lengthHint: '800~1,500자', icon: TrendingUp, color: '#3182F6' },
+  { id: 'B', label: '신뢰용', desc: '문의·예약·방문 유도 (사례형/스토리형)',           lengthHint: '1,500~2,500자', icon: Award,      color: '#7C3AED' },
+  { id: 'C', label: '관심사형', desc: '특정 타겟 공감·재방문·팬 확보 (공감형/생활형)',   lengthHint: '1,000~2,000자', icon: Heart,      color: '#EC4899' },
+]
 
-// 프리셋: 업종별 템플릿 예시
+// ── 말투 타입 (굵직하게 분리, 완전 다른 톤) ──
+type Tone = 'professional' | 'friendly' | 'expert' | 'storyteller' | 'witty'
+const TONES: { id: Tone; label: string; desc: string }[] = [
+  { id: 'professional', label: '프로페셔널',  desc: '격식 있는 합쇼체 · 신뢰감 · 전문 분야 (병원·법무·세무)' },
+  { id: 'friendly',     label: '친근 동네',    desc: '편한 해요체 · 동네 친구 같은 · 공감 (카페·미용실·식당)' },
+  { id: 'expert',       label: '권위 전문가',  desc: '데이터·근거 중심 · 솔직 진단형 · 신뢰 (피부과·교육)' },
+  { id: 'storyteller',  label: '스토리텔러',   desc: '경험·사례 풀어쓰기 · 진정성 · 감동 (여행·예술·핸드메이드)' },
+  { id: 'witty',        label: '위트 + 트렌드', desc: '가볍고 트렌디 · MZ 친화 · 재미 (디저트·패션·뷰티)' },
+]
+
+// ── 성별 ──
+type Gender = 'any' | 'male' | 'female'
+const GENDERS: { id: Gender; label: string }[] = [
+  { id: 'any',    label: '무관' },
+  { id: 'male',   label: '남성' },
+  { id: 'female', label: '여성' },
+]
+
+// ── 프리셋: 업종만 채움 (키워드는 작성자가 직접) ──
 const INDUSTRY_PRESETS = [
-  { id: 'cafe',      label: '카페',       keywords: ['감성 카페', '브런치 카페', '디저트 맛집'] },
-  { id: 'food',      label: '음식점',     keywords: ['점심 맛집', '회식 장소', '데이트 코스'] },
-  { id: 'dental',    label: '치과',       keywords: ['임플란트', '교정 상담', '치아 미백'] },
-  { id: 'nail',      label: '네일샵',     keywords: ['젤네일', '페디큐어', '네일아트'] },
-  { id: 'hair',      label: '미용실',     keywords: ['펌 추천', '남자컷', '염색 가격'] },
-  { id: 'fitness',   label: '헬스장/PT',  keywords: ['헬스장 등록', 'PT 가격', '다이어트'] },
-  { id: 'pet',       label: '동물병원',   keywords: ['강아지 건강검진', '예방접종', '중성화 수술'] },
-  { id: 'academy',   label: '학원',       keywords: ['입시학원', '영어 학원', '내신 관리'] },
-  { id: 'skin',      label: '피부과',     keywords: ['피부 관리', '여드름 치료', '레이저'] },
-  { id: 'realestate',label: '부동산',     keywords: ['아파트 매매', '전세', '월세 추천'] },
-  { id: 'pharmacy',  label: '약국',       keywords: ['약국 영업시간', '영양제 추천', '처방전 조제'] },
-  { id: 'study',     label: '스터디카페', keywords: ['24시 스터디카페', '1인실', '조용한 공부방'] },
-  { id: 'oriental',  label: '한의원',     keywords: ['추나요법', '침 치료', '다이어트 한약'] },
-  { id: 'insurance', label: '보험설계사', keywords: ['보험 추천', '실손보험', '무료 보험 상담'] },
-  { id: 'clothes',   label: '의류/쇼핑',  keywords: ['남자 옷', '여성 의류', '캐주얼 쇼핑'] },
+  { id: 'cafe',       label: '카페' },
+  { id: 'food',       label: '음식점' },
+  { id: 'dental',     label: '치과' },
+  { id: 'nail',       label: '네일샵' },
+  { id: 'hair',       label: '미용실' },
+  { id: 'fitness',    label: '헬스장/PT' },
+  { id: 'pet',        label: '동물병원' },
+  { id: 'academy',    label: '학원' },
+  { id: 'skin',       label: '피부과' },
+  { id: 'realestate', label: '부동산' },
+  { id: 'pharmacy',   label: '약국' },
+  { id: 'study',      label: '스터디카페' },
+  { id: 'oriental',   label: '한의원' },
+  { id: 'insurance',  label: '보험설계사' },
+  { id: 'clothes',    label: '의류/쇼핑' },
 ] as const
 
 export default function BlogPostGeneratorPage() {
-  // 입력 상태
   const [industry, setIndustry] = useState('')
+  const [track, setTrack] = useState<Track>('A')
   const [personaName, setPersonaName] = useState('')
-  const [personaPhone, setPersonaPhone] = useState('')
+  const [personaAge, setPersonaAge]   = useState('')
+  const [personaGender, setPersonaGender] = useState<Gender>('any')
+  const [personaTone, setPersonaTone] = useState<Tone>('friendly')
+  const [coreTarget, setCoreTarget] = useState('')
   const [keywordInput, setKeywordInput] = useState('')
   const [keywords, setKeywords] = useState<string[]>([])
+  const [reviewKwInput, setReviewKwInput] = useState('')
+  const [reviewKeywords, setReviewKeywords] = useState<string[]>([])
   const [draft, setDraft] = useState('')
   const [ctaPhone, setCtaPhone] = useState('')
   const [ctaKakao, setCtaKakao] = useState('')
   const [ctaReservation, setCtaReservation] = useState('')
-  const [length, setLength] = useState<1500 | 2000 | 2500 | 3000>(2500)
+  const [length, setLength] = useState<1500 | 2000 | 2500 | 3000>(2000)
   const [photoNames, setPhotoNames] = useState<string[]>([])
+  const fileRef = useRef<HTMLInputElement | null>(null)
 
-  // 결과 상태
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [post, setPost] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
-
-  const fileRef = useRef<HTMLInputElement | null>(null)
   const outputRef = useRef<HTMLDivElement | null>(null)
 
-  // localStorage에서 매장 정보 + 이전 입력 불러오기
   useEffect(() => {
     try {
       const raw = window.localStorage.getItem('localution.store_info')
       if (raw) {
         const info = JSON.parse(raw)
         if (info?.category && !industry) setIndustry(info.category)
-        // 매장명은 업종 입력란에 활용
       }
     } catch (_) {}
     try {
       const saved = window.localStorage.getItem(LS_KEY)
       if (saved) {
         const s = JSON.parse(saved)
-        if (s.industry && !industry) setIndustry(s.industry)
-        if (s.personaName) setPersonaName(s.personaName)
-        if (s.personaPhone) setPersonaPhone(s.personaPhone)
-        if (Array.isArray(s.keywords) && s.keywords.length) setKeywords(s.keywords)
-        if (s.ctaPhone) setCtaPhone(s.ctaPhone)
-        if (s.ctaKakao) setCtaKakao(s.ctaKakao)
-        if (s.ctaReservation) setCtaReservation(s.ctaReservation)
+        if (s.industry && !industry)   setIndustry(s.industry)
+        if (s.track)                    setTrack(s.track)
+        if (s.personaName)              setPersonaName(s.personaName)
+        if (s.personaAge)               setPersonaAge(s.personaAge)
+        if (s.personaGender)            setPersonaGender(s.personaGender)
+        if (s.personaTone)              setPersonaTone(s.personaTone)
+        if (s.coreTarget)               setCoreTarget(s.coreTarget)
+        if (Array.isArray(s.keywords))  setKeywords(s.keywords)
+        if (Array.isArray(s.reviewKeywords)) setReviewKeywords(s.reviewKeywords)
+        if (s.ctaPhone)                 setCtaPhone(s.ctaPhone)
+        if (s.ctaKakao)                 setCtaKakao(s.ctaKakao)
+        if (s.ctaReservation)           setCtaReservation(s.ctaReservation)
+        if (s.length)                   setLength(s.length)
       }
     } catch (_) {}
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  // 입력 변경시 localStorage 저장
   useEffect(() => {
     try {
       window.localStorage.setItem(LS_KEY, JSON.stringify({
-        industry, personaName, personaPhone,
-        keywords, ctaPhone, ctaKakao, ctaReservation,
+        industry, track, personaName, personaAge, personaGender, personaTone,
+        coreTarget, keywords, reviewKeywords,
+        ctaPhone, ctaKakao, ctaReservation, length,
       }))
     } catch (_) {}
-  }, [industry, personaName, personaPhone, keywords, ctaPhone, ctaKakao, ctaReservation])
+  }, [industry, track, personaName, personaAge, personaGender, personaTone, coreTarget, keywords, reviewKeywords, ctaPhone, ctaKakao, ctaReservation, length])
 
   const addKeyword = (k?: string) => {
     const target = (k ?? keywordInput).trim()
@@ -104,10 +142,17 @@ export default function BlogPostGeneratorPage() {
   }
   const removeKeyword = (k: string) => setKeywords(prev => prev.filter(x => x !== k))
 
-  const applyPreset = (p: typeof INDUSTRY_PRESETS[number]) => {
-    setIndustry(p.label)
-    const merged = Array.from(new Set([...keywords, ...p.keywords]))
-    setKeywords(merged.slice(0, 5))
+  const addReviewKw = (k?: string) => {
+    const target = (k ?? reviewKwInput).trim()
+    if (!target) return
+    if (reviewKeywords.includes(target)) { setReviewKwInput(''); return }
+    setReviewKeywords(prev => [...prev, target])
+    setReviewKwInput('')
+  }
+  const removeReviewKw = (k: string) => setReviewKeywords(prev => prev.filter(x => x !== k))
+
+  const applyPreset = (label: string) => {
+    setIndustry(label)
   }
 
   const handleFilesPicked = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -121,7 +166,7 @@ export default function BlogPostGeneratorPage() {
 
   const handleGenerate = async () => {
     if (!industry.trim() && !keywords.length) {
-      setError('업종 또는 타겟 키워드 중 하나는 필수입니다')
+      setError('업종 또는 검색 의도 키워드 중 하나는 필수입니다')
       return
     }
     setError(null)
@@ -135,10 +180,22 @@ export default function BlogPostGeneratorPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           industry: industry.trim(),
-          persona: { name: personaName.trim(), phone: personaPhone.trim() },
+          track,
+          persona: {
+            name:   personaName.trim(),
+            age:    personaAge.trim(),
+            gender: personaGender,
+            tone:   personaTone,
+          },
+          coreTarget: coreTarget.trim(),
           keywords: keywords.filter(Boolean),
+          reviewKeywords: reviewKeywords.filter(Boolean),
           draft: draft.trim(),
-          cta: { phone: ctaPhone.trim(), kakao: ctaKakao.trim(), reservation: ctaReservation.trim() },
+          cta: {
+            phone:        ctaPhone.trim(),
+            kakao:        ctaKakao.trim(),
+            reservation:  ctaReservation.trim(),
+          },
           length,
           photoNames,
         }),
@@ -161,373 +218,346 @@ export default function BlogPostGeneratorPage() {
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     } catch (_) {
-      // fallback
       const ta = document.createElement('textarea')
       ta.value = post
       document.body.appendChild(ta)
       ta.select()
-      try { document.execCommand('copy') } catch (_) {}
+      document.execCommand('copy')
       document.body.removeChild(ta)
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
     }
   }
 
-  const handleDownload = () => {
-    if (!post) return
-    const blob = new Blob([post], { type: 'text/markdown;charset=utf-8' })
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    const datePart = new Date().toISOString().slice(0, 10)
-    const kwPart = (keywords[0] || industry || 'post').replace(/[^\w가-힣]/g, '_').slice(0, 20)
-    a.download = `naver_blog_${kwPart}_${datePart}.md`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
-    URL.revokeObjectURL(url)
-  }
-
-  const charCount = post ? post.replace(/\s/g, '').length : 0
-
   return (
-    <div className="min-h-screen bg-[#F8F9FB] flex">
+    <div className="flex min-h-screen bg-[#F2F4F6]">
       <Sidebar />
-      <main className="flex-1 ml-0 md:ml-[220px] pt-16 md:pt-0 min-w-0">
+      <main className="flex-1 ml-0 md:ml-[220px] flex flex-col min-h-screen pt-16 md:pt-0">
         <PageHeader
           icon={<PenLine size={28} className="text-white" strokeWidth={2.5} />}
-          title="블로그 글 작성"
-          subtitle="네이버 SEO 최적화 3,000자 원고 — 키워드·사진만 주면 완성본"
-          variant="emerald"
+          title="네이버 블로그 글 작성"
+          subtitle="2026 AI 검색 최적화 · SEO+AEO 혼합 · 상위 노출과 전환율 동시 설계"
+          variant="green"
         />
-        <div className="max-w-5xl mx-auto pt-6 pb-20 px-4 md:px-8">
-          {/* 헤더 */}
-          <div className="mb-6">
-            <div className="flex items-center gap-2 text-xs text-[#8B95A1] mb-2">
-              <span>마케팅 관리</span>
-              <ArrowRight size={12} />
-              <span className="text-[#3182F6] font-medium">블로그 포스팅 생성</span>
-            </div>
-            <div className="flex items-start justify-between gap-4 flex-wrap">
+
+        <div className="flex-1 p-4 md:p-6 max-w-4xl mx-auto w-full space-y-4">
+
+          {/* 1. 글 트랙 */}
+          <section className="bg-white rounded-2xl shadow-sm border border-[#E5E8EB] p-4 md:p-5">
+            <div className="flex items-start gap-2 mb-3">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#3182F6] to-[#7C3AED] flex items-center justify-center shadow-sm">
+                <Target size={15} className="text-white" strokeWidth={2.5} />
+              </div>
               <div>
-                <h1 className="text-2xl md:text-3xl font-bold text-[#191F28] flex items-center gap-2">
-                  <span className="inline-flex items-center justify-center w-9 h-9 rounded-xl bg-gradient-to-br from-[#03C75A] to-[#00A645] text-white">
-                    <FileText size={18} />
-                  </span>
-                  네이버 블로그 포스팅 생성
-                </h1>
-                <p className="text-sm text-[#4E5968] mt-1.5">
-                  업종·키워드·페르소나를 입력하면 <b>네이버 SEO 최적화 포스팅</b>이 마크다운으로 자동 생성됩니다
-                </p>
-              </div>
-              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#ECFDF5] border border-[#D1FAE5]">
-                <Sparkles size={14} className="text-[#059669]" />
-                <span className="text-xs font-semibold text-[#059669]">AI 생성 · 로컬루션 프리셋</span>
+                <p className="text-sm font-black text-[#191F28]">1. 글 유형 (목적)</p>
+                <p className="text-[11px] text-[#8B95A1]">목적에 따라 글 구조가 완전히 달라집니다</p>
               </div>
             </div>
-          </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
+              {TRACKS.map(t => {
+                const Icon = t.icon
+                const active = track === t.id
+                return (
+                  <button key={t.id} onClick={() => setTrack(t.id)}
+                    className={`text-left p-3 rounded-xl border-2 transition-all ${active ? 'border-[#3182F6] bg-[#EFF6FF] shadow-sm' : 'border-[#E5E8EB] bg-white hover:border-[#BFDBFE]'}`}>
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: t.color + '15', color: t.color }}>
+                        <Icon size={14} strokeWidth={2.5} />
+                      </div>
+                      <span className="text-sm font-black text-[#191F28]">{t.id}. {t.label}</span>
+                    </div>
+                    <p className="text-[11px] text-[#4E5968] leading-tight">{t.desc}</p>
+                    <p className="text-[10px] mt-1.5 font-bold" style={{ color: t.color }}>권장 {t.lengthHint}</p>
+                  </button>
+                )
+              })}
+            </div>
+          </section>
 
-          {/* 입력 영역 */}
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {/* 업종 + 프리셋 */}
-            <section className="bg-white rounded-2xl border border-[#E5E8EB] p-5">
-              <div className="flex items-center gap-2 mb-3">
-                <Tag size={16} className="text-[#3182F6]" />
-                <h3 className="font-bold text-[#191F28]">업종 / 주제</h3>
+          {/* 2. 업종/주제 */}
+          <section className="bg-white rounded-2xl shadow-sm border border-[#E5E8EB] p-4 md:p-5">
+            <div className="flex items-start gap-2 mb-3">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#059669] to-[#16A34A] flex items-center justify-center shadow-sm">
+                <Tag size={15} className="text-white" strokeWidth={2.5} />
               </div>
-              <input
-                value={industry}
-                onChange={e => setIndustry(e.target.value)}
-                placeholder="예: 강남 카페, 홍대 맛집, 분당 네일샵"
-                className="w-full h-11 px-3 rounded-lg border border-[#E5E8EB] bg-[#F8F9FB] focus:bg-white focus:border-[#3182F6] outline-none text-sm"
-              />
-              <div className="mt-3">
-                <p className="text-xs text-[#8B95A1] mb-2">빠른 프리셋</p>
-                <div className="flex flex-wrap gap-1.5">
-                  {INDUSTRY_PRESETS.map(p => (
-                    <button
-                      key={p.id}
-                      onClick={() => applyPreset(p)}
-                      className="px-2.5 py-1 text-xs rounded-full bg-[#F2F4F6] hover:bg-[#E5E8EB] text-[#4E5968] border border-[#E5E8EB]"
-                    >
-                      {p.label}
-                    </button>
-                  ))}
-                </div>
+              <div>
+                <p className="text-sm font-black text-[#191F28]">2. 업종 / 주제</p>
+                <p className="text-[11px] text-[#8B95A1]">프리셋 클릭 = 업종만 빠르게 채워짐 (키워드는 직접 입력)</p>
               </div>
-            </section>
-
-            {/* 페르소나 */}
-            <section className="bg-white rounded-2xl border border-[#E5E8EB] p-5">
-              <div className="flex items-center gap-2 mb-1">
-                <User size={16} className="text-[#8B5CF6]" />
-                <h3 className="font-bold text-[#191F28]">페르소나 (작성자)</h3>
-              </div>
-              <p className="text-xs text-[#8B95A1] mb-3">블로그 글의 1인칭 화자 정보 — 담당자 이름·연락처를 넣으면 신뢰감이 높아져요</p>
-              <input
-                value={personaName}
-                onChange={e => setPersonaName(e.target.value)}
-                placeholder="이름 (예: 홍길동)"
-                className="w-full h-10 px-3 rounded-lg border border-[#E5E8EB] bg-[#F8F9FB] focus:bg-white focus:border-[#3182F6] outline-none text-sm mb-2"
-              />
-              <input
-                value={personaPhone}
-                onChange={e => setPersonaPhone(e.target.value)}
-                placeholder="연락처 (예: 010-XXXX-XXXX)"
-                className="w-full h-10 px-3 rounded-lg border border-[#E5E8EB] bg-[#F8F9FB] focus:bg-white focus:border-[#3182F6] outline-none text-sm"
-              />
-            </section>
-
-            {/* 타겟 키워드 */}
-            <section className="bg-white rounded-2xl border border-[#E5E8EB] p-5 lg:col-span-2">
-              <div className="flex items-center gap-2 mb-3">
-                <Sparkles size={16} className="text-[#F59E0B]" />
-                <h3 className="font-bold text-[#191F28]">타겟 키워드</h3>
-                <span className="text-xs text-[#8B95A1] ml-1">(첫 번째가 메인 키워드)</span>
-              </div>
-              <div className="flex gap-2">
-                <input
-                  value={keywordInput}
-                  onChange={e => setKeywordInput(e.target.value)}
-                  onKeyDown={e => {
-                    if (e.key === 'Enter') { e.preventDefault(); addKeyword() }
-                  }}
-                  placeholder="키워드 입력 후 엔터 (예: 강남 브런치 카페, 임플란트 가격)"
-                  className="flex-1 h-11 px-3 rounded-lg border border-[#E5E8EB] bg-[#F8F9FB] focus:bg-white focus:border-[#3182F6] outline-none text-sm"
-                />
-                <button
-                  onClick={() => addKeyword()}
-                  className="h-11 px-4 rounded-lg bg-[#191F28] text-white text-sm font-semibold hover:bg-[#0B0E13] inline-flex items-center gap-1"
-                >
-                  <Plus size={14} /> 추가
+            </div>
+            <input value={industry} onChange={e => setIndustry(e.target.value)}
+              placeholder="예: 강남 피부과, 홍대 브런치 카페, 부산 필라테스 센터"
+              className="w-full border border-[#E5E8EB] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#3182F6] mb-2.5" />
+            <div className="flex flex-wrap gap-1.5">
+              {INDUSTRY_PRESETS.map(p => (
+                <button key={p.id} onClick={() => applyPreset(p.label)}
+                  className={`px-2.5 py-1 rounded-full text-[11px] font-bold border transition-colors ${industry === p.label ? 'bg-[#059669] text-white border-[#059669]' : 'bg-white text-[#4E5968] border-[#E5E8EB] hover:border-[#059669] hover:text-[#059669]'}`}>
+                  {p.label}
                 </button>
-              </div>
-              {keywords.length > 0 && (
-                <div className="mt-3 flex flex-wrap gap-2">
-                  {keywords.map((k, i) => (
-                    <span
-                      key={k}
-                      className={`inline-flex items-center gap-1.5 pl-3 pr-1.5 py-1.5 rounded-full text-xs font-semibold ${i === 0 ? 'bg-[#EFF6FF] text-[#3182F6] border border-[#BFDBFE]' : 'bg-[#F2F4F6] text-[#4E5968] border border-[#E5E8EB]'}`}
-                    >
-                      {i === 0 && <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#3182F6] text-white">메인</span>}
-                      {k}
-                      <button onClick={() => removeKeyword(k)} className="w-5 h-5 rounded-full hover:bg-white flex items-center justify-center">
-                        <X size={12} />
-                      </button>
-                    </span>
-                  ))}
-                </div>
-              )}
-            </section>
+              ))}
+            </div>
+          </section>
 
-            {/* 초안/메모 */}
-            <section className="bg-white rounded-2xl border border-[#E5E8EB] p-5 lg:col-span-2">
-              <div className="flex items-center gap-2 mb-3">
-                <FileText size={16} className="text-[#059669]" />
-                <h3 className="font-bold text-[#191F28]">초안 / 메모</h3>
-                <span className="text-xs text-[#8B95A1] ml-1">(선택 - 강조 포인트, 업체 USP, 후기 등)</span>
+          {/* 3. 페르소나 */}
+          <section className="bg-white rounded-2xl shadow-sm border border-[#E5E8EB] p-4 md:p-5">
+            <div className="flex items-start gap-2 mb-3">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#7C3AED] to-[#EC4899] flex items-center justify-center shadow-sm">
+                <User size={15} className="text-white" strokeWidth={2.5} />
               </div>
-              <textarea
-                value={draft}
-                onChange={e => setDraft(e.target.value)}
-                placeholder={`예) 우리 가게만의 강점, 특별한 서비스, 고객 후기 등을 자유롭게 적어주세요\n- 주차 무료 / 당일 예약 가능 / 10년 경력\n- 고객 후기: "또 오고 싶어요" (김OO 고객)\n※ 없어도 생성 가능합니다`}
-                rows={5}
-                className="w-full px-3 py-2.5 rounded-lg border border-[#E5E8EB] bg-[#F8F9FB] focus:bg-white focus:border-[#3182F6] outline-none text-sm resize-none"
-              />
-            </section>
+              <div>
+                <p className="text-sm font-black text-[#191F28]">3. 페르소나 — 글 발행 주체</p>
+                <p className="text-[11px] text-[#8B95A1]">담당자 정보로 글의 톤·관점 결정</p>
+              </div>
+            </div>
 
-            {/* CTA */}
-            <section className="bg-white rounded-2xl border border-[#E5E8EB] p-5 lg:col-span-2">
-              <div className="flex items-center gap-2 mb-3">
-                <MessageCircle size={16} className="text-[#EA580C]" />
-                <h3 className="font-bold text-[#191F28]">CTA (행동 유도) 정보</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-3">
+              <div>
+                <label className="text-[11px] font-bold text-[#4E5968] mb-1 block">이름 또는 닉네임</label>
+                <input value={personaName} onChange={e => setPersonaName(e.target.value)}
+                  placeholder="예: 박원장, 김실장, 강선생, 카페지기"
+                  className="w-full border border-[#E5E8EB] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#3182F6]" />
               </div>
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
-                <div className="relative">
-                  <Phone size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8B95A1]" />
-                  <input
-                    value={ctaPhone}
-                    onChange={e => setCtaPhone(e.target.value)}
-                    placeholder="전화번호"
-                    className="w-full h-10 pl-8 pr-3 rounded-lg border border-[#E5E8EB] bg-[#F8F9FB] focus:bg-white focus:border-[#3182F6] outline-none text-sm"
-                  />
-                </div>
-                <div className="relative">
-                  <MessageCircle size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8B95A1]" />
-                  <input
-                    value={ctaKakao}
-                    onChange={e => setCtaKakao(e.target.value)}
-                    placeholder="카카오톡 채널 (@채널명)"
-                    className="w-full h-10 pl-8 pr-3 rounded-lg border border-[#E5E8EB] bg-[#F8F9FB] focus:bg-white focus:border-[#3182F6] outline-none text-sm"
-                  />
-                </div>
-                <div className="relative">
-                  <LinkIcon size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8B95A1]" />
-                  <input
-                    value={ctaReservation}
-                    onChange={e => setCtaReservation(e.target.value)}
-                    placeholder="예약/상담 링크"
-                    className="w-full h-10 pl-8 pr-3 rounded-lg border border-[#E5E8EB] bg-[#F8F9FB] focus:bg-white focus:border-[#3182F6] outline-none text-sm"
-                  />
-                </div>
+              <div>
+                <label className="text-[11px] font-bold text-[#4E5968] mb-1 block">연령대</label>
+                <input value={personaAge} onChange={e => setPersonaAge(e.target.value)}
+                  placeholder="예: 30대 후반, 40대 초반, 20대 중반"
+                  className="w-full border border-[#E5E8EB] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#3182F6]" />
               </div>
-            </section>
+            </div>
 
-            {/* 사진 + 글자수 */}
-            <section className="bg-white rounded-2xl border border-[#E5E8EB] p-5 lg:col-span-2">
-              <div className="flex items-center justify-between mb-3 flex-wrap gap-3">
-                <div className="flex items-center gap-2">
-                  <ImageIcon size={16} className="text-[#3182F6]" />
-                  <h3 className="font-bold text-[#191F28]">사진 파일명</h3>
-                  <span className="text-xs text-[#8B95A1]">(본문에 자동 분산 배치)</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-[#4E5968]">글자 수 목표</span>
-                  <select
-                    value={length}
-                    onChange={e => setLength(Number(e.target.value) as typeof length)}
-                    className="h-8 px-2 rounded-lg border border-[#E5E8EB] bg-white text-xs font-semibold text-[#191F28]"
-                  >
-                    <option value={1500}>1,500자</option>
-                    <option value={2000}>2,000자</option>
-                    <option value={2500}>2,500자 (권장)</option>
-                    <option value={3000}>3,000자</option>
-                  </select>
-                </div>
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                <button
-                  onClick={() => fileRef.current?.click()}
-                  className="inline-flex items-center gap-1.5 h-9 px-3 rounded-lg border border-dashed border-[#3182F6] text-[#3182F6] text-xs font-semibold bg-[#F0F7FF] hover:bg-[#E5F0FF]"
-                >
-                  <Plus size={14} /> 사진 추가 (파일명만)
-                </button>
-                <input
-                  ref={fileRef}
-                  type="file"
-                  multiple
-                  accept="image/*"
-                  onChange={handleFilesPicked}
-                  className="hidden"
-                />
-                {photoNames.map((n, i) => (
-                  <span key={n + i} className="inline-flex items-center gap-1.5 h-9 pl-3 pr-1.5 rounded-lg bg-[#F2F4F6] border border-[#E5E8EB] text-xs text-[#4E5968]">
-                    <ImageIcon size={12} />
-                    <span className="max-w-[180px] truncate">{n}</span>
-                    <button onClick={() => removePhoto(n)} className="w-5 h-5 rounded hover:bg-white flex items-center justify-center">
-                      <X size={12} />
-                    </button>
-                  </span>
+            <div className="mb-3">
+              <label className="text-[11px] font-bold text-[#4E5968] mb-1.5 block">성별</label>
+              <div className="flex gap-1.5">
+                {GENDERS.map(g => (
+                  <button key={g.id} onClick={() => setPersonaGender(g.id)}
+                    className={`flex-1 py-2 rounded-lg text-xs font-bold border ${personaGender === g.id ? 'border-[#3182F6] bg-[#EFF6FF] text-[#3182F6]' : 'border-[#E5E8EB] bg-white text-[#4E5968]'}`}>
+                    {g.label}
+                  </button>
                 ))}
               </div>
-              {photoNames.length === 0 && (
-                <p className="text-xs text-[#8B95A1] mt-2">
-                  * 실제 파일 업로드는 아직 연동되지 않음 — 파일명만 수집되어 본문에 분산 배치 지시로 사용됩니다
-                </p>
-              )}
-            </section>
-          </div>
+            </div>
+
+            <div>
+              <label className="text-[11px] font-bold text-[#4E5968] mb-1.5 block">말투 타입 — 글 전체 톤이 완전히 달라집니다</label>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
+                {TONES.map(t => {
+                  const active = personaTone === t.id
+                  return (
+                    <button key={t.id} onClick={() => setPersonaTone(t.id)}
+                      className={`text-left p-2.5 rounded-xl border-2 transition-all ${active ? 'border-[#7C3AED] bg-[#F5F3FF]' : 'border-[#E5E8EB] bg-white hover:border-[#BFDBFE]'}`}>
+                      <p className="text-xs font-black text-[#191F28] mb-0.5">{t.label}</p>
+                      <p className="text-[10px] text-[#8B95A1] leading-tight">{t.desc}</p>
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+          </section>
+
+          {/* 4. 핵심 타겟 */}
+          <section className="bg-white rounded-2xl shadow-sm border border-[#E5E8EB] p-4 md:p-5">
+            <div className="flex items-start gap-2 mb-3">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#F59E0B] to-[#DC2626] flex items-center justify-center shadow-sm">
+                <Target size={15} className="text-white" strokeWidth={2.5} />
+              </div>
+              <div>
+                <p className="text-sm font-black text-[#191F28]">4. 핵심 타겟 (뾰족하게)</p>
+                <p className="text-[11px] text-[#8B95A1]">[상태] + [고민/욕구] + [라이프스타일] 형태로</p>
+              </div>
+            </div>
+            <textarea value={coreTarget} onChange={e => setCoreTarget(e.target.value)}
+              rows={2}
+              placeholder={'예시:\n· 퇴근 후 어깨 통증으로 고민하는 직장인 여성\n· 개원 3년차인데 경쟁 병원에 밀리는 피부과 원장님\n· 전단지 효과가 없어진 골목 카페 사장님'}
+              className="w-full border border-[#E5E8EB] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#F59E0B] resize-none" />
+          </section>
+
+          {/* 5. 검색 의도 키워드 */}
+          <section className="bg-white rounded-2xl shadow-sm border border-[#E5E8EB] p-4 md:p-5">
+            <div className="flex items-start gap-2 mb-3">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#3182F6] to-[#1D4ED8] flex items-center justify-center shadow-sm">
+                <Tag size={15} className="text-white" strokeWidth={2.5} />
+              </div>
+              <div>
+                <p className="text-sm font-black text-[#191F28]">5. 검색 의도 키워드</p>
+                <p className="text-[11px] text-[#8B95A1]">고객이 실제 검색할 때 쓰는 말 (업계 용어 X, 고객 언어 O)</p>
+              </div>
+            </div>
+            <div className="flex gap-2 mb-2">
+              <input value={keywordInput} onChange={e => setKeywordInput(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addKeyword())}
+                placeholder="예: 강남 피부과 추천, 홍대 브런치 카페, 부산 필라테스 가격"
+                className="flex-1 border border-[#E5E8EB] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#3182F6]" />
+              <button onClick={() => addKeyword()} disabled={!keywordInput.trim()}
+                className="px-4 py-2 bg-[#3182F6] text-white rounded-xl text-sm font-bold disabled:opacity-40 hover:bg-[#1B64DA]">
+                <Plus size={14} strokeWidth={2.5} />
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {keywords.map(k => (
+                <span key={k} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#EFF6FF] text-[#3182F6] text-xs font-bold border border-[#BFDBFE]">
+                  {k}
+                  <button onClick={() => removeKeyword(k)} className="text-[#3182F6]/60 hover:text-[#DC2626]">
+                    <X size={11} strokeWidth={3} />
+                  </button>
+                </span>
+              ))}
+              {keywords.length === 0 && <p className="text-[11px] text-[#8B95A1]">최소 1개 이상 입력 (없으면 업종으로 자동 작성)</p>}
+            </div>
+          </section>
+
+          {/* 6. 리뷰 연동 키워드 */}
+          <section className="bg-white rounded-2xl shadow-sm border border-[#E5E8EB] p-4 md:p-5">
+            <div className="flex items-start gap-2 mb-3">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#EC4899] to-[#DB2777] flex items-center justify-center shadow-sm">
+                <MessageCircle size={15} className="text-white" strokeWidth={2.5} />
+              </div>
+              <div>
+                <p className="text-sm font-black text-[#191F28]">6. 플레이스 리뷰 연동 키워드 (선택)</p>
+                <p className="text-[11px] text-[#8B95A1]">본문에 자연스럽게 2회 이상 등장 → 손님 리뷰에도 같은 단어 유도 → 상위 노출 시너지</p>
+              </div>
+            </div>
+            <div className="flex gap-2 mb-2">
+              <input value={reviewKwInput} onChange={e => setReviewKwInput(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addReviewKw())}
+                placeholder="예: 꼼꼼한 상담, 친절한 안내, 깔끔한 시설"
+                className="flex-1 border border-[#E5E8EB] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#EC4899]" />
+              <button onClick={() => addReviewKw()} disabled={!reviewKwInput.trim()}
+                className="px-4 py-2 bg-[#EC4899] text-white rounded-xl text-sm font-bold disabled:opacity-40 hover:bg-[#DB2777]">
+                <Plus size={14} strokeWidth={2.5} />
+              </button>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {reviewKeywords.map(k => (
+                <span key={k} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#FDF2F8] text-[#EC4899] text-xs font-bold border border-[#FBCFE8]">
+                  {k}
+                  <button onClick={() => removeReviewKw(k)} className="text-[#EC4899]/60 hover:text-[#DC2626]">
+                    <X size={11} strokeWidth={3} />
+                  </button>
+                </span>
+              ))}
+            </div>
+          </section>
+
+          {/* 7. 초안·메모 */}
+          <section className="bg-white rounded-2xl shadow-sm border border-[#E5E8EB] p-4 md:p-5">
+            <div className="flex items-start gap-2 mb-3">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#0EA5E9] to-[#0369A1] flex items-center justify-center shadow-sm">
+                <FileText size={15} className="text-white" strokeWidth={2.5} />
+              </div>
+              <div>
+                <p className="text-sm font-black text-[#191F28]">7. 초안·메모·방향성 (선택)</p>
+                <p className="text-[11px] text-[#8B95A1]">강조 포인트, 사례, 차별점, 가격, 위치, 영업시간 등 자유롭게</p>
+              </div>
+            </div>
+            <textarea value={draft} onChange={e => setDraft(e.target.value)}
+              rows={5}
+              placeholder={'담을 내용 자유롭게 작성:\n· 강조하고 싶은 차별점 (예: 24시간 운영, 자체 제조법, 10년 경력)\n· 실제 사례 (예: 30일 만에 4kg 감량한 회원님)\n· 위치·영업시간·가격 등 정보\n· 절대 빠지면 안 되는 메시지'}
+              className="w-full border border-[#E5E8EB] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#0EA5E9] resize-none" />
+          </section>
+
+          {/* 8. CTA */}
+          <section className="bg-white rounded-2xl shadow-sm border border-[#E5E8EB] p-4 md:p-5">
+            <div className="flex items-start gap-2 mb-3">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#16A34A] to-[#15803D] flex items-center justify-center shadow-sm">
+                <LinkIcon size={15} className="text-white" strokeWidth={2.5} />
+              </div>
+              <div>
+                <p className="text-sm font-black text-[#191F28]">8. CTA (행동 유도)</p>
+                <p className="text-[11px] text-[#8B95A1]">하나만 입력해도 됨 · 부담 없는 첫 걸음 4단계 자동 설계</p>
+              </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-2">
+              <input value={ctaPhone} onChange={e => setCtaPhone(e.target.value)} placeholder="전화번호"
+                className="border border-[#E5E8EB] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#16A34A]" />
+              <input value={ctaKakao} onChange={e => setCtaKakao(e.target.value)} placeholder="카카오 채널"
+                className="border border-[#E5E8EB] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#16A34A]" />
+              <input value={ctaReservation} onChange={e => setCtaReservation(e.target.value)} placeholder="예약 링크"
+                className="border border-[#E5E8EB] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#16A34A]" />
+            </div>
+          </section>
+
+          {/* 9. 길이 + 사진 */}
+          <section className="bg-white rounded-2xl shadow-sm border border-[#E5E8EB] p-4 md:p-5">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div>
+                <p className="text-xs font-bold text-[#4E5968] mb-2">9. 글 길이</p>
+                <div className="grid grid-cols-4 gap-1.5">
+                  {([1500, 2000, 2500, 3000] as const).map(n => (
+                    <button key={n} onClick={() => setLength(n)}
+                      className={`py-2 rounded-lg text-xs font-bold border ${length === n ? 'border-[#3182F6] bg-[#EFF6FF] text-[#3182F6]' : 'border-[#E5E8EB] bg-white text-[#4E5968]'}`}>
+                      {n.toLocaleString()}자
+                    </button>
+                  ))}
+                </div>
+              </div>
+              <div>
+                <p className="text-xs font-bold text-[#4E5968] mb-2">10. 사진 파일명 (자동 분산 배치)</p>
+                <div className="flex gap-2">
+                  <input ref={fileRef} type="file" multiple accept="image/*" onChange={handleFilesPicked} className="hidden" id="photo-input" />
+                  <label htmlFor="photo-input" className="flex-1 cursor-pointer border border-dashed border-[#3182F6] rounded-xl px-3 py-2 text-xs font-bold text-[#3182F6] flex items-center justify-center gap-1.5 hover:bg-[#EFF6FF]">
+                    <ImageIcon size={13} strokeWidth={2.5} /> 사진 선택
+                  </label>
+                </div>
+                {photoNames.length > 0 && (
+                  <div className="mt-2 flex flex-wrap gap-1">
+                    {photoNames.map(n => (
+                      <span key={n} className="inline-flex items-center gap-1 px-2 py-0.5 rounded bg-[#F2F4F6] text-[10px] text-[#4E5968] font-mono">
+                        {n}
+                        <button onClick={() => removePhoto(n)} className="text-[#8B95A1] hover:text-[#DC2626]">
+                          <X size={9} strokeWidth={3} />
+                        </button>
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+            </div>
+          </section>
 
           {/* 생성 버튼 */}
-          <div className="mt-6 flex items-center justify-end gap-3 flex-wrap">
-            {error && (
-              <div className="flex items-center gap-1.5 text-xs text-[#F04452] bg-[#FEF2F3] px-3 py-2 rounded-lg border border-[#FECDD3]">
-                <AlertCircle size={14} />
-                {error}
-              </div>
-            )}
-            <button
-              onClick={handleGenerate}
-              disabled={loading}
-              className="inline-flex items-center gap-2 h-12 px-6 rounded-xl bg-gradient-to-r from-[#3182F6] to-[#1B64DA] text-white text-sm font-bold shadow-[0_6px_20px_-6px_#3182F6] hover:shadow-[0_10px_28px_-6px_#3182F6] transition-all disabled:opacity-60"
-            >
-              {loading ? (
-                <>
-                  <Loader2 size={16} className="animate-spin" />
-                  생성 중… (15~30초 소요)
-                </>
-              ) : (
-                <>
-                  <Sparkles size={16} />
-                  블로그 포스팅 생성하기
-                </>
-              )}
-            </button>
-          </div>
+          <button onClick={handleGenerate} disabled={loading}
+            className="w-full py-4 rounded-2xl bg-gradient-to-r from-[#3182F6] to-[#7C3AED] text-white font-black text-base flex items-center justify-center gap-2 disabled:opacity-50 hover:shadow-lg transition-shadow">
+            {loading ? (<><Loader2 size={18} className="animate-spin" strokeWidth={2.5} /> AI 작성 중... (10~40초)</>) : (<><Sparkles size={18} strokeWidth={2.5} /> 블로그 글 생성하기</>)}
+          </button>
 
-          {/* 결과 출력 */}
-          {post && (
-            <div ref={outputRef} className="mt-8 bg-white rounded-2xl border border-[#E5E8EB] overflow-hidden">
-              <div className="flex items-center justify-between px-5 py-3 border-b border-[#E5E8EB] bg-[#F8F9FB] flex-wrap gap-2">
-                <div className="flex items-center gap-2">
-                  <div className="w-7 h-7 rounded-lg bg-[#03C75A] flex items-center justify-center text-white">
-                    <FileText size={14} />
-                  </div>
-                  <div>
-                    <div className="text-sm font-bold text-[#191F28]">생성된 포스팅</div>
-                    <div className="text-xs text-[#8B95A1]">공백 제외 {charCount.toLocaleString()}자 · 마크다운</div>
-                  </div>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={handleGenerate}
-                    className="inline-flex items-center gap-1 h-9 px-3 rounded-lg bg-white border border-[#E5E8EB] text-xs font-semibold text-[#4E5968] hover:bg-[#F2F4F6]"
-                  >
-                    <RefreshCw size={12} /> 재생성
-                  </button>
-                  <button
-                    onClick={handleDownload}
-                    className="inline-flex items-center gap-1 h-9 px-3 rounded-lg bg-white border border-[#E5E8EB] text-xs font-semibold text-[#4E5968] hover:bg-[#F2F4F6]"
-                  >
-                    <Download size={12} /> .md 다운로드
-                  </button>
-                  <button
-                    onClick={handleCopy}
-                    className={`inline-flex items-center gap-1 h-9 px-3 rounded-lg text-xs font-bold ${copied ? 'bg-[#059669] text-white' : 'bg-[#191F28] text-white hover:bg-[#0B0E13]'}`}
-                  >
-                    {copied ? <><Check size={12} /> 복사 완료</> : <><Copy size={12} /> 전체 복사</>}
-                  </button>
-                </div>
-              </div>
-              <pre className="px-5 py-5 text-sm text-[#191F28] whitespace-pre-wrap font-sans leading-relaxed">{post}</pre>
-              <div className="px-5 py-3 bg-[#F8F9FB] border-t border-[#E5E8EB] text-xs text-[#4E5968] flex items-start gap-2">
-                <AlertCircle size={14} className="text-[#F59E0B] mt-0.5 flex-shrink-0" />
-                <span>
-                  <b className="text-[#191F28]">사용법:</b> 전체 복사 → 네이버 블로그 에디터에서 붙여넣기 → <b>[사진 파일명 자리]</b>에 실제 사진을 드래그 업로드 → 볼드 처리가 해제된 곳은 에디터 내 단축키(Ctrl+B)로 재지정
-                </span>
-              </div>
+          {error && (
+            <div className="bg-[#FEF2F2] border border-[#FCA5A5] rounded-xl p-3 flex items-start gap-2">
+              <AlertCircle size={14} className="text-[#DC2626] flex-shrink-0 mt-0.5" strokeWidth={2.5} />
+              <p className="text-xs text-[#991B1B]">{error}</p>
             </div>
           )}
 
-          {/* 가이드 */}
-          {!post && !loading && (
-            <div className="mt-8 bg-white rounded-2xl border border-[#E5E8EB] p-6">
-              <div className="flex items-center gap-2 mb-4">
-                <Sparkles size={16} className="text-[#3182F6]" />
-                <h3 className="font-bold text-[#191F28]">이 도구가 만드는 글의 특징</h3>
-              </div>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 text-sm">
-                {[
-                  { title: '네이버 SEO 최적화', desc: '메인 키워드 자연 반복 + 롱테일 해시태그 20~30개' },
-                  { title: '체류시간 후킹', desc: '섹션마다 볼드 2~3개로 스크롤 속도 조절' },
-                  { title: '사진 분산 배치', desc: '한 곳 몰아넣기 금지 — 본문 전체에 고르게 배치' },
-                  { title: 'CTA 구조화', desc: '부담 낮추는 멘트 → 예상 질문 3개 → 희소성 클로징' },
-                  { title: '이모티콘 배제', desc: '카메라·체크·자동차 등 이모지 일체 사용 안 함 — 브랜딩 톤 유지' },
-                  { title: '페르소나 신뢰감', desc: '담당자 이름·연락처로 1인칭 작성 — 독자와 직접 소통하는 느낌' },
-                ].map(f => (
-                  <div key={f.title} className="flex items-start gap-2 p-3 rounded-lg bg-[#F8F9FB] border border-[#E5E8EB]">
-                    <Check size={14} className="text-[#059669] mt-0.5 flex-shrink-0" />
-                    <div>
-                      <div className="text-sm font-semibold text-[#191F28]">{f.title}</div>
-                      <div className="text-xs text-[#4E5968] mt-0.5">{f.desc}</div>
-                    </div>
+          {/* 결과 */}
+          {post && (
+            <div ref={outputRef} className="bg-white rounded-2xl shadow-sm border-2 border-[#3182F6] p-4 md:p-5">
+              <div className="flex items-center justify-between mb-3 flex-wrap gap-2">
+                <div className="flex items-center gap-2">
+                  <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#3182F6] to-[#7C3AED] flex items-center justify-center shadow-sm">
+                    <Sparkles size={15} className="text-white" strokeWidth={2.5} />
                   </div>
-                ))}
+                  <div>
+                    <p className="text-sm font-black text-[#191F28]">생성된 블로그 글</p>
+                    <p className="text-[10px] text-[#8B95A1]">트랙 {track} · 목표 {length.toLocaleString()}자 · 실제 {post.length.toLocaleString()}자</p>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <button onClick={handleCopy}
+                    className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 ${copied ? 'bg-green-500 text-white' : 'bg-[#191F28] text-white hover:bg-[#333D4B]'}`}>
+                    {copied ? <><Check size={12} strokeWidth={3} /> 복사됨</> : <><Copy size={12} strokeWidth={2.5} /> 마크다운 복사</>}
+                  </button>
+                  <button onClick={handleGenerate}
+                    className="px-3 py-2 rounded-xl bg-[#F2F4F6] text-[#4E5968] text-xs font-bold flex items-center gap-1.5 hover:bg-[#E5E8EB]">
+                    <RefreshCw size={12} strokeWidth={2.5} /> 다시 생성
+                  </button>
+                </div>
               </div>
+              <pre className="whitespace-pre-wrap text-sm leading-relaxed text-[#191F28] bg-[#F8FAFB] rounded-xl p-4 border border-[#E5E8EB] font-sans">
+                {post}
+              </pre>
             </div>
           )}
         </div>
+
         <Footer />
       </main>
     </div>
