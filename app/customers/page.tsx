@@ -10,6 +10,7 @@ import { useCustomers, type Customer, type CustomerTag } from '../hooks/useCusto
 import { Users, Star, Heart, Moon, MessageSquare, FileText, type LucideIcon } from 'lucide-react'
 
 type Tag = CustomerTag
+type FilterTagType = Tag | '전체'
 
 const TAG_COLORS: Record<Tag, { bg: string; text: string }> = {
   'VIP':     { bg: '#EFF6FF', text: '#3182F6' },
@@ -25,7 +26,7 @@ export default function CustomersPage() {
   const { customers, loading, add } = useCustomers()
   const isEmpty = customers.length === 0
 
-  const [filterTag, setFilterTag] = useState<Tag | '전체'>('전체')
+  const [filterTag, setFilterTag] = useState<FilterTagType>('전체')
   const [search, setSearch] = useState('')
   const [selected, setSelected] = useState<string[]>([])
   const [msgOpen, setMsgOpen] = useState(false)
@@ -239,8 +240,9 @@ export default function CustomersPage() {
         </div>
         )}
 
-        {/* 필터 + 검색 — 손님 있을 때만 */}
+        {/* 필터 + 검색 + 리스트 — 손님 있을 때만 (Fragment 로 감싸서 형제 요소 허용) */}
         {!isEmpty && (
+        <>
         <div className="bg-white rounded-2xl shadow-sm p-4 mb-4">
           <div className="flex flex-wrap gap-2 mb-3">
             {(['전체', ...ALL_TAGS] as const).map(tag => (
@@ -359,6 +361,7 @@ export default function CustomersPage() {
             ))
           )}
         </div>
+        </>
         )}
 
         {/* 고객 추가 모달 */}
