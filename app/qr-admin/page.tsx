@@ -656,7 +656,7 @@ export default function QRAdmin() {
 
         {/* ── 업체 설정 탭 ── */}
         {activeTab === 'settings' && (
-          <div className="space-y-6">
+          <div className="space-y-6 max-w-5xl mx-auto w-full">
 
             {/* Row 1: 네이버 업체 연동 + 고객 보상 설정 (PC 2-col) */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -969,7 +969,7 @@ export default function QRAdmin() {
 
         {/* ── 성과 리포트 탭 (2-C: 실제 DB 통계) ── */}
         {activeTab === 'stats' && (
-          <div className="space-y-6">
+          <div className="space-y-6 max-w-5xl mx-auto w-full">
             <QRStatsPanel />
             <div className="hidden">{/* placeholder — 이전 안내 카드 자리 */}</div>
 
@@ -1043,7 +1043,7 @@ export default function QRAdmin() {
 
         {/* ── 스탬프 카드 탭 (Phase 1: 디지털 스탬프) ── */}
         {activeTab === 'stamps' && (
-          <div className="space-y-6">
+          <div className="space-y-6 max-w-5xl mx-auto w-full">
             <StampCardEditor />
           </div>
         )}
@@ -1060,7 +1060,7 @@ export default function QRAdmin() {
 
         {/* ── 분석 리포트 탭 (2-F: recharts 인포그래픽 + PDF 저장) ── */}
         {activeTab === 'report' && (
-          <div className="space-y-6">
+          <div className="space-y-6 max-w-5xl mx-auto w-full">
             <QRReportPanel storeName={storeInfo.name} />
           </div>
         )}
