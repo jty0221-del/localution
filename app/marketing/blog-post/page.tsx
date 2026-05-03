@@ -93,7 +93,7 @@ export default function BlogPostGeneratorPage() {
         keywords, ctaPhone, ctaKakao, ctaReservation,
       }))
     } catch (_) {}
-  }, [industry, personaName, personaTitle, personaPhone, keywords, ctaPhone, ctaKakao, ctaReservation])
+  }, [industry, personaName, personaPhone, keywords, ctaPhone, ctaKakao, ctaReservation])
 
   const addKeyword = (k?: string) => {
     const target = (k ?? keywordInput).trim()
