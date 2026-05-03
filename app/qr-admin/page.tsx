@@ -9,6 +9,7 @@ import AffiliateAdSlots from '../components/AffiliateAdSlots'
 import QRReportPanel from '../components/QRReportPanel'
 import StampCardEditor from '../components/StampCardEditor'
 import MenuBoardEditor from '../components/MenuBoardEditor'
+import MenuQRCard from '../components/MenuQRCard'
 import WifiQRBox from '../components/WifiQRBox'
 import QRImage from '../components/QRImage'
 import PageHeader from '../components/PageHeader'
@@ -1051,6 +1052,7 @@ export default function QRAdmin() {
         {/* ── 메뉴판 탭 (Phase 2: 디지털 메뉴판) ── */}
         {activeTab === 'menu' && (
           <div className="space-y-6">
+            <MenuQRCard storeName={storeInfo.name} />
             <MenuBoardEditor />
           </div>
         )}
