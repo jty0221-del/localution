@@ -7,6 +7,11 @@
 import { useEffect, useState, useMemo } from 'react'
 import { useParams } from 'next/navigation'
 import { Search, Globe, Star, X, UtensilsCrossed } from 'lucide-react'
+import ClassicKoreanTemplate from '../../components/menu-templates/ClassicKoreanTemplate'
+import VintageParchmentTemplate from '../../components/menu-templates/VintageParchmentTemplate'
+import DarkPremiumTemplate from '../../components/menu-templates/DarkPremiumTemplate'
+import ElegantWesternTemplate from '../../components/menu-templates/ElegantWesternTemplate'
+import ThreeColumnPhotoTemplate from '../../components/menu-templates/ThreeColumnPhotoTemplate'
 
 type Lang = 'ko' | 'en' | 'ja' | 'zh'
 
@@ -31,6 +36,7 @@ export default function MenuPage() {
   const [items, setItems] = useState<any[]>([])
   const [store, setStore] = useState<any>(null)
   const [theme, setTheme] = useState<any>(null)
+  const [templateId, setTemplateId] = useState<string>('list-default')
   const [loading, setLoading] = useState(true)
   const [lang, setLang] = useState<Lang>('ko')
   const [search, setSearch] = useState('')
@@ -45,6 +51,7 @@ export default function MenuPage() {
           setItems(j.items || [])
           setStore(j.store)
           setTheme(j.theme)
+          setTemplateId(j.template_id || 'list-default')
         }
       })
       .finally(() => setLoading(false))
@@ -111,6 +118,34 @@ export default function MenuPage() {
     border_color: '#E5E8EB',
     card_style: 'minimal',
     header_style: 'gradient',
+  }
+
+  // 템플릿 분기 — list-default 이외는 별도 컴포넌트로 렌더
+  if (templateId && templateId !== 'list-default') {
+    const templateProps = { store, items, theme: th, getName, getDesc, t }
+    return (
+      <>
+        {/* 상단 언어 선택 바 */}
+        <div className="sticky top-0 z-40 px-4 py-2 flex items-center justify-between" style={{ background: th.bg_color, borderBottom: `1px solid ${th.border_color}` }}>
+          <span className="text-xs font-bold" style={{ color: th.text_muted }}>{store.name}</span>
+          <select
+            value={lang}
+            onChange={e => setLang(e.target.value as Lang)}
+            className="text-xs rounded-lg px-2 py-1.5 border"
+            style={{ background: 'rgba(255,255,255,0.95)', borderColor: th.border_color, color: th.text_color }}>
+            {LANGS.map(l => <option key={l.k} value={l.k}>{l.flag} {l.name}</option>)}
+          </select>
+        </div>
+        {templateId === 'classic-korean' && <ClassicKoreanTemplate {...templateProps} />}
+        {templateId === 'vintage-parchment' && <VintageParchmentTemplate {...templateProps} />}
+        {templateId === 'dark-premium' && <DarkPremiumTemplate {...templateProps} />}
+        {templateId === 'elegant-western' && <ElegantWesternTemplate {...templateProps} />}
+        {templateId === 'three-column-photo' && <ThreeColumnPhotoTemplate {...templateProps} />}
+        <footer className="text-center py-4 text-[10px]" style={{ color: th.text_muted }}>
+          Powered by 로컬루션 · localution.co.kr
+        </footer>
+      </>
+    )
   }
   const headerBg = th.header_style === 'gradient'
     ? `linear-gradient(135deg, ${th.primary_color}, ${th.accent_color})`
