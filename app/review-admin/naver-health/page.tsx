@@ -84,9 +84,9 @@ const OVERALL_ICON: Record<CheckStatus, React.ReactNode> = {
   skip:  <MinusCircle size={32} className="text-[#94A3B8]" />,
 }
 const OVERALL_TITLE: Record<CheckStatus, string> = {
-  ok:    '✅ 네이버 AI 시스템 정상',
-  warn:  '⚠️ 일부 항목 주의 필요',
-  error: '🚨 오류 발견 — 즉시 확인 필요',
+  ok:    '네이버 AI 시스템 정상',
+  warn:  '일부 항목 주의 필요',
+  error: '오류 발견 — 즉시 확인 필요',
   skip:  '진단 대기 중',
 }
 
@@ -182,7 +182,7 @@ export default function NaverHealthPage() {
         </div>
 
         <div className="mb-5">
-          <h1 className="text-lg font-black text-[#0F172A]">🔍 네이버 AI 시스템 진단</h1>
+          <h1 className="text-lg font-black text-[#0F172A]">네이버 AI 시스템 진단</h1>
           <p className="text-[12px] text-[#64748B] mt-0.5">
             Claude AI · 네이버 API · 리뷰 수집 · 크론 상태를 실시간으로 확인합니다.
           </p>
