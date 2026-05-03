@@ -101,7 +101,7 @@ export default function MenuPage() {
   }
 
   // 테마 색상 적용 (없으면 기본 흰색)
-  const t = theme || {
+  const th = theme || {
     primary_color: '#3182F6',
     accent_color: '#7C3AED',
     bg_color: '#FFFFFF',
@@ -112,17 +112,14 @@ export default function MenuPage() {
     card_style: 'minimal',
     header_style: 'gradient',
   }
-  const headerBg = t.header_style === 'gradient'
-    ? `linear-gradient(135deg, ${t.primary_color}, ${t.accent_color})`
-    : t.header_style === 'solid' ? t.primary_color : t.surface_color
-  const cardClass = t.card_style === 'shadow' ? 'shadow-md hover:shadow-lg'
-    : t.card_style === 'bordered' ? 'border-2'
-    : 'border'
+  const headerBg = th.header_style === 'gradient'
+    ? `linear-gradient(135deg, ${th.primary_color}, ${th.accent_color})`
+    : th.header_style === 'solid' ? th.primary_color : th.surface_color
 
   return (
-    <div className="min-h-screen" style={{ background: t.bg_color }}>
+    <div className="min-h-screen" style={{ background: th.bg_color }}>
       {/* 상단 헤더 — 테마 적용 */}
-      <header className="sticky top-0 z-40 border-b" style={{ background: headerBg, borderColor: t.border_color }}>
+      <header className="sticky top-0 z-40 border-b" style={{ background: headerBg, borderColor: th.border_color }}>
         <div className="max-w-2xl mx-auto px-4 py-3">
           <div className="flex items-center justify-between mb-3">
             <div className="min-w-0">
