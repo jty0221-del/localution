@@ -1,33 +1,28 @@
 'use client'
 
 // ============================================================
-// /menu/[slug] — 손님용 공개 디지털 메뉴판
-//   · 카테고리 필터 + 다국어 토글 + 검색
+// /menu/[slug] — 진짜 인쇄 메뉴판 같은 프리미엄 디지털 메뉴판
+//   · 단일 프리미엄 디자인 (옵션 없음, 누구나 멋있게)
+//   · Serif 헤더 + 장식 라인 + 점선 가격 leader + 시그니처 사진
 // ============================================================
 import { useEffect, useState, useMemo } from 'react'
 import { useParams } from 'next/navigation'
-import { Search, Globe, Star, X, UtensilsCrossed } from 'lucide-react'
-import ClassicKoreanTemplate from '../../components/menu-templates/ClassicKoreanTemplate'
-import VintageParchmentTemplate from '../../components/menu-templates/VintageParchmentTemplate'
-import DarkPremiumTemplate from '../../components/menu-templates/DarkPremiumTemplate'
-import ElegantWesternTemplate from '../../components/menu-templates/ElegantWesternTemplate'
-import ThreeColumnPhotoTemplate from '../../components/menu-templates/ThreeColumnPhotoTemplate'
+import { Star, Sparkles, MapPin, Phone } from 'lucide-react'
 
 type Lang = 'ko' | 'en' | 'ja' | 'zh'
 
-const LANGS: { k: Lang; flag: string; name: string }[] = [
-  { k: 'ko', flag: '🇰🇷', name: '한국어' },
-  { k: 'en', flag: '🇺🇸', name: 'English' },
-  { k: 'ja', flag: '🇯🇵', name: '日本語' },
-  { k: 'zh', flag: '🇨🇳', name: '中文' },
+const LANGS: { k: Lang; label: string }[] = [
+  { k: 'ko', label: '한국어' },
+  { k: 'en', label: 'English' },
+  { k: 'ja', label: '日本語' },
+  { k: 'zh', label: '中文' },
 ]
 
-// 가격 단위는 항상 한국 원 (외국인도 한국에서 결제하므로 통일)
 const UI_TEXT: Record<Lang, any> = {
-  ko: { search: '메뉴 검색', all: '전체', signature: '대표 메뉴', new: '신메뉴', soldout: '품절' },
-  en: { search: 'Search menu', all: 'All', signature: 'Signature', new: 'NEW', soldout: 'Sold Out' },
-  ja: { search: 'メニュー検索', all: 'すべて', signature: '看板メニュー', new: 'NEW', soldout: '売り切れ' },
-  zh: { search: '搜索菜单', all: '全部', signature: '招牌菜', new: '新品', soldout: '售罄' },
+  ko: { signature: '대표 메뉴', new: 'NEW', soldout: '품절', menu: 'MENU', subtitle: '오늘도 정성껏 준비했습니다', thanks: 'THANK YOU' },
+  en: { signature: 'SIGNATURE', new: 'NEW', soldout: 'SOLD OUT', menu: 'MENU', subtitle: 'Crafted with care', thanks: 'THANK YOU' },
+  ja: { signature: '看板メニュー', new: 'NEW', soldout: '売り切れ', menu: 'MENU', subtitle: '心を込めて', thanks: 'ありがとう' },
+  zh: { signature: '招牌菜', new: '新品', soldout: '售罄', menu: 'MENU', subtitle: '用心烹制', thanks: 'THANK YOU' },
 }
 
 export default function MenuPage() {
@@ -36,22 +31,17 @@ export default function MenuPage() {
   const [items, setItems] = useState<any[]>([])
   const [store, setStore] = useState<any>(null)
   const [theme, setTheme] = useState<any>(null)
-  const [templateId, setTemplateId] = useState<string>('list-default')
   const [loading, setLoading] = useState(true)
   const [lang, setLang] = useState<Lang>('ko')
-  const [search, setSearch] = useState('')
-  const [activeCat, setActiveCat] = useState<string>('all')
-  const [selected, setSelected] = useState<any>(null)
 
   useEffect(() => {
-    fetch(`/api/menu/public?slug=${slug}`)
+    fetch(`/api/menu/public?slug=${encodeURIComponent(slug)}`)
       .then(r => r.json())
       .then(j => {
         if (j.ok) {
           setItems(j.items || [])
           setStore(j.store)
           setTheme(j.theme)
-          setTemplateId(j.template_id || 'list-default')
         }
       })
       .finally(() => setLoading(false))
@@ -59,219 +49,198 @@ export default function MenuPage() {
 
   const t = UI_TEXT[lang]
 
-  const categories = useMemo(() => {
-    const cats = new Set<string>()
-    items.forEach(it => it.category && cats.add(it.category))
-    return Array.from(cats)
-  }, [items])
-
-  const filtered = useMemo(() => {
-    let list = items
-    if (activeCat !== 'all') list = list.filter(it => it.category === activeCat)
-    if (search.trim()) {
-      const q = search.toLowerCase()
-      list = list.filter(it =>
-        (it.name_ko || '').toLowerCase().includes(q) ||
-        (it[`name_${lang}`] || '').toLowerCase().includes(q)
-      )
-    }
-    return list
-  }, [items, activeCat, search, lang])
-
-  const groupedByCategory = useMemo(() => {
+  const grouped = useMemo(() => {
     const g: Record<string, any[]> = {}
-    for (const it of filtered) {
+    for (const it of items) {
       const cat = it.category || (lang === 'ko' ? '메뉴' : 'Menu')
       if (!g[cat]) g[cat] = []
       g[cat].push(it)
     }
     return g
-  }, [filtered, lang])
+  }, [items, lang])
 
   const getName = (it: any) => it[`name_${lang}`] || it.name_ko
   const getDesc = (it: any) => it[`desc_${lang}`] || it.desc_ko
 
   if (loading) {
-    return <div className="min-h-screen bg-white flex items-center justify-center"><div className="animate-spin w-8 h-8 border-2 border-[#3182F6] border-t-transparent rounded-full" /></div>
+    return (
+      <div className="min-h-screen bg-[#FAF6F0] flex items-center justify-center">
+        <div className="animate-spin w-8 h-8 border-2 border-[#1F1612] border-t-transparent rounded-full" />
+      </div>
+    )
   }
 
   if (!store || items.length === 0) {
     return (
-      <div className="min-h-screen bg-[#F2F4F6] flex items-center justify-center px-4">
-        <div className="bg-white rounded-2xl p-8 text-center max-w-sm">
-          <div className="text-5xl mb-3">📋</div>
-          <p className="text-sm font-bold text-[#191F28] mb-1">메뉴가 등록되지 않았어요</p>
-          <p className="text-xs text-[#8B95A1]">잠시 후 다시 확인해주세요</p>
+      <div className="min-h-screen bg-[#FAF6F0] flex items-center justify-center px-4">
+        <div className="bg-white rounded-2xl p-10 text-center max-w-sm shadow-sm">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#92400E] to-[#78350F] flex items-center justify-center mx-auto mb-4">
+            <Sparkles size={20} className="text-white" strokeWidth={2.5} />
+          </div>
+          <p className="text-base font-bold text-[#1F1612] mb-1">메뉴 준비 중</p>
+          <p className="text-xs text-[#78716C]">잠시 후 다시 확인해 주세요</p>
         </div>
       </div>
     )
   }
 
-  // 테마 색상 적용 (없으면 기본 흰색)
-  const th = theme || {
-    primary_color: '#3182F6',
-    accent_color: '#7C3AED',
-    bg_color: '#FFFFFF',
-    surface_color: '#F8FAFB',
-    text_color: '#191F28',
-    text_muted: '#8B95A1',
-    border_color: '#E5E8EB',
-    card_style: 'minimal',
-    header_style: 'gradient',
+  // 테마 색상 — 사장님이 고른 색이 있으면 적용, 없으면 기본 따뜻한 베이지+갈색
+  const TH = {
+    primary: theme?.primary_color || '#1F1612',
+    accent: theme?.accent_color || '#92400E',
+    bg: theme?.bg_color || '#FAF6F0',
+    surface: theme?.surface_color || '#FFFFFF',
+    text: theme?.text_color || '#1F1612',
+    muted: theme?.text_muted || '#78716C',
+    border: theme?.border_color || '#D6D3D1',
   }
-
-  // 템플릿 분기 — list-default 이외는 별도 컴포넌트로 렌더
-  if (templateId && templateId !== 'list-default') {
-    const templateProps = { store, items, theme: th, getName, getDesc, t }
-    return (
-      <>
-        {/* 상단 언어 선택 바 */}
-        <div className="sticky top-0 z-40 px-4 py-2 flex items-center justify-between" style={{ background: th.bg_color, borderBottom: `1px solid ${th.border_color}` }}>
-          <span className="text-xs font-bold" style={{ color: th.text_muted }}>{store.name}</span>
-          <select
-            value={lang}
-            onChange={e => setLang(e.target.value as Lang)}
-            className="text-xs rounded-lg px-2 py-1.5 border"
-            style={{ background: 'rgba(255,255,255,0.95)', borderColor: th.border_color, color: th.text_color }}>
-            {LANGS.map(l => <option key={l.k} value={l.k}>{l.flag} {l.name}</option>)}
-          </select>
-        </div>
-        {templateId === 'classic-korean' && <ClassicKoreanTemplate {...templateProps} />}
-        {templateId === 'vintage-parchment' && <VintageParchmentTemplate {...templateProps} />}
-        {templateId === 'dark-premium' && <DarkPremiumTemplate {...templateProps} />}
-        {templateId === 'elegant-western' && <ElegantWesternTemplate {...templateProps} />}
-        {templateId === 'three-column-photo' && <ThreeColumnPhotoTemplate {...templateProps} />}
-        <footer className="text-center py-4 text-[10px]" style={{ color: th.text_muted }}>
-          Powered by 로컬루션 · localution.co.kr
-        </footer>
-      </>
-    )
-  }
-  const headerBg = th.header_style === 'gradient'
-    ? `linear-gradient(135deg, ${th.primary_color}, ${th.accent_color})`
-    : th.header_style === 'solid' ? th.primary_color : th.surface_color
 
   return (
-    <div className="min-h-screen" style={{ background: th.bg_color }}>
-      {/* 상단 헤더 — 테마 적용 */}
-      <header className="sticky top-0 z-40 border-b" style={{ background: headerBg, borderColor: th.border_color }}>
-        <div className="max-w-2xl mx-auto px-4 py-3">
-          <div className="flex items-center justify-between mb-3">
-            <div className="min-w-0">
-              <h1 className="text-base font-black truncate" style={{ color: t.header_style === 'gradient' || t.header_style === 'solid' ? '#fff' : t.text_color }}>{store.name}</h1>
-              <p className="text-[10px]" style={{ color: t.header_style === 'gradient' || t.header_style === 'solid' ? 'rgba(255,255,255,0.8)' : t.text_muted }}>디지털 메뉴판</p>
-            </div>
-            <select
-              value={lang}
-              onChange={e => setLang(e.target.value as Lang)}
-              className="text-xs rounded-lg px-2 py-1.5"
-              style={{ background: 'rgba(255,255,255,0.95)', border: `1px solid ${t.border_color}`, color: t.text_color }}>
-              {LANGS.map(l => <option key={l.k} value={l.k}>{l.flag} {l.name}</option>)}
-            </select>
-          </div>
+    <div className="min-h-screen" style={{ background: TH.bg, fontFamily: '"Noto Serif KR", "Nanum Myeongjo", serif' }}>
+      {/* 상단 작은 언어 선택 (방해 안 되게 우측 정렬) */}
+      <div className="sticky top-0 z-30 px-5 py-2.5 flex items-center justify-end backdrop-blur-md" style={{ background: `${TH.bg}E0`, borderBottom: `1px solid ${TH.border}80` }}>
+        <select
+          value={lang}
+          onChange={e => setLang(e.target.value as Lang)}
+          className="text-[11px] font-bold rounded-md px-2 py-1 outline-none cursor-pointer"
+          style={{ background: 'transparent', color: TH.muted, border: `1px solid ${TH.border}` }}>
+          {LANGS.map(l => <option key={l.k} value={l.k}>{l.label}</option>)}
+        </select>
+      </div>
 
-          {/* 검색 */}
-          <div className="relative mb-2">
-            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8B95A1]" />
-            <input
-              type="text"
-              value={search}
-              onChange={e => setSearch(e.target.value)}
-              placeholder={t.search}
-              className="w-full pl-9 pr-3 py-2 rounded-lg bg-[#F2F4F6] border border-transparent focus:border-[#3182F6] focus:bg-white outline-none text-sm"
-            />
-          </div>
-
-          {/* 카테고리 탭 */}
-          {categories.length > 0 && (
-            <div className="flex gap-1.5 overflow-x-auto scrollbar-hide -mx-1 px-1">
-              <button onClick={() => setActiveCat('all')}
-                className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-bold transition-colors whitespace-nowrap ${
-                  activeCat === 'all' ? 'bg-[#191F28] text-white' : 'bg-[#F2F4F6] text-[#4E5968]'
-                }`}>{t.all}</button>
-              {categories.map(c => (
-                <button key={c} onClick={() => setActiveCat(c)}
-                  className={`flex-shrink-0 px-3 py-1.5 rounded-full text-xs font-bold transition-colors whitespace-nowrap ${
-                    activeCat === c ? 'bg-[#191F28] text-white' : 'bg-[#F2F4F6] text-[#4E5968]'
-                  }`}>{c}</button>
-              ))}
-            </div>
-          )}
+      {/* 매장 헤더 — 양옆 장식 라인 + 큰 매장명 + MENU 라벨 */}
+      <header className="relative px-5 pt-12 pb-10 text-center">
+        <div className="flex items-center justify-center gap-3 mb-3">
+          <span className="flex-1 max-w-20 h-[1px]" style={{ background: TH.muted, opacity: 0.5 }} />
+          <span className="text-[10px] tracking-[0.5em] font-bold" style={{ color: TH.accent }}>{t.menu}</span>
+          <span className="flex-1 max-w-20 h-[1px]" style={{ background: TH.muted, opacity: 0.5 }} />
+        </div>
+        <h1 className="text-3xl md:text-5xl font-black tracking-tight mb-2" style={{ color: TH.text }}>
+          {store.name}
+        </h1>
+        <p className="text-xs italic" style={{ color: TH.muted }}>{t.subtitle}</p>
+        <div className="flex items-center justify-center gap-3 mt-5">
+          <span className="w-1.5 h-1.5 rounded-full" style={{ background: TH.accent }} />
+          <span className="w-12 h-[1px]" style={{ background: TH.accent, opacity: 0.6 }} />
+          <span className="w-1.5 h-1.5 rounded-full" style={{ background: TH.accent }} />
+          <span className="w-12 h-[1px]" style={{ background: TH.accent, opacity: 0.6 }} />
+          <span className="w-1.5 h-1.5 rounded-full" style={{ background: TH.accent }} />
         </div>
       </header>
 
-      {/* 메뉴 그리드 */}
-      <main className="max-w-2xl mx-auto px-4 py-4 pb-24">
-        {Object.keys(groupedByCategory).length === 0 ? (
-          <div className="text-center py-16">
-            <div className="text-4xl mb-2">🔍</div>
-            <p className="text-sm text-[#8B95A1]">검색 결과가 없어요</p>
-          </div>
-        ) : Object.entries(groupedByCategory).map(([cat, list]) => (
-          <section key={cat} className="mb-6">
-            <h2 className="text-sm font-black text-[#191F28] mb-3 px-1">{cat}</h2>
-            <div className="grid grid-cols-1 gap-3">
-              {list.map((it: any) => (
-                <button key={it.id} onClick={() => setSelected(it)} className="text-left">
-                  <div className={`flex gap-3 p-3 rounded-2xl border bg-white hover:border-[#3182F6] transition-colors ${it.is_soldout ? 'opacity-50' : ''}`}>
-                    {it.image_url ? (
-                      /* eslint-disable-next-line @next/next/no-img-element */
-                      <img src={it.image_url} alt={getName(it)} className="w-20 h-20 rounded-xl object-cover flex-shrink-0" />
-                    ) : (
-                      <div className="w-20 h-20 rounded-xl bg-gradient-to-br from-[#F8FAFB] to-[#EFF6FF] flex items-center justify-center flex-shrink-0">
-                        <UtensilsCrossed size={24} className="text-[#3182F6]" strokeWidth={2} />
-                      </div>
-                    )}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-start gap-1 flex-wrap mb-1">
-                        <p className="text-sm font-bold text-[#191F28] line-clamp-1 flex-1">{getName(it)}</p>
-                        {it.is_signature && (
-                          <span className="flex items-center gap-0.5 text-[9px] font-bold px-1.5 py-0.5 rounded bg-[#FEF3C7] text-[#92400E]">
-                            <Star size={8} fill="#92400E" /> {t.signature}
+      {/* 메뉴 본문 */}
+      <main className="max-w-2xl mx-auto px-5 md:px-8 pb-16">
+        {Object.entries(grouped).map(([cat, list]) => {
+          // 시그니처 메뉴는 별도 사진 카드, 일반 메뉴는 점선 leader 리스트
+          const sig = list.filter((it: any) => it.is_signature && it.image_url)
+          const others = list.filter((it: any) => !sig.includes(it))
+
+          return (
+            <section key={cat} className="mb-14">
+              {/* 카테고리 타이틀 — 한글 + 영문 부제 */}
+              <div className="text-center mb-7">
+                <h2 className="text-2xl md:text-3xl font-black tracking-wide mb-1" style={{ color: TH.text }}>
+                  {cat}
+                </h2>
+                <div className="flex items-center justify-center gap-2.5">
+                  <span className="w-10 h-[1px]" style={{ background: TH.muted, opacity: 0.4 }} />
+                  <span className="text-[10px] tracking-[0.4em] font-bold" style={{ color: TH.accent }}>
+                    {(cat || '').toUpperCase().slice(0, 14)}
+                  </span>
+                  <span className="w-10 h-[1px]" style={{ background: TH.muted, opacity: 0.4 }} />
+                </div>
+              </div>
+
+              {/* 시그니처 메뉴 — 사진 큼직하게 */}
+              {sig.length > 0 && (
+                <div className={`grid gap-4 mb-6 ${sig.length === 1 ? 'grid-cols-1' : 'grid-cols-1 md:grid-cols-2'}`}>
+                  {sig.map((it: any) => (
+                    <article key={it.id} className="rounded-2xl overflow-hidden shadow-sm" style={{ background: TH.surface, border: `1px solid ${TH.border}` }}>
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={it.image_url} alt={getName(it)} className={`w-full object-cover ${it.is_soldout ? 'opacity-40 grayscale' : ''}`} style={{ aspectRatio: '4/3' }} />
+                      <div className="p-4">
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <span className="inline-flex items-center gap-1 text-[10px] font-bold tracking-widest px-2 py-0.5 rounded" style={{ background: TH.accent, color: '#fff' }}>
+                            <Star size={10} fill="#fff" strokeWidth={0} /> {t.signature}
                           </span>
-                        )}
-                        {it.is_new && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-[#DBEAFE] text-[#1E40AF]">{t.new}</span>}
-                        {it.is_soldout && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-[#FEE2E2] text-[#991B1B]">{t.soldout}</span>}
+                          {it.is_new && <span className="text-[10px] font-bold tracking-widest px-2 py-0.5 rounded" style={{ background: TH.text, color: TH.bg }}>{t.new}</span>}
+                          {it.is_soldout && <span className="text-[10px] font-bold tracking-widest px-2 py-0.5 rounded" style={{ background: '#9CA3AF', color: '#fff' }}>{t.soldout}</span>}
+                        </div>
+                        <h3 className="text-lg font-black mb-1" style={{ color: TH.text }}>{getName(it)}</h3>
+                        {getDesc(it) && <p className="text-[12px] leading-relaxed mb-3 italic" style={{ color: TH.muted }}>{getDesc(it)}</p>}
+                        <div className="flex items-baseline justify-between pt-2 border-t" style={{ borderColor: TH.border }}>
+                          <span className="text-[10px] tracking-[0.3em] font-bold" style={{ color: TH.muted }}>PRICE</span>
+                          <span className="text-xl font-black" style={{ color: TH.accent }}>{it.price.toLocaleString('ko-KR')}<span className="text-sm font-bold ml-0.5" style={{ color: TH.text }}>원</span></span>
+                        </div>
                       </div>
-                      {getDesc(it) && <p className="text-[11px] text-[#8B95A1] line-clamp-2 mb-1">{getDesc(it)}</p>}
-                      <p className="text-base font-black text-[#191F28]">{it.price.toLocaleString('ko-KR')}<span className="text-xs font-medium text-[#8B95A1] ml-0.5">원</span></p>
-                    </div>
-                  </div>
-                </button>
-              ))}
-            </div>
-          </section>
-        ))}
+                    </article>
+                  ))}
+                </div>
+              )}
+
+              {/* 일반 메뉴 — 점선 leader 정갈한 리스트 */}
+              {others.length > 0 && (
+                <ul className="space-y-4">
+                  {others.map((it: any) => (
+                    <li key={it.id} className={it.is_soldout ? 'opacity-50' : ''}>
+                      <div className="flex items-center gap-3">
+                        {it.image_url && (
+                          /* eslint-disable-next-line @next/next/no-img-element */
+                          <img src={it.image_url} alt={getName(it)} className="w-16 h-16 md:w-20 md:h-20 rounded-lg object-cover flex-shrink-0" style={{ border: `1px solid ${TH.border}` }} />
+                        )}
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-baseline gap-2">
+                            <span className="font-bold text-base md:text-lg whitespace-nowrap" style={{ color: TH.text }}>
+                              {getName(it)}
+                            </span>
+                            {it.is_new && <span className="text-[9px] font-bold tracking-wider px-1.5 py-0.5 rounded" style={{ background: TH.text, color: TH.bg }}>{t.new}</span>}
+                            {it.is_soldout && <span className="text-[9px] font-bold tracking-wider px-1.5 py-0.5 rounded" style={{ background: '#9CA3AF', color: '#fff' }}>{t.soldout}</span>}
+                            <span className="flex-1 border-b border-dotted mx-1 mb-1.5" style={{ borderColor: TH.muted, opacity: 0.5 }} />
+                            <span className="font-black text-base md:text-lg whitespace-nowrap" style={{ color: TH.accent }}>
+                              {it.price.toLocaleString('ko-KR')}<span className="text-xs font-bold ml-0.5" style={{ color: TH.text }}>원</span>
+                            </span>
+                          </div>
+                          {getDesc(it) && (
+                            <p className="text-[11px] mt-0.5 italic line-clamp-1" style={{ color: TH.muted }}>
+                              — {getDesc(it)}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </section>
+          )
+        })}
       </main>
 
-      {/* 메뉴 상세 모달 */}
-      {selected && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-end md:items-center justify-center" onClick={() => setSelected(null)}>
-          <div className="bg-white rounded-t-3xl md:rounded-3xl max-w-md w-full max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
-            {selected.image_url && (
-              /* eslint-disable-next-line @next/next/no-img-element */
-              <img src={selected.image_url} alt={getName(selected)} className="w-full aspect-square object-cover" />
-            )}
-            <button onClick={() => setSelected(null)} className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/90 backdrop-blur flex items-center justify-center shadow">
-              <X size={18} />
-            </button>
-            <div className="p-5">
-              <div className="flex items-start gap-2 flex-wrap mb-2">
-                <h3 className="text-lg font-black text-[#191F28] flex-1">{getName(selected)}</h3>
-                {selected.is_signature && <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-[#FEF3C7] text-[#92400E]">⭐ {t.signature}</span>}
-                {selected.is_new && <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-[#DBEAFE] text-[#1E40AF]">{t.new}</span>}
-              </div>
-              <p className="text-2xl font-black text-[#3182F6] mb-3">{selected.price.toLocaleString('ko-KR')}원</p>
-              {getDesc(selected) && <p className="text-sm text-[#4E5968] leading-relaxed">{getDesc(selected)}</p>}
-              {selected.is_soldout && <p className="text-sm font-bold text-[#DC2626] mt-3">{t.soldout}</p>}
-            </div>
-          </div>
+      {/* 푸터 — 매장 정보 + THANK YOU */}
+      <footer className="border-t pt-10 pb-12 px-5 text-center" style={{ borderColor: TH.border }}>
+        <div className="flex items-center justify-center gap-3 mb-4">
+          <span className="w-10 h-[1px]" style={{ background: TH.accent, opacity: 0.6 }} />
+          <span className="text-[10px] tracking-[0.5em] font-bold" style={{ color: TH.accent }}>{t.thanks}</span>
+          <span className="w-10 h-[1px]" style={{ background: TH.accent, opacity: 0.6 }} />
         </div>
-      )}
-
-      {/* 푸터 */}
-      <footer className="text-center py-4 text-[10px] text-[#C9CDD2]">
-        Powered by 로컬루션 · localution.co.kr
+        <p className="text-base font-black mb-2" style={{ color: TH.text }}>{store.name}</p>
+        <div className="space-y-1 text-[11px]" style={{ color: TH.muted }}>
+          {store.address && (
+            <p className="flex items-center justify-center gap-1.5">
+              <MapPin size={11} strokeWidth={2} />
+              <span>{store.address}</span>
+            </p>
+          )}
+          {store.phone && (
+            <p className="flex items-center justify-center gap-1.5">
+              <Phone size={11} strokeWidth={2} />
+              <span>{store.phone}</span>
+            </p>
+          )}
+        </div>
+        <p className="text-[9px] mt-6 tracking-wider" style={{ color: TH.muted, opacity: 0.6 }}>
+          Powered by 로컬루션 · localution.co.kr
+        </p>
       </footer>
     </div>
   )
