@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { usePathname, useSearchParams, useRouter } from 'next/navigation'
+import { Link2, ClipboardList, Store, Settings, MessageSquare, LogOut } from 'lucide-react'
 
 const FLAT_NAV = [
   { href: '/dashboard',        label: '대시보드', icon: 'DB',  colors: { bg: '#EFF6FF', text: '#3182F6' } },
@@ -275,9 +276,9 @@ export default function Sidebar() {
       {/* 1-1. 플랫폼 통합관리 — STEP 1 강조 */}
       <Link href="/my/platforms" onClick={() => setMobileOpen(false)}
         className={"relative flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all border " + (pathname === '/my/platforms' ? 'bg-[#EFF6FF] text-[#3182F6] font-semibold border-[#3182F6]/30' : 'bg-[#EFF6FF] text-[#1D4ED8] font-semibold border-[#BFDBFE] hover:bg-[#DBEAFE]')}>
-        <div className="relative w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold flex-shrink-0"
+        <div className="relative w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0"
           style={{ background: '#3182F6', color: '#fff' }}>
-          🔗
+          <Link2 size={14} className="text-white" strokeWidth={2.5} />
           {pathname !== '/my/platforms' && (
             <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[#EF4444] border-2 border-white animate-pulse" />
           )}
@@ -307,7 +308,7 @@ export default function Sidebar() {
           <div className="mt-1 ml-3 pl-4 border-l-2 border-[#FDE68A] space-y-0.5">
             <Link href="/review-admin" onClick={() => setMobileOpen(false)}
               className={"flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium " + (pathname === '/review-admin' ? 'bg-[#FFFBEB] text-[#F59E0B] font-semibold' : 'text-[#4E5968] hover:bg-[#F8F9FA]')}>
-              <span>📋</span><span>전체 리뷰</span>
+              <ClipboardList size={12} strokeWidth={2.5} /><span>전체 리뷰</span>
             </Link>
             {REVIEW_SUB.map(sub => {
               const active = pathname === sub.href || pathname.startsWith(sub.href + '/')
@@ -468,28 +469,28 @@ export default function Sidebar() {
               <Link href="/settings/profile"
                 onClick={() => { setProfileOpen(false); setMobileOpen(false) }}
                 className="flex items-center gap-3 px-4 py-3 text-sm text-[#4E5968] hover:bg-[#F2F4F6] transition-colors">
-                <span className="text-base">🏪</span>
+                <Store size={16} strokeWidth={2.5} />
                 <span className="font-medium">매장 설정</span>
               </Link>
               <div className="h-px bg-[#F2F4F6]" />
               <Link href="/settings"
                 onClick={() => { setProfileOpen(false); setMobileOpen(false) }}
                 className="flex items-center gap-3 px-4 py-3 text-sm text-[#4E5968] hover:bg-[#F2F4F6] transition-colors">
-                <span className="text-base">⚙️</span>
+                <Settings size={16} strokeWidth={2.5} />
                 <span className="font-medium">설정</span>
               </Link>
               <div className="h-px bg-[#F2F4F6]" />
               <Link href="/inquiry"
                 onClick={() => { setProfileOpen(false); setMobileOpen(false) }}
                 className="flex items-center gap-3 px-4 py-3 text-sm text-[#4E5968] hover:bg-[#F2F4F6] transition-colors">
-                <span className="text-base">💬</span>
+                <MessageSquare size={16} strokeWidth={2.5} />
                 <span className="font-medium">1:1 문의</span>
               </Link>
               <div className="h-px bg-[#F2F4F6]" />
               <button
                 onClick={handleLogout}
                 className="w-full flex items-center gap-3 px-4 py-3 text-sm text-[#E11D48] hover:bg-[#FFF1F2] transition-colors">
-                <span className="text-base">🚪</span>
+                <LogOut size={16} strokeWidth={2.5} />
                 <span className="font-medium">로그아웃</span>
               </button>
             </div>
