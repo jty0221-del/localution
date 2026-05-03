@@ -17,11 +17,12 @@ const LANGS: { k: Lang; flag: string; name: string }[] = [
   { k: 'zh', flag: '🇨🇳', name: '中文' },
 ]
 
+// 가격 단위는 항상 한국 원 (외국인도 한국에서 결제하므로 통일)
 const UI_TEXT: Record<Lang, any> = {
-  ko: { search: '메뉴 검색', all: '전체', signature: '대표 메뉴', new: '신메뉴', soldout: '품절', won: '원' },
-  en: { search: 'Search menu', all: 'All', signature: 'Signature', new: 'NEW', soldout: 'Sold Out', won: 'KRW' },
-  ja: { search: 'メニュー検索', all: 'すべて', signature: '看板メニュー', new: 'NEW', soldout: '売り切れ', won: 'ウォン' },
-  zh: { search: '搜索菜单', all: '全部', signature: '招牌菜', new: '新品', soldout: '售罄', won: '韩元' },
+  ko: { search: '메뉴 검색', all: '전체', signature: '대표 메뉴', new: '신메뉴', soldout: '품절' },
+  en: { search: 'Search menu', all: 'All', signature: 'Signature', new: 'NEW', soldout: 'Sold Out' },
+  ja: { search: 'メニュー検索', all: 'すべて', signature: '看板メニュー', new: 'NEW', soldout: '売り切れ' },
+  zh: { search: '搜索菜单', all: '全部', signature: '招牌菜', new: '新品', soldout: '售罄' },
 }
 
 export default function MenuPage() {
@@ -29,6 +30,7 @@ export default function MenuPage() {
   const slug = String(params?.slug || '')
   const [items, setItems] = useState<any[]>([])
   const [store, setStore] = useState<any>(null)
+  const [theme, setTheme] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [lang, setLang] = useState<Lang>('ko')
   const [search, setSearch] = useState('')
@@ -42,6 +44,7 @@ export default function MenuPage() {
         if (j.ok) {
           setItems(j.items || [])
           setStore(j.store)
+          setTheme(j.theme)
         }
       })
       .finally(() => setLoading(false))
@@ -97,20 +100,40 @@ export default function MenuPage() {
     )
   }
 
+  // 테마 색상 적용 (없으면 기본 흰색)
+  const t = theme || {
+    primary_color: '#3182F6',
+    accent_color: '#7C3AED',
+    bg_color: '#FFFFFF',
+    surface_color: '#F8FAFB',
+    text_color: '#191F28',
+    text_muted: '#8B95A1',
+    border_color: '#E5E8EB',
+    card_style: 'minimal',
+    header_style: 'gradient',
+  }
+  const headerBg = t.header_style === 'gradient'
+    ? `linear-gradient(135deg, ${t.primary_color}, ${t.accent_color})`
+    : t.header_style === 'solid' ? t.primary_color : t.surface_color
+  const cardClass = t.card_style === 'shadow' ? 'shadow-md hover:shadow-lg'
+    : t.card_style === 'bordered' ? 'border-2'
+    : 'border'
+
   return (
-    <div className="min-h-screen bg-white">
-      {/* 상단 헤더 */}
-      <header className="sticky top-0 z-40 bg-white border-b border-[#E5E8EB]">
+    <div className="min-h-screen" style={{ background: t.bg_color }}>
+      {/* 상단 헤더 — 테마 적용 */}
+      <header className="sticky top-0 z-40 border-b" style={{ background: headerBg, borderColor: t.border_color }}>
         <div className="max-w-2xl mx-auto px-4 py-3">
           <div className="flex items-center justify-between mb-3">
             <div className="min-w-0">
-              <h1 className="text-base font-black text-[#191F28] truncate">{store.name}</h1>
-              <p className="text-[10px] text-[#8B95A1]">📋 디지털 메뉴판</p>
+              <h1 className="text-base font-black truncate" style={{ color: t.header_style === 'gradient' || t.header_style === 'solid' ? '#fff' : t.text_color }}>{store.name}</h1>
+              <p className="text-[10px]" style={{ color: t.header_style === 'gradient' || t.header_style === 'solid' ? 'rgba(255,255,255,0.8)' : t.text_muted }}>디지털 메뉴판</p>
             </div>
             <select
               value={lang}
               onChange={e => setLang(e.target.value as Lang)}
-              className="text-xs border border-[#E5E8EB] rounded-lg px-2 py-1.5 bg-white">
+              className="text-xs rounded-lg px-2 py-1.5"
+              style={{ background: 'rgba(255,255,255,0.95)', border: `1px solid ${t.border_color}`, color: t.text_color }}>
               {LANGS.map(l => <option key={l.k} value={l.k}>{l.flag} {l.name}</option>)}
             </select>
           </div>
@@ -179,7 +202,7 @@ export default function MenuPage() {
                         {it.is_soldout && <span className="text-[9px] font-bold px-1.5 py-0.5 rounded bg-[#FEE2E2] text-[#991B1B]">{t.soldout}</span>}
                       </div>
                       {getDesc(it) && <p className="text-[11px] text-[#8B95A1] line-clamp-2 mb-1">{getDesc(it)}</p>}
-                      <p className="text-base font-black text-[#191F28]">{it.price.toLocaleString('ko-KR')}<span className="text-xs font-medium text-[#8B95A1] ml-0.5">{t.won}</span></p>
+                      <p className="text-base font-black text-[#191F28]">{it.price.toLocaleString('ko-KR')}<span className="text-xs font-medium text-[#8B95A1] ml-0.5">원</span></p>
                     </div>
                   </div>
                 </button>
@@ -206,7 +229,7 @@ export default function MenuPage() {
                 {selected.is_signature && <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-[#FEF3C7] text-[#92400E]">⭐ {t.signature}</span>}
                 {selected.is_new && <span className="text-[10px] font-bold px-2 py-0.5 rounded bg-[#DBEAFE] text-[#1E40AF]">{t.new}</span>}
               </div>
-              <p className="text-2xl font-black text-[#3182F6] mb-3">{selected.price.toLocaleString('ko-KR')}{t.won}</p>
+              <p className="text-2xl font-black text-[#3182F6] mb-3">{selected.price.toLocaleString('ko-KR')}원</p>
               {getDesc(selected) && <p className="text-sm text-[#4E5968] leading-relaxed">{getDesc(selected)}</p>}
               {selected.is_soldout && <p className="text-sm font-bold text-[#DC2626] mt-3">{t.soldout}</p>}
             </div>
