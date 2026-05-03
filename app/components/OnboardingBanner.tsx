@@ -10,6 +10,7 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { Rocket } from 'lucide-react'
 
 const HIDE_PATHS = ['/', '/pricing', '/about', '/customers', '/login', '/signup',
   '/service-intro', '/privacy', '/terms', '/my/platforms/naver_place/connect']
@@ -54,7 +55,9 @@ export default function OnboardingBanner() {
     <div className="fixed left-0 right-0 z-[40] top-0 px-4 py-2 bg-gradient-to-r from-[#3182F6] to-[#7C3AED] text-white shadow-lg">
       <div className="max-w-6xl mx-auto flex items-center justify-between gap-3">
         <div className="flex items-center gap-3 min-w-0 flex-1">
-          <span className="text-2xl flex-shrink-0">🚀</span>
+          <div className="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0">
+            <Rocket size={18} className="text-white" strokeWidth={2.5} />
+          </div>
           <div className="min-w-0">
             <p className="text-sm font-bold truncate">시작 전 매장 정보 등록 — 1번이면 모든 기능 이용 가능</p>
             <p className="text-[11px] opacity-90 truncate hidden sm:block">
