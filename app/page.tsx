@@ -106,21 +106,21 @@ const FEATURES = [
 ]
 
 // ─────────────────────────────────────────────────────────────
-// 데모 데이터 (실제 데이터 연결 전 예시용)
-// /api/landing-stats 가 실제 값을 반환하면 자동 교체됨
+// 베타 운영 중 — 실제 통계는 /api/landing-stats 로 연동 예정
+// 정직한 메시지로 표기 (가짜 숫자 노출 금지)
 // ─────────────────────────────────────────────────────────────
 const STATS_DEMO = [
-  { num: '400+', label: '누적 사장님' },
-  { num: '5만+', label: 'AI 답글 누적' },
-  { num: '+0.6점', label: '평균 별점 상승' },
-  { num: '3배', label: '리뷰 수집 속도' },
+  { num: 'BETA', label: '베타 운영 중' },
+  { num: '6개', label: '연동 플랫폼 (네이버·구글·배민·요기요·쿠팡·카카오)' },
+  { num: '4종', label: 'AI 답글 톤 (친근/전문/유쾌/심플)' },
+  { num: '12+', label: '제공 모듈' },
 ]
 
 const HERO_DEMO = {
-  reviewsPerMonth: '+20개',
-  reviewsPerMonthLabel: '월평균 리뷰 증가',
-  avgRating: '4.7점',
-  avgRatingLabel: '평균 별점',
+  reviewsPerMonth: '24/7',
+  reviewsPerMonthLabel: '자동 답글 운영',
+  avgRating: '4가지',
+  avgRatingLabel: 'AI 답글 톤 선택',
 }
 
 type Testimonial = {
@@ -138,32 +138,9 @@ const ICON_MAP = {
   gym: Dumbbell,
 } as const
 
-const TESTIMONIALS_DEMO: Testimonial[] = [
-  {
-    name: '김○○ 사장님',
-    store: '부천 카페 운영',
-    text: '매일 리뷰 답글 다는 게 너무 힘들었는데, 로컬루션 쓰고 나서 5분도 안 걸려요. 별점도 4.2에서 4.8로 올라갔어요!',
-    rating: 5,
-    iconKey: 'coffee',
-    color: '#8B5CF6',
-  },
-  {
-    name: '이○○ 대표님',
-    store: '서울 맛집 운영',
-    text: '클라이언트 10곳 동시 관리하는데 로컬루션 없으면 못 살아요. 키워드 분석이랑 리뷰 관리가 한 곳에 있어서 너무 편해요.',
-    rating: 5,
-    iconKey: 'food',
-    color: '#F59E0B',
-  },
-  {
-    name: '박○○ 원장님',
-    store: '일산 헬스장 운영',
-    text: 'QR 리뷰 붙여놨더니 손님들이 알아서 리뷰 써줘요. 한 달에 리뷰 50개 이상 늘었어요.',
-    rating: 5,
-    iconKey: 'gym',
-    color: '#10B981',
-  },
-]
+// 베타 운영 중 — 실제 후기는 베타 종료 후 게재 예정
+// 빈 배열로 두면 컴포넌트에서 "베타 사용자 모집 중" 카드로 자동 전환됨
+const TESTIMONIALS_DEMO: Testimonial[] = []
 
 // QR 톤 뱃지 (브랜드 아이콘으로 교체)
 const QR_TONES = [
@@ -849,14 +826,29 @@ export default function LandingPage() {
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-12">
             <h2 className="text-3xl font-black text-[#191F28] mb-3">
-              {isDemo ? '사용 사례 예시' : '사장님들의 실제 후기'}
+              {testimonials.length > 0 ? '사장님들의 실제 후기' : '베타 사용자 모집 중'}
             </h2>
             <p className="text-[#8B95A1] text-sm text-left sm:text-center">
-              {isDemo
-                ? '실제 사용 후기 수집 중 · 아래는 예시 콘텐츠입니다'
-                : '로컬루션을 사용 중인 매장 사장님들의 이야기'}
+              {testimonials.length > 0
+                ? '로컬루션을 사용 중인 매장 사장님들의 이야기'
+                : '실제 사용 후기는 베타 운영 종료 후 게재됩니다 · 지금 가입하면 베타 우선 사용권 제공'}
             </p>
           </div>
+          {testimonials.length === 0 ? (
+            <div className="max-w-2xl mx-auto bg-white rounded-2xl p-8 md:p-12 text-center shadow-sm border border-gray-100">
+              <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-[#3182F6] to-[#7C3AED] flex items-center justify-center mx-auto mb-4 shadow-sm">
+                <Sparkles size={24} className="text-white" strokeWidth={2.5} />
+              </div>
+              <p className="text-base font-black text-[#191F28] mb-2">베타 사용자 우선 모집 중</p>
+              <p className="text-sm text-[#4E5968] leading-relaxed mb-5">
+                로컬루션은 현재 베타 운영 중이에요. 가짜 후기로 사장님을 속이지 않습니다.<br />
+                지금 가입하시면 정식 출시 후에도 <strong className="text-[#3182F6]">베타 우선 사용권</strong>과 할인 혜택을 받으실 수 있어요.
+              </p>
+              <Link href="/signup" className="inline-flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-[#3182F6] text-white text-sm font-bold hover:bg-[#1B64DA]">
+                베타 신청하기 <ArrowRight size={14} strokeWidth={2.5} />
+              </Link>
+            </div>
+          ) : (
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {testimonials.map((t, i) => {
               const TIcon = ICON_MAP[t.iconKey] ?? Coffee
@@ -891,6 +883,7 @@ export default function LandingPage() {
               )
             })}
           </div>
+          )}
         </div>
       </section>
 
