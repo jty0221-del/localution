@@ -19,6 +19,7 @@ import {
   Smartphone, Tablet, Monitor,
   BarChart3, TrendingUp, Clock,
   Store, Printer, Link2, Gift, Wifi,
+  ClipboardList, Star, MapPin,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -825,57 +826,104 @@ export default function QRAdmin() {
               </div>
             </div>
 
-            {/* 우측 (Top row): 고객 보상 설정 */}
+            {/* 우측 (Top row): 매장 빠른 액세스 */}
             <div>
-              <div className="bg-white rounded-2xl p-6 shadow-sm">
+              <div className="bg-white rounded-2xl p-6 shadow-sm h-full">
                 <div className="flex items-center gap-2 mb-4">
-                  <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#F59E0B] to-[#DC2626] flex items-center justify-center shadow-sm">
-                    <Gift size={16} className="text-white" strokeWidth={2.5} />
+                  <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#3182F6] to-[#7C3AED] flex items-center justify-center shadow-sm">
+                    <Sparkles size={16} className="text-white" strokeWidth={2.5} />
                   </div>
                   <div>
-                    <h3 className="font-bold text-[#191F28]">고객 보상 설정</h3>
-                    <p className="text-xs text-[#8B95A1]">리뷰 작성 시 제공할 혜택</p>
+                    <h3 className="font-bold text-[#191F28]">매장 빠른 액세스</h3>
+                    <p className="text-xs text-[#8B95A1]">손님이 보는 페이지로 바로 이동</p>
                   </div>
                 </div>
-                <div className="space-y-3">
-                  {[
-                    { value: 'none',   label: '없음',        desc: '순수 리뷰 유도' },
-                    { value: 'coupon', label: '쿠폰 제공',   desc: '할인 쿠폰 증정' },
-                    { value: 'stamp',  label: '스탬프',      desc: '스탬프 적립' },
-                    { value: 'free',   label: '서비스 제공', desc: '음료/디저트 서비스' },
-                  ].map(opt => (
-                    <label key={opt.value}
-                      className={`flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-colors ${
-                        settings.rewardType === opt.value
-                          ? 'border-[#3182F6] bg-[#EFF6FF]'
-                          : 'border-[#E5E8EB] hover:border-[#BFDBFE]'
-                      }`}>
-                      <input type="radio" name="reward"
-                        checked={settings.rewardType === opt.value}
-                        onChange={() => saveSettings({ ...settings, rewardType: opt.value })}
-                        className="accent-[#3182F6]"
-                      />
-                      <div>
-                        <p className="text-sm font-semibold text-[#191F28]">{opt.label}</p>
-                        <p className="text-xs text-[#8B95A1]">{opt.desc}</p>
-                      </div>
-                    </label>
-                  ))}
-                </div>
-                {settings.rewardType !== 'none' && (
-                  <div className="mt-3">
-                    <input
-                      value={settings.rewardValue}
-                      onChange={e => saveSettings({ ...settings, rewardValue: e.target.value })}
-                      placeholder={
-                        settings.rewardType === 'coupon' ? '예: 아메리카노 10% 할인'
-                        : settings.rewardType === 'stamp' ? '예: 도장 1개 추가'
-                        : '예: 아이스크림 서비스'
-                      }
-                      className="w-full border border-[#E5E8EB] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-[#3182F6] transition-colors placeholder-[#C9CDD2]"
-                    />
+
+                {/* 매장 정보 요약 */}
+                {storeInfo.connected ? (
+                  <div className="mb-4 p-3 rounded-xl bg-gradient-to-br from-[#F8FAFB] to-[#EFF6FF] border border-[#E5E8EB]">
+                    <p className="text-sm font-bold text-[#191F28] truncate">{storeInfo.name}</p>
+                    {storeInfo.location && (
+                      <p className="text-[11px] text-[#8B95A1] truncate flex items-center gap-1 mt-0.5">
+                        <MapPin size={10} strokeWidth={2.5} /> {storeInfo.location}
+                      </p>
+                    )}
+                    {storeInfo.category && (
+                      <span className="inline-block mt-1.5 text-[10px] font-bold px-2 py-0.5 rounded-full bg-[#DBEAFE] text-[#1E40AF]">
+                        {storeInfo.category}
+                      </span>
+                    )}
+                  </div>
+                ) : (
+                  <div className="mb-4 p-3 rounded-xl bg-[#FEF7ED] border border-[#FED7AA]">
+                    <p className="text-[11px] text-[#92400E] leading-relaxed">
+                      좌측에서 <strong>네이버 플레이스를 먼저 연결</strong>하면 모든 빠른 이동이 활성화돼요.
+                    </p>
                   </div>
                 )}
+
+                {/* 빠른 이동 4개 버튼 */}
+                <div className="grid grid-cols-2 gap-2">
+                  {(() => {
+                    const slug = storeInfo.name ? encodeURIComponent(storeInfo.name) : ''
+                    const cards = [
+                      {
+                        label: '디지털 메뉴판',
+                        desc: '손님이 스캔하는 메뉴',
+                        icon: ClipboardList,
+                        color: 'from-[#3182F6] to-[#1D4ED8]',
+                        href: slug ? `/menu/${slug}` : null,
+                      },
+                      {
+                        label: '리뷰 페이지',
+                        desc: '리뷰 작성 화면',
+                        icon: Star,
+                        color: 'from-[#F59E0B] to-[#DC2626]',
+                        href: storeInfo.connected ? previewReviewUrl : null,
+                      },
+                      {
+                        label: '스탬프 카드',
+                        desc: '적립 손님 페이지',
+                        icon: Gift,
+                        color: 'from-[#7C3AED] to-[#EC4899]',
+                        href: '#',
+                        onClick: () => setActiveTab('stamps'),
+                      },
+                      {
+                        label: 'QR 인쇄물',
+                        desc: '메뉴판 QR 다운로드',
+                        icon: QrCode,
+                        color: 'from-[#059669] to-[#16A34A]',
+                        href: '#',
+                        onClick: () => setActiveTab('menu'),
+                      },
+                    ]
+                    return cards.map(c => {
+                      const Icon = c.icon
+                      const disabled = !c.href
+                      const isLink = c.href && c.href !== '#'
+                      const props = isLink
+                        ? { href: c.href, target: '_blank', rel: 'noopener noreferrer' as const }
+                        : { onClick: c.onClick, type: 'button' as const }
+                      const Tag: any = isLink ? 'a' : 'button'
+                      return (
+                        <Tag
+                          key={c.label}
+                          {...props}
+                          disabled={disabled}
+                          className={`text-left p-3 rounded-xl border transition-all ${
+                            disabled ? 'opacity-50 cursor-not-allowed bg-[#F8FAFB] border-[#E5E8EB]' : 'bg-white border-[#E5E8EB] hover:border-[#3182F6] hover:shadow-sm'
+                          }`}>
+                          <div className={`w-7 h-7 rounded-lg bg-gradient-to-br ${c.color} flex items-center justify-center shadow-sm mb-2`}>
+                            <Icon size={13} className="text-white" strokeWidth={2.5} />
+                          </div>
+                          <p className="text-xs font-bold text-[#191F28]">{c.label}</p>
+                          <p className="text-[10px] text-[#8B95A1] mt-0.5">{c.desc}</p>
+                        </Tag>
+                      )
+                    })
+                  })()}
+                </div>
               </div>
             </div>
 
