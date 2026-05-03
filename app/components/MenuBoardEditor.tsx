@@ -5,7 +5,7 @@
 //   · 메뉴 CRUD + 네이버 자동 가져오기 + 다국어 입력
 // ============================================================
 import { useEffect, useState } from 'react'
-import { Plus, Trash2, Edit3, Save, Globe, Download, Image as ImageIcon, Star, Sparkles, Bookmark, Link2, FolderOpen, ClipboardList, Languages, AlertTriangle, MapPin, Check, CheckCircle2 } from 'lucide-react'
+import { Plus, Trash2, Edit3, Save, Globe, Download, Image as ImageIcon, Star, Sparkles, Bookmark, Link2, FolderOpen, ClipboardList, Languages, AlertTriangle, MapPin, Check, CheckCircle2, RefreshCw, Clock } from 'lucide-react'
 import MenuBookmarkletDialog from './MenuBookmarkletDialog'
 
 type MenuItem = {
@@ -161,6 +161,8 @@ export default function MenuBoardEditor() {
   const [bmkToken, setBmkToken] = useState<string | null>(null)
   const [bmkImportId, setBmkImportId] = useState<string | null>(null)
   const [bmkPolling, setBmkPolling] = useState(false)
+  const [lastSyncAt, setLastSyncAt] = useState<string | null>(null)
+  const [syncResultMsg, setSyncResultMsg] = useState<string | null>(null)
 
   async function startBookmarkletFlow() {
     setImportErr('')
@@ -191,19 +193,63 @@ export default function MenuBoardEditor() {
       try {
         const r = await fetch('/api/menu/import-status?id=' + bmkImportId, { credentials: 'include' })
         const j = await r.json()
-        if (j.ok && j.status === 'success' && Array.isArray(j.items) && j.items.length > 0) {
+        if (j.ok && j.status === 'success') {
           clearInterval(interval)
           setBmkPolling(false)
           setShowBookmarklet(false)
-          setImportPreview(j.items)
-          setShowImport(true)  // 미리보기 모달로
+          setLastSyncAt(j.completed_at || new Date().toISOString())
+
+          // auto-sync 결과 감지 (error_message 에 통계 들어있음)
+          if (j.error_message && j.error_message.startsWith('auto-sync:')) {
+            setSyncResultMsg(j.error_message.replace('auto-sync: ', ''))
+            setTimeout(() => setSyncResultMsg(null), 8000)
+            // 메뉴 리스트 새로고침
+            fetchItems()
+          } else if (Array.isArray(j.items) && j.items.length > 0) {
+            // preview 모드 → 미리보기 모달 띄움
+            setImportPreview(j.items)
+            setShowImport(true)
+          }
         }
-        if (Date.now() - startedAt > 30 * 60 * 1000) {  // 30분 후 종료
+        if (Date.now() - startedAt > 30 * 60 * 1000) {
           clearInterval(interval)
           setBmkPolling(false)
         }
       } catch (_) {}
     }, 3000)
+  }
+
+  // "지금 동기화" 빠른 액션 — 토큰 발급 + 다이얼로그 직행
+  async function quickSync() {
+    setImportErr('')
+    try {
+      const r = await fetch('/api/menu/import-bookmarklet/init', {
+        method: 'POST',
+        credentials: 'include',
+      })
+      const j = await r.json()
+      if (!j.ok) {
+        setImportErr(j.message || j.error || '토큰 생성 실패')
+        return
+      }
+      setBmkToken(j.token)
+      setBmkImportId(j.import_id)
+      setShowBookmarklet(true)
+    } catch (_) {
+      setImportErr('네트워크 오류')
+    }
+  }
+
+  function formatRelTime(iso: string | null): string {
+    if (!iso) return '없음'
+    const diff = Date.now() - new Date(iso).getTime()
+    const min = Math.floor(diff / 60000)
+    if (min < 1) return '방금 전'
+    if (min < 60) return min + '분 전'
+    const hr = Math.floor(min / 60)
+    if (hr < 24) return hr + '시간 전'
+    const day = Math.floor(hr / 24)
+    return day + '일 전'
   }
 
   useEffect(() => {
@@ -399,6 +445,36 @@ export default function MenuBoardEditor() {
         </div>
         <p className="text-xs font-mono text-[#191F28] break-all">{menuUrl}</p>
       </div>
+
+      {/* 빠른 동기화 + 결과 표시 */}
+      {items.length > 0 && (
+        <div className="flex items-center justify-between gap-2 p-3 rounded-xl bg-gradient-to-br from-[#EFF6FF] to-[#F8FBFF] border border-[#BFDBFE] flex-wrap">
+          <div className="flex items-center gap-2">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#3182F6] to-[#7C3AED] flex items-center justify-center shadow-sm flex-shrink-0">
+              <RefreshCw size={14} className="text-white" strokeWidth={2.5} />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-[#1E40AF]">네이버 메뉴 자동 동기화</p>
+              <p className="text-[10px] text-[#3182F6] flex items-center gap-1">
+                <Clock size={9} strokeWidth={2.5} />
+                마지막 동기화: {formatRelTime(lastSyncAt)}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={quickSync}
+            className="px-3 py-2 rounded-xl bg-[#191F28] text-white text-xs font-bold hover:bg-[#333D4B]">
+            지금 동기화
+          </button>
+        </div>
+      )}
+
+      {syncResultMsg && (
+        <div className="flex items-center gap-2 p-3 rounded-xl bg-[#F0FDF4] border-2 border-[#BBF7D0] animate-pulse">
+          <CheckCircle2 size={14} className="text-[#059669]" strokeWidth={2.5} />
+          <p className="text-xs font-bold text-[#065F46]">{syncResultMsg}</p>
+        </div>
+      )}
 
       {/* 메뉴 리스트 */}
       {items.length === 0 ? (
