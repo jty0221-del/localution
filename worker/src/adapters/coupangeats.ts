@@ -500,16 +500,72 @@ export async function runCoupangEats(
       await markLoginStatus(svc, userId, 'coupangeats', 'captcha', currentUrl)
       return { status: 'failed', message: 'coupangeats captcha — 수동 로그인 필요' }
     }
-    // 로그인 성공 여부: /merchant/ 페이지거나 /login을 벗어났으면 성공으로 간주
-    const loginSucceeded = currentUrl.includes('/merchant/') || currentUrl.includes('/management/') || !currentUrl.includes('/login')
+
+    // ── 58차 fix: loginSucceeded 검사 정확화 ──
+    // 기존 버그: currentUrl.includes('/merchant/') 가 truthy 면 즉시 성공 → /merchant/login 도 통과
+    // 수정: URL이 /login 또는 /error 를 포함하면 무조건 실패
+    // + whoami API 직접 호출로 진짜 인증 여부 검증 (URL 만으로는 불충분)
+    const urlLooksLoggedIn = !currentUrl.includes('/login') && !currentUrl.includes('/error')
+
+    // whoami 검증: 진짜 인증된 세션이면 응답에 merchantId/accountId/data 가 있음
+    let whoamiCheck: any = null
+    try {
+      whoamiCheck = await page.evaluate(async () => {
+        try {
+          const r = await fetch('https://store.coupangeats.com/api/v1/merchant/whoami', { credentials: 'include' })
+          if (!r.ok) return { ok: false, status: r.status, data: null }
+          const j = await r.json().catch(() => null)
+          return { ok: true, status: r.status, data: j }
+        } catch (e: any) {
+          return { ok: false, status: 0, data: null, err: String(e?.message || e) }
+        }
+      })
+    } catch (_) { whoamiCheck = null }
+
+    const whoamiAuthenticated = !!(
+      whoamiCheck?.ok &&
+      whoamiCheck?.data?.data && (
+        whoamiCheck.data.data.merchantId ||
+        whoamiCheck.data.data.accountId ||
+        whoamiCheck.data.data.username ||
+        whoamiCheck.data.data.responsibleStoreId ||
+        (Array.isArray(whoamiCheck.data.data.stores) && whoamiCheck.data.data.stores.length > 0)
+      )
+    )
+    log.info({
+      urlLooksLoggedIn,
+      whoamiOk: whoamiCheck?.ok,
+      whoamiStatus: whoamiCheck?.status,
+      whoamiHasData: !!whoamiCheck?.data?.data,
+      whoamiAuthenticated,
+      currentUrl: currentUrl.slice(0, 80),
+    }, 'coupangeats: 58cha login check')
+
+    const loginSucceeded = urlLooksLoggedIn && whoamiAuthenticated
+
     if (!loginSucceeded) {
       await dumpPageDiagnostics(page, log, 'coupangeats-login-failed')
       const { failed, reason } = await detectLoginFailure(page)
-      await markLoginStatus(svc, userId, 'coupangeats', 'failed', reason || `blocked at ${currentUrl.slice(0, 60)}`)
+      // 실패 사유 분류:
+      //   - URL 이 /login 에 머무름 + whoami 401 = 비번 오류 또는 봇 차단
+      //   - URL 은 OK 인데 whoami 401 = 봇 차단 가능성
+      //   - reason 에 "비밀번호" 또는 "아이디" = 자격증명 오류
+      const reasonStr = String(reason || '')
+      const isCredentialsInvalid =
+        reasonStr.includes('비밀번호') || reasonStr.includes('아이디') ||
+        reasonStr.includes('password') || reasonStr.includes('username') ||
+        reasonStr.includes('일치') || reasonStr.includes('확인')
+      const statusKey: 'credentials_invalid' | 'failed' = isCredentialsInvalid ? 'credentials_invalid' : 'failed'
+      const note = reason ||
+        (currentUrl.includes('/login') ? `still_on_login_url (whoami=${whoamiCheck?.status ?? 'n/a'})` : `whoami_${whoamiCheck?.status ?? 'fail'}`)
+      await markLoginStatus(svc, userId, 'coupangeats', statusKey, note)
+      const userMessage = isCredentialsInvalid
+        ? '아이디 또는 비밀번호가 맞지 않아요. 다시 입력해주세요.'
+        : '쿠팡이츠 로그인에 실패했어요. 잠시 후 다시 시도해주세요.'
       return {
         status: 'failed',
-        message: `coupangeats: 로그인 실패 — 아이디/비밀번호를 다시 확인해주세요 (url=${currentUrl.slice(0, 60)})`,
-        debug: { currentUrl, reason },
+        message: `coupangeats: ${userMessage} (url=${currentUrl.slice(0, 60)}, whoami=${whoamiCheck?.status ?? 'n/a'})`,
+        debug: { currentUrl, reason, whoamiStatus: whoamiCheck?.status, whoamiAuthenticated, urlLooksLoggedIn },
       }
     }
 
@@ -528,15 +584,12 @@ export async function runCoupangEats(
       log.warn({ err: e?.message }, 'coupangeats: failed to save session cookies')
     }
 
-    // ── 신규(56차): storeId auto-discovery ──
+    // ── 신규(56차/58차): storeId auto-discovery ──
     // 사장님이 처음 연결할 때 platform_store_id 가 없거나 'pending'.
-    // whoami API 호출해서 responsibleStoreId 확보 → DB 업데이트.
+    // 58차: 이미 위에서 호출한 whoamiCheck 재사용 (중복 호출 제거).
     if (!creds.platform_store_id || creds.platform_store_id === 'pending') {
       try {
-        const whoami = await page.evaluate(async () => {
-          const r = await fetch('https://store.coupangeats.com/api/v1/merchant/whoami', { credentials: 'include' })
-          return r.ok ? await r.json() : null
-        })
+        const whoami = whoamiCheck?.data ?? null
         const discoveredId =
           whoami?.data?.responsibleStoreId ||
           whoami?.data?.storeId ||
