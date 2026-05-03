@@ -12,7 +12,7 @@ import Link from 'next/link'
 import Sidebar from '../components/Sidebar'
 import Footer from '../components/Footer'
 import PageHeader from '../components/PageHeader'
-import { MessageSquare } from 'lucide-react'
+import { MessageSquare, Inbox } from 'lucide-react'
 import PlatformHealthStatus from './components/PlatformHealthStatus'
 
 export const dynamic = 'force-dynamic'
@@ -386,7 +386,9 @@ export default function ReviewAdminHub() {
             {/* 피드 본문 */}
             {activeCount === 0 ? (
               <div className="bg-white rounded-2xl border border-[#E5E8EB] p-8 md:p-12 text-center">
-                <div className="text-4xl mb-3">📭</div>
+                <div className="w-14 h-14 rounded-2xl bg-[#F2F4F6] flex items-center justify-center mx-auto mb-3">
+                  <Inbox size={26} className="text-[#8B95A1]" strokeWidth={2} />
+                </div>
                 <p className="text-sm font-bold text-[#191F28] mb-1">아직 수집된 리뷰가 없어요</p>
                 <p className="text-xs text-[#8B95A1] mb-4">각 플랫폼 페이지에서 시드 데이터를 심거나 플랫폼을 연결해주세요.</p>
               </div>
@@ -396,7 +398,7 @@ export default function ReviewAdminHub() {
               </div>
             ) : filteredFeed.length === 0 ? (
               <div className="bg-white rounded-2xl border border-[#E5E8EB] p-8 text-center text-sm text-[#8B95A1]">
-                표시할 리뷰가 없어요 😊
+                표시할 리뷰가 없어요
               </div>
             ) : (
               <div className="space-y-3">
