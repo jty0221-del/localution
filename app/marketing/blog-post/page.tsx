@@ -16,18 +16,24 @@ import {
   Sparkles, Copy, Check, Image as ImageIcon, X, Plus,
   User, Tag, FileText, MessageCircle, Link as LinkIcon,
   Loader2, AlertCircle, RefreshCw, PenLine, Target,
-  TrendingUp, Heart, Award,
+  TrendingUp, Heart, Award, UtensilsCrossed, Gift, Megaphone,
 } from 'lucide-react'
 import Footer from '../../components/Footer'
 
 const LS_KEY = 'localution.naver_blog_post_inputs_v2'
 
-// ── 글 유형 3트랙 ──
-type Track = 'A' | 'B' | 'C'
-const TRACKS: { id: Track; label: string; desc: string; lengthHint: string; icon: any; color: string }[] = [
-  { id: 'A', label: '순위용', desc: '플레이스 연동·키워드 상위 노출 (정보형/리스트형)', lengthHint: '800~1,500자', icon: TrendingUp, color: '#3182F6' },
-  { id: 'B', label: '신뢰용', desc: '문의·예약·방문 유도 (사례형/스토리형)',           lengthHint: '1,500~2,500자', icon: Award,      color: '#7C3AED' },
-  { id: 'C', label: '관심사형', desc: '특정 타겟 공감·재방문·팬 확보 (공감형/생활형)',   lengthHint: '1,000~2,000자', icon: Heart,      color: '#EC4899' },
+// ── 글 유형 6트랙 — 사장님용 3종 + 블로거/마케팅용 3종 ──
+type Track = 'A' | 'B' | 'C' | 'D' | 'E' | 'F'
+type TrackGroup = 'owner' | 'blogger'
+const TRACKS: { id: Track; group: TrackGroup; label: string; desc: string; lengthHint: string; icon: any; color: string }[] = [
+  // 사장님용
+  { id: 'A', group: 'owner',   label: '순위용',         desc: '플레이스 연동·키워드 상위 노출 (정보·리스트형)', lengthHint: '800~1,500자',   icon: TrendingUp,      color: '#3182F6' },
+  { id: 'B', group: 'owner',   label: '신뢰용',         desc: '문의·예약·방문 유도 (사례·스토리형)',           lengthHint: '1,500~2,500자', icon: Award,           color: '#7C3AED' },
+  { id: 'C', group: 'owner',   label: '관심사형',        desc: '특정 타겟 공감·재방문·팬 확보 (공감·생활형)',   lengthHint: '1,000~2,000자', icon: Heart,           color: '#EC4899' },
+  // 블로거/마케팅용
+  { id: 'D', group: 'blogger', label: '맛집 후기',       desc: '블로거 솔직 후기·방문기 (메뉴/맛/분위기 위주)',  lengthHint: '800~1,500자',   icon: UtensilsCrossed, color: '#EA580C' },
+  { id: 'E', group: 'blogger', label: '체험단·협찬',     desc: '체험·협찬 받은 후 작성 (광고 표기 자동 포함)',   lengthHint: '1,500~2,500자', icon: Gift,            color: '#059669' },
+  { id: 'F', group: 'owner',   label: '이벤트·프로모션', desc: '할인·이벤트·오픈 알림 (직접 전환 유도)',          lengthHint: '600~1,200자',   icon: Megaphone,       color: '#DC2626' },
 ]
 
 // ── 말투 타입 (굵직하게 분리, 완전 다른 톤) ──
@@ -253,8 +259,33 @@ export default function BlogPostGeneratorPage() {
                 <p className="text-[11px] text-[#8B95A1]">목적에 따라 글 구조가 완전히 달라집니다</p>
               </div>
             </div>
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-2.5">
-              {TRACKS.map(t => {
+
+            {/* 사장님용 4종 (순위/신뢰/관심사/이벤트) */}
+            <p className="text-[10px] font-bold text-[#8B95A1] tracking-wider uppercase mb-2 px-1">SHOP OWNER · 사장님용</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-2.5 mb-4">
+              {TRACKS.filter(t => t.group === 'owner').map(t => {
+                const Icon = t.icon
+                const active = track === t.id
+                return (
+                  <button key={t.id} onClick={() => setTrack(t.id)}
+                    className={`text-left p-3 rounded-xl border-2 transition-all ${active ? 'border-[#3182F6] bg-[#EFF6FF] shadow-sm' : 'border-[#E5E8EB] bg-white hover:border-[#BFDBFE]'}`}>
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{ background: t.color + '15', color: t.color }}>
+                        <Icon size={14} strokeWidth={2.5} />
+                      </div>
+                      <span className="text-sm font-black text-[#191F28]">{t.id}. {t.label}</span>
+                    </div>
+                    <p className="text-[11px] text-[#4E5968] leading-tight">{t.desc}</p>
+                    <p className="text-[10px] mt-1.5 font-bold" style={{ color: t.color }}>권장 {t.lengthHint}</p>
+                  </button>
+                )
+              })}
+            </div>
+
+            {/* 블로거/마케팅용 2종 (맛집후기/체험단) */}
+            <p className="text-[10px] font-bold text-[#8B95A1] tracking-wider uppercase mb-2 px-1">BLOGGER · 블로거/마케팅용</p>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-2.5">
+              {TRACKS.filter(t => t.group === 'blogger').map(t => {
                 const Icon = t.icon
                 const active = track === t.id
                 return (
