@@ -11,7 +11,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   RefreshCw, CheckCircle2, AlertTriangle, XCircle,
   MinusCircle, ExternalLink, Clock, Wifi, Database,
-  Key, Activity, Zap,
+  Key, Activity, Zap, Lock, Pin,
 } from 'lucide-react'
 
 type CheckStatus = 'ok' | 'warn' | 'error' | 'skip'
@@ -88,9 +88,9 @@ const OVERALL_ICON: Record<CheckStatus, React.ReactNode> = {
   skip:  <MinusCircle size={36} className="text-[#94A3B8]" />,
 }
 const OVERALL_TITLE: Record<CheckStatus, string> = {
-  ok:    '✅ 네이버 연동 전체 정상',
-  warn:  '⚠️ 일부 항목 주의 필요',
-  error: '🚨 오류 발견 — 즉시 확인 필요',
+  ok:    '네이버 연동 전체 정상',
+  warn:  '일부 항목 주의 필요',
+  error: '오류 발견 — 즉시 확인 필요',
   skip:  '진단 대기 중',
 }
 
@@ -151,7 +151,7 @@ export default function AdminNaverCheckPage() {
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-black text-[#0F172A]">네이버 연동 진단</h1>
             <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-[#FEF3C7] text-[#92400E] border border-[#FDE68A] px-2 py-0.5 rounded-full">
-              🔒 ADMIN ONLY
+              <Lock size={9} strokeWidth={2.5} /> ADMIN ONLY
             </span>
             <span className="inline-flex items-center gap-1 text-[10px] font-semibold bg-[#EFF6FF] text-[#3182F6] border border-[#BFDBFE] px-2 py-0.5 rounded-full">
               <Zap size={9} />실시간
@@ -295,7 +295,7 @@ export default function AdminNaverCheckPage() {
 
           {/* ── 가이드 ── */}
           <div className="mt-5 p-4 rounded-xl bg-[#F8FAFC] border border-[#E2E8F0]">
-            <p className="text-[11px] font-bold text-[#475569] mb-1.5">📌 진단 가이드 (관리자용)</p>
+            <p className="text-[11px] font-bold text-[#475569] mb-1.5 flex items-center gap-1"><Pin size={11} strokeWidth={2.5} /> 진단 가이드 (관리자용)</p>
             <div className="space-y-1 text-[11px] text-[#64748B]">
               <p>• <b>환경변수 오류</b>: Vercel 대시보드 → Settings → Environment Variables 에서 키 추가</p>
               <p>• <b>리뷰 수집 지연</b>: 크론이 KST 4시간 주기 실행. Vercel Pro 미사용 시 크론 중단 가능.</p>
