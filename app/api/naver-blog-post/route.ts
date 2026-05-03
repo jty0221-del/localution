@@ -13,7 +13,7 @@ import { rateLimit, getClientIp } from '@/app/lib/rate-limit'
 export const dynamic = 'force-dynamic'
 export const maxDuration = 60
 
-type Track = 'A' | 'B' | 'C'
+type Track = 'A' | 'B' | 'C' | 'D' | 'E' | 'F'
 type Tone = 'professional' | 'friendly' | 'expert' | 'storyteller' | 'witty'
 type Gender = 'any' | 'male' | 'female'
 
@@ -58,6 +58,54 @@ const TRACK_GUIDE: Record<Track, string> = {
   6) 소프트 CTA + 재방문 유도
   7) 해시태그
 중점: 공감, 광고 톤 X, 생활 밀착, 자연스러운 업체 연결`,
+  D: `
+[글 유형: D 블로거 맛집 후기 — 방문기·솔직 리뷰형]
+목적: 일반 블로거가 작성하는 솔직한 방문기. 다른 손님들에게 "여기 가볼만하다" 신호 전달
+권장 길이: 800~1,500자
+중요: 사장님 입장이 아닌 "방문한 손님" 시점 1인칭 후기. 광고 톤 절대 X. 자연스러운 솔직함이 핵심
+구조:
+  1) 제목 — 매장명 + 메뉴/특징 (25자 이내, 예: "강남 OO베이커리 크림빵 솔직 후기")
+  2) [AI 요약용 핵심 한 줄] — 한 줄 평 (예: "결론부터 말하면 다시 갈 것 같아요")
+  3) 방문 계기 — 어떻게 알게 됐는지, 가게 된 상황 (2~3문장) → [사진: 외관]
+  4) 도착 첫인상 — 위치 찾기 쉬운지, 분위기 → [사진: 내부/입구]
+  5) 주문한 메뉴 — 메뉴명 + 가격 + 사진 → [사진: 메뉴]
+  6) 맛/분위기/서비스 — 솔직하게 (좋은 점 + 아쉬운 점 1~2개)
+  7) 추천 포인트 + 누구에게 추천 — 어떤 사람에게 좋을지
+  8) 재방문 의향 + 한 줄 요약
+  9) 해시태그
+중점: 솔직함, 사진 위주, 자연스러운 1인칭 (~했어요, ~있더라고요), 협찬/광고 표현 X. 만약 사장님 시점이 아닌 "고객 박OO" 같은 일반인 시점.`,
+  E: `
+[글 유형: E 체험단·협찬 — 광고 표기 의무]
+목적: 무료 제공 또는 협찬 받은 후 작성하는 후기. 법적으로 광고 표기 필수
+권장 길이: 1,500~2,500자
+중요사항: 표시광고법 + 추천보증심사지침에 따라 "이 글은 무료로 제공받아 작성된 후기입니다" 또는 "OO으로부터 제품/서비스를 협찬받아 작성한 글입니다" 명시 필수
+구조:
+  1) 제목 — 매장/제품명 + 후기 (25자 이내)
+  2) [경제적 이해관계 표시] — 본문 상단에 명시 (예: "본 글은 OO 협찬으로 작성되었습니다")
+  3) [AI 요약용 핵심 한 줄]
+  4) 협찬 받게 된 계기 — 자연스럽게 (1문단)
+  5) 매장/제품 소개 — 객관적 정보 → [사진]
+  6) 체험 과정 — 시간 흐름대로 → [사진 다수]
+  7) 솔직한 평가 — 좋은 점 70%, 개선됐으면 하는 점 1~2개 (광고가 아닌 후기 신뢰성 위해)
+  8) 추천도 + 어떤 사람에게 좋은지
+  9) CTA + 재광고 표기 ("이 글은 협찬받아 작성되었습니다")
+  10) 해시태그 + #광고 #협찬 또는 #체험단 필수 포함
+중점: 광고 표기 자동, 솔직함과 정보가치 균형, 과장 금지`,
+  F: `
+[글 유형: F 이벤트·프로모션 — 직접 전환 유도]
+목적: 할인/이벤트/오픈 알림. 짧고 임팩트 있게, 즉시 행동 유도
+권장 길이: 600~1,200자
+구조:
+  1) 제목 — 핵심 혜택 + 기간/숫자 (25자 이내, 예: "오픈 기념 30프로 할인 4월 한정")
+  2) [AI 요약용 핵심 한 줄] — 혜택 + 기간 압축
+  3) 이벤트 핵심 정보 — 무엇을 받는지 (불릿 3개 이내) → [사진: 메인 비주얼]
+  4) 참여 조건 — 누가, 어떻게 → [사진]
+  5) 기간·수량 — 명확한 마감일/한정 수량 (긴급성)
+  6) 신청 방법 — 단계별로 명확히 (예: 1) 카톡 추가 2) 쿠폰 받기 3) 방문)
+  7) FAQ — 예상 질문 2~3개 Q→A
+  8) CTA — 즉시 행동 유도 (전화/카톡/예약)
+  9) 해시태그
+중점: 혜택 명확, 긴급성·희소성 (과장 X, 사실 기반), 행동 단계 단순화. 길게 쓰지 말기. 짧고 강력하게.`,
 }
 
 const TONE_GUIDE: Record<Tone, string> = {
@@ -108,7 +156,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: '업종 또는 검색 의도 키워드를 입력해주세요' }, { status: 400 })
     }
 
-    const validTrack: Track = (['A', 'B', 'C'].includes(track) ? track : 'A') as Track
+    const validTrack: Track = (['A', 'B', 'C', 'D', 'E', 'F'].includes(track) ? track : 'A') as Track
     const validTone: Tone = (['professional', 'friendly', 'expert', 'storyteller', 'witty'].includes(persona.tone) ? persona.tone : 'friendly') as Tone
     const validGender: Gender = (['any', 'male', 'female'].includes(persona.gender) ? persona.gender : 'any') as Gender
 
