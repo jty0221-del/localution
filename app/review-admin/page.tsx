@@ -12,6 +12,7 @@ import Link from 'next/link'
 import Sidebar from '../components/Sidebar'
 import Footer from '../components/Footer'
 import PageHeader from '../components/PageHeader'
+import { MessageSquare } from 'lucide-react'
 import PlatformHealthStatus from './components/PlatformHealthStatus'
 
 export const dynamic = 'force-dynamic'
@@ -234,7 +235,7 @@ export default function ReviewAdminHub() {
         <Sidebar />
         <main className="flex-1 md:ml-[220px] pt-14 md:pt-0 min-w-0">
           <PageHeader
-            icon="💬"
+            icon={<MessageSquare size={28} className="text-white" strokeWidth={2.5} />}
             title="리뷰 관리 허브"
             subtitle="연결된 모든 플랫폼의 리뷰를 한 곳에서 관리하세요"
             variant="primary"
