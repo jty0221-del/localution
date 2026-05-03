@@ -43,6 +43,7 @@ export async function GET(req: NextRequest) {
     .order('display_order')
 
   const theme = getEffectiveTheme(store.menu_theme)
+  const templateId = (store.menu_theme as any)?.template_id || 'list-default'
 
-  return NextResponse.json({ ok: true, store, items: items || [], theme }, { headers: CORS })
+  return NextResponse.json({ ok: true, store, items: items || [], theme, template_id: templateId }, { headers: CORS })
 }
