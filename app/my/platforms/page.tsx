@@ -199,7 +199,7 @@ export default function MyPlatformsPage() {
             <div className="mb-6 rounded-xl bg-[#EFF6FF] border border-[#BFDBFE] p-4">
               <div className="flex items-center justify-between flex-wrap gap-3">
                 <div className="flex items-center gap-2 text-sm text-[#1E40AF]">
-                  <span className="font-semibold">✅ 인증 완료 후 이동</span>
+                  <span className="font-semibold">인증 완료 후 이동</span>
                   <span className="text-[#3182F6]">— 자주 쓰는 페이지로 바로 가세요</span>
                 </div>
                 <div className="flex gap-2 flex-wrap">
