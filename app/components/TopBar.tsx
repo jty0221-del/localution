@@ -31,13 +31,9 @@ type Notif = {
   href: string
 }
 
-const NOTIFICATIONS: Notif[] = [
-  { id: 1, type: 'review',   Icon: Star,         tone: '#F59E0B', title: '새 리뷰가 도착했어요', desc: '김**님이 네이버에 별점 5점을 남겼어요', time: '5분 전',   read: false, href: '/review-admin' },
-  { id: 2, type: 'alert',    Icon: AlertCircle,  tone: '#EF4444', title: '부정 리뷰 알림',       desc: '이**님의 별점 2점 리뷰를 확인해주세요', time: '1시간 전', read: false, href: '/review-admin' },
-  { id: 3, type: 'customer', Icon: UserPlus,     tone: '#3182F6', title: '신규 고객 등록',       desc: '박**님이 처음 방문했어요',              time: '2시간 전', read: true,  href: '/crm' },
-  { id: 4, type: 'report',   Icon: BarChart3,    tone: '#10B981', title: '주간 리포트 준비됐어요', desc: '이번 주 리뷰 +12개, 별점 유지 4.6',   time: '어제',    read: true,  href: '/' },
-  { id: 5, type: 'review',   Icon: Star,         tone: '#F59E0B', title: '미답변 리뷰 리마인더', desc: '3개의 리뷰가 아직 답변을 기다려요',     time: '어제',    read: true,  href: '/review-admin' },
-]
+// 실 데이터 연동 전 — 빈 배열 (가짜 알림 노출 금지)
+// 추후 /api/notifications 연동 시 실제 알림 자동 표시
+const NOTIFICATIONS: Notif[] = []
 
 export default function TopBar() {
   const pathname = usePathname()
