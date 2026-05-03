@@ -5,6 +5,7 @@ import { useState, useMemo, useEffect, useCallback } from 'react'
 import Sidebar from '../../components/Sidebar'
 import PageHeader from '../../components/PageHeader'
 import Footer from '../../components/Footer'
+import { MapPin } from 'lucide-react'
 
 // ── 34항목 체크리스트 (하랑마케팅 PDF 기반) ─────────────
 type ChecklistItem = { id: string; title: string; detail: string; youtube?: string; weight?: number }
@@ -558,7 +559,7 @@ export default function PlaceDiagnosisPage() {
       <Sidebar />
       <main className="flex-1 ml-0 md:ml-[220px] pt-16 md:pt-0 min-w-0">
         <PageHeader
-          icon="📍"
+          icon={<MapPin size={28} className="text-white" strokeWidth={2.5} />}
           title="네이버 플레이스 SEO"
           subtitle="내 매장 URL 붙여넣고 34항목 체크리스트로 자체 점검"
           variant="placeGreen"
