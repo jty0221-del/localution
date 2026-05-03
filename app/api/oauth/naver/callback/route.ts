@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
+import { signCookie } from '@/app/lib/cookieSigning'
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
@@ -54,8 +55,14 @@ export async function GET(request: Request) {
       maxAge: 30 * 24 * 60 * 60,
       path: '/'
     })
-    cookieStore.set('localution_user', JSON.stringify(sessionData), {
-      httpOnly: false,
+    const signed = signCookie({
+      id: userInfo.id,
+      name: userInfo.name || userInfo.nickname || 'User',
+      email: userInfo.email || '',
+      provider: 'naver',
+    })
+    cookieStore.set('localution_user', signed, {
+      httpOnly: true,
       secure: true,
       sameSite: 'lax' as const,
       maxAge: 30 * 24 * 60 * 60,
