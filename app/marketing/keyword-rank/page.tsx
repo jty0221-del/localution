@@ -5,6 +5,7 @@ import { useState, useCallback, useEffect, useMemo } from 'react'
 import Sidebar from '../../components/Sidebar'
 import PageHeader from '../../components/PageHeader'
 import Footer from '../../components/Footer'
+import { TrendingUp } from 'lucide-react'
 
 // ── 업체 컨텍스트 (업종·지역·상호) ─────────────────────
 interface BizContext {
@@ -365,7 +366,7 @@ export default function KeywordRankPage() {
       <Sidebar />
       <main className="flex-1 ml-0 md:ml-[220px] flex flex-col min-h-screen pt-16 md:pt-0 min-w-0">
         <PageHeader
-          icon="📈"
+          icon={<TrendingUp size={28} className="text-white" strokeWidth={2.5} />}
           title="키워드 순위"
           subtitle="네이버 검색에서 내 업체가 몇 위인지 — 위치별·디바이스별 실시간"
           variant="sky"
