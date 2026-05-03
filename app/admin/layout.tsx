@@ -5,13 +5,14 @@ import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/app/lib/supabase'
 import { isAdminEmail } from '@/app/lib/admin-emails'
+import { BarChart3, CreditCard, Users, Search, ClipboardList, type LucideIcon } from 'lucide-react'
 
-const NAV = [
-  { href: '/admin/dashboard',    label: '대시보드',      icon: '📊' },
-  { href: '/admin/subscriptions',label: '구독 현황',     icon: '💳' },
-  { href: '/admin/users',        label: '사용자',        icon: '👥' },
-  { href: '/admin/naver-check',   label: '네이버 연동 진단',  icon: '🔍' },
-  { href: '/admin/review-health', label: '리뷰 수집 점검',   icon: '📋' },
+const NAV: { href: string; label: string; Icon: LucideIcon }[] = [
+  { href: '/admin/dashboard',    label: '대시보드',         Icon: BarChart3 },
+  { href: '/admin/subscriptions',label: '구독 현황',        Icon: CreditCard },
+  { href: '/admin/users',        label: '사용자',           Icon: Users },
+  { href: '/admin/naver-check',  label: '네이버 연동 진단', Icon: Search },
+  { href: '/admin/review-health',label: '리뷰 수집 점검',   Icon: ClipboardList },
 ]
 
 // ------------------------------------------------------------
@@ -117,7 +118,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 className={`flex items-center gap-2 px-3 py-2.5 rounded-xl text-sm font-semibold transition-all ${
                   active ? 'bg-white/15 text-white' : 'text-white/75 hover:bg-white/10 hover:text-white'
                 }`}>
-                <span className="text-base">{n.icon}</span>
+                <n.Icon size={16} strokeWidth={2.5} />
                 <span>{n.label}</span>
               </Link>
             )
@@ -137,10 +138,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               const active = pathname === n.href
               return (
                 <Link key={n.href} href={n.href}
-                  className={`px-2.5 py-1.5 rounded-lg text-[11px] font-semibold ${
+                  className={`px-2.5 py-1.5 rounded-lg text-[11px] font-semibold flex items-center justify-center ${
                     active ? 'bg-white/20 text-white' : 'text-white/70'
                   }`}>
-                  {n.icon}
+                  <n.Icon size={14} strokeWidth={2.5} />
                 </Link>
               )
             })}
