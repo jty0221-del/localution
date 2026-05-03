@@ -34,16 +34,31 @@ export async function GET(req: NextRequest) {
 
   if (!store) return NextResponse.json({ ok: false, error: 'store_not_found' }, { status: 404, headers: CORS })
 
-  const { data: items } = await svc
-    .from('menu_items')
-    .select('id, category, name_ko, name_en, name_ja, name_zh, desc_ko, desc_en, desc_ja, desc_zh, price, image_url, is_signature, is_new, is_soldout, display_order')
-    .eq('store_slug', slug)
-    .eq('active', true)
-    .order('category')
-    .order('display_order')
+  // store_id 우선 매칭 (슬러그 변경에도 안전), 없으면 store_slug fallback
+  let items: any[] = []
+  if (store.id) {
+    const r = await svc
+      .from('menu_items')
+      .select('id, category, name_ko, name_en, name_ja, name_zh, desc_ko, desc_en, desc_ja, desc_zh, price, image_url, is_signature, is_new, is_soldout, display_order')
+      .eq('store_id', store.id)
+      .eq('active', true)
+      .order('category')
+      .order('display_order')
+    items = r.data || []
+  }
+  if (items.length === 0) {
+    const r = await svc
+      .from('menu_items')
+      .select('id, category, name_ko, name_en, name_ja, name_zh, desc_ko, desc_en, desc_ja, desc_zh, price, image_url, is_signature, is_new, is_soldout, display_order')
+      .eq('store_slug', slug)
+      .eq('active', true)
+      .order('category')
+      .order('display_order')
+    items = r.data || []
+  }
 
   const theme = getEffectiveTheme(store.menu_theme)
   const templateId = (store.menu_theme as any)?.template_id || 'list-default'
 
-  return NextResponse.json({ ok: true, store, items: items || [], theme, template_id: templateId }, { headers: CORS })
+  return NextResponse.json({ ok: true, store, items, theme, template_id: templateId }, { headers: CORS })
 }
