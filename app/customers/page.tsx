@@ -7,7 +7,7 @@ import Footer from '../components/Footer'
 import PageHeader from '../components/PageHeader'
 import { BRAND_GRAD } from '../lib/brand-colors'
 import { useCustomers, type Customer, type CustomerTag } from '../hooks/useCustomers'
-import { Users, Star, Heart, Moon, MessageSquare, FileText, type LucideIcon } from 'lucide-react'
+import { Users, Star, Heart, Moon, MessageSquare, FileText, Check, type LucideIcon } from 'lucide-react'
 
 type Tag = CustomerTag
 type FilterTagType = Tag | '전체'
@@ -475,8 +475,9 @@ export default function CustomersPage() {
               )}
 
               {msgSent ? (
-                <div className="text-center py-3 text-[#16A34A] font-bold text-sm">
-                  {sendMode === 'kakao' ? '✓ 복사 완료 · 카카오톡에 붙여넣기(Ctrl+V)' : '✓ SMS 앱 실행 완료'}
+                <div className="text-center py-3 text-[#16A34A] font-bold text-sm flex items-center justify-center gap-1.5">
+                  <Check size={14} strokeWidth={3} />
+                  {sendMode === 'kakao' ? '복사 완료 · 카카오톡에 붙여넣기(Ctrl+V)' : 'SMS 앱 실행 완료'}
                 </div>
               ) : (
                 <div className="flex gap-2">
