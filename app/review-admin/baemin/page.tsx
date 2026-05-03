@@ -6,6 +6,7 @@
 
 import { useState, useEffect } from 'react'
 import PlatformReviewAdmin, { PlatformConfig } from '../components/PlatformReviewAdmin'
+import { Lock, RefreshCw, Settings } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
@@ -64,7 +65,7 @@ function SystemHealthBar() {
 
   if (!health) return (
     <div className="mb-4 px-4 py-3 bg-gray-50 rounded-xl border border-gray-200 flex items-center gap-2 text-xs text-gray-500">
-      <span className="animate-spin">⚙</span> 시스템 상태 확인 중...
+      <Settings size={12} className="animate-spin" /> 시스템 상태 확인 중...
     </div>
   )
 
@@ -83,12 +84,12 @@ function SystemHealthBar() {
           {!allOk && (
             <button onClick={autoLogin} disabled={loginLoading}
               className="px-3 py-1.5 bg-[#2DDDC8] text-white rounded-lg font-bold text-[11px] disabled:opacity-60 hover:bg-[#1BC7B3]">
-              {loginLoading ? '로그인 중...' : '🔐 자동 로그인'}
+              {loginLoading ? '로그인 중...' : (<span className="inline-flex items-center gap-1"><Lock size={11} strokeWidth={2.5} /> 자동 로그인</span>)}
             </button>
           )}
           <button onClick={check} disabled={checking}
             className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-gray-600 font-medium text-[11px] disabled:opacity-60 hover:bg-gray-50">
-            {checking ? '확인 중...' : '🔄 재점검'}
+            {checking ? '확인 중...' : (<span className="inline-flex items-center gap-1"><RefreshCw size={11} strokeWidth={2.5} /> 재점검</span>)}
           </button>
         </div>
       </div>
