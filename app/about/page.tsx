@@ -19,6 +19,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { useState } from 'react'
+import { MapPin, PenLine, Smartphone, MessageSquare, Map as MapIcon, BarChart3, Coffee, type LucideIcon } from 'lucide-react'
 
 /* ─────────── 5가지 제품 원칙 ─────────── */
 const PRINCIPLES = [
@@ -45,13 +46,14 @@ const PRINCIPLES = [
 ]
 
 /* ─────────── 기능 6개 ─────────── */
-const FEATURES = [
-  { icon: '📍', title: '네이버 플레이스',  desc: 'AI 상위노출·리뷰 자동 답글' },
-  { icon: '✍️', title: '블로그·상세페이지', desc: '키워드 분석 기반 자동 생성' },
-  { icon: '📱', title: '인스타·쇼츠',       desc: '매장 사진 1장 → 릴스 자동 제작' },
-  { icon: '💬', title: '리뷰 관리',         desc: '배민·요기요·쿠팡이츠 통합' },
-  { icon: '🗺️', title: '지도 최적화',        desc: '카카오맵·구글맵 노출 자동화' },
-  { icon: '📊', title: '성과 리포트',        desc: '매주 월요일 카톡으로 자동 발송' },
+type FeatureItem = { Icon: LucideIcon; color: string; title: string; desc: string }
+const FEATURES: FeatureItem[] = [
+  { Icon: MapPin,        color: '#03C75A', title: '네이버 플레이스',  desc: 'AI 상위노출·리뷰 자동 답글' },
+  { Icon: PenLine,       color: '#3182F6', title: '블로그·상세페이지', desc: '키워드 분석 기반 자동 생성' },
+  { Icon: Smartphone,    color: '#7C3AED', title: '인스타·쇼츠',       desc: '매장 사진 1장 → 릴스 자동 제작' },
+  { Icon: MessageSquare, color: '#F59E0B', title: '리뷰 관리',         desc: '배민·요기요·쿠팡이츠 통합' },
+  { Icon: MapIcon,       color: '#DC2626', title: '지도 최적화',       desc: '카카오맵·구글맵 노출 자동화' },
+  { Icon: BarChart3,     color: '#059669', title: '성과 리포트',       desc: '매주 월요일 카톡으로 자동 발송' },
 ]
 
 /* ─────────── FAQ (SaaS 제품 기준) ─────────── */
@@ -114,7 +116,7 @@ export default function AboutPage() {
             </a>
           </div>
           <p className="mt-5 text-xs text-[#8B95A1]">
-            ☕ 월 6,900원 · 신용카드 등록 없이 시작 · 언제든 해지
+            월 6,900원 · 신용카드 등록 없이 시작 · 언제든 해지
           </p>
         </div>
       </section>
@@ -288,7 +290,9 @@ export default function AboutPage() {
           <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
             {FEATURES.map((s, i) => (
               <div key={i} className="bg-white rounded-2xl p-5 md:p-6 border border-gray-100 hover:border-[#D1E5FF] hover:shadow-sm transition-all">
-                <div className="text-2xl md:text-3xl mb-2" aria-hidden="true">{s.icon}</div>
+                <div className="w-11 h-11 md:w-12 md:h-12 rounded-xl flex items-center justify-center mb-3 shadow-sm" style={{ background: s.color + '15' }}>
+                  <s.Icon size={22} style={{ color: s.color }} strokeWidth={2.5} />
+                </div>
                 <div className="text-sm md:text-base font-black text-[#191F28] mb-1">{s.title}</div>
                 <div className="text-xs md:text-sm text-[#4E5968] leading-relaxed">{s.desc}</div>
                 <div className="mt-3 text-[11px] font-bold text-[#3182F6] tracking-wider">AI 자동</div>
@@ -372,7 +376,8 @@ export default function AboutPage() {
               무료로 시작하기 <span aria-hidden="true">→</span>
             </Link>
             <a href="https://open.kakao.com/o/gSC9jrqi" target="_blank" rel="noopener" className="inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-[#FEE500] text-[#191F28] font-bold rounded-2xl hover:brightness-95 transition-all shadow-[0_4px_14px_rgba(0,0,0,0.15)]">
-              💬 로컬루션 오픈채팅방
+              <MessageSquare size={16} strokeWidth={2.5} />
+              로컬루션 오픈채팅방
             </a>
           </div>
 
