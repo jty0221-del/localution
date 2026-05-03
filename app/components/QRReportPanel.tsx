@@ -360,19 +360,23 @@ export default function QRReportPanel({ storeName }: { storeName?: string }) {
         </div>
         <div className="grid grid-cols-3 gap-3">
           {[
-            { k: 'submitted_naver', l: '네이버', color: '#03C75A' },
-            { k: 'submitted_google', l: '구글', color: '#4285F4' },
-            { k: 'submitted_kakao', l: '카카오', color: '#FEE500' },
+            { k: 'submitted_naver',     l: '네이버',     color: '#03C75A', textColor: '#03C75A' },
+            { k: 'submitted_google',    l: '구글',       color: '#4285F4', textColor: '#4285F4' },
+            { k: 'submitted_kakao',     l: '카카오',     color: '#FEE500', textColor: '#A16207' },
+            { k: 'submitted_baemin',    l: '배민',       color: '#2AC1BC', textColor: '#0F766E' },
+            { k: 'submitted_coupang',   l: '쿠팡이츠',   color: '#D70530', textColor: '#D70530' },
+            { k: 'submitted_yogiyo',    l: '요기요',     color: '#FA0050', textColor: '#FA0050' },
           ].map(p => {
             const v = stats.counts[p.k] || 0
             const pct = metrics.submitted > 0 ? Math.round((v / metrics.submitted) * 100) : 0
+            const isYellow = p.color === '#FEE500'
             return (
               <div key={p.k} className="text-center p-4 rounded-xl border-2" style={{ borderColor: p.color + '30', background: p.color + '08' }}>
-                <div className="w-9 h-9 rounded-lg mx-auto mb-1.5 flex items-center justify-center" style={{ background: p.color === '#FEE500' ? '#FEF3C7' : p.color + '20' }}>
-                  <CheckCircle2 size={18} style={{ color: p.color === '#FEE500' ? '#A16207' : p.color }} strokeWidth={2.5} />
+                <div className="w-9 h-9 rounded-lg mx-auto mb-1.5 flex items-center justify-center" style={{ background: isYellow ? '#FEF3C7' : p.color + '20' }}>
+                  <CheckCircle2 size={18} style={{ color: p.textColor }} strokeWidth={2.5} />
                 </div>
                 <p className="text-xs font-bold text-[#191F28]">{p.l}</p>
-                <p className="text-2xl font-black mt-1" style={{ color: p.color === '#FEE500' ? '#A16207' : p.color }}>{v}</p>
+                <p className="text-2xl font-black mt-1" style={{ color: p.textColor }}>{v}</p>
                 <p className="text-[10px] text-[#8B95A1]">{pct}%</p>
               </div>
             )
