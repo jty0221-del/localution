@@ -82,6 +82,8 @@ export async function POST(req: NextRequest) {
     store_slug: store?.slug || body.slug || null,
     title: String(body.title || '단골 도장 카드').slice(0, 80),
     description: body.description ? String(body.description).slice(0, 200) : null,
+    owner_name: body.owner_name ? String(body.owner_name).slice(0, 40) : null,
+    owner_phone: body.owner_phone ? String(body.owner_phone).slice(0, 20) : null,
     required_stamps: Math.max(3, Math.min(30, parseInt(String(body.required_stamps || '10'), 10))),
     reward_text: String(body.reward_text || '음료 1잔 무료').slice(0, 100),
     theme_color: themeColor,
