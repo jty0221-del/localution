@@ -10,6 +10,7 @@ import {
   ShoppingCart, ShoppingBasket, X,
   Gift, Plus, ArrowRight, ChevronDown, LucideIcon, TrendingUp,
   Layers, Zap, QrCode, Check, Target, UserPlus,
+  MessageSquare, Link2,
 } from 'lucide-react'
 import { MODULES, calculateBundleDiscount, type ModuleId } from '../lib/modules'
 
@@ -149,12 +150,11 @@ const PERSONAS = [
 ] as const
 
 // ── 무료 제공 기능 ─────────────────────────────────────────
-import { MessageSquare as MsgIcon, Gift as GiftIcon, BarChart3, Link2 as LinkIcon } from 'lucide-react'
 const FREE_FEATURES = [
-  { Icon: MsgIcon,   color: '#3182F6', label: '사장님 커뮤니티', desc: '지역·업종별 사장님들과 정보 공유 · 공동구매' },
-  { Icon: GiftIcon,  color: '#F59E0B', label: '파트너 포인트', desc: '지인 추천 시 포인트 적립 · 구독료 할인 전환' },
-  { Icon: BarChart3, color: '#7C3AED', label: '기본 대시보드', desc: '리뷰 현황·방문 추이 · 실시간 알림 기본 제공' },
-  { Icon: LinkIcon,  color: '#059669', label: '매장 프로필 관리', desc: '매장 정보·플랫폼 연동 설정 · 무제한 무료' },
+  { Icon: MessageSquare, color: '#3182F6', label: '사장님 커뮤니티', desc: '지역·업종별 사장님들과 정보 공유 · 공동구매' },
+  { Icon: Gift,          color: '#F59E0B', label: '파트너 포인트', desc: '지인 추천 시 포인트 적립 · 구독료 할인 전환' },
+  { Icon: BarChart3,     color: '#7C3AED', label: '기본 대시보드', desc: '리뷰 현황·방문 추이 · 실시간 알림 기본 제공' },
+  { Icon: Link2,         color: '#059669', label: '매장 프로필 관리', desc: '매장 정보·플랫폼 연동 설정 · 무제한 무료' },
 ]
 
 // ── FAQ ────────────────────────────────────────────────────
