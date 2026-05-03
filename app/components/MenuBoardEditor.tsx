@@ -7,6 +7,7 @@
 import { useEffect, useState } from 'react'
 import { Plus, Trash2, Edit3, Save, Globe, Download, Image as ImageIcon, Star, Sparkles, Bookmark, Link2, FolderOpen, ClipboardList, Languages, AlertTriangle, MapPin, Check, CheckCircle2, RefreshCw, Clock } from 'lucide-react'
 import MenuBookmarkletDialog from './MenuBookmarkletDialog'
+import MenuThemeEditor from './MenuThemeEditor'
 
 type MenuItem = {
   id?: string
@@ -707,6 +708,11 @@ export default function MenuBoardEditor() {
           </div>
         </div>
       )}
+
+      {/* 메뉴판 테마 디자인 */}
+      <div className="bg-white rounded-2xl p-5 shadow-sm">
+        <MenuThemeEditor storeSlug={store?.slug} />
+      </div>
 
       {/* AI 번역 안내 (Phase 2B) */}
       <div className="bg-gradient-to-br from-[#EFF6FF] to-[#F8FBFF] rounded-2xl p-5 border border-[#BFDBFE]">
