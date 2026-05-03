@@ -6,8 +6,7 @@ import Sidebar from '../components/Sidebar'
 import Footer from '../components/Footer'
 import PageHeader from '../components/PageHeader'
 import { BRAND_GRAD } from '../lib/brand-colors'
-import { useCustomers, type Customer } from '../hooks/useCustomers'
-import type { CustomerTag } from '../lib/supabase'
+import { useCustomers, type Customer, type CustomerTag } from '../hooks/useCustomers'
 import { Users, Star, Heart, Moon, MessageSquare, FileText, type LucideIcon } from 'lucide-react'
 
 type Tag = CustomerTag
