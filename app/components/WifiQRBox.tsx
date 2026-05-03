@@ -7,7 +7,7 @@
 //   · 매장 QR 옆에 나란히 배치되도록 디자인
 // ============================================================
 import { useEffect, useState } from 'react'
-import { Wifi, Save, Download } from 'lucide-react'
+import { Wifi, Save, Download, Lightbulb } from 'lucide-react'
 
 const LS_WIFI = 'localution.wifi_settings'
 
@@ -213,7 +213,10 @@ export default function WifiQRBox() {
           </button>
 
           <div className="mt-3 p-3 rounded-xl bg-[#F0FDFA] border border-[#A7F3D0]">
-            <p className="text-[11px] text-[#065F46] font-bold mb-1">💡 활용 팁</p>
+            <div className="flex items-center gap-1 mb-1">
+              <Lightbulb size={11} className="text-[#065F46]" strokeWidth={2.5} />
+              <p className="text-[11px] text-[#065F46] font-bold">활용 팁</p>
+            </div>
             <ul className="text-[10px] text-[#065F46]/90 space-y-0.5 leading-relaxed pl-3 list-disc">
               <li>매장 QR 코드 옆에 나란히 인쇄·비치</li>
               <li>손님: 카메라로 스캔 → "Wi-Fi 연결?" 알림 → 자동 접속</li>
