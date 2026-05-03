@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { rateLimitByIp } from '@/app/lib/rateLimit'
 
 export const dynamic = 'force-dynamic'
 
@@ -12,6 +13,15 @@ const TONE_PROMPTS: Record<string, string> = {
 }
 
 export async function POST(req: NextRequest) {
+  // Rate limit: IP당 분당 5회 (Vision/Haiku 유료 API 보호)
+  const rl = rateLimitByIp(req, 'qr-review-generate', 5, 60)
+  if (!rl.ok) {
+    return NextResponse.json(
+      { ok: false, error: 'rate_limited', message: `너무 많은 요청. ${rl.resetIn}초 후 다시 시도해주세요.` },
+      { status: 429 }
+    )
+  }
+
   try {
     const body = await req.json()
     const { action = 'generate' } = body
