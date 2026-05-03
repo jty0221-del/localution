@@ -6,6 +6,7 @@ import Sidebar from '../../components/Sidebar'
 import Footer from '../../components/Footer'
 import { toast, confirmDialog } from '../../lib/toast'
 import PlatformLogo from '../../components/PlatformLogo'
+import { Link2, Search } from 'lucide-react'
 
 // ── 대시보드 업체 목록 타입 ────────────────────────────────
 type Store = {
@@ -187,7 +188,9 @@ export default function SettingsConnect() {
         {/* LOCALUTION_HERO_BANNER */}
         <section className="bg-gradient-to-r from-[#059669] to-[#047857] text-white px-4 sm:px-8 py-10 sm:py-14">
           <div className="max-w-5xl mx-auto flex items-center gap-4">
-            <div className="text-4xl sm:text-5xl drop-shadow-sm">🔗</div>
+            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-white/20 flex items-center justify-center backdrop-blur-sm flex-shrink-0">
+              <Link2 size={26} className="text-white" strokeWidth={2.5} />
+            </div>
             <div className="flex-1 min-w-0">
               <h1 className="text-xl sm:text-2xl font-black tracking-tight">연동 관리</h1>
               <p className="text-white/85 text-xs sm:text-sm mt-1 leading-relaxed">네이버·카카오·배민·요기요·쿠팡이츠를 한 계정에</p>
@@ -631,8 +634,8 @@ function GoogleConnectModal(props: {
             <div className="flex bg-[#F2F4F6] rounded-xl p-1 gap-1 mb-3">
               {(['url', 'search'] as const).map(m => (
                 <button key={m} onClick={() => { setMode(m); setError(''); setPreview(null); setSearchResults([]) }}
-                  className={['flex-1 py-2 text-xs font-bold rounded-lg transition-all', mode === m ? 'bg-white text-[#191F28] shadow-sm' : 'text-[#8B95A1]'].join(' ')}>
-                  {m === 'url' ? '🔗 URL 입력' : '🔍 매장명 검색'}
+                  className={['flex-1 py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5', mode === m ? 'bg-white text-[#191F28] shadow-sm' : 'text-[#8B95A1]'].join(' ')}>
+                  {m === 'url' ? <><Link2 size={12} strokeWidth={2.5} /> URL 입력</> : <><Search size={12} strokeWidth={2.5} /> 매장명 검색</>}
                 </button>
               ))}
             </div>
@@ -796,8 +799,8 @@ function KakaoConnectModal(props: {
             <div className="flex bg-[#F2F4F6] rounded-xl p-1 gap-1 mb-3">
               {(['search', 'url'] as const).map(m => (
                 <button key={m} onClick={() => { setMode(m); setError(''); setPreview(null); setSearchResults([]) }}
-                  className={['flex-1 py-2 text-xs font-bold rounded-lg transition-all', mode === m ? 'bg-white text-[#191F28] shadow-sm' : 'text-[#8B95A1]'].join(' ')}>
-                  {m === 'search' ? '🔍 매장명 검색' : '🔗 URL 입력'}
+                  className={['flex-1 py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5', mode === m ? 'bg-white text-[#191F28] shadow-sm' : 'text-[#8B95A1]'].join(' ')}>
+                  {m === 'search' ? <><Search size={12} strokeWidth={2.5} /> 매장명 검색</> : <><Link2 size={12} strokeWidth={2.5} /> URL 입력</>}
                 </button>
               ))}
             </div>
