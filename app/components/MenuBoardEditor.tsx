@@ -542,31 +542,6 @@ export default function MenuBoardEditor() {
         </div>
       </div>
 
-      {/* 전체 자동 번역 버튼 */}
-      {items.length > 0 && (
-        <div className="flex items-center justify-between gap-2 p-3 rounded-xl bg-gradient-to-br from-[#F0FDF4] to-[#FFFFFF] border border-[#BBF7D0] flex-wrap">
-          <div className="flex items-center gap-2">
-            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#03C75A] to-[#059669] flex items-center justify-center shadow-sm flex-shrink-0">
-              <Languages size={14} className="text-white" strokeWidth={2.5} />
-            </div>
-            <div>
-              <p className="text-xs font-bold text-[#065F46]">전체 메뉴 다국어 자동 번역</p>
-              <p className="text-[10px] text-[#059669]">
-                {bulkTranslating
-                  ? `${bulkProgress.done}/${bulkProgress.total}개 처리 중...`
-                  : `한국어 메뉴 → 영/일/중 자동 번역 (Papago)`}
-              </p>
-            </div>
-          </div>
-          <button
-            onClick={translateAllMenus}
-            disabled={bulkTranslating}
-            className="px-3 py-2 rounded-xl bg-[#059669] text-white text-xs font-bold disabled:opacity-50 hover:bg-[#047857]">
-            {bulkTranslating ? '번역 중...' : '전체 번역 시작'}
-          </button>
-        </div>
-      )}
-
       {/* 빠른 동기화 + 결과 표시 */}
       {items.length > 0 && (
         <div className="flex items-center justify-between gap-2 p-3 rounded-xl bg-gradient-to-br from-[#EFF6FF] to-[#F8FBFF] border border-[#BFDBFE] flex-wrap">
