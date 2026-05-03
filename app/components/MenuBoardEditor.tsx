@@ -5,7 +5,7 @@
 //   · 메뉴 CRUD + 네이버 자동 가져오기 + 다국어 입력
 // ============================================================
 import { useEffect, useState } from 'react'
-import { Plus, Trash2, Edit3, Save, Globe, Download, Image as ImageIcon, Star, Sparkles, Bookmark, Link2, FolderOpen, ClipboardList, Languages, AlertTriangle, MapPin, Check, CheckCircle2, RefreshCw, Clock } from 'lucide-react'
+import { Plus, Trash2, Edit3, Save, Globe, Download, Image as ImageIcon, Star, Sparkles, Link2, FolderOpen, ClipboardList, Languages, AlertTriangle, MapPin, Check, CheckCircle2, RefreshCw, Clock } from 'lucide-react'
 import MenuBookmarkletDialog from './MenuBookmarkletDialog'
 import MenuThemeEditor from './MenuThemeEditor'
 
@@ -253,6 +253,66 @@ export default function MenuBoardEditor() {
     return day + '일 전'
   }
 
+  // 전체 메뉴 자동 번역 (en/ja/zh) — Papago 일괄 처리
+  const [bulkTranslating, setBulkTranslating] = useState(false)
+  const [bulkProgress, setBulkProgress] = useState({ done: 0, total: 0 })
+  async function translateAllMenus() {
+    if (!confirm(`${items.length}개 메뉴를 영어/일본어/중국어로 자동 번역할까요?\n\nPapago API 사용 (메뉴당 약 3초). 빈 번역 필드만 채워집니다.`)) return
+    setBulkTranslating(true)
+    setBulkProgress({ done: 0, total: items.length })
+    let okCount = 0
+    for (let i = 0; i < items.length; i++) {
+      const item = items[i]
+      const updates: any = {}
+      const targets: { lang: string; papago: string }[] = [
+        { lang: 'en', papago: 'en' },
+        { lang: 'ja', papago: 'ja' },
+        { lang: 'zh', papago: 'zh-CN' },
+      ]
+      for (const t of targets) {
+        // 이미 번역된 것 skip
+        if (item[`name_${t.lang}`]) continue
+        try {
+          const r = await fetch('/api/translate/papago', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ text: item.name_ko, source: 'ko', target: t.papago }),
+          })
+          const j = await r.json()
+          if (j.ok) updates[`name_${t.lang}`] = j.translated
+        } catch (_) {}
+        if (item.desc_ko && !item[`desc_${t.lang}`]) {
+          try {
+            const r2 = await fetch('/api/translate/papago', {
+              method: 'POST',
+              credentials: 'include',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ text: item.desc_ko, source: 'ko', target: t.papago }),
+            })
+            const j2 = await r2.json()
+            if (j2.ok) updates[`desc_${t.lang}`] = j2.translated
+          } catch (_) {}
+        }
+      }
+      if (Object.keys(updates).length > 0) {
+        try {
+          await fetch('/api/menu', {
+            method: 'PUT',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ id: item.id, ...updates }),
+          })
+          okCount++
+        } catch (_) {}
+      }
+      setBulkProgress({ done: i + 1, total: items.length })
+    }
+    setBulkTranslating(false)
+    await fetchItems()
+    alert(`번역 완료: ${okCount}개 메뉴 업데이트됨`)
+  }
+
   useEffect(() => {
     fetchItems()
   }, [])
@@ -421,11 +481,6 @@ export default function MenuBoardEditor() {
         </div>
         <div className="flex gap-2 flex-wrap">
           <button
-            onClick={startBookmarkletFlow}
-            className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-gradient-to-br from-[#3182F6] to-[#7C3AED] text-white text-xs font-bold hover:opacity-90 shadow-sm">
-            <Bookmark size={12} strokeWidth={2.5} /> 북마클릿으로 가져오기
-          </button>
-          <button
             onClick={() => setShowImport(true)}
             className="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#03C75A] text-white text-xs font-bold hover:opacity-90">
             <Download size={12} strokeWidth={2.5} /> 네이버 플레이스 메뉴 가져오기
@@ -438,14 +493,30 @@ export default function MenuBoardEditor() {
         </div>
       </div>
 
-      {/* URL 안내 */}
-      <div className="p-3 rounded-xl bg-[#F8FAFB] border border-[#E5E8EB]">
-        <div className="flex items-center gap-1.5 mb-1">
-          <Link2 size={11} className="text-[#3182F6]" strokeWidth={2.5} />
-          <p className="text-[10px] text-[#8B95A1]">손님이 스캔할 메뉴판 URL</p>
+      {/* 전체 자동 번역 버튼 */}
+      {items.length > 0 && (
+        <div className="flex items-center justify-between gap-2 p-3 rounded-xl bg-gradient-to-br from-[#F0FDF4] to-[#FFFFFF] border border-[#BBF7D0] flex-wrap">
+          <div className="flex items-center gap-2">
+            <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#03C75A] to-[#059669] flex items-center justify-center shadow-sm flex-shrink-0">
+              <Languages size={14} className="text-white" strokeWidth={2.5} />
+            </div>
+            <div>
+              <p className="text-xs font-bold text-[#065F46]">전체 메뉴 다국어 자동 번역</p>
+              <p className="text-[10px] text-[#059669]">
+                {bulkTranslating
+                  ? `${bulkProgress.done}/${bulkProgress.total}개 처리 중...`
+                  : `한국어 메뉴 → 영/일/중 자동 번역 (Papago)`}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={translateAllMenus}
+            disabled={bulkTranslating}
+            className="px-3 py-2 rounded-xl bg-[#059669] text-white text-xs font-bold disabled:opacity-50 hover:bg-[#047857]">
+            {bulkTranslating ? '번역 중...' : '전체 번역 시작'}
+          </button>
         </div>
-        <p className="text-xs font-mono text-[#191F28] break-all">{menuUrl}</p>
-      </div>
+      )}
 
       {/* 빠른 동기화 + 결과 표시 */}
       {items.length > 0 && (
@@ -665,7 +736,27 @@ export default function MenuBoardEditor() {
                 <p className="text-[10px] text-[#8B95A1] mt-0.5">smartplace URL 의 bookingBusinessId 파라미터</p>
               </div>
 
-              {importErr && <p className="text-xs text-[#DC2626]">{importErr}</p>}
+              {importErr && (
+                <div className="rounded-xl p-3 border" style={{ background: '#FEF7ED', borderColor: '#FED7AA' }}>
+                  <div className="flex items-start gap-2">
+                    <AlertTriangle size={14} className="text-[#92400E] flex-shrink-0 mt-0.5" strokeWidth={2.5} />
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-bold text-[#92400E] mb-1">네이버 자동 가져오기가 잠시 어려워요</p>
+                      <p className="text-[11px] text-[#78716C] leading-relaxed mb-2">{importErr}</p>
+                      <div className="space-y-1 mb-2">
+                        <p className="text-[11px] font-bold text-[#1F1612]">대안:</p>
+                        <p className="text-[11px] text-[#78716C]">1) 잠시(30초~2분) 후 다시 시도</p>
+                        <p className="text-[11px] text-[#78716C]">2) 닫기 → 우측 상단 <strong className="text-[#191F28]">메뉴 추가</strong> 버튼으로 직접 입력 (사진까지 빠르게 가능)</p>
+                      </div>
+                      <button
+                        onClick={() => { setShowImport(false); startEdit() }}
+                        className="px-3 py-1.5 rounded-lg bg-[#191F28] text-white text-[11px] font-bold flex items-center gap-1.5">
+                        <Plus size={11} strokeWidth={2.5} /> 직접 메뉴 추가하기
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {importStatus !== 'idle' && importStatus !== 'success' && importStatus !== 'failed' && (
                 <div className="flex items-center gap-2 p-3 rounded-lg bg-[#EFF6FF] border border-[#BFDBFE]">
