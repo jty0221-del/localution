@@ -14,29 +14,12 @@ const CATEGORY_ICONS: Record<PartnerCategory, LucideIcon> = {
   '식당':   UtensilsCrossed,
 }
 
+// 베타 운영 중 — 우수 매장 사례는 베타 종료 후 게재
+// 빈 배열이면 컴포넌트가 "베타 매장 모집 중" 안내로 자동 전환
 const PARTNERS: {
   id: number; name: string; category: PartnerCategory; location: string;
   rating: number; reviews: number; badge: string; desc: string; tags: string[]; color: string;
-}[] = [
-  {
-    id: 1, name: '오가닉브런치', category: '카페', location: '서울 마포',
-    rating: 4.9, reviews: 312, badge: '이달의 우수매장',
-    desc: '로컬루션 AI 리뷰 답변으로 별점 4.5→4.9 달성!',
-    tags: ['#브런치', '#비건', '#감성카페'], color: '#3182F6',
-  },
-  {
-    id: 2, name: '강남헤어살롱', category: '미용실', location: '서울 강남',
-    rating: 4.8, reviews: 287, badge: '리뷰 마스터',
-    desc: 'QR 리뷰 유도로 3개월 만에 리뷰 200개 돌파!',
-    tags: ['#헤어', '#펌', '#강남미용'], color: '#00C471',
-  },
-  {
-    id: 3, name: '부산고기창고', category: '식당', location: '부산 해운대',
-    rating: 4.7, reviews: 445, badge: 'CRM 챔피언',
-    desc: 'CRM 단골 관리로 재방문율 65% 달성한 고깃집',
-    tags: ['#고기', '#회식', '#부산맛집'], color: '#FF8C00',
-  },
-]
+}[] = []
 
 interface PartnerSpotlightProps {
   variant?: 'banner' | 'popup' | 'card'
@@ -45,10 +28,12 @@ interface PartnerSpotlightProps {
 export default function PartnerSpotlight({ variant = 'card' }: PartnerSpotlightProps) {
   const [current, setCurrent] = useState(0)
   const [closed, setClosed] = useState(false)
+
+  // 베타 운영 중 — 매장 사례 없으면 컴포넌트 자체 렌더 안 함
+  if (closed || PARTNERS.length === 0) return null
+
   const partner = PARTNERS[current]
   const CategoryIcon = CATEGORY_ICONS[partner.category]
-
-  if (closed) return null
 
   // ── 팝업 형태 ─────────────────────────────────────────────────
   if (variant === 'popup') {
