@@ -355,7 +355,7 @@ function QrDemo() {
       {step === 1 && (
         <div className="bg-white rounded-2xl border border-[#E5E8EB] overflow-hidden">
           <div className="px-5 py-4" style={{ background: 'linear-gradient(135deg,#059669,#10B981)' }}>
-            <p className="text-white font-black text-sm">📍 타이백스트릿 해운대점</p>
+            <p className="text-white font-black text-sm">타이백스트릿 해운대점</p>
             <p className="text-white/75 text-xs mt-0.5">오늘 방문 경험을 알려주세요</p>
           </div>
           <div className="p-5">
@@ -429,7 +429,7 @@ function QrDemo() {
             고객이 직접 쓴 것처럼 자연스러운 리뷰가<br/>네이버 플레이스에 게시됐습니다
           </p>
           <div className="bg-[#F0FDF4] border border-[#BBF7D0] rounded-xl p-4 mb-5 text-left w-full">
-            <p className="text-[10px] font-bold text-[#059669] mb-1.5">📝 게시된 리뷰</p>
+            <p className="text-[10px] font-bold text-[#059669] mb-1.5">게시된 리뷰</p>
             <p className="text-xs text-[#4E5968] leading-relaxed break-keep">{QR_AI_REVIEW.slice(0, 70)}...</p>
           </div>
           <div className="grid grid-cols-3 gap-2 w-full mb-5">
@@ -868,7 +868,7 @@ export default function ServiceIntro() {
                 {/* 하단 */}
                 <div className="mt-5 pt-4 border-t border-[#F2F4F6] flex items-center justify-between gap-3 flex-wrap">
                   <p className="text-[11px] text-[#8B95A1] break-keep">
-                    💬 쓰면서 불편하신 점, 원하는 기능이 있으면 언제든 알려주세요. 다음 업데이트에 반영할게요.
+                    쓰면서 불편하신 점, 원하는 기능이 있으면 언제든 알려주세요. 다음 업데이트에 반영할게요.
                   </p>
                   <Link href="/inquiry"
                     className="text-[11px] font-black text-[#3182F6] hover:underline shrink-0">
