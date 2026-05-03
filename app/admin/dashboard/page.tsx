@@ -4,7 +4,7 @@ export const dynamic = 'force-dynamic'
 import { useEffect, useMemo, useState } from 'react'
 import Link from 'next/link'
 import { adminFetch } from '../../lib/adminFetch'
-import { MessageSquare, ArrowRight, Clock, CheckCircle2, Inbox } from 'lucide-react'
+import { MessageSquare, ArrowRight, Clock, CheckCircle2, Inbox, AlertCircle, Circle, Coins, Users, UserCheck, type LucideIcon } from 'lucide-react'
 import {
   LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
   BarChart, Bar, Cell, Legend,
@@ -119,13 +119,13 @@ export default function AdminDashboardPage() {
   const mrrTrend   = useMemo(() => buildMrrTrend(data.mrr_krw), [data.mrr_krw])
   const moduleDist = useMemo(() => buildModuleDist(data.subscriptions.active), [data.subscriptions.active])
 
-  const kpis = [
-    { label: '활성 구독', value: data.subscriptions.active, icon: '🟢', color: '#16A34A' },
-    { label: '연체 구독', value: data.subscriptions.past_due, icon: '🟡', color: '#CA8A04' },
-    { label: '해지 구독', value: data.subscriptions.cancelled, icon: '⚪', color: '#8B95A1' },
-    { label: '월 예상 매출', value: data.mrr_krw, icon: '💰', color: '#3182F6', krw: true },
-    { label: '가입 사용자', value: data.users_total, icon: '👥', color: '#7C3AED' },
-    { label: '등록 고객 합계', value: data.customers_total, icon: '🧑‍🤝‍🧑', color: '#F59E0B' },
+  const kpis: { label: string; value: number; Icon: LucideIcon; color: string; krw?: boolean }[] = [
+    { label: '활성 구독',       value: data.subscriptions.active,    Icon: CheckCircle2, color: '#16A34A' },
+    { label: '연체 구독',       value: data.subscriptions.past_due,  Icon: AlertCircle,  color: '#CA8A04' },
+    { label: '해지 구독',       value: data.subscriptions.cancelled, Icon: Circle,       color: '#8B95A1' },
+    { label: '월 예상 매출',    value: data.mrr_krw,                  Icon: Coins,        color: '#3182F6', krw: true },
+    { label: '가입 사용자',     value: data.users_total,              Icon: Users,        color: '#7C3AED' },
+    { label: '등록 고객 합계',  value: data.customers_total,          Icon: UserCheck,    color: '#F59E0B' },
   ]
 
   return (
@@ -144,7 +144,9 @@ export default function AdminDashboardPage() {
       <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4 mb-6">
         {kpis.map(k => (
           <div key={k.label} className="bg-white rounded-2xl p-5 shadow-sm">
-            <div className="text-2xl mb-1">{k.icon}</div>
+            <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-2" style={{ background: k.color + '15', color: k.color }}>
+              <k.Icon size={18} strokeWidth={2.5} />
+            </div>
             <div className="text-2xl md:text-3xl font-black" style={{ color: k.color }}>
               {!data.loaded ? '—' : k.krw ? `₩${k.value.toLocaleString()}` : k.value.toLocaleString()}
             </div>
