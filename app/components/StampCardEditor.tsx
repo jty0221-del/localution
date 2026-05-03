@@ -56,6 +56,8 @@ export default function StampCardEditor() {
   const [card, setCard] = useState({
     title: '단골 도장 카드',
     description: '',
+    owner_name: '',
+    owner_phone: '',
     required_stamps: 10,
     reward_text: '음료 1잔 무료',
     theme_color: '#3182F6',
@@ -86,6 +88,8 @@ export default function StampCardEditor() {
             setCard({
               title: j.card.title,
               description: j.card.description || '',
+              owner_name: j.card.owner_name || '',
+              owner_phone: j.card.owner_phone || '',
               required_stamps: j.card.required_stamps,
               reward_text: j.card.reward_text,
               theme_color: j.card.theme_color,
@@ -300,6 +304,29 @@ export default function StampCardEditor() {
             />
           </div>
 
+          {/* 사장님 연락처 (선택) — 카드에 표시되어 손님이 문의 가능 */}
+          <div className="grid grid-cols-2 gap-2">
+            <div>
+              <label className="text-[11px] font-bold text-[#4E5968] mb-1 block">사장님 이름 (선택)</label>
+              <input
+                value={card.owner_name}
+                onChange={e => setCard({ ...card, owner_name: e.target.value.slice(0, 30) })}
+                placeholder="홍길동"
+                className="w-full px-3 py-2.5 rounded-lg bg-[#F2F4F6] border-2 border-transparent focus:border-[#3182F6] focus:bg-white outline-none text-sm"
+              />
+            </div>
+            <div>
+              <label className="text-[11px] font-bold text-[#4E5968] mb-1 block">매장 연락처 (선택)</label>
+              <input
+                type="tel"
+                value={card.owner_phone}
+                onChange={e => setCard({ ...card, owner_phone: e.target.value.slice(0, 20) })}
+                placeholder="010-1234-5678"
+                className="w-full px-3 py-2.5 rounded-lg bg-[#F2F4F6] border-2 border-transparent focus:border-[#3182F6] focus:bg-white outline-none text-sm"
+              />
+            </div>
+          </div>
+
           <div>
             <label className="text-[11px] font-bold text-[#4E5968] mb-1 block">필요 스탬프 수</label>
             <select
@@ -336,7 +363,7 @@ export default function StampCardEditor() {
               <button
                 onClick={() => {
                   if (card.milestones.length >= 5) return
-                  const next = [...card.milestones, { at: Math.min(card.required_stamps - 1, (card.milestones[card.milestones.length - 1]?.at || 0) + 5), reward: '' }]
+                  const next = [...card.milestones, { at: Math.min(20, (card.milestones[card.milestones.length - 1]?.at || 0) + 5), reward: '' }]
                   setCard({ ...card, milestones: next })
                 }}
                 disabled={card.milestones.length >= 5}
@@ -358,7 +385,7 @@ export default function StampCardEditor() {
                       setCard({ ...card, milestones: next })
                     }}
                     className="text-xs px-2 py-1 rounded bg-white border border-[#E5E8EB] focus:outline-none focus:border-[#3182F6]">
-                    {Array.from({ length: card.required_stamps - 1 }, (_, n) => n + 1).map(n => (
+                    {Array.from({ length: 20 }, (_, n) => n + 1).map(n => (
                       <option key={n} value={n}>{n}회</option>
                     ))}
                   </select>
@@ -474,7 +501,13 @@ export default function StampCardEditor() {
             </div>
 
             {customers.length === 0 ? (
-              <p className="text-xs text-[#8B95A1] text-center py-6">아직 적립한 손님이 없어요. QR 을 매장에 비치하거나 "수동 추가" 로 손님을 등록해보세요.</p>
+              <div className="text-center py-6 px-4">
+                <p className="text-xs text-[#8B95A1] mb-2">아직 적립한 손님이 없어요.</p>
+                <p className="text-[11px] text-[#3182F6] leading-relaxed">
+                  카드 저장 = 디자인 등록만 됨.<br/>
+                  손님이 QR 스캔 + 전화번호 입력하거나, 사장님이 "수동 추가" 클릭해야 적립 손님 카운트에 추가됩니다.
+                </p>
+              </div>
             ) : customers.map(c => {
               const id = c.id
               const showFull = unmasked.has(id)
