@@ -342,18 +342,38 @@ export async function runCoupangEats(
         currentUrl.includes('/login') ||
         (dbg.startsWith('whoami node:[') && !dbg.includes('"merchantId"') && !dbg.includes('"accountId"'))
       ) && inserted === 0
-      if (sessionExpired) {
-        log.warn({ rawBodySample: dbg.slice(0, 100), currentUrl }, 'coupangeats: 세션 만료 감지 → DB 쿠키 삭제 후 form login 시도')
-        // DB에서 만료된 쿠키 삭제 → 다음 run에서도 form login으로 진입
-        try {
-          await svc.from('platform_connections').update({ session_cookies: null }).eq('user_id', userId).eq('platform', 'coupangeats')
-          log.info('coupangeats: 만료 쿠키 DB에서 삭제 완료')
-        } catch (ce: any) {
-          log.warn({ err: String(ce?.message || ce) }, 'coupangeats: 쿠키 삭제 실패 (계속 진행)')
-        }
-        return await fetchCoupangReviews(page, context, svc, creds, userId, action, payload, log, earlyCapture, earlyCaptureUrls, allRequestUrls, allJsonUrls, null)
+      if (!sessionExpired) {
+        return result
       }
-      return result
+
+      // ── 56차 fix: 세션 만료 → form login 으로 fall-through ──
+      // 기존 버그: fetchCoupangReviews(..., null) 재호출 = reviews 페이지 직행 (form login 안 거침)
+      // 수정: 아래 form login flow (warming + humanType + storeId discovery) 로 흐름 떨어뜨림
+      // 또한 테이블명 수정: platform_connections → platform_credentials.extra_data.session_cookies
+      log.warn({ rawBodySample: dbg.slice(0, 100), currentUrl }, 'coupangeats: 세션 만료 감지 → form login 으로 fall-through (56cha)')
+      try {
+        const { data: existing } = await svc
+          .from('platform_credentials')
+          .select('extra_data')
+          .eq('user_id', userId)
+          .eq('platform', 'coupangeats')
+          .maybeSingle()
+        const cleaned: Record<string, unknown> = { ...((existing?.extra_data as Record<string, unknown>) || {}) }
+        delete cleaned.session_cookies
+        await svc
+          .from('platform_credentials')
+          .update({ extra_data: cleaned, updated_at: new Date().toISOString() })
+          .eq('user_id', userId)
+          .eq('platform', 'coupangeats')
+        log.info('coupangeats: 만료 쿠키 DB 정리 완료 (extra_data.session_cookies 제거)')
+      } catch (ce: any) {
+        log.warn({ err: String(ce?.message || ce) }, 'coupangeats: 만료 쿠키 정리 실패 (계속 진행)')
+      }
+
+      // 페이지 컨텍스트 정리 → form login 코드가 새로 nav 함
+      // page 는 이미 /merchant/login 으로 redirect 된 상태일 가능성 큼.
+      // warmAkamaiSession 이 메인 → /login 순서로 다시 nav 하므로 OK.
+      // (savedCookies 분기를 빠져나와 아래 form login 코드 실행)
     }
 
     // ── 폼 로그인 (쿠키 없거나 만료) ──
