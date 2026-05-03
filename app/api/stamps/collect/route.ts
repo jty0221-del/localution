@@ -50,11 +50,17 @@ export async function POST(req: NextRequest) {
     .maybeSingle()
 
   if (!card) {
-    const { data: store } = await svc
+    // PostgREST 필터 인젝션 방지 — slug, name 각각 분리 쿼리 (or 보간 미사용)
+    const { data: bySlug } = await svc
       .from('stores')
       .select('user_id, slug, name')
-      .or(`slug.eq.${slug},name.eq.${slug}`)
+      .eq('slug', slug)
       .maybeSingle()
+    const store = bySlug || (await svc
+      .from('stores')
+      .select('user_id, slug, name')
+      .eq('name', slug)
+      .maybeSingle()).data
 
     if (store) {
       const { data: cardByUser } = await svc
@@ -228,11 +234,17 @@ export async function GET(req: NextRequest) {
 
   // 2) 매칭 안 되면 — stores 테이블 통해 매장명/slug 매칭 후 user_id 로 카드 찾기
   if (!card) {
-    const { data: store } = await svc
+    // PostgREST 필터 인젝션 방지 — slug, name 각각 분리 쿼리
+    const { data: bySlug2 } = await svc
       .from('stores')
       .select('id, user_id, slug, name')
-      .or(`slug.eq.${slug},name.eq.${slug}`)
+      .eq('slug', slug)
       .maybeSingle()
+    const store = bySlug2 || (await svc
+      .from('stores')
+      .select('id, user_id, slug, name')
+      .eq('name', slug)
+      .maybeSingle()).data
 
     if (store) {
       const { data: cardByUser } = await svc
