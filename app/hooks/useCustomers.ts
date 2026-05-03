@@ -1,11 +1,12 @@
 'use client';
 
 // ============================================================
-// useCustomers — 우리 쿠키 인증 API 기반
+// useCustomers — 우리 쿠키 인증 API 기반 (보안 강화 v2, 2026-05-03)
 //   · /api/customers GET/POST/PUT/DELETE 사용
-//   · 비로그인 시 localStorage 폴백 (기존 동작 유지)
-//   · 로그인 시 자동으로 DB 모드로 전환 (1회 마이그레이션)
-//   · 스탬프카드 자동 등록 손님도 여기에 자동 표시
+//   · 로그인 시: DB가 source of truth, localStorage 는 보조 캐시 (오프라인 대응)
+//   · 비로그인 시: localStorage 만 사용 (게스트 모드)
+//   · 마이그레이션 후 LS 원본 삭제 (잔존 데이터 제거)
+//   · DB 모드에서 모든 변경사항 LS 캐시도 자동 동기화 (즉시 표시)
 // ============================================================
 
 import { useCallback, useEffect, useRef, useState } from 'react';
@@ -24,6 +25,7 @@ export type Customer = {
 };
 
 const LS_KEY = 'localution.customers';
+const LS_CACHE_KEY = 'localution.customers.cache';   // DB 모드 캐시 (로그인 사용자별 격리 X — 클라이언트 단일 사용자 가정)
 const LS_MIGRATED_KEY = 'localution.customers.migrated_at';
 
 export type UseCustomersMode = 'local' | 'remote' | 'loading';
@@ -50,7 +52,7 @@ export function useCustomers(): UseCustomersResult {
   const [error, setError] = useState<string | null>(null);
   const migratedRef = useRef(false);
 
-  // ---------- 로컬 ----------
+  // ---------- 로컬 (게스트 모드) ----------
   const readLocal = (): Customer[] => {
     try {
       const raw = localStorage.getItem(LS_KEY);
@@ -68,6 +70,24 @@ export function useCustomers(): UseCustomersResult {
     } catch {}
   };
 
+  // ---------- DB 모드 캐시 (오프라인 즉시 표시) ----------
+  const readCache = (): Customer[] => {
+    try {
+      const raw = localStorage.getItem(LS_CACHE_KEY);
+      if (!raw) return [];
+      const parsed = JSON.parse(raw);
+      return Array.isArray(parsed) ? (parsed as Customer[]) : [];
+    } catch {
+      return [];
+    }
+  };
+
+  const writeCache = (next: Customer[]) => {
+    try {
+      localStorage.setItem(LS_CACHE_KEY, JSON.stringify(next));
+    } catch {}
+  };
+
   // ---------- 원격 (우리 API) ----------
   const fetchRemote = useCallback(async (): Promise<Customer[] | null> => {
     try {
@@ -78,7 +98,10 @@ export function useCustomers(): UseCustomersResult {
         setError(j.error || 'fetch failed');
         return null;
       }
-      return j.customers || [];
+      const list = (j.customers || []) as Customer[];
+      // DB 결과를 캐시에 저장 (다음 진입 시 즉시 표시)
+      writeCache(list);
+      return list;
     } catch (e) {
       setError(e instanceof Error ? e.message : 'fetch failed');
       return null;
@@ -86,6 +109,7 @@ export function useCustomers(): UseCustomersResult {
   }, []);
 
   // ---------- 1회 마이그레이션 (localStorage → DB) ----------
+  // 성공 시 LS_KEY 원본 데이터 자동 삭제 (잔존 방지)
   const ensureMigrated = useCallback(async () => {
     if (migratedRef.current) return;
     try {
@@ -99,9 +123,10 @@ export function useCustomers(): UseCustomersResult {
       }
 
       // 각 로컬 손님을 API 로 추가
+      let migratedCount = 0;
       for (const c of local) {
         try {
-          await fetch('/api/customers', {
+          const r = await fetch('/api/customers', {
             method: 'POST',
             credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
@@ -112,9 +137,17 @@ export function useCustomers(): UseCustomersResult {
               tags: c.tags,
             }),
           });
+          if (r.ok) migratedCount++;
         } catch {}
       }
       localStorage.setItem(LS_MIGRATED_KEY, todayISODate());
+      // 모든 데이터 마이그레이션 성공 시에만 LS 원본 삭제 (안전)
+      if (migratedCount === local.length) {
+        try { localStorage.removeItem(LS_KEY); } catch {}
+        console.log('[useCustomers] migrated', migratedCount, 'customers, LS cleaned');
+      } else {
+        console.warn('[useCustomers] partial migration:', migratedCount, '/', local.length);
+      }
       migratedRef.current = true;
     } catch (e) {
       console.warn('[useCustomers] migration error:', e);
@@ -126,10 +159,14 @@ export function useCustomers(): UseCustomersResult {
     setLoading(true);
     setError(null);
     try {
-      // 우리 API 호출 — 401 이면 미로그인
+      // 1. 캐시 즉시 표시 (UX) — 네트워크 응답 대기 안 함
+      const cached = readCache();
+      if (cached.length > 0) setCustomers(cached);
+
+      // 2. 우리 API 호출 — 401 이면 미로그인
       const r = await fetch('/api/customers', { credentials: 'include', cache: 'no-store' });
       if (r.status === 401 || r.status === 403) {
-        // 미로그인 → 로컬 모드
+        // 미로그인 → 로컬 모드 (게스트)
         setCustomers(readLocal());
         setMode('local');
         return;
@@ -139,14 +176,14 @@ export function useCustomers(): UseCustomersResult {
         if (j.ok) {
           // 첫 진입 시 1회 마이그레이션 시도
           await ensureMigrated();
-          // 마이그레이션 후 재조회
+          // 마이그레이션 후 재조회 (DB가 source of truth)
           const refetched = await fetchRemote();
           setCustomers(refetched || []);
           setMode('remote');
           return;
         }
       }
-      // 실패 fallback
+      // 실패 fallback (네트워크 오류 등)
       setCustomers(readLocal());
       setMode('local');
     } catch (_) {
@@ -177,7 +214,9 @@ export function useCustomers(): UseCustomersResult {
       });
       const j = await r.json();
       if (!j.ok) { setError(j.error || 'add failed'); return; }
-      setCustomers(prev => [j.customer, ...prev]);
+      const next = [j.customer, ...customers];
+      setCustomers(next);
+      writeCache(next);
       return;
     }
     const next: Customer = {
@@ -205,7 +244,9 @@ export function useCustomers(): UseCustomersResult {
       });
       const j = await r.json();
       if (!j.ok) { setError(j.error || 'update failed'); return; }
-      setCustomers(prev => prev.map(c => (c.id === id ? { ...c, ...patch } : c)));
+      const next = customers.map(c => (c.id === id ? { ...c, ...patch } : c));
+      setCustomers(next);
+      writeCache(next);
       return;
     }
     const nextList = customers.map(c => (c.id === id ? { ...c, ...patch } : c));
@@ -218,7 +259,9 @@ export function useCustomers(): UseCustomersResult {
       const r = await fetch('/api/customers?id=' + id, { method: 'DELETE', credentials: 'include' });
       const j = await r.json();
       if (!j.ok) { setError(j.error || 'remove failed'); return; }
-      setCustomers(prev => prev.filter(c => c.id !== id));
+      const next = customers.filter(c => c.id !== id);
+      setCustomers(next);
+      writeCache(next);
       return;
     }
     const nextList = customers.filter(c => c.id !== id);
@@ -235,6 +278,7 @@ export function useCustomers(): UseCustomersResult {
         } catch {}
       }
       setCustomers([]);
+      writeCache([]);
       return;
     }
     try { localStorage.removeItem(LS_KEY); } catch {}
