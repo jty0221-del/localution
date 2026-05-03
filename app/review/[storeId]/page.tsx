@@ -3,6 +3,7 @@ export const dynamic = 'force-dynamic'
 
 import { useState, useRef, useEffect } from 'react'
 import { useParams, useSearchParams } from 'next/navigation'
+import { Camera, Image as ImageIcon, CheckCircle2, AlertTriangle, ClipboardList, Sparkles, Check, UtensilsCrossed } from 'lucide-react'
 
 const BLUE      = '#3182F6'
 const BLUE_DARK = '#1B64DA'
@@ -550,15 +551,17 @@ export default function ReviewPage() {
 
             <div className="space-y-2">
               {([
-                { cat: 'receipt', label: '영수증', desc: '스캔으로 매장 자동 인식', icon: '🧾' },
-                { cat: 'photo',   label: '사진',   desc: '음식 · 서비스 · 전경 등',  icon: '📸' },
-              ] as Array<{ cat: 'receipt' | 'photo'; label: string; desc: string; icon: string }>).map(c => {
+                { cat: 'receipt', label: '영수증', desc: '스캔으로 매장 자동 인식', Icon: ClipboardList },
+                { cat: 'photo',   label: '사진',   desc: '음식 · 서비스 · 전경 등',  Icon: Camera },
+              ] as const).map(c => {
                 const count  = photos.filter(p => p.cat === c.cat).length
                 const active = count > 0
                 return (
                   <div key={c.cat} className="p-4 rounded-2xl border-2 border-dashed bg-white transition-colors" style={{ borderColor: active ? BLUE : BORDER }}>
                     <div className="flex items-center gap-3 mb-3">
-                      <div className="text-2xl">{c.icon}</div>
+                      <div className="w-10 h-10 rounded-xl flex items-center justify-center" style={{ background: BLUE_BG, color: BLUE }}>
+                        <c.Icon size={20} strokeWidth={2.5} />
+                      </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2">
                           <span className="font-black text-sm" style={{ color: BLACK }}>{c.label}</span>
@@ -571,12 +574,12 @@ export default function ReviewPage() {
                       <button onClick={() => openCamera(c.cat)}
                         className="py-3 rounded-xl text-sm font-bold text-white flex items-center justify-center gap-1.5 shadow-sm"
                         style={{ background: BLUE }}>
-                        <span className="text-base">📷</span><span>바로 촬영</span>
+                        <Camera size={16} strokeWidth={2.5} /><span>바로 촬영</span>
                       </button>
                       <button onClick={() => openAlbum(c.cat)}
                         className="py-3 rounded-xl text-sm font-bold border-2 flex items-center justify-center gap-1.5 bg-white"
                         style={{ borderColor: BLUE, color: BLUE }}>
-                        <span className="text-base">🖼️</span><span>앨범에서</span>
+                        <ImageIcon size={16} strokeWidth={2.5} /><span>앨범에서</span>
                       </button>
                     </div>
                   </div>
@@ -596,7 +599,7 @@ export default function ReviewPage() {
                 {receiptStatus === 'ok' && (
                   <div className="p-3.5 rounded-2xl" style={{ background: '#F0FDF4', border: '1px solid #BBF7D0' }}>
                     <div className="flex items-center gap-3">
-                      <span className="text-lg flex-shrink-0">✅</span>
+                      <CheckCircle2 size={18} className="flex-shrink-0 text-[#059669]" strokeWidth={2.5} />
                       <p className="text-xs font-bold" style={{ color: '#059669' }}>
                         {store.name} 영수증 확인됐어요!
                         {receiptInfo?.items && receiptInfo.items.length > 0 ? ' 메뉴 자동 인식 완료' : ' AI 가 분석할게요'}
@@ -605,8 +608,8 @@ export default function ReviewPage() {
                     {receiptInfo?.items && receiptInfo.items.length > 0 && (
                       <div className="mt-2 pl-7 flex flex-wrap gap-1">
                         {receiptInfo.items.slice(0, 4).map((it, i) => (
-                          <span key={i} className="text-[10px] px-2 py-0.5 rounded-full bg-white border border-[#BBF7D0] text-[#059669] font-medium">
-                            🍽 {it}
+                          <span key={i} className="inline-flex items-center gap-1 text-[10px] px-2 py-0.5 rounded-full bg-white border border-[#BBF7D0] text-[#059669] font-medium">
+                            <UtensilsCrossed size={10} strokeWidth={2.5} /> {it}
                           </span>
                         ))}
                       </div>
@@ -615,7 +618,7 @@ export default function ReviewPage() {
                 )}
                 {receiptStatus === 'warning' && (
                   <div className="p-3.5 rounded-2xl" style={{ background: '#FFFBEB', border: '1px solid #FDE68A' }}>
-                    <p className="text-xs font-bold mb-2" style={{ color: '#D97706' }}>⚠️ 영수증에서 {store.name} 정보를 찾지 못했어요</p>
+                    <p className="text-xs font-bold mb-2 flex items-center gap-1.5" style={{ color: '#D97706' }}><AlertTriangle size={13} strokeWidth={2.5} /> 영수증에서 {store.name} 정보를 찾지 못했어요</p>
                     <p className="text-[11px] mb-3" style={{ color: '#92400E' }}>{store.name}의 영수증이 맞나요? 맞으면 계속 진행할 수 있어요.</p>
                     <div className="flex gap-2">
                       <button onClick={() => setReceiptStatus('ok')}
@@ -631,12 +634,12 @@ export default function ReviewPage() {
                 )}
                 {receiptStatus === 'confirm' && (
                   <div className="p-3.5 rounded-2xl" style={{ background: BLUE_BG, border: `1px solid #BFDBFE` }}>
-                    <p className="text-xs font-bold mb-1" style={{ color: BLUE }}>📋 영수증 확인</p>
+                    <p className="text-xs font-bold mb-1 flex items-center gap-1.5" style={{ color: BLUE }}><ClipboardList size={13} strokeWidth={2.5} /> 영수증 확인</p>
                     <p className="text-[11px] mb-3" style={{ color: '#1D4ED8' }}>이 영수증이 <strong>{store.name}</strong>에서 발행된 영수증이 맞나요?</p>
                     <div className="flex gap-2">
                       <button onClick={() => setReceiptStatus('ok')}
                         className="flex-1 py-2 rounded-xl text-xs font-bold text-white" style={{ background: BLUE }}>
-                        맞아요 ✓
+                        <span className="inline-flex items-center gap-1 justify-center"><Check size={12} strokeWidth={3} /> 맞아요</span>
                       </button>
                       <button onClick={() => { setPhotos(p => p.filter(x => x.cat !== 'receipt')); setReceiptStatus('idle') }}
                         className="flex-1 py-2 rounded-xl text-xs font-bold border-2 bg-white" style={{ borderColor: BORDER, color: '#4E5968' }}>
@@ -761,8 +764,9 @@ export default function ReviewPage() {
         {step === 3 && (
           <div className="space-y-4">
             <div>
-              <h2 className="text-lg font-black mb-1">
-                {aiSource === 'ai' ? '✨ AI가 사진과 영수증을 분석했어요' : 'AI 초안이 완성됐어요'}
+              <h2 className="text-lg font-black mb-1 flex items-center gap-1.5">
+                {aiSource === 'ai' && <Sparkles size={16} className="text-[#7C3AED]" strokeWidth={2.5} />}
+                {aiSource === 'ai' ? 'AI가 사진과 영수증을 분석했어요' : 'AI 초안이 완성됐어요'}
               </h2>
               <p className="text-xs" style={{ color: GRAY }}>내용을 직접 수정할 수도 있어요. 다 됐으면 아래 다음 버튼을 눌러주세요</p>
             </div>
@@ -770,7 +774,7 @@ export default function ReviewPage() {
             {/* 영수증 OCR 결과 — AI 가 메뉴 인식 시 노출 */}
             {receiptInfo && receiptInfo.items && receiptInfo.items.length > 0 && (
               <div className="bg-[#FFFBEB] border border-[#FDE68A] rounded-xl p-3">
-                <p className="text-[11px] font-bold mb-1.5 text-[#92400E]">🧾 영수증에서 인식된 메뉴</p>
+                <p className="text-[11px] font-bold mb-1.5 text-[#92400E] flex items-center gap-1.5"><ClipboardList size={11} strokeWidth={2.5} /> 영수증에서 인식된 메뉴</p>
                 <div className="flex flex-wrap gap-1.5">
                   {receiptInfo.items.map((it, i) => (
                     <span key={i} className="text-[11px] px-2.5 py-0.5 rounded-full bg-white text-[#92400E] font-medium border border-[#FDE68A]">
@@ -786,8 +790,8 @@ export default function ReviewPage() {
 
             <div className="bg-white rounded-2xl p-5 shadow-sm">
               <div className="flex items-center gap-2 mb-3 flex-wrap">
-                <span className="text-[11px] font-bold px-2 py-1 rounded-full text-white" style={{ background: aiSource === 'ai' ? '#7C3AED' : BLUE }}>
-                  {aiSource === 'ai' ? '✨ AI 작성' : 'AI 초안'}
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold px-2 py-1 rounded-full text-white" style={{ background: aiSource === 'ai' ? '#7C3AED' : BLUE }}>
+                  {aiSource === 'ai' ? (<><Sparkles size={10} strokeWidth={2.5} /> AI 작성</>) : 'AI 초안'}
                 </span>
                 <span className="text-[11px]" style={{ color: GRAY }}>{draft.length}자 · 직접 수정 가능</span>
                 {aiSource === 'ai' && (
@@ -805,7 +809,7 @@ export default function ReviewPage() {
             {/* AI 가 만든 해시태그 */}
             {aiHashtags.length > 0 && (
               <div className="bg-white rounded-xl p-3" style={{ border: '1px solid ' + BORDER }}>
-                <p className="text-[11px] font-bold mb-2 text-[#7C3AED]">✨ AI 추천 해시태그 (선택)</p>
+                <p className="text-[11px] font-bold mb-2 text-[#7C3AED] flex items-center gap-1.5"><Sparkles size={11} strokeWidth={2.5} /> AI 추천 해시태그 (선택)</p>
                 <div className="flex flex-wrap gap-1.5">
                   {aiHashtags.map(h => (
                     <button
@@ -865,7 +869,7 @@ export default function ReviewPage() {
               <p className="text-sm leading-relaxed whitespace-pre-wrap" style={{ color: BLACK }}>{final}</p>
             </div>
             <button onClick={copyAndGoNaver} className="w-full py-4 rounded-2xl font-black text-white text-base shadow-lg" style={{ background: BLUE }}>
-              {copied ? '✓ 복사 완료 · 네이버로 이동 중' : '네이버 리뷰 등록하기'}
+              {copied ? (<span className="inline-flex items-center gap-1.5 justify-center"><Check size={14} strokeWidth={3} /> 복사 완료 · 네이버로 이동 중</span>) : '네이버 리뷰 등록하기'}
             </button>
             <div className="bg-white rounded-xl p-4" style={{ border: '1px solid ' + BORDER }}>
               <p className="text-xs font-bold mb-2" style={{ color: BLUE }}>사용 방법</p>
@@ -899,8 +903,8 @@ export default function ReviewPage() {
 
       {copied && (
         <div className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50">
-          <div className="px-5 py-3 bg-[#191F28] text-white rounded-full text-xs font-bold shadow-2xl">
-            ✓ 복사 완료 · 네이버 이동 중
+          <div className="px-5 py-3 bg-[#191F28] text-white rounded-full text-xs font-bold shadow-2xl flex items-center gap-1.5">
+            <Check size={12} strokeWidth={3} /> 복사 완료 · 네이버 이동 중
           </div>
         </div>
       )}
