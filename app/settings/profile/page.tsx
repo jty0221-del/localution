@@ -182,7 +182,9 @@ export default function ProfileSettingsPage() {
       <main className="flex-1 ml-0 md:ml-[220px] p-4 pt-20 md:p-6 md:pt-6 min-w-0 pb-24 md:pb-6">
         <section className="bg-gradient-to-r from-[#6366F1] to-[#4338CA] text-white px-4 py-10 sm:py-14">
           <div className="max-w-5xl mx-auto flex items-center gap-4">
-            <div className="text-4xl sm:text-5xl drop-shadow-sm">👤</div>
+            <div className="w-12 h-12 sm:w-14 sm:h-14 rounded-2xl bg-white/20 flex items-center justify-center backdrop-blur-sm flex-shrink-0">
+              <User size={26} className="text-white" strokeWidth={2.5} />
+            </div>
             <div className="flex-1 min-w-0">
               <h1 className="text-xl sm:text-2xl font-black tracking-tight">프로필 설정</h1>
               <p className="text-white/85 text-xs sm:text-sm mt-1 leading-relaxed">계정 정보와 알림을 내 업체에 맞게 — 설정은 한 번, 결과는 오래</p>
