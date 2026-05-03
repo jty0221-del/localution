@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import crypto from 'crypto'
+import { requireUser } from '@/app/lib/userAuth'
+import { rateLimitByIp } from '@/app/lib/rateLimit'
 
 const AD_BASE = 'https://api.searchad.naver.com'
 
@@ -62,6 +64,14 @@ const BID_TABLE: Record<string, { pc: number[]; mobile: number[] }> = {
 }
 
 export async function GET(req: NextRequest) {
+  // 인증 + rate limit (네이버 광고 유료 API 보호)
+  const auth = await requireUser()
+  if (!auth.ok) return NextResponse.json({ error: '로그인이 필요합니다' }, { status: auth.status })
+  const rl = rateLimitByIp(req, `naver-ads:${auth.userId}`, 30, 60)
+  if (!rl.ok) {
+    return NextResponse.json({ error: 'rate_limited', message: `${rl.resetIn}초 후 다시 시도해주세요.` }, { status: 429 })
+  }
+
   const { searchParams } = new URL(req.url)
   const type     = searchParams.get('type') || 'volume'
   const keyword  = searchParams.get('keyword') || ''
