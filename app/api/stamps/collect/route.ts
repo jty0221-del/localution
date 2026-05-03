@@ -41,13 +41,36 @@ export async function POST(req: NextRequest) {
 
   const svc = createServiceClient()
 
-  // 1) 활성 스탬프 카드 조회
-  const { data: card } = await svc
+  // 1) 활성 스탬프 카드 조회 (직접 + 폴백)
+  let { data: card } = await svc
     .from('stamp_cards')
     .select('*')
     .eq('store_slug', slug)
     .eq('active', true)
     .maybeSingle()
+
+  if (!card) {
+    const { data: store } = await svc
+      .from('stores')
+      .select('user_id, slug, name')
+      .or(`slug.eq.${slug},name.eq.${slug}`)
+      .maybeSingle()
+
+    if (store) {
+      const { data: cardByUser } = await svc
+        .from('stamp_cards')
+        .select('*')
+        .eq('user_id', store.user_id)
+        .eq('active', true)
+        .maybeSingle()
+      if (cardByUser) {
+        card = cardByUser
+        if (!cardByUser.store_slug) {
+          await svc.from('stamp_cards').update({ store_slug: slug }).eq('id', cardByUser.id)
+        }
+      }
+    }
+  }
 
   if (!card) return NextResponse.json({ ok: false, error: 'no_active_card' }, { status: 404, headers: CORS })
 
@@ -195,12 +218,38 @@ export async function GET(req: NextRequest) {
 
   const svc = createServiceClient()
 
-  const { data: card } = await svc
+  // 1) store_slug 직접 매칭
+  let { data: card } = await svc
     .from('stamp_cards')
     .select('*')
     .eq('store_slug', slug)
     .eq('active', true)
     .maybeSingle()
+
+  // 2) 매칭 안 되면 — stores 테이블 통해 매장명/slug 매칭 후 user_id 로 카드 찾기
+  if (!card) {
+    const { data: store } = await svc
+      .from('stores')
+      .select('id, user_id, slug, name')
+      .or(`slug.eq.${slug},name.eq.${slug}`)
+      .maybeSingle()
+
+    if (store) {
+      const { data: cardByUser } = await svc
+        .from('stamp_cards')
+        .select('*')
+        .eq('user_id', store.user_id)
+        .eq('active', true)
+        .maybeSingle()
+      if (cardByUser) {
+        card = cardByUser
+        // 자동 보정 — store_slug 채워넣기
+        if (!cardByUser.store_slug) {
+          await svc.from('stamp_cards').update({ store_slug: slug }).eq('id', cardByUser.id)
+        }
+      }
+    }
+  }
 
   if (!card) return NextResponse.json({ ok: false, error: 'no_active_card' }, { status: 404, headers: CORS })
 
