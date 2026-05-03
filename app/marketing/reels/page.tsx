@@ -6,6 +6,7 @@ import Sidebar from '../../components/Sidebar'
 import PageHeader from '../../components/PageHeader'
 import Footer from '../../components/Footer'
 import { toast } from '../../lib/toast'
+import { Video } from 'lucide-react'
 
 type Scene = {
   order: number
@@ -170,7 +171,7 @@ export default function ReelsGeneratorPage() {
       <Sidebar />
       <main className="flex-1 ml-0 md:ml-[220px] pt-16 md:pt-0 min-w-0">
         <PageHeader
-          icon="🎬"
+          icon={<Video size={28} className="text-white" strokeWidth={2.5} />}
           title="숏폼 / 릴스"
           subtitle="한 편의 롱폼에서 3개의 숏폼을 — 후킹·자막·썸네일까지 한 번에"
           variant="pink"
