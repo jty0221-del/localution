@@ -16,6 +16,15 @@ import { loadPlainCredentials, markLoginStatus } from '../lib/credentials'
 import { upsertReviews, CollectedReview } from '../lib/reviews'
 import { dumpPageDiagnostics, startNetworkCapture, detectLoginFailure } from '../lib/diagnostics'
 import type { JobResult, Action } from '../jobs'
+import { applyStealth } from '../lib/stealth'
+import {
+  warmAkamaiSession,
+  humanType,
+  humanClick,
+  idleThinking,
+  mouseJiggle,
+} from '../lib/human-behavior'
+import { notifyNewReviews } from '../lib/notify'
 
 // ── Node.js 네이티브 CONNECT 터널 fetch (프록시 407 우회) ──
 // page.evaluate fetch() 는 Chromium이 Proxy-Authorization 누락 → 407
@@ -198,7 +207,11 @@ export async function runCoupangEats(
 
   const context = await browser.newContext(contextOptions)
 
-  // ── 봇 감지 우회 (강화판) ──
+  // ── 신규: stealth helper (Canvas/WebGL/Audio fingerprint 마스킹) ──
+  // Akamai _abck JS 챌린지의 추가 fingerprint 검사를 통과하기 위해 핵심 stealth init 먼저 적용
+  await applyStealth(context)
+
+  // ── 봇 감지 우회 (강화판 — 기존 inline) ──
   await context.addInitScript(() => {
     // 1) webdriver 제거
     Object.defineProperty(navigator, 'webdriver', { get: () => undefined })
@@ -344,17 +357,25 @@ export async function runCoupangEats(
     }
 
     // ── 폼 로그인 (쿠키 없거나 만료) ──
-    log.info('coupangeats: attempting form login')
-    // ── 자동 로그인 (53차: ERR_PROXY_AUTH_UNSUPPORTED 체크 제거 — 프록시는 launch 레벨에서 설정) ──
-    log.info('coupangeats: 폼 로그인 시작 (stealth + residential proxy)')
+    // 56차: Akamai warming + humanType + humanClick + storeId auto-discovery
+    log.info('coupangeats: attempting form login (56cha: warming + human-like)')
     let loginNavErr: string | null = null
     try {
-      await page.goto(LOGIN_URL, { waitUntil: 'domcontentloaded', timeout: 45000 })
+      // ── 신규: Akamai cookie warming ──
+      // 로그인 페이지 직행 = 봇 패턴. 메인 → 로그인 순서로 방문해서 _abck 갱신.
+      // 각 단계에 idle thinking + mouse jiggle 으로 사람처럼 보이기.
+      await warmAkamaiSession(page, log, {
+        landingUrls: [
+          'https://store.coupangeats.com/',
+        ],
+        finalUrl: LOGIN_URL,
+      })
     } catch (e: any) {
       loginNavErr = String(e?.message || e)
-      log.warn({ loginNavErr: loginNavErr.slice(0, 100) }, 'coupangeats: login page nav error (계속 진행)')
+      log.warn({ loginNavErr: loginNavErr.slice(0, 100) }, 'coupangeats: warming/login nav error (계속 진행)')
     }
-    await page.waitForTimeout(4000)
+    // 추가 idle (사람이 로그인 폼을 찾는 시간)
+    await idleThinking(1500, 3000)
 
     const pwLocator = page.locator(DOM_SELECTORS.pwInput).first()
     const pwVisible = await pwLocator.waitFor({ state: 'visible', timeout: 15000 }).then(() => true).catch(() => false)
@@ -363,9 +384,12 @@ export async function runCoupangEats(
       await markLoginStatus(svc, userId, 'coupangeats', 'failed', 'login form not found')
       return {
         status: 'failed',
-        message: 'coupangeats 로그인 폼 없음 — /my/platforms/coupangeats/connect 에서 쿠키를 등록해주세요',
+        message: 'coupangeats 로그인 폼이 보이지 않아요. 잠시 후 다시 시도해주세요.',
       }
     }
+
+    // ── 신규: 마우스 자연 이동 (입력 필드 클릭 전) ──
+    await mouseJiggle(page, 2)
 
     const idCandidates = [
       'input[name="loginId"]',
@@ -378,16 +402,17 @@ export async function runCoupangEats(
       'input[placeholder*="id"]',
     ]
     let idFilled = false
+    let idSelectorUsed = ''
     for (const sel of idCandidates) {
       try {
         const loc = page.locator(sel).first()
         const visible = await loc.waitFor({ state: 'visible', timeout: 2000 }).then(() => true).catch(() => false)
         if (visible) {
-          await loc.click()
-          await loc.fill('')
-          await loc.pressSequentially(creds.account_id, { delay: 60 })
+          // ── 신규: humanType (가변 딜레이 + 가끔 typo + correction) ──
+          await humanType(page, sel, creds.account_id, { meanDelay: 95, stdDev: 40, typoRate: 0.03 })
           idFilled = true
-          log.info({ sel }, 'coupangeats id input filled')
+          idSelectorUsed = sel
+          log.info({ sel }, 'coupangeats: id input filled (human-like)')
           break
         }
       } catch { continue }
@@ -397,10 +422,13 @@ export async function runCoupangEats(
       await markLoginStatus(svc, userId, 'coupangeats', 'failed', 'id input not found')
       return { status: 'failed', message: 'coupangeats ID 입력 필드를 찾지 못했습니다' }
     }
-    await pwLocator.click()
-    await pwLocator.fill('')
-    await pwLocator.pressSequentially(creds.password, { delay: 80 })
-    await page.waitForTimeout(1200)
+
+    // ID 입력 후 작은 idle (탭 이동 자연스럽게)
+    await idleThinking(400, 900)
+
+    // ── 신규: PW 도 humanType ──
+    await humanType(page, DOM_SELECTORS.pwInput, creds.password, { meanDelay: 110, stdDev: 45, typoRate: 0.025 })
+    await idleThinking(800, 1500)
 
     // ── ce-check-input 체크박스 자동 클릭 (약관동의/아이디저장) ──
     try {
@@ -411,11 +439,15 @@ export async function runCoupangEats(
         if (!checked) {
           await checkbox.click({ force: true })
           log.info('coupangeats: checked checkbox before submit')
+          await idleThinking(300, 700)
         }
       }
     } catch (_) { /* ignore */ }
 
-    // ── 제출 버튼 클릭 (merchant-submit-btn 우선) ──
+    // ── 신규: 제출 전 마우스 자연 이동 ──
+    await mouseJiggle(page, 1)
+
+    // ── 제출 버튼 클릭 (humanClick: hover → 작은 딜레이 → click) ──
     const submitSelectors = [
       'button.merchant-submit-btn',
       'button[class*="merchant-submit"]',
@@ -429,18 +461,19 @@ export async function runCoupangEats(
         const btn = page.locator(sSel).first()
         const visible = await btn.isVisible().catch(() => false)
         if (visible) {
-          await btn.click()
+          await humanClick(page, sSel)
           submitted = true
-          log.info({ sSel }, 'coupangeats: submit button clicked')
+          log.info({ sSel }, 'coupangeats: submit button clicked (human-like)')
           break
         }
       } catch { continue }
     }
     if (!submitted) {
-      await page.locator(DOM_SELECTORS.loginBtn).first().click()
+      await humanClick(page, DOM_SELECTORS.loginBtn)
     }
-    await page.waitForURL((url) => !url.href.includes('/login'), { timeout: 20000 }).catch(() => null)
-    await page.waitForTimeout(2000)
+    // 56차: 로그인 후 충분히 안정화 대기
+    await page.waitForURL((url) => !url.href.includes('/login'), { timeout: 25000 }).catch(() => null)
+    await idleThinking(2500, 4500)
 
     const currentUrl = page.url()
     if (currentUrl.includes('captcha')) {
@@ -473,6 +506,47 @@ export async function runCoupangEats(
       }
     } catch (e: any) {
       log.warn({ err: e?.message }, 'coupangeats: failed to save session cookies')
+    }
+
+    // ── 신규(56차): storeId auto-discovery ──
+    // 사장님이 처음 연결할 때 platform_store_id 가 없거나 'pending'.
+    // whoami API 호출해서 responsibleStoreId 확보 → DB 업데이트.
+    if (!creds.platform_store_id || creds.platform_store_id === 'pending') {
+      try {
+        const whoami = await page.evaluate(async () => {
+          const r = await fetch('https://store.coupangeats.com/api/v1/merchant/whoami', { credentials: 'include' })
+          return r.ok ? await r.json() : null
+        })
+        const discoveredId =
+          whoami?.data?.responsibleStoreId ||
+          whoami?.data?.storeId ||
+          whoami?.data?.defaultStoreId ||
+          (Array.isArray(whoami?.data?.stores) && whoami.data.stores[0]?.storeId) ||
+          null
+        const discoveredName =
+          whoami?.data?.storeName ||
+          (Array.isArray(whoami?.data?.stores) && (whoami.data.stores[0]?.name || whoami.data.stores[0]?.storeName)) ||
+          null
+        if (discoveredId) {
+          log.info({ discoveredId, discoveredName }, 'coupangeats: 56cha — storeId auto-discovered')
+          await svc
+            .from('platform_credentials')
+            .update({
+              platform_store_id: String(discoveredId),
+              platform_store_name: discoveredName || null,
+              updated_at: new Date().toISOString(),
+            })
+            .eq('user_id', userId)
+            .eq('platform', 'coupangeats')
+          // creds 객체도 업데이트해서 fetchCoupangReviews 가 바로 사용 가능
+          creds.platform_store_id = String(discoveredId)
+          if (discoveredName) creds.platform_store_name = discoveredName
+        } else {
+          log.warn({ whoamiKeys: whoami?.data ? Object.keys(whoami.data).slice(0, 10) : null }, 'coupangeats: 56cha — storeId not in whoami')
+        }
+      } catch (e: any) {
+        log.warn({ err: e?.message?.slice(0, 100) }, 'coupangeats: 56cha — storeId auto-discovery failed (계속 진행)')
+      }
     }
 
     if (action === 'health_check') return { status: 'ok', message: 'coupangeats login ok' }
@@ -1218,6 +1292,21 @@ async function fetchCoupangReviews(
   const shopId = creds.platform_store_id || 'unknown'
   const res = await upsertReviews(svc, userId, 'coupangeats', shopId, normalized)
   log.info({ ...res }, 'coupangeats reviews upserted')
+
+  // ── 신규(56차): 새 리뷰 알림 트리거 (Web Push + 카카오) ──
+  // fetch_reviews 액션이고 신규 insert 가 1건 이상이면 알림 호출.
+  // notification_log 중복 체크가 Vercel 측에서 처리됨 → 여기서는 호출만.
+  if (action === 'fetch_reviews' && (res?.inserted ?? 0) > 0) {
+    try {
+      await notifyNewReviews(log, {
+        userId,
+        platform: 'coupangeats',
+        reviewIds: 'all_new',
+      })
+    } catch (e: any) {
+      log.warn({ err: e?.message?.slice(0, 100) }, 'coupangeats: notify trigger failed (non-fatal)')
+    }
+  }
 
   if (action === 'post_reply' && payload?.platform_review_id && payload?.reply_text) {
     const targetId = String(payload.platform_review_id)
