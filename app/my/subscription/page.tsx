@@ -127,7 +127,7 @@ export default function MySubscriptionPage() {
               marginBottom: 8,
             }}
           >
-            🎉 번들 할인 {Math.round(pricing.discountRate * 100)}% 적용 중
+            번들 할인 {Math.round(pricing.discountRate * 100)}% 적용 중
           </div>
         )}
         <div style={{ fontSize: 13, opacity: 0.85 }}>
@@ -151,7 +151,7 @@ export default function MySubscriptionPage() {
           alignItems: 'center',
         }}
       >
-        <span>⚠️ Phase 0 테스트 모드 · 개발자 옵션: 모든 모듈 강제 언락</span>
+        <span>Phase 0 테스트 모드 · 개발자 옵션: 모든 모듈 강제 언락</span>
         <button
           onClick={toggleDevUnlock}
           style={{
@@ -205,7 +205,7 @@ export default function MySubscriptionPage() {
               textAlign: 'center',
             }}
           >
-            <div style={{ fontSize: 40, marginBottom: 8 }}>📦</div>
+            <div style={{ fontSize: 40, marginBottom: 8, color: '#9ca3af' }}>—</div>
             <div style={{ fontWeight: 700, color: '#111827', marginBottom: 4 }}>
               아직 구독 중인 모듈이 없어요
             </div>
@@ -404,7 +404,7 @@ export default function MySubscriptionPage() {
                 width: '100%',
               }}
             >
-              <div style={{ fontSize: 32, marginBottom: 8 }}>⚠️</div>
+              <div style={{ fontSize: 24, marginBottom: 8, color: '#dc2626', fontWeight: 900 }}>!</div>
               <h3 style={{ fontSize: 18, fontWeight: 800, marginBottom: 8 }}>
                 {mod.name} 해지
               </h3>
