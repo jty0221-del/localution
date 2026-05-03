@@ -29,6 +29,7 @@ export async function POST(req: NextRequest) {
         'anthropic-version': '2023-06-01',
       },
       body: JSON.stringify(body),
+      signal: AbortSignal.timeout(45000),  // 45초 timeout (hang 방지)
     });
 
     if (!response.ok) {
