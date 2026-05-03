@@ -1,16 +1,16 @@
 'use client';
 
 // ============================================================
-// useCustomers — CRM 듀얼 모드 훅 (localStorage ↔ Supabase)
-// ============================================================
-// 규칙:
-//   1) 로그인 O + Supabase 응답 OK → DB 모드
-//   2) 로그인 X 또는 DB 실패      → localStorage 모드 (기존 동작 유지)
-//   3) 로그인 O + 로컬 데이터 존재 → 1회 자동 이관(ensureMigrated)
+// useCustomers — 우리 쿠키 인증 API 기반
+//   · /api/customers GET/POST/PUT/DELETE 사용
+//   · 비로그인 시 localStorage 폴백 (기존 동작 유지)
+//   · 로그인 시 자동으로 DB 모드로 전환 (1회 마이그레이션)
+//   · 스탬프카드 자동 등록 손님도 여기에 자동 표시
 // ============================================================
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { supabase, type CustomerTag } from '@/app/lib/supabase';
+
+export type CustomerTag = 'VIP' | '단골' | '신규' | '휴면' | '블랙리스트';
 
 export type Customer = {
   id: string;
@@ -18,7 +18,7 @@ export type Customer = {
   phone: string;
   visits: number;
   totalSpend: number;
-  lastVisit: string; // YYYY-MM-DD
+  lastVisit: string;
   tags: CustomerTag[];
   memo: string;
 };
@@ -31,51 +31,24 @@ export type UseCustomersMode = 'local' | 'remote' | 'loading';
 export interface UseCustomersResult {
   customers: Customer[];
   mode: UseCustomersMode;
-  isDemo: boolean;           // 로컬 데이터 0건 → 상위 컴포넌트에서 DEMO 보여줌
+  isDemo: boolean;
   loading: boolean;
   error: string | null;
   add: (input: Omit<Customer, 'id' | 'visits' | 'totalSpend' | 'lastVisit'>) => Promise<void>;
   update: (id: string, patch: Partial<Customer>) => Promise<void>;
   remove: (id: string) => Promise<void>;
-  reset: () => Promise<void>; // 샘플(데모)로 되돌리기
+  reset: () => Promise<void>;
   refresh: () => Promise<void>;
 }
 
-// ============================================================
-// 내부 유틸
-// ============================================================
 const todayISODate = () => new Date().toISOString().slice(0, 10);
 
-const rowToCustomer = (r: {
-  id: string;
-  legacy_id: string | null;
-  name: string;
-  phone: string | null;
-  memo: string;
-  tags: string[] | null;
-  visits_count: number;
-  total_spend_krw: number;
-  last_visit_at: string | null;
-}): Customer => ({
-  id: r.id,
-  name: r.name,
-  phone: r.phone ?? '',
-  visits: r.visits_count ?? 0,
-  totalSpend: r.total_spend_krw ?? 0,
-  lastVisit: r.last_visit_at ? r.last_visit_at.slice(0, 10) : '',
-  tags: (r.tags ?? []) as CustomerTag[],
-  memo: r.memo ?? '',
-});
-
-// ============================================================
-// 훅 본체
-// ============================================================
 export function useCustomers(): UseCustomersResult {
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [mode, setMode] = useState<UseCustomersMode>('loading');
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const userIdRef = useRef<string | null>(null);
+  const migratedRef = useRef(false);
 
   // ---------- 로컬 ----------
   const readLocal = (): Customer[] => {
@@ -95,71 +68,56 @@ export function useCustomers(): UseCustomersResult {
     } catch {}
   };
 
-  // ---------- 원격 ----------
+  // ---------- 원격 (우리 API) ----------
   const fetchRemote = useCallback(async (): Promise<Customer[] | null> => {
     try {
-      const { data, error } = await supabase
-        .from('customers')
-        .select('id, legacy_id, name, phone, memo, tags, visits_count, total_spend_krw, last_visit_at')
-        .order('updated_at', { ascending: false });
-      if (error) {
-        setError(error.message);
+      const r = await fetch('/api/customers', { credentials: 'include', cache: 'no-store' });
+      if (!r.ok) return null;
+      const j = await r.json();
+      if (!j.ok) {
+        setError(j.error || 'fetch failed');
         return null;
       }
-      return (data ?? []).map(rowToCustomer);
+      return j.customers || [];
     } catch (e) {
       setError(e instanceof Error ? e.message : 'fetch failed');
       return null;
     }
   }, []);
 
-  // ---------- 이관 (localStorage → DB, 1회) ----------
-  // onConflict 대신 "기존 legacy_id 조회 후 신규만 insert" 패턴으로 안전하게 처리
-  const ensureMigrated = useCallback(async (userId: string) => {
+  // ---------- 1회 마이그레이션 (localStorage → DB) ----------
+  const ensureMigrated = useCallback(async () => {
+    if (migratedRef.current) return;
     try {
       const migrated = localStorage.getItem(LS_MIGRATED_KEY);
-      if (migrated) return;
+      if (migrated) { migratedRef.current = true; return; }
       const local = readLocal();
       if (local.length === 0) {
         localStorage.setItem(LS_MIGRATED_KEY, todayISODate());
+        migratedRef.current = true;
         return;
       }
 
-      // 이미 이관된 legacy_id 목록 조회 (중복 insert 방지)
-      const { data: existing } = await supabase
-        .from('customers')
-        .select('legacy_id')
-        .eq('user_id', userId)
-        .not('legacy_id', 'is', null);
-      const existingIds = new Set((existing ?? []).map(r => r.legacy_id));
-
-      const toInsert = local
-        .filter(c => !existingIds.has(c.id))
-        .map(c => ({
-          user_id: userId,
-          legacy_id: c.id,
-          name: c.name,
-          phone: c.phone || null,
-          memo: c.memo ?? '',
-          tags: c.tags ?? [],
-          visits_count: c.visits ?? 0,
-          total_spend_krw: c.totalSpend ?? 0,
-          last_visit_at: c.lastVisit ? new Date(c.lastVisit).toISOString() : null,
-        }));
-
-      if (toInsert.length === 0) {
-        localStorage.setItem(LS_MIGRATED_KEY, todayISODate());
-        return;
-      }
-
-      const { error } = await supabase.from('customers').insert(toInsert);
-      if (error) {
-        console.warn('[useCustomers] 이관 실패, 로컬 보존:', error.message);
-        return;
+      // 각 로컬 손님을 API 로 추가
+      for (const c of local) {
+        try {
+          await fetch('/api/customers', {
+            method: 'POST',
+            credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: c.name,
+              phone: c.phone,
+              memo: c.memo,
+              tags: c.tags,
+            }),
+          });
+        } catch {}
       }
       localStorage.setItem(LS_MIGRATED_KEY, todayISODate());
+      migratedRef.current = true;
     } catch (e) {
-      console.warn('[useCustomers] 이관 중 예외:', e);
+      console.warn('[useCustomers] migration error:', e);
     }
   }, []);
 
@@ -168,21 +126,30 @@ export function useCustomers(): UseCustomersResult {
     setLoading(true);
     setError(null);
     try {
-      const { data: auth } = await supabase.auth.getUser();
-      const uid = auth?.user?.id ?? null;
-      userIdRef.current = uid;
-
-      if (uid) {
-        await ensureMigrated(uid);
-        const remote = await fetchRemote();
-        if (remote !== null) {
-          setCustomers(remote);
+      // 우리 API 호출 — 401 이면 미로그인
+      const r = await fetch('/api/customers', { credentials: 'include', cache: 'no-store' });
+      if (r.status === 401 || r.status === 403) {
+        // 미로그인 → 로컬 모드
+        setCustomers(readLocal());
+        setMode('local');
+        return;
+      }
+      if (r.ok) {
+        const j = await r.json();
+        if (j.ok) {
+          // 첫 진입 시 1회 마이그레이션 시도
+          await ensureMigrated();
+          // 마이그레이션 후 재조회
+          const refetched = await fetchRemote();
+          setCustomers(refetched || []);
           setMode('remote');
-          setLoading(false);
           return;
         }
       }
-      // 원격 실패 또는 미로그인 → 로컬
+      // 실패 fallback
+      setCustomers(readLocal());
+      setMode('local');
+    } catch (_) {
       setCustomers(readLocal());
       setMode('local');
     } finally {
@@ -192,33 +159,27 @@ export function useCustomers(): UseCustomersResult {
 
   useEffect(() => {
     bootstrap();
-    const { data: sub } = supabase.auth.onAuthStateChange(() => {
-      bootstrap();
-    });
-    return () => {
-      sub.subscription.unsubscribe();
-    };
   }, [bootstrap]);
 
   // ---------- CRUD ----------
   const add: UseCustomersResult['add'] = async (input) => {
-    if (mode === 'remote' && userIdRef.current) {
-      const { data, error } = await supabase
-        .from('customers')
-        .insert({
-          user_id: userIdRef.current,
+    if (mode === 'remote') {
+      const r = await fetch('/api/customers', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
           name: input.name,
-          phone: input.phone || null,
-          memo: input.memo ?? '',
-          tags: input.tags ?? [],
-        })
-        .select('id, legacy_id, name, phone, memo, tags, visits_count, total_spend_krw, last_visit_at')
-        .single();
-      if (error) { setError(error.message); return; }
-      setCustomers((prev) => [rowToCustomer(data), ...prev]);
+          phone: input.phone,
+          memo: input.memo,
+          tags: input.tags,
+        }),
+      });
+      const j = await r.json();
+      if (!j.ok) { setError(j.error || 'add failed'); return; }
+      setCustomers(prev => [j.customer, ...prev]);
       return;
     }
-    // local
     const next: Customer = {
       id: `cust-${Date.now()}`,
       name: input.name,
@@ -235,41 +196,44 @@ export function useCustomers(): UseCustomersResult {
   };
 
   const update: UseCustomersResult['update'] = async (id, patch) => {
-    if (mode === 'remote' && userIdRef.current) {
-      const dbPatch: Record<string, unknown> = {};
-      if (patch.name !== undefined) dbPatch.name = patch.name;
-      if (patch.phone !== undefined) dbPatch.phone = patch.phone || null;
-      if (patch.memo !== undefined) dbPatch.memo = patch.memo;
-      if (patch.tags !== undefined) dbPatch.tags = patch.tags;
-      const { error } = await supabase.from('customers').update(dbPatch).eq('id', id);
-      if (error) { setError(error.message); return; }
-      setCustomers((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch } : c)));
+    if (mode === 'remote') {
+      const r = await fetch('/api/customers', {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, ...patch }),
+      });
+      const j = await r.json();
+      if (!j.ok) { setError(j.error || 'update failed'); return; }
+      setCustomers(prev => prev.map(c => (c.id === id ? { ...c, ...patch } : c)));
       return;
     }
-    const nextList = customers.map((c) => (c.id === id ? { ...c, ...patch } : c));
+    const nextList = customers.map(c => (c.id === id ? { ...c, ...patch } : c));
     setCustomers(nextList);
     writeLocal(nextList);
   };
 
   const remove: UseCustomersResult['remove'] = async (id) => {
-    if (mode === 'remote' && userIdRef.current) {
-      const { error } = await supabase.from('customers').delete().eq('id', id);
-      if (error) { setError(error.message); return; }
-      setCustomers((prev) => prev.filter((c) => c.id !== id));
+    if (mode === 'remote') {
+      const r = await fetch('/api/customers?id=' + id, { method: 'DELETE', credentials: 'include' });
+      const j = await r.json();
+      if (!j.ok) { setError(j.error || 'remove failed'); return; }
+      setCustomers(prev => prev.filter(c => c.id !== id));
       return;
     }
-    const nextList = customers.filter((c) => c.id !== id);
+    const nextList = customers.filter(c => c.id !== id);
     setCustomers(nextList);
     writeLocal(nextList);
   };
 
   const reset: UseCustomersResult['reset'] = async () => {
-    if (mode === 'remote' && userIdRef.current) {
-      const { error } = await supabase
-        .from('customers')
-        .delete()
-        .eq('user_id', userIdRef.current);
-      if (error) { setError(error.message); return; }
+    if (mode === 'remote') {
+      // 한꺼번에 삭제 (서버 측 "전체 삭제" 엔드포인트 없음 — 개별 처리)
+      for (const c of customers) {
+        try {
+          await fetch('/api/customers?id=' + c.id, { method: 'DELETE', credentials: 'include' });
+        } catch {}
+      }
       setCustomers([]);
       return;
     }
