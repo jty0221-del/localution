@@ -5,6 +5,7 @@ import { useState } from 'react'
 import Sidebar from '../../components/Sidebar'
 import PageHeader from '../../components/PageHeader'
 import Footer from '../../components/Footer'
+import { BarChart3 } from 'lucide-react'
 
 // ─── 타입 ──────────────────────────────────────────────────────
 type VolumeKeyword = {
@@ -302,7 +303,7 @@ export default function NaverAdsPage() {
       <Sidebar />
       <div className="md:ml-[220px] flex flex-col min-h-screen">
         <PageHeader
-          icon="📊"
+          icon={<BarChart3 size={28} className="text-white" strokeWidth={2.5} />}
           title="키워드 조회/분석"
           subtitle="키워드별 검색량·트렌드·콘텐츠 포화도를 한눈에 — 소상공인 마케팅 인사이트 플랫폼"
         />
