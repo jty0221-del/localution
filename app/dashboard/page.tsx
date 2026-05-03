@@ -1312,10 +1312,10 @@ export default function Dashboard() {
     negative: Math.round(sentimentCount.negative / sentimentTotal * 100),
   }
 
-  // 이번 주 매출
+  // 이번 주 매출 — 실 데이터 연결 전: 0 표시 (가짜 숫자 노출 금지)
   const weekSales = [
-    { d: '월', v: 142 }, { d: '화', v: 168 }, { d: '수', v: 195 },
-    { d: '목', v: 178 }, { d: '금', v: 247 }, { d: '토', v: 312 }, { d: '일', v: 228 },
+    { d: '월', v: 0 }, { d: '화', v: 0 }, { d: '수', v: 0 },
+    { d: '목', v: 0 }, { d: '금', v: 0 }, { d: '토', v: 0 }, { d: '일', v: 0 },
   ]
   const totalWeekSale = weekSales.reduce((s, x) => s + x.v, 0)
 
@@ -1336,13 +1336,14 @@ export default function Dashboard() {
     } catch {}
   }, [unansweredCount])
 
+  // 실 데이터 연결 전 가짜 숫자 노출 금지 — 데이터 없으면 '—'로 표시
   const stats = [
-    { label: '이번 달 방문자', value: '2,847',                      sub: '전달 대비 +12.4%', up: true, color: '#3182F6', ring: '#E8F4FD' },
-    { label: '총 리뷰 수',     value: (totalReviews || 142) + '건', sub: '이번 주 +34건',    up: true, color: '#03C75A', ring: '#E8FFF0' },
-    { label: '평균 별점',      value: (avgRating || 4.6) + '점',    sub: '지역 평균 4.2',    up: true, color: '#F5A623', ring: '#FFF7E8' },
-    { label: '키워드 상위',    value: '3개',                        sub: '신규 진입 +1',     up: true, color: '#9B5CFB', ring: '#F3ECFF' },
-    { label: '이번 주 매출',   value: totalWeekSale + '만원',       sub: '지난주 대비 +18%', up: true, color: '#F04452', ring: '#FFF0F0' },
-    { label: '단골 고객',      value: '38명',                       sub: '이번 달 +6명',     up: true, color: '#12B76A', ring: '#E8FFF0' },
+    { label: '이번 달 방문자', value: '—',                                 sub: '데이터 수집 중',    up: false, color: '#3182F6', ring: '#E8F4FD' },
+    { label: '총 리뷰 수',     value: totalReviews ? totalReviews + '건' : '—', sub: hasRealReviews ? '실시간 동기화됨' : '플랫폼 연동 시 표시',  up: hasRealReviews, color: '#03C75A', ring: '#E8FFF0' },
+    { label: '평균 별점',      value: avgRating ? avgRating + '점' : '—',     sub: hasRealReviews ? '리뷰 기반 자동 계산' : '플랫폼 연동 시 표시', up: hasRealReviews, color: '#F5A623', ring: '#FFF7E8' },
+    { label: '키워드 상위',    value: '—',                                 sub: '키워드 추적 시작 시 표시', up: false, color: '#9B5CFB', ring: '#F3ECFF' },
+    { label: '이번 주 매출',   value: totalWeekSale > 0 ? totalWeekSale + '만원' : '—', sub: '매출 연동 시 표시',  up: totalWeekSale > 0, color: '#F04452', ring: '#FFF0F0' },
+    { label: '단골 고객',      value: '—',                                 sub: '고객 등록 시 자동 집계', up: false, color: '#12B76A', ring: '#E8FFF0' },
   ]
 
   // ─────────────────────────────────────────────────────────
