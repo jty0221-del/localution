@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
+import { signCookie } from '@/app/lib/cookieSigning'
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url)
@@ -62,8 +63,15 @@ export async function GET(request: Request) {
       maxAge: 30 * 24 * 60 * 60,
       path: '/'
     })
-    cookieStore.set('localution_user', JSON.stringify(sessionData), {
-      httpOnly: false,
+    // HMAC 서명된 cookie 발급 (위조 방지) — 클라가 직접 변조 불가
+    const signed = signCookie({
+      id: userData.id,
+      name: userData.name || 'User',
+      email: userData.email || '',
+      provider: 'google',
+    })
+    cookieStore.set('localution_user', signed, {
+      httpOnly: true,        // 클라 JS 접근 차단
       secure: true,
       sameSite: 'lax' as const,
       maxAge: 30 * 24 * 60 * 60,
