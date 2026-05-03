@@ -7,7 +7,7 @@
 //   · Akamai 봇 차단 100% 우회 (브라우저 자체 세션 사용)
 // ============================================================
 import { useState } from 'react'
-import { Bookmark, Copy, Check, X, ExternalLink, ArrowRight, Smartphone } from 'lucide-react'
+import { Bookmark, Copy, Check, X, ExternalLink, ArrowRight, Smartphone, ClipboardPaste, Loader2 } from 'lucide-react'
 
 const APP_ORIGIN = 'https://www.localution.co.kr'
 
@@ -277,7 +277,10 @@ export default function CoupangReviewBookmarkletDialog({
   const [copiedRaw, setCopiedRaw] = useState(false)
   const [copiedBmk, setCopiedBmk] = useState(false)
   const [step, setStep] = useState<1 | 2 | 3>(1)
-  const [mode, setMode] = useState<'console' | 'bookmark'>('console')
+  const [mode, setMode] = useState<'paste' | 'console' | 'bookmark'>('paste')
+  const [pasteText, setPasteText] = useState('')
+  const [pasteLoading, setPasteLoading] = useState(false)
+  const [pasteResult, setPasteResult] = useState<{ ok: boolean; message: string } | null>(null)
 
   if (!open || !token) return null
 
@@ -293,6 +296,44 @@ export default function CoupangReviewBookmarkletDialog({
     navigator.clipboard.writeText(bookmarkletUrl)
     setCopiedBmk(true)
     setTimeout(() => setCopiedBmk(false), 2500)
+  }
+
+  async function handlePasteSubmit() {
+    setPasteLoading(true)
+    setPasteResult(null)
+    try {
+      const trimmed = pasteText.trim()
+      if (!trimmed) {
+        setPasteResult({ ok: false, message: 'JSON 데이터를 붙여넣어 주세요.' })
+        setPasteLoading(false)
+        return
+      }
+      const res = await fetch('/api/review-import/coupang/paste', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ json: trimmed }),
+      })
+      const j = await res.json().catch(() => ({}))
+      if (j?.ok) {
+        setPasteResult({
+          ok: true,
+          message: j.message || `${j.inserted || 0}개 신규 / ${j.updated || 0}개 갱신`,
+        })
+        onSuccess?.()
+      } else {
+        const hint = j?.hint
+          ? ` (찾은 키: ${[...(hint.topKeys || []), ...(hint.dataKeys || [])].slice(0, 8).join(', ') || '없음'})`
+          : ''
+        setPasteResult({
+          ok: false,
+          message: (j?.message || j?.error || '저장 실패') + hint,
+        })
+      }
+    } catch (e: any) {
+      setPasteResult({ ok: false, message: '네트워크 오류: ' + (e?.message || 'unknown') })
+    } finally {
+      setPasteLoading(false)
+    }
   }
 
   return (
@@ -328,20 +369,82 @@ export default function CoupangReviewBookmarkletDialog({
         {/* STEP 1 */}
         {step === 1 && (
           <div className="space-y-4">
-            <div className="flex gap-2 p-1 bg-[#F2F4F6] rounded-xl">
+            <div className="flex gap-1 p-1 bg-[#F2F4F6] rounded-xl">
+              <button onClick={() => setMode('paste')}
+                className={`flex-1 py-2 px-2 rounded-lg text-xs font-bold transition-colors ${
+                  mode === 'paste' ? 'bg-white text-[#D70530] shadow-sm' : 'text-[#8B95A1]'
+                }`}>
+                JSON 붙여넣기 (추천)
+              </button>
               <button onClick={() => setMode('console')}
-                className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-colors ${
+                className={`flex-1 py-2 px-2 rounded-lg text-xs font-bold transition-colors ${
                   mode === 'console' ? 'bg-white text-[#D70530] shadow-sm' : 'text-[#8B95A1]'
                 }`}>
-                콘솔 모드 (추천)
+                콘솔 모드
               </button>
               <button onClick={() => setMode('bookmark')}
-                className={`flex-1 py-2 px-3 rounded-lg text-xs font-bold transition-colors ${
+                className={`flex-1 py-2 px-2 rounded-lg text-xs font-bold transition-colors ${
                   mode === 'bookmark' ? 'bg-white text-[#D70530] shadow-sm' : 'text-[#8B95A1]'
                 }`}>
-                북마크 모드
+                북마크
               </button>
             </div>
+
+            {mode === 'paste' && (
+              <>
+                <div className="bg-[#FFF8F8] border-2 border-[#FECACA] rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <ClipboardPaste size={14} className="text-[#D70530]" strokeWidth={2.5} />
+                    <p className="text-sm font-bold text-[#191F28]">Network 탭 응답 JSON 붙여넣기</p>
+                  </div>
+                  <p className="text-xs text-[#4E5968] mb-3 leading-relaxed">
+                    가장 안정적인 방법이에요. 쿠팡이츠 리뷰 페이지에서 F12 Network 탭의 응답 JSON을 그대로 복사 → 아래에 붙여넣기.
+                  </p>
+                  <textarea
+                    value={pasteText}
+                    onChange={(e) => setPasteText(e.target.value)}
+                    placeholder='여기에 응답 JSON 붙여넣기 (예: {"data":{"content":[{"orderReviewId":...}]}})'
+                    className="w-full h-44 p-3 rounded-xl border-2 border-[#E5E8EB] focus:border-[#D70530] outline-none text-xs font-mono resize-y"
+                    disabled={pasteLoading}
+                  />
+                  <button onClick={handlePasteSubmit} disabled={pasteLoading || !pasteText.trim()}
+                    className={`mt-3 w-full py-3 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-colors ${
+                      pasteLoading || !pasteText.trim()
+                        ? 'bg-[#E5E8EB] text-[#8B95A1] cursor-not-allowed'
+                        : 'bg-[#D70530] text-white hover:bg-[#A30024]'
+                    }`}>
+                    {pasteLoading
+                      ? <><Loader2 size={14} className="animate-spin" strokeWidth={2.5} /> 분석 중...</>
+                      : <><ClipboardPaste size={14} strokeWidth={2.5} /> 리뷰 저장하기</>}
+                  </button>
+                  {pasteResult && (
+                    <div className={`mt-3 p-3 rounded-xl text-xs font-bold ${
+                      pasteResult.ok ? 'bg-green-50 text-green-700 border border-green-200' : 'bg-red-50 text-red-700 border border-red-200'
+                    }`}>
+                      {pasteResult.ok ? '저장 완료 — ' : '실패 — '}
+                      {pasteResult.message}
+                    </div>
+                  )}
+                </div>
+                <div className="bg-white border border-[#E5E8EB] rounded-xl p-3">
+                  <p className="text-xs font-bold text-[#4E5968] mb-1.5">방법 (가장 안정)</p>
+                  <ol className="text-[11px] text-[#4E5968] space-y-1.5 leading-relaxed">
+                    <li><strong>1.</strong> 새 탭에서 <a href="https://store.coupangeats.com" target="_blank" rel="noopener noreferrer" className="text-[#D70530] font-bold underline">store.coupangeats.com</a> 로그인</li>
+                    <li><strong>2.</strong> 매장 관리 → <strong>리뷰 관리</strong> 페이지 클릭 (목록이 보이는 상태)</li>
+                    <li><strong>3.</strong> <strong>F12</strong> → 상단 <strong>Network</strong> 탭 → 검색창에 <code className="bg-[#F2F4F6] px-1.5 py-0.5 rounded text-[10px]">reviews</code> 입력</li>
+                    <li><strong>4.</strong> 페이지 새로고침 (F5) → 첫번째 <code className="bg-[#F2F4F6] px-1.5 py-0.5 rounded text-[10px]">reviews</code> 행 클릭</li>
+                    <li><strong>5.</strong> 우측 패널 <strong>Response</strong> 탭 클릭 → 본문 영역 우클릭 → <strong>Copy value</strong> (또는 전체 선택 → Ctrl+C)</li>
+                    <li><strong>6.</strong> 위 입력칸에 붙여넣기 (Ctrl+V) → <strong>리뷰 저장하기</strong> 버튼</li>
+                  </ol>
+                  <div className="mt-2 pt-2 border-t border-[#F2F4F6]">
+                    <p className="text-[10px] text-[#8B95A1] leading-relaxed">
+                      · 1년치 가져오기: 쿠팡이츠 리뷰 페이지에서 기간을 1년으로 설정 후 새로고침 → Response 복사<br />
+                      · 페이지가 여러 개면 각 페이지마다 반복 (자동으로 중복 제거)
+                    </p>
+                  </div>
+                </div>
+              </>
+            )}
 
             {mode === 'console' && (
               <>
