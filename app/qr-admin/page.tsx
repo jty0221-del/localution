@@ -430,6 +430,61 @@ export default function QRAdmin() {
       if (rawStore) setStoreInfo(JSON.parse(rawStore))
     } catch (_) {}
 
+    // QR 코드 DB 동기화 — DB가 source of truth (localStorage 캐시)
+    // 로그인 시 자동: 첫 진입 마이그레이션 → 이후 DB 값으로 LS 덮어씀
+    fetch('/api/qr-codes', { credentials: 'include', cache: 'no-store' })
+      .then(r => r.ok ? r.json() : null)
+      .then(j => {
+        if (!j?.ok || !Array.isArray(j.qr_codes)) return
+        // DB 형식 → 화면 형식 변환
+        const dbList = j.qr_codes.map((q: any) => ({
+          id: q.id,
+          name: q.name,
+          purpose: q.purpose,
+          scans: q.scans || 0,
+          reviews: q.reviews || 0,
+          createdAt: q.created_at ? q.created_at.slice(0, 10) : '',
+          active: !!q.active,
+          reviewUrl: q.review_url || '',
+        }))
+        // LS 마이그레이션: LS에만 있고 DB에 없는 항목은 자동 업로드
+        try {
+          const localList = JSON.parse(localStorage.getItem(LS_QR_LIST) || '[]') as QRCode[]
+          const dbNames = new Set(dbList.map((q: QRCode) => q.name))
+          const toMigrate = localList.filter(q => q.name && !dbNames.has(q.name))
+          if (toMigrate.length > 0) {
+            Promise.all(toMigrate.map(q =>
+              fetch('/api/qr-codes', {
+                method: 'POST',
+                credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: q.name, purpose: q.purpose, review_url: q.reviewUrl || null }),
+              }).catch(() => null)
+            )).then(() => {
+              // 마이그레이션 후 다시 fetch
+              fetch('/api/qr-codes', { credentials: 'include', cache: 'no-store' })
+                .then(r => r.ok ? r.json() : null)
+                .then(jj => {
+                  if (!jj?.ok || !Array.isArray(jj.qr_codes)) return
+                  const refreshed = jj.qr_codes.map((q: any) => ({
+                    id: q.id, name: q.name, purpose: q.purpose,
+                    scans: q.scans || 0, reviews: q.reviews || 0,
+                    createdAt: q.created_at ? q.created_at.slice(0, 10) : '',
+                    active: !!q.active, reviewUrl: q.review_url || '',
+                  }))
+                  setQrList(refreshed)
+                  try { localStorage.setItem(LS_QR_LIST, JSON.stringify(refreshed)) } catch {}
+                })
+            })
+            return  // 마이그레이션 진행 중 → 다음 fetch 결과 사용
+          }
+        } catch {}
+        // 일반 케이스: DB 결과로 state + LS 갱신
+        setQrList(dbList)
+        try { localStorage.setItem(LS_QR_LIST, JSON.stringify(dbList)) } catch {}
+      })
+      .catch(() => {})
+
     // ⭐ /api/stores/me 에서 네이버 연동 매장 정보 자동 로드
     // 사장님이 /my/platforms/naver_place/connect 에서 등록한 정보 → qr-admin 자동 채움
     // localStorage 우선순위 < DB (네이버 연동된 정보가 source of truth)
@@ -549,6 +604,32 @@ export default function QRAdmin() {
     const updated = [newItem, ...qrList]
     setQrList(updated)
     try { localStorage.setItem(LS_QR_LIST, JSON.stringify(updated)) } catch (_) {}
+
+    // DB 동기화 (백그라운드)
+    fetch('/api/qr-codes', {
+      method: 'POST',
+      credentials: 'include',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        name: newItem.name,
+        purpose: newItem.purpose,
+        review_url: newItem.reviewUrl || null,
+      }),
+    })
+      .then(r => r.ok ? r.json() : null)
+      .then(j => {
+        if (j?.ok && j.qr_code) {
+          // 서버 발급 id로 교체 (uuid)
+          setQrList(prev => prev.map(q => q.id === newItem.id ? { ...q, id: j.qr_code.id } : q))
+          try {
+            const refreshed = [...updated]
+            refreshed[0] = { ...refreshed[0], id: j.qr_code.id }
+            localStorage.setItem(LS_QR_LIST, JSON.stringify(refreshed))
+          } catch {}
+        }
+      })
+      .catch(() => {})
+
     setCreating(false)
     setCreated(true)
     setTimeout(() => {
@@ -560,9 +641,21 @@ export default function QRAdmin() {
   }
 
   const toggleQRActive = (id: string) => {
-    const updated = qrList.map(q => q.id === id ? { ...q, active: !q.active } : q)
+    const target = qrList.find(q => q.id === id)
+    const newActive = target ? !target.active : true
+    const updated = qrList.map(q => q.id === id ? { ...q, active: newActive } : q)
     setQrList(updated)
     try { localStorage.setItem(LS_QR_LIST, JSON.stringify(updated)) } catch (_) {}
+
+    // DB 동기화 (id가 uuid 형태면 — 서버 저장된 항목)
+    if (id && id.length === 36) {  // uuid v4 길이
+      fetch('/api/qr-codes', {
+        method: 'PUT',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id, active: newActive }),
+      }).catch(() => {})
+    }
   }
 
   const handleCopy = async (id: string, url: string) => {
