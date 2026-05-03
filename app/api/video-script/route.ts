@@ -122,6 +122,7 @@ CTA 문구: ${cta}
         system: systemPrompt,
         messages: [{ role: 'user', content: userMsg }],
       }),
+      signal: AbortSignal.timeout(50000),  // 50초 timeout
     })
 
     if (!apiRes.ok) {
