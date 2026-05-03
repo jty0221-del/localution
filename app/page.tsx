@@ -10,6 +10,9 @@ import {
   Coffee, UtensilsCrossed, Dumbbell,
   Flame, Heart, PenLine, Wine, UserPlus, Camera, Star,
   ArrowRight, MapPin, Video, Layers, Zap, TrendingUp,
+  Inbox, Bell, CreditCard, Frown, Smartphone, Clock,
+  CheckCircle2, Target, Lightbulb, Trophy, AlertTriangle,
+  type LucideIcon,
 } from 'lucide-react'
 
 const FEATURES = [
@@ -265,14 +268,14 @@ export default function LandingPage() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   const [dayStep, setDayStep] = useState(0)
 
-  const DAY_SCENES = [
-    { time: '08:00', badge: '오픈',   emoji: '☕', platform: '',        msg: '청소·준비·재고 체크…',            stress: false },
-    { time: '09:20', badge: '알림',   emoji: '📬', platform: '네이버',  msg: '리뷰 3개가 새로 달렸어요',         stress: true  },
-    { time: '11:50', badge: '피크',   emoji: '🍽️', platform: '',        msg: '점심 피크, 주방 정신없음',         stress: false },
-    { time: '13:10', badge: '알림',   emoji: '🔔', platform: '배민',    msg: '리뷰 2개 · 구글 1개 추가 도착',    stress: true  },
-    { time: '15:30', badge: '알림',   emoji: '⭐', platform: '요기요',  msg: '별점 2점 리뷰 — 어떻게 답글?',     stress: true  },
-    { time: '18:00', badge: '마감',   emoji: '💳', platform: '',        msg: '카드·현금 매출 정산 시작…',        stress: false },
-    { time: '22:40', badge: '야근',   emoji: '😫', platform: '',        msg: '답글 아직 8개 남음. 내일 또 반복', stress: true  },
+  const DAY_SCENES: { time: string; badge: string; Icon: LucideIcon; platform: string; msg: string; stress: boolean }[] = [
+    { time: '08:00', badge: '오픈',   Icon: Coffee,           platform: '',        msg: '청소·준비·재고 체크…',            stress: false },
+    { time: '09:20', badge: '알림',   Icon: Inbox,            platform: '네이버',  msg: '리뷰 3개가 새로 달렸어요',         stress: true  },
+    { time: '11:50', badge: '피크',   Icon: UtensilsCrossed,  platform: '',        msg: '점심 피크, 주방 정신없음',         stress: false },
+    { time: '13:10', badge: '알림',   Icon: Bell,             platform: '배민',    msg: '리뷰 2개 · 구글 1개 추가 도착',    stress: true  },
+    { time: '15:30', badge: '알림',   Icon: Star,             platform: '요기요',  msg: '별점 2점 리뷰 — 어떻게 답글?',     stress: true  },
+    { time: '18:00', badge: '마감',   Icon: CreditCard,       platform: '',        msg: '카드·현금 매출 정산 시작…',        stress: false },
+    { time: '22:40', badge: '야근',   Icon: Frown,            platform: '',        msg: '답글 아직 8개 남음. 내일 또 반복', stress: true  },
   ]
 
   useEffect(() => {
@@ -431,7 +434,7 @@ export default function LandingPage() {
         <div className="max-w-4xl mx-auto text-center relative z-10">
           <div className="inline-flex items-center gap-2 bg-blue-100 text-blue-700 text-xs font-semibold px-3 py-1.5 rounded-full mb-6">
             <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" />
-            ☕ 커피 한 잔 값 6,900원 · 모든 플랫폼 리뷰 답글 자동
+            <Coffee size={12} strokeWidth={2.5} /> 커피 한 잔 값 6,900원 · 모든 플랫폼 리뷰 답글 자동
           </div>
           <h1 className="text-4xl md:text-6xl font-black text-[#191F28] leading-tight mb-6">
             필요한 것만 골라쓰는<br />
@@ -451,13 +454,16 @@ export default function LandingPage() {
               </p>
               <ul className="space-y-2">
                 {([
-                  ['😩', '리뷰 답글 10개 쌓였어요'],
-                  ['📱', '플랫폼 탭 5개 열어놓음'],
-                  ['⏰', '새벽에 혼자 정산 중…'],
-                  ['😤', '나쁜 리뷰 답글 뭐라 해야 하지?'],
-                ] as [string, string][]).map(([emoji, text]) => (
+                  [Frown,          '리뷰 답글 10개 쌓였어요'],
+                  [Smartphone,     '플랫폼 탭 5개 열어놓음'],
+                  [Clock,          '새벽에 혼자 정산 중…'],
+                  [AlertTriangle,  '나쁜 리뷰 답글 뭐라 해야 하지?'],
+                ] as [LucideIcon, string][]).map(([Icon, text]) => (
                   <li key={text} className="flex items-center gap-2 text-sm text-gray-600">
-                    <span>{emoji}</span><span>{text}</span>
+                    <div className="w-5 h-5 rounded-md bg-red-100 text-red-500 flex items-center justify-center flex-shrink-0">
+                      <Icon size={11} strokeWidth={2.5} />
+                    </div>
+                    <span>{text}</span>
                   </li>
                 ))}
               </ul>
@@ -477,13 +483,16 @@ export default function LandingPage() {
               </p>
               <ul className="space-y-2">
                 {([
-                  ['✅', 'AI가 30초 만에 답글 완성'],
-                  ['🎯', '6개 플랫폼 한 화면에서'],
-                  ['💡', '매출 자동 정산, 일찍 퇴근'],
-                  ['🏆', '맞춤 AI 답글로 별점 UP'],
-                ] as [string, string][]).map(([emoji, text]) => (
+                  [CheckCircle2,  'AI가 30초 만에 답글 완성'],
+                  [Target,        '6개 플랫폼 한 화면에서'],
+                  [Lightbulb,     '매출 자동 정산, 일찍 퇴근'],
+                  [Trophy,        '맞춤 AI 답글로 별점 UP'],
+                ] as [LucideIcon, string][]).map(([Icon, text]) => (
                   <li key={text} className="flex items-center gap-2 text-sm text-gray-700">
-                    <span>{emoji}</span><span>{text}</span>
+                    <div className="w-5 h-5 rounded-md bg-blue-100 text-blue-500 flex items-center justify-center flex-shrink-0">
+                      <Icon size={11} strokeWidth={2.5} />
+                    </div>
+                    <span>{text}</span>
                   </li>
                 ))}
               </ul>
@@ -580,7 +589,9 @@ export default function LandingPage() {
                             : 'bg-white border border-gray-100'
                         }`}
                       >
-                        <span className="text-xl leading-none mt-0.5">{scene.emoji}</span>
+                        <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${scene.stress ? 'bg-red-100 text-red-500' : 'bg-blue-100 text-blue-500'}`}>
+                          <scene.Icon size={14} strokeWidth={2.5} />
+                        </div>
                         <div className="flex-1 min-w-0">
                           <div className="flex items-center gap-1.5 mb-0.5">
                             {scene.platform && (
@@ -627,7 +638,7 @@ export default function LandingPage() {
             {/* Before */}
             <div className="bg-[#FFF5F5] border border-red-100 rounded-2xl p-6">
               <div className="flex items-center gap-2 mb-5">
-                <div className="w-9 h-9 rounded-full bg-red-100 flex items-center justify-center text-lg">😩</div>
+                <div className="w-9 h-9 rounded-full bg-red-100 flex items-center justify-center text-red-500"><Frown size={18} strokeWidth={2.5} /></div>
                 <span className="font-black text-[#191F28] text-base">로컬루션 전</span>
               </div>
               <ul className="space-y-3.5">
@@ -698,7 +709,7 @@ export default function LandingPage() {
               <span className="text-[#3182F6]">골라쓰는 모듈방식</span>
             </h2>
             <p className="text-[#4E5968] text-sm md:text-base text-left sm:text-center">
-              ☕ 커피 한 잔 값 월 6,900원 · 3개 묶으면 10% · 5개 15% · 8개 20% 추가 할인
+              커피 한 잔 값 월 6,900원 · 3개 묶으면 10% · 5개 15% · 8개 20% 추가 할인
             </p>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
@@ -920,7 +931,7 @@ export default function LandingPage() {
             <span className="text-[#3182F6]">합리적인 요금으로</span>
           </h2>
           <p className="text-[#4E5968] mb-8 text-left sm:text-center">
-            ☕ 커피 한 잔 값 월 6,900원으로 모든 플랫폼 리뷰 답글 자동화.<br />
+            커피 한 잔 값 월 6,900원으로 모든 플랫폼 리뷰 답글 자동화.<br />
             부담 없이 체험하고 필요한 모듈만 추가하세요.
           </p>
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
