@@ -6,7 +6,7 @@
 // ============================================================
 import { useEffect, useState, useMemo } from 'react'
 import { useParams } from 'next/navigation'
-import { Search, Globe, Star, X } from 'lucide-react'
+import { Search, Globe, Star, X, UtensilsCrossed } from 'lucide-react'
 
 type Lang = 'ko' | 'en' | 'ja' | 'zh'
 
@@ -164,7 +164,7 @@ export default function MenuPage() {
                       <img src={it.image_url} alt={getName(it)} className="w-20 h-20 rounded-xl object-cover flex-shrink-0" />
                     ) : (
                       <div className="w-20 h-20 rounded-xl bg-gradient-to-br from-[#F8FAFB] to-[#EFF6FF] flex items-center justify-center flex-shrink-0">
-                        <span className="text-2xl">🍽️</span>
+                        <UtensilsCrossed size={24} className="text-[#3182F6]" strokeWidth={2} />
                       </div>
                     )}
                     <div className="flex-1 min-w-0">
