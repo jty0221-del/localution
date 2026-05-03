@@ -450,6 +450,38 @@ export async function runCoupangEats(
     await humanType(page, DOM_SELECTORS.pwInput, creds.password, { meanDelay: 110, stdDev: 45, typoRate: 0.025 })
     await idleThinking(800, 1500)
 
+    // ── 59차: 입력값 검증 (humanType 가 정확히 입력했는지 확인) ──
+    // typo rate 가 4% 라 typo correction 후에도 잘못된 글자가 남았을 수 있음.
+    // submit 전에 실제 input.value 와 expected value 비교 → 불일치 시 fill() 로 강제 재입력.
+    try {
+      const idActual = await page.locator(idSelectorUsed).inputValue().catch(() => '')
+      const pwActual = await page.locator(DOM_SELECTORS.pwInput).inputValue().catch(() => '')
+      const idMatch = idActual === creds.account_id
+      const pwMatch = pwActual === creds.password
+      log.info({
+        idMatch,
+        pwMatch,
+        idLenExpected: creds.account_id.length,
+        idLenActual: idActual.length,
+        pwLenExpected: creds.password.length,
+        pwLenActual: pwActual.length,
+      }, 'coupangeats: 59cha input value verification before submit')
+
+      // 불일치 시 fill() 로 강제 재입력 (humanType 의 typo correction 버그 대비)
+      if (!idMatch) {
+        log.warn({ expected: creds.account_id.length, actual: idActual.length }, 'coupangeats: 59cha — ID mismatch, force fill()')
+        await page.locator(idSelectorUsed).fill(creds.account_id)
+        await idleThinking(300, 700)
+      }
+      if (!pwMatch) {
+        log.warn({ expected: creds.password.length, actual: pwActual.length }, 'coupangeats: 59cha — PW mismatch, force fill()')
+        await page.locator(DOM_SELECTORS.pwInput).fill(creds.password)
+        await idleThinking(300, 700)
+      }
+    } catch (e: any) {
+      log.warn({ err: e?.message?.slice(0, 100) }, 'coupangeats: 59cha — input verification failed (계속 진행)')
+    }
+
     // ── ce-check-input 체크박스 자동 클릭 (약관동의/아이디저장) ──
     try {
       const checkbox = page.locator('input[class*="ce-check"], .ce-check-input, input[type="checkbox"]').first()
@@ -546,26 +578,84 @@ export async function runCoupangEats(
     if (!loginSucceeded) {
       await dumpPageDiagnostics(page, log, 'coupangeats-login-failed')
       const { failed, reason } = await detectLoginFailure(page)
-      // 실패 사유 분류:
-      //   - URL 이 /login 에 머무름 + whoami 401 = 비번 오류 또는 봇 차단
-      //   - URL 은 OK 인데 whoami 401 = 봇 차단 가능성
-      //   - reason 에 "비밀번호" 또는 "아이디" = 자격증명 오류
-      const reasonStr = String(reason || '')
+
+      // ── 59차: login-error-text 의 실제 텍스트 추출 ──
+      // 쿠팡이츠 페이지에 표시된 에러 메시지를 정확히 캡처
+      let coupangErrorText = ''
+      try {
+        const errorTexts = await page.evaluate(() => {
+          const out: string[] = []
+          const selectors = [
+            '.login-error-text',
+            '.login-error-label',
+            '.field-error',
+            '[class*="login-error"]',
+            '[class*="error-message"]',
+            '[class*="errorMessage"]',
+          ]
+          for (const sel of selectors) {
+            const els = document.querySelectorAll(sel)
+            els.forEach((el: Element) => {
+              const t = (el.textContent || '').trim()
+              if (t && t.length > 0 && t.length < 200) out.push(t)
+            })
+          }
+          return Array.from(new Set(out))
+        })
+        coupangErrorText = errorTexts.join(' | ').slice(0, 300)
+        if (coupangErrorText) {
+          log.info({ coupangErrorText, errorCount: errorTexts.length }, 'coupangeats: 59cha — login-error-text extracted')
+        } else {
+          log.info('coupangeats: 59cha — no login-error-text element found')
+        }
+      } catch (e: any) {
+        log.warn({ err: e?.message?.slice(0, 100) }, 'coupangeats: 59cha — error text extraction failed')
+      }
+
+      // 실패 사유 분류 (59차: coupangErrorText 우선 검사):
+      //   - 페이지 에러 텍스트에 "비밀번호" / "아이디" 포함 = 자격증명 오류
+      //   - reason 에 같은 키워드 포함 시도 자격증명 오류
+      //   - 그 외 = 봇 차단 등 알 수 없는 실패
+      const combinedReason = `${coupangErrorText} ${reason || ''}`
       const isCredentialsInvalid =
-        reasonStr.includes('비밀번호') || reasonStr.includes('아이디') ||
-        reasonStr.includes('password') || reasonStr.includes('username') ||
-        reasonStr.includes('일치') || reasonStr.includes('확인')
-      const statusKey: 'credentials_invalid' | 'failed' = isCredentialsInvalid ? 'credentials_invalid' : 'failed'
-      const note = reason ||
-        (currentUrl.includes('/login') ? `still_on_login_url (whoami=${whoamiCheck?.status ?? 'n/a'})` : `whoami_${whoamiCheck?.status ?? 'fail'}`)
+        combinedReason.includes('비밀번호') || combinedReason.includes('아이디') ||
+        combinedReason.includes('password') || combinedReason.includes('username') ||
+        combinedReason.includes('일치') || combinedReason.includes('확인')
+      const isAccountLocked =
+        combinedReason.includes('잠김') || combinedReason.includes('잠금') ||
+        combinedReason.includes('locked') || combinedReason.includes('차단')
+      const isCaptchaNeeded =
+        combinedReason.includes('captcha') || combinedReason.includes('보안') ||
+        combinedReason.includes('인증')
+
+      const statusKey: 'credentials_invalid' | 'account_locked' | 'captcha' | 'failed' =
+        isCredentialsInvalid ? 'credentials_invalid' :
+        isAccountLocked ? 'account_locked' :
+        isCaptchaNeeded ? 'captcha' :
+        'failed'
+
+      const note = (coupangErrorText || reason ||
+        (currentUrl.includes('/login') ? `still_on_login_url (whoami=${whoamiCheck?.status ?? 'n/a'})` : `whoami_${whoamiCheck?.status ?? 'fail'}`)).slice(0, 80)
       await markLoginStatus(svc, userId, 'coupangeats', statusKey, note)
-      const userMessage = isCredentialsInvalid
-        ? '아이디 또는 비밀번호가 맞지 않아요. 다시 입력해주세요.'
-        : '쿠팡이츠 로그인에 실패했어요. 잠시 후 다시 시도해주세요.'
+
+      const userMessage =
+        isCredentialsInvalid ? '아이디 또는 비밀번호가 맞지 않아요. 다시 입력해주세요.' :
+        isAccountLocked ? '계정이 잠겼어요. 쿠팡이츠 사장님에서 직접 로그인해 잠금을 해제해주세요.' :
+        isCaptchaNeeded ? '봇 검증 단계에 막혔어요. 잠시 후 다시 시도해주세요.' :
+        '쿠팡이츠 로그인에 실패했어요. 잠시 후 다시 시도해주세요.'
+
       return {
         status: 'failed',
-        message: `coupangeats: ${userMessage} (url=${currentUrl.slice(0, 60)}, whoami=${whoamiCheck?.status ?? 'n/a'})`,
-        debug: { currentUrl, reason, whoamiStatus: whoamiCheck?.status, whoamiAuthenticated, urlLooksLoggedIn },
+        message: `coupangeats: ${userMessage}${coupangErrorText ? ` [페이지 에러: ${coupangErrorText.slice(0, 80)}]` : ''} (url=${currentUrl.slice(0, 60)}, whoami=${whoamiCheck?.status ?? 'n/a'})`,
+        debug: {
+          currentUrl,
+          reason,
+          coupangErrorText,
+          whoamiStatus: whoamiCheck?.status,
+          whoamiAuthenticated,
+          urlLooksLoggedIn,
+          statusKey,
+        },
       }
     }
 
