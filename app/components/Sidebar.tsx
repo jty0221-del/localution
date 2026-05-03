@@ -185,6 +185,8 @@ export default function Sidebar() {
       }
     } catch (_) {}
 
+    // DB가 source of truth — 매번 fetch 후 모든 LS 키 자동 동기화
+    // 다른 페이지들이 LS만 읽어도 항상 최신 데이터 보유
     fetch('/api/stores/me', { credentials: 'include', cache: 'no-store' })
       .then(r => r.json())
       .then(data => {
@@ -196,12 +198,34 @@ export default function Sidebar() {
         if (sName) {
           applyStoreData(sName, sAddr, '')
           try {
+            // localution_store (간소 형태 — Sidebar/dashboard/profile 등)
             const curr = JSON.parse(localStorage.getItem('localution_store') || '{}')
-            if (!curr.storeName) {
-              curr.storeName = sName
-              if (!curr.address && sAddr) curr.address = sAddr
-              localStorage.setItem('localution_store', JSON.stringify(curr))
+            curr.storeName = sName
+            curr.address = sAddr || curr.address || ''
+            if (data.store) {
+              if (data.store.category)      curr.category = data.store.category
+              if (data.store.phone)         curr.phone = data.store.phone
+              if (data.store.slug)          curr.slug = data.store.slug
+              if (data.store.id)            curr.storeId = data.store.id
+              if (data.store.main_keyword)  curr.mainKeyword = data.store.main_keyword
+              if (data.store.naver_url)     curr.naverUrl = data.store.naver_url
             }
+            localStorage.setItem('localution_store', JSON.stringify(curr))
+
+            // localution.store_info (확장 형태 — qr-admin/marketing 등)
+            const fullInfo: any = {
+              name:     sName,
+              category: data.store?.category || '',
+              location: data.store?.location || sAddr || '',
+              naverUrl: data.store?.naver_url || (data.naver_link?.external_url || ''),
+              connected: !!(data.store || data.naver_link),
+              source: data.store ? 'naver_synced' : 'manual',
+              naverPlaceId: data.store?.naver_place_id || '',
+              naverExternalPlaceId: data.naver_link?.external_id || '',
+              slug: data.store?.slug || '',
+              storeId: data.store?.id || '',
+            }
+            localStorage.setItem('localution.store_info', JSON.stringify(fullInfo))
           } catch (_) {}
         }
       })
