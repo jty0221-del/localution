@@ -73,10 +73,10 @@ const DEFAULT_STORE: StoreInfo = {
 }
 
 const PURPOSE_OPTIONS = [
-  { value: 'review', label: '리뷰 유도',   icon: '⭐', desc: '네이버·구글 리뷰 작성' },
-  { value: 'menu',   label: '디지털 메뉴', icon: '📋', desc: 'QR로 메뉴판 연결' },
-  { value: 'event',  label: '쿠폰·이벤트', icon: '🎁', desc: '할인 쿠폰 / 이벤트 페이지' },
-  { value: 'sns',    label: 'SNS 팔로우',  icon: '📸', desc: '인스타·카카오 연결' },
+  { value: 'review', label: '리뷰 유도',   icon: 'Star',         desc: '네이버·구글 리뷰 작성' },
+  { value: 'menu',   label: '디지털 메뉴', icon: 'ClipboardList', desc: 'QR로 메뉴판 연결' },
+  { value: 'event',  label: '쿠폰·이벤트', icon: 'Gift',         desc: '할인 쿠폰 / 이벤트 페이지' },
+  { value: 'sns',    label: 'SNS 팔로우',  icon: 'Camera',       desc: '인스타·카카오 연결' },
 ]
 
 // ─── 리뷰 URL 생성 (2-A: stores.slug 기반) ────────────────────────
@@ -691,7 +691,7 @@ export default function QRAdmin() {
                     <a
                       href="/my/platforms/naver_place/connect"
                       className="block w-full py-3 mb-2 rounded-xl bg-[#03C75A] text-white font-bold text-sm text-center hover:bg-[#02A04A] transition-colors">
-                      🟢 네이버 플레이스 연결하기 →
+                      네이버 플레이스 연결하기 →
                     </a>
                     <button
                       onClick={() => { setStoreDraft(DEFAULT_STORE); setStoreEdit(true) }}
@@ -752,11 +752,11 @@ export default function QRAdmin() {
                     )}
                     {storeSaveErr && (
                       <p className="text-[11px] text-[#DC2626] bg-[#FEF2F2] rounded-lg px-2 py-1.5 leading-relaxed">
-                        ❌ {storeSaveErr}
+                        {storeSaveErr}
                       </p>
                     )}
                     <p className="text-[11px] text-[#3182F6] leading-relaxed">
-                      💡 여기서 저장하면 <strong>설정 / 프로필 / 매장 연결</strong> 페이지에도 자동 반영돼요
+                      여기서 저장하면 <strong>설정 / 프로필 / 매장 연결</strong> 페이지에도 자동 반영돼요
                     </p>
                     <div className="flex gap-2 pt-1">
                       <button
@@ -809,14 +809,14 @@ export default function QRAdmin() {
                       )}
                     </div>
                     <div className="p-3 bg-[#EFF6FF] rounded-xl border border-[#BFDBFE]">
-                      <p className="text-[11px] text-[#3182F6] font-semibold mb-1.5">📎 QR이 연결되는 리뷰 링크</p>
+                      <p className="text-[11px] text-[#3182F6] font-semibold mb-1.5">QR이 연결되는 리뷰 링크</p>
                       <p className="text-[10px] text-[#4E5968] break-all font-mono leading-relaxed mb-2">
                         {previewReviewUrl}
                       </p>
                       <button
                         onClick={() => handleCopy('store', previewReviewUrl)}
                         className="text-[11px] px-3 py-1 bg-white rounded-lg border border-[#BFDBFE] text-[#3182F6] font-semibold hover:bg-[#EFF6FF] transition-colors">
-                        {copiedId === 'store' ? '✅ 복사됨' : '링크 복사'}
+                        {copiedId === 'store' ? '복사됨' : '링크 복사'}
                       </button>
                     </div>
                   </div>
@@ -916,7 +916,7 @@ export default function QRAdmin() {
                     <button
                       onClick={() => handleCopy('preview', previewReviewUrl)}
                       className="py-2.5 rounded-xl bg-[#EFF6FF] border border-[#BFDBFE] text-[#3182F6] text-xs font-bold hover:bg-[#DBEAFE] transition-colors">
-                      {copiedId === 'preview' ? '✅ 복사됨' : '🔗 링크 복사'}
+                      {copiedId === 'preview' ? '복사됨' : '링크 복사'}
                     </button>
                     <button
                       onClick={async () => {
@@ -926,12 +926,12 @@ export default function QRAdmin() {
                       }}
                       disabled={downloading === 'preview'}
                       className="py-2.5 rounded-xl bg-[#191F28] text-white text-xs font-bold hover:bg-[#333D4B] transition-colors disabled:opacity-50">
-                      {downloading === 'preview' ? '⏳ 다운로드 중…' : '⬇️ PNG 다운로드'}
+                      {downloading === 'preview' ? '다운로드 중...' : 'PNG 다운로드'}
                     </button>
                   </div>
 
                   <div className="mt-4 p-3 rounded-xl bg-[#FFFBEB] border border-[#FDE68A]">
-                    <p className="text-[11px] text-[#92400E] font-bold mb-1.5">📸 카메라 인식 잘 안 될 때</p>
+                    <p className="text-[11px] text-[#92400E] font-bold mb-1.5">카메라 인식 잘 안 될 때</p>
                     <ul className="text-[10px] text-[#9A3412] space-y-0.5 leading-relaxed pl-3 list-disc">
                       <li>밝은 조명 + 손떨림 없이 (10~30cm 거리)</li>
                       <li>이 QR 은 <strong>ECC-H 30% 복원</strong> — 일부 가려져도 인식됩니다</li>
@@ -958,7 +958,7 @@ export default function QRAdmin() {
               className={`w-full py-3.5 rounded-xl font-bold text-base transition-colors ${
                 saved ? 'bg-green-500 text-white' : 'bg-[#191F28] text-white hover:bg-[#333D4B]'
               }`}>
-              {saved ? '✅ 저장됨' : '설정 저장하기'}
+              {saved ? '저장됨' : '설정 저장하기'}
             </button>
 
           </div>
@@ -1172,7 +1172,7 @@ export default function QRAdmin() {
                   <button
                     onClick={() => handleCopy(previewQR.id + '_modal', previewQR.reviewUrl)}
                     className="flex-1 py-3 rounded-xl text-sm font-semibold bg-[#EFF6FF] text-[#3182F6] hover:bg-[#DBEAFE] transition-colors">
-                    {copiedId === previewQR.id + '_modal' ? '✅ 복사됨' : '🔗 링크 복사'}
+                    {copiedId === previewQR.id + '_modal' ? '복사됨' : '🔗 링크 복사'}
                   </button>
                 )}
                 <button
