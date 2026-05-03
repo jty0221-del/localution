@@ -77,6 +77,8 @@ export default function StampCardEditor() {
   const [manualPhone, setManualPhone] = useState('')
   const [manualStamps, setManualStamps] = useState(1)
   const [manualBusy, setManualBusy] = useState(false)
+  const [previewStamps, setPreviewStamps] = useState(0)  // 미리보기 도장 수 (사장님이 시뮬레이션)
+  const [adjustingId, setAdjustingId] = useState<string | null>(null)  // 적립 조정 중인 손님 id
   const [manualErr, setManualErr] = useState('')
   const [downloadingQR, setDownloadingQR] = useState(false)
   const [showNotify, setShowNotify] = useState(false)
@@ -176,6 +178,41 @@ export default function StampCardEditor() {
     } finally { setManualBusy(false) }
   }
 
+  // 도장 +/- 조정 (적립/취소)
+  async function handleAdjust(collectionId: string, delta: 1 | -1) {
+    if (adjustingId) return
+    setAdjustingId(collectionId)
+    // optimistic UI 업데이트
+    setCustomers(prev => prev.map(c => {
+      if (c.id !== collectionId) return c
+      const next = Math.max(0, Math.min(card.required_stamps, (c.current_stamps || 0) + delta))
+      return { ...c, current_stamps: next }
+    }))
+    try {
+      const r = await fetch('/api/stamps/adjust', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ collection_id: collectionId, delta }),
+      })
+      const j = await r.json()
+      if (!j.ok) {
+        // 실패 시 재조회
+        await loadCustomers()
+        alert('적립 조정 실패: ' + (j.message || j.error || 'unknown'))
+      } else {
+        // 통계도 갱신
+        const r2 = await fetch('/api/stamps/setup', { credentials: 'include' })
+        const j2 = await r2.json()
+        if (j2.ok && j2.stats) setStats(j2.stats)
+      }
+    } catch (e) {
+      await loadCustomers()
+    } finally {
+      setAdjustingId(null)
+    }
+  }
+
   if (loading) {
     return (
       <div className="bg-white rounded-2xl p-12 text-center shadow-sm">
@@ -246,7 +283,36 @@ export default function StampCardEditor() {
               </div>
               <p className="text-xs font-bold text-[#4E5968]">손님 화면 미리보기</p>
             </div>
-            <StampCardView card={card} collection={{ current_stamps: 3, total_collected: 12, rewards_claimed: 1 }} />
+            <StampCardView card={card} collection={{ current_stamps: previewStamps, total_collected: previewStamps, rewards_claimed: 0 }} />
+            {/* 미리보기 시뮬레이터 */}
+            <div className="flex items-center justify-between mt-2 p-2.5 rounded-xl bg-[#F8FAFB] border border-[#E5E8EB]">
+              <p className="text-[11px] text-[#4E5968] font-bold flex items-center gap-1">
+                <Sparkles size={11} className="text-[#7C3AED]" strokeWidth={2.5} />
+                도장 시뮬레이션
+              </p>
+              <div className="flex items-center gap-1.5">
+                <button
+                  onClick={() => setPreviewStamps(s => Math.max(0, s - 1))}
+                  disabled={previewStamps === 0}
+                  className="w-7 h-7 rounded-lg bg-white border border-[#E5E8EB] text-[#4E5968] hover:bg-[#F2F4F6] disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center font-black">
+                  −
+                </button>
+                <span className="text-sm font-black text-[#191F28] w-12 text-center">
+                  {previewStamps} / {card.required_stamps}
+                </span>
+                <button
+                  onClick={() => setPreviewStamps(s => Math.min(card.required_stamps, s + 1))}
+                  disabled={previewStamps >= card.required_stamps}
+                  className="w-7 h-7 rounded-lg bg-[#3182F6] text-white hover:bg-[#1D4ED8] disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center font-black">
+                  +
+                </button>
+                <button
+                  onClick={() => setPreviewStamps(0)}
+                  className="ml-1 px-2 py-1 rounded-md bg-[#FEE2E2] text-[#991B1B] text-[10px] font-bold hover:bg-[#FECACA]">
+                  초기화
+                </button>
+              </div>
+            </div>
           </div>
 
           {/* 손님이 스캔할 QR 코드 */}
@@ -583,13 +649,32 @@ export default function StampCardEditor() {
                       </button>
                     </div>
                   </div>
-                  <div className="text-right flex-shrink-0">
-                    <p className="text-sm font-black text-[#3182F6]">{c.current_stamps}<span className="text-[10px] text-[#8B95A1] ml-0.5">/{card.required_stamps}</span></p>
-                    <p className="text-[10px] text-[#8B95A1]">
-                      {c.days_since_last_visit === 0 ? '오늘' :
-                       c.days_since_last_visit === 1 ? '어제' :
-                       (c.days_since_last_visit ?? 0) + '일 전'}
-                    </p>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    {/* +/- 적립 조정 버튼 */}
+                    <div className="flex items-center gap-1">
+                      <button
+                        onClick={() => handleAdjust(c.id, -1)}
+                        disabled={adjustingId === c.id || c.current_stamps <= 0}
+                        title="도장 1개 차감 (취소 적립)"
+                        className="w-7 h-7 rounded-lg bg-[#FEE2E2] text-[#991B1B] hover:bg-[#FECACA] disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center font-black text-sm">
+                        −
+                      </button>
+                      <button
+                        onClick={() => handleAdjust(c.id, 1)}
+                        disabled={adjustingId === c.id || c.current_stamps >= card.required_stamps}
+                        title="도장 1개 추가 (적립)"
+                        className="w-7 h-7 rounded-lg bg-[#3182F6] text-white hover:bg-[#1D4ED8] disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center font-black text-sm">
+                        +
+                      </button>
+                    </div>
+                    <div className="text-right">
+                      <p className="text-sm font-black text-[#3182F6]">{c.current_stamps}<span className="text-[10px] text-[#8B95A1] ml-0.5">/{card.required_stamps}</span></p>
+                      <p className="text-[10px] text-[#8B95A1]">
+                        {c.days_since_last_visit === 0 ? '오늘' :
+                         c.days_since_last_visit === 1 ? '어제' :
+                         (c.days_since_last_visit ?? 0) + '일 전'}
+                      </p>
+                    </div>
                   </div>
                 </div>
               )
