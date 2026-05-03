@@ -19,7 +19,7 @@ import {
   Smartphone, Tablet, Monitor,
   BarChart3, TrendingUp, Clock,
   Store, Printer, Link2, Gift, Wifi,
-  ClipboardList, Star, MapPin,
+  ClipboardList, Star, MapPin, AlertTriangle,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -747,7 +747,7 @@ export default function QRAdmin() {
                     {storeDraft.name && storeDraft.location && (
                       <div className="p-3 bg-[#F8FAFF] rounded-xl border border-[#BFDBFE]">
                         <p className="text-[11px] text-[#3182F6] font-semibold mb-1">생성될 리뷰 링크 미리보기</p>
-                        <p className="text-[10px] text-[#4E5968] break-all leading-relaxed font-mono">
+                        <p className="text-[10px] text-[#4E5968] truncate leading-relaxed font-mono">
                           {generateReviewUrl(storeDraft)}
                         </p>
                       </div>
@@ -812,7 +812,7 @@ export default function QRAdmin() {
                     </div>
                     <div className="p-3 bg-[#EFF6FF] rounded-xl border border-[#BFDBFE]">
                       <p className="text-[11px] text-[#3182F6] font-semibold mb-1.5">QR이 연결되는 리뷰 링크</p>
-                      <p className="text-[10px] text-[#4E5968] break-all font-mono leading-relaxed mb-2">
+                      <p className="text-[10px] text-[#4E5968] truncate font-mono leading-relaxed mb-2">
                         {previewReviewUrl}
                       </p>
                       <button
@@ -1162,15 +1162,15 @@ export default function QRAdmin() {
               {/* 연결될 URL 미리보기 */}
               {newQR.purpose === 'review' && storeInfo.connected && (
                 <div className="p-3 bg-[#F0FDF4] rounded-xl border border-[#BBF7D0]">
-                  <p className="text-[11px] text-[#059669] font-semibold mb-1">✅ 자동 연결될 리뷰 링크</p>
-                  <p className="text-[10px] text-[#4E5968] break-all font-mono leading-relaxed">
+                  <p className="text-[11px] text-[#059669] font-semibold mb-1 flex items-center gap-1"><CheckCircle2 size={11} strokeWidth={2.5} /> 자동 연결될 리뷰 링크</p>
+                  <p className="text-[10px] text-[#4E5968] truncate font-mono leading-relaxed">
                     {generateReviewUrl(storeInfo)}
                   </p>
                 </div>
               )}
               {newQR.purpose === 'review' && !storeInfo.connected && (
                 <div className="p-3 bg-[#FFFBEB] rounded-xl border border-[#FDE68A]">
-                  <p className="text-[11px] text-[#D97706] font-semibold">⚠️ 업체를 먼저 연동해야 리뷰 링크가 생성돼요</p>
+                  <p className="text-[11px] text-[#D97706] font-semibold flex items-center gap-1"><AlertTriangle size={11} strokeWidth={2.5} /> 업체를 먼저 연동해야 리뷰 링크가 생성돼요</p>
                 </div>
               )}
 
@@ -1183,7 +1183,7 @@ export default function QRAdmin() {
                   : !newQR.name ? 'bg-[#F2F4F6] text-[#8B95A1] cursor-not-allowed'
                   : 'bg-[#3182F6] text-white hover:bg-[#1B64DA]'
                 }`}>
-                {created ? '✅ 생성 완료!' : creating ? '⏳ 생성 중...' : 'QR 코드 생성하기'}
+                {created ? (<span className="flex items-center justify-center gap-1.5"><CheckCircle2 size={14} strokeWidth={2.5} /> 생성 완료!</span>) : creating ? '생성 중...' : 'QR 코드 생성하기'}
               </button>
             </div>
           </div>
@@ -1206,7 +1206,7 @@ export default function QRAdmin() {
               {previewQR.reviewUrl ? (
                 <div className="w-full p-3 bg-[#F8FAFF] rounded-xl border border-[#BFDBFE]">
                   <p className="text-[11px] text-[#3182F6] font-semibold mb-1">연결 링크</p>
-                  <p className="text-[10px] text-[#4E5968] break-all font-mono leading-relaxed">
+                  <p className="text-[10px] text-[#4E5968] truncate font-mono leading-relaxed">
                     {previewQR.reviewUrl}
                   </p>
                 </div>
@@ -1224,7 +1224,7 @@ export default function QRAdmin() {
                   <button
                     onClick={() => handleCopy(previewQR.id + '_modal', previewQR.reviewUrl)}
                     className="flex-1 py-3 rounded-xl text-sm font-semibold bg-[#EFF6FF] text-[#3182F6] hover:bg-[#DBEAFE] transition-colors">
-                    {copiedId === previewQR.id + '_modal' ? '복사됨' : '🔗 링크 복사'}
+                    {copiedId === previewQR.id + '_modal' ? '복사됨' : (<span className="inline-flex items-center gap-1"><Link2 size={11} strokeWidth={2.5} /> 링크 복사</span>)}
                   </button>
                 )}
                 <button
@@ -1234,7 +1234,7 @@ export default function QRAdmin() {
                     !previewQR.reviewUrl ? 'bg-[#F2F4F6] text-[#8B95A1] cursor-not-allowed'
                     : 'bg-[#191F28] text-white hover:bg-[#333D4B]'
                   }`}>
-                  {downloading === previewQR.id ? '⏳...' : '⬇️ PNG 저장'}
+                  {downloading === previewQR.id ? '...' : (<span className="inline-flex items-center gap-1"><Printer size={11} strokeWidth={2.5} /> PNG 저장</span>)}
                 </button>
               </div>
             </div>
