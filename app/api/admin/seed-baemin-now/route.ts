@@ -54,7 +54,7 @@ export async function GET() {
     user_id: userId,
     platform: 'baemin',
     platform_review_id: r.id,
-    platform_store_id: 'baemin-demo-store',
+    platform_store_id: process.env.BAEMIN_SEED_STORE_ID || `baemin-seed-${userId}`,
     author_name: r.author,
     author_mask: maskAuthor(r.author),
     content: r.content || null,
