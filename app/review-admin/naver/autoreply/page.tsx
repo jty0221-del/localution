@@ -1,6 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
+import { Link2, AlertTriangle, CheckCircle2 } from 'lucide-react'
 import Sidebar from '@/app/components/Sidebar'
 
 // ── 타입 ─────────────────────────────────────────────────────
@@ -331,7 +332,9 @@ export default function NaverAutoReplyPage() {
     if (!connected) {
       return (
         <div className="bg-white rounded-2xl border border-[#E8ECF0] p-8 text-center">
-          <div className="text-3xl mb-3">🔗</div>
+          <div className="w-14 h-14 rounded-2xl bg-[#EFF6FF] flex items-center justify-center mx-auto mb-3">
+            <Link2 size={26} className="text-[#3182F6]" strokeWidth={2.5} />
+          </div>
           <p className="text-base font-bold text-[#1A1A2E] mb-1">네이버 플레이스 연동이 필요해요</p>
           <p className="text-sm text-[#8B95A1]">매장 관리 → 플랫폼 연결에서 네이버 플레이스를 연동해 주세요.</p>
         </div>
@@ -397,8 +400,9 @@ export default function NaverAutoReplyPage() {
                 OFF이면 이 페이지에서 직접 검토 후 승인해야 해요.
               </div>
               {settingsDraft.auto_approve && (
-                <div className="mt-2 text-xs text-amber-600 font-semibold bg-amber-50 rounded-lg px-2.5 py-1.5 inline-block">
-                  ⚠️ AI 답글이 검토 없이 자동 게시됩니다
+                <div className="mt-2 text-xs text-amber-600 font-semibold bg-amber-50 rounded-lg px-2.5 py-1.5 inline-flex items-center gap-1">
+                  <AlertTriangle size={12} strokeWidth={2.5} />
+                  AI 답글이 검토 없이 자동 게시됩니다
                 </div>
               )}
             </div>
@@ -518,7 +522,9 @@ export default function NaverAutoReplyPage() {
                 </div>
               ) : reviews.length === 0 ? (
                 <div className="bg-white rounded-2xl border border-[#E8ECF0] p-12 text-center">
-                  <div className="text-4xl mb-3">🎉</div>
+                  <div className="w-14 h-14 rounded-2xl bg-[#F0FDF4] flex items-center justify-center mx-auto mb-3">
+                    <CheckCircle2 size={26} className="text-[#059669]" strokeWidth={2.5} />
+                  </div>
                   <p className="text-base font-bold text-[#1A1A2E] mb-1">
                     {tab === 'pending' ? '승인 대기 중인 답글이 없어요' : '리뷰가 없어요'}
                   </p>
