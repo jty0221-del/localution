@@ -119,21 +119,56 @@ export default function StampScanPage() {
   if (err && !card) {
     return (
       <div className="min-h-screen bg-[#F2F4F6] flex items-center justify-center px-4">
-        <div className="bg-white rounded-2xl p-8 max-w-sm w-full text-center shadow-sm">
+        <div className="bg-white rounded-2xl p-8 max-w-md w-full text-center shadow-sm">
           <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#FEF3C7] to-[#FDE68A] flex items-center justify-center mx-auto mb-3">
             <AlertCircle size={28} className="text-[#92400E]" strokeWidth={2} />
           </div>
           <p className="text-sm font-bold text-[#191F28] mb-1">{err}</p>
-          <p className="text-xs text-[#8B95A1] mb-4">
-            {errCode === 'no_card'
-              ? '사장님이 스탬프 카드를 등록하면 자동으로 활성화돼요.'
-              : '잠시 후 다시 시도해주세요.'}
-          </p>
-          <button
-            onClick={() => window.location.reload()}
-            className="px-5 py-2.5 rounded-xl bg-[#191F28] text-white text-xs font-bold">
-            다시 시도
-          </button>
+
+          {errCode === 'no_card' ? (
+            <>
+              <p className="text-xs text-[#8B95A1] mb-4 leading-relaxed">
+                사장님이 스탬프 카드를 등록해야 손님이 적립할 수 있어요.<br/>
+                아직 카드를 만들지 않으셨다면 아래 안내를 확인해주세요.
+              </p>
+
+              <div className="bg-[#EFF6FF] border border-[#BFDBFE] rounded-xl p-4 mb-4 text-left">
+                <p className="text-xs font-black text-[#1E40AF] mb-2">사장님이 등록하는 방법</p>
+                <ol className="text-[11px] text-[#1E40AF] space-y-1 list-decimal list-inside leading-relaxed">
+                  <li>로컬루션 → 좌측 메뉴 <strong>QR 관리</strong> 클릭</li>
+                  <li>상단 탭 <strong>스탬프 카드</strong> 선택</li>
+                  <li>제목 / 보상 단계 입력 → <strong>"카드 저장"</strong> 클릭</li>
+                  <li>같은 화면 좌측 QR 코드 다운로드 → 매장에 비치</li>
+                </ol>
+              </div>
+
+              <div className="grid grid-cols-2 gap-2">
+                <a
+                  href="/qr-admin"
+                  className="px-4 py-2.5 rounded-xl bg-[#3182F6] text-white text-xs font-bold">
+                  카드 만들러 가기
+                </a>
+                <button
+                  onClick={() => window.location.reload()}
+                  className="px-4 py-2.5 rounded-xl bg-[#F2F4F6] text-[#4E5968] text-xs font-bold">
+                  다시 시도
+                </button>
+              </div>
+
+              <p className="text-[10px] text-[#C9CDD2] mt-4">
+                * 손님이라면 매장 사장님께 문의해주세요.
+              </p>
+            </>
+          ) : (
+            <>
+              <p className="text-xs text-[#8B95A1] mb-4">잠시 후 다시 시도해주세요.</p>
+              <button
+                onClick={() => window.location.reload()}
+                className="px-5 py-2.5 rounded-xl bg-[#191F28] text-white text-xs font-bold">
+                다시 시도
+              </button>
+            </>
+          )}
         </div>
       </div>
     )
