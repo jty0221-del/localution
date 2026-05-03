@@ -1,16 +1,18 @@
 // app/api/menu/translate-public/route.ts
 // ============================================================
-// 손님용 공개 메뉴 자동 번역 (디버그 강화 v2)
+// 손님용 공개 메뉴 자동 번역 (Claude 기반 v3)
 //   POST /api/menu/translate-public  body: { slug, lang }
 //   · 인증 X — 공개 메뉴 페이지에서 호출
-//   · Papago 호출 결과의 정확한 에러 정보 errors 배열에 누적
+//   · Anthropic Claude API 사용 (음식 메뉴 번역 품질 우수)
+//   · 모든 메뉴를 한 번의 API 호출로 일괄 번역 (비용/속도 효율)
+//   · 환경변수: ANTHROPIC_API_KEY (이미 다른 기능에서 사용 중)
 // ============================================================
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/app/lib/adminAuth'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
-export const maxDuration = 60  // 14개 메뉴 순차 번역 위해 늘림
+export const maxDuration = 60
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -22,47 +24,92 @@ export async function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: CORS })
 }
 
-const PAPAGO_URL = 'https://openapi.naver.com/v1/papago/n2mt'
 const SUPPORTED_LANGS = ['en', 'ja', 'zh'] as const
 type SupportedLang = typeof SUPPORTED_LANGS[number]
 
-// Papago target 코드 매핑 (zh → zh-CN)
-const PAPAGO_TARGET: Record<SupportedLang, string> = {
-  en: 'en',
-  ja: 'ja',
-  zh: 'zh-CN',
+const LANG_NAMES: Record<SupportedLang, string> = {
+  en: 'English',
+  ja: 'Japanese (日本語)',
+  zh: 'Simplified Chinese (简体中文)',
 }
 
-type PapagoResult =
-  | { ok: true; translated: string }
-  | { ok: false; reason: string; status?: number; body?: string }
+// Claude로 메뉴 일괄 번역 — 모든 메뉴를 한 번의 호출로
+async function translateMenusWithClaude(
+  items: { id: string; name_ko: string; desc_ko: string | null }[],
+  targetLang: SupportedLang,
+  apiKey: string,
+): Promise<{ ok: boolean; translations?: { id: string; name: string; desc: string | null }[]; error?: string; raw?: string }> {
 
-async function translatePapago(text: string, target: string, clientId: string, clientSecret: string): Promise<PapagoResult> {
-  if (!text.trim()) return { ok: false, reason: 'empty_text' }
+  // 입력을 JSON 배열로 정리 (Claude가 안전하게 파싱)
+  const input = items.map(it => ({
+    id: it.id,
+    name: it.name_ko,
+    desc: it.desc_ko || '',
+  }))
+
+  const systemPrompt = `You are a professional menu translator specializing in Korean restaurant menus. Translate Korean menu items to ${LANG_NAMES[targetLang]}. Keep the translations natural, appetizing, and concise. For Korean dish names that are well-known internationally (e.g., kimchi, bibimbap), use the standard romanization. For descriptions, keep them brief but vivid.
+
+Return ONLY a valid JSON array (no markdown, no extra text) with this exact structure:
+[{"id": "<id>", "name": "<translated name>", "desc": "<translated description or empty string>"}]`
+
+  const userPrompt = `Translate these ${items.length} Korean menu items to ${LANG_NAMES[targetLang]}:\n\n${JSON.stringify(input, null, 2)}\n\nReturn the JSON array only.`
+
   try {
-    const params = new URLSearchParams({ source: 'ko', target, text: text.slice(0, 500) })
-    const res = await fetch(PAPAGO_URL, {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
       method: 'POST',
       headers: {
-        'X-Naver-Client-Id': clientId,
-        'X-Naver-Client-Secret': clientSecret,
-        'Content-Type': 'application/x-www-form-urlencoded',
+        'x-api-key': apiKey,
+        'anthropic-version': '2023-06-01',
+        'content-type': 'application/json',
       },
-      body: params.toString(),
-      signal: AbortSignal.timeout(8000),
+      body: JSON.stringify({
+        model: 'claude-3-5-haiku-20241022',  // 빠르고 저렴, 번역 품질 충분
+        max_tokens: 4096,
+        system: systemPrompt,
+        messages: [{ role: 'user', content: userPrompt }],
+      }),
+      signal: AbortSignal.timeout(45000),
     })
+
     if (!res.ok) {
       const body = await res.text().catch(() => '')
-      return { ok: false, reason: `http_${res.status}`, status: res.status, body: body.slice(0, 300) }
+      return { ok: false, error: `claude_http_${res.status}`, raw: body.slice(0, 500) }
     }
-    const json: any = await res.json()
-    const translated = json?.message?.result?.translatedText
-    if (!translated) {
-      return { ok: false, reason: 'no_translation', body: JSON.stringify(json).slice(0, 300) }
+
+    const data = await res.json()
+    const text = data?.content?.[0]?.text
+    if (!text) {
+      return { ok: false, error: 'no_text_response', raw: JSON.stringify(data).slice(0, 500) }
     }
-    return { ok: true, translated }
+
+    // JSON 추출 (Claude가 마크다운 블록으로 감쌀 수도)
+    let jsonText = text.trim()
+    if (jsonText.startsWith('```')) {
+      jsonText = jsonText.replace(/^```(?:json)?\s*/i, '').replace(/\s*```\s*$/, '').trim()
+    }
+    // [ ... ] 부분만 추출 (혹시 앞뒤 텍스트가 있으면)
+    const arrayStart = jsonText.indexOf('[')
+    const arrayEnd = jsonText.lastIndexOf(']')
+    if (arrayStart >= 0 && arrayEnd > arrayStart) {
+      jsonText = jsonText.slice(arrayStart, arrayEnd + 1)
+    }
+
+    const parsed = JSON.parse(jsonText)
+    if (!Array.isArray(parsed)) {
+      return { ok: false, error: 'not_array', raw: jsonText.slice(0, 500) }
+    }
+
+    const translations = parsed
+      .filter((x: any) => x && typeof x.id === 'string' && typeof x.name === 'string')
+      .map((x: any) => ({
+        id: x.id,
+        name: String(x.name).slice(0, 200),
+        desc: x.desc ? String(x.desc).slice(0, 500) : null,
+      }))
+
+    return { ok: true, translations }
   } catch (e: any) {
-    return { ok: false, reason: 'exception', body: String(e?.message || e).slice(0, 300) }
+    return { ok: false, error: 'exception', raw: String(e?.message || e).slice(0, 500) }
   }
 }
 
@@ -76,15 +123,12 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: 'unsupported_lang', supported: SUPPORTED_LANGS }, { status: 400, headers: CORS })
   }
 
-  const clientId = process.env.NAVER_CLIENT_ID
-  const clientSecret = process.env.NAVER_CLIENT_SECRET
-  if (!clientId || !clientSecret) {
+  const apiKey = process.env.ANTHROPIC_API_KEY
+  if (!apiKey) {
     return NextResponse.json({
       ok: false,
       error: 'no_credentials',
-      message: 'NAVER_CLIENT_ID 또는 NAVER_CLIENT_SECRET 환경변수 없음 — Vercel에 추가 필요',
-      has_id: !!clientId,
-      has_secret: !!clientSecret,
+      message: 'ANTHROPIC_API_KEY 환경변수 없음',
     }, { status: 500, headers: CORS })
   }
 
@@ -104,8 +148,7 @@ export async function POST(req: NextRequest) {
   const nameField = `name_${lang}`
   const descField = `desc_${lang}`
 
-  // 해당 lang 필드(name_<lang>)가 비어있는 메뉴 조회 (최대 50개)
-  // Supabase or 필터 syntax: 'col.is.null,col.eq.""' (빈 문자열은 따옴표 필요할 수도)
+  // 메뉴 조회 (모두) — 클라 측에서 비어있는 것 필터
   const { data: items, error: itemsError } = await svc
     .from('menu_items')
     .select(`id, name_ko, desc_ko, ${nameField}, ${descField}`)
@@ -120,45 +163,47 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: true, translated_count: 0, message: '메뉴 없음' }, { headers: CORS })
   }
 
-  // 클라이언트 측에서 비어있는 것만 필터 (Supabase or 필터가 까다로워서)
-  const toTranslate = (items as any[]).filter(it => !it[nameField] || it[nameField] === '')
+  // 비어있는 것만 필터
+  const toTranslate = (items as any[])
+    .filter(it => !it[nameField] || it[nameField] === '')
+    .filter(it => it.name_ko)
+    .map(it => ({ id: it.id, name_ko: it.name_ko, desc_ko: it.desc_ko }))
 
   if (toTranslate.length === 0) {
     return NextResponse.json({ ok: true, translated_count: 0, message: '이미 번역됨' }, { headers: CORS })
   }
 
-  const target = PAPAGO_TARGET[lang]
+  // Claude 일괄 번역
+  const result = await translateMenusWithClaude(toTranslate, lang, apiKey)
+  if (!result.ok || !result.translations) {
+    return NextResponse.json({
+      ok: false,
+      error: result.error || 'translate_failed',
+      raw: result.raw,
+      total_to_translate: toTranslate.length,
+    }, { status: 502, headers: CORS })
+  }
+
+  // DB 일괄 업데이트
   let translatedCount = 0
   const errors: any[] = []
   const successes: any[] = []
+  const idMap = new Map(toTranslate.map(it => [it.id, it]))
 
-  // 순차 번역 (Papago rate limit 고려)
-  for (const item of toTranslate) {
-    const ko = item.name_ko
-    const koDesc = item.desc_ko
-    if (!ko) {
-      errors.push({ id: item.id, reason: 'no_name_ko' })
-      continue
+  for (const tr of result.translations) {
+    const original = idMap.get(tr.id)
+    if (!original) continue
+    const update: any = {
+      [nameField]: tr.name,
+      updated_at: new Date().toISOString(),
     }
-
-    const nameResult = await translatePapago(ko, target, clientId, clientSecret)
-    let descResult: PapagoResult | null = null
-    if (koDesc) {
-      descResult = await translatePapago(koDesc, target, clientId, clientSecret)
-    }
-
-    if (nameResult.ok) {
-      const update: any = { [nameField]: nameResult.translated, updated_at: new Date().toISOString() }
-      if (descResult?.ok) update[descField] = descResult.translated
-      const { error: updateError } = await svc.from('menu_items').update(update).eq('id', item.id)
-      if (updateError) {
-        errors.push({ id: item.id, reason: 'db_update_failed', message: updateError.message.slice(0, 200) })
-      } else {
-        translatedCount++
-        successes.push({ id: item.id, ko: ko.slice(0, 30), translated: nameResult.translated.slice(0, 50) })
-      }
+    if (tr.desc) update[descField] = tr.desc
+    const { error: updateError } = await svc.from('menu_items').update(update).eq('id', tr.id)
+    if (updateError) {
+      errors.push({ id: tr.id, message: updateError.message.slice(0, 200) })
     } else {
-      errors.push({ id: item.id, ko: ko.slice(0, 30), papago: nameResult })
+      translatedCount++
+      successes.push({ ko: original.name_ko.slice(0, 30), translated: tr.name.slice(0, 50) })
     }
   }
 
@@ -168,12 +213,6 @@ export async function POST(req: NextRequest) {
     total_to_translate: toTranslate.length,
     successes: successes.slice(0, 3),
     errors: errors.slice(0, 5),
-    debug: {
-      slug,
-      lang,
-      target,
-      store_id: store.id,
-      items_total: items.length,
-    },
+    debug: { slug, lang, model: 'claude-3-5-haiku', store_id: store.id },
   }, { headers: CORS })
 }
