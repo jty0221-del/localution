@@ -5,7 +5,7 @@
 //   · 메뉴 CRUD + 네이버 자동 가져오기 + 다국어 입력
 // ============================================================
 import { useEffect, useState } from 'react'
-import { Plus, Trash2, Edit3, Save, Globe, Download, Image as ImageIcon, Star, Sparkles, Bookmark, Link2, FolderOpen, ClipboardList, Languages } from 'lucide-react'
+import { Plus, Trash2, Edit3, Save, Globe, Download, Image as ImageIcon, Star, Sparkles, Bookmark, Link2, FolderOpen, ClipboardList, Languages, AlertTriangle, MapPin, Check, CheckCircle2 } from 'lucide-react'
 import MenuBookmarkletDialog from './MenuBookmarkletDialog'
 
 type MenuItem = {
@@ -338,7 +338,10 @@ export default function MenuBoardEditor() {
   if (!store?.slug) {
     return (
       <div className="bg-gradient-to-br from-[#FEF3C7] to-[#FDE68A] rounded-2xl p-6 border border-[#FCD34D]">
-        <p className="text-sm font-bold text-[#92400E] mb-1">⚠️ 매장 정보가 먼저 필요해요</p>
+        <div className="flex items-center gap-1.5 mb-1">
+          <AlertTriangle size={14} className="text-[#92400E]" strokeWidth={2.5} />
+          <p className="text-sm font-bold text-[#92400E]">매장 정보가 먼저 필요해요</p>
+        </div>
         <p className="text-xs text-[#92400E]">"업체 설정" 탭에서 매장 정보를 입력해주세요.</p>
       </div>
     )
@@ -558,14 +561,19 @@ export default function MenuBoardEditor() {
         <div className="fixed inset-0 bg-black/50 z-50 flex items-end md:items-center justify-center p-4">
           <div className="bg-white rounded-2xl p-5 max-w-lg w-full max-h-[90vh] overflow-y-auto">
             <div className="flex items-center justify-between mb-3">
-              <h3 className="font-black text-[#191F28]">🟢 네이버 메뉴 가져오기</h3>
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#03C75A] to-[#059669] flex items-center justify-center">
+                  <Download size={14} className="text-white" strokeWidth={2.5} />
+                </div>
+                <h3 className="font-black text-[#191F28]">네이버 메뉴 가져오기</h3>
+              </div>
               <button onClick={() => { setShowImport(false); setImportPreview([]); setImportErr('') }} className="text-[#8B95A1]">✕</button>
             </div>
 
             <div className="space-y-3">
               <div className="p-3 rounded-xl bg-[#F0FDF4] border border-[#BBF7D0]">
                 <p className="text-xs text-[#065F46] leading-relaxed">
-                  <span className="font-bold">📍 placeId 찾는 법</span><br/>
+                  <span className="inline-flex items-center gap-1 font-bold"><MapPin size={11} strokeWidth={2.5} /> placeId 찾는 법</span><br/>
                   네이버 플레이스 URL 의 숫자 (예: <span className="font-mono">place/<b>10441797</b>/menu</span>)
                 </p>
               </div>
@@ -596,7 +604,10 @@ export default function MenuBoardEditor() {
               ) : (
                 <>
                   <div className="bg-[#F0FDF4] rounded-xl p-3">
-                    <p className="text-xs font-bold text-[#065F46] mb-1">✅ {importPreview.length}개 메뉴를 찾았어요!</p>
+                    <div className="flex items-center gap-1.5 mb-1">
+                      <CheckCircle2 size={12} className="text-[#065F46]" strokeWidth={2.5} />
+                      <p className="text-xs font-bold text-[#065F46]">{importPreview.length}개 메뉴를 찾았어요</p>
+                    </div>
                     <p className="text-[10px] text-[#065F46]">아래 미리보기를 확인하고 저장하세요.</p>
                   </div>
                   <div className="max-h-60 overflow-y-auto space-y-1.5">
