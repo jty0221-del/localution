@@ -10,6 +10,9 @@ import {
   Loader2, Send,
   TrendingUp, Users, BarChart3, PenLine, Zap, Shield,
   MapPin, BookOpen, Video, LayoutGrid, Gift, MessageSquare,
+  UtensilsCrossed, Coffee, Store, Briefcase, Scissors, GraduationCap,
+  Laptop,
+  type LucideIcon,
 } from 'lucide-react'
 
 // ── 전역 keyframe 스타일 ─────────────────────────────────────
@@ -141,7 +144,7 @@ function AnimatedCheck() {
 const FLOAT_CARDS = [
   { bg: '#03C75A', letter: 'N', label: '네이버', stars: 5, text: '정말 맛있었어요!', delay: '0s',   dur: '4.5s', anim: 'float0' },
   { bg: '#4285F4', letter: 'G', label: '구글',   stars: 4, text: 'Great experience!', delay: '1.5s', dur: '5s',   anim: 'float1' },
-  { bg: '#2AC1BC', letter: 'B', label: '배민',   stars: 5, text: '재주문 했어요 😋',  delay: '0.8s', dur: '4s',   anim: 'float2' },
+  { bg: '#2AC1BC', letter: 'B', label: '배민',   stars: 5, text: '재주문 했어요',  delay: '0.8s', dur: '4s',   anim: 'float2' },
 ]
 
 // ── 상수 ───────────────────────────────────────────────────
@@ -196,7 +199,7 @@ const GENDERS = [
 
 const AGES = ['10대','20대','30대','40대','50대','60대+']
 
-const QR_KEYWORDS = ['맛있어요 😋', '친절해요 😊', '뷰가 예뻐요 🌊', '가성비 최고 💰', '재방문 할게요 🔄', '주차 편해요 🚗']
+const QR_KEYWORDS = ['맛있어요', '친절해요', '뷰가 예뻐요', '가성비 최고', '재방문 할게요', '주차 편해요']
 const QR_AI_REVIEW = '해운대에서 정말 기분 좋은 식사를 했습니다. 음식이 맛있고 직원분들도 친절하셔서 기분이 좋았어요. 창가 자리에서 바다 뷰를 보며 먹으니 더욱 특별했습니다. 가격 대비 퀄리티가 훌륭해서 다음에도 꼭 다시 오고 싶습니다!'
 
 const MORE_FEATURE_GROUPS = [
@@ -649,8 +652,8 @@ export default function ServiceIntro() {
             <ArrowLeft size={14} strokeWidth={2.25} /> 대시보드로
           </Link>
 
-          <div className="inline-block bg-white/15 border border-white/25 text-white/90 text-[11px] sm:text-xs font-bold px-3 sm:px-4 py-1.5 rounded-full mb-3 sm:mb-4 tracking-wide">
-            ⚡ 리뷰 관리 완전 자동화 — 답글 + 리뷰 수집
+          <div className="inline-flex items-center gap-1.5 bg-white/15 border border-white/25 text-white/90 text-[11px] sm:text-xs font-bold px-3 sm:px-4 py-1.5 rounded-full mb-3 sm:mb-4 tracking-wide">
+            <Zap size={11} strokeWidth={2.5} /> 리뷰 관리 완전 자동화 — 답글 + 리뷰 수집
           </div>
 
           <h1 className="text-2xl sm:text-4xl md:text-5xl font-black mb-3 sm:mb-4 leading-normal break-keep lg:max-w-xl">
@@ -801,7 +804,7 @@ export default function ServiceIntro() {
               {/* 헤더 */}
               <div className="px-5 sm:px-8 py-5 sm:py-6 border-b border-[#F2F4F6]">
                 <div className="inline-flex items-center gap-1.5 bg-[#EFF6FF] text-[#3182F6] text-[10px] font-black px-3 py-1 rounded-full mb-3">
-                  🔄 실사용자 기반 지속 업그레이드
+                  <RefreshCw size={10} strokeWidth={2.5} /> 실사용자 기반 지속 업그레이드
                 </div>
                 <h3 className="text-base sm:text-lg font-black text-[#191F28] break-keep mb-1.5">
                   고객의 목소리로 매일 더 나아지고 있어요
@@ -816,19 +819,19 @@ export default function ServiceIntro() {
               <div className="px-5 sm:px-8 py-4 bg-[#F8F9FA] border-b border-[#F2F4F6]">
                 <p className="text-[10px] font-bold text-[#B0B8C1] tracking-widest uppercase mb-2.5">지금 함께하고 있는 분들</p>
                 <div className="flex flex-wrap gap-2">
-                  {[
-                    { label: '음식점 사장님', emoji: '🍜' },
-                    { label: '카페 사장님',   emoji: '☕' },
-                    { label: '마케팅 대행사', emoji: '📊' },
-                    { label: '블로거',        emoji: '✍️' },
-                    { label: '소상공인',      emoji: '🏪' },
-                    { label: '프리랜서',      emoji: '💻' },
-                    { label: '미용실·네일샵', emoji: '💅' },
-                    { label: '학원·교습소',   emoji: '📚' },
-                  ].map(u => (
+                  {([
+                    { label: '음식점 사장님', Icon: UtensilsCrossed },
+                    { label: '카페 사장님',   Icon: Coffee },
+                    { label: '마케팅 대행사', Icon: BarChart3 },
+                    { label: '블로거',        Icon: PenLine },
+                    { label: '소상공인',      Icon: Store },
+                    { label: '프리랜서',      Icon: Laptop },
+                    { label: '미용실·네일샵', Icon: Scissors },
+                    { label: '학원·교습소',   Icon: GraduationCap },
+                  ] as { label: string; Icon: LucideIcon }[]).map(u => (
                     <span key={u.label}
                       className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-full text-[11px] font-bold bg-white border border-[#E5E8EB] text-[#4E5968]">
-                      {u.emoji} {u.label}
+                      <u.Icon size={11} strokeWidth={2.5} className="text-[#3182F6]" /> {u.label}
                     </span>
                   ))}
                 </div>
@@ -838,17 +841,17 @@ export default function ServiceIntro() {
               <div className="px-5 sm:px-8 py-5">
                 <p className="text-[10px] font-bold text-[#B0B8C1] tracking-widest uppercase mb-4">최근 반영된 피드백</p>
                 <div className="space-y-4">
-                  {[
-                    { from: '마케팅 대행사', emoji: '📊', color: '#3182F6', bg: '#EFF6FF', date: '04.25', update: '키워드 실시간 순위 조회 + 대시보드 연동 — "클라이언트에게 바로 보여줄 수 있게 됐어요"' },
-                    { from: '음식점 사장님', emoji: '🍜', color: '#EA580C', bg: '#FFF7ED', date: '04.22', update: 'QR 리뷰 4단계 흐름 간소화 및 모바일 최적화 — "고객이 헷갈려하지 않고 끝까지 써요"' },
-                    { from: '블로거',        emoji: '✍️', color: '#059669', bg: '#ECFDF5', date: '04.18', update: '블로그 게시글 키워드 순위 추적 기능 신규 추가 — "내 글이 몇 위인지 바로 보여서 좋아요"' },
-                    { from: '소상공인',      emoji: '🏪', color: '#F59E0B', bg: '#FFFBEB', date: '04.15', update: 'AI 답글 톤 MZ체 추가 · 감성적 어조 개선 — "우리 가게 분위기에 딱 맞아요"' },
-                    { from: '카페 사장님',   emoji: '☕', color: '#8B5CF6', bg: '#F5F3FF', date: '04.10', update: '사장님 커뮤니티 지역별 게시판 및 포인트 시스템 오픈 — "다른 사장님들이랑 소통하니 도움돼요"' },
-                  ].map((item, i) => (
+                  {([
+                    { from: '마케팅 대행사', Icon: BarChart3,       color: '#3182F6', bg: '#EFF6FF', date: '04.25', update: '키워드 실시간 순위 조회 + 대시보드 연동 — "클라이언트에게 바로 보여줄 수 있게 됐어요"' },
+                    { from: '음식점 사장님', Icon: UtensilsCrossed, color: '#EA580C', bg: '#FFF7ED', date: '04.22', update: 'QR 리뷰 4단계 흐름 간소화 및 모바일 최적화 — "고객이 헷갈려하지 않고 끝까지 써요"' },
+                    { from: '블로거',        Icon: PenLine,         color: '#059669', bg: '#ECFDF5', date: '04.18', update: '블로그 게시글 키워드 순위 추적 기능 신규 추가 — "내 글이 몇 위인지 바로 보여서 좋아요"' },
+                    { from: '소상공인',      Icon: Store,           color: '#F59E0B', bg: '#FFFBEB', date: '04.15', update: 'AI 답글 톤 MZ체 추가 · 감성적 어조 개선 — "우리 가게 분위기에 딱 맞아요"' },
+                    { from: '카페 사장님',   Icon: Coffee,          color: '#8B5CF6', bg: '#F5F3FF', date: '04.10', update: '사장님 커뮤니티 지역별 게시판 및 포인트 시스템 오픈 — "다른 사장님들이랑 소통하니 도움돼요"' },
+                  ] as { from: string; Icon: LucideIcon; color: string; bg: string; date: string; update: string }[]).map((item, i) => (
                     <div key={i} className="flex items-start gap-3">
-                      <div className="w-7 h-7 rounded-full flex items-center justify-center text-sm shrink-0 mt-0.5"
-                        style={{ background: item.bg }}>
-                        {item.emoji}
+                      <div className="w-7 h-7 rounded-full flex items-center justify-center shrink-0 mt-0.5"
+                        style={{ background: item.bg, color: item.color }}>
+                        <item.Icon size={13} strokeWidth={2.5} />
                       </div>
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center gap-2 mb-1 flex-wrap">
