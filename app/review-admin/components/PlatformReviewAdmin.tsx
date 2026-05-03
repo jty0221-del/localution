@@ -25,6 +25,7 @@ import Sidebar from '../../components/Sidebar'
 import Footer from '../../components/Footer'
 import PageHeader from '../../components/PageHeader'
 import { toast } from '../../lib/toast'
+import { Heart, Briefcase, Smile, Edit3, Mail, Flame, FileText, type LucideIcon } from 'lucide-react'
 
 type PlatformSlug = 'naver_place' | 'baemin' | 'yogiyo' | 'coupangeats' | 'kakao_map'
 type ReplyStatus = 'none' | 'draft' | 'queued' | 'submitting' | 'submitted' | 'failed'
@@ -40,14 +41,14 @@ interface Persona {
 }
 const DEFAULT_PERSONA: Persona = { tone: 'friendly', gender: 'none', age: '' }
 
-const TONE_OPTIONS: { value: PersonaTone; label: string; emoji: string }[] = [
-  { value: 'friendly', label: '친근',   emoji: '😊' },
-  { value: 'expert',   label: '전문가', emoji: '🧑‍💼' },
-  { value: 'witty',    label: '유머',   emoji: '😄' },
-  { value: 'simple',   label: '심플',   emoji: '✏️' },
-  { value: 'emo',      label: '감성',   emoji: '💌' },
-  { value: 'mz',       label: 'MZ',     emoji: '🔥' },
-  { value: 'formal',   label: '공식',   emoji: '📋' },
+const TONE_OPTIONS: { value: PersonaTone; label: string; Icon: LucideIcon }[] = [
+  { value: 'friendly', label: '친근',   Icon: Heart },
+  { value: 'expert',   label: '전문가', Icon: Briefcase },
+  { value: 'witty',    label: '유머',   Icon: Smile },
+  { value: 'simple',   label: '심플',   Icon: Edit3 },
+  { value: 'emo',      label: '감성',   Icon: Mail },
+  { value: 'mz',       label: 'MZ',     Icon: Flame },
+  { value: 'formal',   label: '공식',   Icon: FileText },
 ]
 const GENDER_OPTIONS: { value: PersonaGender; label: string }[] = [
   { value: 'none',   label: '성별 무관' },
@@ -1117,16 +1118,16 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
                                   <div>
                                     <p className="text-[10px] font-bold text-[#8B95A1] mb-1.5">말투</p>
                                     <div className="flex flex-wrap gap-1">
-                                      {TONE_OPTIONS.map(({ value, label, emoji }) => {
+                                      {TONE_OPTIONS.map(({ value, label, Icon }) => {
                                         const active = persona.tone === value
                                         return (
                                           <button
                                             key={value}
                                             onClick={() => setPersona((p) => ({ ...p, tone: value }))}
-                                            className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition ${active ? 'text-white' : 'bg-[#F2F4F6] text-[#4E5968]'}`}
+                                            className={`px-2.5 py-1 rounded-lg text-[11px] font-bold transition inline-flex items-center gap-1 ${active ? 'text-white' : 'bg-[#F2F4F6] text-[#4E5968]'}`}
                                             style={active ? { background: config.color } : {}}
                                           >
-                                            {emoji} {label}
+                                            <Icon size={11} strokeWidth={2.5} /> {label}
                                           </button>
                                         )
                                       })}
