@@ -5,6 +5,7 @@
 // ============================================================
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/app/lib/adminAuth'
+import { getEffectiveTheme } from '@/app/lib/menu-themes'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -27,7 +28,7 @@ export async function GET(req: NextRequest) {
 
   const { data: store } = await svc
     .from('stores')
-    .select('id, slug, name, address, phone')
+    .select('id, slug, name, address, phone, menu_theme')
     .eq('slug', slug)
     .maybeSingle()
 
@@ -41,5 +42,7 @@ export async function GET(req: NextRequest) {
     .order('category')
     .order('display_order')
 
-  return NextResponse.json({ ok: true, store, items: items || [] }, { headers: CORS })
+  const theme = getEffectiveTheme(store.menu_theme)
+
+  return NextResponse.json({ ok: true, store, items: items || [], theme }, { headers: CORS })
 }
