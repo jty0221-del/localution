@@ -17,14 +17,9 @@ type Store = {
   keywords: string[]; naverUrl: string; greeting: string; signatures: string[]
 }
 
-const STORES: Record<string, Store> = {
-  demo: {
-    slug: 'demo', name: '로컬루션 데모 매장', category: '데모', address: '',
-    keywords: ['리뷰 남기기 테스트', '데모 페이지'],
-    naverUrl: 'https://m.place.naver.com/',
-    greeting: '방문해 주셔서 감사합니다', signatures: ['대표 메뉴'],
-  },
-}
+// 하드코딩 데모 매장 제거됨 — 실제 매장 정보는 /api/stores/[slug] 또는 props로 주입
+// 매장을 찾지 못하면 "매장을 찾을 수 없습니다" 안내 표시
+const STORES: Record<string, Store> = {}
 
 function sanitizeStoreId(raw: string | string[] | undefined): string {
   if (!raw) return 'default'
