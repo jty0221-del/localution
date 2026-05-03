@@ -7,6 +7,7 @@
 // ============================================================
 import { useState } from 'react'
 import Link from 'next/link'
+import { CheckCircle2, Key } from 'lucide-react'
 
 function parseCookiePreview(str: string) {
   const clean = str.replace(/^cookie:\s*/i, '').trim()
@@ -105,7 +106,9 @@ export default function NaverSessionPage() {
         {/* 성공 배너 */}
         {status === 'ok' && (
           <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-xl flex items-start gap-3">
-            <span className="text-2xl">✅</span>
+            <div className="w-9 h-9 rounded-xl bg-green-100 flex items-center justify-center flex-shrink-0">
+              <CheckCircle2 size={18} className="text-green-600" strokeWidth={2.5} />
+            </div>
             <div>
               <p className="font-semibold text-green-800">쿠키 저장 완료!</p>
               <p className="text-sm text-green-700 mt-0.5">{msg}</p>
@@ -118,7 +121,7 @@ export default function NaverSessionPage() {
 
         {/* nstore_session 필요 안내 */}
         <div className="mb-5 p-4 bg-blue-50 border border-blue-200 rounded-xl">
-          <p className="text-xs font-semibold text-blue-800 mb-1">🔑 SmartPlace 전용 쿠키가 필요해요</p>
+          <p className="text-xs font-semibold text-blue-800 mb-1 flex items-center gap-1"><Key size={11} strokeWidth={2.5} /> SmartPlace 전용 쿠키가 필요해요</p>
           <p className="text-xs text-blue-700">
             기존에 <code className="bg-blue-100 px-1 rounded">naver.com</code>에서 복사했다면 다시 해주세요.{' '}
             <strong>리뷰 관리</strong>는 <code className="bg-blue-100 px-1 rounded">nstore_session</code> 쿠키가 있어야 동작해요.
