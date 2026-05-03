@@ -94,11 +94,14 @@ export default function BlogPostGeneratorPage() {
   const [coreTarget, setCoreTarget] = useState('')
   const [keywordInput, setKeywordInput] = useState('')
   const [keywords, setKeywords] = useState<string[]>([])
-  const [reviewKwInput, setReviewKwInput] = useState('')
-  const [reviewKeywords, setReviewKeywords] = useState<string[]>([])
+  const [detailKwInput, setDetailKwInput] = useState('')
+  const [detailKeywords, setDetailKeywords] = useState<string[]>([])
   const [draft, setDraft] = useState('')
   // CTA: 마무리 메시지 (행동 유도 글) — 입력 폼 대신 자유 텍스트
   const [closingMessage, setClosingMessage] = useState('')
+  // AI 초안 자동 생성 상태
+  const [suggestLoading, setSuggestLoading] = useState(false)
+  const [suggestError, setSuggestError] = useState<string | null>(null)
   const [length, setLength] = useState<1500 | 2000 | 2500 | 3000>(2000)
   const [photoNames, setPhotoNames] = useState<string[]>([])
   const fileRef = useRef<HTMLInputElement | null>(null)
@@ -129,7 +132,7 @@ export default function BlogPostGeneratorPage() {
         if (s.personaTone)              setPersonaTone(s.personaTone)
         if (s.coreTarget)               setCoreTarget(s.coreTarget)
         if (Array.isArray(s.keywords))  setKeywords(s.keywords)
-        if (Array.isArray(s.reviewKeywords)) setReviewKeywords(s.reviewKeywords)
+        if (Array.isArray(s.detailKeywords)) setDetailKeywords(s.detailKeywords)
         if (s.closingMessage)           setClosingMessage(s.closingMessage)
         if (s.length)                   setLength(s.length)
       }
@@ -141,11 +144,11 @@ export default function BlogPostGeneratorPage() {
     try {
       window.localStorage.setItem(LS_KEY, JSON.stringify({
         industry, track, personaName, personaAge, personaGender, personaTone,
-        coreTarget, keywords, reviewKeywords,
+        coreTarget, keywords, detailKeywords,
         closingMessage, length,
       }))
     } catch (_) {}
-  }, [industry, track, personaName, personaAge, personaGender, personaTone, coreTarget, keywords, reviewKeywords, closingMessage, length])
+  }, [industry, track, personaName, personaAge, personaGender, personaTone, coreTarget, keywords, detailKeywords, closingMessage, length])
 
   const addKeyword = (k?: string) => {
     const target = (k ?? keywordInput).trim()
@@ -156,14 +159,14 @@ export default function BlogPostGeneratorPage() {
   }
   const removeKeyword = (k: string) => setKeywords(prev => prev.filter(x => x !== k))
 
-  const addReviewKw = (k?: string) => {
-    const target = (k ?? reviewKwInput).trim()
+  const addDetailKw = (k?: string) => {
+    const target = (k ?? detailKwInput).trim()
     if (!target) return
-    if (reviewKeywords.includes(target)) { setReviewKwInput(''); return }
-    setReviewKeywords(prev => [...prev, target])
-    setReviewKwInput('')
+    if (detailKeywords.includes(target)) { setDetailKwInput(''); return }
+    setDetailKeywords(prev => [...prev, target])
+    setDetailKwInput('')
   }
-  const removeReviewKw = (k: string) => setReviewKeywords(prev => prev.filter(x => x !== k))
+  const removeDetailKw = (k: string) => setDetailKeywords(prev => prev.filter(x => x !== k))
 
   const applyPreset = (label: string) => {
     setIndustry(label)
@@ -177,6 +180,39 @@ export default function BlogPostGeneratorPage() {
     if (fileRef.current) fileRef.current.value = ''
   }
   const removePhoto = (name: string) => setPhotoNames(prev => prev.filter(n => n !== name))
+
+  // AI 초안 자동 생성 — 4·5·6번 입력값으로 7·8번 채움
+  const handleSuggest = async () => {
+    if (!industry.trim() && !keywords.length && !coreTarget.trim()) {
+      setSuggestError('업종 / 핵심 타겟 / 키워드 중 하나는 입력해주세요')
+      return
+    }
+    setSuggestError(null)
+    setSuggestLoading(true)
+    try {
+      const r = await fetch('/api/marketing/blog-post-suggest', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          industry: industry.trim(),
+          track,
+          coreTarget: coreTarget.trim(),
+          keywords: keywords.filter(Boolean),
+          detailKeywords: detailKeywords.filter(Boolean),
+          persona: { name: personaName.trim(), tone: personaTone },
+        }),
+      })
+      const j = await r.json()
+      if (!j.ok) { setSuggestError(j.error || '초안 생성 실패'); return }
+      if (j.draft) setDraft(j.draft)
+      if (j.closingMessage) setClosingMessage(j.closingMessage)
+    } catch (e: any) {
+      setSuggestError('네트워크 오류: ' + (e?.message || ''))
+    } finally {
+      setSuggestLoading(false)
+    }
+  }
 
   const handleGenerate = async () => {
     if (!industry.trim() && !keywords.length) {
@@ -203,7 +239,7 @@ export default function BlogPostGeneratorPage() {
           },
           coreTarget: coreTarget.trim(),
           keywords: keywords.filter(Boolean),
-          reviewKeywords: reviewKeywords.filter(Boolean),
+          detailKeywords: detailKeywords.filter(Boolean),
           draft: draft.trim(),
           closingMessage: closingMessage.trim(),
           length,
@@ -444,32 +480,32 @@ export default function BlogPostGeneratorPage() {
             </div>
           </section>
 
-          {/* 6. 리뷰 연동 키워드 */}
+          {/* 6. 세부 키워드 (롱테일·연관) */}
           <section className="bg-white rounded-2xl shadow-sm border border-[#E5E8EB] p-4 md:p-5">
             <div className="flex items-start gap-2 mb-3">
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#EC4899] to-[#DB2777] flex items-center justify-center shadow-sm">
-                <MessageCircle size={15} className="text-white" strokeWidth={2.5} />
+                <Tag size={15} className="text-white" strokeWidth={2.5} />
               </div>
               <div>
-                <p className="text-sm font-black text-[#191F28]">6. 플레이스 리뷰 연동 키워드 (선택)</p>
-                <p className="text-[11px] text-[#8B95A1]">본문에 자연스럽게 2회 이상 등장 → 손님 리뷰에도 같은 단어 유도 → 상위 노출 시너지</p>
+                <p className="text-sm font-black text-[#191F28]">6. 세부 키워드 (롱테일·연관)</p>
+                <p className="text-[11px] text-[#8B95A1]">메인 키워드를 보조하는 세부 검색어 · 검색 다양성 확보 + 노출 폭 확대</p>
               </div>
             </div>
             <div className="flex gap-2 mb-2">
-              <input value={reviewKwInput} onChange={e => setReviewKwInput(e.target.value)}
-                onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addReviewKw())}
-                placeholder="예: 꼼꼼한 상담, 친절한 안내, 깔끔한 시설"
+              <input value={detailKwInput} onChange={e => setDetailKwInput(e.target.value)}
+                onKeyDown={e => e.key === 'Enter' && (e.preventDefault(), addDetailKw())}
+                placeholder="예: 강남역 도보 5분, 주차 가능, 평일 야간 운영, 첫 방문 혜택"
                 className="flex-1 border border-[#E5E8EB] rounded-xl px-3 py-2 text-sm focus:outline-none focus:border-[#EC4899]" />
-              <button onClick={() => addReviewKw()} disabled={!reviewKwInput.trim()}
+              <button onClick={() => addDetailKw()} disabled={!detailKwInput.trim()}
                 className="px-4 py-2 bg-[#EC4899] text-white rounded-xl text-sm font-bold disabled:opacity-40 hover:bg-[#DB2777]">
                 <Plus size={14} strokeWidth={2.5} />
               </button>
             </div>
             <div className="flex flex-wrap gap-1.5">
-              {reviewKeywords.map(k => (
+              {detailKeywords.map(k => (
                 <span key={k} className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[#FDF2F8] text-[#EC4899] text-xs font-bold border border-[#FBCFE8]">
                   {k}
-                  <button onClick={() => removeReviewKw(k)} className="text-[#EC4899]/60 hover:text-[#DC2626]">
+                  <button onClick={() => removeDetailKw(k)} className="text-[#EC4899]/60 hover:text-[#DC2626]">
                     <X size={11} strokeWidth={3} />
                   </button>
                 </span>
@@ -477,20 +513,51 @@ export default function BlogPostGeneratorPage() {
             </div>
           </section>
 
+          {/* AI 자동 초안 — 4·5·6번 정보로 7·8번 미리 채워주기 */}
+          <div className="rounded-2xl p-4 md:p-5 bg-gradient-to-br from-[#EFF6FF] via-[#F5F3FF] to-[#FDF2F8] border-2 border-dashed border-[#7C3AED]">
+            <div className="flex items-start gap-2.5 mb-3">
+              <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#3182F6] to-[#7C3AED] flex items-center justify-center shadow-sm flex-shrink-0">
+                <Sparkles size={16} className="text-white" strokeWidth={2.5} />
+              </div>
+              <div className="flex-1">
+                <p className="text-sm font-black text-[#191F28]">4·5·6번 정보로 초안 자동 작성</p>
+                <p className="text-[11px] text-[#4E5968] leading-relaxed">
+                  핵심 타겟·키워드·세부키워드만 입력해도 7번(초안)·8번(마무리)에 들어갈 메모를 AI가 가볍게 만들어드려요. 그대로 사용하거나 자유롭게 수정 가능.
+                </p>
+              </div>
+            </div>
+            <button onClick={handleSuggest} disabled={suggestLoading}
+              className="w-full py-2.5 rounded-xl bg-gradient-to-r from-[#3182F6] to-[#7C3AED] text-white text-sm font-bold flex items-center justify-center gap-2 disabled:opacity-50 hover:shadow-md transition-shadow">
+              {suggestLoading ? (
+                <><Loader2 size={14} className="animate-spin" strokeWidth={2.5} /> AI가 초안 작성 중...</>
+              ) : (
+                <><Sparkles size={14} strokeWidth={2.5} /> AI 초안 자동 작성하기 (7·8번 자동 채움)</>
+              )}
+            </button>
+            {suggestError && (
+              <p className="mt-2 text-[11px] text-[#DC2626]">{suggestError}</p>
+            )}
+          </div>
+
           {/* 7. 초안·메모 */}
           <section className="bg-white rounded-2xl shadow-sm border border-[#E5E8EB] p-4 md:p-5">
             <div className="flex items-start gap-2 mb-3">
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#0EA5E9] to-[#0369A1] flex items-center justify-center shadow-sm">
                 <FileText size={15} className="text-white" strokeWidth={2.5} />
               </div>
-              <div>
+              <div className="flex-1">
                 <p className="text-sm font-black text-[#191F28]">7. 초안·메모·방향성 (선택)</p>
-                <p className="text-[11px] text-[#8B95A1]">강조 포인트, 사례, 차별점, 가격, 위치, 영업시간 등 자유롭게</p>
+                <p className="text-[11px] text-[#8B95A1]">위 AI 초안 사용 또는 직접 작성 · 강조 포인트·사례·차별점·가격·위치 등</p>
               </div>
+              {draft && (
+                <button onClick={() => setDraft('')} className="text-[10px] text-[#8B95A1] hover:text-[#DC2626] flex-shrink-0">
+                  초기화
+                </button>
+              )}
             </div>
             <textarea value={draft} onChange={e => setDraft(e.target.value)}
-              rows={5}
-              placeholder={'담을 내용 자유롭게 작성:\n· 강조하고 싶은 차별점 (예: 24시간 운영, 자체 제조법, 10년 경력)\n· 실제 사례 (예: 30일 만에 4kg 감량한 회원님)\n· 위치·영업시간·가격 등 정보\n· 절대 빠지면 안 되는 메시지'}
+              rows={6}
+              placeholder={'담을 내용 자유롭게 작성:\n· 강조하고 싶은 차별점 (예: 24시간 운영, 자체 제조법, 10년 경력)\n· 실제 사례 (예: 30일 만에 4kg 감량한 회원님)\n· 위치·영업시간·가격 등 정보\n· 절대 빠지면 안 되는 메시지\n\n또는 위 [AI 초안 자동 작성] 버튼 활용'}
               className="w-full border border-[#E5E8EB] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:border-[#0EA5E9] resize-none" />
           </section>
 
@@ -500,10 +567,15 @@ export default function BlogPostGeneratorPage() {
               <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#16A34A] to-[#15803D] flex items-center justify-center shadow-sm">
                 <LinkIcon size={15} className="text-white" strokeWidth={2.5} />
               </div>
-              <div>
+              <div className="flex-1">
                 <p className="text-sm font-black text-[#191F28]">8. 마무리 메시지 (행동 유도)</p>
-                <p className="text-[11px] text-[#8B95A1]">글을 읽은 후 자연스럽게 다음 행동으로 연결되는 글로 표현 · 빈칸 가능</p>
+                <p className="text-[11px] text-[#8B95A1]">글을 읽은 후 자연스럽게 다음 행동으로 연결되는 글로 표현 · 빈칸 가능 · AI 자동 초안 사용 가능</p>
               </div>
+              {closingMessage && (
+                <button onClick={() => setClosingMessage('')} className="text-[10px] text-[#8B95A1] hover:text-[#DC2626] flex-shrink-0">
+                  초기화
+                </button>
+              )}
             </div>
             <textarea value={closingMessage} onChange={e => setClosingMessage(e.target.value)}
               rows={4}
