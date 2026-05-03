@@ -1051,7 +1051,7 @@ export default function QRAdmin() {
 
         {/* ── 메뉴판 탭 (Phase 2: 디지털 메뉴판) ── */}
         {activeTab === 'menu' && (
-          <div className="space-y-6">
+          <div className="space-y-6 max-w-5xl mx-auto w-full">
             <MenuQRCard storeName={storeInfo.name} />
             <MenuBoardEditor />
           </div>
