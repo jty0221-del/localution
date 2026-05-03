@@ -242,7 +242,7 @@ export default function AdminUpdatesPage() {
                 onClick={() => setDraft(null)}
                 className="text-slate-400 hover:text-slate-700"
                 aria-label="닫기"
-              >✕</button>
+              >×</button>
             </div>
 
             <div className="space-y-3">
