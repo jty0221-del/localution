@@ -1,18 +1,16 @@
 // app/api/menu/translate-public/route.ts
 // ============================================================
-// 손님용 공개 메뉴 자동 번역
+// 손님용 공개 메뉴 자동 번역 (디버그 강화 v2)
 //   POST /api/menu/translate-public  body: { slug, lang }
 //   · 인증 X — 공개 메뉴 페이지에서 호출
-//   · 매장의 메뉴 중 해당 언어 필드(name_<lang>)가 비어있는 것만 Papago 번역 후 DB 저장
-//   · 한 번 번역되면 캐싱됨 → 다음 손님부터 즉시 표시
-//   · 비용 제한: 최대 50개 메뉴까지만 번역
+//   · Papago 호출 결과의 정확한 에러 정보 errors 배열에 누적
 // ============================================================
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/app/lib/adminAuth'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
-export const maxDuration = 30  // Vercel function timeout (초)
+export const maxDuration = 60  // 14개 메뉴 순차 번역 위해 늘림
 
 const CORS = {
   'Access-Control-Allow-Origin': '*',
@@ -35,8 +33,12 @@ const PAPAGO_TARGET: Record<SupportedLang, string> = {
   zh: 'zh-CN',
 }
 
-async function translatePapago(text: string, target: string, clientId: string, clientSecret: string): Promise<string | null> {
-  if (!text.trim()) return null
+type PapagoResult =
+  | { ok: true; translated: string }
+  | { ok: false; reason: string; status?: number; body?: string }
+
+async function translatePapago(text: string, target: string, clientId: string, clientSecret: string): Promise<PapagoResult> {
+  if (!text.trim()) return { ok: false, reason: 'empty_text' }
   try {
     const params = new URLSearchParams({ source: 'ko', target, text: text.slice(0, 500) })
     const res = await fetch(PAPAGO_URL, {
@@ -47,13 +49,20 @@ async function translatePapago(text: string, target: string, clientId: string, c
         'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: params.toString(),
-      signal: AbortSignal.timeout(5000),
+      signal: AbortSignal.timeout(8000),
     })
-    if (!res.ok) return null
+    if (!res.ok) {
+      const body = await res.text().catch(() => '')
+      return { ok: false, reason: `http_${res.status}`, status: res.status, body: body.slice(0, 300) }
+    }
     const json: any = await res.json()
-    return json?.message?.result?.translatedText || null
-  } catch {
-    return null
+    const translated = json?.message?.result?.translatedText
+    if (!translated) {
+      return { ok: false, reason: 'no_translation', body: JSON.stringify(json).slice(0, 300) }
+    }
+    return { ok: true, translated }
+  } catch (e: any) {
+    return { ok: false, reason: 'exception', body: String(e?.message || e).slice(0, 300) }
   }
 }
 
@@ -73,67 +82,98 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       ok: false,
       error: 'no_credentials',
-      message: 'NAVER_CLIENT_ID 또는 NAVER_CLIENT_SECRET 환경변수 없음 — 사장님이 Vercel에 추가 필요',
+      message: 'NAVER_CLIENT_ID 또는 NAVER_CLIENT_SECRET 환경변수 없음 — Vercel에 추가 필요',
+      has_id: !!clientId,
+      has_secret: !!clientSecret,
     }, { status: 500, headers: CORS })
   }
 
   const svc = createServiceClient()
 
   // 매장 확인
-  const { data: store } = await svc
+  const { data: store, error: storeError } = await svc
     .from('stores')
     .select('id, slug, name')
     .eq('slug', slug)
     .maybeSingle()
+  if (storeError) {
+    return NextResponse.json({ ok: false, error: 'store_lookup_failed', message: storeError.message }, { status: 500, headers: CORS })
+  }
   if (!store) return NextResponse.json({ ok: false, error: 'store_not_found' }, { status: 404, headers: CORS })
 
-  // 해당 lang 필드(name_<lang>)가 비어있는 메뉴 조회 (최대 50개)
   const nameField = `name_${lang}`
   const descField = `desc_${lang}`
-  const { data: items } = await svc
+
+  // 해당 lang 필드(name_<lang>)가 비어있는 메뉴 조회 (최대 50개)
+  // Supabase or 필터 syntax: 'col.is.null,col.eq.""' (빈 문자열은 따옴표 필요할 수도)
+  const { data: items, error: itemsError } = await svc
     .from('menu_items')
     .select(`id, name_ko, desc_ko, ${nameField}, ${descField}`)
     .eq('store_id', store.id)
     .eq('active', true)
-    .or(`${nameField}.is.null,${nameField}.eq.`)
     .limit(50)
 
+  if (itemsError) {
+    return NextResponse.json({ ok: false, error: 'items_lookup_failed', message: itemsError.message }, { status: 500, headers: CORS })
+  }
   if (!items || items.length === 0) {
-    return NextResponse.json({ ok: true, translated_count: 0, message: '번역할 메뉴 없음 (이미 번역됨)' }, { headers: CORS })
+    return NextResponse.json({ ok: true, translated_count: 0, message: '메뉴 없음' }, { headers: CORS })
+  }
+
+  // 클라이언트 측에서 비어있는 것만 필터 (Supabase or 필터가 까다로워서)
+  const toTranslate = (items as any[]).filter(it => !it[nameField] || it[nameField] === '')
+
+  if (toTranslate.length === 0) {
+    return NextResponse.json({ ok: true, translated_count: 0, message: '이미 번역됨' }, { headers: CORS })
   }
 
   const target = PAPAGO_TARGET[lang]
   let translatedCount = 0
-  const errors: string[] = []
+  const errors: any[] = []
+  const successes: any[] = []
 
   // 순차 번역 (Papago rate limit 고려)
-  for (const item of items as any[]) {
+  for (const item of toTranslate) {
     const ko = item.name_ko
     const koDesc = item.desc_ko
-    if (!ko) continue
-
-    const translatedName = await translatePapago(ko, target, clientId, clientSecret)
-    let translatedDesc: string | null = null
-    if (koDesc) {
-      translatedDesc = await translatePapago(koDesc, target, clientId, clientSecret)
+    if (!ko) {
+      errors.push({ id: item.id, reason: 'no_name_ko' })
+      continue
     }
 
-    if (translatedName) {
-      const update: any = { [nameField]: translatedName, updated_at: new Date().toISOString() }
-      if (translatedDesc) update[descField] = translatedDesc
-      const { error } = await svc.from('menu_items').update(update).eq('id', item.id)
-      if (error) {
-        errors.push(`item ${item.id}: ${error.message}`)
+    const nameResult = await translatePapago(ko, target, clientId, clientSecret)
+    let descResult: PapagoResult | null = null
+    if (koDesc) {
+      descResult = await translatePapago(koDesc, target, clientId, clientSecret)
+    }
+
+    if (nameResult.ok) {
+      const update: any = { [nameField]: nameResult.translated, updated_at: new Date().toISOString() }
+      if (descResult?.ok) update[descField] = descResult.translated
+      const { error: updateError } = await svc.from('menu_items').update(update).eq('id', item.id)
+      if (updateError) {
+        errors.push({ id: item.id, reason: 'db_update_failed', message: updateError.message.slice(0, 200) })
       } else {
         translatedCount++
+        successes.push({ id: item.id, ko: ko.slice(0, 30), translated: nameResult.translated.slice(0, 50) })
       }
+    } else {
+      errors.push({ id: item.id, ko: ko.slice(0, 30), papago: nameResult })
     }
   }
 
   return NextResponse.json({
     ok: true,
     translated_count: translatedCount,
-    total_to_translate: items.length,
+    total_to_translate: toTranslate.length,
+    successes: successes.slice(0, 3),
     errors: errors.slice(0, 5),
+    debug: {
+      slug,
+      lang,
+      target,
+      store_id: store.id,
+      items_total: items.length,
+    },
   }, { headers: CORS })
 }
