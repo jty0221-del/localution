@@ -1646,27 +1646,30 @@ function PlanTab() {
   const [showCancelModal, setShowCancelModal] = useState(false)
   const [cancelled, setCancelled] = useState(false)
   const [paymentMethod, setPaymentMethod] = useState<{ cardName: string; last4: string } | null>(null)
-  const [tossKey, setTossKey] = useState({ client: TOSS_CLIENT_KEY, secret: '' })
-  const [tossSaved, setTossSaved] = useState(false)
-  const [tossMode, setTossMode] = useState<'test' | 'live'>('test')
+  const [customerKey, setCustomerKey] = useState<string>('')  // 서버에서 받음 (deterministic)
   const [tossReady, setTossReady] = useState(false)
   const [tossError, setTossError] = useState<string>('')
   // 베타 기간 — 정식 요금제 준비 중 (임시)
   const addToCart = (id: string) => { if (!cart.includes(id)) setCart(p => [...p, id]) }
   const removeFromCart = (id: string) => setCart(p => p.filter(i => i !== id))
 
-  // 저장된 결제 수단 / 토스 키 복원 + 토스 SDK 로드 감지
+  // 저장된 결제 수단 — 서버 API 에서 조회 (localStorage 사용 X, 보안 강화)
   useEffect(() => {
     if (typeof window === 'undefined') return
-    try {
-      const pm = localStorage.getItem('localution.payment_method')
-      if (pm) setPaymentMethod(JSON.parse(pm))
-      const saved = localStorage.getItem('localution.toss_key')
-      if (saved) {
-        const parsed = JSON.parse(saved)
-        setTossKey(prev => ({ client: parsed.client || prev.client, secret: parsed.secret || '' }))
-      }
-    } catch {}
+    fetch('/api/billing/me', { credentials: 'include' })
+      .then(r => r.json())
+      .then(j => {
+        if (j?.ok) {
+          if (j.customer_key) setCustomerKey(j.customer_key)
+          if (j.payment_method) {
+            setPaymentMethod({
+              cardName: j.payment_method.card_name || '등록된 카드',
+              last4: j.payment_method.card_last4 || '****',
+            })
+          }
+        }
+      })
+      .catch(() => {})
     // 토스 SDK 로드 폴링 — 최대 10초
     let tries = 0
     const iv = setInterval(() => {
@@ -1688,21 +1691,23 @@ function PlanTab() {
       return
     }
     try {
-      const tp = w.TossPayments(tossKey.client || TOSS_CLIENT_KEY)
-      // customerKey는 사용자별 고유 — 실서비스에서는 로그인 유저 ID 사용
-      const customerKey = (() => {
-        try {
-          const existing = localStorage.getItem('localution.customer_key')
-          if (existing) return existing
-          const created = 'cust_' + Math.random().toString(36).slice(2, 12) + Date.now().toString(36)
-          localStorage.setItem('localution.customer_key', created)
-          return created
-        } catch {
-          return 'cust_anonymous_' + Date.now()
+      // 환경변수의 클라이언트 키만 사용 (시크릿 키는 절대 클라에 노출 X)
+      const tp = w.TossPayments(TOSS_CLIENT_KEY)
+      // customer_key 는 서버에서 받은 deterministic 값 — 없으면 API 호출
+      let key = customerKey
+      if (!key) {
+        const r = await fetch('/api/billing/me', { credentials: 'include' })
+        const j = await r.json()
+        if (j?.ok && j.customer_key) {
+          key = j.customer_key
+          setCustomerKey(j.customer_key)
+        } else {
+          setTossError('로그인이 필요합니다.')
+          return
         }
-      })()
+      }
       await tp.requestBillingAuth('카드', {
-        customerKey,
+        customerKey: key,
         successUrl: window.location.origin + '/api/payments/billing/success?returnTo=' + encodeURIComponent('/settings?tab=plan&billing=ok'),
         failUrl:    window.location.origin + '/api/payments/billing/fail?returnTo='    + encodeURIComponent('/settings?tab=plan&billing=fail'),
       })
@@ -1711,25 +1716,33 @@ function PlanTab() {
     }
   }
 
-  const saveTossKey = () => {
-    try { localStorage.setItem('localution.toss_key', JSON.stringify(tossKey)) } catch {}
-    setTossSaved(true)
-    setTimeout(() => setTossSaved(false), 2500)
+  // 결제 수단 삭제 — 서버 API 호출 (localStorage 사용 X)
+  const removePaymentMethod = async () => {
+    try {
+      await fetch('/api/billing/me', { method: 'DELETE', credentials: 'include' })
+      setPaymentMethod(null)
+    } catch (e) {
+      console.error('[billing] delete failed:', e)
+    }
   }
 
-  const removePaymentMethod = () => {
-    setPaymentMethod(null)
-    try { localStorage.removeItem('localution.payment_method') } catch {}
-  }
-
-  // URL 쿼리 ?billing=ok 이면 성공 표시 (billing 등록 후 리다이렉트)
+  // URL 쿼리 ?billing=ok 이면 서버에서 결제수단 재조회 (DB 에 자동 저장됨)
   useEffect(() => {
     if (typeof window === 'undefined') return
     const params = new URLSearchParams(window.location.search)
     if (params.get('billing') === 'ok') {
-      const demo = { cardName: '토스 빌링 등록 완료', last4: '****' }
-      setPaymentMethod(demo)
-      try { localStorage.setItem('localution.payment_method', JSON.stringify(demo)) } catch {}
+      // billing/success 콜백이 DB에 저장 완료한 상태 — 새로 조회
+      fetch('/api/billing/me', { credentials: 'include' })
+        .then(r => r.json())
+        .then(j => {
+          if (j?.ok && j.payment_method) {
+            setPaymentMethod({
+              cardName: j.payment_method.card_name || '등록된 카드',
+              last4: j.payment_method.card_last4 || '****',
+            })
+          }
+        })
+        .catch(() => {})
     }
   }, [])
   const cartFeatures = FEATURES.filter(f => cart.includes(f.id))
@@ -1865,52 +1878,32 @@ function PlanTab() {
           )}
         </div>
 
-        {/* 3) 토스페이먼츠 연동 설정 — 운영자(대표님) 전용 */}
+        {/* 3) 토스페이먼츠 연동 상태 — 운영자 전용 안내 (키 입력 UI 제거: 보안 강화) */}
         <div className="bg-white rounded-2xl p-6 shadow-sm border-2 border-[#E5E8EB]">
           <div className="flex items-center gap-3 mb-5">
             <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#3182F6] to-[#1B64DA] flex items-center justify-center text-xs font-black text-white">Toss</div>
             <div>
-              <p className="font-bold text-[#191F28]">토스페이먼츠 연동 설정</p>
-              <p className="text-xs text-[#8B95A1]">정기결제 API 키 · 운영자 전용</p>
+              <p className="font-bold text-[#191F28]">토스페이먼츠 연동 상태</p>
+              <p className="text-xs text-[#8B95A1]">시크릿 키는 Vercel 환경변수로만 관리 (보안 강화)</p>
             </div>
             <span className={`ml-auto text-xs px-2 py-0.5 rounded-full font-medium ${tossReady ? 'bg-green-100 text-green-700' : 'bg-blue-100 text-[#3182F6]'}`}>
               {tossReady ? 'SDK 로드 완료' : 'SDK 로딩 중'}
             </span>
           </div>
-          <div className="flex gap-2 mb-4">
-            {(['test', 'live'] as const).map(m => (
-              <button key={m} onClick={() => setTossMode(m)} className={`px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors ${tossMode === m ? (m === 'live' ? 'bg-red-500 text-white' : 'bg-[#3182F6] text-white') : 'bg-[#F2F4F6] text-[#4E5968]'}`}>
-                {m === 'test' ? '테스트 모드' : '라이브 모드'}
-              </button>
-            ))}
+          <div className="mb-4 p-3 bg-green-50 border border-green-200 rounded-xl text-xs text-green-800 space-y-1">
+            <p className="font-semibold flex items-center gap-1">결제 키 보안 토큰화 적용됨</p>
+            <p>· 시크릿 키 (TOSS_SECRET_KEY) — Vercel 환경변수에서만 사용</p>
+            <p>· 빌링 키 (billing_key) — DB(billing_methods) 서버 측 보관, 클라이언트 미노출</p>
+            <p>· 카드 정보 — 마스킹 표시(****) 만 클라이언트 노출</p>
+            <p>· customer_key — 사용자 ID 기반 deterministic 자동 생성</p>
           </div>
-          <div className="space-y-3 mb-4">
-            <div>
-              <label htmlFor="toss-key-client" className="block text-xs font-semibold text-[#4E5968] mb-1.5">클라이언트 키</label>
-              <input id="toss-key-client" type="text" value={tossKey.client} onChange={e => setTossKey(p => ({ ...p, client: e.target.value }))} placeholder={`${tossMode}_ck_...`} className="w-full border border-[#E5E8EB] rounded-xl px-4 py-2.5 text-sm font-mono focus:outline-none focus:border-[#3182F6] transition-colors" />
-              <p className="text-[10px] text-[#B0B8C1] mt-1">기본값은 토스 공식 테스트 키 — 실제 결제 발생 X</p>
-            </div>
-            <div>
-              <label htmlFor="toss-key-secret" className="block text-xs font-semibold text-[#4E5968] mb-1.5">시크릿 키 (서버 전용)</label>
-              <input id="toss-key-secret" type="password" value={tossKey.secret} onChange={e => setTossKey(p => ({ ...p, secret: e.target.value }))} placeholder={`${tossMode}_sk_... (Vercel 환경변수에 저장 권장)`} className="w-full border border-[#E5E8EB] rounded-xl px-4 py-2.5 text-sm font-mono focus:outline-none focus:border-[#3182F6] transition-colors" />
-              <p className="text-[10px] text-[#B0B8C1] mt-1">시크릿 키는 브라우저에 저장하지 말고 Vercel 환경변수 <span className="font-mono">TOSS_SECRET_KEY</span>에 등록</p>
-            </div>
+          <div className="p-3 bg-blue-50 rounded-xl text-xs text-[#3182F6] space-y-1">
+            <p className="font-semibold">Vercel 환경변수 체크리스트</p>
+            <p>1. <span className="font-mono">NEXT_PUBLIC_TOSS_CLIENT_KEY</span> (클라이언트 키 — 공개 가능)</p>
+            <p>2. <span className="font-mono">TOSS_SECRET_KEY</span> (시크릿 키 — 서버 전용)</p>
+            <p>3. 콜백: <span className="font-mono">/api/payments/billing/success</span> · <span className="font-mono">/fail</span></p>
+            <p>4. 웹훅: <span className="font-mono">/api/payments/webhook</span></p>
           </div>
-          <div className="mb-4 p-3 bg-blue-50 rounded-xl text-xs text-[#3182F6] space-y-1">
-            <p className="font-semibold">연동 체크리스트</p>
-            <p>1. 토스페이먼츠 개발자센터 가입 · 정기결제(빌링) 서비스 신청</p>
-            <p>2. Vercel 환경변수 추가: <span className="font-mono">NEXT_PUBLIC_TOSS_CLIENT_KEY</span> / <span className="font-mono">TOSS_SECRET_KEY</span></p>
-            <p>3. 성공 콜백: <span className="font-mono">/api/payments/billing/success</span></p>
-            <p>4. 실패 콜백: <span className="font-mono">/api/payments/billing/fail</span></p>
-            <p>5. 웹훅: <span className="font-mono">/api/payments/webhook</span></p>
-          </div>
-          <button
-            onClick={saveTossKey}
-            disabled={!tossKey.client}
-            className={`w-full py-2.5 rounded-xl text-sm font-semibold transition-colors ${tossSaved ? 'bg-green-500 text-white' : !tossKey.client ? 'bg-[#F2F4F6] text-[#8B95A1] cursor-not-allowed' : 'bg-[#3182F6] text-white hover:bg-[#1B64DA]'}`}
-          >
-            {tossSaved ? '✓ 저장됨' : '키 저장하기'}
-          </button>
         </div>
       </div>
       <div className="w-[360px] flex-shrink-0 hidden lg:block space-y-4">
