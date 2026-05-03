@@ -10,7 +10,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import {
   RefreshCw, CheckCircle2, AlertTriangle, XCircle,
   Clock, Users, MessageSquare, Zap, Database,
-  Activity, Wifi, ChevronDown, ChevronUp,
+  Activity, Wifi, ChevronDown, ChevronUp, Lock,
 } from 'lucide-react'
 
 type PipelineStatus = 'ok' | 'warn' | 'error'
@@ -77,9 +77,9 @@ const ST: Record<PipelineStatus, { bg: string; border: string; text: string; bad
 }
 
 const OVERALL_TITLE: Record<PipelineStatus, string> = {
-  ok:    '✅ 리뷰 수집 파이프라인 전체 정상',
-  warn:  '⚠️ 일부 항목 주의 필요',
-  error: '🚨 수집 오류 발견 — 즉시 확인 필요',
+  ok:    '리뷰 수집 파이프라인 전체 정상',
+  warn:  '일부 항목 주의 필요',
+  error: '수집 오류 발견 — 즉시 확인 필요',
 }
 
 function StatCard({ icon, label, value, sub, status }: {
@@ -191,7 +191,7 @@ export default function AdminReviewHealthPage() {
           <div className="flex items-center gap-2">
             <h1 className="text-xl font-black text-[#0F172A]">리뷰 수집 파이프라인 진단</h1>
             <span className="inline-flex items-center gap-1 text-[10px] font-bold bg-[#FFE4E6] text-[#9F1239] border border-[#FECDD3] px-2 py-0.5 rounded-full">
-              🔒 ADMIN
+              <Lock size={9} strokeWidth={2.5} /> ADMIN
             </span>
           </div>
           <p className="text-[13px] text-[#64748B] mt-0.5">
