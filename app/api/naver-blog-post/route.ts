@@ -117,6 +117,7 @@ ${length}자 내외
         system: systemPrompt,
         messages: [{ role: 'user', content: userMsg }],
       }),
+      signal: AbortSignal.timeout(55000),  // 55초 timeout (장문 블로그 생성, maxDuration:60 안에 끝나도록)
     })
 
     if (!apiRes.ok) {
