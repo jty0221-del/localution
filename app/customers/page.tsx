@@ -21,20 +21,9 @@ const TAG_COLORS: Record<Tag, { bg: string; text: string }> = {
 
 const ALL_TAGS: Tag[] = ['VIP', '단골', '신규', '휴면', '블랙리스트']
 
-// 업종 무관 중립 샘플 — 고객 0명일 때 UI 미리보기용 (저장되지 않음)
-const DEMO_CUSTOMERS: Customer[] = [
-  { id: 'demo-1', name: '김민준', phone: '010-1234-5678', visits: 18, totalSpend: 243000, lastVisit: '2026-04-14', tags: ['VIP', '단골'],  memo: '재방문 주기 짧음' },
-  { id: 'demo-2', name: '이서연', phone: '010-2345-6789', visits: 9,  totalSpend: 87000,  lastVisit: '2026-04-10', tags: ['단골'],         memo: '' },
-  { id: 'demo-3', name: '박지호', phone: '010-3456-7890', visits: 2,  totalSpend: 19000,  lastVisit: '2026-04-12', tags: ['신규'],         memo: '첫 방문 쿠폰 사용' },
-  { id: 'demo-4', name: '최유진', phone: '010-4567-8901', visits: 1,  totalSpend: 12000,  lastVisit: '2026-02-20', tags: ['휴면'],         memo: '' },
-  { id: 'demo-5', name: '정수빈', phone: '010-5678-9012', visits: 22, totalSpend: 318000, lastVisit: '2026-04-13', tags: ['VIP'],          memo: '정기 방문 단골' },
-  { id: 'demo-6', name: '강태양', phone: '010-6789-0123', visits: 0,  totalSpend: 0,      lastVisit: '2026-01-05', tags: ['블랙리스트'],   memo: '노쇼 3회 기록' },
-]
-
 export default function CustomersPage() {
-  const { customers: real, mode, loading, add } = useCustomers()
-  const isDemo = real.length === 0
-  const customers: Customer[] = isDemo ? DEMO_CUSTOMERS : real
+  const { customers, loading, add } = useCustomers()
+  const isEmpty = customers.length === 0
 
   const [filterTag, setFilterTag] = useState<Tag | '전체'>('전체')
   const [search, setSearch] = useState('')
@@ -186,28 +175,7 @@ export default function CustomersPage() {
         {/* 헤더 */}
         <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
           <div>
-            <div className="flex items-center gap-2 flex-wrap">
-              {isDemo && (
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#FEF3C7] text-[#92400E] font-semibold">
-                  데모 모드
-                </span>
-              )}
-              {mode === 'remote' && (
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#EFF6FF] text-[#3182F6] font-semibold">
-                  클라우드 저장 활성
-                </span>
-              )}
-              {mode === 'local' && !isDemo && (
-                <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#F2F4F6] text-[#4E5968] font-semibold">
-                  로컬 저장
-                </span>
-              )}
-            </div>
-            <p className="text-sm text-[#8B95A1]">
-              {isDemo
-                ? '아직 고객을 등록하지 않아 샘플을 보여드려요. "+ 고객 추가"로 첫 단골을 등록해보세요'
-                : '단골·VIP·신규 고객을 한눈에 관리하세요'}
-            </p>
+            <p className="text-sm text-[#8B95A1]">단골·VIP·신규 고객을 한눈에 관리하세요</p>
           </div>
           <div className="flex items-center gap-2 flex-wrap">
             <button
@@ -215,30 +183,44 @@ export default function CustomersPage() {
               className="flex items-center gap-1.5 bg-white border border-[#E5E8EB] text-[#4E5968] font-bold text-sm px-3 py-2.5 rounded-xl hover:bg-[#F8FAFC] transition-colors">
               + 고객 추가
             </button>
-            <button
-              onClick={() => setMsgOpen(true)}
-              disabled={selected.length === 0}
-              className="flex items-center gap-2 bg-[#3182F6] text-white font-bold text-sm px-4 py-2.5 rounded-xl hover:bg-[#1B64DA] disabled:opacity-40 transition-colors shadow-sm">
-              단체 메시지 ({selected.length}명)
-            </button>
+            {!isEmpty && (
+              <button
+                onClick={() => setMsgOpen(true)}
+                disabled={selected.length === 0}
+                className="flex items-center gap-2 bg-[#3182F6] text-white font-bold text-sm px-4 py-2.5 rounded-xl hover:bg-[#1B64DA] disabled:opacity-40 transition-colors shadow-sm">
+                단체 메시지 ({selected.length}명)
+              </button>
+            )}
           </div>
         </div>
 
-        {/* 데모 배너 */}
-        {isDemo && (
-          <div className="bg-[#FFFBEB] border border-[#FDE68A] rounded-2xl p-4 mb-5 flex items-center justify-between gap-3 flex-wrap">
-            <p className="text-xs md:text-sm text-[#92400E]">
-              지금 보고 계신 6명은 기능 미리보기용 샘플이에요. 실제 고객을 추가하면 샘플은 자동으로 사라집니다.
+        {/* 빈 상태 — 첫 고객 등록 안내 */}
+        {isEmpty && !loading && (
+          <div className="bg-white rounded-3xl p-10 md:p-16 text-center shadow-sm border border-[#E5E8EB]">
+            <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#3182F6] to-[#7C3AED] flex items-center justify-center mx-auto mb-4 shadow-md">
+              <Users size={28} className="text-white" strokeWidth={2.5} />
+            </div>
+            <h2 className="text-lg md:text-xl font-black text-[#191F28] mb-1">아직 등록된 고객이 없어요</h2>
+            <p className="text-xs md:text-sm text-[#8B95A1] mb-6 leading-relaxed">
+              스탬프카드 QR로 손님이 적립하거나, 직접 추가하면 여기에 표시됩니다.
             </p>
-            <button
-              onClick={() => setAddOpen(true)}
-              className="px-4 py-2 rounded-xl text-xs font-bold bg-[#3182F6] text-white hover:opacity-90 whitespace-nowrap">
-              + 첫 고객 추가
-            </button>
+            <div className="flex flex-col sm:flex-row gap-2 justify-center max-w-md mx-auto">
+              <button
+                onClick={() => setAddOpen(true)}
+                className="px-5 py-3 rounded-xl text-sm font-bold bg-[#3182F6] text-white hover:bg-[#1B64DA]">
+                + 첫 고객 직접 추가
+              </button>
+              <a
+                href="/qr-admin"
+                className="px-5 py-3 rounded-xl text-sm font-bold bg-[#F2F4F6] text-[#4E5968] hover:bg-[#E5E8EB]">
+                스탬프카드 QR 만들기
+              </a>
+            </div>
           </div>
         )}
 
-        {/* 통계 카드 */}
+        {/* 통계 카드 — 손님 있을 때만 */}
+        {!isEmpty && (
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6">
           {([
             { label: '전체 고객',   value: stats.total,   Icon: Users, color: '#3182F6' },
@@ -255,8 +237,10 @@ export default function CustomersPage() {
             </div>
           ))}
         </div>
+        )}
 
-        {/* 필터 + 검색 */}
+        {/* 필터 + 검색 — 손님 있을 때만 */}
+        {!isEmpty && (
         <div className="bg-white rounded-2xl shadow-sm p-4 mb-4">
           <div className="flex flex-wrap gap-2 mb-3">
             {(['전체', ...ALL_TAGS] as const).map(tag => (
@@ -375,6 +359,7 @@ export default function CustomersPage() {
             ))
           )}
         </div>
+        )}
 
         {/* 고객 추가 모달 */}
         {addOpen && (
