@@ -6,6 +6,7 @@
 //   · cron 15분 주기 + 페이지 60초 polling = 거의 실시간 체감
 // ============================================================
 import { useEffect, useRef, useState } from 'react'
+import { MessageSquare } from 'lucide-react'
 
 type Props = {
   platform: 'naver_place' | 'baemin' | 'yogiyo' | 'coupangeats' | 'kakao_map'
@@ -33,8 +34,8 @@ export default function ReviewPollingToast({ platform }: Props) {
         }
         if (id !== lastSeenRef.current) {
           // 새 리뷰 도착
-          const rating = typeof latest.rating === 'number' ? '⭐'.repeat(latest.rating) : ''
-          setToast(`💬 새 리뷰 ${rating} 도착!`)
+          const ratingText = typeof latest.rating === 'number' ? `${latest.rating}점` : ''
+          setToast(`새 리뷰 도착 ${ratingText}`)
           lastSeenRef.current = id
           setTimeout(() => setToast(null), 5000)
         }
@@ -65,8 +66,9 @@ export default function ReviewPollingToast({ platform }: Props) {
   if (!toast) return null
 
   return (
-    <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[60] px-5 py-3 rounded-full bg-[#191F28] text-white text-sm font-bold shadow-2xl animate-bounce-once">
-      {toast}
+    <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[60] px-5 py-3 rounded-full bg-[#191F28] text-white text-sm font-bold shadow-2xl animate-bounce-once flex items-center gap-2">
+      <MessageSquare size={14} strokeWidth={2.5} />
+      <span>{toast}</span>
     </div>
   )
 }
