@@ -150,7 +150,7 @@ export async function POST(req: NextRequest) {
       persona = { name: '', age: 'any', gender: 'any' as Gender, tone: 'friendly' as Tone },
       coreTarget = '',
       keywords = [] as string[],
-      reviewKeywords = [] as string[],
+      detailKeywords = [] as string[],
       draft = '',
       closingMessage = '',
       length = 2000,
@@ -222,10 +222,12 @@ ${TONE_GUIDE[validTone]}${GENDER_GUIDE[validGender]}${AGE_GUIDE[persona.age || '
 3. 연락 수단 명확히 (전화 + 카카오 채널 등)
 4. 클로징 (긴급성·희소성 한 줄, 과장 X)
 
-[플레이스 리뷰 키워드 연동]
-- 본문에서 굵게(Bold)할 단어 = 리뷰 키워드와 일치
-- 리뷰 키워드는 본문에 자연스럽게 2회 이상 등장
-- CTA 근처에 리뷰 유도 멘트 1줄 가능
+[세부 키워드 활용 — 롱테일·연관 검색어]
+- 메인 키워드의 보조 검색어로 활용
+- 본문 곳곳에 자연스럽게 분포 (검색 다양성 확보)
+- 절대 같은 표현 반복 금지 (다양한 표현으로 자연스럽게)
+- 소제목·예시·CTA 등 다양한 위치에 분산
+- 광고 톤 X, 정보 가치 중심으로 자연스럽게
 
 [절대 금지]
 - 이모티콘 일체 금지 (📷, ✅, ★, 🚗, ⭐ 등)
@@ -271,7 +273,7 @@ JSON이나 코드블록 없이, 완성된 블로그 포스팅 본문만 출력�
 □ 사진 분산 배치
 □ CTA 4단계 구조
 □ 이모티콘·특수문자 없음
-□ 리뷰 키워드 본문 2회 이상 자연스럽게 등장
+□ 세부 키워드(있다면) 본문 곳곳에 자연스럽게 분산 (다양한 표현)
 □ 인트로가 자기 자랑 아닌 타겟 고민으로 시작`
 
     const photoBlock = photoNames.length > 0
@@ -297,9 +299,9 @@ ${coreTarget || '(미지정 — 업종과 키워드 기반으로 추론하여 [�
 - 메인: ${mainKeyword}
 - 서브: ${subKeywords.join(', ') || '(없음)'}
 
-[플레이스 리뷰 연동 키워드]
-${reviewKeywords.length > 0 ? reviewKeywords.map((k: string) => `- ${k}`).join('\n') : '(없음)'}
-${reviewKeywords.length > 0 ? '→ 위 키워드를 본문에서 굵게 처리하고 자연스럽게 2회 이상 등장시키세요' : ''}
+[세부 키워드 — 롱테일·연관]
+${detailKeywords.length > 0 ? detailKeywords.map((k: string) => `- ${k}`).join('\n') : '(없음)'}
+${detailKeywords.length > 0 ? '→ 위 세부 키워드를 본문 곳곳에 자연스럽게 분산 배치 (소제목/예시/설명 등). 같은 표현 반복 금지, 다양한 변형으로.' : ''}
 
 [초안·메모·방향성]
 ${draft || '(없음 — 업종/키워드/타겟 기반으로 작성)'}
