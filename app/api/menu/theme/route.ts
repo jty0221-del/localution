@@ -8,6 +8,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { requireUser } from '@/app/lib/userAuth'
 import { createServiceClient } from '@/app/lib/adminAuth'
 import { getEffectiveTheme, THEME_PRESETS } from '@/app/lib/menu-themes'
+import { MENU_TEMPLATES } from '@/app/lib/menu-templates'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -27,6 +28,7 @@ export async function GET() {
     ok: true,
     menu_theme: store?.menu_theme || null,
     effective: getEffectiveTheme(store?.menu_theme),
+    template_id: (store?.menu_theme as any)?.template_id || 'list-default',
     store: store ? { id: store.id, slug: store.slug, name: store.name } : null,
   })
 }
@@ -39,6 +41,15 @@ export async function POST(req: NextRequest) {
   const presetId = String(body?.preset || '').trim()
   const valid = THEME_PRESETS.some(p => p.id === presetId)
   if (!valid) return NextResponse.json({ ok: false, error: 'invalid_preset' }, { status: 400 })
+
+  // template_id 검증 (있으면)
+  let templateId: string | null = null
+  if (body?.template_id) {
+    const tid = String(body.template_id).trim()
+    if (MENU_TEMPLATES.some(t => t.id === tid)) {
+      templateId = tid
+    }
+  }
 
   // custom 검증 — 허용된 키만
   let custom: any = null
@@ -58,7 +69,7 @@ export async function POST(req: NextRequest) {
   const svc = createServiceClient()
   const { error } = await svc
     .from('stores')
-    .update({ menu_theme: { preset: presetId, custom } })
+    .update({ menu_theme: { preset: presetId, custom, template_id: templateId } })
     .eq('user_id', auth.userId)
 
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
