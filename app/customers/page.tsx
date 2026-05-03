@@ -8,6 +8,7 @@ import PageHeader from '../components/PageHeader'
 import { BRAND_GRAD } from '../lib/brand-colors'
 import { useCustomers, type Customer } from '../hooks/useCustomers'
 import type { CustomerTag } from '../lib/supabase'
+import { Users, Star, Heart, Moon, MessageSquare, FileText, type LucideIcon } from 'lucide-react'
 
 type Tag = CustomerTag
 
@@ -205,7 +206,7 @@ export default function CustomersPage() {
             </div>
             <p className="text-sm text-[#8B95A1]">
               {isDemo
-                ? '아직 고객을 등록하지 않아 샘플을 보여드려요. "+ 고객 추가"로 첫 단골을 등록해보세요 ✨'
+                ? '아직 고객을 등록하지 않아 샘플을 보여드려요. "+ 고객 추가"로 첫 단골을 등록해보세요'
                 : '단골·VIP·신규 고객을 한눈에 관리하세요'}
             </p>
           </div>
@@ -219,7 +220,7 @@ export default function CustomersPage() {
               onClick={() => setMsgOpen(true)}
               disabled={selected.length === 0}
               className="flex items-center gap-2 bg-[#3182F6] text-white font-bold text-sm px-4 py-2.5 rounded-xl hover:bg-[#1B64DA] disabled:opacity-40 transition-colors shadow-sm">
-              💬 단체 메시지 ({selected.length}명)
+              단체 메시지 ({selected.length}명)
             </button>
           </div>
         </div>
@@ -240,14 +241,16 @@ export default function CustomersPage() {
 
         {/* 통계 카드 */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4 mb-6">
-          {[
-            { label: '전체 고객',   value: stats.total,   icon: '👥', color: '#3182F6' },
-            { label: 'VIP',         value: stats.vip,     icon: '⭐', color: '#F59E0B' },
-            { label: '단골',        value: stats.regular, icon: '💚', color: '#16A34A' },
-            { label: '휴면 (90일+)', value: stats.dormant, icon: '💤', color: '#8B95A1' },
-          ].map(s => (
+          {([
+            { label: '전체 고객',   value: stats.total,   Icon: Users, color: '#3182F6' },
+            { label: 'VIP',         value: stats.vip,     Icon: Star,  color: '#F59E0B' },
+            { label: '단골',        value: stats.regular, Icon: Heart, color: '#16A34A' },
+            { label: '휴면 (90일+)', value: stats.dormant, Icon: Moon,  color: '#8B95A1' },
+          ] as { label: string; value: number; Icon: LucideIcon; color: string }[]).map(s => (
             <div key={s.label} className="bg-white rounded-2xl p-4 shadow-sm">
-              <div className="text-2xl mb-1">{s.icon}</div>
+              <div className="w-9 h-9 rounded-xl flex items-center justify-center mb-1.5" style={{ background: s.color + '15' }}>
+                <s.Icon size={18} style={{ color: s.color }} strokeWidth={2.5} />
+              </div>
               <div className="text-2xl font-black" style={{ color: s.color }}>{s.value}</div>
               <div className="text-xs text-[#8B95A1] font-medium">{s.label}</div>
             </div>
@@ -360,7 +363,7 @@ export default function CustomersPage() {
                     ))}
                   </div>
                   <div className="text-xs text-[#8B95A1]">{c.phone || '연락처 없음'}</div>
-                  {c.memo && <div className="text-xs text-[#4E5968] mt-0.5 truncate">📝 {c.memo}</div>}
+                  {c.memo && <div className="text-xs text-[#4E5968] mt-0.5 truncate flex items-center gap-1"><FileText size={11} strokeWidth={2.5} /> {c.memo}</div>}
                 </div>
 
                 {/* 통계 */}
