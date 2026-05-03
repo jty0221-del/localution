@@ -566,7 +566,7 @@ export default function LandingPage() {
                 <div className="flex gap-1 items-center">
                   <span className="text-white text-[10px]">●●●</span>
                   <span className="text-white text-[10px]">WiFi</span>
-                  <span className="text-white text-[10px]">🔋</span>
+                  <span className="text-white text-[9px]">100%</span>
                 </div>
               </div>
               {/* 화면 */}
