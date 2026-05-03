@@ -5,6 +5,7 @@ import { useState, useCallback } from 'react'
 import Sidebar from '../../components/Sidebar'
 import PageHeader from '../../components/PageHeader'
 import Footer from '../../components/Footer'
+import { BarChart3, Zap, FileText, Eye, TrendingUp, Users, type LucideIcon } from 'lucide-react'
 
 interface DailyVisit { date: string; count: number }
 interface BlogData {
@@ -146,7 +147,7 @@ export default function BlogIndexPage() {
     <div className="flex min-h-screen bg-[#F2F4F6]">
       <Sidebar />
       <main className="flex-1 ml-0 md:ml-[220px] flex flex-col min-h-screen pt-16 md:pt-0">
-        <PageHeader icon="📊" title="블로그 지수조회"
+        <PageHeader icon={<BarChart3 size={28} className="text-white" strokeWidth={2.5} />} title="블로그 지수조회"
           subtitle="방문자 · 이웃 · 최신화 · 지수를 한눈에 — 조회 반복 시 방문자 그래프 자동 축적"
           variant="sky" />
 
@@ -170,7 +171,9 @@ export default function BlogIndexPage() {
           {/* BLAI 연동 준비 배너 */}
           {data?.blaiReady && (
             <div className="bg-[#FFFBEB] border border-[#FDE68A] rounded-xl px-4 py-3 flex items-center gap-3">
-              <span className="text-xl">⚡</span>
+              <div className="w-9 h-9 rounded-xl bg-[#FEF3C7] flex items-center justify-center flex-shrink-0">
+                <Zap size={16} className="text-[#92400E]" strokeWidth={2.5} />
+              </div>
               <div className="flex-1">
                 <p className="text-xs font-bold text-[#92400E]">더 정확한 데이터: 블라이(BLAI) API 연동</p>
                 <p className="text-[11px] text-[#B45309] mt-0.5">blai.co.kr에서 API Key 발급 후 .env.local에 BLAI_API_KEY 추가하면 공식 지수·일일방문자 데이터로 전환됩니다</p>
@@ -187,7 +190,9 @@ export default function BlogIndexPage() {
 
               {/* 블로그 헤더 */}
               <div className="bg-white rounded-2xl border border-[#E5E8EB] p-5 flex items-start gap-4">
-                <div className="w-12 h-12 rounded-2xl bg-[#EFF6FF] flex items-center justify-center text-2xl shrink-0">📝</div>
+                <div className="w-12 h-12 rounded-2xl bg-[#EFF6FF] flex items-center justify-center shrink-0">
+                  <FileText size={22} className="text-[#3182F6]" strokeWidth={2.5} />
+                </div>
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 flex-wrap">
                     <p className="text-base font-black text-[#191F28]">{data.blogName}</p>
@@ -249,14 +254,16 @@ export default function BlogIndexPage() {
 
               {/* 통계 카드 4개 */}
               <div className="grid grid-cols-2 gap-3">
-                {[
-                  { label:'일일 방문자', value: data.visitorToday ? fmtNum(data.visitorToday)+'명' : '—', icon:'👁', color:'#F04452', bg:'#FFF1F2', sub:'오늘 기준' },
-                  { label:'누적 방문자', value: fmtNum(data.visitorTotal)+(data.visitorTotal?'명':''), icon:'📈', color:'#3182F6', bg:'#EFF6FF', sub:'전체 누적' },
-                  { label:'이웃 수',    value: fmtNum(data.neighborCount)+(data.neighborCount?'명':''), icon:'🤝', color:'#12B76A', bg:'#ECFDF5', sub:'서로이웃 포함' },
-                  { label:'전체 글 수', value: data.postCount ? data.postCount+'개+' : '—', icon:'📄', color:'#7C3AED', bg:'#F5F3FF', sub:'RSS 기준' },
-                ].map(item => (
+                {([
+                  { label:'일일 방문자', value: data.visitorToday ? fmtNum(data.visitorToday)+'명' : '—', Icon: Eye,        color:'#F04452', bg:'#FFF1F2', sub:'오늘 기준' },
+                  { label:'누적 방문자', value: fmtNum(data.visitorTotal)+(data.visitorTotal?'명':''), Icon: TrendingUp, color:'#3182F6', bg:'#EFF6FF', sub:'전체 누적' },
+                  { label:'이웃 수',    value: fmtNum(data.neighborCount)+(data.neighborCount?'명':''), Icon: Users,      color:'#12B76A', bg:'#ECFDF5', sub:'서로이웃 포함' },
+                  { label:'전체 글 수', value: data.postCount ? data.postCount+'개+' : '—', Icon: FileText,   color:'#7C3AED', bg:'#F5F3FF', sub:'RSS 기준' },
+                ] as { label: string; value: string; Icon: LucideIcon; color: string; bg: string; sub: string }[]).map(item => (
                   <div key={item.label} className="bg-white rounded-2xl border border-[#E5E8EB] p-4 flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center text-xl shrink-0" style={{ background:item.bg }}>{item.icon}</div>
+                    <div className="w-10 h-10 rounded-xl flex items-center justify-center shrink-0" style={{ background:item.bg, color:item.color }}>
+                      <item.Icon size={18} strokeWidth={2.5} />
+                    </div>
                     <div>
                       <p className="text-[11px] text-[#8B95A1]">{item.label}</p>
                       <p className="text-base font-black" style={{ color:item.color }}>{item.value}</p>
