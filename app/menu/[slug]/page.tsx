@@ -27,7 +27,10 @@ const UI_TEXT: Record<Lang, any> = {
 
 export default function MenuPage() {
   const params = useParams()
-  const slug = String(params?.slug || '')
+  // useParams가 Next 버전에 따라 인코딩 또는 디코딩 형태로 줄 수 있음 — 항상 디코딩된 형태로 통일
+  const rawSlug = String(params?.slug || '')
+  let slug = rawSlug
+  try { slug = decodeURIComponent(rawSlug) } catch { /* 이미 디코딩 상태면 그대로 */ }
   const [items, setItems] = useState<any[]>([])
   const [store, setStore] = useState<any>(null)
   const [theme, setTheme] = useState<any>(null)
@@ -35,15 +38,19 @@ export default function MenuPage() {
   const [lang, setLang] = useState<Lang>('ko')
 
   useEffect(() => {
-    fetch(`/api/menu/public?slug=${encodeURIComponent(slug)}`)
+    if (!slug) { setLoading(false); return }
+    const url = `/api/menu/public?slug=${encodeURIComponent(slug)}&_=${Date.now()}`
+    fetch(url, { cache: 'no-store' })
       .then(r => r.json())
       .then(j => {
+        console.log('[menu]', j.ok, 'items:', j.items?.length, 'store:', j.store?.name)
         if (j.ok) {
           setItems(j.items || [])
           setStore(j.store)
           setTheme(j.theme)
         }
       })
+      .catch(err => console.error('[menu] fetch err:', err))
       .finally(() => setLoading(false))
   }, [slug])
 
