@@ -865,21 +865,23 @@ export default function QRAdmin() {
                 {/* 빠른 이동 4개 버튼 */}
                 <div className="grid grid-cols-2 gap-2">
                   {(() => {
-                    const slug = storeInfo.name ? encodeURIComponent(storeInfo.name) : ''
+                    // 진짜 store.slug 사용 (storeInfo.name 인코딩이 아님 — 공백/특수문자 안전)
+                    const realSlug = storeInfo.slug || ''
+                    const menuHref = realSlug ? `/menu/${encodeURIComponent(realSlug)}` : null
                     const cards = [
                       {
                         label: '디지털 메뉴판',
                         desc: '손님이 스캔하는 메뉴',
                         icon: ClipboardList,
                         color: 'from-[#3182F6] to-[#1D4ED8]',
-                        href: slug ? `/menu/${slug}` : null,
+                        href: menuHref,
                       },
                       {
                         label: '리뷰 페이지',
                         desc: '리뷰 작성 화면',
                         icon: Star,
                         color: 'from-[#F59E0B] to-[#DC2626]',
-                        href: storeInfo.connected ? previewReviewUrl : null,
+                        href: storeInfo.connected && previewReviewUrl ? previewReviewUrl : null,
                       },
                       {
                         label: '스탬프 카드',
