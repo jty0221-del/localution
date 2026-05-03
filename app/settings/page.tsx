@@ -442,7 +442,7 @@ function StoreTab() {
           </div>
           {syncError && (
             <p className={`text-xs mt-2 font-medium ${isMock ? 'text-orange-600' : 'text-red-500'}`}>
-              {isMock ? '⚠️' : '❌'} {syncError}
+              {syncError}
             </p>
           )}
           {synced && !isMock && !syncError && (
@@ -534,7 +534,7 @@ function StoreTab() {
             }}
             maxLength={2000}
             rows={10}
-            placeholder="예: 포항 용흥동에서 10년째 운영 중인 스페셜티 카페입니다. 제주산 원두 직접 로스팅, 수제 디저트, 반려동물 동반 가능. 주차 20대, 와이파이 제공. 매주 수요일 원두 할인 이벤트.&#10;&#10;⚙️ AI 가 리뷰 답글·블로그 포스팅을 쓸 때 이 소개를 참고합니다. 매장 특징·대표 메뉴·위치·이벤트 등을 자세히 적을수록 품질이 올라갑니다."
+            placeholder="예: 포항 용흥동에서 10년째 운영 중인 스페셜티 카페입니다. 제주산 원두 직접 로스팅, 수제 디저트, 반려동물 동반 가능. 주차 20대, 와이파이 제공. 매주 수요일 원두 할인 이벤트.&#10;&#10;AI 가 리뷰 답글·블로그 포스팅을 쓸 때 이 소개를 참고합니다. 매장 특징·대표 메뉴·위치·이벤트 등을 자세히 적을수록 품질이 올라갑니다."
             className="w-full border border-[#E5E8EB] rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-[#3182F6] transition-colors resize-y leading-relaxed"
             style={{ minHeight: '240px' }}
           />
@@ -551,7 +551,7 @@ function StoreTab() {
         </div>
         {serverPlatforms.some(p => p.connected) && (
           <div className="bg-[#F0FDF4] border border-[#BBF7D0] rounded-xl p-3">
-            <p className="text-xs font-bold text-[#166534] mb-2">🔗 연결된 플랫폼 ({serverPlatforms.filter(p => p.connected).length}개)</p>
+            <p className="text-xs font-bold text-[#166534] mb-2">연결된 플랫폼 ({serverPlatforms.filter(p => p.connected).length}개)</p>
             <div className="flex flex-wrap gap-1.5">
               {serverPlatforms.filter(p => p.connected).map(p => (
                 <span key={p.platform} className="text-[11px] px-2.5 py-1 rounded-full bg-white border border-[#BBF7D0] text-[#166534] font-semibold">
@@ -563,7 +563,7 @@ function StoreTab() {
           </div>
         )}
         {saveError && (
-          <p className="text-xs text-red-500 font-medium">❌ {saveError}</p>
+          <p className="text-xs text-red-500 font-medium">{saveError}</p>
         )}
         <button onClick={handleSave} disabled={saving} className={`w-full py-3 rounded-xl font-bold text-sm transition-colors ${saved ? 'bg-green-500 text-white' : saving ? 'bg-[#93C5FD] text-white cursor-not-allowed' : 'bg-[#191F28] text-white hover:bg-[#333D4B]'}`}>
           {saving ? '저장 중...' : saved ? '저장됨' : '저장하기'}
@@ -642,9 +642,9 @@ function NotifyTestButton() {
         if (r2.ok) ok.push(label)
         else fail.push(`${label}: ${r2.error}`)
       }
-      if (ok.length > 0 && fail.length === 0) setResult(`✅ ${ok.join(', ')} 발송 완료`)
-      else if (ok.length > 0) setResult(`✅ ${ok.join(', ')} 발송 | ⚠️ ${fail.join(' | ')}`)
-      else setResult(`⚠️ ${fail.join(' | ')}`)
+      if (ok.length > 0 && fail.length === 0) setResult(`${ok.join(', ')} 발송 완료`)
+      else if (ok.length > 0) setResult(`${ok.join(', ')} 발송 / ${fail.join(' | ')}`)
+      else setResult(fail.join(' | '))
     } catch (e: any) {
       console.error('[notify-test] error', e)
       setResult(`예외: ${e?.message || e}`)
@@ -675,7 +675,7 @@ function NotifyTestButton() {
       </div>
       {result && (
         <p className={`mt-3 text-[12px] font-medium ${
-          result.startsWith('✅') ? 'text-[#059669]' : 'text-[#DC2626]'
+          result.includes('완료') && !result.includes('실패') ? 'text-[#059669]' : 'text-[#DC2626]'
         }`}>{result}</p>
       )}
     </div>
@@ -773,11 +773,11 @@ function NotifyTab() {
     try {
       // 1) 브라우저 지원 확인
       if (!('serviceWorker' in navigator)) {
-        setPushResult('❌ 이 브라우저는 Service Worker 미지원')
+        setPushResult('이 브라우저는 Service Worker 미지원')
         return
       }
       if (!('PushManager' in window)) {
-        setPushResult('❌ 이 브라우저는 Push API 미지원')
+        setPushResult('이 브라우저는 Push API 미지원')
         return
       }
       console.log('[push-enable] browser supported')
@@ -788,8 +788,8 @@ function NotifyTab() {
       setPushPermission(perm as any)
       if (perm !== 'granted') {
         setPushResult(perm === 'denied'
-          ? '❌ 알림 권한이 거부됨 — 브라우저 주소창 옆 자물쇠 → 알림 → 허용으로 변경'
-          : '⚠️ 알림 권한이 default 상태 (허용 안 누름)')
+          ? '알림 권한이 거부됨 — 브라우저 주소창 옆 자물쇠 → 알림 → 허용으로 변경'
+          : '알림 권한이 default 상태 (허용 안 누름)')
         return
       }
 
@@ -802,7 +802,7 @@ function NotifyTab() {
       const vRes = await fetch('/api/notify/vapid-public').then(r => r.json())
       console.log('[push-enable] vapid response', vRes)
       if (!vRes?.ok || !vRes.publicKey) {
-        setPushResult(`❌ VAPID 키 미설정 — Vercel 환경변수 (VAPID_PUBLIC_KEY, NEXT_PUBLIC_VAPID_PUBLIC_KEY 등 4개) 추가 후 Redeploy 필요. (서버 응답: ${JSON.stringify(vRes).slice(0,100)})`)
+        setPushResult(`VAPID 키 미설정 — Vercel 환경변수 (VAPID_PUBLIC_KEY, NEXT_PUBLIC_VAPID_PUBLIC_KEY 등 4개) 추가 후 Redeploy 필요. (서버 응답: ${JSON.stringify(vRes).slice(0,100)})`)
         return
       }
 
@@ -824,13 +824,13 @@ function NotifyTab() {
       console.log('[push-enable] save response', saveJ)
       if (saveJ?.ok) {
         setPrefs(p => ({ ...p, channel_web_push: true, has_web_push_sub: true }))
-        setPushResult('✅ 브라우저 알림 켜짐 — 테스트 발송 버튼으로 확인해보세요')
+        setPushResult('브라우저 알림 켜짐 — 테스트 발송 버튼으로 확인해보세요')
       } else {
-        setPushResult(`❌ 저장 실패: ${saveJ?.error || 'unknown'}`)
+        setPushResult(`저장 실패: ${saveJ?.error || 'unknown'}`)
       }
     } catch (e: any) {
       console.error('[push-enable] error', e)
-      setPushResult(`❌ 예외: ${e?.message || e}`)
+      setPushResult(`예외: ${e?.message || e}`)
     } finally {
       setPushBusy(false)
     }
@@ -889,7 +889,7 @@ function NotifyTab() {
       <div className="bg-[#FEF3C7] border border-[#FDE68A] rounded-2xl p-5">
         <div className="flex items-center justify-between mb-3">
           <div>
-            <p className="text-sm font-bold text-[#92400E]">⚠️ 낮은 별점 강제 알림</p>
+            <p className="text-sm font-bold text-[#92400E]">낮은 별점 강제 알림</p>
             <p className="text-xs text-[#9A3412] mt-0.5">위 알림을 꺼도 낮은 별점은 무조건 알려드려요</p>
           </div>
           <Toggle checked={prefs.low_rating_force_alert} onChange={v => update('low_rating_force_alert', v)} />
@@ -922,11 +922,11 @@ function NotifyTab() {
             </div>
             <p className="text-[11px] text-[#9A3412] mt-2 leading-relaxed">
               {prefs.low_rating_threshold === 0 && '강제 알림 거의 받지 않음 (별점 0점 이하 리뷰는 사실상 없음)'}
-              {prefs.low_rating_threshold === 1 && '⭐ 1점 짜리 리뷰만 강제 알림'}
-              {prefs.low_rating_threshold === 2 && '⭐⭐ 2점 이하 리뷰 강제 알림'}
-              {prefs.low_rating_threshold === 3 && '⭐⭐⭐ 3점 이하 — 사장님 신경써야 할 리뷰'}
-              {prefs.low_rating_threshold === 4 && '⭐⭐⭐⭐ 4점 이하 — 거의 모든 리뷰 알림'}
-              {prefs.low_rating_threshold === 5 && '⭐⭐⭐⭐⭐ 모든 리뷰가 강제 알림 (위 토글과 동일 효과)'}
+              {prefs.low_rating_threshold === 1 && '1점 짜리 리뷰만 강제 알림'}
+              {prefs.low_rating_threshold === 2 && '2점 이하 리뷰 강제 알림'}
+              {prefs.low_rating_threshold === 3 && '3점 이하 — 사장님 신경써야 할 리뷰'}
+              {prefs.low_rating_threshold === 4 && '4점 이하 — 거의 모든 리뷰 알림'}
+              {prefs.low_rating_threshold === 5 && '모든 리뷰가 강제 알림 (위 토글과 동일 효과)'}
             </p>
           </div>
         )}
@@ -941,7 +941,7 @@ function NotifyTab() {
         <div className="border-2 border-[#E5E8EB] rounded-xl p-4 mb-3">
           <div className="flex items-center justify-between mb-2 gap-2">
             <div className="min-w-0">
-              <p className="text-sm font-bold text-[#191F28]">🔔 로컬루션 브라우저 알림</p>
+              <p className="text-sm font-bold text-[#191F28]">로컬루션 브라우저 알림</p>
               <p className="text-xs text-[#8B95A1] mt-0.5">브라우저가 닫혀있어도 알림 받음 (PC/모바일 다)</p>
             </div>
             {pushPermission === 'unsupported' ? (
@@ -971,7 +971,7 @@ function NotifyTab() {
           )}
           {pushResult && (
             <p className={`text-[11px] mt-2 leading-relaxed ${
-              pushResult.startsWith('✅') ? 'text-[#059669]' : 'text-[#DC2626]'
+              pushResult.includes('켜짐') || pushResult.includes('완료') ? 'text-[#059669]' : 'text-[#DC2626]'
             }`}>{pushResult}</p>
           )}
         </div>
@@ -980,7 +980,7 @@ function NotifyTab() {
         <div className="border-2 border-[#E5E8EB] rounded-xl p-4 mb-3">
           <div className="flex items-center justify-between mb-2">
             <div>
-              <p className="text-sm font-bold text-[#191F28]">💬 카카오톡 알림</p>
+              <p className="text-sm font-bold text-[#191F28]">카카오톡 알림</p>
               <p className="text-xs text-[#8B95A1] mt-0.5">본인 카카오톡으로 메시지 발송 (무료)</p>
             </div>
             {kakaoConnected && prefs.channel_kakao_talk ? (
@@ -1772,7 +1772,7 @@ function PlanTab() {
             </div>
           )}
           <div className="bg-blue-50 rounded-xl p-3 mb-4 text-xs text-[#3182F6] leading-relaxed">
-            <p className="font-semibold mb-0.5">🎁 베타 오픈 기념 — 전 기능 무료 이용 중</p>
+            <p className="font-semibold mb-0.5">베타 오픈 기념 — 전 기능 무료 이용 중</p>
             <p className="text-[#4E5968]">정식 요금제 안내는 <Link href="/pricing" className="underline font-semibold text-[#3182F6]">요금제 페이지</Link>에서 미리 확인하실 수 있어요. 금액은 임시이며, 베타 종료 전 사전 공지드립니다.</p>
           </div>
           <div className="flex items-center justify-between border-t border-[#F2F4F6] pt-4">
@@ -1893,7 +1893,7 @@ function PlanTab() {
             <div>
               <label htmlFor="toss-key-secret" className="block text-xs font-semibold text-[#4E5968] mb-1.5">시크릿 키 (서버 전용)</label>
               <input id="toss-key-secret" type="password" value={tossKey.secret} onChange={e => setTossKey(p => ({ ...p, secret: e.target.value }))} placeholder={`${tossMode}_sk_... (Vercel 환경변수에 저장 권장)`} className="w-full border border-[#E5E8EB] rounded-xl px-4 py-2.5 text-sm font-mono focus:outline-none focus:border-[#3182F6] transition-colors" />
-              <p className="text-[10px] text-[#B0B8C1] mt-1">⚠️ 시크릿 키는 브라우저에 저장하지 말고 Vercel 환경변수 <span className="font-mono">TOSS_SECRET_KEY</span>에 등록</p>
+              <p className="text-[10px] text-[#B0B8C1] mt-1">시크릿 키는 브라우저에 저장하지 말고 Vercel 환경변수 <span className="font-mono">TOSS_SECRET_KEY</span>에 등록</p>
             </div>
           </div>
           <div className="mb-4 p-3 bg-blue-50 rounded-xl text-xs text-[#3182F6] space-y-1">
