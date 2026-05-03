@@ -1,8 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { useRouter, useParams } from 'next/navigation'
+import { AlertTriangle, MapPin, CheckCircle2, Lock, Loader2, X, Eye, EyeOff } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
@@ -55,6 +56,15 @@ export default function ConnectPlatformPage() {
   const [cookieSaving, setCookieSaving] = useState(false)
   const [cookieSaved, setCookieSaved] = useState(false)
 
+  // 쿠팡이츠 STEP 3 (장사닥터 패턴: 비동기 큐 처리 + 폴링)
+  const [coupangJobId, setCoupangJobId] = useState<string | null>(null)
+  const [coupangStatus, setCoupangStatus] = useState<'queued' | 'processing' | 'completed' | 'failed' | 'unknown'>('queued')
+  const [coupangMessage, setCoupangMessage] = useState('연동 신청을 받았어요. 곧 처리가 시작돼요.')
+  const [coupangReviewCount, setCoupangReviewCount] = useState(0)
+  const [coupangElapsed, setCoupangElapsed] = useState(0)
+  const pollRef = useRef<NodeJS.Timeout | null>(null)
+  const elapsedRef = useRef<NodeJS.Timeout | null>(null)
+
   useEffect(() => {
     if (platform && !VALID_PLATFORMS.includes(platform)) router.replace('/my/platforms')
   }, [platform, router])
@@ -98,13 +108,71 @@ export default function ConnectPlatformPage() {
       if (!data.ok) { setError(data.message || data.error || 'save_failed'); return }
       setPassword('')
       if (platform === 'naver_place') { setStep(3) }
+      else if (platform === 'coupangeats') {
+        // 장사닥터 패턴: 자격증명 저장 직후 워커 큐에 작업 추가됨.
+        // STEP 3 처리 화면으로 이동해서 폴링.
+        setCoupangJobId(data.coupang_job_id || null)
+        setCoupangStatus('queued')
+        setCoupangMessage('연동 신청을 받았어요. 곧 처리가 시작돼요.')
+        setStep(3)
+      }
       else {
-        setSuccess(meta.label + ' 연결 완료! 리뷰 자동 수집이 곧 시작돼요 🎉')
+        setSuccess(meta.label + ' 연결 완료! 리뷰 자동 수집이 곧 시작돼요')
         setTimeout(() => router.push('/my/platforms'), 1400)
       }
     } catch (e) { setError(e instanceof Error ? e.message : String(e)) }
     finally { setSaving(false) }
   }
+
+  // ── 쿠팡이츠 폴링 (STEP 3 진입 시 작동) ──
+  useEffect(() => {
+    if (platform !== 'coupangeats' || step !== 3) return
+
+    // 경과 시간 카운터 (1초)
+    const startTime = Date.now()
+    elapsedRef.current = setInterval(() => {
+      setCoupangElapsed(Math.floor((Date.now() - startTime) / 1000))
+    }, 1000)
+
+    let pollCount = 0
+    const poll = async () => {
+      pollCount++
+      try {
+        const url = '/api/platform-accounts/coupang-status' + (coupangJobId ? '?job_id=' + encodeURIComponent(coupangJobId) : '')
+        const r = await fetch(url, { cache: 'no-store' })
+        const j = await r.json()
+        if (!j.ok) return
+        setCoupangStatus(j.status)
+        setCoupangMessage(j.message || '')
+        setCoupangReviewCount(j.review_count || 0)
+        if (j.status === 'completed' || j.status === 'failed') {
+          if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
+          if (elapsedRef.current) { clearInterval(elapsedRef.current); elapsedRef.current = null }
+          // 완료 시 3초 후 플랫폼 허브로
+          if (j.status === 'completed') {
+            setTimeout(() => router.push('/my/platforms'), 3000)
+          }
+        }
+      } catch {}
+    }
+
+    // 초기 즉시 1회 + 점진적 백오프 (3초 → 5초 → 10초)
+    poll()
+    pollRef.current = setInterval(() => {
+      // 30회 (약 2분) 이후 폴링 간격 줄이기
+      if (pollCount > 30 && pollRef.current) {
+        clearInterval(pollRef.current)
+        pollRef.current = setInterval(poll, 10000)
+      }
+      poll()
+    }, 3000)
+
+    return () => {
+      if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
+      if (elapsedRef.current) { clearInterval(elapsedRef.current); elapsedRef.current = null }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [platform, step, coupangJobId])
 
   async function saveCoupangCookies() {
     if (!cookieText.trim()) { setError('쿠키를 붙여넣어 주세요.'); return }
@@ -182,29 +250,155 @@ export default function ConnectPlatformPage() {
     finally { setSavingStore(false) }
   }
 
+  // ── STEP 3: 쿠팡이츠 (장사닥터 패턴 - 비동기 처리 화면) ──
+  if (step === 3 && platform === 'coupangeats') {
+    const isCompleted = coupangStatus === 'completed'
+    const isFailed = coupangStatus === 'failed'
+    const isProcessing = coupangStatus === 'processing'
+    const isQueued = coupangStatus === 'queued'
+
+    return (
+      <main className="min-h-screen bg-white flex flex-col">
+        <div className="flex items-center justify-between px-5 pt-4 pb-2">
+          <div className="text-[11px] text-[#8B95A1]">STEP 3 / 3</div>
+          <Link href="/my/platforms" aria-label="닫기" className="w-8 h-8 flex items-center justify-center text-[#191F28] hover:bg-[#F2F4F6] rounded-lg">
+            <X size={20} />
+          </Link>
+        </div>
+        <div className="flex-1 max-w-md w-full mx-auto px-6 pt-8 pb-8 flex flex-col">
+          {/* 헤더 — 상태별 메시지 */}
+          {!isCompleted && !isFailed && (
+            <>
+              <h1 className="text-[22px] font-black text-[#191F28] leading-snug mb-1">연동 신청을 완료했어요.</h1>
+              <p className="text-[15px] text-[#4E5968] leading-relaxed">연동이 끝나면 알림을 보내드릴게요.</p>
+            </>
+          )}
+          {isCompleted && (
+            <>
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-emerald-500 to-emerald-600 flex items-center justify-center shadow-sm mb-4">
+                <CheckCircle2 size={22} className="text-white" strokeWidth={2.5} />
+              </div>
+              <h1 className="text-[22px] font-black text-[#191F28] leading-snug mb-1">연동이 완료됐어요.</h1>
+              <p className="text-[15px] text-[#4E5968] leading-relaxed">
+                리뷰 <strong className="text-[#191F28]">{coupangReviewCount}개</strong>를 가져왔어요.<br />
+                지금부터 자동으로 새 리뷰가 들어와요.
+              </p>
+            </>
+          )}
+          {isFailed && (
+            <>
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-red-500 to-red-600 flex items-center justify-center shadow-sm mb-4">
+                <AlertTriangle size={22} className="text-white" strokeWidth={2.5} />
+              </div>
+              <h1 className="text-[22px] font-black text-[#191F28] leading-snug mb-1">연동에 실패했어요.</h1>
+              <p className="text-[15px] text-[#4E5968] leading-relaxed">{coupangMessage || '다시 시도해주세요.'}</p>
+            </>
+          )}
+
+          {/* 시각적 인디케이터 */}
+          <div className="my-8 rounded-2xl bg-[#F8FAFF] border border-[#E5E8EB] p-6">
+            {!isCompleted && !isFailed && (
+              <div className="flex flex-col items-center justify-center py-4">
+                <div className="w-16 h-16 rounded-full bg-gradient-to-br from-[#D70530] to-[#A30024] flex items-center justify-center shadow-md mb-4">
+                  <Loader2 size={28} className="text-white animate-spin" strokeWidth={2.5} />
+                </div>
+                <div className="text-[13px] font-bold text-[#191F28] mb-1">
+                  {isQueued ? '대기 중' : '리뷰 수집 중'}
+                </div>
+                <div className="text-[12px] text-[#4E5968] text-center leading-relaxed">{coupangMessage}</div>
+                {coupangElapsed > 0 && (
+                  <div className="mt-3 text-[11px] text-[#8B95A1]">
+                    경과 시간: {coupangElapsed}초
+                  </div>
+                )}
+              </div>
+            )}
+            {isCompleted && (
+              <div className="flex flex-col items-center justify-center py-4">
+                <div className="text-[40px] font-black text-[#191F28] mb-1">{coupangReviewCount}</div>
+                <div className="text-[13px] text-[#4E5968]">개의 리뷰를 받아왔어요</div>
+              </div>
+            )}
+            {isFailed && (
+              <div className="flex flex-col items-center justify-center py-4">
+                <div className="text-[12px] text-[#DC2626] text-center leading-relaxed">{coupangMessage}</div>
+              </div>
+            )}
+          </div>
+
+          {/* 안내 박스 — 처리 중에만 표시 */}
+          {!isCompleted && !isFailed && (
+            <div className="rounded-xl bg-[#F2F4F6] p-4 flex items-start gap-3 mb-6">
+              <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-blue-500 to-blue-600 flex items-center justify-center shadow-sm flex-shrink-0">
+                <Lock size={14} className="text-white" strokeWidth={2.5} />
+              </div>
+              <div className="text-[12px] text-[#4E5968] leading-relaxed">
+                평균 8초 정도 걸리지만,<br />
+                경우에 따라 최대 1시간까지 걸릴 수 있어요.
+              </div>
+            </div>
+          )}
+
+          <div className="flex-1 min-h-[24px]" />
+
+          {/* 버튼 영역 */}
+          <div className="flex gap-2">
+            <button
+              onClick={() => router.push('/my/platforms')}
+              className="flex-1 py-4 rounded-2xl bg-[#F2F4F6] text-[#4E5968] text-[14px] font-bold hover:bg-[#E5E8EB]"
+            >
+              {isCompleted ? '닫기' : isFailed ? '닫기' : '나중에 확인'}
+            </button>
+            {isFailed && (
+              <button
+                onClick={() => { setStep(2); setCoupangStatus('queued'); setCoupangJobId(null) }}
+                className="flex-1 py-4 rounded-2xl bg-[#D70530] text-white text-[14px] font-bold hover:bg-[#A30024]"
+              >
+                다시 시도
+              </button>
+            )}
+            {isCompleted && (
+              <Link
+                href="/review-admin/coupang"
+                className="flex-1 py-4 rounded-2xl bg-[#D70530] text-white text-[14px] font-bold text-center hover:bg-[#A30024]"
+              >
+                리뷰 보러가기
+              </Link>
+            )}
+          </div>
+        </div>
+      </main>
+    )
+  }
+
   // ── STEP 3: 네이버 플레이스 매장 등록 ──
   if (step === 3) {
     return (
       <main className="min-h-screen bg-white flex flex-col">
         <div className="flex items-center justify-between px-5 pt-4 pb-2">
           <div className="text-[11px] text-[#8B95A1]">STEP 3 / 3</div>
-          <Link href="/my/platforms" aria-label="닫기" className="w-8 h-8 flex items-center justify-center text-[#191F28] text-2xl leading-none hover:bg-[#F2F4F6] rounded-lg">✕</Link>
+          <Link href="/my/platforms" aria-label="닫기" className="w-8 h-8 flex items-center justify-center text-[#191F28] hover:bg-[#F2F4F6] rounded-lg">
+            <X size={20} />
+          </Link>
         </div>
         <div className="flex-1 max-w-sm w-full mx-auto px-6 pt-6 pb-8 flex flex-col">
           <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl font-black mb-6 shadow-sm" style={{ background: '#03C75A', color: '#fff' }}>N</div>
           <h1 className="text-[22px] font-black text-[#191F28] leading-snug mb-1">내 매장을 찾아볼게요</h1>
           <p className="text-[13px] text-[#4E5968] mb-2 leading-relaxed">사장님센터 URL을 직접 붙여넣으면 가장 정확해요.<br />매장명 검색은 동명 매장이 있을 때 잘못 매칭될 수 있어요.</p>
-          <div className="mb-3 rounded-lg bg-[#FEF3C7] border border-[#FDE68A] p-3 text-[12px] text-[#92400E] leading-relaxed">
-            ⚠️ <strong>중요</strong>: 같은 이름의 매장이 여러 곳일 때 검색 결과가 다를 수 있어요. <br />
-            본인이 사장님 권한 있는 정확한 매장이 맞는지 꼭 확인해주세요. <br />
-            <strong>가장 정확한 방법</strong>: 사장님센터(<code>new.smartplace.naver.com/bizes/place/...</code>) 또는 본인 매장의 네이버 플레이스 URL 붙여넣기.
+          <div className="mb-3 rounded-lg bg-[#FEF3C7] border border-[#FDE68A] p-3 text-[12px] text-[#92400E] leading-relaxed flex items-start gap-2">
+            <AlertTriangle size={14} className="text-[#F59E0B] flex-shrink-0 mt-0.5" strokeWidth={2.5} />
+            <div>
+              <strong>중요</strong>: 같은 이름의 매장이 여러 곳일 때 검색 결과가 다를 수 있어요. 본인이 사장님 권한 있는 정확한 매장이 맞는지 꼭 확인해주세요.
+              <br /><strong>가장 정확한 방법</strong>: 사장님센터(<code>new.smartplace.naver.com/bizes/place/...</code>) 또는 본인 매장의 네이버 플레이스 URL 붙여넣기.
+            </div>
           </div>
-          <div className="mb-6 rounded-lg bg-[#F0FFF7] border border-[#A7F3D0] p-3 text-[12px] text-[#059669]">
-            ✓ 찾은 매장 정보는 <strong>설정 페이지</strong>에도 자동으로 반영돼요
+          <div className="mb-6 rounded-lg bg-[#F0FFF7] border border-[#A7F3D0] p-3 text-[12px] text-[#059669] flex items-center gap-2">
+            <CheckCircle2 size={14} className="flex-shrink-0" strokeWidth={2.5} />
+            <span>찾은 매장 정보는 <strong>설정 페이지</strong>에도 자동으로 반영돼요</span>
           </div>
 
           {error && <div className="mb-4 rounded-lg bg-[#FEF2F2] border border-[#FECACA] p-3 text-[13px] text-[#DC2626]">{error}</div>}
-          {success && <div className="mb-4 rounded-lg bg-[#ECFDF5] border border-[#A7F3D0] p-3 text-[13px] text-[#059669]">✓ {success}</div>}
+          {success && <div className="mb-4 rounded-lg bg-[#ECFDF5] border border-[#A7F3D0] p-3 text-[13px] text-[#059669] flex items-center gap-2"><CheckCircle2 size={14} strokeWidth={2.5} />{success}</div>}
 
           <div className="flex gap-2 mb-4">
             <input
@@ -225,7 +419,7 @@ export default function ConnectPlatformPage() {
                 <button key={store.placeId} onClick={() => setSelectedStore(store)}
                   className={`w-full text-left p-3 rounded-xl border-2 transition ${selectedStore?.placeId === store.placeId ? 'border-[#03C75A] bg-[#F0FFF7]' : 'border-[#E5E7EB] hover:border-[#03C75A]'}`}>
                   <div className="font-semibold text-[#191F28] text-[14px]">{store.name}</div>
-                  {store.roadAddress && <div className="text-[12px] text-[#6B7280] mt-0.5">📍 {store.roadAddress}</div>}
+                  {store.roadAddress && <div className="text-[12px] text-[#6B7280] mt-0.5 flex items-center gap-1"><MapPin size={11} className="flex-shrink-0" strokeWidth={2.5} />{store.roadAddress}</div>}
                   {store.category && <div className="text-[12px] text-[#8B95A1] mt-0.5">{store.category}</div>}
                   <div className="text-[11px] text-[#03C75A] mt-0.5">플레이스 ID: {store.placeId}</div>
                 </button>
@@ -323,22 +517,24 @@ export default function ConnectPlatformPage() {
     <main className="min-h-screen bg-white flex flex-col">
       <div className="flex items-center justify-between px-5 pt-4 pb-2">
         <div className="text-[11px] text-[#8B95A1]">STEP 2 / {platform === 'naver_place' || platform === 'coupangeats' ? '3' : '2'}</div>
-        <Link href="/my/platforms" aria-label="닫기" className="w-8 h-8 flex items-center justify-center text-[#191F28] text-2xl leading-none hover:bg-[#F2F4F6] rounded-lg">✕</Link>
+        <Link href="/my/platforms" aria-label="닫기" className="w-8 h-8 flex items-center justify-center text-[#191F28] hover:bg-[#F2F4F6] rounded-lg">
+          <X size={20} />
+        </Link>
       </div>
       <div className="flex-1 max-w-sm w-full mx-auto px-6 pt-6 pb-8 flex flex-col">
         <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl font-black mb-8 shadow-sm" style={{ background: meta.brandColor, color: meta.brandTextColor }}>{meta.initial}</div>
         <h1 className="text-[22px] font-black text-[#191F28] leading-snug mb-10">{meta.shortLabel} 리뷰 관리를 위해<br />로그인이 필요해요</h1>
         {error && <div className="mb-4 rounded-lg bg-[#FEF2F2] border border-[#FECACA] p-3 text-[13px] text-[#DC2626]">{error}</div>}
-        {success && <div className="mb-4 rounded-lg bg-[#ECFDF5] border border-[#A7F3D0] p-3 text-[13px] text-[#059669]">✓ {success}</div>}
+        {success && <div className="mb-4 rounded-lg bg-[#ECFDF5] border border-[#A7F3D0] p-3 text-[13px] text-[#059669] flex items-center gap-2"><CheckCircle2 size={14} strokeWidth={2.5} />{success}</div>}
         <input type="text" autoComplete="off" value={accountId} onChange={(e) => setAccountId(e.target.value)} placeholder={`${meta.shortLabel} 아이디`} className="w-full px-4 py-4 rounded-2xl bg-[#F5F6F8] border border-transparent text-[15px] placeholder-[#B0B8C1] focus:outline-none focus:border-[#191F28] focus:bg-white mb-3" />
         <div className="relative mb-8">
           <input type={showPw ? 'text' : 'password'} autoComplete="new-password" value={password} onChange={(e) => setPassword(e.target.value)} placeholder={`${meta.shortLabel} 비밀번호`} className="w-full px-4 py-4 pr-12 rounded-2xl bg-[#F5F6F8] border border-transparent text-[15px] placeholder-[#B0B8C1] focus:outline-none focus:border-[#191F28] focus:bg-white" />
           <button type="button" onClick={() => setShowPw(!showPw)} className="absolute right-3 top-1/2 -translate-y-1/2 w-8 h-8 flex items-center justify-center text-[#8B95A1] hover:text-[#191F28]">
-            {showPw ? <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M17.94 17.94A10.07 10.07 0 0 1 12 20c-7 0-11-8-11-8a18.45 18.45 0 0 1 5.06-5.94M9.9 4.24A9.12 9.12 0 0 1 12 4c7 0 11 8 11 8a18.5 18.5 0 0 1-2.16 3.19m-6.72-1.07a3 3 0 1 1-4.24-4.24"/><line x1="1" y1="1" x2="23" y2="23"/></svg>
-            : <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>}
+            {showPw ? <EyeOff size={20} strokeWidth={2} /> : <Eye size={20} strokeWidth={2} />}
           </button>
         </div>
-        <button onClick={submitCredentials} disabled={saving || !accountId || !password} className="w-full py-4 rounded-2xl text-[15px] font-bold disabled:opacity-50 transition" style={{ background: meta.loginBg, color: meta.loginFg }}>
+        <button onClick={submitCredentials} disabled={saving || !accountId || !password} className="w-full py-4 rounded-2xl text-[15px] font-bold disabled:opacity-50 transition flex items-center justify-center gap-2" style={{ background: meta.loginBg, color: meta.loginFg }}>
+          {saving && <Loader2 size={16} className="animate-spin" strokeWidth={2.5} />}
           {saving ? '암호화 저장 중…' : '로그인'}
         </button>
         <div className="flex-1 min-h-[24px]" />
@@ -350,7 +546,10 @@ export default function ConnectPlatformPage() {
               : <><a href={meta.forgotIdUrl} target="_blank" rel="noopener noreferrer" className="flex-1 py-3 rounded-xl border border-[#E5E8EB] text-[13px] font-semibold text-[#4E5968] text-center hover:bg-[#F9FAFB]">아이디 찾기 &nbsp;&gt;</a><a href={meta.forgotPwUrl} target="_blank" rel="noopener noreferrer" className="flex-1 py-3 rounded-xl border border-[#E5E8EB] text-[13px] font-semibold text-[#4E5968] text-center hover:bg-[#F9FAFB]">비밀번호 찾기 &nbsp;&gt;</a></>}
           </div>
         </div>
-        <div className="mt-6 text-[11px] text-[#8B95A1] leading-relaxed text-center">입력한 비밀번호는 즉시 AES-256-GCM 으로 암호화되어 저장돼요 🔐</div>
+        <div className="mt-6 text-[11px] text-[#8B95A1] leading-relaxed text-center flex items-center justify-center gap-1">
+          <Lock size={11} strokeWidth={2.5} />
+          <span>입력한 비밀번호는 즉시 AES-256-GCM 으로 암호화되어 저장돼요</span>
+        </div>
         {consentId && <div className="mt-3 text-center text-[10px] text-[#C3CAD1]">동의 기록 ID: {consentId.slice(0, 8)}…</div>}
       </div>
     </main>
