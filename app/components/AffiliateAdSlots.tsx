@@ -9,7 +9,7 @@
 //   · 하단 고지 문구: "이 포스팅은 네이버 쇼핑 커넥트 활동의 일환으로..."
 // ============================================================
 import { useEffect, useState } from 'react'
-import { Star, ExternalLink, Tag, Sparkles } from 'lucide-react'
+import { Star, ExternalLink, Tag, Sparkles, ShoppingCart } from 'lucide-react'
 import { AFFILIATE_PRODUCTS, type AffiliateProduct } from '../lib/affiliate-config'
 
 type Preview = {
@@ -119,7 +119,7 @@ function AdCard({ product }: { product: AffiliateProduct }) {
         ) : (
           // 이미지 추출 실패 시 — 큰 아이콘 + 가게명 placeholder
           <div className="absolute inset-0 flex flex-col items-center justify-center gap-1 text-[#3182F6]">
-            <span className="text-3xl">🛒</span>
+            <ShoppingCart size={32} className="text-[#3182F6]" strokeWidth={1.8} />
             <span className="text-[9px] font-medium text-[#8B95A1] truncate max-w-[80%] text-center">
               {fallback.mall || 'naver shopping'}
             </span>
