@@ -122,6 +122,15 @@ const GENDER_GUIDE: Record<Gender, string> = {
   female: '\n페르소나 성별: 여성. 어조에 세심함과 공감적 표현 가미.',
 }
 
+const AGE_GUIDE: Record<string, string> = {
+  any:    '',
+  '20s':    '\n페르소나 연령대: 20대. 트렌디하고 솔직한 표현, 너무 격식 차리지 않음. SNS 친화 톤 자연스럽게.',
+  '30s':    '\n페르소나 연령대: 30대. 안정감 있고 합리적인 어조. 데이터·실용 정보 강조.',
+  '40s':    '\n페르소나 연령대: 40대. 경험 기반의 신뢰감 있는 어조. 가족·일상 맥락 자연스럽게 활용.',
+  '50s':    '\n페르소나 연령대: 50대. 차분하고 신뢰감 있는 어조. 풍부한 경험에서 우러나는 권위.',
+  '60plus': '\n페르소나 연령대: 60대 이상. 진중하고 정중한 어조. 인생 경험 기반 진정성.',
+}
+
 export async function POST(req: NextRequest) {
   try {
     const auth = await requireUser()
@@ -138,12 +147,12 @@ export async function POST(req: NextRequest) {
     const {
       industry = '',
       track = 'A' as Track,
-      persona = { name: '', age: '', gender: 'any' as Gender, tone: 'friendly' as Tone },
+      persona = { name: '', age: 'any', gender: 'any' as Gender, tone: 'friendly' as Tone },
       coreTarget = '',
       keywords = [] as string[],
       reviewKeywords = [] as string[],
       draft = '',
-      cta = { phone: '', kakao: '', reservation: '' },
+      closingMessage = '',
       length = 2000,
       photoNames = [] as string[],
     } = body || {}
@@ -193,7 +202,7 @@ export async function POST(req: NextRequest) {
 ${TRACK_GUIDE[validTrack]}
 
 [페르소나 톤]
-${TONE_GUIDE[validTone]}${GENDER_GUIDE[validGender]}
+${TONE_GUIDE[validTone]}${GENDER_GUIDE[validGender]}${AGE_GUIDE[persona.age || 'any'] || ''}
 
 [제목 작성 규칙]
 - 25자 이내 (절대 초과 금지)
@@ -269,9 +278,10 @@ JSON이나 코드블록 없이, 완성된 블로그 포스팅 본문만 출력�
       ? `\n\n[제공된 사진 파일명 — 전부 본문에 분산 배치]\n${photoNames.map((n: string, i: number) => `${i + 1}. ${n}`).join('\n')}`
       : '\n\n[사진 없음 — 본문 흐름에 맞춰 "[사진]" 자리 표시만 삽입]'
 
+    const ageLabel = ({any:'무관','20s':'20대','30s':'30대','40s':'40대','50s':'50대','60plus':'60대 이상'} as Record<string, string>)[persona.age || 'any'] || '무관'
     const personaBlock = `[페르소나 — 글 발행 주체]
 - 이름/닉네임: ${persona.name || '(담당자)'}
-- 연령대: ${persona.age || '(미지정)'}
+- 연령대: ${ageLabel}
 - 성별: ${validGender === 'any' ? '무관' : validGender === 'male' ? '남성' : '여성'}
 - 말투 타입: ${validTone}`
 
@@ -294,10 +304,10 @@ ${reviewKeywords.length > 0 ? '→ 위 키워드를 본문에서 굵게 처리�
 [초안·메모·방향성]
 ${draft || '(없음 — 업종/키워드/타겟 기반으로 작성)'}
 
-[CTA 정보]
-- 전화: ${cta.phone || ''}
-- 카카오 채널: ${cta.kakao || ''}
-- 예약/상담 링크: ${cta.reservation || ''}
+[마무리 메시지 — 행동 유도 글]
+${closingMessage || '(미지정 — 글 트랙·타겟에 맞춰 자연스러운 마무리 멘트 자동 작성)'}
+
+→ 위 메시지를 본문 마지막 소제목 또는 마무리 단락에 자연스럽게 녹여 글 전체가 한 흐름으로 마무리되게 작성. 전화번호·링크 같은 정보 나열 X. 독자가 글을 읽고 자연스럽게 다음 행동을 하고 싶어지는 글로 표현.
 ${photoBlock}
 
 [글자 수 목표]
