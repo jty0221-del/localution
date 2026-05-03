@@ -36,14 +36,15 @@ export default function MenuPage() {
   const [theme, setTheme] = useState<any>(null)
   const [loading, setLoading] = useState(true)
   const [lang, setLang] = useState<Lang>('ko')
+  const [translating, setTranslating] = useState(false)
 
+  // 메뉴 데이터 로드 (한 번만)
   useEffect(() => {
     if (!slug) { setLoading(false); return }
     const url = `/api/menu/public?slug=${encodeURIComponent(slug)}&_=${Date.now()}`
     fetch(url, { cache: 'no-store' })
       .then(r => r.json())
       .then(j => {
-        console.log('[menu]', j.ok, 'items:', j.items?.length, 'store:', j.store?.name)
         if (j.ok) {
           setItems(j.items || [])
           setStore(j.store)
@@ -53,6 +54,36 @@ export default function MenuPage() {
       .catch(err => console.error('[menu] fetch err:', err))
       .finally(() => setLoading(false))
   }, [slug])
+
+  // 언어 변경 시 자동 번역 (한국어가 아니고 해당 언어 데이터 비어있으면)
+  useEffect(() => {
+    if (lang === 'ko' || items.length === 0 || !slug || translating) return
+    // 해당 언어 필드(name_<lang>)가 비어있는 메뉴가 있는지 체크
+    const nameField = `name_${lang}` as const
+    const needsTranslation = items.some((it: any) => !it[nameField])
+    if (!needsTranslation) return
+
+    setTranslating(true)
+    fetch('/api/menu/translate-public', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ slug, lang }),
+    })
+      .then(r => r.json())
+      .then(j => {
+        console.log('[menu auto-translate]', j)
+        if (j.ok && j.translated_count > 0) {
+          // 번역 완료 → 메뉴 데이터 다시 fetch
+          return fetch(`/api/menu/public?slug=${encodeURIComponent(slug)}&_=${Date.now()}`, { cache: 'no-store' })
+            .then(r => r.json())
+            .then(jj => {
+              if (jj.ok) setItems(jj.items || [])
+            })
+        }
+      })
+      .catch(err => console.error('[menu auto-translate err]', err))
+      .finally(() => setTranslating(false))
+  }, [lang, items.length, slug])
 
   const t = UI_TEXT[lang]
 
@@ -104,12 +135,19 @@ export default function MenuPage() {
 
   return (
     <div className="min-h-screen" style={{ background: TH.bg, fontFamily: '"Noto Serif KR", "Nanum Myeongjo", serif' }}>
-      {/* 상단 작은 언어 선택 (방해 안 되게 우측 정렬) */}
-      <div className="sticky top-0 z-30 px-5 py-2.5 flex items-center justify-end backdrop-blur-md" style={{ background: `${TH.bg}E0`, borderBottom: `1px solid ${TH.border}80` }}>
+      {/* 상단 작은 언어 선택 + 자동 번역 표시 */}
+      <div className="sticky top-0 z-30 px-5 py-2.5 flex items-center justify-end gap-2 backdrop-blur-md" style={{ background: `${TH.bg}E0`, borderBottom: `1px solid ${TH.border}80` }}>
+        {translating && (
+          <div className="flex items-center gap-1.5 text-[10px] font-bold" style={{ color: TH.accent }}>
+            <span className="inline-block w-3 h-3 border-2 rounded-full animate-spin" style={{ borderColor: TH.accent, borderTopColor: 'transparent' }} />
+            자동 번역 중...
+          </div>
+        )}
         <select
           value={lang}
           onChange={e => setLang(e.target.value as Lang)}
-          className="text-[11px] font-bold rounded-md px-2 py-1 outline-none cursor-pointer"
+          disabled={translating}
+          className="text-[11px] font-bold rounded-md px-2 py-1 outline-none cursor-pointer disabled:opacity-60"
           style={{ background: 'transparent', color: TH.muted, border: `1px solid ${TH.border}` }}>
           {LANGS.map(l => <option key={l.k} value={l.k}>{l.label}</option>)}
         </select>
