@@ -1523,7 +1523,9 @@ async function fetchCoupangReviews(
       }, 'coupangeats: 62cha — first captured review structure')
     } catch (_) {}
 
-    reviews = capturedReviews.slice(0, 200).map((r: any, idx: number) => {
+    // 70차: slice(0, 200) → slice(0, 2000) — 6개월 fetch 247개 모두 normalize
+    // 잘림 방지로 사장님 페이지네이션 2-3페이지 review 도 DB 저장
+    reviews = capturedReviews.slice(0, 2000).map((r: any, idx: number) => {
       // 평점 (다양한 키 + nested)
       const rating =
         typeof r.rating === 'number' ? Math.round(r.rating) :
