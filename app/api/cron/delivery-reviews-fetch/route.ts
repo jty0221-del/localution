@@ -57,14 +57,19 @@ export async function GET(req: NextRequest) {
       }
 
       try {
-        // jobId 시간(시간 단위) 기반 — 같은 시간대 cron 중복 호출 시 BullMQ deduplication
         const hourBucket = Math.floor(Date.now() / 3_600_000)
         const jobId = `cron_${platform}_${cred.user_id}_${hourBucket}`
+        // v1.6k: 'unknown' string sentinel 제거 — 빈 string 이면 Worker 가 auto-detect
+        const validShopId = cred.platform_store_id && /^\d+$/.test(String(cred.platform_store_id))
+          ? String(cred.platform_store_id) : ''
         const jobResult = await enqueuePlatformJob({
           platform,
           action: 'fetch_reviews',
           userId: cred.user_id,
-          storeId: cred.platform_store_id || 'unknown',
+          storeId: validShopId || 'auto-detect',
+          payload: validShopId
+            ? { shop_no: validShopId, days_back: 30 }
+            : { days_back: 30 },
         }, { jobId })
 
         if (jobResult.ok) {
