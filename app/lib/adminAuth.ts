@@ -8,6 +8,7 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
 import { cookies, headers } from 'next/headers'
 import { ADMIN_EMAILS, isAdminEmail } from './admin-emails'
+import { verifyCookie } from './cookieSigning'
 
 // 관리자 이메일 화이트리스트는 admin-emails.ts 에서 관리.
 // 미들웨어/layout/서버 핸들러가 동일 source 를 import 한다.
@@ -28,7 +29,7 @@ export function createServiceClient(): SupabaseClient {
 }
 
 // ------------------------------------------------------------
-// localution_user 쿠키 파싱 (NextAuth OAuth payload)
+// localution_user 쿠키 파싱 (서명된 "<base64payload>.<sig>" 형식)
 // ------------------------------------------------------------
 type LocalutionUser = {
   id?: string
@@ -44,10 +45,7 @@ async function readLocalutionUser(): Promise<LocalutionUser | null> {
     const store = await cookies()
     const raw = store.get('localution_user')?.value
     if (!raw) return null
-    let decoded = raw
-    try { decoded = decodeURIComponent(raw) } catch {}
-    const parsed = JSON.parse(decoded) as LocalutionUser
-    return parsed ?? null
+    return verifyCookie(raw) as LocalutionUser | null
   } catch {
     return null
   }
