@@ -378,51 +378,63 @@ async function extractReviewsFromDom(page: any, log: Logger): Promise<CollectedR
   return rawReviews
 }
 
-// ── 답글 등록 ────────────────────────────────────────────────
+// ── 답글 등록 (BAEMIN v1: APIRequestContext, 쿠팡 74차 패턴) ──
+// Playwright DOM 조작 → page.context().request.fetch() 로 전환
+// · navigation 영향 없음 (page.evaluate 금지)
+// · 응답 body 검증으로 silent fail 차단 (쿠팡 63차)
 async function postBaeminReply(
   page: any, platformReviewId: string, replyText: string, log: Logger,
 ): Promise<{ ok: true } | { ok: false; reason: string }> {
   try {
     const idNum = platformReviewId.replace(/^baemin(-real-|:)?/, '')
-    log.info({ idNum }, 'baemin: posting reply')
 
-    // 리뷰 카드 탐색 (다양한 data attribute)
-    let card = await page.$(`[data-review-id="${idNum}"], [data-id="${idNum}"], [data-review-no="${idNum}"]`)
+    // shopId 추출 (page url 또는 storage)
+    const url = page.url()
+    const m = url.match(/\/shops\/(\d+)/)
+    const shopNo = m ? m[1] : ''
+    if (!shopNo) {
+      log.error({ url }, 'baemin: shopNo not in URL')
+      return { ok: false, reason: 'shopNo not in URL' }
+    }
 
-    // 스크롤하며 탐색
-    if (!card) {
-      for (let i = 0; i < 8; i++) {
-        await page.evaluate(() => window.scrollBy(0, 800))
-        await page.waitForTimeout(600)
-        card = await page.$(`[data-review-id="${idNum}"], [data-id="${idNum}"]`)
-        if (card) break
+    log.info({ idNum, shopNo }, 'baemin: posting reply via APIRequestContext')
+
+    const apiUrl = 'https://self-api.baemin.com/v1/review/shops/' + shopNo + '/reviews/comments'
+    const res = await page.context().request.fetch(apiUrl, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Referer': 'https://self.baemin.com/shops/' + shopNo + '/reviews',
+        'Origin': 'https://self.baemin.com',
+        'service-channel': 'SELF_SERVICE_PC',
+        'X-Web-Version': 'v20260422143632',
+      },
+      data: { reviewNo: idNum, comment: replyText, shopNo: Number(shopNo) },
+    })
+
+    const status = res.status()
+    const text = await res.text().catch(() => '')
+    let body: any = null
+    try { body = text ? JSON.parse(text) : null } catch { body = { raw: text.slice(0, 200) } }
+
+    if (status < 200 || status >= 300) {
+      log.error({ status, body }, 'baemin: reply HTTP fail')
+      return { ok: false, reason: 'HTTP ' + status + ': ' + JSON.stringify(body).slice(0, 200) }
+    }
+
+    // 응답 body 검증 (쿠팡 63차)
+    if (body && typeof body === 'object') {
+      const code = String(body.code ?? body.status ?? body.resultCode ?? '').toUpperCase()
+      const isSuccess = (!code || code === 'SUCCESS' || code === 'OK' || code === '0' || code === '200')
+        && body.success !== false && !body.error && !body.errorMessage
+      if (!isSuccess) {
+        log.error({ status, body }, 'baemin: reply body validation failed')
+        return { ok: false, reason: 'body invalid: ' + JSON.stringify(body).slice(0, 200) }
       }
     }
 
-    if (!card) return { ok: false, reason: `review card not found: ${idNum}` }
-
-    const replyBtn = await card.$(REPLY_SEL.button) || await page.$(REPLY_SEL.button)
-    if (!replyBtn) return { ok: false, reason: 'reply button not found' }
-
-    await replyBtn.click()
-    await page.waitForTimeout(1500)
-
-    const textarea = await page.waitForSelector(REPLY_SEL.textarea, { timeout: 10_000 }).catch(() => null)
-    if (!textarea) return { ok: false, reason: 'reply textarea not found' }
-
-    await textarea.click()
-    await textarea.fill(replyText)
-    await page.waitForTimeout(600)
-
-    const submitBtn = await page.$(REPLY_SEL.submit)
-    if (!submitBtn) return { ok: false, reason: 'submit button not found' }
-    await submitBtn.click()
-
-    const verify = await verifyReplySubmitted(page, { textareaSelector: REPLY_SEL.textarea, timeoutMs: 10_000 }, log)
-    if (!verify.ok) {
-      await dumpPageDiagnostics(page, log, 'baemin-reply-verify-failed')
-      return verify
-    }
+    log.info({ status, idNum }, 'baemin: reply posted ✓')
     return { ok: true }
   } catch (e: any) {
     return { ok: false, reason: e?.message || 'unknown' }
