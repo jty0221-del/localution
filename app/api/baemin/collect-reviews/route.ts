@@ -114,49 +114,118 @@ function extractPhotos(r: any): string[] {
   return urls
 }
 
-function extractAuthor(r: any): string {
-  return r.writer?.nickname || r.writer?.name || r.memberNickname || r.nickname || r.authorName || r.author || r.writerNickname || '익명'
+// v1.2: 모든 가능한 필드명 시도 — 배민 API field 네이밍 변경 대응
+function extractAuthor(r: any): string | null {
+  const v = r.writer?.nickname || r.writer?.name || r.writer?.displayName
+    || r.memberNickname || r.nickname || r.authorName || r.author || r.writerNickname
+    || r.customerNickname || r.consumerNickname || r.userNickname || r.userName
+    || r.member?.nickname || r.user?.nickname || r.consumer?.nickname
+    || r.memberName || r.consumerName || r.customerName
+    || null
+  return typeof v === 'string' && v.trim() ? v.trim() : null
 }
 
-function extractDate(r: any): string {
-  const raw = r.createdAt || r.writtenAt || r.orderDate || r.date || r.registeredAt || r.regDate || ''
-  if (raw) { try { return new Date(raw).toISOString() } catch { return new Date().toISOString() } }
-  return new Date().toISOString()
-}
-
-function extractRating(r: any): number | null {
-  const v = r.starScore ?? r.rating ?? r.score ?? r.star ?? null
-  if (typeof v === 'number') return Math.min(5, Math.max(1, v))
-  if (typeof v === 'string') {
-    const n = parseFloat(v)
-    return isNaN(n) ? null : Math.min(5, Math.max(1, n))
+// v1.2: 날짜 필드 매칭 실패 시 null 반환 (이전: new Date() 폴백 → 모든 리뷰가 '오늘' 처리되는 버그)
+function extractDate(r: any): string | null {
+  const candidates = [
+    r.createdAt, r.writtenAt, r.orderDate, r.date, r.registeredAt, r.regDate,
+    r.reviewDate, r.reviewDateTime, r.createdDateTime, r.createdDate,
+    r.regDateTime, r.writtenDate, r.postedAt, r.timestamp,
+    r.reviewedAt, r.reviewRegDt, r.deliveryCompletedAt,
+  ]
+  for (const c of candidates) {
+    if (c === null || c === undefined || c === '') continue
+    // Unix timestamp (number)
+    if (typeof c === 'number') {
+      const d = new Date(c < 1e12 ? c * 1000 : c)
+      if (!isNaN(d.getTime())) return d.toISOString()
+    }
+    // ISO / 한국어 / Date string
+    if (typeof c === 'string') {
+      try {
+        const d = new Date(c)
+        if (!isNaN(d.getTime())) return d.toISOString()
+      } catch { /* try next */ }
+    }
   }
   return null
 }
 
+function extractRating(r: any): number | null {
+  const v = r.starScore ?? r.rating ?? r.score ?? r.star ?? r.stars
+    ?? r.reviewScore ?? r.starRating ?? r.satisfactionScore ?? null
+  if (typeof v === 'number') return Math.min(5, Math.max(1, Math.round(v)))
+  if (typeof v === 'string') {
+    const n = parseFloat(v)
+    return isNaN(n) ? null : Math.min(5, Math.max(1, Math.round(n)))
+  }
+  return null
+}
+
+function extractContent(r: any): string | null {
+  const c = r.reviewContent || r.content || r.comment || r.body
+    || r.text || r.reviewText || r.reviewBody || r.message
+    || r.description || null
+  if (typeof c !== 'string') return null
+  const trimmed = c.trim()
+  return trimmed || null
+}
+
 function extractReplyContent(r: any): string | null {
-  const rc = r.ownerReply?.content || r.ownerReply || r.reply?.content || r.reply
-    || r.ownerComment || r.replyContent || r.ceoComment || null
+  const rc = r.ownerReply?.content || r.ownerReply?.comment || r.ownerReply
+    || r.reply?.content || r.reply?.comment || r.reply
+    || r.ownerComment || r.replyContent || r.ceoComment
+    || r.ceoReply?.content || r.ceoReply
+    || r.ownerCommentContent || r.commentContent
+    || null
   return typeof rc === 'string' ? rc.trim() || null : null
 }
 
-// v1.1: cutoff 필터 — 30일 이전 리뷰는 insert 차단
+// v1.2: 강화된 정규화 — cutoff + 가비지 검증 + 통합 추출 함수
 // 68차 패턴: hasReply 다중 신호 + raw_snapshot 보존
-function normalizeReviews(reviews: any[], shopNo: string, userId: string, daysBack: number): any[] {
+function normalizeReviews(
+  reviews: any[], shopNo: string, userId: string, daysBack: number,
+  log?: (s: string) => void,
+): { rows: any[]; skipped: { garbage: number; cutoff: number; noId: number } } {
   const now = new Date().toISOString()
   const cutoffMs = Date.now() - daysBack * 86400_000
   const out: any[] = []
+  const skipped = { garbage: 0, cutoff: 0, noId: 0 }
+
+  // 진단: 첫 리뷰의 키 목록 로깅 (필드명 변경 감지용)
+  if (log && reviews.length > 0) {
+    const keys = Object.keys(reviews[0]).slice(0, 30).join(',')
+    log('first review keys: ' + keys)
+  }
+
   for (let i = 0; i < reviews.length; i++) {
     const r = reviews[i]
-    const id = r.reviewId ?? r.reviewNo ?? r.id ?? r.seq ?? ('baemin-' + shopNo + '-' + i)
-    const postedAt = extractDate(r)
-    // cutoff 검사 — 30일 이전 리뷰는 skip
-    const postedMs = new Date(postedAt).getTime()
-    if (!isNaN(postedMs) && postedMs < cutoffMs) continue
+    const id = r.reviewId ?? r.reviewNo ?? r.id ?? r.seq ?? null
+    if (!id) { skipped.noId++; continue }
 
-    const replyContent = extractReplyContent(r)
-    const hasReply = !!(r.ownerReply || r.reply || r.ownerComment || r.replyContent || r.hasComment || r.hasReply || replyContent)
+    const postedAt = extractDate(r)
+    // cutoff 검사 — 30일 이전 리뷰만 skip (날짜 unknown 은 보수적으로 keep)
+    if (postedAt) {
+      const postedMs = new Date(postedAt).getTime()
+      if (!isNaN(postedMs) && postedMs < cutoffMs) { skipped.cutoff++; continue }
+    }
+
     const author = extractAuthor(r)
+    const content = extractContent(r)
+    const rating = extractRating(r)
+    const replyContent = extractReplyContent(r)
+
+    // 가비지 검증 — author/content/rating 모두 null 이면 의미 없는 row → skip
+    if (!author && !content && rating === null) {
+      skipped.garbage++
+      continue
+    }
+
+    const hasReply = !!(
+      r.ownerReply || r.reply || r.ownerComment || r.replyContent || r.hasComment || r.hasReply
+      || r.hasOwnerReply || r.commentExists || replyContent
+    )
+
     out.push({
       user_id: userId,
       platform: 'baemin' as const,
@@ -164,8 +233,8 @@ function normalizeReviews(reviews: any[], shopNo: string, userId: string, daysBa
       platform_store_id: shopNo,
       author_name: author,
       author_mask: maskAuthor(author),
-      rating: extractRating(r),
-      content: (r.reviewContent || r.content || r.comment || r.body || '').trim() || null,
+      rating,
+      content,
       photos: extractPhotos(r),
       has_reply: hasReply,
       reply_content: replyContent,
@@ -174,7 +243,7 @@ function normalizeReviews(reviews: any[], shopNo: string, userId: string, daysBa
       raw_snapshot: r,
     })
   }
-  return out
+  return { rows: out, skipped }
 }
 
 // ── upsert (쿠팡 68차 dedupe + 62차-2 schema fallback) ─────
@@ -370,9 +439,13 @@ export async function POST(req: NextRequest) {
     // 경로 A: 북마크릿 직접 전송
     if (Array.isArray(body.reviews) && body.reviews.length > 0) {
       const shopNo = String(body.shop_no || '14637452')
-      const rows = normalizeReviews(body.reviews, shopNo, userId, daysBack)
+      const { rows, skipped } = normalizeReviews(body.reviews, shopNo, userId, daysBack, log)
       const count = await upsertBaeminReviews(svc, rows)
-      return NextResponse.json({ ok: true, count, total: count, source: 'bookmarklet' }, { headers: ch })
+      return NextResponse.json({
+        ok: true, count, total: count, source: 'bookmarklet',
+        skipped, sampleKeys: body.reviews[0] ? Object.keys(body.reviews[0]).slice(0, 30) : [],
+        logs,
+      }, { headers: ch })
     }
 
     // 경로 B: 저장된 쿠키로 직접 fetch
@@ -400,11 +473,12 @@ export async function POST(req: NextRequest) {
       }
 
       if (result.reviews.length > 0) {
-        const rows = normalizeReviews(result.reviews, shopNo, userId, daysBack)
+        const { rows, skipped } = normalizeReviews(result.reviews, shopNo, userId, daysBack, log)
         const count = await upsertBaeminReviews(svc, rows)
         return NextResponse.json({
           ok: true, count, total: result.reviews.length, source: 'server', shopNo,
           oldestDate: result.oldestDate, daysBack, logs,
+          skipped, sampleKeys: result.reviews[0] ? Object.keys(result.reviews[0]).slice(0, 30) : [],
         }, { headers: ch })
       }
 
