@@ -118,7 +118,7 @@ export async function POST(req: NextRequest) {
     // 1) 리뷰 조회
     const { data: row, error: selErr } = await svc
       .from('platform_reviews')
-      .select('id, user_id, platform, platform_store_id, platform_review_id, draft_reply, has_reply, reply_status')
+      .select('id, user_id, platform, platform_store_id, platform_review_id, draft_reply, has_reply, reply_status, posted_at')
       .eq('id', reviewId)
       .maybeSingle()
 
@@ -139,6 +139,23 @@ export async function POST(req: NextRequest) {
         code: 'ALREADY_SUBMITTED',
         error: '이미 답글이 발행됐어요. 페이지를 새로고침해주세요.',
       }, { status: 409 })
+    }
+
+    // v1.6m: 배민 정책 — 30일 지난 리뷰는 답글 등록 불가
+    if (row.platform === 'baemin' && row.posted_at) {
+      const postedMs = new Date(row.posted_at).getTime()
+      if (!isNaN(postedMs)) {
+        const daysAgo = (Date.now() - postedMs) / 86400_000
+        if (daysAgo > 30) {
+          return NextResponse.json({
+            ok: false,
+            code: 'BAEMIN_REPLY_EXPIRED',
+            error: '배민 정책상 30일이 지난 리뷰에는 답글을 등록할 수 없어요. (배민 자체 제한)',
+            posted_at: row.posted_at,
+            days_ago: Math.round(daysAgo),
+          }, { status: 422 })
+        }
+      }
     }
 
     const draft = String(row.draft_reply || '').trim()
