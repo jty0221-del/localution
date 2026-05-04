@@ -5,6 +5,7 @@ import { createCipheriv, randomBytes } from 'crypto'
 import { requireUser } from '@/app/lib/userAuth'
 import { createServiceClient } from '@/app/lib/adminAuth'
 import { baeminProxyLogin } from '@/app/lib/baemin-login'
+import { enqueuePlatformJob } from '@/app/lib/queue'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -120,7 +121,31 @@ export async function POST(req: NextRequest) {
       if (error) throw new Error(error.message)
     }
 
-    return NextResponse.json({ ok: true, message: '배민 연동 완료! 리뷰를 실시간으로 가져와요 🎉' })
+    // ── 자동 fetch 트리거 (쿠팡 60차 패턴) ──
+    // 연결 즉시 14일치 리뷰 수집 큐에 enqueue → 사용자 대기 시간 단축
+    let queued = false
+    let queueJobId: string | undefined
+    try {
+      if (process.env.REDIS_URL) {
+        const jr = await enqueuePlatformJob({
+          platform: 'baemin',
+          action: 'fetch_reviews',
+          userId,
+          storeId: shopNo || 'unknown',
+          payload: { shop_no: shopNo, days_back: 14, source: 'save-login' },
+        })
+        if (jr.ok) { queued = true; queueJobId = jr.jobId }
+      }
+    } catch (qe: any) {
+      console.warn('[baemin-save-login] enqueue failed:', qe?.message)
+    }
+
+    return NextResponse.json({
+      ok: true,
+      message: '배민 연동 완료! 리뷰를 자동으로 수집하고 있어요.',
+      queued,
+      jobId: queueJobId,
+    })
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e?.message || '연동 실패' }, { status: 500 })
   }
