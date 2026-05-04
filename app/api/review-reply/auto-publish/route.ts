@@ -197,6 +197,26 @@ export async function POST(req: NextRequest) {
         ? (extra?.smartplace_biz_id || undefined)
         : undefined
 
+      // 72차: post_reply enqueue 전에 사장님 본인 fetch_reviews 큐 정리
+      // 큐 적체 시 post_reply priority 1 이어도 active job 끝나야 처리됨 → 답글 발행 지연
+      // 답글 발행이 사용자 의도에 가까우니 fetch_reviews 는 다음 cron 으로 미루기
+      try {
+        const { getPlatformQueue } = await import('@/app/lib/queue')
+        const q = getPlatformQueue()
+        const waiting = await q.getWaiting(0, 999)
+        let cleanedCount = 0
+        for (const j of waiting) {
+          if (j.data?.userId === userId && j.data?.action === 'fetch_reviews') {
+            try { await j.remove(); cleanedCount++ } catch (_) {}
+          }
+        }
+        if (cleanedCount > 0) {
+          console.log('[auto-publish] 큐 정리 — fetch_reviews ' + cleanedCount + '개 제거 (post_reply 우선)')
+        }
+      } catch (e) {
+        console.warn('[auto-publish] queue cleanup failed (non-fatal):', e)
+      }
+
       const jobPayload: Record<string, string> = {
         platform_review_id: row.platform_review_id,
         reply_text: draft,
