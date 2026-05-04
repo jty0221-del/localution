@@ -589,7 +589,7 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
       // ── 자동 발행 모드 — 보수적 표시 ──
       // hasReply=true 로 미리 마킹하지 않음 (워커가 실제 등록 검증 통과해야 표시됨)
       // queued 상태로만 표시 → 90초 후 자동 재수집으로 실제 결과 반영
-      toast.success('⚡ 답글 발행 요청을 보냈어요! 네이버에 등록 시도 중 (60~90초 소요). 결과는 자동으로 갱신됩니다.')
+      toast.success(`답글 발행 요청을 보냈어요! ${config.label}에 등록 시도 중 (60~90초 소요). 결과는 자동으로 갱신됩니다.`)
       setReviews((prev) =>
         prev.map((r) =>
           r.id === review.id
@@ -1355,7 +1355,7 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
                               {isSubmitted ? `✅ 사장님 답글 (${config.label} 등록 완료)` : `✅ 사장님 답글 (${config.label}에 등록됨)`}
                             </p>
                             <p className="text-sm text-[#374151] leading-relaxed whitespace-pre-wrap break-words">
-                              {review.replyContent || review.draftReply || '(로컬루션에서 작성하지 않은 답글이에요. 네이버에서 직접 확인해주세요.)'}
+                              {review.replyContent || review.draftReply || `(로컬루션에서 작성하지 않은 답글이에요. ${config.label}에서 직접 확인해주세요.)`}
                             </p>
                           </div>
                         )}
