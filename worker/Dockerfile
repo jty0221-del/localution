@@ -1,26 +1,27 @@
-# fly.io Worker â€“ Playwright + BullMQ
-# 42ì°¨-3: Playwright 1.47 â†’ 1.59.1 ë²„ì „ ì—… (chromium ê²½ë¡Ü ë¶ˆì¼ì¹˜ ìˆ˜ì •)
+# fly.io Worker - Playwright + BullMQ
+# 42-3: Playwright 1.47 -> 1.59.1
+# v29: Aggressive cache bust + structured rebuild (20260505T1545)
 
 FROM mcr.microsoft.com/playwright:v1.59.1-jammy
 
-# v28 cache-bust 20260504T1430 — Railway docker layer cache 강제 우회
-ARG CACHE_BUST=20260505T1530-baemin-v1.6g
-RUN echo "CACHE_BUST: $CACHE_BUST"
+# 모든 layer cache 무효화 - timestamp 가 매번 다르므로
+ARG CACHE_BUST=20260505T1545-baemin-v1.6g-rev3
+ENV BUILD_VERSION=$CACHE_BUST
+RUN echo "=== FRESH BUILD: $CACHE_BUST ===" && date
 
 WORKDIR /app
 
 COPY package.json package-lock.json* ./
-RUN npm install --omit=optional --no-audit --no-fund \
-    && npm cache clean --force
+RUN npm install --omit=optional --no-audit --no-fund && npm cache clean --force
 
 COPY tsconfig.json ./
-# v28 FRESH BUILD — baemin v1.6e_rev2 (VERSION_MARKER log + cache bust)
-RUN echo "build-marker: v28-baemin-v1.6e-rev2-20260504T1430" && rm -rf /app/dist /app/src
+
+# 항상 fresh - 매 build 마다 dist/src 제거
+RUN rm -rf /app/dist /app/src && echo "build-marker: v29-baemin-v1.6g-rev3-$CACHE_BUST"
 COPY src ./src
 
-# 컴파일 전 dist 강제 제거 (cache 우회) — grep 마커 검증은 push 순서 race fail 유발 → 제거
-# 버전 확인은 런타임 /build-info 의 versionValue 로 함
-RUN rm -rf /app/dist && npx tsc && ls -la /app/dist/adapters/naver.js
+# 컴파일
+RUN rm -rf /app/dist && npx tsc && ls -la /app/dist/adapters/baemin.js && head -20 /app/dist/adapters/baemin.js
 
 ENV NODE_ENV=production
 ENV PORT=8080
