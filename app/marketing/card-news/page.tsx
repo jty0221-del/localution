@@ -6,7 +6,7 @@ import Link from 'next/link'
 import Sidebar from '../../components/Sidebar'
 import PageHeader from '../../components/PageHeader'
 import Footer from '../../components/Footer'
-import { ArrowRight, Camera } from 'lucide-react'
+import { ArrowRight, Camera, Send } from 'lucide-react'
 
 type Tone = 'info' | 'empathy' | 'warning' | 'action'
 type Ratio = '1:1' | '4:5'
@@ -118,6 +118,20 @@ export default function CardNewsPage() {
     }
   }
 
+  const sendToThreads = () => {
+    if (!data) return
+    const cover = data.slides[0]
+    const text = cover?.headline || data.topic
+    const hashtags = JSON.stringify(data.hashtags.threads ?? [])
+    const params = new URLSearchParams({
+      source: 'card_news',
+      text: text,
+      hashtags,
+      topic: data.topic,
+    })
+    window.location.href = `/marketing/threads?${params.toString()}`
+  }
+
   const copyCaption = () => {
     if (!data) return
     const cover = data.slides[0]
@@ -126,7 +140,7 @@ export default function CardNewsPage() {
     const caption =
       `${cover?.headline || data.topic}\n\n` +
       `${bodies.join('\n')}\n\n` +
-      `👉 ${cta?.headline || '저장 · 공유로 놓치지 마세요'}\n\n` +
+      `${cta?.headline || '저장 · 공유로 놓치지 마세요'}\n\n` +
       `${data.hashtags.instagram.map(h => '#' + h).join(' ')}`
     navigator.clipboard.writeText(caption)
     alert('인스타 캡션이 복사되었습니다.')
@@ -258,7 +272,14 @@ export default function CardNewsPage() {
                   onClick={copyCaption}
                   className="px-5 py-3 bg-white border border-gray-300 hover:bg-gray-50 rounded-xl font-medium text-[#4E5968]"
                 >
-                  📋 인스타 캡션 복사
+                  인스타 캡션 복사
+                </button>
+                <button
+                  onClick={sendToThreads}
+                  className="px-5 py-3 bg-black hover:bg-gray-900 rounded-xl font-medium text-white flex items-center gap-2"
+                >
+                  <Send size={15} strokeWidth={2.5} />
+                  스레드로 보내기
                 </button>
               </>
             )}
