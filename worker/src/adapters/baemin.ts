@@ -161,8 +161,8 @@ export async function runBaemin(
     return { status: 'skipped', message: `baemin: unsupported action ${action}` }
   }
 
-  // v1.6g_rev3: in-browser fetch + extractor 관대화 + 강제 재빌드
-  log.info({ version: 'v1.6g_rev3', ts: '20260505T1545' }, 'BAEMIN_ADAPTER_VERSION_MARKER')
+  // v1.6h: API 요청 6개월 (배민 페이지 기본) + cutoff 30일
+  log.info({ version: 'v1.6h', ts: '20260505T1600' }, 'BAEMIN_ADAPTER_VERSION_MARKER')
 
   const svc   = getServiceClient()
   let creds: any
@@ -550,9 +550,12 @@ export async function runBaemin(
     let totalInserted = 0
     const perShopStats: any[] = []
 
-    // v1.6f: 30일 fetch 기간 계산
+    // v1.6h: API 요청은 180일 (배민 페이지 기본값) — cutoff 는 daysBack 으로 별도 적용
+    // 30일치만 요청하면 매장 활동 적은 경우 빈 응답 → 6개월 fetch 후 cutoff 필터
+    const API_FETCH_DAYS = 180
     const toDate = new Date().toISOString().slice(0, 10)
-    const fromDate = new Date(Date.now() - daysBack * 86400_000).toISOString().slice(0, 10)
+    const fromDate = new Date(Date.now() - API_FETCH_DAYS * 86400_000).toISOString().slice(0, 10)
+    log.info({ fromDate, toDate, apiFetchDays: API_FETCH_DAYS, cutoffDaysBack: daysBack }, 'baemin: date range (v1.6h)')
 
     for (const shopId of shopIdsToFetch) {
       const beforeCaptureCount = capturedApiResponses.length
@@ -626,13 +629,21 @@ export async function runBaemin(
         }, { base: 'https://self-api.baemin.com/v1/review/shops/' + shopId + '/reviews', fromDate, toDate })
 
         if (restResult?.__firstShape) {
-          log.info({ shape: restResult.__firstShape.topKeys, firstItemKeys: restResult.__firstShape.firstItemKeys }, 'baemin: REST response shape (v1.6g)')
+          log.info({
+            shape: restResult.__firstShape.topKeys,
+            firstItemKeys: restResult.__firstShape.firstItemKeys,
+            firstItemSample: restResult.__firstShape.firstItemSample
+              ? JSON.stringify(restResult.__firstShape.firstItemSample).slice(0, 500)
+              : null,
+            rawCount: (restResult.__out || []).length,
+          }, 'baemin: REST response shape (v1.6h)')
         }
         if (restResult?.__error) {
           log.warn({ err: restResult.__error, status: restResult.__status }, 'baemin: in-browser fetch error')
         }
 
         const rawReviews = Array.isArray(restResult?.__out) ? restResult.__out : []
+        log.info({ rawCount: rawReviews.length }, 'baemin: REST raw reviews')
         if (rawReviews.length > 0) {
           // extractor 우회 — 직접 normalize 호출 (URL 이 /reviews 면 무조건 review array)
           // 첫 item 의 raw key 들을 보고 mapping
