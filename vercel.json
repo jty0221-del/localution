@@ -19,7 +19,7 @@
     },
     {
       "path": "/api/cron/delivery-reviews-fetch",
-      "schedule": "*/15 * * * *"
+      "schedule": "0 4 * * *"
     },
     {
       "path": "/api/cron/naver-reply-generate",
