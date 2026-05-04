@@ -151,10 +151,15 @@ export async function POST(req: NextRequest) {
     // Worker 가 Playwright 로 직접 로그인 + cookies 저장 후 fetch_reviews 실행
     if (process.env.REDIS_URL) {
       try {
+        // v1.6b: 'unknown' string sentinel 제거 — Worker 가 allShopIds 감지하도록
+        const validShopNo = cred.platform_store_id && /^\d+$/.test(String(cred.platform_store_id))
+          ? String(cred.platform_store_id) : ''
         const jr = await enqueuePlatformJob({
           platform: 'baemin', action: 'fetch_reviews',
-          userId, storeId: cred.platform_store_id || 'unknown',
-          payload: { shop_no: cred.platform_store_id, days_back: 30, source: 'auto-login-fallback' },
+          userId, storeId: validShopNo || 'auto-detect',
+          payload: validShopNo
+            ? { shop_no: validShopNo, days_back: 30, source: 'auto-login-fallback' }
+            : { days_back: 30, source: 'auto-login-fallback' },
         })
         await svc.from('platform_credentials').update({
           last_login_status: 'pending_worker_login',
