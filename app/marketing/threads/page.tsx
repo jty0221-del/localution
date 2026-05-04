@@ -7,7 +7,6 @@ import {
   Trash2, RefreshCw, Settings, Hash, Image as ImageIcon,
   CalendarClock, Loader2, Link2Off
 } from 'lucide-react'
-import Image from 'next/image'
 import Sidebar from '@/app/components/Sidebar'
 import Footer from '@/app/components/Footer'
 import Link from 'next/link'
@@ -533,9 +532,11 @@ function ThreadsPageContent() {
         <div className="pointer-events-none absolute inset-0 opacity-30" aria-hidden="true"
           style={{ background: 'radial-gradient(800px 240px at 20% -20%, rgba(255,255,255,0.08), transparent 60%)' }} />
         <div className="relative max-w-5xl mx-auto px-4 md:px-8 py-9 md:py-12 flex items-center gap-3.5 md:gap-5">
-          {/* 로고 이미지 */}
-          <div className="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-white/10 ring-1 ring-white/20 shadow-[0_8px_24px_-8px_rgba(0,0,0,0.4)] flex items-center justify-center flex-shrink-0 overflow-hidden">
-            <Image src="/logo.svg" alt="로컬루션" width={40} height={40} className="md:w-11 md:h-11" />
+          {/* Threads 로고 */}
+          <div className="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-white/10 ring-1 ring-white/20 shadow-[0_8px_24px_-8px_rgba(0,0,0,0.4)] flex items-center justify-center flex-shrink-0">
+            <svg viewBox="0 0 192 192" xmlns="http://www.w3.org/2000/svg" className="w-8 h-8 md:w-9 md:h-9">
+              <path fill="white" d="M141.537 88.988c-.827-.396-1.667-.778-2.518-1.143-1.482-27.307-16.403-42.94-41.457-43.1h-.315c-14.986 0-27.317 6.397-34.563 17.849l13.138 8.945c5.449-8.146 13.998-10.192 21.437-10.192h.3c8.44.05 14.844 2.548 18.991 7.448 3.026 3.575 5.035 8.502 6.011 14.682-7.542-1.281-15.694-1.661-24.367-1.21-24.873 1.29-40.236 16.053-39.196 36.161.527 10.125 5.47 18.746 13.948 24.368 7.181 4.834 16.574 7.207 26.337 6.682 12.98-.7 23.328-5.625 30.498-14.593 5.49-7.038 8.85-16.25 10.11-27.808 5.089 3.097 8.863 7.375 10.799 12.775 3.323 9.467 3.486 25.074-7.189 35.726-9.342 9.317-20.645 13.533-38.734 13.663-19.99-.13-35.495-6.18-45.704-17.987-9.694-11.352-14.7-27.769-14.884-47.796.185-20.027 5.19-36.444 14.884-47.796 10.21-11.808 25.714-17.857 45.704-17.987 20.204.13 35.856 6.211 46.217 18.252 5.038 5.85 8.921 13.439 11.573 22.593l13.695-3.848c-3.218-10.914-8.274-20.167-15.111-27.454-13-14.322-31.472-21.695-56.294-21.916h-.173c-24.733.22-43.069 7.621-55.9 22.08-11.435 12.79-17.373 31.048-17.58 54.361v1.731c.207 23.313 6.145 41.571 17.58 54.362 12.831 14.458 31.167 21.86 55.9 22.08h.173c22.42-.2 39.362-6.624 50.794-19.056 14.533-15.787 14.06-36.142 9.44-49.123-3.323-9.298-10.006-16.89-19.443-21.855zm-45.56 43.777c-11.444 0-21.324-5.566-21.903-14.395-.393-6.767 3.367-12.63 10.354-15.467.27-.107.539-.21.81-.305 5.657-2.04 12.609-2.327 20.18-.812.278.055.552.118.821.189.3 4.213.37 8.656.2 13.247-.484 13.011-4.473 17.543-10.462 17.543z"/>
+            </svg>
           </div>
           <div className="flex-1 min-w-0">
             <h1 className="text-[22px] md:text-[28px] font-black tracking-tight text-white leading-tight">스레드 자동 발행</h1>
