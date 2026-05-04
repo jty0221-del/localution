@@ -26,7 +26,7 @@ import Footer from '../../components/Footer'
 import PageHeader from '../../components/PageHeader'
 import { toast } from '../../lib/toast'
 import { Heart, Briefcase, Smile, Edit3, Mail, Flame, FileText, type LucideIcon } from 'lucide-react'
-import CoupangReviewBookmarkletDialog from '../../components/CoupangReviewBookmarkletDialog'
+// 76차: CoupangReviewBookmarkletDialog import 제거 (자동 연결로 대체됨)
 
 type PlatformSlug = 'naver_place' | 'baemin' | 'yogiyo' | 'coupangeats' | 'kakao_map'
 type ReplyStatus = 'none' | 'draft' | 'queued' | 'submitting' | 'submitted' | 'failed'
@@ -260,9 +260,7 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
   const [fetching, setFetching] = useState(false)
   const [autoFetchTried, setAutoFetchTried] = useState(false)
   // 쿠팡이츠 북마클릿 — Akamai 우회용 직접 추출 다이얼로그
-  const [cpeBookmarkletOpen, setCpeBookmarkletOpen] = useState(false)
-  const [cpeBookmarkletToken, setCpeBookmarkletToken] = useState<string | null>(null)
-  const [cpeBookmarkletLoading, setCpeBookmarkletLoading] = useState(false)
+  // 76차: cpeBookmarklet 상태 제거 (자동 연결로 대체됨)
   const [filterRating, setFilterRating] = useState<number | null>(null)
   const [filterReplied, setFilterReplied] = useState<'all' | 'replied' | 'unreplied' | 'negative'>('all')
   // 30차-23: 기간 필터 (7일 / 30일 / 전체) — 서버 쿼리 파라미터로 넘겨서 re-fetch
@@ -388,34 +386,7 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
     if (!loadingConn) loadReviews()
   }, [loadingConn, loadReviews])
 
-  // ── 쿠팡이츠 북마클릿 직접 가져오기 (Akamai 우회) ─────
-  const openCoupangBookmarklet = useCallback(async () => {
-    if (cpeBookmarkletLoading) return
-    setCpeBookmarkletLoading(true)
-    try {
-      const r = await fetch('/api/review-import/coupang/init', {
-        method: 'POST',
-        credentials: 'include',
-      })
-      const j = await r.json()
-      if (!j.ok || !j.token) {
-        toast.error('토큰 발급 실패: ' + (j.error || j.message || 'unknown'))
-        return
-      }
-      setCpeBookmarkletToken(j.token)
-      setCpeBookmarkletOpen(true)
-    } catch (e: any) {
-      toast.error('네트워크 오류: ' + (e?.message || 'unknown'))
-    } finally {
-      setCpeBookmarkletLoading(false)
-    }
-  }, [cpeBookmarkletLoading])
-
-  const closeCoupangBookmarklet = useCallback(() => {
-    setCpeBookmarkletOpen(false)
-    // 닫을 때 리뷰 목록 새로고침 (사장님이 추출 완료한 경우)
-    setTimeout(() => loadReviews(), 500)
-  }, [loadReviews])
+  // 76차: 쿠팡이츠 북마클릿 직접 가져오기 함수 제거 (자동 연결로 대체됨)
 
   // ── 3) 지금 수집 (naver_place 만 동작) ─────
   const collectNow = useCallback(async () => {
@@ -1045,17 +1016,8 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
                       {fetching ? '수집 중...' : '↻ 지금 수집'}
                     </button>
                   )}
-                  {/* 쿠팡이츠 전용: 북마클릿 직접 가져오기 (Akamai 우회) */}
-                  {config.platform === 'coupangeats' && (
-                    <button
-                      onClick={openCoupangBookmarklet}
-                      disabled={cpeBookmarkletLoading}
-                      className="px-3 py-2 rounded-xl text-xs font-bold text-white bg-gradient-to-br from-[#D70530] to-[#A30024] hover:opacity-90 disabled:opacity-50 shadow-sm"
-                      title="브라우저 직접 추출 — Akamai 차단 100% 우회"
-                    >
-                      {cpeBookmarkletLoading ? '준비 중...' : '직접 가져오기'}
-                    </button>
-                  )}
+                  {/* 76차: '직접 가져오기' 버튼 제거 — 자동 연결로 충분, 일반 사장님 혼란 야기
+                       (75차까지 자동 연결 완성 + 답글 자동 발행 12초 작동 확인됨) */}
                 </div>
               </div>
             )}
@@ -1426,12 +1388,7 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
         </main>
       </div>
 
-      {/* 쿠팡이츠 북마클릿 다이얼로그 (Akamai 우회 직접 가져오기) */}
-      <CoupangReviewBookmarkletDialog
-        open={cpeBookmarkletOpen}
-        onClose={closeCoupangBookmarklet}
-        token={cpeBookmarkletToken}
-      />
+      {/* 76차: CoupangReviewBookmarkletDialog 제거 — 자동 연결로 충분 */}
 
       {/* 30차-23: 사진 라이트박스 */}
       {lightboxUrl && (
