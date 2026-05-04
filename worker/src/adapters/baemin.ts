@@ -298,84 +298,113 @@ export async function runBaemin(
 
     if (action === 'health_check') return { status: 'ok', message: 'baemin: login ok' }
 
-    // ── Step 3: shopId 결정 ──────────────────────────────────
-    let shopId: string = creds.platform_store_id || storeId || ''
-    if (!shopId) {
-      shopId = await page.evaluate(() => {
-        const links = Array.from(document.querySelectorAll('a[href*="/shops/"]'))
-        for (const a of links) {
-          const m = (a as HTMLAnchorElement).href.match(/\/shops\/(\d+)/)
-          if (m) return m[1]
-        }
-        return ''
-      }) || ''
-    }
-    if (!shopId) return { status: 'failed', message: 'baemin: shopId 없음 — platform_store_id 설정 필요' }
-    log.info({ shopId }, 'baemin: shopId confirmed')
-
-    // ── Step 4: 리뷰 페이지 직접 이동 ─────────────────────────
-    const reviewsUrl = REVIEWS_URL.replace('{shopId}', shopId)
-    log.info({ reviewsUrl }, 'baemin: goto reviews page')
-    await page.goto(reviewsUrl, { waitUntil: 'networkidle', timeout: 45_000 })
-    await page.waitForTimeout(3000)
-
-    // 스크롤로 lazy-load + 추가 XHR 유발
-    for (let i = 0; i < 12; i++) {
-      await page.evaluate(() => window.scrollBy(0, 800))
-      await page.waitForTimeout(500)
-    }
-    await page.waitForTimeout(2000)
-
-    log.info({ count: capturedApiResponses.length }, 'baemin: XHR total captured')
-
-    // ── Step 5: XHR → 리뷰 추출 ──────────────────────────────
-    // v1.1: shopId 가 URL 에 포함된 응답만 사용 — 다중 매장 leak 차단
-    let reviews: CollectedReview[] = []
-    const shopIdMatcher = '/shops/' + shopId + '/'
-    for (const { url, data } of capturedApiResponses) {
-      // shopId 가 URL 에 안 들어있으면 다른 매장의 응답 → 무시
-      if (shopId && !url.includes(shopIdMatcher)) {
-        log.info({ url: url.slice(0, 100), shopId }, 'baemin: XHR skipped (other shop)')
-        continue
+    // ── Step 3: 다중 매장 shopId 모두 감지 (v1.5) ────────────
+    // /shops/{N}/ 링크를 home 에서 파싱 → 모든 매장 fetch
+    const allShopIds: string[] = await page.evaluate(() => {
+      const set = new Set<string>()
+      const links = Array.from(document.querySelectorAll('a[href*="/shops/"]'))
+      for (const a of links) {
+        const m = (a as HTMLAnchorElement).href.match(/\/shops\/(\d+)/)
+        if (m) set.add(m[1])
       }
-      const extracted = extractReviewsFromApiResponse(data, log)
-      if (extracted.length > 0) {
-        log.info({ url: url.slice(0, 100), count: extracted.length }, 'baemin: XHR reviews')
-        for (const r of extracted) {
-          if (!reviews.some(x => x.platform_review_id === r.platform_review_id)) {
-            reviews.push(r)
-          }
-        }
-      }
+      return Array.from(set)
+    }).catch(() => [])
+
+    // payload 에 명시된 shop_no 우선, 없으면 감지된 모든 shopId
+    const explicitShopId = (typeof payload?.shop_no === 'string' && payload.shop_no) ? String(payload.shop_no) : ''
+    const credShopId = creds.platform_store_id || storeId || ''
+    let shopIdsToFetch: string[] = []
+    if (action === 'post_reply') {
+      // 답글은 단일 매장만 (payload 에서 받은 platform_review_id 의 매장)
+      shopIdsToFetch = [explicitShopId || credShopId].filter(Boolean)
+    } else if (explicitShopId) {
+      shopIdsToFetch = [explicitShopId]
+    } else if (allShopIds.length > 0) {
+      shopIdsToFetch = allShopIds
+    } else if (credShopId) {
+      shopIdsToFetch = [credShopId]
     }
 
-    // ── Step 6: DOM 폴백 ─────────────────────────────────────
-    if (reviews.length === 0) {
-      log.info('baemin: XHR empty → DOM fallback')
-      reviews = await extractReviewsFromDom(page, log)
+    if (shopIdsToFetch.length === 0) {
+      return { status: 'failed', message: 'baemin: shopId 없음 — 매장 미감지 + platform_store_id 미설정' }
     }
+    log.info({ shopIdsToFetch, allShopIds, credShopId, explicitShopId }, 'baemin: shops to fetch')
 
-    log.info({ count: reviews.length }, 'baemin: reviews total')
-    if (reviews.length === 0) await dumpPageDiagnostics(page, log, 'baemin-no-reviews')
-
-    // v1.1: cutoff 필터 — DAYS_BACK 이전 리뷰는 insert 차단 (기본 30일)
+    // ── Step 4-6: 각 매장별 리뷰 페이지 순회 + XHR 캡처 + 추출 + 저장 ─
     const daysBack = (typeof payload?.days_back === 'number' && payload.days_back > 0)
       ? Math.min(payload.days_back as number, 365) : 30
     const cutoffMs = Date.now() - daysBack * 86400_000
-    const before = reviews.length
-    reviews = reviews.filter((r: any) => {
-      if (!r.posted_at) return true  // 날짜 모르면 keep (보수적)
-      const t = new Date(r.posted_at).getTime()
-      return isNaN(t) || t >= cutoffMs
-    })
-    if (reviews.length !== before) {
-      log.info({ before, after: reviews.length, daysBack }, 'baemin: cutoff filter applied')
+
+    let totalReviews = 0
+    let totalInserted = 0
+    const perShopStats: any[] = []
+
+    for (const shopId of shopIdsToFetch) {
+      // 매장별로 capturedApiResponses 의 인덱스 기록 (이전 매장 응답 제외)
+      const beforeCaptureCount = capturedApiResponses.length
+
+      const reviewsUrl = REVIEWS_URL.replace('{shopId}', shopId)
+      log.info({ reviewsUrl, shopId }, 'baemin: goto reviews page')
+      try {
+        await page.goto(reviewsUrl, { waitUntil: 'networkidle', timeout: 45_000 })
+      } catch (gErr: any) {
+        log.warn({ shopId, err: gErr?.message }, 'baemin: reviews goto error — continuing')
+      }
+      await page.waitForTimeout(3000)
+
+      // 스크롤로 lazy-load + 추가 XHR 유발
+      for (let i = 0; i < 12; i++) {
+        await page.evaluate(() => window.scrollBy(0, 800))
+        await page.waitForTimeout(500)
+      }
+      await page.waitForTimeout(2000)
+
+      const newCaptured = capturedApiResponses.slice(beforeCaptureCount)
+      log.info({ shopId, newCount: newCaptured.length, totalCount: capturedApiResponses.length }, 'baemin: XHR captured this shop')
+
+      // XHR → 리뷰 추출 (이 매장 URL 에 매칭되는 것만)
+      let reviews: CollectedReview[] = []
+      const shopIdMatcher = '/shops/' + shopId + '/'
+      for (const { url, data } of newCaptured) {
+        if (!url.includes(shopIdMatcher)) continue
+        const extracted = extractReviewsFromApiResponse(data, log)
+        if (extracted.length > 0) {
+          log.info({ url: url.slice(0, 100), count: extracted.length, shopId }, 'baemin: XHR reviews')
+          for (const r of extracted) {
+            if (!reviews.some(x => x.platform_review_id === r.platform_review_id)) {
+              reviews.push(r)
+            }
+          }
+        }
+      }
+
+      // DOM 폴백
+      if (reviews.length === 0) {
+        log.info({ shopId }, 'baemin: XHR empty → DOM fallback')
+        reviews = await extractReviewsFromDom(page, log)
+      }
+
+      // cutoff 필터
+      const before = reviews.length
+      reviews = reviews.filter((r: any) => {
+        if (!r.posted_at) return true
+        const t = new Date(r.posted_at).getTime()
+        return isNaN(t) || t >= cutoffMs
+      })
+      if (reviews.length !== before) {
+        log.info({ shopId, before, after: reviews.length, daysBack }, 'baemin: cutoff filter applied')
+      }
+
+      // 매장 단위 upsert
+      log.info({ shopId, count: reviews.length }, 'baemin: upserting for shop')
+      const res = await upsertReviews(svc, userId, 'baemin', shopId, reviews)
+      log.info({ shopId, ...res }, 'baemin: upserted')
+      totalReviews += res.total
+      totalInserted += res.inserted
+      perShopStats.push({ shopId, total: res.total, inserted: res.inserted })
     }
 
-    const res = await upsertReviews(svc, userId, 'baemin', shopId, reviews)
-    log.info(res, 'baemin: upserted')
-
-    // ── Step 7: 답글 등록 ────────────────────────────────────
+    // ── Step 7: 답글 등록 (단일 매장만) ───────────────────────
     if (action === 'post_reply' && payload?.platform_review_id && payload?.reply_text) {
       const targetId  = String(payload.platform_review_id)
       const replyText = String(payload.reply_text)
@@ -391,7 +420,11 @@ export async function runBaemin(
       return { status: 'failed', message: `baemin reply failed: ${replied.reason}` }
     }
 
-    return { status: 'ok', message: `baemin: total=${res.total} inserted=${res.inserted}`, data: res }
+    return {
+      status: 'ok',
+      message: `baemin: shops=${shopIdsToFetch.length} total=${totalReviews} inserted=${totalInserted}`,
+      data: { perShopStats, totalReviews, totalInserted, shopIds: shopIdsToFetch },
+    }
 
   } catch (e: any) {
     log.error({ err: e?.message }, 'baemin error')
