@@ -795,7 +795,42 @@ async function fetchCoupangReviews(
   if (!skipBrowser) {
     try { alreadyOnReviews = page.url().includes('/review') } catch { /* browser dead */ }
   }
-  log.info({ reviewsUrl, alreadyOnReviews, earlyCaptured: capturedReviews.length, skipBrowser }, 'coupangeats: fetchCoupangReviews entry')
+  log.info({ reviewsUrl, alreadyOnReviews, earlyCaptured: capturedReviews.length, skipBrowser, action }, 'coupangeats: fetchCoupangReviews entry')
+
+  // ── 65차: post_reply fast path — sliding window 31일 fetch 완전 skip ──
+  // 이유: 답글 발행 1건에 1분 fetch 비효율 + Railway SIGTERM 시 답글 못 달림
+  // 흐름: home nav → /login redirect 검사 → 바로 postCoupangEatsReply 호출
+  if (action === 'post_reply' && payload?.platform_review_id && payload?.reply_text) {
+    log.info('coupangeats: 65cha — post_reply fast path (skip sliding window)')
+    if (skipBrowser) {
+      try {
+        const targetStoreId = creds.platform_store_id || '738438'
+        const homeUrl = `https://store.coupangeats.com/merchant/management/home/${targetStoreId}`
+        await page.goto(homeUrl, { waitUntil: 'domcontentloaded', timeout: 30000 })
+        await page.waitForTimeout(2000)
+        const url = page.url()
+        if (url.includes('/login') || url.includes('/error')) {
+          return {
+            status: 'failed',
+            message: 'coupangeats: 세션 만료 — 매장 연결 다시 해주세요',
+            debug: { rootUrl: url },
+          }
+        }
+      } catch (e: any) {
+        log.warn({ err: e?.message }, 'coupangeats: 65cha home nav failed (계속 진행)')
+      }
+    }
+    const targetIdFast = String(payload.platform_review_id)
+    const replyTextFast = String(payload.reply_text)
+    const storeIdFast = creds.platform_store_id || '738438'
+    const replied = await postCoupangEatsReply(page, storeIdFast, targetIdFast, replyTextFast, log)
+    if (replied.ok) {
+      await updateCoupangReviewStatus(svc, userId, targetIdFast, 'submitted', { replyContent: replyTextFast })
+      return { status: 'ok', message: `coupangeats: reply posted for ${targetIdFast} (fast path)` }
+    }
+    await updateCoupangReviewStatus(svc, userId, targetIdFast, 'failed', { error: replied.reason })
+    return { status: 'failed', message: `coupangeats reply 실패: ${replied.reason}` }
+  }
 
   // ── 리뷰 관리 페이지로 이동 (네트워크 인터셉트 + 자연 API 호출 유도) ──
   // savedCookies가 있으면(skipBrowser=true) 리뷰 페이지로 직접 탐색 시도
