@@ -5,7 +5,7 @@
 FROM mcr.microsoft.com/playwright:v1.59.1-jammy
 
 # 모든 layer cache 무효화 - timestamp 가 매번 다르므로
-ARG CACHE_BUST=20260505T1900-baemin-v1.6o
+ARG CACHE_BUST=20260505T2100-v1.6p-yogiyo-notify
 ENV BUILD_VERSION=$CACHE_BUST
 RUN echo "=== FRESH BUILD: $CACHE_BUST ===" && date
 
