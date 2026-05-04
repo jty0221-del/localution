@@ -24,6 +24,14 @@
     {
       "path": "/api/cron/naver-reply-generate",
       "schedule": "0 2,8,14,20 * * *"
+    },
+    {
+      "path": "/api/cron/threads-publish",
+      "schedule": "* * * * *"
+    },
+    {
+      "path": "/api/cron/threads-token-refresh",
+      "schedule": "0 3 * * *"
     }
   ]
 }
