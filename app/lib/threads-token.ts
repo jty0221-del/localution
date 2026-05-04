@@ -1,55 +1,73 @@
 // app/lib/threads-token.ts
 // ============================================================
-// Threads 액세스 토큰 저장/로드/갱신 유틸리티
-//   · AES-256-GCM 2단 암호화 (encryptSecret / decryptSecret 재사용)
-//   · Vercel 측 API 라우트 + OAuth 콜백에서 사용
+// Threads 액세스 토큰 저장/로드/갱신
+//   · SUPABASE_SERVICE_ROLE_KEY 파생 키 사용 (ENCRYPTION_KEK_HEX 불필요)
+//   · AES-256-GCM 단일 레이어 (단일 사용자 앱)
+//   · 모든 조회: user_id 필터 없이 최신 행 (user_id 불일치 방지)
 // ============================================================
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { encryptSecret, decryptSecret } from '@/app/lib/crypto-utils'
+import { createCipheriv, createDecipheriv, randomBytes, createHash } from 'crypto'
 
-type TokenRow = {
-  token_encrypted: string
-  token_iv: string
-  token_tag: string
-  dek_encrypted: string
+// ── 키 파생: SUPABASE_SERVICE_ROLE_KEY → 32바이트 AES 키
+function getKek(): Buffer {
+  const src = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.NEXT_PUBLIC_SUPABASE_URL
+  if (!src) throw new Error('SUPABASE_SERVICE_ROLE_KEY not set')
+  return createHash('sha256').update(src + ':localution:threads:kek:v1').digest()
+}
+
+type StoredRow = {
+  id: string
+  token_encrypted: string  // AES ciphertext (base64)
+  token_iv: string         // AES IV (base64)
+  token_tag: string        // GCM auth tag (base64)
+  dek_encrypted: string    // 'v2' marker
   dek_iv: string
   dek_tag: string
 }
 
-function encryptToken(token: string): TokenRow {
-  const p = encryptSecret(token)
+function encryptToken(plaintext: string): Omit<StoredRow, 'id'> {
+  const key = getKek()
+  const iv = randomBytes(12)
+  const cipher = createCipheriv('aes-256-gcm', key, iv)
+  const ciphertext = Buffer.concat([
+    cipher.update(plaintext, 'utf8'),
+    cipher.final(),
+  ])
+  const tag = cipher.getAuthTag()
   return {
-    token_encrypted: p.ciphertext,
-    token_iv:        p.iv,
-    token_tag:       p.tag,
-    dek_encrypted:   p.dek_ciphertext,
-    dek_iv:          p.dek_iv,
-    dek_tag:         p.dek_tag,
+    token_encrypted: ciphertext.toString('base64'),
+    token_iv:        iv.toString('base64'),
+    token_tag:       tag.toString('base64'),
+    dek_encrypted:   'v2:supabase_key',  // 버전 마커
+    dek_iv:          'v2',
+    dek_tag:         'v2',
   }
 }
 
-function decryptToken(row: TokenRow): string {
-  return decryptSecret({
-    ciphertext:     row.token_encrypted,
-    iv:             row.token_iv,
-    tag:            row.token_tag,
-    dek_ciphertext: row.dek_encrypted,
-    dek_iv:         row.dek_iv,
-    dek_tag:        row.dek_tag,
-  })
+function decryptToken(row: StoredRow): string {
+  const key = getKek()
+  const decipher = createDecipheriv(
+    'aes-256-gcm',
+    key,
+    Buffer.from(row.token_iv, 'base64'),
+  )
+  decipher.setAuthTag(Buffer.from(row.token_tag, 'base64'))
+  return Buffer.concat([
+    decipher.update(Buffer.from(row.token_encrypted, 'base64')),
+    decipher.final(),
+  ]).toString('utf8')
 }
 
 // ─────────────────────────────────────────────
-// 토큰 로드
+// 토큰 로드 (단일 사용자 — user_id 필터 없음)
 // ─────────────────────────────────────────────
 export async function loadThreadsToken(
   svc: SupabaseClient,
   _userId?: string,
 ): Promise<{ access_token: string; threads_user_id: string; username: string | null } | null> {
-  // 단일 사용자 앱 — user_id 필터 없이 첫 번째 행 조회 (user_id 불일치 방지)
   const { data, error } = await svc
     .from('threads_accounts')
-    .select('threads_user_id, username, token_encrypted, token_iv, token_tag, dek_encrypted, dek_iv, dek_tag')
+    .select('id, threads_user_id, username, token_encrypted, token_iv, token_tag, dek_encrypted, dek_iv, dek_tag')
     .order('created_at', { ascending: false })
     .limit(1)
     .maybeSingle()
@@ -57,7 +75,7 @@ export async function loadThreadsToken(
   if (error || !data) return null
 
   try {
-    const access_token = decryptToken(data as TokenRow)
+    const access_token = decryptToken(data as StoredRow)
     return { access_token, threads_user_id: data.threads_user_id, username: data.username ?? null }
   } catch {
     return null
@@ -65,7 +83,7 @@ export async function loadThreadsToken(
 }
 
 // ─────────────────────────────────────────────
-// 토큰 저장 (신규 연결 or 갱신)
+// 토큰 저장
 // ─────────────────────────────────────────────
 export async function saveThreadsToken(
   svc: SupabaseClient,
@@ -80,7 +98,6 @@ export async function saveThreadsToken(
   const row = encryptToken(opts.access_token)
   const expiresAt = new Date(Date.now() + opts.expires_in * 1000)
 
-  // 기존 행 확인 (단일 사용자 앱 — 첫 번째 행이 있으면 UPDATE, 없으면 INSERT)
   const { data: existing } = await svc
     .from('threads_accounts')
     .select('id')
@@ -89,24 +106,19 @@ export async function saveThreadsToken(
     .maybeSingle()
 
   const payload = {
-    user_id: userId,
+    user_id:        userId,
     threads_user_id: opts.threads_user_id,
-    username: opts.username,
+    username:       opts.username,
     ...row,
-    expires_at: expiresAt.toISOString(),
-    updated_at: new Date().toISOString(),
+    expires_at:     expiresAt.toISOString(),
+    updated_at:     new Date().toISOString(),
   }
 
   let result
   if (existing?.id) {
-    result = await svc
-      .from('threads_accounts')
-      .update(payload)
-      .eq('id', existing.id)
+    result = await svc.from('threads_accounts').update(payload).eq('id', existing.id)
   } else {
-    result = await svc
-      .from('threads_accounts')
-      .insert(payload)
+    result = await svc.from('threads_accounts').insert(payload)
   }
 
   if (result.error) {
@@ -136,7 +148,7 @@ export async function refreshThreadsTokenIfNeeded(
 
   let currentToken: string
   try {
-    currentToken = decryptToken(data as TokenRow)
+    currentToken = decryptToken(data as StoredRow)
   } catch {
     return
   }
@@ -152,19 +164,16 @@ export async function refreshThreadsTokenIfNeeded(
     const json = await res.json() as { access_token?: string; expires_in?: number }
     if (!json.access_token) return
 
-    const row = encryptToken(json.access_token)
+    const newRow = encryptToken(json.access_token)
     const newExpiresAt = new Date(Date.now() + (json.expires_in ?? 5184000) * 1000)
 
-    await svc
-      .from('threads_accounts')
-      .update({
-        ...row,
-        expires_at: newExpiresAt.toISOString(),
-        refreshed_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .eq('id', data.id)
+    await svc.from('threads_accounts').update({
+      ...newRow,
+      expires_at:   newExpiresAt.toISOString(),
+      refreshed_at: new Date().toISOString(),
+      updated_at:   new Date().toISOString(),
+    }).eq('id', data.id)
   } catch {
-    // best-effort: 실패해도 현재 토큰으로 계속 시도
+    // best-effort
   }
 }
