@@ -162,8 +162,8 @@ export async function runBaemin(
     return { status: 'skipped', message: `baemin: unsupported action ${action}` }
   }
 
-  // v1.6l: post_reply body shape 자동 시도 (3가지 variant) + replyText 검증 + Number 변환
-  log.info({ version: 'v1.6l', ts: '20260505T1810' }, 'BAEMIN_ADAPTER_VERSION_MARKER')
+  // v1.6n: ws polyfill (Node 20 Supabase realtime fix) + 3가지 body variant 자동 시도
+  log.info({ version: 'v1.6n', ts: '20260505T1830' }, 'BAEMIN_ADAPTER_VERSION_MARKER')
 
   const svc   = getServiceClient()
   let creds: any
