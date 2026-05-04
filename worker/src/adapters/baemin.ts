@@ -344,7 +344,12 @@ function extractReviewsFromApiResponse(data: any, log: Logger): CollectedReview[
     if (!first || typeof first !== 'object') continue
 
     const keys = Object.keys(first)
-    const REVIEW_FIELDS = ['rating','content','nickname','score','starScore','reviewContent','authorName','reviewId','userId','writerNickname','reviewNo']
+    // v1.2: review-like field 후보 확장
+    const REVIEW_FIELDS = [
+      'rating','content','nickname','score','starScore','reviewContent','authorName',
+      'reviewId','userId','writerNickname','reviewNo','reviewDateTime','reviewDate',
+      'customerNickname','consumerNickname','memberNickname','reviewScore','starRating',
+    ]
     if (!keys.some(k => REVIEW_FIELDS.includes(k))) continue
 
     log.info({ keys: keys.slice(0, 20), count: arr.length }, 'baemin: matched review array')
@@ -354,15 +359,31 @@ function extractReviewsFromApiResponse(data: any, log: Logger): CollectedReview[
       const item = arr[i]
       if (!item || typeof item !== 'object') continue
 
-      const id     = item.reviewId ?? item.reviewNo ?? item.id ?? item.seq ?? `api:${i}`
-      const rating = item.starScore ?? item.rating ?? item.score ?? null
-      const content= item.reviewContent ?? item.content ?? item.comment ?? item.body ?? null
-      const author = item.nickname ?? item.writerNickname ?? item.authorName ?? item.userName ?? item.memberNickname ?? null
-      const rawDate= item.createdDate ?? item.createdAt ?? item.registeredAt ?? item.orderDate ?? item.regDate ?? null
-      const hasReply = !!(item.ownerReply ?? item.reply ?? item.ownerComment ?? item.replyContent ?? item.hasOwnerReply)
-      const replyContent = item.ownerReply?.content ?? item.ownerReply
-        ?? item.reply?.content ?? item.reply
-        ?? item.ownerComment ?? item.replyContent ?? null
+      const id     = item.reviewId ?? item.reviewNo ?? item.id ?? item.seq ?? null
+      if (!id) continue  // v1.2: ID 없는 row 는 가비지로 간주
+      // v1.2: 모든 가능한 필드명 시도
+      const rating = item.starScore ?? item.rating ?? item.score ?? item.star ?? item.stars
+        ?? item.reviewScore ?? item.starRating ?? null
+      const content= item.reviewContent ?? item.content ?? item.comment ?? item.body
+        ?? item.text ?? item.reviewText ?? item.reviewBody ?? item.message ?? null
+      const author = item.writer?.nickname ?? item.writer?.name ?? item.writer?.displayName
+        ?? item.nickname ?? item.writerNickname ?? item.authorName
+        ?? item.userName ?? item.memberNickname ?? item.customerNickname
+        ?? item.consumerNickname ?? item.userNickname
+        ?? item.member?.nickname ?? item.user?.nickname ?? null
+      const rawDate= item.createdDate ?? item.createdAt ?? item.createdDateTime
+        ?? item.reviewDate ?? item.reviewDateTime ?? item.registeredAt ?? item.regDateTime
+        ?? item.orderDate ?? item.regDate ?? item.writtenAt ?? item.writtenDate
+        ?? item.postedAt ?? item.timestamp ?? item.reviewedAt ?? null
+      const hasReply = !!(item.ownerReply ?? item.reply ?? item.ownerComment
+        ?? item.replyContent ?? item.hasOwnerReply ?? item.hasComment ?? item.commentExists)
+      const replyContent = item.ownerReply?.content ?? item.ownerReply?.comment ?? item.ownerReply
+        ?? item.reply?.content ?? item.reply?.comment ?? item.reply
+        ?? item.ownerComment ?? item.replyContent ?? item.ceoComment
+        ?? item.ceoReply?.content ?? item.ceoReply ?? null
+
+      // v1.2: 가비지 검증 — 의미 데이터 모두 null 이면 skip
+      if (!author && !content && rating === null) continue
 
       const photoSrc = item.photos ?? item.images ?? item.imageUrls ?? item.reviewImages ?? item.imageList ?? []
       // v1.1: 배민 CDN 도메인만 허용 (다른 업체 이미지 leak 방지)
@@ -374,15 +395,24 @@ function extractReviewsFromApiResponse(data: any, log: Logger): CollectedReview[
             .filter(isValidBaeminPhotoUrl)
         : []
 
+      // rating numeric 변환 (string "5" 같은 경우 대응)
+      let ratingNum: number | null = null
+      if (typeof rating === 'number') ratingNum = Math.min(5, Math.max(1, Math.round(rating)))
+      else if (typeof rating === 'string') {
+        const n = parseFloat(rating)
+        if (!isNaN(n)) ratingNum = Math.min(5, Math.max(1, Math.round(n)))
+      }
+
       results.push({
-        platform_review_id: String(id),
-        author_name:   typeof author === 'string' ? author : null,
-        rating:        typeof rating === 'number' ? rating : null,
+        platform_review_id: 'baemin-real-' + String(id),
+        author_name:   typeof author === 'string' && author.trim() ? author.trim() : null,
+        rating:        ratingNum,
         content:       typeof content === 'string' ? content.trim() || null : null,
         photos,
         posted_at:     rawDate ? normalizeBaeminDate(String(rawDate)) : null,
         has_reply:     hasReply,
         reply_content: typeof replyContent === 'string' ? replyContent.trim() || null : null,
+        raw_snapshot:  item,
       })
     }
     if (results.length > 0) return results
