@@ -816,27 +816,49 @@ async function fetchCoupangReviews(
       log.info(`coupangeats: homeUrl=${homeUrl} currentUrl=${rootUrl} after home nav`)
       log.info(`coupangeats: allRequestUrls after home nav (last 20): ${allRequestUrls.slice(-20).join(' | ')}`)
 
-      // 홈 페이지 로드 후 whoami 재확인 (responsibleStoreId 설정 여부 체크)
-      let responsibleStoreIdSet = false
+      // 홈 페이지 로드 후 whoami 재확인 (인증 신호 다중 검사)
+      // 61차: responsibleStoreId 만 검사하면 매장에 따라 false 가짜로 떠서 skip 됨.
+      //       URL이 정상이면(/login 아님) cookies 가 유효한 거고, whoami 필드 다양화.
+      let authValid = false
+      let whoamiSnapshot: any = null
       try {
         const whoamiCheck = await page.evaluate(async () => {
           const r = await fetch('https://store.coupangeats.com/api/v1/merchant/whoami', { credentials: 'include' })
           return r.ok ? await r.json() : null
         })
-        const rid = whoamiCheck?.data?.responsibleStoreId
-        log.info('coupangeats: whoami after home nav responsibleStoreId=' + (rid ?? 'N/A'))
-        if (rid) responsibleStoreIdSet = true
+        whoamiSnapshot = whoamiCheck
+        const d = whoamiCheck?.data || null
+        if (d) {
+          authValid = !!(
+            d.responsibleStoreId || d.storeId || d.defaultStoreId ||
+            d.merchantId || d.accountId || d.username || d.userId ||
+            (Array.isArray(d.stores) && d.stores.length > 0)
+          )
+        }
+        log.info({
+          authValid,
+          whoamiKeys: d ? Object.keys(d).slice(0, 15) : null,
+          rid: d?.responsibleStoreId ?? 'N/A',
+        }, 'coupangeats: 61cha whoami after home nav')
       } catch (_) {}
 
-      // ── 세션 만료 조기 감지: /login 리다이렉트 → Step2 건너뜀 (브라우저 보존) ──
-      if (rootUrl.includes('/login') || !responsibleStoreIdSet) {
-        log.warn({ rootUrl }, 'coupangeats: 55cha — home nav → login redirect, session expired. skipping step2 to preserve browser for form login')
+      // ── 61차: 진짜 session expired 만 skip ──
+      // 조건 강화: URL 이 /login 으로 redirect 됐을 때만 만료로 판정.
+      // (이전 버그: whoami responsibleStoreId 단일 검사 → 매장에 따라 false → 잘못된 skip)
+      if (rootUrl.includes('/login') || rootUrl.includes('/error')) {
+        log.warn({ rootUrl }, 'coupangeats: 61cha — home nav → login redirect, session expired. skipping step2')
         return {
           status: 'skipped',
           message: 'coupangeats: session expired (login redirect) — skipping step2',
           data: { inserted: 0, updated: 0 },
           debug: { rawBodySample: 'session-expired:/login-redirect', currentUrl: rootUrl },
         }
+      }
+
+      // URL 은 정상인데 whoami 가 빈 응답 → 그래도 진행 (다른 API 가 작동할 수 있음)
+      if (!authValid) {
+        log.warn({ rootUrl, whoamiSnapshot: JSON.stringify(whoamiSnapshot).slice(0, 200) },
+          'coupangeats: 61cha — whoami no auth fields but URL ok, continuing anyway')
       }
 
       // POST URL 로그 (어떤 POST 요청들이 발생했는지)
