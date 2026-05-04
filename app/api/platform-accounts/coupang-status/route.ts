@@ -30,10 +30,21 @@ export async function GET(req: NextRequest) {
   const svc = createServiceClient()
   const { data: cred } = await svc
     .from('platform_credentials')
-    .select('last_login_status, last_login_at, platform_store_name, platform_store_id')
+    .select('last_login_status, last_login_at, platform_store_name, platform_store_id, account_id')
     .eq('user_id', auth.userId)
     .eq('platform', 'coupangeats')
     .maybeSingle()
+
+  // 등록된 account_id 마스킹 (사장님이 "쿠팡이츠 ID 가 맞나" 즉시 검증 가능)
+  function maskId(id: string): string {
+    if (!id) return ''
+    const s = String(id).trim()
+    if (s.length <= 2) return s
+    if (s.length <= 4) return s[0] + '*'.repeat(s.length - 1)
+    if (s.length <= 6) return s.slice(0, 2) + '*'.repeat(s.length - 3) + s.slice(-1)
+    return s.slice(0, 2) + '*'.repeat(s.length - 4) + s.slice(-2)
+  }
+  const accountIdMask = cred?.account_id ? maskId(cred.account_id) : null
 
   // 리뷰 수집 결과 카운트
   const { count: reviewCount } = await svc
@@ -118,6 +129,7 @@ export async function GET(req: NextRequest) {
     last_login_at: cred?.last_login_at || null,
     platform_store_name: cred?.platform_store_name || null,
     platform_store_id: cred?.platform_store_id || null,
+    account_id_mask: accountIdMask,  // 사장님이 등록된 ID 가 쿠팡이츠 ID 맞는지 즉시 확인용
     job_state: jobState,
     job_progress: jobProgress,
     job_failed_reason: jobFailedReason,
