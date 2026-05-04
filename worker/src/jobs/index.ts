@@ -11,14 +11,16 @@ import { runYogiyo } from '../adapters/yogiyo'
 import { runCoupangEats } from '../adapters/coupangeats'
 import { runNaver } from '../adapters/naver'
 import { runNaverMenu } from '../adapters/naver-menu'
+import { runThreadsPublish } from '../adapters/threads'
 
-export type Platform = 'naver_place' | 'baemin' | 'yogiyo' | 'coupangeats' | 'kakao_map'
+export type Platform = 'naver_place' | 'baemin' | 'yogiyo' | 'coupangeats' | 'kakao_map' | 'threads'
 export type Action =
   | 'fetch_reviews'
   | 'post_reply'
   | 'fetch_rank'
   | 'health_check'
   | 'fetch_menu'
+  | 'threads_publish'
 
 export interface PlatformJobData {
   platform: Platform
@@ -62,6 +64,8 @@ export async function runJob(
       // 카카오맵은 Vercel 쪽 /api/place/kakao/collect 공개 panel3 으로 수집.
       log.warn({ platform, action }, 'kakao_map handled by Vercel panel3 collector')
       return { status: 'skipped', message: 'kakao_map: use /api/place/kakao/collect on Vercel' }
+    case 'threads':
+      return runThreadsPublish({ userId, log }, payload)
     default:
       return { status: 'failed', message: `unknown platform: ${platform}` }
   }
