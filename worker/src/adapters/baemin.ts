@@ -41,6 +41,19 @@ const REPLY_SEL = {
 
 const DASHBOARD_KW = ['리뷰관리', '가게관리', '주문관리', '정산관리', '주문내역', '정산내역', '메뉴관리', '혜택관리']
 
+// v1.1: 배민 공식 CDN 도메인 화이트리스트 — 이외 도메인 이미지 차단 (다른 업체 leak 방지)
+const BAEMIN_PHOTO_DOMAINS = ['baemin.com', 'bmcdn.com', 'woowahan.com', 'woowa.in', 'baedalminjok.com']
+function isValidBaeminPhotoUrl(url: string): boolean {
+  if (!url || typeof url !== 'string') return false
+  let u = url.trim()
+  if (u.startsWith('//')) u = 'https:' + u
+  if (!u.toLowerCase().startsWith('http')) return false
+  try {
+    const host = new URL(u).hostname.toLowerCase()
+    return BAEMIN_PHOTO_DOMAINS.some(d => host === d || host.endsWith('.' + d))
+  } catch { return false }
+}
+
 export type BaeminOptions = {
   userId: string
   storeId: string
@@ -89,6 +102,7 @@ export async function runBaemin(
   const page    = await context.newPage()
 
   // ── XHR 캡처 (페이지 로드 전 등록) ────────────────────────
+  // v1.1: shopId 확정 후 extract 시점에 URL 필터 — 다중 매장 leak 방지
   const capturedApiResponses: Array<{ url: string; data: any }> = []
   page.on('response', async (response) => {
     try {
@@ -223,8 +237,15 @@ export async function runBaemin(
     log.info({ count: capturedApiResponses.length }, 'baemin: XHR total captured')
 
     // ── Step 5: XHR → 리뷰 추출 ──────────────────────────────
+    // v1.1: shopId 가 URL 에 포함된 응답만 사용 — 다중 매장 leak 차단
     let reviews: CollectedReview[] = []
+    const shopIdMatcher = '/shops/' + shopId + '/'
     for (const { url, data } of capturedApiResponses) {
+      // shopId 가 URL 에 안 들어있으면 다른 매장의 응답 → 무시
+      if (shopId && !url.includes(shopIdMatcher)) {
+        log.info({ url: url.slice(0, 100), shopId }, 'baemin: XHR skipped (other shop)')
+        continue
+      }
       const extracted = extractReviewsFromApiResponse(data, log)
       if (extracted.length > 0) {
         log.info({ url: url.slice(0, 100), count: extracted.length }, 'baemin: XHR reviews')
@@ -244,6 +265,20 @@ export async function runBaemin(
 
     log.info({ count: reviews.length }, 'baemin: reviews total')
     if (reviews.length === 0) await dumpPageDiagnostics(page, log, 'baemin-no-reviews')
+
+    // v1.1: cutoff 필터 — DAYS_BACK 이전 리뷰는 insert 차단 (기본 30일)
+    const daysBack = (typeof payload?.days_back === 'number' && payload.days_back > 0)
+      ? Math.min(payload.days_back as number, 365) : 30
+    const cutoffMs = Date.now() - daysBack * 86400_000
+    const before = reviews.length
+    reviews = reviews.filter((r: any) => {
+      if (!r.posted_at) return true  // 날짜 모르면 keep (보수적)
+      const t = new Date(r.posted_at).getTime()
+      return isNaN(t) || t >= cutoffMs
+    })
+    if (reviews.length !== before) {
+      log.info({ before, after: reviews.length, daysBack }, 'baemin: cutoff filter applied')
+    }
 
     const res = await upsertReviews(svc, userId, 'baemin', shopId, reviews)
     log.info(res, 'baemin: upserted')
@@ -330,8 +365,13 @@ function extractReviewsFromApiResponse(data: any, log: Logger): CollectedReview[
         ?? item.ownerComment ?? item.replyContent ?? null
 
       const photoSrc = item.photos ?? item.images ?? item.imageUrls ?? item.reviewImages ?? item.imageList ?? []
+      // v1.1: 배민 CDN 도메인만 허용 (다른 업체 이미지 leak 방지)
       const photos: string[] = Array.isArray(photoSrc)
-        ? photoSrc.map((p: any) => typeof p === 'string' ? p : (p?.url ?? p?.imageUrl ?? p?.src ?? '')).filter(Boolean)
+        ? photoSrc
+            .map((p: any) => typeof p === 'string' ? p : (p?.url ?? p?.imageUrl ?? p?.src ?? ''))
+            .filter(Boolean)
+            .map((u: string) => u.startsWith('//') ? 'https:' + u : u)
+            .filter(isValidBaeminPhotoUrl)
         : []
 
       results.push({
