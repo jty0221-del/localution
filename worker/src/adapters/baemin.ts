@@ -161,8 +161,8 @@ export async function runBaemin(
     return { status: 'skipped', message: `baemin: unsupported action ${action}` }
   }
 
-  // v1.6i: 14666661 default landing 제외 + /v4/shops/search 추출 + diagnostic dump
-  log.info({ version: 'v1.6i', ts: '20260505T1620' }, 'BAEMIN_ADAPTER_VERSION_MARKER')
+  // v1.6j: 진짜 배민 필드명 매핑 — contents (본문), comments[0].contents (사장님 답글)
+  log.info({ version: 'v1.6j', ts: '20260505T1700' }, 'BAEMIN_ADAPTER_VERSION_MARKER')
 
   const svc   = getServiceClient()
   let creds: any
@@ -851,7 +851,8 @@ function extractReviewsFromApiResponse(data: any, log: Logger): CollectedReview[
       // v1.2: 모든 가능한 필드명 시도
       const rating = item.starScore ?? item.rating ?? item.score ?? item.star ?? item.stars
         ?? item.reviewScore ?? item.starRating ?? null
-      const content= item.reviewContent ?? item.content ?? item.comment ?? item.body
+      // v1.6j: 배민 실제 필드 = contents (복수형!) — firstItemKeys 로 확인됨
+      const content= item.contents ?? item.reviewContent ?? item.content ?? item.comment ?? item.body
         ?? item.text ?? item.reviewText ?? item.reviewBody ?? item.message ?? null
       const author = item.writer?.nickname ?? item.writer?.name ?? item.writer?.displayName
         ?? item.nickname ?? item.writerNickname ?? item.authorName
@@ -862,9 +863,17 @@ function extractReviewsFromApiResponse(data: any, log: Logger): CollectedReview[
         ?? item.reviewDate ?? item.reviewDateTime ?? item.registeredAt ?? item.regDateTime
         ?? item.orderDate ?? item.regDate ?? item.writtenAt ?? item.writtenDate
         ?? item.postedAt ?? item.timestamp ?? item.reviewedAt ?? null
-      const hasReply = !!(item.ownerReply ?? item.reply ?? item.ownerComment
-        ?? item.replyContent ?? item.hasOwnerReply ?? item.hasComment ?? item.commentExists)
-      const replyContent = item.ownerReply?.content ?? item.ownerReply?.comment ?? item.ownerReply
+      // v1.6j: 배민 실제 reply 필드 = comments (array of {contents, createdAt})
+      // 우선순위: comments[0]?.contents > 기존 후보들
+      const commentsArr: any[] = Array.isArray(item.comments) ? item.comments : []
+      const ownerReplyText = commentsArr.length > 0
+        ? (commentsArr[0]?.contents || commentsArr[0]?.comment || commentsArr[0]?.content || (typeof commentsArr[0] === 'string' ? commentsArr[0] : null))
+        : null
+      const hasReply = !!(ownerReplyText || item.ownerReply ?? item.reply ?? item.ownerComment
+        ?? item.replyContent ?? item.hasOwnerReply ?? item.hasComment ?? item.commentExists
+        ?? (commentsArr.length > 0))
+      const replyContent = ownerReplyText
+        ?? item.ownerReply?.content ?? item.ownerReply?.comment ?? item.ownerReply
         ?? item.reply?.content ?? item.reply?.comment ?? item.reply
         ?? item.ownerComment ?? item.replyContent ?? item.ceoComment
         ?? item.ceoReply?.content ?? item.ceoReply ?? null
