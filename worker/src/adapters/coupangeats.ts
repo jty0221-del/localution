@@ -1436,21 +1436,98 @@ async function fetchCoupangReviews(
 
   let reviews: any[] = []
   if (capturedReviews.length > 0) {
+    // ── 62차: 실제 응답 키 디버그 + 키 후보 확장 ──
+    // 31개 capture 됐는데 inserted=0 = mapping 키가 실제 응답과 안 맞음
+    try {
+      const sample = capturedReviews[0] || {}
+      const keys = Object.keys(sample).slice(0, 25)
+      log.info({
+        sampleKeys: keys,
+        sampleSnippet: JSON.stringify(sample).slice(0, 600),
+      }, 'coupangeats: 62cha — first captured review structure')
+    } catch (_) {}
+
     reviews = capturedReviews.slice(0, 200).map((r: any, idx: number) => {
-      const rating = typeof r.rating === 'number' ? Math.round(r.rating)
-        : typeof r.starRating === 'number' ? Math.round(r.starRating)
-        : typeof r.score === 'number' ? Math.round(r.score) : null
+      // 평점 (다양한 키 + nested)
+      const rating =
+        typeof r.rating === 'number' ? Math.round(r.rating) :
+        typeof r.starRating === 'number' ? Math.round(r.starRating) :
+        typeof r.score === 'number' ? Math.round(r.score) :
+        typeof r.star === 'number' ? Math.round(r.star) :
+        typeof r.stars === 'number' ? Math.round(r.stars) :
+        typeof r.reviewRating === 'number' ? Math.round(r.reviewRating) :
+        typeof r.review?.rating === 'number' ? Math.round(r.review.rating) :
+        null
+
+      // ID (다양한 키)
+      const reviewId = String(
+        r.orderReviewId ?? r.reviewId ?? r.id ?? r.review_id ?? r.reviewSeq ??
+        r.review?.id ?? r.review?.reviewId ?? r.uuid ?? `ce:${idx}`
+      )
+
+      // 작성자 (nested 포함)
+      const authorName =
+        r.authorName || r.nickname || r.userName || r.author ||
+        r.customerName || r.writerName || r.user?.name || r.user?.nickname ||
+        r.reviewer?.name || r.reviewer?.userName || r.reviewer?.nickname ||
+        r.review?.authorName || r.review?.userName ||
+        null
+
+      // 본문 (nested 포함)
+      const content =
+        r.content || r.body || r.text || r.reviewContent ||
+        r.reviewBody || r.reviewMessage || r.message || r.comment ||
+        r.review?.content || r.review?.body || r.review?.text ||
+        r.reviewText || r.contents ||
+        null
+
+      // 사진 (nested + 다양한 키)
+      const photoSrc =
+        r.images || r.photos || r.attachments || r.reviewImages ||
+        r.imageUrls || r.review?.images || r.review?.photos || []
+      const photos = Array.isArray(photoSrc)
+        ? photoSrc.map((img: any) => typeof img === 'string' ? img : (img?.url || img?.imageUrl || img?.src || img?.path || ''))
+            .filter((u: string) => u && typeof u === 'string')
+        : []
+
+      // 날짜
+      const postedAt =
+        r.createdAt || r.reviewedAt || r.postedAt || r.created_at ||
+        r.reviewDate || r.regDate || r.writeDate || r.orderedAt ||
+        r.review?.createdAt || null
+
+      // 답글 (nested)
+      const reply = r.ownerReply || r.reply || r.storeReply || r.merchantReply || r.review?.reply || null
+      const replyContent =
+        (typeof reply === 'string' ? reply : (reply?.content || reply?.text || reply?.body)) ||
+        r.replyContent || r.ownerCommentContent || null
+      const hasReply = !!replyContent
+
       return {
-        platform_review_id: String(r.reviewId || r.id || r.review_id || `ce:${idx}`),
-        author_name: r.authorName || r.nickname || r.userName || r.author || null,
+        platform_review_id: reviewId,
+        author_name: authorName,
         rating,
-        content: r.content || r.body || r.text || r.reviewContent || null,
-        photos: (r.images || r.photos || r.attachments || []).map((img: any) => img?.url || img?.imageUrl || img).filter((u: any) => typeof u === 'string'),
-        posted_at: r.createdAt || r.reviewedAt || r.postedAt || r.created_at || null,
-        has_reply: !!(r.ownerReply || r.reply || r.storeReply || r.replyContent),
-        reply_content: r.ownerReply?.content || r.reply?.content || r.storeReply || r.replyContent || null,
+        content,
+        photos,
+        posted_at: postedAt,
+        has_reply: hasReply,
+        reply_content: replyContent,
       }
     })
+
+    // 정규화 결과 디버그 (필터 전)
+    try {
+      const withContent = reviews.filter((r: any) => r.content).length
+      const withAuthor = reviews.filter((r: any) => r.author_name).length
+      const withRating = reviews.filter((r: any) => r.rating !== null).length
+      log.info({
+        total: reviews.length,
+        withContent,
+        withAuthor,
+        withRating,
+        firstSample: reviews[0],
+      }, 'coupangeats: 62cha — normalized review stats')
+    } catch (_) {}
   } else {
     // ── 네트워크 캡처 실패 시 → DOM 폴백 ──
     reviews = await page.evaluate((sel: typeof DOM_SELECTORS) => {
@@ -1484,9 +1561,15 @@ async function fetchCoupangReviews(
     }
   }
 
+  // 62차: filter 완화 — content/author_name/rating 중 하나라도 있으면 저장
+  // (사진만 있는 리뷰도 있을 수 있고, 별점만 있는 리뷰도 의미 있음)
   const normalized: CollectedReview[] = reviews
-    .filter((r: any) => r.content || r.author_name)
+    .filter((r: any) => r.content || r.author_name || r.rating !== null || (r.photos && r.photos.length > 0))
     .map((r: any) => ({ ...r, posted_at: normalizeDate(r.posted_at) }))
+  log.info({
+    rawCount: reviews.length,
+    afterFilter: normalized.length,
+  }, 'coupangeats: 62cha — filter result')
 
   const shopId = creds.platform_store_id || 'unknown'
   const res = await upsertReviews(svc, userId, 'coupangeats', shopId, normalized)
