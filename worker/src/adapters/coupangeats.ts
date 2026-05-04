@@ -207,6 +207,21 @@ export async function runCoupangEats(
 
   const context = await browser.newContext(contextOptions)
 
+  // ── 75차: iproyal 트래픽 절감 — 이미지/폰트/CSS 등 무거운 리소스 차단 ──
+  // Akamai sensor data + JS 만 통과 → 봇 탐지 우회 유지 + 트래픽 50%+ 절감
+  // page navigation 시 chromium 이 자동 다운로드하는 것 차단
+  try {
+    await context.route('**/*', (route) => {
+      const url = route.request().url()
+      const resourceType = route.request().resourceType()
+      // 이미지/폰트/미디어/스타일시트 차단 (data fetch 와 무관)
+      if (['image', 'font', 'media', 'stylesheet'].includes(resourceType)) {
+        return route.abort()
+      }
+      return route.continue()
+    })
+  } catch (_) { /* route 등록 실패해도 계속 */ }
+
   // ── 신규: stealth helper (Canvas/WebGL/Audio fingerprint 마스킹) ──
   // Akamai _abck JS 챌린지의 추가 fingerprint 검사를 통과하기 위해 핵심 stealth init 먼저 적용
   await applyStealth(context)
@@ -1002,11 +1017,14 @@ async function fetchCoupangReviews(
         const fmtD = (d: Date) => d.toISOString().split('T')[0]
         const statusTypes0 = ['EXPOSE', 'UNEXPOSE']
         const PAGE_SIZE = 5
-        // 71차: DAYS_BACK 180 → 60 (2개월) — fetch 시간 7분 → 2-3분
-        // 사장님 cron 이 매 15분 자동 fetch + concurrency=1 라 fetch 가 길면
-        //   post_reply 큐 처리가 막힘 → AI 자동 발행 안 됨
-        // 60일이면 답글 단 review 충분히 포함 + post_reply 빠르게 처리
-        const DAYS_BACK = 60
+        // 75차: DAYS_BACK 60 → payload.days_back 옵션 (기본 14일)
+        // - cron (1일 1번): 14일 fetch — 매일이라 incremental
+        // - 사장님 수동 "지금 수집": payload.days_back: 60 또는 180 가능
+        // - iproyal 트래픽 1/4 절감 (60 → 14)
+        // - fetch 시간 2분 → 30초
+        const DAYS_BACK = (typeof payload?.days_back === 'number' && payload.days_back > 0)
+          ? Math.min(payload.days_back, 365)
+          : 14
 
         // ── 52차: 슬라이딩 윈도우 전에 store switch (브라우저 컨텍스트) ──
         // 원인: responsibleStoreId가 서버 세션에 미설정 → reviews/search 200이지만 빈 결과
