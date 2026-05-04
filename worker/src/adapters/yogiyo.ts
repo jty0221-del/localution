@@ -9,6 +9,7 @@ import { getServiceClient } from '../lib/supabase'
 import { loadPlainCredentials, markLoginStatus } from '../lib/credentials'
 import { upsertReviews, CollectedReview } from '../lib/reviews'
 import { dumpPageDiagnostics, detectLoginFailure } from '../lib/diagnostics'
+import { notifyNewReviews } from '../lib/notify'
 import type { JobResult, Action } from '../jobs'
 
 const LOGIN_URL = 'https://ceo.yogiyo.co.kr/login/'
@@ -202,6 +203,18 @@ export async function runYogiyo(
     const shopId = creds.platform_store_id || 'unknown'
     const res = await upsertReviews(svc, userId, 'yogiyo', shopId, normalized)
     log.info({ ...res }, 'yogiyo reviews upserted')
+
+    // v1.6p: 새 리뷰 들어왔을 때 알림 트리거 (배민과 동일 패턴)
+    if (res.inserted > 0 && action !== 'post_reply') {
+      try {
+        const notifyRes = await notifyNewReviews(log, {
+          userId, platform: 'yogiyo', reviewIds: 'all_new',
+        })
+        log.info({ ...notifyRes }, 'yogiyo: notification triggered')
+      } catch (notifyErr: any) {
+        log.warn({ err: notifyErr?.message }, 'yogiyo: notification trigger failed (non-fatal)')
+      }
+    }
 
     if (action === 'post_reply' && payload?.platform_review_id && payload?.reply_text) {
       const targetId = String(payload.platform_review_id)
