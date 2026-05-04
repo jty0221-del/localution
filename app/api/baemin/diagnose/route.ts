@@ -7,6 +7,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createDecipheriv } from 'crypto'
 import { requireUser } from '@/app/lib/userAuth'
 import { createServiceClient } from '@/app/lib/adminAuth'
+import { proxyFetch } from '@/app/lib/proxy-fetch'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -49,15 +50,20 @@ export async function GET(req: NextRequest) {
 
   const cookieStr = decryptStr(extra.baemin_cookie_enc, extra.baemin_cookie_iv, extra.baemin_cookie_tag)
 
+  // v1.3: 모든 쿠키 이름 덤프 — XSRF 매칭 실패 원인 파악용
+  const cookieNames: string[] = []
   let xsrfToken = ''
+  let xsrfCookieKey = ''
   for (const part of cookieStr.split(';')) {
     const kv = part.trim()
     const eq = kv.indexOf('=')
     if (eq === -1) continue
-    const name = kv.slice(0, eq).trim().toLowerCase()
-    if (name === 'xsrf-token' || name === '_xsrf' || name === 'csrf_token') {
+    const name = kv.slice(0, eq).trim()
+    cookieNames.push(name)
+    const lname = name.toLowerCase()
+    if (!xsrfToken && (lname === 'xsrf-token' || lname === '_xsrf' || lname === 'csrf_token' || lname.includes('xsrf') || lname.includes('csrf'))) {
       xsrfToken = kv.slice(eq + 1).trim()
-      break
+      xsrfCookieKey = name
     }
   }
 
@@ -89,7 +95,8 @@ export async function GET(req: NextRequest) {
   const results: any[] = []
   for (const url of candidates) {
     try {
-      const res = await fetch(url, { headers, cache: 'no-store', signal: AbortSignal.timeout(10000) })
+      // v1.3: proxyFetch 로 한국 IP 경유 — Vercel 직접 IP (US) 는 Akamai 가 즉시 403
+      const res = await proxyFetch(url, { headers, cache: 'no-store', signal: AbortSignal.timeout(10000) } as RequestInit)
       const status = res.status
       const ct = res.headers.get('content-type') || ''
       let preview: any = null
@@ -127,6 +134,12 @@ export async function GET(req: NextRequest) {
     shopNo,
     cookieLength: cookieStr.length,
     hasXsrf: !!xsrfToken,
+    xsrfCookieKey,
+    cookieNames,                         // v1.3: 모든 쿠키 이름
+    proxy: {
+      configured: !!process.env.PROXY_HOST,
+      host: process.env.PROXY_HOST ? (process.env.PROXY_HOST.slice(0, 6) + '***') : 'NOT_SET',
+    },
     results,
   })
 }
