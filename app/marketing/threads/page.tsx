@@ -331,7 +331,7 @@ function newBlock(): PostBlock {
   return { id: Math.random().toString(36).slice(2), text: '', tags: [], imageUrl: '', useImage: false }
 }
 
-function ComposeTab({ connected }: { connected: boolean }) {
+function ComposeTab({ connected, accountLoaded }: { connected: boolean; accountLoaded: boolean }) {
   const searchParams = useSearchParams()
   const router = useRouter()
 
@@ -406,7 +406,7 @@ function ComposeTab({ connected }: { connected: boolean }) {
 
   return (
     <div className="space-y-4">
-      {!connected && <ConnectBanner />}
+      {accountLoaded && !connected && <ConnectBanner />}
 
       {result && (
         <div className={`flex items-center gap-2.5 p-4 rounded-xl text-sm font-medium ${
@@ -474,7 +474,7 @@ function ComposeTab({ connected }: { connected: boolean }) {
       <div className="flex flex-col sm:flex-row gap-3">
         <button
           onClick={() => submit(true)}
-          disabled={!connected || !blocks[0].text.trim() || loading}
+          disabled={!blocks[0].text.trim() || loading}
           className="flex-1 flex items-center justify-center gap-2 bg-[#111827] hover:bg-[#1F2937] disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-xl transition-colors"
         >
           {loading ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} strokeWidth={2.5} />}
@@ -482,7 +482,7 @@ function ComposeTab({ connected }: { connected: boolean }) {
         </button>
         <button
           onClick={() => submit(false)}
-          disabled={!connected || !blocks[0].text.trim() || !scheduledAt || loading}
+          disabled={!blocks[0].text.trim() || !scheduledAt || loading}
           className="flex-1 flex items-center justify-center gap-2 bg-white hover:bg-[#F9FAFB] disabled:opacity-40 disabled:cursor-not-allowed border border-[#E5E8EB] text-[#374151] font-semibold py-3 px-6 rounded-xl transition-colors"
         >
           <CalendarClock size={16} strokeWidth={2} />
@@ -692,9 +692,13 @@ function ThreadsPageContent() {
   const searchParams = useSearchParams()
   const [tab, setTab] = useState<'compose' | 'scheduled' | 'history'>('compose')
   const [account, setAccount] = useState<AccountInfo | null>(null)
+  const [accountLoaded, setAccountLoaded] = useState(false)
 
   useEffect(() => {
-    fetch('/api/threads/account').then(r => r.json()).then(setAccount)
+    fetch('/api/threads/account')
+      .then(r => r.json())
+      .then(data => { setAccount(data); setAccountLoaded(true) })
+      .catch(() => setAccountLoaded(true))
   }, [])
 
   // 카드뉴스에서 넘어왔을 때 알림
@@ -759,7 +763,7 @@ function ThreadsPageContent() {
 
         {/* 탭 콘텐츠 */}
         <div className="max-w-2xl">
-          {tab === 'compose' && <ComposeTab connected={account?.connected ?? false} />}
+          {tab === 'compose' && <ComposeTab connected={account?.connected !== false} accountLoaded={accountLoaded} />}
           {tab === 'scheduled' && <ScheduledTab />}
           {tab === 'history' && <HistoryTab />}
         </div>
