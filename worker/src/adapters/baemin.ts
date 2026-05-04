@@ -162,8 +162,8 @@ export async function runBaemin(
     return { status: 'skipped', message: `baemin: unsupported action ${action}` }
   }
 
-  // v1.6n: ws polyfill (Node 20 Supabase realtime fix) + 3가지 body variant 자동 시도
-  log.info({ version: 'v1.6n', ts: '20260505T1830' }, 'BAEMIN_ADAPTER_VERSION_MARKER')
+  // v1.6o: ID YYYYMMDD prefix 30일 사전 차단 + ws polyfill 유지
+  log.info({ version: 'v1.6o', ts: '20260505T1900' }, 'BAEMIN_ADAPTER_VERSION_MARKER')
 
   const svc   = getServiceClient()
   let creds: any
@@ -990,6 +990,21 @@ async function postBaeminReply(
     }, 'baemin: posting reply via in-browser fetch (v1.6l)')
     if (!safeReplyText) {
       return { ok: false, reason: 'replyText is empty' }
+    }
+
+    // v1.6o: 30일 정책 사전 차단 — idNum YYYYMMDD prefix 로 추정
+    const ymdMatch = idNum.match(/^(\d{8})/)
+    if (ymdMatch) {
+      const ymd = ymdMatch[1]
+      const dateStr = ymd.slice(0,4) + '-' + ymd.slice(4,6) + '-' + ymd.slice(6,8) + 'T00:00:00'
+      const ts = new Date(dateStr).getTime()
+      if (!isNaN(ts)) {
+        const daysAgo = (Date.now() - ts) / 86400_000
+        if (daysAgo > 30) {
+          log.warn({ idNum, ymd, daysAgo: Math.round(daysAgo) }, 'baemin: review > 30 days — reply skipped (배민 정책)')
+          return { ok: false, reason: '배민 정책상 30일이 지난 리뷰에는 답글 등록 불가 (' + Math.round(daysAgo) + '일 경과)' }
+        }
+      }
     }
 
     const apiUrl = 'https://self-api.baemin.com/v1/review/shops/' + shopNo + '/reviews/comments'
