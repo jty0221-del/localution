@@ -6,7 +6,13 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "install:all": "npm install && cd worker && npm install",
+    "build:check": "next build",
+    "worker:dev": "cd worker && npm run dev",
+    "worker:build": "cd worker && npm run build",
+    "deploy:vercel": "git push origin main",
+    "deploy:worker": "git push origin main"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.0.0",
