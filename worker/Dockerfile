@@ -10,8 +10,8 @@ RUN npm install --omit=optional --no-audit --no-fund \
     && npm cache clean --force
 
 COPY tsconfig.json ./
-# v26 FRESH BUILD — anchor onclick + form-submit triple-fallback
-RUN echo "build-marker: v26-anchor-onclick-formSubmit-fallback-20260502T1600" && rm -rf /app/dist /app/src
+# v27 FRESH BUILD — baemin v1.6e (cookie JSON + login URL redirect detection)
+RUN echo "build-marker: v27-baemin-v1.6e-20260504T1400" && rm -rf /app/dist /app/src
 COPY src ./src
 
 # 컴파일 전 dist 강제 제거 (cache 우회) — grep 마커 검증은 push 순서 race fail 유발 → 제거
