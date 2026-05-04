@@ -164,7 +164,8 @@ function extractRating(r: any): number | null {
 }
 
 function extractContent(r: any): string | null {
-  const c = r.reviewContent || r.content || r.comment || r.body
+  // v1.6j: 배민 실제 필드는 contents (복수형)
+  const c = r.contents || r.reviewContent || r.content || r.comment || r.body
     || r.text || r.reviewText || r.reviewBody || r.message
     || r.description || null
   if (typeof c !== 'string') return null
@@ -173,6 +174,12 @@ function extractContent(r: any): string | null {
 }
 
 function extractReplyContent(r: any): string | null {
+  // v1.6j: 배민 실제 reply 필드 = comments (array)
+  if (Array.isArray(r.comments) && r.comments.length > 0) {
+    const c0 = r.comments[0]
+    const txt = c0?.contents || c0?.comment || c0?.content || (typeof c0 === 'string' ? c0 : null)
+    if (typeof txt === 'string' && txt.trim()) return txt.trim()
+  }
   const rc = r.ownerReply?.content || r.ownerReply?.comment || r.ownerReply
     || r.reply?.content || r.reply?.comment || r.reply
     || r.ownerComment || r.replyContent || r.ceoComment
