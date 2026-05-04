@@ -106,6 +106,24 @@ function SystemHealthFloating() {
     setDiagnoseLoading(false)
   }
 
+  async function setRealShop() {
+    if (!confirm('14637452 매장을 사장님 실제 매장으로 설정하고 즉시 재수집할까요?')) return
+    setMsg('매장 설정 중...')
+    try {
+      const res = await fetch('/api/baemin/set-shop', {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ shop_no: '14637452' }),
+      })
+      const data = await res.json()
+      if (data.ok) {
+        setMsg('매장 14637452 설정 + Worker 트리거. 1-2분 후 새로고침.')
+      } else {
+        setMsg(data.error || '실패')
+      }
+    } catch (e: any) { setMsg(e.message) }
+  }
+
   async function workerDiag() {
     setWorkerDiagLoading(true); setMsg('Worker 강제 트리거 + 30초 대기 중...')
     try {
@@ -280,6 +298,13 @@ function SystemHealthFloating() {
               >
                 <Activity size={12} strokeWidth={2.5} />
                 {workerDiagLoading ? 'Worker 실행 중... (최대 30초)' : 'Worker 강제 실행 + 진단'}
+              </button>
+              <button
+                onClick={setRealShop}
+                className="w-full px-3 py-2 bg-gradient-to-br from-[#F59E0B] to-[#D97706] text-white rounded-xl font-bold text-xs hover:shadow-md inline-flex items-center justify-center gap-1.5 transition-all"
+                title="실제 매장 14637452 설정 + 즉시 재수집"
+              >
+                실제 매장 14637452 설정 + 재수집
               </button>
             </div>
           </div>
