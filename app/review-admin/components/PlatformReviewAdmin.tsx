@@ -267,6 +267,8 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
   const [period, setPeriod] = useState<'7' | '30' | 'all'>('all')
   // 30차-23: 사진 라이트박스
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
+  // v1.6m: 30일 경과 안내 모달
+  const [expiredInfoOpen, setExpiredInfoOpen] = useState(false)
 
   // ── 초안 편집 상태 ────────────────────────────
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -1085,11 +1087,16 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
                                 부정 리뷰
                               </span>
                             )}
-                            {/* v1.6m: 배민 30일 경과 표시 (배민 정책상 답글 불가) */}
+                            {/* v1.6m: 배민 30일 경과 — 클릭하면 안내 모달 */}
                             {isReplyExpired && !review.hasReply && (
-                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#FEF3C7] text-[#92400E] font-semibold" title="배민은 30일 지난 리뷰에 답글 등록 불가">
-                                ⏰ 30일 경과
-                              </span>
+                              <button
+                                type="button"
+                                onClick={() => setExpiredInfoOpen(true)}
+                                className="text-[10px] px-1.5 py-0.5 rounded bg-[#FEF3C7] text-[#92400E] font-semibold hover:bg-[#FDE68A] transition-colors inline-flex items-center gap-0.5"
+                                title="자세히 보기"
+                              >
+                                ⏰ 30일 경과 <span className="opacity-60">ⓘ</span>
+                              </button>
                             )}
                             {/* 이미 답글 달린 리뷰는 status badge 숨김 (오래된 failed 배지 노출 방지) */}
                             {!review.hasReply && <StatusBadge status={review.replyStatus} />}
@@ -1244,15 +1251,27 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
                                   >
                                     🔁 AI 재생성
                                   </button>
-                                  <button
-                                    onClick={() => handleSubmit(review)}
-                                    disabled={generating || submitting || !draftText.trim() || isSubmitted || review.hasReply || isReplyExpired}
-                                    className="px-4 py-1.5 rounded-lg text-xs font-bold text-white hover:opacity-90 disabled:opacity-50 shadow-sm"
-                                    style={{ background: config.color }}
-                                    title={isReplyExpired ? '배민은 30일 지난 리뷰에 답글 등록 불가' : "자동 발행이 실패하면 '복사 + 직접 등록' 버튼이 가장 안정적이에요"}
-                                  >
-                                    {submitting ? '처리 중...' : (review.replyStatus === 'queued' ? '🔁 다시 자동 발행' : '⚡ 자동 발행')}
-                                  </button>
+                                  {/* v1.6m: 30일 경과 시 클릭하면 안내 모달, 아니면 정상 발행 */}
+                                  {isReplyExpired && !review.hasReply ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => setExpiredInfoOpen(true)}
+                                      className="px-4 py-1.5 rounded-lg text-xs font-bold border-2 border-dashed border-[#FCA5A5] bg-[#FEF2F2] text-[#DC2626] hover:bg-[#FEE2E2] inline-flex items-center gap-1"
+                                      title="클릭해서 이유 보기"
+                                    >
+                                      🚫 답글 불가 <span className="opacity-70">ⓘ</span>
+                                    </button>
+                                  ) : (
+                                    <button
+                                      onClick={() => handleSubmit(review)}
+                                      disabled={generating || submitting || !draftText.trim() || isSubmitted || review.hasReply}
+                                      className="px-4 py-1.5 rounded-lg text-xs font-bold text-white hover:opacity-90 disabled:opacity-50 shadow-sm"
+                                      style={{ background: config.color }}
+                                      title="자동 발행이 실패하면 '복사 + 직접 등록' 버튼이 가장 안정적이에요"
+                                    >
+                                      {submitting ? '처리 중...' : (review.replyStatus === 'queued' ? '🔁 다시 자동 발행' : '⚡ 자동 발행')}
+                                    </button>
+                                  )}
 
                                   {/* 직접 등록 버튼 — 자동 발행이 실패할 때 대안 (가장 안정적) */}
                                   {config.reviewAdminUrl && !review.hasReply && !isSubmitted && !isReplyExpired && (
@@ -1435,6 +1454,78 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
           >
             ✕
           </button>
+        </div>
+      )}
+
+      {/* v1.6m: 배민 30일 경과 안내 모달 */}
+      {expiredInfoOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 bg-black/50 z-[9999] flex items-center justify-center p-4"
+          onClick={() => setExpiredInfoOpen(false)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-xl max-w-md w-full overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 py-4 border-b border-[#F2F4F6] flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#F59E0B] to-[#D97706] flex items-center justify-center shadow-sm">
+                  <span className="text-white text-lg">⏰</span>
+                </div>
+                <span className="text-base font-bold text-[#191F28]">답글 등록 불가 안내</span>
+              </div>
+              <button
+                onClick={() => setExpiredInfoOpen(false)}
+                className="text-[#8B95A1] hover:text-[#191F28] text-lg font-bold"
+                aria-label="닫기"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="px-5 py-5 space-y-3">
+              <div className="bg-[#FEF3C7] border border-[#FDE68A] rounded-xl p-3">
+                <p className="text-sm font-bold text-[#92400E] mb-1">배민 자체 정책 제한</p>
+                <p className="text-xs text-[#92400E] leading-relaxed">
+                  배민은 등록된 지 <strong>30일이 지난 리뷰</strong>에는 사장님 댓글을 등록할 수 없습니다.
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs font-bold text-[#191F28] mb-1.5">왜 이런 정책이 있나요?</p>
+                <p className="text-xs text-[#4E5968] leading-relaxed">
+                  배민은 답글 신뢰성을 위해 30일 제한을 두고 있어요.
+                  로컬루션은 답글 발행 가능한 30일 이내 리뷰를 우선으로 처리합니다.
+                </p>
+              </div>
+
+              <div>
+                <p className="text-xs font-bold text-[#191F28] mb-1.5">대안</p>
+                <ul className="text-xs text-[#4E5968] leading-relaxed space-y-1 list-disc list-inside">
+                  <li>매일 오후 1시 자동 수집되는 새 리뷰에는 즉시 답글 가능</li>
+                  <li>새 리뷰 들어오면 카카오톡/Web Push 알림 받으세요</li>
+                  <li>24시간 이내 답글이 가장 효과적입니다</li>
+                </ul>
+              </div>
+
+              <div className="bg-[#F0F9FF] border border-[#BAE6FD] rounded-xl p-3">
+                <p className="text-xs text-[#075985] leading-relaxed">
+                  <strong>로컬루션은 사장님이 놓치지 않도록 매일 자동 수집하고 알림까지 보내드립니다.</strong>
+                </p>
+              </div>
+            </div>
+
+            <div className="px-5 py-3 bg-[#F8F9FA] border-t border-[#F2F4F6]">
+              <button
+                onClick={() => setExpiredInfoOpen(false)}
+                className="w-full px-4 py-2.5 bg-[#3182F6] text-white rounded-xl font-bold text-sm hover:bg-[#1B64DA] transition-colors"
+              >
+                확인
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
