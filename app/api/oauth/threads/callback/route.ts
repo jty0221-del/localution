@@ -3,11 +3,22 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createServiceClient } from '@/app/lib/adminAuth'
-import { requireAdmin } from '@/app/lib/adminAuth'
 import { saveThreadsToken } from '@/app/lib/threads-token'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
+
+const OWNER_EMAIL = 'jty0221@gmail.com'
+
+async function getOwnerUserId(svc: ReturnType<typeof createServiceClient>): Promise<string> {
+  const { data } = await svc
+    .from('stores')
+    .select('user_id')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  return data?.user_id || OWNER_EMAIL
+}
 
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url)
@@ -27,18 +38,14 @@ export async function GET(request: Request) {
   }
   cookieStore.delete('threads_oauth_state')
 
-  // 현재 로그인 유저 확인
-  const auth = await requireAdmin()
-  if (!auth.ok) {
-    return NextResponse.redirect(new URL('/login?error=not_logged_in', origin))
-  }
-  const userId = auth.userId ?? auth.email
-
   const appId = process.env.THREADS_APP_ID!
   const appSecret = process.env.THREADS_APP_SECRET!
   const callbackUrl = process.env.THREADS_CALLBACK_URL!
 
   try {
+    const svc = createServiceClient()
+    const userId = await getOwnerUserId(svc)
+
     // 1) 단기 토큰 교환
     const tokenForm = new URLSearchParams()
     tokenForm.set('client_id', appId)
@@ -84,12 +91,11 @@ export async function GET(request: Request) {
     }
 
     // 4) 토큰 암호화 저장
-    const svc = createServiceClient()
     await saveThreadsToken(svc, userId, {
       threads_user_id: meData.id,
       username: meData.username ?? '',
       access_token: longData.access_token,
-      expires_in: longData.expires_in ?? 5184000, // 기본 60일
+      expires_in: longData.expires_in ?? 5184000,
     })
 
     return NextResponse.redirect(new URL('/marketing/threads?connected=1', origin))
