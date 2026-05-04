@@ -90,14 +90,14 @@ export async function GET(request: Request) {
       return NextResponse.redirect(new URL('/marketing/threads?error=profile_failed', origin))
     }
 
-    // 4) 토큰 암호화 저장
+    // 4) 토큰 암호화 저장 — 실패 시 에러 리다이렉트
     await saveThreadsToken(svc, userId, {
       threads_user_id: meData.id,
       username: meData.username ?? '',
       access_token: longData.access_token,
       expires_in: longData.expires_in ?? 5184000,
     })
-
+    // saveThreadsToken이 오류 없이 완료된 경우에만 성공 리다이렉트
     return NextResponse.redirect(new URL('/marketing/threads?connected=1', origin))
   } catch (e) {
     console.error('[threads-callback] error:', e)
