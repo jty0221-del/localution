@@ -1719,63 +1719,136 @@ async function postCoupangEatsReply(
     return { ok: false, reason: `invalid storeId(${storeId}) or orderReviewId(${platformReviewId})` }
   }
 
-  log.info({ storeIdInt, orderReviewIdInt, textLen: replyText.length }, 'coupangeats: 53cha POST /reviews/reply (REST API)')
+  log.info({ storeIdInt, orderReviewIdInt, textLen: replyText.length }, 'coupangeats: 63cha POST reply (multi-endpoint)')
 
-  try {
-    const result = await page.evaluate(async (args: { url: string; body: string }) => {
-      try {
-        // x-request-meta: 동적 생성 (timestamp 포함 — Akamai 세션 검증용)
-        const meta = {
-          o: 'https://store.coupangeats.com',
-          ua: navigator.userAgent,
-          r: 'https://store.coupangeats.com/merchant/management/reviews',
-          t: Date.now(),
-          sr: String(screen.width) + 'x' + String(screen.height),
-          l: navigator.language || 'ko-KR',
-        }
-        const xRequestMeta = btoa(unescape(encodeURIComponent(JSON.stringify(meta))))
-
-        const r = await fetch(args.url, {
-          method: 'POST',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json;charset=UTF-8',
-            'Accept': 'application/json',
-            'Accept-Language': 'ko-KR',
-            'x-request-meta': xRequestMeta,
-            'x-requested-with': 'XMLHttpRequest',
-            'Origin': 'https://store.coupangeats.com',
-            'Referer': 'https://store.coupangeats.com/merchant/management/reviews',
-          },
-          body: args.body,
-        })
-        const text = await r.text()
-        let parsed: any = null
-        try { parsed = JSON.parse(text) } catch {}
-        return { ok: r.ok, status: r.status, text: text.slice(0, 500), parsed }
-      } catch (e: any) {
-        return { ok: false, status: 0, text: '', parsed: null, err: String(e?.message || e) }
-      }
-    }, {
+  // 63차: 여러 endpoint 후보 + 다양한 body shape 시도
+  // 사장님 댓글 등록하기 버튼 클릭 시 호출되는 정확한 endpoint 모르므로 후보 다중 시도.
+  const endpointCandidates: Array<{ url: string; body: any; method?: string }> = [
+    // 53차 검증 endpoint (가장 가능성 높음)
+    {
       url: 'https://store.coupangeats.com/api/v1/merchant/reviews/reply',
-      body: JSON.stringify({
-        storeId: storeIdInt,
-        orderReviewId: orderReviewIdInt,
-        comment: replyText,
-      }),
-    })
+      body: { storeId: storeIdInt, orderReviewId: orderReviewIdInt, comment: replyText },
+    },
+    // RESTful 패턴 후보
+    {
+      url: `https://store.coupangeats.com/api/v1/merchant/reviews/${orderReviewIdInt}/replies`,
+      body: { storeId: storeIdInt, comment: replyText },
+    },
+    {
+      url: `https://store.coupangeats.com/api/v1/merchant/reviews/${orderReviewIdInt}/reply`,
+      body: { storeId: storeIdInt, comment: replyText },
+    },
+    {
+      url: `https://store.coupangeats.com/api/v1/merchant/stores/${storeIdInt}/reviews/${orderReviewIdInt}/replies`,
+      body: { comment: replyText },
+    },
+    // v2 가능성
+    {
+      url: 'https://store.coupangeats.com/api/v2/merchant/reviews/reply',
+      body: { storeId: storeIdInt, orderReviewId: orderReviewIdInt, comment: replyText },
+    },
+  ]
 
-    log.info({ status: result.status, ok: result.ok, textPreview: result.text.slice(0, 200) }, 'coupangeats: 53cha reply API response')
+  let lastResult: any = null
+  let lastReason = 'no endpoint succeeded'
 
-    if (result.ok) return { ok: true }
-    if (result.status === 401) return { ok: false, reason: '세션 만료(401) — 쿠팡이츠 재연결 필요' }
-    if (result.status === 403) return { ok: false, reason: `Akamai 차단(403) — 잠시 후 재시도: ${result.text.slice(0, 80)}` }
-    if (result.status === 400) return { ok: false, reason: `요청 오류(400): ${result.text.slice(0, 150)}` }
-    return { ok: false, reason: `HTTP ${result.status}: ${result.text.slice(0, 100)}` }
-  } catch (e: any) {
-    log.error({ err: e?.message }, 'coupangeats: postCoupangEatsReply exception')
-    return { ok: false, reason: e?.message || 'unknown' }
+  for (let i = 0; i < endpointCandidates.length; i++) {
+    const ep = endpointCandidates[i]
+    log.info({ idx: i, url: ep.url }, 'coupangeats: 63cha trying endpoint')
+
+    try {
+      const result = await page.evaluate(async (args: { url: string; body: string; method: string }) => {
+        try {
+          const meta = {
+            o: 'https://store.coupangeats.com',
+            ua: navigator.userAgent,
+            r: 'https://store.coupangeats.com/merchant/management/reviews',
+            t: Date.now(),
+            sr: String(screen.width) + 'x' + String(screen.height),
+            l: navigator.language || 'ko-KR',
+          }
+          const xRequestMeta = btoa(unescape(encodeURIComponent(JSON.stringify(meta))))
+
+          const r = await fetch(args.url, {
+            method: args.method,
+            credentials: 'include',
+            headers: {
+              'Content-Type': 'application/json;charset=UTF-8',
+              'Accept': 'application/json',
+              'Accept-Language': 'ko-KR',
+              'x-request-meta': xRequestMeta,
+              'x-requested-with': 'XMLHttpRequest',
+              'Origin': 'https://store.coupangeats.com',
+              'Referer': 'https://store.coupangeats.com/merchant/management/reviews',
+            },
+            body: args.body,
+          })
+          const text = await r.text()
+          let parsed: any = null
+          try { parsed = JSON.parse(text) } catch {}
+          return { ok: r.ok, status: r.status, text: text.slice(0, 800), parsed }
+        } catch (e: any) {
+          return { ok: false, status: 0, text: '', parsed: null, err: String(e?.message || e) }
+        }
+      }, { url: ep.url, body: JSON.stringify(ep.body), method: ep.method || 'POST' })
+
+      lastResult = result
+
+      // 응답 본문 전체 + parsed 모두 로깅
+      log.info({
+        idx: i,
+        url: ep.url.slice(0, 80),
+        status: result.status,
+        ok: result.ok,
+        text: result.text,
+        parsed: result.parsed ? JSON.stringify(result.parsed).slice(0, 400) : null,
+      }, 'coupangeats: 63cha endpoint response')
+
+      // 404 = endpoint 가 존재 안 함 → 다음 후보
+      if (result.status === 404) {
+        lastReason = `${ep.url.split('/').slice(-2).join('/')}: 404 not found`
+        continue
+      }
+
+      // 401/403 = 인증/봇 차단 — 다른 endpoint 시도해도 같음 → 즉시 종료
+      if (result.status === 401) return { ok: false, reason: '세션 만료(401) — 쿠팡이츠 재연결 필요' }
+      if (result.status === 403) return { ok: false, reason: `봇 차단(403): ${result.text.slice(0, 100)}` }
+
+      // 200 OK 라도 body 검증 (silent fail 방지)
+      if (result.ok) {
+        const p = result.parsed
+        // 쿠팡 일반 응답 패턴: { code: "SUCCESS", data: ... } 또는 { success: true }
+        // FAIL 패턴: { code: "FAIL", message: "..." } 또는 { success: false, error: "..." }
+        const isExplicitFail = p && (
+          p.success === false ||
+          p.code === 'FAIL' ||
+          p.code === 'ERROR' ||
+          p.status === 'FAIL' ||
+          (p.error && p.error !== null && p.error !== '') ||
+          (p.message && /실패|fail|error|오류/i.test(p.message))
+        )
+        if (isExplicitFail) {
+          lastReason = `silent fail (${ep.url.split('/').slice(-2).join('/')}): ${result.text.slice(0, 200)}`
+          continue  // 다음 endpoint 시도
+        }
+        // 진짜 성공
+        log.info({ idx: i, url: ep.url, parsed: p }, 'coupangeats: 63cha reply success')
+        return { ok: true }
+      }
+
+      // 400 또는 기타 → 다음 endpoint 시도
+      lastReason = `HTTP ${result.status}: ${result.text.slice(0, 150)}`
+      continue
+    } catch (e: any) {
+      log.warn({ idx: i, err: e?.message }, 'coupangeats: 63cha endpoint exception')
+      lastReason = e?.message || 'unknown'
+      continue
+    }
   }
+
+  // 모든 endpoint 실패
+  log.error({ lastResult, lastReason }, 'coupangeats: 63cha all reply endpoints failed')
+  return { ok: false, reason: `모든 답글 endpoint 실패. ${lastReason}` }
 }
 
 async function closeAllModals(page: any, log: Logger): Promise<void> {
