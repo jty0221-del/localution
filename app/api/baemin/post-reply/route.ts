@@ -11,6 +11,7 @@ import { createCipheriv, createDecipheriv, randomBytes } from 'crypto'
 import { requireUser } from '@/app/lib/userAuth'
 import { createServiceClient } from '@/app/lib/adminAuth'
 import { baeminProxyLogin } from '@/app/lib/baemin-login'
+import { proxyFetch } from '@/app/lib/proxy-fetch'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -86,11 +87,12 @@ async function postReplyOnce(
   if (xsrfToken) headers['X-XSRF-TOKEN'] = xsrfToken
 
   try {
-    const res = await fetch(apiUrl, {
+    // v1.3: 한국 프록시 경유 — Akamai WAF 우회 필수
+    const res = await proxyFetch(apiUrl, {
       method: 'POST', headers,
       body: JSON.stringify({ reviewNo, comment, shopNo: Number(shopNo) }),
       signal: AbortSignal.timeout(15000),
-    })
+    } as RequestInit)
     const text = await res.text().catch(() => '')
     let body: any = null
     try { body = text ? JSON.parse(text) : null } catch { body = { raw: text.slice(0, 200) } }
