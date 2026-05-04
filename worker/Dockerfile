@@ -4,7 +4,7 @@
 FROM mcr.microsoft.com/playwright:v1.59.1-jammy
 
 # v28 cache-bust 20260504T1430 — Railway docker layer cache 강제 우회
-ARG CACHE_BUST=20260504T1500-baemin-v1.6f
+ARG CACHE_BUST=20260505T1530-baemin-v1.6g
 RUN echo "CACHE_BUST: $CACHE_BUST"
 
 WORKDIR /app
