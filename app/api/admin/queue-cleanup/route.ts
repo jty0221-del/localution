@@ -60,6 +60,25 @@ export async function POST(req: NextRequest) {
       } catch (_) {}
     }
 
+    // 4) ?force=1 옵션: active job 도 강제 제거 (워커 처리 중인 거 끊기)
+    //    워커가 다음 lock interval (30초) 후 stalled 처리 → 자동 재시작
+    const url = new URL(req.url)
+    const force = url.searchParams.get('force') === '1'
+    if (force) {
+      const active = await q.getActive(0, 99)
+      for (const j of active) {
+        if (j.data?.userId !== auth.userId) continue
+        if (j.data?.action === 'post_reply') {
+          kept.post_reply++
+          continue
+        }
+        try {
+          await j.remove()
+          ;(removed as any).active_force = ((removed as any).active_force || 0) + 1
+        } catch (_) {}
+      }
+    }
+
     return NextResponse.json({
       ok: true,
       removed,
