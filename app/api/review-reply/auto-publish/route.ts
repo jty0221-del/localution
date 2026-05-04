@@ -141,11 +141,26 @@ export async function POST(req: NextRequest) {
       }, { status: 409 })
     }
 
-    // v1.6m: 배민 정책 — 30일 지난 리뷰는 답글 등록 불가
-    if (row.platform === 'baemin' && row.posted_at) {
-      const postedMs = new Date(row.posted_at).getTime()
-      if (!isNaN(postedMs)) {
-        const daysAgo = (Date.now() - postedMs) / 86400_000
+    // v1.6o: 배민 정책 — 30일 지난 리뷰 차단
+    //   posted_at > platform_review_id 의 YYYYMMDD prefix 순으로 날짜 추정
+    if (row.platform === 'baemin') {
+      let reviewMs: number | null = null
+      if (row.posted_at) {
+        const ts = new Date(row.posted_at).getTime()
+        if (!isNaN(ts)) reviewMs = ts
+      }
+      if (reviewMs === null) {
+        // baemin-real-YYYYMMDDXXXXXXXX 형식에서 YYYYMMDD 추출
+        const m = String(row.platform_review_id || '').match(/(\d{8})/)
+        if (m) {
+          const ymd = m[1]
+          const dateStr = ymd.slice(0,4) + '-' + ymd.slice(4,6) + '-' + ymd.slice(6,8) + 'T00:00:00'
+          const ts = new Date(dateStr).getTime()
+          if (!isNaN(ts)) reviewMs = ts
+        }
+      }
+      if (reviewMs !== null) {
+        const daysAgo = (Date.now() - reviewMs) / 86400_000
         if (daysAgo > 30) {
           return NextResponse.json({
             ok: false,
