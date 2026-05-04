@@ -45,6 +45,13 @@ const MARKETING_GROUPS = [
     ],
   },
   {
+    platform: '유튜브',
+    color: '#FF0000',
+    items: [
+      { href: '/marketing/youtube-community', label: '커뮤니티 업로드' },
+    ],
+  },
+  {
     platform: '구글',
     color: '#4285F4',
     items: [
