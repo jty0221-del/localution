@@ -161,8 +161,8 @@ export async function runBaemin(
     return { status: 'skipped', message: `baemin: unsupported action ${action}` }
   }
 
-  // v1.6j: 진짜 배민 필드명 매핑 — contents (본문), comments[0].contents (사장님 답글)
-  log.info({ version: 'v1.6j', ts: '20260505T1700' }, 'BAEMIN_ADAPTER_VERSION_MARKER')
+  // v1.6j_fix: || vs ?? syntax error 수정 + 진짜 배민 필드명 매핑
+  log.info({ version: 'v1.6j_fix', ts: '20260505T1715' }, 'BAEMIN_ADAPTER_VERSION_MARKER')
 
   const svc   = getServiceClient()
   let creds: any
@@ -863,20 +863,20 @@ function extractReviewsFromApiResponse(data: any, log: Logger): CollectedReview[
         ?? item.reviewDate ?? item.reviewDateTime ?? item.registeredAt ?? item.regDateTime
         ?? item.orderDate ?? item.regDate ?? item.writtenAt ?? item.writtenDate
         ?? item.postedAt ?? item.timestamp ?? item.reviewedAt ?? null
-      // v1.6j: 배민 실제 reply 필드 = comments (array of {contents, createdAt})
-      // 우선순위: comments[0]?.contents > 기존 후보들
+      // v1.6j_fix: 배민 실제 reply 필드 = comments (array of {contents, createdAt})
+      // JavaScript 에서 || 와 ?? 를 괄호 없이 섞으면 SyntaxError → 모두 || 로 통일
       const commentsArr: any[] = Array.isArray(item.comments) ? item.comments : []
       const ownerReplyText = commentsArr.length > 0
         ? (commentsArr[0]?.contents || commentsArr[0]?.comment || commentsArr[0]?.content || (typeof commentsArr[0] === 'string' ? commentsArr[0] : null))
         : null
-      const hasReply = !!(ownerReplyText || item.ownerReply ?? item.reply ?? item.ownerComment
-        ?? item.replyContent ?? item.hasOwnerReply ?? item.hasComment ?? item.commentExists
-        ?? (commentsArr.length > 0))
+      const hasReply = !!(ownerReplyText || item.ownerReply || item.reply || item.ownerComment
+        || item.replyContent || item.hasOwnerReply || item.hasComment || item.commentExists
+        || (commentsArr.length > 0))
       const replyContent = ownerReplyText
-        ?? item.ownerReply?.content ?? item.ownerReply?.comment ?? item.ownerReply
-        ?? item.reply?.content ?? item.reply?.comment ?? item.reply
-        ?? item.ownerComment ?? item.replyContent ?? item.ceoComment
-        ?? item.ceoReply?.content ?? item.ceoReply ?? null
+        || item.ownerReply?.content || item.ownerReply?.comment || item.ownerReply
+        || item.reply?.content || item.reply?.comment || item.reply
+        || item.ownerComment || item.replyContent || item.ceoComment
+        || item.ceoReply?.content || item.ceoReply || null
 
       // v1.2: 가비지 검증 — 의미 데이터 모두 null 이면 skip
       if (!author && !content && rating === null) continue
