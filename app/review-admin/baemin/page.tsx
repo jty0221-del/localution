@@ -351,10 +351,11 @@ const CONFIG: PlatformConfig = {
 }
 
 export default function BaeminReviewPage() {
+  // v1.6k: SystemHealthFloating chip 사장님 UI 에서 제거 — 관리자 전용 디버그 도구
+  // 필요 시 /admin/baemin-health 등 별도 admin 페이지로 이동 (사장님은 ID/PW 입력만으로 모든 기능 작동)
   return (
     <div>
       <PlatformReviewAdmin config={CONFIG} />
-      <SystemHealthFloating />
     </div>
   )
 }
