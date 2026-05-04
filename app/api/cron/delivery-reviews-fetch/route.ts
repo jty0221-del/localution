@@ -43,13 +43,29 @@ export async function GET(req: NextRequest) {
     if (!creds || creds.length === 0) continue
 
     for (const cred of creds) {
+      // 72차: last_login_status 가 'failed' / 'credentials_invalid' / 'account_locked' / 'captcha' 면 skip
+      // 매번 실패하는 매장에 cron 이 enqueue 해서 큐 적체 발생 방지
+      const status = String(cred.last_login_status || '')
+      if (
+        status.startsWith('failed') ||
+        status.startsWith('credentials_invalid') ||
+        status.startsWith('account_locked') ||
+        status.startsWith('captcha')
+      ) {
+        results[platform].errors.push(cred.user_id + ': skip (status=' + status.slice(0, 40) + ')')
+        continue
+      }
+
       try {
+        // jobId 시간(시간 단위) 기반 — 같은 시간대 cron 중복 호출 시 BullMQ deduplication
+        const hourBucket = Math.floor(Date.now() / 3_600_000)
+        const jobId = `cron_${platform}_${cred.user_id}_${hourBucket}`
         const jobResult = await enqueuePlatformJob({
           platform,
           action: 'fetch_reviews',
           userId: cred.user_id,
           storeId: cred.platform_store_id || 'unknown',
-        })
+        }, { jobId })
 
         if (jobResult.ok) {
           results[platform].queued++
