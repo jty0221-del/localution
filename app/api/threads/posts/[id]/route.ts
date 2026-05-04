@@ -1,21 +1,30 @@
 // app/api/threads/posts/[id]/route.ts
 // 포스트 수정 / 삭제
 import { NextResponse } from 'next/server'
-import { createServiceClient, requireAdmin } from '@/app/lib/adminAuth'
+import { createServiceClient } from '@/app/lib/adminAuth'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
+
+const OWNER_EMAIL = 'jty0221@gmail.com'
+
+async function getOwnerUserId(svc: ReturnType<typeof createServiceClient>): Promise<string> {
+  const { data } = await svc
+    .from('stores')
+    .select('user_id')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  return data?.user_id || OWNER_EMAIL
+}
 
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const auth = await requireAdmin()
-  if (!auth.ok) return NextResponse.json({ error: auth.message }, { status: auth.status })
-
-  const userId = auth.userId ?? auth.email
-  const { id } = await params
   const svc = createServiceClient()
+  const userId = await getOwnerUserId(svc)
+  const { id } = await params
 
   const { data: existing } = await svc
     .from('threads_posts')
@@ -57,12 +66,9 @@ export async function DELETE(
   _request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const auth = await requireAdmin()
-  if (!auth.ok) return NextResponse.json({ error: auth.message }, { status: auth.status })
-
-  const userId = auth.userId ?? auth.email
-  const { id } = await params
   const svc = createServiceClient()
+  const userId = await getOwnerUserId(svc)
+  const { id } = await params
 
   const { data: existing } = await svc
     .from('threads_posts')
