@@ -125,7 +125,21 @@ export async function POST(req: NextRequest) {
     if (selErr) return NextResponse.json({ ok: false, error: '리뷰 조회 실패: ' + selErr.message }, { status: 500 })
     if (!row) return NextResponse.json({ ok: false, error: '리뷰 없음' }, { status: 404 })
     if (row.user_id !== userId) return NextResponse.json({ ok: false, error: '권한 없음' }, { status: 403 })
-    if (row.has_reply) return NextResponse.json({ ok: false, error: '이미 답글이 달린 리뷰예요' }, { status: 409 })
+
+    // 73차: has_reply 차단 제거 — 워커 pre-check (66차/69차) 가 실제 상태 판단
+    //   기존 버그: DB has_reply=true 면 즉시 409 차단 → enqueue 안 됨
+    //   문제 케이스:
+    //     - DB 가 잘못 마킹된 경우 (실제 답글 없는데 has_reply=true)
+    //     - 사장님이 답글 단 후 다시 우리 시스템으로 갱신하고 싶을 때
+    //   해결: 워커가 실제 답글 존재 여부 정확히 판단 (raw_snapshot.replies + reply_content)
+    //   reply_status='submitted' 만 진짜 차단 (우리가 이미 발행 완료한 것)
+    if (row.reply_status === 'submitted') {
+      return NextResponse.json({
+        ok: false,
+        code: 'ALREADY_SUBMITTED',
+        error: '이미 답글이 발행됐어요. 페이지를 새로고침해주세요.',
+      }, { status: 409 })
+    }
 
     const draft = String(row.draft_reply || '').trim()
     if (!draft) return NextResponse.json({ ok: false, error: '먼저 초안을 저장해주세요' }, { status: 400 })
