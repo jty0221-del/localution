@@ -67,28 +67,66 @@ async function loadBaeminCookieJar(svc: any, userId: string): Promise<{ cookies:
       .select('extra_data')
       .eq('user_id', userId).eq('platform', 'baemin').maybeSingle()
     const extra = (data?.extra_data as any) || {}
-    if (!extra.baemin_cookie_enc) return null
-    const cookieStr = decryptCookieStr(extra.baemin_cookie_enc, extra.baemin_cookie_iv, extra.baemin_cookie_tag)
-    if (!cookieStr) return null
-    const cookies: any[] = []
-    for (const part of cookieStr.split(';')) {
-      const kv = part.trim()
-      const eq = kv.indexOf('=')
-      if (eq <= 0) continue
-      const name = kv.slice(0, eq).trim()
-      const value = kv.slice(eq + 1).trim()
-      if (!name || !value) continue
-      // 배민 도메인의 모든 쿠키로 추가 — sub-domain 다 포함
-      cookies.push({
-        name, value,
-        domain: '.baemin.com',
-        path: '/',
-        httpOnly: false,
-        secure: true,
-        sameSite: 'Lax' as const,
-      })
+
+    // v1.6c: 우선순위 1 — JSON object 배열 (domain/path/flags 보존된 정확한 쿠키)
+    if (extra.baemin_cookies_json_enc) {
+      const json = decryptCookieStr(extra.baemin_cookies_json_enc, extra.baemin_cookies_json_iv, extra.baemin_cookies_json_tag)
+      if (json) {
+        try {
+          const arr = JSON.parse(json)
+          if (Array.isArray(arr) && arr.length > 0) {
+            // Playwright addCookies 형식 검증 + sanitize
+            const cookies = arr
+              .filter((c: any) => c && c.name && c.value && (c.domain || c.url))
+              .map((c: any) => {
+                const out: any = {
+                  name: String(c.name),
+                  value: String(c.value),
+                  domain: c.domain || '.baemin.com',
+                  path: c.path || '/',
+                  httpOnly: !!c.httpOnly,
+                  secure: c.secure !== false,
+                }
+                if (typeof c.expires === 'number' && c.expires > 0) out.expires = c.expires
+                if (c.sameSite && ['Strict', 'Lax', 'None'].includes(c.sameSite)) {
+                  out.sameSite = c.sameSite
+                } else {
+                  out.sameSite = 'Lax'
+                }
+                return out
+              })
+            const cookieStr = cookies.map((c: any) => c.name + '=' + c.value).join('; ')
+            return { cookies, cookieStr }
+          }
+        } catch { /* fall through to legacy */ }
+      }
     }
-    return { cookies, cookieStr }
+
+    // v1.6c: 우선순위 2 — legacy cookie string (호환성)
+    if (extra.baemin_cookie_enc) {
+      const cookieStr = decryptCookieStr(extra.baemin_cookie_enc, extra.baemin_cookie_iv, extra.baemin_cookie_tag)
+      if (!cookieStr) return null
+      const cookies: any[] = []
+      for (const part of cookieStr.split(';')) {
+        const kv = part.trim()
+        const eq = kv.indexOf('=')
+        if (eq <= 0) continue
+        const name = kv.slice(0, eq).trim()
+        const value = kv.slice(eq + 1).trim()
+        if (!name || !value) continue
+        cookies.push({
+          name, value,
+          domain: '.baemin.com',
+          path: '/',
+          httpOnly: false,
+          secure: true,
+          sameSite: 'Lax' as const,
+        })
+      }
+      return { cookies, cookieStr }
+    }
+
+    return null
   } catch { return null }
 }
 
@@ -309,8 +347,10 @@ export async function runBaemin(
       const postUrl = page.url()
       log.info({ postUrl }, 'baemin: post-login URL')
 
-      // 여전히 biz-member 로그인 페이지 = 실패
-      if (postUrl.includes('biz-member')) {
+      // v1.6c: biz-member 도 /login 만 실패로 판정 — /mypage, /shop 등은 로그인 성공
+      const isStillOnLoginPage = postUrl.includes('biz-member.baemin.com/login')
+        && !postUrl.includes('returnUrl')  // returnUrl 있으면 OAuth-like flow 진행 중
+      if (isStillOnLoginPage) {
         const { failed, reason } = await detectLoginFailure(page)
         await markLoginStatus(svc, userId, 'baemin', 'failed', reason || 'stayed on login page')
         await dumpPageDiagnostics(page, log, 'baemin-login-failed')
@@ -322,14 +362,35 @@ export async function runBaemin(
         return { status: 'failed', message: 'baemin: captcha/block 감지' }
       }
 
-      // self.baemin.com이 아니면 강제 이동
+      // self.baemin.com이 아니면 강제 이동 (biz-member/mypage 등도 self.baemin.com 으로 redirect)
       if (!postUrl.includes('self.baemin.com')) {
-        await page.goto(CEO_HOME, { waitUntil: 'domcontentloaded', timeout: 30_000 })
-        await page.waitForTimeout(3000)
+        log.info({ postUrl }, 'baemin: not on self.baemin.com, redirecting to CEO_HOME')
+        try {
+          await page.goto(CEO_HOME, { waitUntil: 'commit', timeout: 30_000 })
+        } catch (e: any) {
+          log.warn({ err: e?.message }, 'baemin: CEO_HOME redirect error (continuing)')
+        }
+        await page.waitForTimeout(4000)
       }
 
-      // 로그인 후 인증 재확인
-      const postAuth = await checkAuth(page, DASHBOARD_KW)
+      // 로그인 후 인증 재확인 (v1.6c: 여러 번 재시도 — SPA 로딩 시간 고려)
+      let postAuth = false
+      for (let attempt = 0; attempt < 3; attempt++) {
+        postAuth = await checkAuth(page, DASHBOARD_KW)
+        if (postAuth) break
+        log.info({ attempt }, 'baemin: post-login auth retry')
+        await page.waitForTimeout(3000)
+      }
+      // 추가 신호 — /shops/{N}/ 링크가 있어도 인증 OK 로 간주
+      if (!postAuth) {
+        const hasShopLink = await page.evaluate(() => {
+          return !!document.querySelector('a[href*="/shops/"]')
+        }).catch(() => false)
+        if (hasShopLink) {
+          log.info('baemin: shops link detected → treating as authenticated')
+          postAuth = true
+        }
+      }
       if (!postAuth) {
         await dumpPageDiagnostics(page, log, 'baemin-post-login-no-dashboard')
         await markLoginStatus(svc, userId, 'baemin', 'failed', 'no dashboard after login')
@@ -339,38 +400,54 @@ export async function runBaemin(
       await markLoginStatus(svc, userId, 'baemin', 'success')
       log.info('baemin: login success ✓')
 
-      // v1.6: Worker 가 fresh 로그인 성공 시 쿠키를 DB 에 저장
-      //       다음 fetch 때 cookie injection 으로 즉시 인증 → 재로그인 우회
+      // v1.6c: Worker fresh 로그인 성공 → 쿠키 JSON object 그대로 영속화
+      //        Playwright cookies() 의 모든 필드 (domain/path/httpOnly/secure/sameSite/expires) 보존
+      //        다음 fetch 시 addCookies() 로 정확히 복원 → 인증 유지
       try {
         const allCookies = await context.cookies()
         const baeminCookies = allCookies.filter((c: any) =>
           (c.domain || '').includes('baemin.com') || (c.domain || '').includes('woowa')
         )
         if (baeminCookies.length > 0) {
-          const cookieStr = baeminCookies.map((c: any) => c.name + '=' + c.value).join('; ')
-          // AES 암호화 (worker/src/lib/crypto 의 encryptStr 패턴)
           const kek = loadKekHex()
           if (kek) {
             const { randomBytes, createCipheriv } = await import('crypto')
-            const iv = randomBytes(12)
-            const cipher = createCipheriv('aes-256-gcm', kek, iv)
-            const enc = Buffer.concat([cipher.update(cookieStr, 'utf8'), cipher.final()])
-            const tag = cipher.getAuthTag()
+            const cookiesJsonStr = JSON.stringify(baeminCookies)
+
+            // JSON object 영속화 (v1.6c)
+            const ivJson = randomBytes(12)
+            const cipherJson = createCipheriv('aes-256-gcm', kek, ivJson)
+            const encJson = Buffer.concat([cipherJson.update(cookiesJsonStr, 'utf8'), cipherJson.final()])
+            const tagJson = cipherJson.getAuthTag()
+
+            // legacy string 도 같이 저장 (backward compat)
+            const cookieStr = baeminCookies.map((c: any) => c.name + '=' + c.value).join('; ')
+            const ivStr = randomBytes(12)
+            const cipherStr = createCipheriv('aes-256-gcm', kek, ivStr)
+            const encStr = Buffer.concat([cipherStr.update(cookieStr, 'utf8'), cipherStr.final()])
+            const tagStr = cipherStr.getAuthTag()
+
             const { data: existing } = await svc
               .from('platform_credentials').select('extra_data')
               .eq('user_id', userId).eq('platform', 'baemin').maybeSingle()
             const prevExtra = (existing?.extra_data as any) || {}
+
             await svc.from('platform_credentials').update({
               extra_data: {
                 ...prevExtra,
-                baemin_cookie_enc: enc.toString('base64'),
-                baemin_cookie_iv: iv.toString('base64'),
-                baemin_cookie_tag: tag.toString('base64'),
+                // 우선순위 1: JSON object (정확한 영속화)
+                baemin_cookies_json_enc: encJson.toString('base64'),
+                baemin_cookies_json_iv:  ivJson.toString('base64'),
+                baemin_cookies_json_tag: tagJson.toString('base64'),
+                // 우선순위 2: legacy string
+                baemin_cookie_enc: encStr.toString('base64'),
+                baemin_cookie_iv:  ivStr.toString('base64'),
+                baemin_cookie_tag: tagStr.toString('base64'),
                 cookie_saved_at: new Date().toISOString(),
-                cookie_source: 'worker_fresh_login',
+                cookie_source: 'worker_fresh_login_v1_6c',
               },
             }).eq('user_id', userId).eq('platform', 'baemin')
-            log.info({ count: baeminCookies.length }, 'baemin: fresh cookies saved to DB (Worker login)')
+            log.info({ count: baeminCookies.length }, 'baemin: fresh cookies saved as JSON (v1.6c)')
           }
         }
       } catch (cookieSaveErr: any) {
