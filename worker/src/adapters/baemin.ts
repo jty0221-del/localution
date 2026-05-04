@@ -392,13 +392,17 @@ export async function runBaemin(
       return Array.from(set)
     }).catch(() => [])
 
-    // payload 에 명시된 shop_no 우선, 없으면 감지된 모든 shopId
-    const explicitShopId = (typeof payload?.shop_no === 'string' && payload.shop_no) ? String(payload.shop_no) : ''
-    const credShopId = creds.platform_store_id || storeId || ''
+    // v1.6b: 'unknown'/'null'/'undefined' 같은 문자열 sentinel 도 무효 처리
+    const isValidShopId = (s: any): boolean => {
+      if (typeof s !== 'string') return false
+      const t = s.trim().toLowerCase()
+      return !!t && t !== 'unknown' && t !== 'null' && t !== 'undefined' && /^\d+$/.test(t)
+    }
+    const explicitShopId = isValidShopId(payload?.shop_no) ? String(payload?.shop_no) : ''
+    const credShopId = isValidShopId(creds.platform_store_id) ? String(creds.platform_store_id) : (isValidShopId(storeId) ? storeId : '')
     let shopIdsToFetch: string[] = []
     if (action === 'post_reply') {
-      // 답글은 단일 매장만 (payload 에서 받은 platform_review_id 의 매장)
-      shopIdsToFetch = [explicitShopId || credShopId].filter(Boolean)
+      shopIdsToFetch = [explicitShopId || credShopId || allShopIds[0] || ''].filter(Boolean)
     } else if (explicitShopId) {
       shopIdsToFetch = [explicitShopId]
     } else if (allShopIds.length > 0) {
@@ -411,6 +415,19 @@ export async function runBaemin(
       return { status: 'failed', message: 'baemin: shopId 없음 — 매장 미감지 + platform_store_id 미설정' }
     }
     log.info({ shopIdsToFetch, allShopIds, credShopId, explicitShopId }, 'baemin: shops to fetch')
+
+    // v1.6b: allShopIds 감지됐고 cred 의 platform_store_id 가 비어있으면 자동 저장
+    // (다음 fetch 부터 cred 에서 바로 사용 가능)
+    if (allShopIds.length > 0 && !credShopId) {
+      try {
+        await svc.from('platform_credentials')
+          .update({ platform_store_id: allShopIds[0] })
+          .eq('user_id', userId).eq('platform', 'baemin')
+        log.info({ savedShopId: allShopIds[0] }, 'baemin: platform_store_id auto-saved from detected shops')
+      } catch (saveErr: any) {
+        log.warn({ err: saveErr?.message }, 'baemin: platform_store_id auto-save failed (non-fatal)')
+      }
+    }
 
     // ── Step 4-6: 각 매장별 리뷰 페이지 순회 + XHR 캡처 + 추출 + 저장 ─
     const daysBack = (typeof payload?.days_back === 'number' && payload.days_back > 0)
@@ -530,10 +547,13 @@ async function checkAuth(page: any, kw: string[]): Promise<boolean> {
 function extractReviewsFromApiResponse(data: any, log: Logger): CollectedReview[] {
   if (!data || typeof data !== 'object') return []
 
+  // v1.6b: /v3/dashboard/review 의 reviewContents 도 후보에 추가
   const candidates = [
     data, data?.data, data?.result, data?.reviews, data?.items,
     data?.content, data?.list, data?.reviewList, data?.contents,
+    data?.reviewContents,                                            // /v3/dashboard/review
     data?.data?.reviews, data?.data?.items, data?.data?.list, data?.data?.contents,
+    data?.data?.reviewContents,
     data?.result?.reviews, data?.result?.items, data?.result?.list,
   ].filter(Boolean)
 
