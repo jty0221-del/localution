@@ -1055,13 +1055,14 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
                     const isSubmitted = review.replyStatus === 'submitted'
                     const isBulkTarget = bulkRunning && bulkProgress.currentId === review.id
                     // v1.6m: 배민은 30일 지난 리뷰는 답글 등록 불가능 (배민 정책)
-                    //   "등록된 지 30일이 지난 리뷰는 사장님 댓글을 등록할 수 없어요"
+                    //   posted_at 우선, 없으면 collectedAt fallback (보수적: posted 정보 누락 시 오래된 리뷰일 가능성)
                     const isReplyExpired = (() => {
                       if (config.platform !== 'baemin') return false
-                      if (!review.postedAt) return false
-                      const postedMs = new Date(review.postedAt).getTime()
-                      if (isNaN(postedMs)) return false
-                      const daysAgo = (Date.now() - postedMs) / 86400_000
+                      const dateStr = review.postedAt || review.collectedAt
+                      if (!dateStr) return false
+                      const ts = new Date(dateStr).getTime()
+                      if (isNaN(ts)) return false
+                      const daysAgo = (Date.now() - ts) / 86400_000
                       return daysAgo > 30
                     })()
                     return (
