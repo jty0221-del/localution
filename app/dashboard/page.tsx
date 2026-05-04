@@ -1719,10 +1719,7 @@ export default function Dashboard() {
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between mb-1.5">
                           <span className="text-sm font-semibold text-[#191F28]">{p.name}</span>
-                          {/* 30차-17: 리뷰 카운트 기준으로 분기. 네이버 공개 GraphQL 은 rating=null
-                              반환(키워드 리뷰 시스템) 이므로 rating 기준 분기는 수집 성공해도
-                              "아직 수집 전" 이 계속 노출되던 버그가 있었다. → reviews 개수 기준 */}
-                          {typeof p.reviews === 'number' && p.reviews > 0 ? (
+                          {(p.rating !== null || (typeof p.reviews === 'number' && p.reviews > 0)) ? (
                             <div className="flex items-center gap-3">
                               {p.rating !== null ? (
                                 <Stars rating={p.rating} />
@@ -1731,7 +1728,9 @@ export default function Dashboard() {
                                   키워드 리뷰
                                 </span>
                               )}
-                              <span className="text-xs text-[#8B95A1]">리뷰 <strong className="text-[#191F28]">{p.reviews}건</strong></span>
+                              {typeof p.reviews === 'number' && p.reviews > 0 && (
+                                <span className="text-xs text-[#8B95A1]">리뷰 <strong className="text-[#191F28]">{p.reviews}건</strong></span>
+                              )}
                             </div>
                           ) : isFetchingThis ? (
                             <span className="inline-flex items-center gap-1.5 text-xs text-[#3182F6] font-semibold">
@@ -2049,22 +2048,38 @@ export default function Dashboard() {
                 )
               })
             ) : (
-              // 78차: 하드코딩된 RECENT_REVIEWS 데모 폴백 제거 — 실 데이터 없으면 빈 상태 + CTA
-              <div className="px-5 py-12 flex flex-col items-center justify-center text-center">
-                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#E8F4FD] to-[#DBEAFE] flex items-center justify-center mb-3">
-                  <MessageSquare size={22} className="text-[#3182F6]" strokeWidth={2.5} />
+              RECENT_REVIEWS.map((review, i) => (
+                <div key={i} className="px-5 py-4 hover:bg-[#FAFBFF] transition-colors flex items-start gap-4">
+                  <div
+                    className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-black text-white mt-0.5"
+                    style={{ background: review.color }}
+                  >
+                    {review.platform.slice(0, 2)}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <span className="text-xs font-bold text-[#4E5968]">{review.name}</span>
+                      <Stars rating={review.rating} />
+                      <span className="text-[10px] text-[#8B95A1]">{review.time}</span>
+                      {review.replied && (
+                        <span className="inline-flex items-center gap-1 text-[10px] bg-[#E8FFF0] text-[#12B76A] px-1.5 py-0.5 rounded-full font-semibold">
+                          <Check size={10} strokeWidth={3} />
+                          답변완료
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-sm text-[#4E5968] line-clamp-1">{review.text}</p>
+                  </div>
+                  {!review.replied && (
+                    <button
+                      onClick={() => setReplyReview(review)}
+                      className="flex-shrink-0 ml-4 text-xs bg-[#3182F6] text-white px-3 py-1.5 rounded-xl font-semibold hover:bg-[#1B64DA] transition-colors"
+                    >
+                      AI 답글
+                    </button>
+                  )}
                 </div>
-                <p className="text-sm font-bold text-[#4E5968] mb-1.5">아직 수집된 리뷰가 없어요</p>
-                <p className="text-xs text-[#8B95A1] leading-relaxed mb-4 max-w-xs">
-                  네이버 플레이스, 배민, 쿠팡이츠 등 플랫폼을 연동하면<br />실제 리뷰가 자동으로 이 자리에 들어와요
-                </p>
-                <Link
-                  href={buildSettingsHref('connect')}
-                  className="inline-flex items-center gap-1.5 bg-[#3182F6] text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-[#1B64DA] transition-colors"
-                >
-                  플랫폼 연동하기 <ArrowRight size={12} strokeWidth={2.5} />
-                </Link>
-              </div>
+              ))
             )}
           </div>
         </div>
