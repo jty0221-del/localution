@@ -349,7 +349,12 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
             content: r.content || '',
             postedAt: r.posted_at || null,
             collectedAt: r.collected_at || null,
-            hasReply: !!r.has_reply,
+            // 68차-3: hasReply 도 reply_content 또는 raw_snapshot.replies 로 추론
+            //   has_reply: false 인데 reply_content 가 있으면 (이전 fetch 가 update 못한 경우)
+            //   답글 박스를 노출하도록 보정
+            hasReply: !!r.has_reply
+              || !!r.reply_content
+              || (Array.isArray((r.raw_snapshot as any)?.replies) && (r.raw_snapshot as any).replies.length > 0),
             photos: photoArr,
             photoCount: photoArr.length,
             draftReply: r.draft_reply || null,
@@ -1356,8 +1361,9 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
                           </div>
                         )}
 
-                        {/* 등록 완료 또는 네이버에 이미 달린 답글 — 답글 내용 표시 */}
-                        {!isEditing && (isSubmitted || review.hasReply) && (
+                        {/* 등록 완료 또는 플랫폼에 이미 달린 답글 — 답글 내용 표시 */}
+                        {/* 68차-3: replyContent 가 있으면 무조건 노출 (hasReply boolean 우회) */}
+                        {!isEditing && (isSubmitted || review.hasReply || !!review.replyContent) && (
                           <div className="rounded-xl p-3 mb-2 border border-[#ECFDF5] bg-[#F0FDF4]">
                             <p className="text-[10px] font-bold text-[#059669] mb-1">
                               {isSubmitted ? `✅ 사장님 답글 (${config.label} 등록 완료)` : `✅ 사장님 답글 (${config.label}에 등록됨)`}
