@@ -378,6 +378,20 @@ export async function runCoupangEats(
 
     // ── 폼 로그인 (쿠키 없거나 만료) ──
     // 56차: Akamai warming + humanType + humanClick + storeId auto-discovery
+    // 60차: account_id 마스킹 로그 추가 (네이버/쿠팡 계정 혼동 디버깅용)
+    function maskAccountId(id: string): string {
+      if (!id) return ''
+      const s = String(id).trim()
+      if (s.length <= 2) return s
+      if (s.length <= 4) return s[0] + '*'.repeat(s.length - 1)
+      if (s.length <= 6) return s.slice(0, 2) + '*'.repeat(s.length - 3) + s.slice(-1)
+      return s.slice(0, 2) + '*'.repeat(s.length - 4) + s.slice(-2)
+    }
+    log.info({
+      accountIdMask: maskAccountId(creds.account_id),
+      accountIdLen: creds.account_id.length,
+      passwordLen: creds.password.length,
+    }, 'coupangeats: 60cha — credential identity check (verify this is COUPANG ID, not naver/baemin)')
     log.info('coupangeats: attempting form login (56cha: warming + human-like)')
     let loginNavErr: string | null = null
     try {
