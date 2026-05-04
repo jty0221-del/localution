@@ -799,9 +799,31 @@ async function fetchCoupangReviews(
 
   // ── 65차: post_reply fast path — sliding window 31일 fetch 완전 skip ──
   // 이유: 답글 발행 1건에 1분 fetch 비효율 + Railway SIGTERM 시 답글 못 달림
-  // 흐름: home nav → /login redirect 검사 → 바로 postCoupangEatsReply 호출
+  // 흐름: pre-check (이미 답글 있음 검증) → home nav → /login redirect 검사 → bytes postCoupangEatsReply
   if (action === 'post_reply' && payload?.platform_review_id && payload?.reply_text) {
     log.info('coupangeats: 65cha — post_reply fast path (skip sliding window)')
+
+    // ── 66차: pre-check — DB 에 has_reply=true 이면 50001 외부 API 실패 미리 차단 ──
+    const targetIdPre = String(payload.platform_review_id)
+    try {
+      const { data: existing } = await svc
+        .from('platform_reviews')
+        .select('has_reply, reply_status')
+        .eq('user_id', userId)
+        .eq('platform', 'coupangeats')
+        .eq('platform_review_id', targetIdPre)
+        .maybeSingle()
+      if (existing?.has_reply === true) {
+        log.warn({ reviewId: targetIdPre }, 'coupangeats: 66cha — review already has reply, skipping post')
+        return {
+          status: 'skipped',
+          message: '이미 답글이 달려있어요. 쿠팡 페이지에서 확인해주세요.',
+        }
+      }
+    } catch (e: any) {
+      log.warn({ err: e?.message }, 'coupangeats: 66cha pre-check failed (계속 진행)')
+    }
+
     if (skipBrowser) {
       try {
         const targetStoreId = creds.platform_store_id || '738438'
@@ -1786,31 +1808,29 @@ async function postCoupangEatsReply(
 
   log.info({ storeIdInt, orderReviewIdInt, textLen: replyText.length }, 'coupangeats: 63cha POST reply (multi-endpoint)')
 
-  // 63차: 여러 endpoint 후보 + 다양한 body shape 시도
-  // 사장님 댓글 등록하기 버튼 클릭 시 호출되는 정확한 endpoint 모르므로 후보 다중 시도.
+  // 66차: idx:0 endpoint 가 진짜 (200 응답) — body shape 다양화로 50001 회피 시도
+  // log 분석 결과: /api/v1/merchant/reviews/reply 가 정확한 endpoint
+  // 50001 "외부 API 호출 실패" = 이미 답글 있거나 body shape 잘못
   const endpointCandidates: Array<{ url: string; body: any; method?: string }> = [
-    // 53차 검증 endpoint (가장 가능성 높음)
+    // body shape 1: 기본 (number 타입)
     {
       url: 'https://store.coupangeats.com/api/v1/merchant/reviews/reply',
       body: { storeId: storeIdInt, orderReviewId: orderReviewIdInt, comment: replyText },
     },
-    // RESTful 패턴 후보
+    // body shape 2: string 타입 (쿠팡 API 가 string 받을 수도)
     {
-      url: `https://store.coupangeats.com/api/v1/merchant/reviews/${orderReviewIdInt}/replies`,
-      body: { storeId: storeIdInt, comment: replyText },
+      url: 'https://store.coupangeats.com/api/v1/merchant/reviews/reply',
+      body: { storeId: String(storeIdInt), orderReviewId: String(orderReviewIdInt), comment: replyText },
     },
+    // body shape 3: replyType 추가
     {
-      url: `https://store.coupangeats.com/api/v1/merchant/reviews/${orderReviewIdInt}/reply`,
-      body: { storeId: storeIdInt, comment: replyText },
+      url: 'https://store.coupangeats.com/api/v1/merchant/reviews/reply',
+      body: { storeId: storeIdInt, orderReviewId: orderReviewIdInt, comment: replyText, replyType: 'OWNER' },
     },
+    // body shape 4: reviewId / content 키 (다른 endpoint 패턴 호환)
     {
-      url: `https://store.coupangeats.com/api/v1/merchant/stores/${storeIdInt}/reviews/${orderReviewIdInt}/replies`,
-      body: { comment: replyText },
-    },
-    // v2 가능성
-    {
-      url: 'https://store.coupangeats.com/api/v2/merchant/reviews/reply',
-      body: { storeId: storeIdInt, orderReviewId: orderReviewIdInt, comment: replyText },
+      url: 'https://store.coupangeats.com/api/v1/merchant/reviews/reply',
+      body: { storeId: storeIdInt, reviewId: orderReviewIdInt, content: replyText },
     },
   ]
 
@@ -1884,17 +1904,34 @@ async function postCoupangEatsReply(
         const p = result.parsed
         // 쿠팡 일반 응답 패턴: { code: "SUCCESS", data: ... } 또는 { success: true }
         // FAIL 패턴: { code: "FAIL", message: "..." } 또는 { success: false, error: "..." }
+        // 50001 패턴: { data: null, error: { code: "50001", message: "..." }, code: "50001" }
+        const errCode = p?.error?.code || p?.code || ''
+        const errMsg = p?.error?.message || p?.message || ''
         const isExplicitFail = p && (
           p.success === false ||
-          p.code === 'FAIL' ||
-          p.code === 'ERROR' ||
+          (errCode && errCode !== 'SUCCESS' && errCode !== '0' && errCode !== 0) ||
           p.status === 'FAIL' ||
-          (p.error && p.error !== null && p.error !== '') ||
-          (p.message && /실패|fail|error|오류/i.test(p.message))
+          p.status === 'ERROR' ||
+          (p.error && typeof p.error === 'object' && p.error !== null) ||
+          (errMsg && /실패|fail|error|오류|이미|중복/i.test(errMsg))
         )
         if (isExplicitFail) {
-          lastReason = `silent fail (${ep.url.split('/').slice(-2).join('/')}): ${result.text.slice(0, 200)}`
-          continue  // 다음 endpoint 시도
+          // 66차: 에러 코드별 사용자 친화 메시지
+          let userMsg = `${errCode}: ${errMsg}`
+          if (errCode === '50001') {
+            // 50001 = "외부 API 호출 실패" — 흔한 원인:
+            //   1) 이미 답글 있음
+            //   2) review 가 답글 등록 가능 상태 아님 (오래된 review 등)
+            //   3) 쿠팡 시스템 일시 장애
+            userMsg = '쿠팡이츠 시스템 일시 오류 또는 이미 답글이 달려있을 수 있어요. 쿠팡 페이지에서 직접 확인해주세요.'
+          } else if (errCode === '40001' || errCode === '40003') {
+            userMsg = '권한 없음 또는 잘못된 요청 — 매장 연결을 다시 확인해주세요.'
+          } else if (errMsg.includes('이미') || errMsg.includes('중복')) {
+            userMsg = '이미 답글이 달려있어요. 쿠팡 페이지에서 확인해주세요.'
+          }
+          lastReason = `body shape ${i+1} 실패 (code:${errCode}): ${userMsg}`
+          log.warn({ idx: i, errCode, errMsg, fullBody: result.text.slice(0, 300) }, 'coupangeats: 66cha body fail — 다음 shape 시도')
+          continue  // 다음 endpoint/shape 시도
         }
         // 진짜 성공
         log.info({ idx: i, url: ep.url, parsed: p }, 'coupangeats: 63cha reply success')
