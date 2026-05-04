@@ -8,6 +8,8 @@ import {
   CalendarClock, Loader2, Link2Off
 } from 'lucide-react'
 import PageHeader from '@/app/components/PageHeader'
+import Sidebar from '@/app/components/Sidebar'
+import Footer from '@/app/components/Footer'
 import Link from 'next/link'
 
 // ──────────────────────────────────────────
@@ -525,7 +527,7 @@ function ThreadsPageContent() {
   ]
 
   return (
-    <div className="flex-1 min-w-0">
+    <>
       <PageHeader
         icon={<Send size={22} className="text-white" strokeWidth={2.5} />}
         title="스레드 자동 발행"
@@ -533,7 +535,7 @@ function ThreadsPageContent() {
         variant="primary"
       />
 
-      <div className="max-w-6xl mx-auto px-4 md:px-6 lg:px-8 pt-6 pb-20">
+      <main className="flex-1 max-w-4xl mx-auto w-full px-4 md:px-6 py-6 pb-20">
         {connectedParam === '1' && (
           <div className="bg-[#ECFDF5] border border-[#A7F3D0] rounded-2xl p-4 flex items-center gap-3 mb-6">
             <CheckCircle2 size={18} className="text-[#059669]" strokeWidth={2.5} />
@@ -567,15 +569,21 @@ function ThreadsPageContent() {
           {tab === 'scheduled' && <ScheduledTab />}
           {tab === 'history' && <HistoryTab />}
         </div>
-      </div>
-    </div>
+      </main>
+    </>
   )
 }
 
 export default function ThreadsPage() {
   return (
-    <Suspense>
-      <ThreadsPageContent />
-    </Suspense>
+    <div className="min-h-screen bg-[#F8F9FA]">
+      <Sidebar />
+      <div className="md:ml-[220px] flex flex-col min-h-screen">
+        <Suspense>
+          <ThreadsPageContent />
+        </Suspense>
+        <Footer />
+      </div>
+    </div>
   )
 }
