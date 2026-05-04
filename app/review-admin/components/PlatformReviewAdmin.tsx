@@ -1050,11 +1050,20 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
                     const isNegative = typeof review.rating === 'number' && review.rating <= 3
                     const isEditing = editingId === review.id
                     const hasDraft = !!(review.draftReply && review.draftReply.trim())
-                    const isQueued = review.replyStatus === 'submitting'  // 'queued'는 재편집 허용
+                    const isQueued = review.replyStatus === 'submitting'
                     const isSubmitting = submitting && editingId === review.id
-                    // reply_status='submitted' 이면 has_reply 여부와 무관하게 등록 완료로 처리
                     const isSubmitted = review.replyStatus === 'submitted'
                     const isBulkTarget = bulkRunning && bulkProgress.currentId === review.id
+                    // v1.6m: 배민은 30일 지난 리뷰는 답글 등록 불가능 (배민 정책)
+                    //   "등록된 지 30일이 지난 리뷰는 사장님 댓글을 등록할 수 없어요"
+                    const isReplyExpired = (() => {
+                      if (config.platform !== 'baemin') return false
+                      if (!review.postedAt) return false
+                      const postedMs = new Date(review.postedAt).getTime()
+                      if (isNaN(postedMs)) return false
+                      const daysAgo = (Date.now() - postedMs) / 86400_000
+                      return daysAgo > 30
+                    })()
                     return (
                       <div
                         key={review.id}
@@ -1073,6 +1082,12 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
                             {isNegative && (
                               <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#FEE2E2] text-[#DC2626] font-semibold">
                                 부정 리뷰
+                              </span>
+                            )}
+                            {/* v1.6m: 배민 30일 경과 표시 (배민 정책상 답글 불가) */}
+                            {isReplyExpired && !review.hasReply && (
+                              <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#FEF3C7] text-[#92400E] font-semibold" title="배민은 30일 지난 리뷰에 답글 등록 불가">
+                                ⏰ 30일 경과
                               </span>
                             )}
                             {/* 이미 답글 달린 리뷰는 status badge 숨김 (오래된 failed 배지 노출 방지) */}
@@ -1230,16 +1245,16 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
                                   </button>
                                   <button
                                     onClick={() => handleSubmit(review)}
-                                    disabled={generating || submitting || !draftText.trim() || isSubmitted || review.hasReply}
+                                    disabled={generating || submitting || !draftText.trim() || isSubmitted || review.hasReply || isReplyExpired}
                                     className="px-4 py-1.5 rounded-lg text-xs font-bold text-white hover:opacity-90 disabled:opacity-50 shadow-sm"
                                     style={{ background: config.color }}
-                                    title="자동 발행이 실패하면 '복사 + 직접 등록' 버튼이 가장 안정적이에요"
+                                    title={isReplyExpired ? '배민은 30일 지난 리뷰에 답글 등록 불가' : "자동 발행이 실패하면 '복사 + 직접 등록' 버튼이 가장 안정적이에요"}
                                   >
                                     {submitting ? '처리 중...' : (review.replyStatus === 'queued' ? '🔁 다시 자동 발행' : '⚡ 자동 발행')}
                                   </button>
 
                                   {/* 직접 등록 버튼 — 자동 발행이 실패할 때 대안 (가장 안정적) */}
-                                  {config.reviewAdminUrl && !review.hasReply && !isSubmitted && (
+                                  {config.reviewAdminUrl && !review.hasReply && !isSubmitted && !isReplyExpired && (
                                     <button
                                       onClick={() => {
                                         try {
@@ -1279,6 +1294,12 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
                                 {!isSubmitted && review.hasReply && (
                                   <p className="text-[11px] mt-2 text-[#059669] bg-[#ECFDF5] rounded-lg px-2 py-1.5">
                                     ✅ 이미 {config.label}에 답글이 달린 리뷰예요. 자동 발행은 비활성화됩니다.
+                                  </p>
+                                )}
+                                {/* v1.6m: 배민 30일 경과 안내 */}
+                                {isReplyExpired && !isSubmitted && !review.hasReply && (
+                                  <p className="text-[11px] mt-2 text-[#92400E] bg-[#FEF3C7] rounded-lg px-2 py-1.5">
+                                    ⏰ 배민 정책: 등록된 지 30일이 지난 리뷰에는 답글을 달 수 없어요. (배민 자체 제한)
                                   </p>
                                 )}
                                 {review.replyStatus === 'failed' && review.replyError && !review.hasReply && (() => {
