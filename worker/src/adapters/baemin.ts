@@ -102,23 +102,28 @@ export async function runBaemin(
   const page    = await context.newPage()
 
   // ── XHR 캡처 (페이지 로드 전 등록) ────────────────────────
+  // v1.4: 더 넓은 도메인 커버 (self-api / ceo-api / biz-api / api.baemin)
   // v1.1: shopId 확정 후 extract 시점에 URL 필터 — 다중 매장 leak 방지
   const capturedApiResponses: Array<{ url: string; data: any }> = []
   page.on('response', async (response) => {
     try {
       const url = response.url()
       const ct  = response.headers()['content-type'] || ''
-      const isTarget =
-        url.includes('self-api.baemin.com') ||
-        (ct.includes('json') && (
-          url.includes('review') || url.includes('feedback') ||
-          url.includes('rating') || url.includes('comment') ||
-          url.includes('/v1/') || url.includes('/api/')
-        ) && url.includes('baemin'))
+      // baemin 관련 도메인 모두 + JSON content-type
+      const isBaeminApi = (url.includes('baemin.com') || url.includes('woowa')) && ct.includes('json')
+      const isReviewLike = url.includes('review') || url.includes('feedback') ||
+        url.includes('rating') || url.includes('comment')
+      const isTarget = isBaeminApi && (isReviewLike || url.includes('/shops/'))
       if (isTarget) {
         const data = await response.json().catch(() => null)
         if (data) {
-          log.info({ url: url.slice(0, 120) }, 'baemin: XHR captured')
+          // v1.4: 응답 구조 로깅 (첫 5개만) — 실제 필드명 파악
+          if (capturedApiResponses.length < 5) {
+            const topKeys = typeof data === 'object' && data ? Object.keys(data).slice(0, 10) : []
+            log.info({ url: url.slice(0, 120), topKeys }, 'baemin: XHR captured (with shape)')
+          } else {
+            log.info({ url: url.slice(0, 120) }, 'baemin: XHR captured')
+          }
           capturedApiResponses.push({ url, data })
         }
       }
