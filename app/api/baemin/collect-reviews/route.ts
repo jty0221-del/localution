@@ -13,6 +13,7 @@ import { requireUser } from '@/app/lib/userAuth'
 import { createServiceClient } from '@/app/lib/adminAuth'
 import { enqueuePlatformJob } from '@/app/lib/queue'
 import { baeminProxyLogin } from '@/app/lib/baemin-login'
+import { proxyFetch } from '@/app/lib/proxy-fetch'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -333,7 +334,8 @@ async function fetchAllReviews(
     let pageStatus = 0
     for (const url of candidates) {
       try {
-        const res = await fetch(url, { headers, cache: 'no-store', signal: AbortSignal.timeout(15000) })
+        // v1.3: 한국 프록시 경유 — 직접 fetch 시 Akamai WAF 가 미국 IP 즉시 403 차단
+        const res = await proxyFetch(url, { headers, cache: 'no-store', signal: AbortSignal.timeout(15000) } as RequestInit)
         pageStatus = res.status
         if (res.status === 401 || res.status === 403) {
           lastStatus = res.status
