@@ -21,7 +21,8 @@
     "bullmq": "^5.12.0",
     "ioredis": "^5.4.1",
     "web-push": "^3.6.7",
-    "qrcode": "^1.5.4"
+    "qrcode": "^1.5.4",
+    "undici": "^6.21.0"
   },
   "devDependencies": {
     "@types/node": "^20",
