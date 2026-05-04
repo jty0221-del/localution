@@ -161,8 +161,8 @@ export async function runBaemin(
     return { status: 'skipped', message: `baemin: unsupported action ${action}` }
   }
 
-  // v1.6h: API 요청 6개월 (배민 페이지 기본) + cutoff 30일
-  log.info({ version: 'v1.6h', ts: '20260505T1600' }, 'BAEMIN_ADAPTER_VERSION_MARKER')
+  // v1.6i: 14666661 default landing 제외 + /v4/shops/search 추출 + diagnostic dump
+  log.info({ version: 'v1.6i', ts: '20260505T1620' }, 'BAEMIN_ADAPTER_VERSION_MARKER')
 
   const svc   = getServiceClient()
   let creds: any
@@ -504,6 +504,26 @@ export async function runBaemin(
       return Array.from(set)
     }).catch(() => [])
 
+    // v1.6i: /v4/store/shops/search XHR 응답에서도 shopIds 추출 (DOM links 보다 정확)
+    const apiShopIds = new Set<string>()
+    for (const { url, data } of capturedApiResponses) {
+      if (url.includes('/v4/store/shops/search')) {
+        const shops = (data as any)?.contents || (data as any)?.data || []
+        if (Array.isArray(shops)) {
+          for (const s of shops) {
+            if (s?.shopNo) apiShopIds.add(String(s.shopNo))
+            if (s?.id) apiShopIds.add(String(s.id))
+            if (s?.shopId) apiShopIds.add(String(s.shopId))
+          }
+        }
+      }
+    }
+    if (apiShopIds.size > 0) {
+      const apiShopArr = Array.from(apiShopIds)
+      log.info({ apiShopArr, domShopArr: allShopIds }, 'baemin: shopIds from /v4/shops/search XHR')
+      for (const sid of apiShopArr) if (!allShopIds.includes(sid)) allShopIds.push(sid)
+    }
+
     // v1.6b: 'unknown'/'null'/'undefined' 같은 문자열 sentinel 도 무효 처리
     const isValidShopId = (s: any): boolean => {
       if (typeof s !== 'string') return false
@@ -515,12 +535,21 @@ export async function runBaemin(
     let shopIdsToFetch: string[] = []
     if (action === 'post_reply') {
       shopIdsToFetch = [explicitShopId || credShopId || allShopIds[0] || ''].filter(Boolean)
-    } else if (explicitShopId) {
-      shopIdsToFetch = [explicitShopId]
-    } else if (allShopIds.length > 0) {
-      shopIdsToFetch = allShopIds
-    } else if (credShopId) {
-      shopIdsToFetch = [credShopId]
+    } else {
+      // v1.6i: fetch_reviews 는 모든 valid shopId (DOM + API search + explicit + cred 합집합)
+      // v1.6i: 14666661 은 배민 default landing 매장 — 사장님 실 매장 아니면 제외 후보 (단, 다른 shopId 가 있을 때만)
+      const set = new Set<string>()
+      for (const id of allShopIds) if (isValidShopId(id)) set.add(id)
+      if (explicitShopId) set.add(explicitShopId)
+      if (credShopId) set.add(credShopId)
+      // 14666661 외에 다른 shop 이 발견되면 14666661 제외 (default landing shop 으로 간주)
+      const ids = Array.from(set)
+      if (ids.length > 1 && ids.includes('14666661')) {
+        shopIdsToFetch = ids.filter(id => id !== '14666661')
+        log.info({ excluded: '14666661', kept: shopIdsToFetch }, 'baemin: default landing shop 14666661 excluded')
+      } else {
+        shopIdsToFetch = ids
+      }
     }
 
     if (shopIdsToFetch.length === 0) {
@@ -667,6 +696,26 @@ export async function runBaemin(
         const shopIdMatcher = '/shops/' + shopId + '/'
         for (const { url, data } of newCaptured) {
           if (!url.includes(shopIdMatcher)) continue
+
+          // v1.6i: /reviews?from= 응답 — 정확히 dump 해서 진짜 구조 파악
+          if (url.includes('/reviews?') && url.includes('from=')) {
+            const reviewsField = (data as any)?.reviews
+            log.info({
+              url: url.slice(0, 120),
+              topKeys: Object.keys(data || {}).slice(0, 15),
+              reviewsType: typeof reviewsField,
+              reviewsIsArray: Array.isArray(reviewsField),
+              reviewsLen: Array.isArray(reviewsField) ? reviewsField.length :
+                (typeof reviewsField === 'object' && reviewsField !== null ? Object.keys(reviewsField).length : 0),
+              reviewsSample: Array.isArray(reviewsField) && reviewsField.length > 0
+                ? JSON.stringify(reviewsField[0]).slice(0, 600)
+                : (typeof reviewsField === 'object' && reviewsField !== null
+                    ? JSON.stringify(reviewsField).slice(0, 600)
+                    : String(reviewsField)),
+              fullResponseSample: JSON.stringify(data).slice(0, 1500),
+            }, 'baemin: captured /reviews FULL DUMP (v1.6i)')
+          }
+
           const extracted = extractReviewsFromApiResponse(data, log)
           if (extracted.length > 0) {
             log.info({ url: url.slice(0, 100), count: extracted.length, shopId }, 'baemin: XHR reviews (fallback)')
