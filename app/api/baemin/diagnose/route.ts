@@ -129,18 +129,64 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // v1.4: 이미 DB 에 저장된 baemin 리뷰의 raw_snapshot 을 함께 반환
+  // → Worker (Playwright) 가 이미 캡처한 실제 API 응답 구조 확인 가능
+  // 직접 fetch 가 모두 403 으로 실패하더라도 Worker 가 잡은 데이터로 진짜 필드명 파악
+  const { data: dbRows } = await svc
+    .from('platform_reviews')
+    .select('platform_review_id, content, rating, author_name, posted_at, photos, raw_snapshot, has_reply, reply_content, collected_at')
+    .eq('user_id', userId)
+    .eq('platform', 'baemin')
+    .order('collected_at', { ascending: false })
+    .limit(3)
+
+  const idPrefixes: Record<string, number> = {}
+  if (dbRows) {
+    for (const r of dbRows) {
+      const prefix = String(r.platform_review_id || '').split(/[-:]/)[0] + ':'
+      idPrefixes[prefix] = (idPrefixes[prefix] || 0) + 1
+    }
+  }
+
+  // 첫 raw_snapshot 의 key 목록 추출 (실제 배민 API 가 쓰는 필드명)
+  let firstRawKeys: string[] = []
+  let firstRawSample: any = null
+  if (dbRows && dbRows[0]?.raw_snapshot) {
+    const snap = dbRows[0].raw_snapshot as any
+    firstRawKeys = Object.keys(snap).slice(0, 30)
+    firstRawSample = sanitizeSample(snap)
+  }
+
   return NextResponse.json({
     ok: true,
     shopNo,
     cookieLength: cookieStr.length,
     hasXsrf: !!xsrfToken,
     xsrfCookieKey,
-    cookieNames,                         // v1.3: 모든 쿠키 이름
+    cookieNames,
     proxy: {
       configured: !!process.env.PROXY_HOST,
       host: process.env.PROXY_HOST ? (process.env.PROXY_HOST.slice(0, 6) + '***') : 'NOT_SET',
     },
-    results,
+    directFetchResults: results,
+    // v1.4: Worker 가 캡처한 실제 데이터 (진짜 필드명 확인용)
+    dbDiagnostic: {
+      totalRowsSampled: dbRows?.length || 0,
+      idPrefixes,                             // baemin:xxx vs baemin-real-xxx 비율
+      firstRawKeys,                           // 실제 raw 필드명 → 파서가 매칭해야 할 정확한 이름
+      firstRawSample,                         // 첫 raw_snapshot 샘플
+      firstRowParsed: dbRows?.[0] ? {
+        platform_review_id: dbRows[0].platform_review_id,
+        content: dbRows[0].content?.slice(0, 100),
+        rating: dbRows[0].rating,
+        author_name: dbRows[0].author_name,
+        posted_at: dbRows[0].posted_at,
+        photos_count: (dbRows[0].photos as string[] | null)?.length || 0,
+        photos_sample: (dbRows[0].photos as string[] | null)?.slice(0, 2),
+      } : null,
+    },
+    hint: 'directFetchResults 가 모두 403 이면 baemin 인증이 Bearer 토큰 방식으로 변경된 것. ' +
+          'dbDiagnostic.firstRawKeys 가 Worker 가 잡은 진짜 필드명 → 이걸로 파서 정확히 맞추세요.',
   })
 }
 
