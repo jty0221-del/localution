@@ -1,9 +1,10 @@
 // app/api/baemin/collect-reviews/route.ts
 // ============================================================
-// 배민 리뷰 수집 API (BAEMIN v1 — 쿠팡 v76 패턴 적용)
-//   · 페이지네이션 루프 (DAYS_BACK 14일치)
-//   · raw_snapshot 저장 (post-reply pre-check 용)
-//   · has_reply 우선 dedupe (쿠팡 68차)
+// 배민 리뷰 수집 API (BAEMIN v1.1)
+//   · 페이지네이션 루프 (DAYS_BACK 30일치)
+//   · cutoff 필터 — 30일 이전 리뷰는 insert 자체 차단
+//   · 이미지 URL 화이트리스트 — 배민 CDN 만 허용 (다른 업체 이미지 leak 방지)
+//   · raw_snapshot 저장 + has_reply 우선 dedupe (쿠팡 68차)
 //   · 401 → auto-login 자동 재발급 후 재시도
 // ============================================================
 import { NextRequest, NextResponse } from 'next/server'
@@ -22,8 +23,27 @@ const BAEMIN_API = 'https://self-api.baemin.com'
 const BAEMIN_API2 = 'https://ceo-api.baemin.com'
 const PAGE_SIZE = 50
 const MAX_PAGES = 20         // 최대 1000개 (50 * 20)
-const DAYS_BACK_DEFAULT = 14
+const DAYS_BACK_DEFAULT = 30 // v1.1: 14 → 30 (사장님 요청)
 const PAGE_DELAY_MS = 800    // sliding window delay (Akamai-like rate limit 회피)
+
+// 배민 공식 CDN 도메인 화이트리스트 — 이외 도메인 이미지는 차단 (다른 업체 leak 방지)
+const BAEMIN_PHOTO_DOMAINS = [
+  'baemin.com',          // *.baemin.com (review-cdn.baemin.com 등)
+  'bmcdn.com',           // 배민 CDN
+  'woowahan.com',        // 우아한형제들
+  'woowa.in',            // 우아 단축 도메인
+  'baedalminjok.com',    // 배민 보조 도메인
+]
+function isValidBaeminPhotoUrl(url: string): boolean {
+  if (!url || typeof url !== 'string') return false
+  let u = url.trim()
+  if (u.startsWith('//')) u = 'https:' + u
+  if (!u.toLowerCase().startsWith('http')) return false
+  try {
+    const host = new URL(u).hostname.toLowerCase()
+    return BAEMIN_PHOTO_DOMAINS.some(d => host === d || host.endsWith('.' + d))
+  } catch { return false }
+}
 
 function corsHeaders(origin: string) {
   const allow = origin.endsWith('.baemin.com') || origin.includes('localution')
@@ -81,9 +101,12 @@ function extractPhotos(r: any): string[] {
   for (const list of [r.images, r.imageList, r.photos, r.photoList, r.imageUrls, r.photoUrls, r.reviewImages]) {
     if (!Array.isArray(list) || list.length === 0) continue
     for (const item of list) {
-      const url = typeof item === 'string' ? item : (item.url || item.imageUrl || item.src || item.thumbnailUrl || item.reviewImageUrl || '')
-      if (url && (url.startsWith('http') || url.startsWith('//'))) {
-        urls.push(url.startsWith('//') ? 'https:' + url : url)
+      const raw = typeof item === 'string' ? item : (item.url || item.imageUrl || item.src || item.thumbnailUrl || item.reviewImageUrl || '')
+      if (!raw) continue
+      const normalized = raw.startsWith('//') ? 'https:' + raw : raw
+      // v1.1: 배민 CDN 도메인 화이트리스트 검증 — 다른 업체/외부 URL 차단
+      if (isValidBaeminPhotoUrl(normalized)) {
+        urls.push(normalized)
       }
     }
     if (urls.length > 0) break
@@ -117,15 +140,24 @@ function extractReplyContent(r: any): string | null {
   return typeof rc === 'string' ? rc.trim() || null : null
 }
 
+// v1.1: cutoff 필터 — 30일 이전 리뷰는 insert 차단
 // 68차 패턴: hasReply 다중 신호 + raw_snapshot 보존
-function normalizeReviews(reviews: any[], shopNo: string, userId: string): any[] {
+function normalizeReviews(reviews: any[], shopNo: string, userId: string, daysBack: number): any[] {
   const now = new Date().toISOString()
-  return reviews.map((r: any, i: number) => {
+  const cutoffMs = Date.now() - daysBack * 86400_000
+  const out: any[] = []
+  for (let i = 0; i < reviews.length; i++) {
+    const r = reviews[i]
     const id = r.reviewId ?? r.reviewNo ?? r.id ?? r.seq ?? ('baemin-' + shopNo + '-' + i)
+    const postedAt = extractDate(r)
+    // cutoff 검사 — 30일 이전 리뷰는 skip
+    const postedMs = new Date(postedAt).getTime()
+    if (!isNaN(postedMs) && postedMs < cutoffMs) continue
+
     const replyContent = extractReplyContent(r)
     const hasReply = !!(r.ownerReply || r.reply || r.ownerComment || r.replyContent || r.hasComment || r.hasReply || replyContent)
     const author = extractAuthor(r)
-    return {
+    out.push({
       user_id: userId,
       platform: 'baemin' as const,
       platform_review_id: 'baemin-real-' + String(id),
@@ -137,11 +169,12 @@ function normalizeReviews(reviews: any[], shopNo: string, userId: string): any[]
       photos: extractPhotos(r),
       has_reply: hasReply,
       reply_content: replyContent,
-      posted_at: extractDate(r),
+      posted_at: postedAt,
       collected_at: now,
       raw_snapshot: r,
-    }
-  })
+    })
+  }
+  return out
 }
 
 // ── upsert (쿠팡 68차 dedupe + 62차-2 schema fallback) ─────
@@ -337,7 +370,7 @@ export async function POST(req: NextRequest) {
     // 경로 A: 북마크릿 직접 전송
     if (Array.isArray(body.reviews) && body.reviews.length > 0) {
       const shopNo = String(body.shop_no || '14637452')
-      const rows = normalizeReviews(body.reviews, shopNo, userId)
+      const rows = normalizeReviews(body.reviews, shopNo, userId, daysBack)
       const count = await upsertBaeminReviews(svc, rows)
       return NextResponse.json({ ok: true, count, total: count, source: 'bookmarklet' }, { headers: ch })
     }
@@ -367,7 +400,7 @@ export async function POST(req: NextRequest) {
       }
 
       if (result.reviews.length > 0) {
-        const rows = normalizeReviews(result.reviews, shopNo, userId)
+        const rows = normalizeReviews(result.reviews, shopNo, userId, daysBack)
         const count = await upsertBaeminReviews(svc, rows)
         return NextResponse.json({
           ok: true, count, total: result.reviews.length, source: 'server', shopNo,
