@@ -20,12 +20,13 @@ async function getOwnerUserId(svc: ReturnType<typeof createServiceClient>): Prom
 
 export async function GET() {
   const svc = createServiceClient()
-  const userId = await getOwnerUserId(svc)
 
+  // 단일 사용자 앱 — user_id 필터 없이 최신 행 조회
   const { data } = await svc
     .from('threads_accounts')
-    .select('threads_user_id, username, expires_at, refreshed_at, created_at')
-    .eq('user_id', userId)
+    .select('user_id, threads_user_id, username, expires_at, refreshed_at, created_at')
+    .order('created_at', { ascending: false })
+    .limit(1)
     .maybeSingle()
 
   if (!data) {
@@ -49,7 +50,6 @@ export async function GET() {
 
 export async function DELETE() {
   const svc = createServiceClient()
-  const userId = await getOwnerUserId(svc)
-  await svc.from('threads_accounts').delete().eq('user_id', userId)
+  await svc.from('threads_accounts').delete().neq('id', '00000000-0000-0000-0000-000000000000')
   return NextResponse.json({ ok: true })
 }
