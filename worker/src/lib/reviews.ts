@@ -40,7 +40,7 @@ export async function upsertReviews(
   if (reviews.length === 0) return { inserted: 0, total: 0 }
 
   const now = new Date().toISOString()
-  const rows = reviews.map((r) => ({
+  const fullRows = reviews.map((r) => ({
     user_id: userId,
     platform,
     platform_store_id: platformStoreId,
@@ -57,15 +57,46 @@ export async function upsertReviews(
     raw_snapshot: r.raw_snapshot ?? r,
   }))
 
+  // 1차 시도: 모든 컬럼 포함
   const { data, error } = await svc
     .from('platform_reviews')
-    .upsert(rows, { onConflict: 'platform,platform_review_id', ignoreDuplicates: false })
+    .upsert(fullRows, { onConflict: 'platform,platform_review_id', ignoreDuplicates: false })
     .select('platform_review_id')
 
-  if (error) throw new Error(`platform_reviews upsert: ${error.message}`)
-
-  return {
-    inserted: Array.isArray(data) ? data.length : 0,
-    total: reviews.length,
+  if (!error) {
+    return {
+      inserted: Array.isArray(data) ? data.length : 0,
+      total: reviews.length,
+    }
   }
+
+  // ── 62차-2: 컬럼 없음 에러 (schema cache miss) → 미지원 컬럼 제거 후 retry ──
+  // 예: "Could not find the 'reply_content' column of 'platform_reviews' in the schema cache"
+  const errMsg = String(error.message || '')
+  const missingColMatch = errMsg.match(/'([a-z_]+)' column/i)
+  if (missingColMatch || errMsg.includes('schema cache')) {
+    const skipCols = ['reply_content', 'raw_snapshot']
+    if (missingColMatch && missingColMatch[1] && !skipCols.includes(missingColMatch[1])) {
+      skipCols.push(missingColMatch[1])
+    }
+    const slimRows = fullRows.map((row: any) => {
+      const out: any = { ...row }
+      for (const col of skipCols) delete out[col]
+      return out
+    })
+    const { data: data2, error: error2 } = await svc
+      .from('platform_reviews')
+      .upsert(slimRows, { onConflict: 'platform,platform_review_id', ignoreDuplicates: false })
+      .select('platform_review_id')
+    if (!error2) {
+      console.warn(`[upsertReviews] 1차 실패 → 컬럼 ${skipCols.join(',')} 제외 후 retry 성공`)
+      return {
+        inserted: Array.isArray(data2) ? data2.length : 0,
+        total: reviews.length,
+      }
+    }
+    throw new Error(`platform_reviews upsert (retry): ${error2.message}`)
+  }
+
+  throw new Error(`platform_reviews upsert: ${error.message}`)
 }
