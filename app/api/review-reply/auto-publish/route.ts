@@ -159,48 +159,9 @@ export async function POST(req: NextRequest) {
     const storeId = row.platform_store_id || cred?.platform_store_id || 'unknown'
     const extra = (cred?.extra_data as any) || {}
 
-    // ── 배민: 직접 API 우선 ────────────────────────────────────────
-    if (row.platform === 'baemin' && extra.baemin_cookie_enc) {
-      try {
-        const cookieStr = decryptStr(extra.baemin_cookie_enc, extra.baemin_cookie_iv, extra.baemin_cookie_tag)
-        const shopNo = String(storeId !== 'unknown' ? storeId : '14637452')
-        const result = await postBaeminReplyDirect(cookieStr, shopNo, row.platform_review_id, draft)
-
-        if (result.ok) {
-          await svc.from('platform_reviews')
-            .update({
-              has_reply: true,
-              reply_content: draft,
-              reply_status: 'submitted',
-              reply_submitted_at: new Date().toISOString(),
-              reply_error: null,
-            })
-            .eq('id', reviewId).eq('user_id', userId)
-
-          return NextResponse.json({
-            ok: true,
-            mode: 'direct',
-            reply_status: 'submitted',
-            note: '답글이 배민에 바로 등록됐어요! ✅',
-          })
-        }
-
-        // 쿠키 만료 → 안내 (Worker 폴백은 어차피 로그인 실패이므로 의미없음)
-        if (result.expired) {
-          return NextResponse.json({
-            ok: false,
-            code: 'COOKIE_EXPIRED',
-            error: '배민 세션이 만료됐어요. 배민 쿠키를 다시 저장하면 답글을 등록할 수 있어요.',
-            cookie_page: '/my/platforms/baemin/session',
-          }, { status: 401 })
-        }
-
-        // 기타 실패 → Worker 폴백
-        console.error('[auto-publish] baemin direct failed:', result.reason, '— falling back to worker')
-      } catch (decryptErr: any) {
-        console.error('[auto-publish] baemin cookie decrypt error:', decryptErr?.message)
-      }
-    }
+    // v1.6k: 배민 direct API 경로 폐기 — Akamai 가 Vercel raw fetch 영구 차단
+    // (cookie 멀쩡해도 Akamai _abck JS challenge 미통과 → 403)
+    // → 무조건 Worker (Playwright + 한국 프록시) 로 위임
 
     // ── Worker 큐 ──────────────────────────────────────────────────
     const hasCredentials = !!cred
@@ -236,6 +197,10 @@ export async function POST(req: NextRequest) {
         reply_text: draft,
       }
       if (bizId) jobPayload.biz_id = bizId
+      // v1.6k: baemin shop_no 명시 — Worker 가 정확한 매장 페이지로 navigate
+      if (row.platform === 'baemin' && row.platform_store_id) {
+        jobPayload.shop_no = String(row.platform_store_id)
+      }
 
       const jobResult = await enqueuePlatformJob({
         platform: row.platform as any,
