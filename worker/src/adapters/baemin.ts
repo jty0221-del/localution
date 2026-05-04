@@ -124,7 +124,31 @@ export async function runBaemin(
   }
 
   const svc   = getServiceClient()
-  const creds = await loadPlainCredentials(svc, userId, 'baemin')
+  let creds: any
+  try {
+    creds = await loadPlainCredentials(svc, userId, 'baemin')
+  } catch (credErr: any) {
+    log.error({ err: credErr?.message }, 'baemin: loadPlainCredentials failed — checking extra_data fallback')
+    // v1.6: password_encrypted 없어도 extra_data.baemin_pw_enc 로 fallback
+    const { data: cred } = await svc
+      .from('platform_credentials')
+      .select('account_id, platform_store_id, extra_data')
+      .eq('user_id', userId).eq('platform', 'baemin').maybeSingle()
+    if (!cred) throw credErr
+    const extra = (cred.extra_data as any) || {}
+    if (!extra.baemin_pw_enc) throw new Error('baemin: 비밀번호 미저장 — 다시 연결 필요')
+    const kek = loadKekHex()
+    if (!kek) throw new Error('baemin: ENCRYPTION_KEK_HEX 누락')
+    const password = decryptCookieStr(extra.baemin_pw_enc, extra.baemin_pw_iv, extra.baemin_pw_tag)
+    if (!password) throw new Error('baemin: 비밀번호 복호화 실패')
+    creds = {
+      account_id: cred.account_id || extra.baemin_id || '',
+      password,
+      platform_store_id: cred.platform_store_id || null,
+      platform_store_name: null,
+      session_cookies: null,
+    }
+  }
 
   // ── Playwright 컨텍스트 옵션 (프록시 포함) ──────────────────
   const ctxOpts: BrowserContextOptions = {
@@ -210,35 +234,55 @@ export async function runBaemin(
     const isAuth = await checkAuth(page, DASHBOARD_KW)
     log.info({ isAuth, url: page.url(), hadCookies: !!cookieJar }, 'baemin: auth check')
 
-    // v1.5: 쿠키 주입했는데도 미인증 + biz-member 도달 못 함 → cookie expired
-    // 이 경우엔 fresh 로그인 시도 시 ERR_ABORTED 발생할 가능성 높음 → 친절한 에러
-    if (!isAuth && cookieJar) {
-      await markLoginStatus(svc, userId, 'baemin', 'failed', 'cookie injected but not authenticated — call /api/baemin/auto-login')
-      return {
-        status: 'failed',
-        message: 'baemin: 저장된 쿠키 만료. /api/baemin/auto-login 호출 또는 사장님이 다시 연결 필요'
-      }
-    }
-
-    // ── Step 2: 미인증 + 쿠키도 없음 → biz-member 로그인 직접 이동 ──────────
+    // v1.6: 쿠키 주입해도 미인증 → fresh 로그인 폴스루 (cookie expired 거나 인증 토큰 없음)
     if (!isAuth) {
-      log.info('baemin: not authenticated → navigating to login page')
-      try {
-        // v1.5: ERR_ABORTED 나도 무시하고 진행 — biz-member 가 SPA redirect 할 수 있음
-        await page.goto(LOGIN_URL, { waitUntil: 'domcontentloaded', timeout: 30_000 })
-      } catch (gotoErr: any) {
-        log.warn({ err: gotoErr?.message }, 'baemin: goto LOGIN_URL error — checking final URL')
-        // 일단 진행 — page.url() 이 valid 면 로그인 폼 시도
+      log.info('baemin: not authenticated → trying multiple login URLs (v1.6)')
+
+      // v1.6: 여러 login URL 시도 — biz-member 가 ERR_ABORTED 면 다음 시도
+      const LOGIN_URL_CANDIDATES = [
+        'https://biz-member.baemin.com/login',
+        'https://self.baemin.com/login',
+        'https://ceo.baemin.com/login',
+        'https://biz-member.baemin.com/',
+      ]
+
+      let loginPageReady = false
+      for (const url of LOGIN_URL_CANDIDATES) {
+        try {
+          // v1.6: 'commit' = HTTP 응답 시작 시점만 대기 (ERR_ABORTED 회피)
+          await page.goto(url, { waitUntil: 'commit', timeout: 25_000 })
+        } catch (gotoErr: any) {
+          log.warn({ url, err: gotoErr?.message?.slice(0, 100) }, 'baemin: goto error')
+        }
+        await page.waitForTimeout(3000)
+
+        const currentUrl = page.url()
+        log.info({ tried: url, landed: currentUrl }, 'baemin: login goto landed')
+
+        // PW 입력창이 보이면 성공
+        const pwExists = await page.$(LOGIN_FORM.pwInput).catch(() => null)
+        if (pwExists || currentUrl.includes('login') || currentUrl.includes('member')) {
+          loginPageReady = !!pwExists
+          if (loginPageReady) break
+          // PW selector 못 봤어도 기다려보기
+          const pwInputDelayed = await page.waitForSelector(LOGIN_FORM.pwInput, { timeout: 8000 }).catch(() => null)
+          if (pwInputDelayed) { loginPageReady = true; break }
+        }
       }
-      await page.waitForTimeout(4000)
+
+      if (!loginPageReady) {
+        await dumpPageDiagnostics(page, log, 'baemin-no-login-form')
+        await markLoginStatus(svc, userId, 'baemin', 'failed', 'no login form on any URL — Akamai blocking?')
+        return { status: 'failed', message: 'baemin: 로그인 폼 도달 실패 — Akamai 차단 또는 프록시 IP 차단' }
+      }
 
       log.info({ url: page.url() }, 'baemin: on login page')
 
-      // PW 입력창 대기 (SPA라 JS 렌더링 필요)
+      // PW 입력창 대기 (SPA 일 수 있음)
       const pwInput = await page.waitForSelector(LOGIN_FORM.pwInput, { timeout: 20_000 }).catch(() => null)
       if (!pwInput) {
         await dumpPageDiagnostics(page, log, 'baemin-no-pw-input')
-        return { status: 'failed', message: 'baemin: 로그인 폼 없음 — biz-member.baemin.com 접근 실패 또는 UI 변경' }
+        return { status: 'failed', message: 'baemin: PW 입력창 못 찾음 — UI 변경 가능성' }
       }
 
       // ID 입력
@@ -294,6 +338,44 @@ export async function runBaemin(
 
       await markLoginStatus(svc, userId, 'baemin', 'success')
       log.info('baemin: login success ✓')
+
+      // v1.6: Worker 가 fresh 로그인 성공 시 쿠키를 DB 에 저장
+      //       다음 fetch 때 cookie injection 으로 즉시 인증 → 재로그인 우회
+      try {
+        const allCookies = await context.cookies()
+        const baeminCookies = allCookies.filter((c: any) =>
+          (c.domain || '').includes('baemin.com') || (c.domain || '').includes('woowa')
+        )
+        if (baeminCookies.length > 0) {
+          const cookieStr = baeminCookies.map((c: any) => c.name + '=' + c.value).join('; ')
+          // AES 암호화 (worker/src/lib/crypto 의 encryptStr 패턴)
+          const kek = loadKekHex()
+          if (kek) {
+            const { randomBytes, createCipheriv } = await import('crypto')
+            const iv = randomBytes(12)
+            const cipher = createCipheriv('aes-256-gcm', kek, iv)
+            const enc = Buffer.concat([cipher.update(cookieStr, 'utf8'), cipher.final()])
+            const tag = cipher.getAuthTag()
+            const { data: existing } = await svc
+              .from('platform_credentials').select('extra_data')
+              .eq('user_id', userId).eq('platform', 'baemin').maybeSingle()
+            const prevExtra = (existing?.extra_data as any) || {}
+            await svc.from('platform_credentials').update({
+              extra_data: {
+                ...prevExtra,
+                baemin_cookie_enc: enc.toString('base64'),
+                baemin_cookie_iv: iv.toString('base64'),
+                baemin_cookie_tag: tag.toString('base64'),
+                cookie_saved_at: new Date().toISOString(),
+                cookie_source: 'worker_fresh_login',
+              },
+            }).eq('user_id', userId).eq('platform', 'baemin')
+            log.info({ count: baeminCookies.length }, 'baemin: fresh cookies saved to DB (Worker login)')
+          }
+        }
+      } catch (cookieSaveErr: any) {
+        log.warn({ err: cookieSaveErr?.message }, 'baemin: cookie save after login failed (non-fatal)')
+      }
     }
 
     if (action === 'health_check') return { status: 'ok', message: 'baemin: login ok' }
