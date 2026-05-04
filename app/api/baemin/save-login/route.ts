@@ -132,7 +132,7 @@ export async function POST(req: NextRequest) {
           action: 'fetch_reviews',
           userId,
           storeId: shopNo || 'unknown',
-          payload: { shop_no: shopNo, days_back: 14, source: 'save-login' },
+          payload: { shop_no: shopNo, days_back: 30, source: 'save-login' },
         })
         if (jr.ok) { queued = true; queueJobId = jr.jobId }
       }
