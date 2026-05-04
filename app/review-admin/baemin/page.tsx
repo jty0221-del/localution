@@ -2,16 +2,16 @@
 
 // ============================================================
 // /review-admin/baemin — 배민 리뷰 관리 + 시스템 상태
+// 78차: SystemHealthBar 헤더 상단 큰 배너 → 우측 하단 플로팅 + 모달 팝업
 // ============================================================
 
 import { useState, useEffect } from 'react'
 import PlatformReviewAdmin, { PlatformConfig } from '../components/PlatformReviewAdmin'
-import { Lock, RefreshCw, Settings } from 'lucide-react'
+import { Lock, RefreshCw, Settings, X, ShieldCheck, ShieldAlert } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
 function BaeminLogo() {
-  // 배달의민족 로고 — 민트 배경 + 흰색 "배민" 텍스트
   return (
     <svg width="56" height="56" viewBox="0 0 56 56" fill="none">
       <rect width="56" height="56" fill="#2DDDC8"/>
@@ -22,7 +22,7 @@ function BaeminLogo() {
   )
 }
 
-// ── 시스템 상태 배지 ────────────────────────────────────────
+// ── 시스템 상태 (플로팅 + 모달) ─────────────────────────────
 type HealthStatus = {
   proxy:  { ok: boolean; country?: string; ip?: string; error?: string }
   cookie: { ok: boolean; age_hours?: number; stale?: boolean; fix?: string }
@@ -30,11 +30,12 @@ type HealthStatus = {
   creds:  { ok: boolean; account_id?: string; last_login?: string }
 }
 
-function SystemHealthBar() {
+function SystemHealthFloating() {
   const [health, setHealth] = useState<HealthStatus | null>(null)
   const [checking, setChecking] = useState(false)
   const [loginLoading, setLoginLoading] = useState(false)
   const [msg, setMsg] = useState('')
+  const [open, setOpen] = useState(false)
 
   async function check() {
     setChecking(true); setMsg('')
@@ -51,7 +52,7 @@ function SystemHealthBar() {
     try {
       const res = await fetch('/api/baemin/auto-login', { method: 'POST', credentials: 'include' })
       const data = await res.json()
-      if (data.ok) { setMsg('로그인 성공 - 쿠키 갱신됨'); check() }
+      if (data.ok) { setMsg('로그인 성공 — 쿠키 갱신됨'); check() }
       else setMsg(data.error || '로그인 실패')
     } catch (e: any) { setMsg(e.message) }
     setLoginLoading(false)
@@ -59,55 +60,135 @@ function SystemHealthBar() {
 
   useEffect(() => { check() }, [])
 
-  const dot = (ok: boolean | undefined) => ok
-    ? <span className="w-2 h-2 rounded-full bg-green-500 inline-block" />
-    : <span className="w-2 h-2 rounded-full bg-red-400 inline-block" />
-
-  if (!health) return (
-    <div className="mb-4 px-4 py-3 bg-gray-50 rounded-xl border border-gray-200 flex items-center gap-2 text-xs text-gray-500">
-      <Settings size={12} className="animate-spin" /> 시스템 상태 확인 중...
-    </div>
-  )
+  if (!health) return null
 
   const allOk = health.proxy.ok && health.cookie.ok && health.api.ok
 
+  // 정상이면 완전히 숨김 (사장님 화면에서 사라짐)
+  if (allOk && !open) return null
+
   return (
-    <div className={"mb-4 px-4 py-3 rounded-xl border text-xs " + (allOk ? "bg-green-50 border-green-200" : "bg-amber-50 border-amber-200")}>
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <div className="flex items-center gap-4 flex-wrap">
-          <span className="font-bold text-gray-700">시스템 상태</span>
-          <span className="flex items-center gap-1">{dot(health.proxy.ok)} 프록시 {health.proxy.ok ? (health.proxy.country === 'KR' ? '🇰🇷 KR' : health.proxy.country) : '미설정'}</span>
-          <span className="flex items-center gap-1">{dot(health.cookie.ok)} 쿠키 {health.cookie.ok ? (health.cookie.age_hours !== undefined ? health.cookie.age_hours + 'h 전' : '유효') : '만료'}</span>
-          <span className="flex items-center gap-1">{dot(health.api.ok)} API {health.api.ok ? '정상' : (health.api.status_code || '오류')}</span>
+    <>
+      {/* 플로팅 버튼 — 우측 하단, 작은 칩 형태 */}
+      <button
+        onClick={() => setOpen(true)}
+        className={
+          'fixed bottom-5 right-5 z-40 inline-flex items-center gap-1.5 px-3 py-2 rounded-full shadow-lg text-[11px] font-bold transition-all hover:scale-105 ' +
+          (allOk
+            ? 'bg-white text-[#059669] border border-[#A7F3D0]'
+            : 'bg-[#FEF3C7] text-[#92400E] border border-[#FDE68A]')
+        }
+        title="배민 시스템 상태 확인"
+      >
+        {allOk
+          ? <><ShieldCheck size={13} strokeWidth={2.5} /> 정상</>
+          : <><ShieldAlert size={13} strokeWidth={2.5} /> 점검 필요</>}
+      </button>
+
+      {/* 모달 — 클릭시 상세 표시 */}
+      {open && (
+        <div
+          className="fixed inset-0 z-50 bg-black/40 flex items-center justify-center p-4"
+          onClick={() => setOpen(false)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-xl max-w-md w-full overflow-hidden"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="px-5 py-4 border-b border-[#F2F4F6] flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#2DDDC8] to-[#1BC7B3] flex items-center justify-center shadow-sm">
+                  <Settings size={15} className="text-white" strokeWidth={2.5} />
+                </div>
+                <span className="text-sm font-bold text-[#191F28]">배민 시스템 상태</span>
+              </div>
+              <button onClick={() => setOpen(false)} className="text-[#8B95A1] hover:text-[#191F28]">
+                <X size={18} strokeWidth={2.5} />
+              </button>
+            </div>
+
+            <div className="px-5 py-4 space-y-3">
+              <StatusRow
+                label="한국 프록시"
+                ok={health.proxy.ok}
+                detail={health.proxy.ok
+                  ? (health.proxy.country === 'KR' ? 'KR · ' + (health.proxy.ip || '연결됨') : (health.proxy.country || '연결됨'))
+                  : '미설정'}
+              />
+              <StatusRow
+                label="로그인 쿠키"
+                ok={health.cookie.ok}
+                detail={health.cookie.ok
+                  ? (health.cookie.age_hours !== undefined ? health.cookie.age_hours + '시간 전 갱신' : '유효')
+                  : '만료됨'}
+              />
+              <StatusRow
+                label="배민 API"
+                ok={health.api.ok}
+                detail={health.api.ok ? '정상' : ('오류 ' + (health.api.status_code || ''))}
+              />
+              <StatusRow
+                label="계정 연결"
+                ok={health.creds.ok}
+                detail={health.creds.ok ? (health.creds.account_id || '연결됨') : '미연결'}
+              />
+
+              {msg && (
+                <p className={'text-xs font-medium px-3 py-2 rounded-lg ' +
+                  (msg.includes('성공') ? 'bg-[#E8FFF0] text-[#059669]' : 'bg-[#FEF2F2] text-[#DC2626]')}>
+                  {msg}
+                </p>
+              )}
+
+              {!health.proxy.ok && (
+                <p className="text-[11px] text-[#92400E] bg-[#FEF3C7] px-3 py-2 rounded-lg leading-relaxed">
+                  Webshare/IPRoyal 등 한국 프록시 설정이 필요해요.
+                  <a href="https://proxy.webshare.io" target="_blank" rel="noopener" className="ml-1 underline font-bold">무료 가입 ↗</a>
+                </p>
+              )}
+              {!health.creds.ok && (
+                <p className="text-[11px] text-[#92400E] bg-[#FEF3C7] px-3 py-2 rounded-lg leading-relaxed">
+                  배민 계정이 연결되지 않았어요.
+                  <a href="/my/platforms/baemin/connect" className="ml-1 underline font-bold">계정 연결 ↗</a>
+                </p>
+              )}
+            </div>
+
+            <div className="px-5 py-3 bg-[#F8F9FA] border-t border-[#F2F4F6] flex items-center gap-2">
+              {!allOk && (
+                <button
+                  onClick={autoLogin}
+                  disabled={loginLoading}
+                  className="flex-1 px-3 py-2 bg-[#2DDDC8] text-white rounded-xl font-bold text-xs disabled:opacity-60 hover:bg-[#1BC7B3] inline-flex items-center justify-center gap-1.5"
+                >
+                  <Lock size={12} strokeWidth={2.5} />
+                  {loginLoading ? '로그인 중...' : '자동 로그인'}
+                </button>
+              )}
+              <button
+                onClick={check}
+                disabled={checking}
+                className="flex-1 px-3 py-2 bg-white border border-[#E5E8EB] rounded-xl text-[#4E5968] font-bold text-xs disabled:opacity-60 hover:bg-[#F2F4F6] inline-flex items-center justify-center gap-1.5"
+              >
+                <RefreshCw size={12} strokeWidth={2.5} className={checking ? 'animate-spin' : ''} />
+                {checking ? '확인 중...' : '재점검'}
+              </button>
+            </div>
+          </div>
         </div>
-        <div className="flex items-center gap-2">
-          {!allOk && (
-            <button onClick={autoLogin} disabled={loginLoading}
-              className="px-3 py-1.5 bg-[#2DDDC8] text-white rounded-lg font-bold text-[11px] disabled:opacity-60 hover:bg-[#1BC7B3]">
-              {loginLoading ? '로그인 중...' : (<span className="inline-flex items-center gap-1"><Lock size={11} strokeWidth={2.5} /> 자동 로그인</span>)}
-            </button>
-          )}
-          <button onClick={check} disabled={checking}
-            className="px-3 py-1.5 bg-white border border-gray-300 rounded-lg text-gray-600 font-medium text-[11px] disabled:opacity-60 hover:bg-gray-50">
-            {checking ? '확인 중...' : (<span className="inline-flex items-center gap-1"><RefreshCw size={11} strokeWidth={2.5} /> 재점검</span>)}
-          </button>
-        </div>
+      )}
+    </>
+  )
+}
+
+function StatusRow({ label, ok, detail }: { label: string; ok: boolean; detail: string }) {
+  return (
+    <div className="flex items-center justify-between px-3 py-2 bg-[#FAFBFF] rounded-lg">
+      <div className="flex items-center gap-2">
+        <span className={'w-2 h-2 rounded-full inline-block ' + (ok ? 'bg-[#12B76A]' : 'bg-[#F04452]')} />
+        <span className="text-xs font-bold text-[#4E5968]">{label}</span>
       </div>
-      {msg && <p className={"mt-2 font-medium " + (msg.includes('성공') ? 'text-green-700' : 'text-red-600')}>{msg}</p>}
-      {!health.proxy.ok && (
-        <p className="mt-1 text-amber-700">
-          프록시 미설정 — Vercel/Railway에 WEBSHARE_API_KEY 추가 필요
-          <a href="https://proxy.webshare.io" target="_blank" rel="noopener" className="ml-1 underline">Webshare 무료 가입 ↗</a>
-        </p>
-      )}
-      {health.cookie.stale && (
-        <p className="mt-1 text-amber-700">쿠키 만료 ({health.cookie.age_hours}시간 경과) — "자동 로그인" 버튼으로 갱신하세요</p>
-      )}
-      {!health.creds.ok && (
-        <p className="mt-1 text-amber-700">배민 계정 미연결 —
-          <a href="/my/platforms/baemin/connect" className="ml-1 underline">계정 연결 ↗</a>
-        </p>
-      )}
+      <span className={'text-[11px] font-semibold ' + (ok ? 'text-[#059669]' : 'text-[#DC2626]')}>{detail}</span>
     </div>
   )
 }
@@ -139,8 +220,8 @@ const CONFIG: PlatformConfig = {
 export default function BaeminReviewPage() {
   return (
     <div>
-      <SystemHealthBar />
       <PlatformReviewAdmin config={CONFIG} />
+      <SystemHealthFloating />
     </div>
   )
 }
