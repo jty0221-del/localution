@@ -260,16 +260,26 @@ export async function runBaemin(
   try {
     // ── Step 1: CEO_HOME 방문 → 인증 여부 확인 ────────────────
     log.info('baemin: goto CEO_HOME')
-    // v1.5: 'commit' (HTTP 응답 시작 시점) — 'domcontentloaded' 는 SPA 에서 늦거나 ERR_ABORTED 발생
     try {
       await page.goto(CEO_HOME, { waitUntil: 'domcontentloaded', timeout: 30_000 })
     } catch (gotoErr: any) {
       log.warn({ err: gotoErr?.message }, 'baemin: goto CEO_HOME error (may still be navigating)')
-      // ERR_ABORTED / timeout 도 페이지가 일부 로드됐을 수 있음 — 계속 진행
     }
-    await page.waitForTimeout(4000)
 
-    const isAuth = await checkAuth(page, DASHBOARD_KW)
+    // v1.6e: SPA 로딩 시간 충분히 — checkAuth 5번 (총 ~12초) 시도
+    let isAuth = false
+    for (let i = 0; i < 5; i++) {
+      await page.waitForTimeout(2500)
+      isAuth = await checkAuth(page, DASHBOARD_KW)
+      if (isAuth) break
+      // /shops/{N}/ 링크가 있어도 인증 OK
+      const hasShopLink = await page.evaluate(() => !!document.querySelector('a[href*="/shops/"]')).catch(() => false)
+      if (hasShopLink) {
+        log.info({ attempt: i }, 'baemin: shops link detected on CEO_HOME → authenticated')
+        isAuth = true
+        break
+      }
+    }
     log.info({ isAuth, url: page.url(), hadCookies: !!cookieJar }, 'baemin: auth check')
 
     // v1.6: 쿠키 주입해도 미인증 → fresh 로그인 폴스루 (cookie expired 거나 인증 토큰 없음)
@@ -297,12 +307,15 @@ export async function runBaemin(
         const currentUrl = page.url()
         log.info({ tried: url, landed: currentUrl }, 'baemin: login goto landed')
 
-        // v1.6d: /mypage, /shop, /dashboard 로 redirect → 이미 로그인됨 (쿠키 valid)
+        // v1.6e: /login 으로 갔는데 다른 곳으로 redirect = 이미 인증된 상태
+        // (mypage, dashboard, root 등 어디든 — login 페이지가 아니면 OK)
+        const triedLoginUrl = url.includes('/login')
+        const landedNotLogin = !currentUrl.includes('/login')
         const isLoggedInPage = (
+          (triedLoginUrl && landedNotLogin) ||
           currentUrl.includes('/mypage') ||
           currentUrl.includes('/dashboard') ||
-          (currentUrl.includes('/shop') && !currentUrl.includes('/shops/login')) ||
-          (currentUrl.includes('self.baemin.com/') && !currentUrl.includes('/login'))
+          (currentUrl.includes('/shop') && !currentUrl.includes('/shops/login'))
         )
         if (isLoggedInPage) {
           log.info({ landed: currentUrl }, 'baemin: redirected to logged-in page → already authenticated, skipping login form')
