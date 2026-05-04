@@ -997,21 +997,15 @@ export default function Dashboard() {
     reloadStoresMe()
   }, [isLoggedIn, reloadStoresMe])
 
-  // 30차-23: 연결된 플랫폼이 하나라도 변경되면 실제 리뷰 로드
-  //   · 현재 platform_reviews 테이블에 데이터가 있는 건 naver_place 뿐이지만,
-  //     baemin/yogiyo/coupangeats 도 23차-5 Worker 붙으면 자동으로 채워진다.
+  // 30차-23 / 77차: 페이지 진입 시 모든 플랫폼 review fetch
+  //   기존 버그: platforms state 변경 race condition 으로 쿠팡 connected=true 인데도
+  //              fetch 가 누락 → 미니 리뷰 + 하단 종합 섹션에 쿠팡 review 안 보임
+  //   수정: connected 무관하게 모든 플랫폼 한 번에 fetch. 빈 결과는 빈 배열로 유지.
+  //         단, isLoggedIn 만 의존 (한 번만 실행)
   useEffect(() => {
     if (!isLoggedIn) return
-    const connectedIds = platforms
-      .filter((p) => p.connected && (p.category === '리뷰·검색' || p.category === '배달'))
-      .map((p) => p.id)
-      .filter((pid) => pid === 'naver_place' || pid === 'baemin' || pid === 'yogiyo' || pid === 'coupangeats' || pid === 'google' || pid === 'kakao_map')
-    if (connectedIds.length === 0) {
-      setPlatformReviews({})
-      return
-    }
-    loadPlatformReviews(connectedIds)
-  }, [isLoggedIn, platforms, loadPlatformReviews])
+    loadPlatformReviews(['naver_place', 'baemin', 'yogiyo', 'coupangeats', 'kakao_map', 'google'] as PlatformId[])
+  }, [isLoggedIn, loadPlatformReviews])
 
   // 30차-15-B: 연결된 네이버 플레이스가 있고 리뷰 집계가 0건이면 자동으로 1회 수집 시도
   //   · 사용자가 "지금 수집" 을 누르지 않아도 연결 직후 첫 수집을 빠르게 반영해
