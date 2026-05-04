@@ -40,7 +40,7 @@ export async function upsertReviews(
   if (reviews.length === 0) return { inserted: 0, total: 0 }
 
   const now = new Date().toISOString()
-  const fullRows = reviews.map((r) => ({
+  const allRows = reviews.map((r) => ({
     user_id: userId,
     platform,
     platform_store_id: platformStoreId,
@@ -56,6 +56,20 @@ export async function upsertReviews(
     reply_content: r.reply_content ?? null,
     raw_snapshot: r.raw_snapshot ?? r,
   }))
+
+  // ── 62차-3: batch 내부 중복 platform_review_id 제거 ──
+  // 슬라이딩 윈도우가 EXPOSE + UNEXPOSE 또는 day 경계 중복으로 같은 리뷰를 두 번 잡을 수 있음.
+  // PostgreSQL ON CONFLICT DO UPDATE 는 batch 내 동일 key 두 번이면 에러.
+  const seen = new Set<string>()
+  const fullRows = allRows.filter((row) => {
+    const key = `${row.platform}::${row.platform_review_id}`
+    if (seen.has(key)) return false
+    seen.add(key)
+    return true
+  })
+  if (fullRows.length !== allRows.length) {
+    console.log(`[upsertReviews] dedupe: ${allRows.length} → ${fullRows.length} (중복 ${allRows.length - fullRows.length}개 제거)`)
+  }
 
   // 1차 시도: 모든 컬럼 포함
   const { data, error } = await svc
