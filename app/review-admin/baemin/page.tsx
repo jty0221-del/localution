@@ -7,7 +7,7 @@
 
 import { useState, useEffect } from 'react'
 import PlatformReviewAdmin, { PlatformConfig } from '../components/PlatformReviewAdmin'
-import { Lock, RefreshCw, Settings, X, ShieldCheck, ShieldAlert, Trash2, Stethoscope } from 'lucide-react'
+import { Lock, RefreshCw, Settings, X, ShieldCheck, ShieldAlert, Trash2, Stethoscope, Activity } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
@@ -36,6 +36,7 @@ function SystemHealthFloating() {
   const [loginLoading, setLoginLoading] = useState(false)
   const [cleanupLoading, setCleanupLoading] = useState(false)
   const [diagnoseLoading, setDiagnoseLoading] = useState(false)
+  const [workerDiagLoading, setWorkerDiagLoading] = useState(false)
   const [msg, setMsg] = useState('')
   const [open, setOpen] = useState(false)
 
@@ -94,7 +95,6 @@ function SystemHealthFloating() {
       const res = await fetch('/api/baemin/diagnose', { credentials: 'include' })
       const data = await res.json()
       if (!data.ok) { setMsg(data.error || '진단 실패'); setDiagnoseLoading(false); return }
-      // 진단 결과를 새 탭에 JSON 으로 보여줌
       const w = window.open('', '_blank')
       if (w) {
         w.document.body.innerText = JSON.stringify(data, null, 2)
@@ -104,6 +104,28 @@ function SystemHealthFloating() {
       setMsg('진단 결과를 새 탭에 열었어요')
     } catch (e: any) { setMsg(e.message) }
     setDiagnoseLoading(false)
+  }
+
+  async function workerDiag() {
+    setWorkerDiagLoading(true); setMsg('Worker 강제 트리거 + 30초 대기 중...')
+    try {
+      const res = await fetch('/api/baemin/worker-diag', {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ days_back: 30 }),
+      })
+      const data = await res.json()
+      const w = window.open('', '_blank')
+      if (w) {
+        w.document.body.innerText = JSON.stringify(data, null, 2)
+        w.document.body.style.cssText = 'font-family:monospace;font-size:12px;white-space:pre;padding:20px;'
+        w.document.title = 'Worker 진단 결과'
+      }
+      const delta = data?.summary?.reviewCountDelta ?? 0
+      const pollState = data?.poll?.state
+      setMsg('Worker 진단 완료 — ' + (delta > 0 ? delta + '건 새로 추가됨' : pollState ? 'state=' + pollState : '결과는 새 탭 확인'))
+    } catch (e: any) { setMsg(e.message) }
+    setWorkerDiagLoading(false)
   }
 
   useEffect(() => { check() }, [])
@@ -198,6 +220,15 @@ function SystemHealthFloating() {
                   <a href="/my/platforms/baemin/connect" className="ml-1 underline font-bold">계정 연결 ↗</a>
                 </p>
               )}
+
+              {/* v1.4: 직접 fetch 가 막혔을 때 사용자에게 북마크릿 권장 */}
+              <a
+                href="/my/platforms/baemin/bookmarklet"
+                className="block text-[11px] bg-gradient-to-br from-[#E0FAF8] to-[#CCF5F0] text-[#0A5E5A] px-3 py-2.5 rounded-lg leading-relaxed font-semibold hover:from-[#CCF5F0] hover:to-[#B8F0E8] transition-colors"
+              >
+                서버에서 리뷰가 안 가져와지면? <span className="underline font-bold">북마크릿 한 번 설정 →</span>
+                <span className="block text-[10px] text-[#0A5E5A]/70 font-normal mt-0.5">사장님 브라우저로 정확한 리뷰 직접 동기화</span>
+              </a>
             </div>
 
             <div className="px-5 py-3 bg-[#F8F9FA] border-t border-[#F2F4F6] space-y-2">
@@ -241,6 +272,15 @@ function SystemHealthFloating() {
                   {diagnoseLoading ? '진단 중...' : 'API 진단'}
                 </button>
               </div>
+              <button
+                onClick={workerDiag}
+                disabled={workerDiagLoading}
+                className="w-full px-3 py-2 bg-gradient-to-br from-[#3182F6] to-[#1B64DA] text-white rounded-xl font-bold text-xs disabled:opacity-60 hover:shadow-md inline-flex items-center justify-center gap-1.5 transition-all"
+                title="Railway Worker 강제 실행 + 30초 대기 + 결과 확인"
+              >
+                <Activity size={12} strokeWidth={2.5} />
+                {workerDiagLoading ? 'Worker 실행 중... (최대 30초)' : 'Worker 강제 실행 + 진단'}
+              </button>
             </div>
           </div>
         </div>
