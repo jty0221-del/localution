@@ -7,7 +7,7 @@
 
 import { useState, useEffect } from 'react'
 import PlatformReviewAdmin, { PlatformConfig } from '../components/PlatformReviewAdmin'
-import { Lock, RefreshCw, Settings, X, ShieldCheck, ShieldAlert } from 'lucide-react'
+import { Lock, RefreshCw, Settings, X, ShieldCheck, ShieldAlert, Trash2, Stethoscope } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
@@ -34,6 +34,8 @@ function SystemHealthFloating() {
   const [health, setHealth] = useState<HealthStatus | null>(null)
   const [checking, setChecking] = useState(false)
   const [loginLoading, setLoginLoading] = useState(false)
+  const [cleanupLoading, setCleanupLoading] = useState(false)
+  const [diagnoseLoading, setDiagnoseLoading] = useState(false)
   const [msg, setMsg] = useState('')
   const [open, setOpen] = useState(false)
 
@@ -58,15 +60,59 @@ function SystemHealthFloating() {
     setLoginLoading(false)
   }
 
+  async function cleanupAndRefetch() {
+    if (!confirm('기존 배민 리뷰를 모두 삭제하고 다시 수집할까요?\n(잘못된 이미지/데이터 정리에 유용해요)')) return
+    setCleanupLoading(true); setMsg('')
+    try {
+      const r1 = await fetch('/api/baemin/cleanup-reviews', {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mode: 'all' }),
+      })
+      const d1 = await r1.json()
+      if (!d1.ok) { setMsg(d1.error || '삭제 실패'); setCleanupLoading(false); return }
+
+      // 즉시 재수집
+      const r2 = await fetch('/api/baemin/collect-reviews', {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ days_back: 30 }),
+      })
+      const d2 = await r2.json()
+      if (d2.ok) {
+        setMsg('삭제 ' + d1.deleted + '건 → 재수집 ' + (d2.count ?? 0) + '건. 새로고침하세요.')
+      } else {
+        setMsg('삭제 ' + d1.deleted + '건 완료, 재수집은 큐 처리 중...')
+      }
+    } catch (e: any) { setMsg(e.message) }
+    setCleanupLoading(false)
+  }
+
+  async function diagnose() {
+    setDiagnoseLoading(true); setMsg('')
+    try {
+      const res = await fetch('/api/baemin/diagnose', { credentials: 'include' })
+      const data = await res.json()
+      if (!data.ok) { setMsg(data.error || '진단 실패'); setDiagnoseLoading(false); return }
+      // 진단 결과를 새 탭에 JSON 으로 보여줌
+      const w = window.open('', '_blank')
+      if (w) {
+        w.document.body.innerText = JSON.stringify(data, null, 2)
+        w.document.body.style.cssText = 'font-family:monospace;font-size:12px;white-space:pre;padding:20px;'
+        w.document.title = '배민 API 진단 결과'
+      }
+      setMsg('진단 결과를 새 탭에 열었어요')
+    } catch (e: any) { setMsg(e.message) }
+    setDiagnoseLoading(false)
+  }
+
   useEffect(() => { check() }, [])
 
   if (!health) return null
 
   const allOk = health.proxy.ok && health.cookie.ok && health.api.ok
 
-  // 정상이면 완전히 숨김 (사장님 화면에서 사라짐)
-  if (allOk && !open) return null
-
+  // v1.2: 정상이어도 작은 칩은 항상 노출 (데이터 초기화/진단 접근용)
   return (
     <>
       {/* 플로팅 버튼 — 우측 하단, 작은 칩 형태 */}
@@ -154,25 +200,47 @@ function SystemHealthFloating() {
               )}
             </div>
 
-            <div className="px-5 py-3 bg-[#F8F9FA] border-t border-[#F2F4F6] flex items-center gap-2">
-              {!allOk && (
+            <div className="px-5 py-3 bg-[#F8F9FA] border-t border-[#F2F4F6] space-y-2">
+              <div className="flex items-center gap-2">
+                {!allOk && (
+                  <button
+                    onClick={autoLogin}
+                    disabled={loginLoading}
+                    className="flex-1 px-3 py-2 bg-[#2DDDC8] text-white rounded-xl font-bold text-xs disabled:opacity-60 hover:bg-[#1BC7B3] inline-flex items-center justify-center gap-1.5"
+                  >
+                    <Lock size={12} strokeWidth={2.5} />
+                    {loginLoading ? '로그인 중...' : '자동 로그인'}
+                  </button>
+                )}
                 <button
-                  onClick={autoLogin}
-                  disabled={loginLoading}
-                  className="flex-1 px-3 py-2 bg-[#2DDDC8] text-white rounded-xl font-bold text-xs disabled:opacity-60 hover:bg-[#1BC7B3] inline-flex items-center justify-center gap-1.5"
+                  onClick={check}
+                  disabled={checking}
+                  className="flex-1 px-3 py-2 bg-white border border-[#E5E8EB] rounded-xl text-[#4E5968] font-bold text-xs disabled:opacity-60 hover:bg-[#F2F4F6] inline-flex items-center justify-center gap-1.5"
                 >
-                  <Lock size={12} strokeWidth={2.5} />
-                  {loginLoading ? '로그인 중...' : '자동 로그인'}
+                  <RefreshCw size={12} strokeWidth={2.5} className={checking ? 'animate-spin' : ''} />
+                  {checking ? '확인 중...' : '재점검'}
                 </button>
-              )}
-              <button
-                onClick={check}
-                disabled={checking}
-                className="flex-1 px-3 py-2 bg-white border border-[#E5E8EB] rounded-xl text-[#4E5968] font-bold text-xs disabled:opacity-60 hover:bg-[#F2F4F6] inline-flex items-center justify-center gap-1.5"
-              >
-                <RefreshCw size={12} strokeWidth={2.5} className={checking ? 'animate-spin' : ''} />
-                {checking ? '확인 중...' : '재점검'}
-              </button>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={cleanupAndRefetch}
+                  disabled={cleanupLoading}
+                  className="flex-1 px-3 py-2 bg-white border border-[#FCA5A5] text-[#DC2626] rounded-xl font-bold text-xs disabled:opacity-60 hover:bg-[#FEF2F2] inline-flex items-center justify-center gap-1.5"
+                  title="DB 의 모든 배민 리뷰 삭제 후 30일치 재수집"
+                >
+                  <Trash2 size={12} strokeWidth={2.5} />
+                  {cleanupLoading ? '처리 중...' : '데이터 초기화 + 재수집'}
+                </button>
+                <button
+                  onClick={diagnose}
+                  disabled={diagnoseLoading}
+                  className="flex-1 px-3 py-2 bg-white border border-[#A7F3D0] text-[#059669] rounded-xl font-bold text-xs disabled:opacity-60 hover:bg-[#ECFDF5] inline-flex items-center justify-center gap-1.5"
+                  title="배민 API 응답 구조 확인 (디버깅용)"
+                >
+                  <Stethoscope size={12} strokeWidth={2.5} />
+                  {diagnoseLoading ? '진단 중...' : 'API 진단'}
+                </button>
+              </div>
             </div>
           </div>
         </div>
