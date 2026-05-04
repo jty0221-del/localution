@@ -1269,16 +1269,16 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
                                       onClick={() => {
                                         try {
                                           navigator.clipboard.writeText(draftText)
-                                          toast.info('📋 답글이 복사됐어요! 네이버에서 붙여넣기 하세요')
+                                          toast.info(`답글이 복사됐어요! ${config.label}에서 붙여넣기 하세요`)
                                         } catch {}
                                         window.open(config.reviewAdminUrl!, '_blank', 'noopener')
                                       }}
                                       disabled={!draftText.trim() || submitting}
                                       className="px-3 py-1.5 rounded-lg text-xs font-bold bg-white border hover:bg-[#F9FAFB] disabled:opacity-50"
                                       style={{ borderColor: config.color + '60', color: config.textColor }}
-                                      title="답글을 복사하고 네이버 답글 작성 페이지를 새 탭으로 열어요"
+                                      title={`답글을 복사하고 ${config.label} 답글 작성 페이지를 새 탭으로 열어요`}
                                     >
-                                      📋 복사 + 네이버에서 직접 등록
+                                      복사 + {config.label}에서 직접 등록
                                     </button>
                                   )}
 
