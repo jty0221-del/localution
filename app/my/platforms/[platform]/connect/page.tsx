@@ -62,6 +62,7 @@ export default function ConnectPlatformPage() {
   const [coupangMessage, setCoupangMessage] = useState('연동 신청을 받았어요. 곧 처리가 시작돼요.')
   const [coupangReviewCount, setCoupangReviewCount] = useState(0)
   const [coupangElapsed, setCoupangElapsed] = useState(0)
+  const [coupangAccountIdMask, setCoupangAccountIdMask] = useState<string | null>(null)
   const pollRef = useRef<NodeJS.Timeout | null>(null)
   const elapsedRef = useRef<NodeJS.Timeout | null>(null)
 
@@ -145,6 +146,7 @@ export default function ConnectPlatformPage() {
         setCoupangStatus(j.status)
         setCoupangMessage(j.message || '')
         setCoupangReviewCount(j.review_count || 0)
+        if (j.account_id_mask) setCoupangAccountIdMask(j.account_id_mask)
         if (j.status === 'completed' || j.status === 'failed') {
           if (pollRef.current) { clearInterval(pollRef.current); pollRef.current = null }
           if (elapsedRef.current) { clearInterval(elapsedRef.current); elapsedRef.current = null }
@@ -292,6 +294,21 @@ export default function ConnectPlatformPage() {
               </div>
               <h1 className="text-[22px] font-black text-[#191F28] leading-snug mb-1">연동에 실패했어요.</h1>
               <p className="text-[15px] text-[#4E5968] leading-relaxed">{coupangMessage || '다시 시도해주세요.'}</p>
+              {coupangAccountIdMask && (
+                <div className="mt-4 rounded-xl bg-amber-50 border border-amber-200 p-3 text-[12px] text-amber-900 leading-relaxed">
+                  <div className="font-bold mb-1 flex items-center gap-1.5">
+                    <AlertTriangle size={13} className="text-amber-600 flex-shrink-0" strokeWidth={2.5} />
+                    혹시 쿠팡이츠 아이디가 맞나요?
+                  </div>
+                  <div className="mt-1.5">
+                    현재 등록된 아이디: <code className="bg-white px-1.5 py-0.5 rounded text-[11px] font-mono font-bold text-amber-900">{coupangAccountIdMask}</code>
+                  </div>
+                  <div className="mt-2 text-amber-800">
+                    쿠팡이츠는 네이버·배민과 <strong>다른 별도 계정</strong>이에요.<br />
+                    <a href="https://store.coupangeats.com/merchant/login" target="_blank" rel="noopener noreferrer" className="underline font-bold">store.coupangeats.com</a> 에서 사용하시는 사장님 아이디·비밀번호인지 확인해주세요.
+                  </div>
+                </div>
+              )}
             </>
           )}
 
@@ -523,7 +540,16 @@ export default function ConnectPlatformPage() {
       </div>
       <div className="flex-1 max-w-sm w-full mx-auto px-6 pt-6 pb-8 flex flex-col">
         <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl font-black mb-8 shadow-sm" style={{ background: meta.brandColor, color: meta.brandTextColor }}>{meta.initial}</div>
-        <h1 className="text-[22px] font-black text-[#191F28] leading-snug mb-10">{meta.shortLabel} 리뷰 관리를 위해<br />로그인이 필요해요</h1>
+        <h1 className="text-[22px] font-black text-[#191F28] leading-snug mb-6">{meta.shortLabel} 리뷰 관리를 위해<br />로그인이 필요해요</h1>
+        {platform === 'coupangeats' && (
+          <div className="mb-6 rounded-xl bg-amber-50 border border-amber-200 p-3 text-[12px] text-amber-900 leading-relaxed flex items-start gap-2">
+            <AlertTriangle size={14} className="text-amber-600 flex-shrink-0 mt-0.5" strokeWidth={2.5} />
+            <div>
+              <strong>쿠팡이츠 사장님 계정</strong> 입니다.<br />
+              네이버·배민과 다른 별도 계정이에요. <a href="https://store.coupangeats.com/merchant/login" target="_blank" rel="noopener noreferrer" className="underline font-bold">store.coupangeats.com</a> 에서 사용하시는 사장님 아이디·비밀번호를 입력해주세요.
+            </div>
+          </div>
+        )}
         {error && <div className="mb-4 rounded-lg bg-[#FEF2F2] border border-[#FECACA] p-3 text-[13px] text-[#DC2626]">{error}</div>}
         {success && <div className="mb-4 rounded-lg bg-[#ECFDF5] border border-[#A7F3D0] p-3 text-[13px] text-[#059669] flex items-center gap-2"><CheckCircle2 size={14} strokeWidth={2.5} />{success}</div>}
         <input type="text" autoComplete="off" value={accountId} onChange={(e) => setAccountId(e.target.value)} placeholder={`${meta.shortLabel} 아이디`} className="w-full px-4 py-4 rounded-2xl bg-[#F5F6F8] border border-transparent text-[15px] placeholder-[#B0B8C1] focus:outline-none focus:border-[#191F28] focus:bg-white mb-3" />
