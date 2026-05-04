@@ -803,33 +803,49 @@ async function fetchCoupangReviews(
   if (action === 'post_reply' && payload?.platform_review_id && payload?.reply_text) {
     log.info('coupangeats: 65cha — post_reply fast path (skip sliding window)')
 
-    // ── 66차: pre-check — DB 에 has_reply=true 이면 50001 외부 API 실패 미리 차단 ──
+    // ── 66차/69차: pre-check 강화 — has_reply OR raw_snapshot.replies 검사 ──
+    // 50001 외부 API 실패 미리 차단 (이미 답글 있는 review 발행 시도 방지)
     const targetIdPre = String(payload.platform_review_id)
     try {
       const { data: existing } = await svc
         .from('platform_reviews')
-        .select('has_reply, reply_status')
+        .select('has_reply, reply_status, reply_content, raw_snapshot')
         .eq('user_id', userId)
         .eq('platform', 'coupangeats')
         .eq('platform_review_id', targetIdPre)
         .maybeSingle()
-      if (existing?.has_reply === true) {
-        log.warn({ reviewId: targetIdPre }, 'coupangeats: 66cha — review already has reply, skipping post')
+
+      const alreadyHasReply =
+        existing?.has_reply === true ||
+        !!existing?.reply_content ||
+        (Array.isArray((existing?.raw_snapshot as any)?.replies) && (existing?.raw_snapshot as any).replies.length > 0)
+
+      if (alreadyHasReply) {
+        log.warn({ reviewId: targetIdPre }, 'coupangeats: 69cha — review already has reply, skipping post')
+        // DB 의 has_reply 도 true 로 갱신 (UI 정합성)
+        try {
+          await svc.from('platform_reviews')
+            .update({ has_reply: true })
+            .eq('user_id', userId)
+            .eq('platform', 'coupangeats')
+            .eq('platform_review_id', targetIdPre)
+        } catch (_) {}
         return {
           status: 'skipped',
           message: '이미 답글이 달려있어요. 쿠팡 페이지에서 확인해주세요.',
         }
       }
     } catch (e: any) {
-      log.warn({ err: e?.message }, 'coupangeats: 66cha pre-check failed (계속 진행)')
+      log.warn({ err: e?.message }, 'coupangeats: 69cha pre-check failed (계속 진행)')
     }
 
     if (skipBrowser) {
       try {
         const targetStoreId = creds.platform_store_id || '738438'
         const homeUrl = `https://store.coupangeats.com/merchant/management/home/${targetStoreId}`
-        await page.goto(homeUrl, { waitUntil: 'domcontentloaded', timeout: 30000 })
-        await page.waitForTimeout(2000)
+        // 69차: home nav timeout 30s → 15s, idle 2s → 1s (속도 최적화)
+        await page.goto(homeUrl, { waitUntil: 'domcontentloaded', timeout: 15000 })
+        await page.waitForTimeout(1000)
         const url = page.url()
         if (url.includes('/login') || url.includes('/error')) {
           return {
@@ -1811,29 +1827,14 @@ async function postCoupangEatsReply(
 
   log.info({ storeIdInt, orderReviewIdInt, textLen: replyText.length }, 'coupangeats: 63cha POST reply (multi-endpoint)')
 
-  // 66차: idx:0 endpoint 가 진짜 (200 응답) — body shape 다양화로 50001 회피 시도
-  // log 분석 결과: /api/v1/merchant/reviews/reply 가 정확한 endpoint
-  // 50001 "외부 API 호출 실패" = 이미 답글 있거나 body shape 잘못
+  // 69차: 단일 endpoint + body shape (속도 최적화)
+  // log 분석 결과 idx:0 만 진짜 endpoint (다른 4개는 404 또는 CloudFront 차단)
+  // 4가지 body shape 시도해도 모두 50001 → body 문제 아니라 "이미 답글 있음" 케이스
+  // → 1개만 시도하고 50001 시 즉시 fail (속도 최우선)
   const endpointCandidates: Array<{ url: string; body: any; method?: string }> = [
-    // body shape 1: 기본 (number 타입)
     {
       url: 'https://store.coupangeats.com/api/v1/merchant/reviews/reply',
       body: { storeId: storeIdInt, orderReviewId: orderReviewIdInt, comment: replyText },
-    },
-    // body shape 2: string 타입 (쿠팡 API 가 string 받을 수도)
-    {
-      url: 'https://store.coupangeats.com/api/v1/merchant/reviews/reply',
-      body: { storeId: String(storeIdInt), orderReviewId: String(orderReviewIdInt), comment: replyText },
-    },
-    // body shape 3: replyType 추가
-    {
-      url: 'https://store.coupangeats.com/api/v1/merchant/reviews/reply',
-      body: { storeId: storeIdInt, orderReviewId: orderReviewIdInt, comment: replyText, replyType: 'OWNER' },
-    },
-    // body shape 4: reviewId / content 키 (다른 endpoint 패턴 호환)
-    {
-      url: 'https://store.coupangeats.com/api/v1/merchant/reviews/reply',
-      body: { storeId: storeIdInt, reviewId: orderReviewIdInt, content: replyText },
     },
   ]
 
