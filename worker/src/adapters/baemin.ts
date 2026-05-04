@@ -162,8 +162,8 @@ export async function runBaemin(
     return { status: 'skipped', message: `baemin: unsupported action ${action}` }
   }
 
-  // v1.6o: ID YYYYMMDD prefix 30일 사전 차단 + ws polyfill 유지
-  log.info({ version: 'v1.6o', ts: '20260505T1900' }, 'BAEMIN_ADAPTER_VERSION_MARKER')
+  // v1.6p: Variant 1 = reviewId+contents+shopNumber (정답 검증 완료)
+  log.info({ version: 'v1.6p', ts: '20260505T2100' }, 'BAEMIN_ADAPTER_VERSION_MARKER')
 
   const svc   = getServiceClient()
   let creds: any
@@ -1014,12 +1014,13 @@ async function postBaeminReply(
     const reviewNoSafe = !isNaN(reviewNoNum) && reviewNoNum > 0 ? reviewNoNum : idNum
     const shopNoNum = Number(shopNo)
 
+    // v1.6p: Variant 1 = 정답 (검증 완료 — Job 1878 status=200)
+    //   응답 GET 필드명과 정확히 일치하는 것이 baemin 의 진짜 spec
     const bodyVariants = [
-      // Variant 1: reviewNo number + comment + shopNo number (가장 가능성 높음)
-      { reviewNo: reviewNoSafe, comment: safeReplyText, shopNo: shopNoNum },
-      // Variant 2: reviewId + contents (응답 필드명 매칭)
+      // ✅ 정답 — reviewId + contents + shopNumber (응답 GET 필드명 매칭)
       { reviewId: reviewNoSafe, contents: safeReplyText, shopNumber: shopNoNum },
-      // Variant 3: reviewNo string (기존)
+      // fallback (있으면 좋음 — 미래 spec 변경 대비)
+      { reviewNo: reviewNoSafe, comment: safeReplyText, shopNo: shopNoNum },
       { reviewNo: String(idNum), comment: safeReplyText, shopNo: shopNoNum },
     ]
 
