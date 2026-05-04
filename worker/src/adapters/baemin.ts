@@ -285,9 +285,9 @@ export async function runBaemin(
       ]
 
       let loginPageReady = false
+      let alreadyAuthenticated = false
       for (const url of LOGIN_URL_CANDIDATES) {
         try {
-          // v1.6: 'commit' = HTTP 응답 시작 시점만 대기 (ERR_ABORTED 회피)
           await page.goto(url, { waitUntil: 'commit', timeout: 25_000 })
         } catch (gotoErr: any) {
           log.warn({ url, err: gotoErr?.message?.slice(0, 100) }, 'baemin: goto error')
@@ -297,108 +297,127 @@ export async function runBaemin(
         const currentUrl = page.url()
         log.info({ tried: url, landed: currentUrl }, 'baemin: login goto landed')
 
-        // PW 입력창이 보이면 성공
+        // v1.6d: /mypage, /shop, /dashboard 로 redirect → 이미 로그인됨 (쿠키 valid)
+        const isLoggedInPage = (
+          currentUrl.includes('/mypage') ||
+          currentUrl.includes('/dashboard') ||
+          (currentUrl.includes('/shop') && !currentUrl.includes('/shops/login')) ||
+          (currentUrl.includes('self.baemin.com/') && !currentUrl.includes('/login'))
+        )
+        if (isLoggedInPage) {
+          log.info({ landed: currentUrl }, 'baemin: redirected to logged-in page → already authenticated, skipping login form')
+          alreadyAuthenticated = true
+          break
+        }
+
+        // PW 입력창 보이면 로그인 폼 도달
         const pwExists = await page.$(LOGIN_FORM.pwInput).catch(() => null)
-        if (pwExists || currentUrl.includes('login') || currentUrl.includes('member')) {
-          loginPageReady = !!pwExists
-          if (loginPageReady) break
-          // PW selector 못 봤어도 기다려보기
+        if (pwExists) { loginPageReady = true; break }
+
+        // PW selector 못 봤어도 기다려보기 (SPA)
+        if (currentUrl.includes('login') || currentUrl.includes('member')) {
           const pwInputDelayed = await page.waitForSelector(LOGIN_FORM.pwInput, { timeout: 8000 }).catch(() => null)
           if (pwInputDelayed) { loginPageReady = true; break }
         }
       }
 
-      if (!loginPageReady) {
+      // v1.6d: 이미 로그인됨 → CEO_HOME 으로 가서 fetch flow 진입 (login form 필요 X)
+      if (alreadyAuthenticated) {
+        try {
+          await page.goto(CEO_HOME, { waitUntil: 'commit', timeout: 25_000 })
+        } catch (e: any) {
+          log.warn({ err: e?.message }, 'baemin: CEO_HOME goto error after detected auth')
+        }
+        await page.waitForTimeout(4000)
+        await markLoginStatus(svc, userId, 'baemin', 'success', 'authenticated via cookies')
+        log.info('baemin: authenticated via stored cookies (no fresh login needed) ✓')
+        // login form fill 스킵 → 아래 fetch flow 로
+      } else if (!loginPageReady) {
         await dumpPageDiagnostics(page, log, 'baemin-no-login-form')
         await markLoginStatus(svc, userId, 'baemin', 'failed', 'no login form on any URL — Akamai blocking?')
         return { status: 'failed', message: 'baemin: 로그인 폼 도달 실패 — Akamai 차단 또는 프록시 IP 차단' }
-      }
+      } else {
+        // ── login form fill + submit (alreadyAuthenticated 가 아닐 때만) ──
+        log.info({ url: page.url() }, 'baemin: on login page')
 
-      log.info({ url: page.url() }, 'baemin: on login page')
+        const pwInput = await page.waitForSelector(LOGIN_FORM.pwInput, { timeout: 20_000 }).catch(() => null)
+        if (!pwInput) {
+          await dumpPageDiagnostics(page, log, 'baemin-no-pw-input')
+          return { status: 'failed', message: 'baemin: PW 입력창 못 찾음 — UI 변경 가능성' }
+        }
 
-      // PW 입력창 대기 (SPA 일 수 있음)
-      const pwInput = await page.waitForSelector(LOGIN_FORM.pwInput, { timeout: 20_000 }).catch(() => null)
-      if (!pwInput) {
-        await dumpPageDiagnostics(page, log, 'baemin-no-pw-input')
-        return { status: 'failed', message: 'baemin: PW 입력창 못 찾음 — UI 변경 가능성' }
-      }
+        const idInput = await page.$(LOGIN_FORM.idInput)
+        if (idInput) {
+          await idInput.click()
+          await idInput.fill(creds.account_id)
+          await page.waitForTimeout(500)
+        }
 
-      // ID 입력
-      const idInput = await page.$(LOGIN_FORM.idInput)
-      if (idInput) {
-        await idInput.click()
-        await idInput.fill(creds.account_id)
+        await pwInput.click()
+        await pwInput.fill(creds.password)
         await page.waitForTimeout(500)
-      }
 
-      // PW 입력
-      await pwInput.click()
-      await pwInput.fill(creds.password)
-      await page.waitForTimeout(500)
-
-      log.info('baemin: submitting login')
-      // 로그인 버튼 클릭 + URL 변경 대기
-      const [navResult] = await Promise.allSettled([
-        page.waitForURL((url) => !url.href.includes('biz-member'), { timeout: 30_000 }),
-        page.click(LOGIN_FORM.loginBtn),
-      ])
-      await page.waitForTimeout(3000)
-
-      const postUrl = page.url()
-      log.info({ postUrl }, 'baemin: post-login URL')
-
-      // v1.6c: biz-member 도 /login 만 실패로 판정 — /mypage, /shop 등은 로그인 성공
-      const isStillOnLoginPage = postUrl.includes('biz-member.baemin.com/login')
-        && !postUrl.includes('returnUrl')  // returnUrl 있으면 OAuth-like flow 진행 중
-      if (isStillOnLoginPage) {
-        const { failed, reason } = await detectLoginFailure(page)
-        await markLoginStatus(svc, userId, 'baemin', 'failed', reason || 'stayed on login page')
-        await dumpPageDiagnostics(page, log, 'baemin-login-failed')
-        return { status: 'failed', message: `baemin: 로그인 실패 — ${reason || '아이디/비밀번호 또는 IP 차단 확인'}` }
-      }
-
-      if (postUrl.includes('captcha') || postUrl.includes('block')) {
-        await markLoginStatus(svc, userId, 'baemin', 'captcha', postUrl)
-        return { status: 'failed', message: 'baemin: captcha/block 감지' }
-      }
-
-      // self.baemin.com이 아니면 강제 이동 (biz-member/mypage 등도 self.baemin.com 으로 redirect)
-      if (!postUrl.includes('self.baemin.com')) {
-        log.info({ postUrl }, 'baemin: not on self.baemin.com, redirecting to CEO_HOME')
-        try {
-          await page.goto(CEO_HOME, { waitUntil: 'commit', timeout: 30_000 })
-        } catch (e: any) {
-          log.warn({ err: e?.message }, 'baemin: CEO_HOME redirect error (continuing)')
-        }
-        await page.waitForTimeout(4000)
-      }
-
-      // 로그인 후 인증 재확인 (v1.6c: 여러 번 재시도 — SPA 로딩 시간 고려)
-      let postAuth = false
-      for (let attempt = 0; attempt < 3; attempt++) {
-        postAuth = await checkAuth(page, DASHBOARD_KW)
-        if (postAuth) break
-        log.info({ attempt }, 'baemin: post-login auth retry')
+        log.info('baemin: submitting login')
+        const [navResult] = await Promise.allSettled([
+          page.waitForURL((url: any) => !url.href.includes('biz-member'), { timeout: 30_000 }),
+          page.click(LOGIN_FORM.loginBtn),
+        ])
         await page.waitForTimeout(3000)
-      }
-      // 추가 신호 — /shops/{N}/ 링크가 있어도 인증 OK 로 간주
-      if (!postAuth) {
-        const hasShopLink = await page.evaluate(() => {
-          return !!document.querySelector('a[href*="/shops/"]')
-        }).catch(() => false)
-        if (hasShopLink) {
-          log.info('baemin: shops link detected → treating as authenticated')
-          postAuth = true
-        }
-      }
-      if (!postAuth) {
-        await dumpPageDiagnostics(page, log, 'baemin-post-login-no-dashboard')
-        await markLoginStatus(svc, userId, 'baemin', 'failed', 'no dashboard after login')
-        return { status: 'failed', message: 'baemin: 로그인 후 대시보드 미확인 — 자격증명 재확인' }
-      }
 
-      await markLoginStatus(svc, userId, 'baemin', 'success')
-      log.info('baemin: login success ✓')
+        const postUrl = page.url()
+        log.info({ postUrl }, 'baemin: post-login URL')
+
+        // v1.6c: biz-member 도 /login 만 실패로 판정 — /mypage, /shop 등은 로그인 성공
+        const isStillOnLoginPage = postUrl.includes('biz-member.baemin.com/login')
+          && !postUrl.includes('returnUrl')
+        if (isStillOnLoginPage) {
+          const { failed, reason } = await detectLoginFailure(page)
+          await markLoginStatus(svc, userId, 'baemin', 'failed', reason || 'stayed on login page')
+          await dumpPageDiagnostics(page, log, 'baemin-login-failed')
+          return { status: 'failed', message: `baemin: 로그인 실패 — ${reason || '아이디/비밀번호 또는 IP 차단 확인'}` }
+        }
+
+        if (postUrl.includes('captcha') || postUrl.includes('block')) {
+          await markLoginStatus(svc, userId, 'baemin', 'captcha', postUrl)
+          return { status: 'failed', message: 'baemin: captcha/block 감지' }
+        }
+
+        if (!postUrl.includes('self.baemin.com')) {
+          log.info({ postUrl }, 'baemin: not on self.baemin.com, redirecting to CEO_HOME')
+          try {
+            await page.goto(CEO_HOME, { waitUntil: 'commit', timeout: 30_000 })
+          } catch (e: any) {
+            log.warn({ err: e?.message }, 'baemin: CEO_HOME redirect error (continuing)')
+          }
+          await page.waitForTimeout(4000)
+        }
+
+        let postAuth = false
+        for (let attempt = 0; attempt < 3; attempt++) {
+          postAuth = await checkAuth(page, DASHBOARD_KW)
+          if (postAuth) break
+          log.info({ attempt }, 'baemin: post-login auth retry')
+          await page.waitForTimeout(3000)
+        }
+        if (!postAuth) {
+          const hasShopLink = await page.evaluate(() => {
+            return !!document.querySelector('a[href*="/shops/"]')
+          }).catch(() => false)
+          if (hasShopLink) {
+            log.info('baemin: shops link detected → treating as authenticated')
+            postAuth = true
+          }
+        }
+        if (!postAuth) {
+          await dumpPageDiagnostics(page, log, 'baemin-post-login-no-dashboard')
+          await markLoginStatus(svc, userId, 'baemin', 'failed', 'no dashboard after login')
+          return { status: 'failed', message: 'baemin: 로그인 후 대시보드 미확인 — 자격증명 재확인' }
+        }
+
+        await markLoginStatus(svc, userId, 'baemin', 'success')
+        log.info('baemin: login success ✓')
+      }
+      // ── login form 분기 끝 ──
 
       // v1.6c: Worker fresh 로그인 성공 → 쿠키 JSON object 그대로 영속화
       //        Playwright cookies() 의 모든 필드 (domain/path/httpOnly/secure/sameSite/expires) 보존
