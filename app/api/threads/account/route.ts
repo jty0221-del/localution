@@ -1,17 +1,26 @@
 // app/api/threads/account/route.ts
 // Threads 계정 연결 상태 조회 / 연결 해제
 import { NextResponse } from 'next/server'
-import { createServiceClient, requireAdmin } from '@/app/lib/adminAuth'
+import { createServiceClient } from '@/app/lib/adminAuth'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-export async function GET() {
-  const auth = await requireAdmin()
-  if (!auth.ok) return NextResponse.json({ error: auth.message }, { status: auth.status })
+const OWNER_EMAIL = 'jty0221@gmail.com'
 
-  const userId = auth.userId ?? auth.email
+async function getOwnerUserId(svc: ReturnType<typeof createServiceClient>): Promise<string> {
+  const { data } = await svc
+    .from('stores')
+    .select('user_id')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  return data?.user_id || OWNER_EMAIL
+}
+
+export async function GET() {
   const svc = createServiceClient()
+  const userId = await getOwnerUserId(svc)
 
   const { data } = await svc
     .from('threads_accounts')
@@ -39,13 +48,8 @@ export async function GET() {
 }
 
 export async function DELETE() {
-  const auth = await requireAdmin()
-  if (!auth.ok) return NextResponse.json({ error: auth.message }, { status: auth.status })
-
-  const userId = auth.userId ?? auth.email
   const svc = createServiceClient()
-
+  const userId = await getOwnerUserId(svc)
   await svc.from('threads_accounts').delete().eq('user_id', userId)
-
   return NextResponse.json({ ok: true })
 }
