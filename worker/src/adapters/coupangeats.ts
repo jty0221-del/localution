@@ -1496,12 +1496,42 @@ async function fetchCoupangReviews(
         r.reviewDate || r.regDate || r.writeDate || r.orderedAt ||
         r.review?.createdAt || null
 
-      // 답글 (nested)
-      const reply = r.ownerReply || r.reply || r.storeReply || r.merchantReply || r.review?.reply || null
-      const replyContent =
-        (typeof reply === 'string' ? reply : (reply?.content || reply?.text || reply?.body)) ||
-        r.replyContent || r.ownerCommentContent || null
-      const hasReply = !!replyContent
+      // 64차: 답글 매칭 — 쿠팡이츠 'replies' 배열 우선 + 기타 키 fallback
+      let hasReply = false
+      let replyContent: string | null = null
+
+      // 1) 쿠팡이츠 표준: replies 배열 [{ comment, createdAt, ... }]
+      if (Array.isArray(r.replies) && r.replies.length > 0) {
+        const first = r.replies[0]
+        const txt = typeof first === 'string'
+          ? first
+          : (first?.comment || first?.content || first?.text || first?.body || first?.replyText || '')
+        if (txt) {
+          hasReply = true
+          replyContent = String(txt).slice(0, 2000)
+        }
+      }
+      // 2) 다른 플랫폼 호환 (단일 객체 / 문자열)
+      if (!hasReply) {
+        const reply = r.ownerReply || r.reply || r.storeReply || r.merchantReply || r.review?.reply || null
+        if (reply) {
+          const txt = typeof reply === 'string'
+            ? reply
+            : (reply?.content || reply?.text || reply?.body || '')
+          if (txt) {
+            hasReply = true
+            replyContent = String(txt).slice(0, 2000)
+          }
+        }
+      }
+      // 3) 평면 키 fallback
+      if (!hasReply) {
+        const flat = r.replyContent || r.ownerCommentContent || r.ownerReplyContent || null
+        if (flat) {
+          hasReply = true
+          replyContent = String(flat).slice(0, 2000)
+        }
+      }
 
       return {
         platform_review_id: reviewId,
