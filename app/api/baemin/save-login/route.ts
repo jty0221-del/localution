@@ -143,12 +143,16 @@ export async function POST(req: NextRequest) {
     let queueJobId: string | undefined
     try {
       if (process.env.REDIS_URL) {
+        // v1.6b: 'unknown' string 제거 — Worker 가 allShopIds 자동 감지
+        const validShopNo = shopNo && /^\d+$/.test(String(shopNo)) ? String(shopNo) : ''
         const jr = await enqueuePlatformJob({
           platform: 'baemin',
           action: 'fetch_reviews',
           userId,
-          storeId: shopNo || 'unknown',
-          payload: { shop_no: shopNo, days_back: 30, source: 'save-login' },
+          storeId: validShopNo || 'auto-detect',
+          payload: validShopNo
+            ? { shop_no: validShopNo, days_back: 30, source: 'save-login' }
+            : { days_back: 30, source: 'save-login' },
         })
         if (jr.ok) { queued = true; queueJobId = jr.jobId }
       }
