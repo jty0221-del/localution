@@ -1,22 +1,31 @@
 // app/api/threads/posts/[id]/publish/route.ts
 // 포스트 즉시 발행 트리거 (BullMQ enqueue)
 import { NextResponse } from 'next/server'
-import { createServiceClient, requireAdmin } from '@/app/lib/adminAuth'
+import { createServiceClient } from '@/app/lib/adminAuth'
 import { enqueuePlatformJob } from '@/app/lib/queue'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
+const OWNER_EMAIL = 'jty0221@gmail.com'
+
+async function getOwnerUserId(svc: ReturnType<typeof createServiceClient>): Promise<string> {
+  const { data } = await svc
+    .from('stores')
+    .select('user_id')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  return data?.user_id || OWNER_EMAIL
+}
+
 export async function POST(
   _request: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  const auth = await requireAdmin()
-  if (!auth.ok) return NextResponse.json({ error: auth.message }, { status: auth.status })
-
-  const userId = auth.userId ?? auth.email
-  const { id } = await params
   const svc = createServiceClient()
+  const userId = await getOwnerUserId(svc)
+  const { id } = await params
 
   const { data: post } = await svc
     .from('threads_posts')
