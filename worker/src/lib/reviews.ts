@@ -60,13 +60,29 @@ export async function upsertReviews(
   // ── 62차-3: batch 내부 중복 platform_review_id 제거 ──
   // 슬라이딩 윈도우가 EXPOSE + UNEXPOSE 또는 day 경계 중복으로 같은 리뷰를 두 번 잡을 수 있음.
   // PostgreSQL ON CONFLICT DO UPDATE 는 batch 내 동일 key 두 번이면 에러.
-  const seen = new Set<string>()
-  const fullRows = allRows.filter((row) => {
-    const key = `${row.platform}::${row.platform_review_id}`
-    if (seen.has(key)) return false
-    seen.add(key)
-    return true
-  })
+  // 68차: dedupe 에서 뒤에 있는 row 우선 (replies 가 채워진 최신 버전 우선)
+  //       기존: 첫 번째 발견된 것만 → 답글 단 review 가 EXPOSE/UNEXPOSE 둘 다 있을 때
+  //              먼저 발견된 게 답글 없는 버전이면 답글 정보 손실
+  //       수정: 마지막 발견된 것 우선 (또는 has_reply=true 인 것 우선)
+  const dedupeMap = new Map<string, typeof allRows[number]>()
+  for (const row of allRows) {
+    const key = `${row.user_id}::${row.platform}::${row.platform_review_id}`
+    const existing = dedupeMap.get(key)
+    if (!existing) {
+      dedupeMap.set(key, row)
+      continue
+    }
+    // 답글 있는 버전 우선
+    if (row.has_reply && !existing.has_reply) {
+      dedupeMap.set(key, row)
+    } else if (row.has_reply === existing.has_reply) {
+      // 둘 다 같은 has_reply 상태면 reply_content 가 있는 쪽 우선
+      const rowHasContent = !!(row.reply_content)
+      const existHasContent = !!(existing.reply_content)
+      if (rowHasContent && !existHasContent) dedupeMap.set(key, row)
+    }
+  }
+  const fullRows = Array.from(dedupeMap.values())
   if (fullRows.length !== allRows.length) {
     console.log(`[upsertReviews] dedupe: ${allRows.length} → ${fullRows.length} (중복 ${allRows.length - fullRows.length}개 제거)`)
   }
@@ -74,7 +90,7 @@ export async function upsertReviews(
   // 1차 시도: 모든 컬럼 포함
   const { data, error } = await svc
     .from('platform_reviews')
-    .upsert(fullRows, { onConflict: 'platform,platform_review_id', ignoreDuplicates: true })
+    .upsert(fullRows, { onConflict: 'platform,platform_review_id', ignoreDuplicates: false })
     .select('platform_review_id')
 
   if (!error) {
@@ -100,7 +116,7 @@ export async function upsertReviews(
     })
     const { data: data2, error: error2 } = await svc
       .from('platform_reviews')
-      .upsert(slimRows, { onConflict: 'platform,platform_review_id', ignoreDuplicates: true })
+      .upsert(slimRows, { onConflict: 'platform,platform_review_id', ignoreDuplicates: false })
       .select('platform_review_id')
     if (!error2) {
       console.warn(`[upsertReviews] 1차 실패 → 컬럼 ${skipCols.join(',')} 제외 후 retry 성공`)
