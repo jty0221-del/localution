@@ -46,6 +46,13 @@ const MARKETING_GROUPS = [
     ],
   },
   {
+    platform: '스레드',
+    color: '#111827',
+    items: [
+      { href: '/marketing/threads', label: '스레드 발행' },
+    ],
+  },
+  {
     platform: '유튜브',
     color: '#FF0000',
     items: [
