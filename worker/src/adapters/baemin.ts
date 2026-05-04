@@ -19,6 +19,7 @@ import { loadPlainCredentials, markLoginStatus } from '../lib/credentials'
 import { upsertReviews, CollectedReview } from '../lib/reviews'
 import { dumpPageDiagnostics, detectLoginFailure } from '../lib/diagnostics'
 import { verifyReplySubmitted } from '../lib/post-reply-verify'
+import { notifyNewReviews } from '../lib/notify'
 import type { JobResult, Action } from '../jobs'
 
 const LOGIN_URL   = 'https://biz-member.baemin.com/login'
@@ -161,8 +162,8 @@ export async function runBaemin(
     return { status: 'skipped', message: `baemin: unsupported action ${action}` }
   }
 
-  // v1.6j_fix: || vs ?? syntax error 수정 + 진짜 배민 필드명 매핑
-  log.info({ version: 'v1.6j_fix', ts: '20260505T1715' }, 'BAEMIN_ADAPTER_VERSION_MARKER')
+  // v1.6k: in-browser fetch post_reply (Akamai 부프키) + 알림 트리거 + chip 제거
+  log.info({ version: 'v1.6k', ts: '20260505T1730' }, 'BAEMIN_ADAPTER_VERSION_MARKER')
 
   const svc   = getServiceClient()
   let creds: any
@@ -770,6 +771,21 @@ export async function runBaemin(
       return { status: 'failed', message: `baemin reply failed: ${replied.reason}` }
     }
 
+    // v1.6k: 새 리뷰 들어왔을 때 알림 트리거 (Web Push + 카카오톡)
+    // notification_log 가 24h 중복 자동 처리 — 별점 1-2점 우선순위는 triggerReviewNotifications 내부 로직
+    if (totalInserted > 0 && action !== 'post_reply') {
+      try {
+        const notifyRes = await notifyNewReviews(log, {
+          userId,
+          platform: 'baemin',
+          reviewIds: 'all_new',
+        })
+        log.info({ ...notifyRes }, 'baemin: notification triggered')
+      } catch (notifyErr: any) {
+        log.warn({ err: notifyErr?.message }, 'baemin: notification trigger failed (non-fatal)')
+      }
+    }
+
     return {
       status: 'ok',
       message: `baemin: shops=${shopIdsToFetch.length} total=${totalReviews} inserted=${totalInserted}`,
@@ -944,45 +960,60 @@ async function extractReviewsFromDom(page: any, log: Logger): Promise<CollectedR
   return rawReviews
 }
 
-// ── 답글 등록 (BAEMIN v1: APIRequestContext, 쿠팡 74차 패턴) ──
-// Playwright DOM 조작 → page.context().request.fetch() 로 전환
-// · navigation 영향 없음 (page.evaluate 금지)
-// · 응답 body 검증으로 silent fail 차단 (쿠팡 63차)
+// ── 답글 등록 (v1.6k: in-browser fetch — page.context().request.fetch 는 Akamai 차단됨) ──
+// page.evaluate(() => fetch()) 로 브라우저 컨텍스트 안에서 호출 (모든 Akamai 토큰 자동 포함)
 async function postBaeminReply(
   page: any, platformReviewId: string, replyText: string, log: Logger,
 ): Promise<{ ok: true } | { ok: false; reason: string }> {
   try {
     const idNum = platformReviewId.replace(/^baemin(-real-|:)?/, '')
 
-    // shopId 추출 (page url 또는 storage)
-    const url = page.url()
-    const m = url.match(/\/shops\/(\d+)/)
-    const shopNo = m ? m[1] : ''
+    // 현재 page.url() 에서 shopId 추출, 없으면 reviews 페이지로 이동
+    let url = page.url()
+    let m = url.match(/\/shops\/(\d+)/)
+    let shopNo = m ? m[1] : ''
+
+    // shopNo 가 없으면 자동 감지 + 이동 시도
     if (!shopNo) {
-      log.error({ url }, 'baemin: shopNo not in URL')
-      return { ok: false, reason: 'shopNo not in URL' }
+      // /v4/store/shops/search 등에서 받아둔 shopIds 활용 가능하지만, 가장 간단한 건 cred.platform_store_id
+      // 여기서는 fail-fast 하지 않고 platformReviewId 만으로 진행 시도
+      log.warn({ url }, 'baemin: shopNo not in current URL — need to navigate')
+      return { ok: false, reason: 'page not on /shops/{N}/ — call fetch_reviews first to set context' }
     }
 
-    log.info({ idNum, shopNo }, 'baemin: posting reply via APIRequestContext')
+    log.info({ idNum, shopNo }, 'baemin: posting reply via in-browser fetch (v1.6k)')
 
     const apiUrl = 'https://self-api.baemin.com/v1/review/shops/' + shopNo + '/reviews/comments'
-    const res = await page.context().request.fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-        'Referer': 'https://self.baemin.com/shops/' + shopNo + '/reviews',
-        'Origin': 'https://self.baemin.com',
-        'service-channel': 'SELF_SERVICE_PC',
-        'X-Web-Version': 'v20260422143632',
-      },
-      data: { reviewNo: idNum, comment: replyText, shopNo: Number(shopNo) },
-    })
 
-    const status = res.status()
-    const text = await res.text().catch(() => '')
-    let body: any = null
-    try { body = text ? JSON.parse(text) : null } catch { body = { raw: text.slice(0, 200) } }
+    // page.evaluate 안에서 fetch — 브라우저 fingerprint + Akamai _abck 자동 포함
+    const replyResult: any = await page.evaluate(async (cfg: any) => {
+      try {
+        const res = await fetch(cfg.url, {
+          method: 'POST',
+          credentials: 'include',
+          headers: {
+            'Content-Type': 'application/json',
+            'Accept': 'application/json',
+            'service-channel': 'SELF_SERVICE_PC',
+          },
+          body: JSON.stringify({ reviewNo: cfg.reviewNo, comment: cfg.comment, shopNo: Number(cfg.shopNo) }),
+        })
+        const text = await res.text()
+        let body: any = null
+        try { body = text ? JSON.parse(text) : null } catch { body = { raw: text.slice(0, 200) } }
+        return { status: res.status, ok: res.ok, body }
+      } catch (e: any) {
+        return { __error: String(e?.message || e) }
+      }
+    }, { url: apiUrl, reviewNo: idNum, comment: replyText, shopNo })
+
+    if (replyResult?.__error) {
+      log.error({ err: replyResult.__error }, 'baemin: reply fetch threw')
+      return { ok: false, reason: 'fetch threw: ' + replyResult.__error }
+    }
+
+    const status = replyResult.status
+    const body = replyResult.body
 
     if (status < 200 || status >= 300) {
       log.error({ status, body }, 'baemin: reply HTTP fail')
