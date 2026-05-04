@@ -9,6 +9,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { requireUser } from '@/app/lib/userAuth'
 import { createServiceClient } from '@/app/lib/adminAuth'
+import { enqueuePlatformJob } from '@/app/lib/queue'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -34,10 +35,35 @@ export async function POST(req: NextRequest) {
         .eq('platform', 'baemin')
         .select('id')
       if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
+
+      // v1.4: 삭제 후 즉시 Worker 큐로 재수집 enqueue
+      // (Vercel 직접 fetch 는 403 이라 의미 없음 → Worker Playwright 만 작동)
+      let queued = false
+      let jobId: string | undefined
+      try {
+        if (process.env.REDIS_URL) {
+          // shopNo 가져오기
+          const { data: cred } = await svc
+            .from('platform_credentials')
+            .select('platform_store_id')
+            .eq('user_id', userId).eq('platform', 'baemin').maybeSingle()
+          const shopNo = cred?.platform_store_id || 'unknown'
+          const jr = await enqueuePlatformJob({
+            platform: 'baemin', action: 'fetch_reviews',
+            userId, storeId: shopNo,
+            payload: { shop_no: shopNo, days_back: 30, source: 'cleanup-refetch' },
+          })
+          if (jr.ok) { queued = true; jobId = jr.jobId }
+        }
+      } catch { /* ignore */ }
+
       return NextResponse.json({
         ok: true,
         deleted: data?.length ?? 0,
-        message: '배민 리뷰 ' + (data?.length ?? 0) + '건 삭제 완료. 이제 "지금 수집"으로 다시 가져오세요.',
+        queued,
+        jobId,
+        message: '배민 리뷰 ' + (data?.length ?? 0) + '건 삭제 완료. ' +
+          (queued ? 'Worker 가 1-2분 안에 30일치 새로 수집해요.' : '"지금 수집" 버튼으로 다시 가져오세요.'),
       })
     }
 
