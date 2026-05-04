@@ -7,7 +7,7 @@ import {
   Trash2, RefreshCw, Settings, Hash, Image as ImageIcon,
   CalendarClock, Loader2, Link2Off
 } from 'lucide-react'
-import PageHeader from '@/app/components/PageHeader'
+import Image from 'next/image'
 import Sidebar from '@/app/components/Sidebar'
 import Footer from '@/app/components/Footer'
 import Link from 'next/link'
@@ -528,12 +528,24 @@ function ThreadsPageContent() {
 
   return (
     <>
-      <PageHeader
-        icon={<Send size={22} className="text-white" strokeWidth={2.5} />}
-        title="스레드 자동 발행"
-        subtitle="즉시 발행 또는 예약 발행 — 카드뉴스 해시태그 자동 연동"
-        variant="primary"
-      />
+      {/* 검은색 헤더 */}
+      <section className="bg-black relative overflow-hidden">
+        <div className="pointer-events-none absolute inset-0 opacity-30" aria-hidden="true"
+          style={{ background: 'radial-gradient(800px 240px at 20% -20%, rgba(255,255,255,0.08), transparent 60%)' }} />
+        <div className="relative max-w-5xl mx-auto px-4 md:px-8 py-9 md:py-12 flex items-center gap-3.5 md:gap-5">
+          {/* 로고 이미지 */}
+          <div className="w-14 h-14 md:w-16 md:h-16 rounded-2xl bg-white/10 ring-1 ring-white/20 shadow-[0_8px_24px_-8px_rgba(0,0,0,0.4)] flex items-center justify-center flex-shrink-0 overflow-hidden">
+            <Image src="/logo.svg" alt="로컬루션" width={40} height={40} className="md:w-11 md:h-11" />
+          </div>
+          <div className="flex-1 min-w-0">
+            <h1 className="text-[22px] md:text-[28px] font-black tracking-tight text-white leading-tight">스레드 자동 발행</h1>
+            <p className="text-white/75 text-[12px] md:text-sm mt-1.5 leading-relaxed">즉시 발행 또는 예약 발행 — 카드뉴스 해시태그 자동 연동</p>
+          </div>
+          <div className="hidden md:flex items-center gap-1.5 text-[11px] font-bold text-white/90 bg-white/10 border border-white/20 px-3 py-1.5 rounded-full flex-shrink-0">
+            로컬루션
+          </div>
+        </div>
+      </section>
 
       <main className="flex-1 max-w-4xl mx-auto w-full px-4 md:px-6 py-6 pb-20">
         {connectedParam === '1' && (
