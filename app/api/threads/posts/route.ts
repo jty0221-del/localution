@@ -54,6 +54,7 @@ export async function POST(request: Request) {
     scheduled_at?: string
     source?: string
     card_news_topic?: string
+    thread_replies?: { text_content: string; image_url?: string | null }[]
   }
 
   if (!body.text_content?.trim()) {
@@ -86,6 +87,7 @@ export async function POST(request: Request) {
       scheduled_at: scheduledAt?.toISOString() ?? null,
       source: body.source ?? 'manual',
       card_news_topic: body.card_news_topic ?? null,
+      thread_replies: body.thread_replies?.length ? body.thread_replies : null,
     })
     .select('id')
     .single()
