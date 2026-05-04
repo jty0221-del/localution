@@ -210,11 +210,56 @@ export async function POST(req: NextRequest) {
   }
 
   // ── 쿠팡이츠 자동 큐잉 (장사닥터 패턴) ─────────────────────────
-  // 자격증명 저장 직후 워커 큐에 fetch_reviews job 추가.
-  // UI STEP 3 에서 jobId 로 진행 상황 폴링.
-  // 워커가 stealth login → 리뷰 1년치 수집 → 완료 시 Web Push 알림.
+  // 60차: 큐잉 전에 Vercel save-login 먼저 시도 (배민과 동일 패턴).
+  //   1) /api/coupang/save-login 처럼 한국 proxy raw HTTP → 쿠키 받으면 저장
+  //   2) 성공 시: 워커는 저장된 쿠키로 즉시 reviews fetch (Playwright form login skip)
+  //   3) 실패 시: 기존 흐름 (워커 Playwright form login fallback)
   let coupang_job_id: string | null = null
+  let coupang_save_login_method: string | null = null
   if (body.platform === 'coupangeats') {
+    // (1) Vercel save-login 시도 — Akamai 통과하면 즉시 cookies 저장
+    try {
+      const { coupangProxyLogin } = await import('@/app/lib/coupang-login')
+      const loginResult = await coupangProxyLogin(body.account_id.trim(), body.password)
+      if (loginResult.ok) {
+        coupang_save_login_method = loginResult.method
+        // session_cookies 등 extra_data 업데이트
+        const { data: cred } = await svc
+          .from('platform_credentials').select('extra_data').eq('user_id', auth.userId).eq('platform', 'coupangeats').maybeSingle()
+        const existingExtra = (cred?.extra_data as Record<string, unknown>) || {}
+        const newExtra: Record<string, unknown> = {
+          ...existingExtra,
+          session_cookies: loginResult.cookies,
+          coupang_login_method: loginResult.method,
+          coupang_login_at: new Date().toISOString(),
+        }
+        const updateRow: Record<string, unknown> = {
+          extra_data: newExtra,
+          last_login_status: 'success:save-login',
+          last_login_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        }
+        // storeId auto-discovery (whoami 응답에서)
+        if (loginResult.whoami) {
+          const w: any = loginResult.whoami
+          const sid = w.responsibleStoreId || w.storeId || w.defaultStoreId ||
+            (Array.isArray(w.stores) && w.stores[0]?.storeId) || null
+          const sname = w.storeName ||
+            (Array.isArray(w.stores) && (w.stores[0]?.name || w.stores[0]?.storeName)) || null
+          if (sid) updateRow.platform_store_id = String(sid)
+          if (sname) updateRow.platform_store_name = String(sname)
+        }
+        await svc.from('platform_credentials').update(updateRow)
+          .eq('user_id', auth.userId).eq('platform', 'coupangeats')
+        console.log('[platform-accounts] coupang save-login OK:', loginResult.method)
+      } else {
+        console.warn('[platform-accounts] coupang save-login failed (계속 큐잉):', loginResult.error)
+      }
+    } catch (e: any) {
+      console.warn('[platform-accounts] coupang save-login exception (계속 큐잉):', e?.message)
+    }
+
+    // (2) 큐잉 (save-login 결과와 무관 — 워커가 cookies 있으면 사용, 없으면 form login)
     try {
       const enq = await enqueuePlatformJob(
         {
@@ -243,6 +288,7 @@ export async function POST(req: NextRequest) {
     platform: body.platform,
     label: PLATFORM_LABELS[body.platform as PlatformSlug],
     coupang_job_id,
+    coupang_save_login_method,
   })
 }
 
