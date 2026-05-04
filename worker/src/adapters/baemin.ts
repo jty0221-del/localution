@@ -161,6 +161,9 @@ export async function runBaemin(
     return { status: 'skipped', message: `baemin: unsupported action ${action}` }
   }
 
+  // v1.6e_rev2: 버전 마커 — 이 메시지가 보이면 새 코드 deployed
+  log.info({ version: 'v1.6e_rev2', ts: '20260504T1430' }, 'BAEMIN_ADAPTER_VERSION_MARKER')
+
   const svc   = getServiceClient()
   let creds: any
   try {
