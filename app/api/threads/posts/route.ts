@@ -1,23 +1,33 @@
 // app/api/threads/posts/route.ts
 // Threads 포스트 목록 조회 / 신규 생성
 import { NextResponse } from 'next/server'
-import { createServiceClient, requireAdmin } from '@/app/lib/adminAuth'
+import { createServiceClient } from '@/app/lib/adminAuth'
 import { enqueuePlatformJob } from '@/app/lib/queue'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-export async function GET(request: Request) {
-  const auth = await requireAdmin()
-  if (!auth.ok) return NextResponse.json({ error: auth.message }, { status: auth.status })
+const OWNER_EMAIL = 'jty0221@gmail.com'
 
-  const userId = auth.userId ?? auth.email
+async function getOwnerUserId(svc: ReturnType<typeof createServiceClient>): Promise<string> {
+  const { data } = await svc
+    .from('stores')
+    .select('user_id')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+  return data?.user_id || OWNER_EMAIL
+}
+
+export async function GET(request: Request) {
+  const svc = createServiceClient()
+  const userId = await getOwnerUserId(svc)
+
   const { searchParams } = new URL(request.url)
   const status = searchParams.get('status') || undefined
   const limit = Math.min(Number(searchParams.get('limit') || '20'), 100)
   const offset = Number(searchParams.get('offset') || '0')
 
-  const svc = createServiceClient()
   let query = svc
     .from('threads_posts')
     .select('*', { count: 'exact' })
@@ -34,10 +44,9 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const auth = await requireAdmin()
-  if (!auth.ok) return NextResponse.json({ error: auth.message }, { status: auth.status })
+  const svc = createServiceClient()
+  const userId = await getOwnerUserId(svc)
 
-  const userId = auth.userId ?? auth.email
   const body = await request.json() as {
     text_content?: string
     hashtags?: string[]
@@ -51,9 +60,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: '본문을 입력해주세요.' }, { status: 400 })
   }
 
-  const svc = createServiceClient()
-
-  // Threads 계정 연결 여부 확인
   const { data: account } = await svc
     .from('threads_accounts')
     .select('threads_user_id')
