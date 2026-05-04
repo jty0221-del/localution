@@ -44,12 +44,14 @@ function decryptToken(row: TokenRow): string {
 // ─────────────────────────────────────────────
 export async function loadThreadsToken(
   svc: SupabaseClient,
-  userId: string,
+  _userId?: string,
 ): Promise<{ access_token: string; threads_user_id: string; username: string | null } | null> {
+  // 단일 사용자 앱 — user_id 필터 없이 첫 번째 행 조회 (user_id 불일치 방지)
   const { data, error } = await svc
     .from('threads_accounts')
     .select('threads_user_id, username, token_encrypted, token_iv, token_tag, dek_encrypted, dek_iv, dek_tag')
-    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(1)
     .maybeSingle()
 
   if (error || !data) return null
@@ -78,16 +80,38 @@ export async function saveThreadsToken(
   const row = encryptToken(opts.access_token)
   const expiresAt = new Date(Date.now() + opts.expires_in * 1000)
 
-  await svc
+  // 기존 행 확인 (단일 사용자 앱 — 첫 번째 행이 있으면 UPDATE, 없으면 INSERT)
+  const { data: existing } = await svc
     .from('threads_accounts')
-    .upsert({
-      user_id: userId,
-      threads_user_id: opts.threads_user_id,
-      username: opts.username,
-      ...row,
-      expires_at: expiresAt.toISOString(),
-      updated_at: new Date().toISOString(),
-    }, { onConflict: 'user_id' })
+    .select('id')
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .maybeSingle()
+
+  const payload = {
+    user_id: userId,
+    threads_user_id: opts.threads_user_id,
+    username: opts.username,
+    ...row,
+    expires_at: expiresAt.toISOString(),
+    updated_at: new Date().toISOString(),
+  }
+
+  let result
+  if (existing?.id) {
+    result = await svc
+      .from('threads_accounts')
+      .update(payload)
+      .eq('id', existing.id)
+  } else {
+    result = await svc
+      .from('threads_accounts')
+      .insert(payload)
+  }
+
+  if (result.error) {
+    throw new Error(`threads_accounts 저장 실패: ${result.error.message}`)
+  }
 }
 
 // ─────────────────────────────────────────────
@@ -95,12 +119,13 @@ export async function saveThreadsToken(
 // ─────────────────────────────────────────────
 export async function refreshThreadsTokenIfNeeded(
   svc: SupabaseClient,
-  userId: string,
+  _userId?: string,
 ): Promise<void> {
   const { data } = await svc
     .from('threads_accounts')
-    .select('expires_at, token_encrypted, token_iv, token_tag, dek_encrypted, dek_iv, dek_tag')
-    .eq('user_id', userId)
+    .select('id, expires_at, token_encrypted, token_iv, token_tag, dek_encrypted, dek_iv, dek_tag')
+    .order('created_at', { ascending: false })
+    .limit(1)
     .maybeSingle()
 
   if (!data) return
@@ -138,7 +163,7 @@ export async function refreshThreadsTokenIfNeeded(
         refreshed_at: new Date().toISOString(),
         updated_at: new Date().toISOString(),
       })
-      .eq('user_id', userId)
+      .eq('id', data.id)
   } catch {
     // best-effort: 실패해도 현재 토큰으로 계속 시도
   }
