@@ -74,7 +74,7 @@ export async function upsertReviews(
   // 1차 시도: 모든 컬럼 포함
   const { data, error } = await svc
     .from('platform_reviews')
-    .upsert(fullRows, { onConflict: 'platform,platform_review_id', ignoreDuplicates: false })
+    .upsert(fullRows, { onConflict: 'platform,platform_review_id', ignoreDuplicates: true })
     .select('platform_review_id')
 
   if (!error) {
@@ -100,7 +100,7 @@ export async function upsertReviews(
     })
     const { data: data2, error: error2 } = await svc
       .from('platform_reviews')
-      .upsert(slimRows, { onConflict: 'platform,platform_review_id', ignoreDuplicates: false })
+      .upsert(slimRows, { onConflict: 'platform,platform_review_id', ignoreDuplicates: true })
       .select('platform_review_id')
     if (!error2) {
       console.warn(`[upsertReviews] 1차 실패 → 컬럼 ${skipCols.join(',')} 제외 후 retry 성공`)
