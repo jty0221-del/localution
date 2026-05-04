@@ -161,8 +161,8 @@ export async function runBaemin(
     return { status: 'skipped', message: `baemin: unsupported action ${action}` }
   }
 
-  // v1.6f: REST API 직접 호출 + networkidle → domcontentloaded
-  log.info({ version: 'v1.6f', ts: '20260504T1500' }, 'BAEMIN_ADAPTER_VERSION_MARKER')
+  // v1.6g: page.evaluate 로 in-browser fetch + extractor 관대화
+  log.info({ version: 'v1.6g', ts: '20260505T1530' }, 'BAEMIN_ADAPTER_VERSION_MARKER')
 
   const svc   = getServiceClient()
   let creds: any
@@ -580,80 +580,75 @@ export async function runBaemin(
 
       let reviews: CollectedReview[] = []
 
-      // ── v1.6f: APIRequestContext 로 직접 REST API 호출 (74차 패턴) ─────
-      // 가장 신뢰성 높은 방식 — Playwright 의 request.fetch 가 page 쿠키 + 인증 그대로 사용
+      // ── v1.6g: page.evaluate 로 브라우저 컨텍스트 안에서 fetch (Akamai 부프키) ─────
+      // page.context().request.fetch 는 Node.js 에서 호출 → Akamai 가 bot 으로 403
+      // page.evaluate 안의 fetch 는 브라우저에서 호출 → Akamai 통과
       try {
-        const apiUrl = 'https://self-api.baemin.com/v1/review/shops/' + shopId
+        const apiUrlFirst = 'https://self-api.baemin.com/v1/review/shops/' + shopId
           + '/reviews?from=' + fromDate + '&to=' + toDate + '&offset=0&limit=100'
-        log.info({ apiUrl }, 'baemin: direct REST fetch (v1.6f)')
+        log.info({ apiUrl: apiUrlFirst }, 'baemin: in-browser fetch (v1.6g)')
 
-        const res = await page.context().request.fetch(apiUrl, {
-          headers: {
-            'Accept': 'application/json',
-            'Referer': 'https://self.baemin.com/shops/' + shopId + '/reviews',
-            'Origin': 'https://self.baemin.com',
-            'service-channel': 'SELF_SERVICE_PC',
-            'sec-fetch-dest': 'empty',
-            'sec-fetch-mode': 'cors',
-            'sec-fetch-site': 'same-site',
-          },
-          timeout: 20_000,
-        })
-        const status = res.status()
-        const json: any = await res.json().catch(() => null)
-
-        if (status === 200 && json) {
-          const topKeys = typeof json === 'object' ? Object.keys(json).slice(0, 15) : []
-          log.info({ status, topKeys }, 'baemin: REST response shape')
-          const extracted = extractReviewsFromApiResponse(json, log)
-          if (extracted.length > 0) {
-            for (const r of extracted) {
-              if (!reviews.some(x => x.platform_review_id === r.platform_review_id)) {
-                reviews.push(r)
-              }
-            }
-            log.info({ shopId, count: extracted.length }, 'baemin: REST reviews extracted')
-
-            // 페이지네이션 — 더 있으면 가져오기 (최대 1000개)
-            let offset = 100
-            const maxLimit = 1000
-            while (offset < maxLimit) {
-              const pageUrl = 'https://self-api.baemin.com/v1/review/shops/' + shopId
-                + '/reviews?from=' + fromDate + '&to=' + toDate + '&offset=' + offset + '&limit=100'
-              const r2 = await page.context().request.fetch(pageUrl, {
+        // 페이지네이션 자체도 브라우저 안에서
+        const restResult: any = await page.evaluate(async (cfg: any) => {
+          const out: any[] = []
+          let offset = 0
+          let firstShape: any = null
+          for (let p = 0; p < 10; p++) {
+            const url = cfg.base + '?from=' + cfg.fromDate + '&to=' + cfg.toDate + '&offset=' + offset + '&limit=100'
+            try {
+              const res = await fetch(url, {
+                credentials: 'include',
                 headers: {
                   'Accept': 'application/json',
-                  'Referer': 'https://self.baemin.com/shops/' + shopId + '/reviews',
-                  'Origin': 'https://self.baemin.com',
                   'service-channel': 'SELF_SERVICE_PC',
                 },
-                timeout: 15_000,
-              }).catch(() => null)
-              if (!r2 || r2.status() !== 200) break
-              const j2: any = await r2.json().catch(() => null)
-              if (!j2) break
-              const e2 = extractReviewsFromApiResponse(j2, log)
-              if (e2.length === 0) break
-              let added = 0
-              for (const r of e2) {
-                if (!reviews.some(x => x.platform_review_id === r.platform_review_id)) {
-                  reviews.push(r)
-                  added++
-                }
+              })
+              if (!res.ok) {
+                return { __error: 'http ' + res.status, __status: res.status, __out: out, __firstShape: firstShape }
               }
-              log.info({ shopId, offset, added }, 'baemin: REST page')
-              if (e2.length < 100) break
+              const j: any = await res.json()
+              if (p === 0) firstShape = { topKeys: Object.keys(j || {}).slice(0, 20) }
+              const arr = j.reviews || j.contents || j.data?.reviews || j.data || j.list || []
+              if (!Array.isArray(arr) || arr.length === 0) break
+              if (p === 0 && arr[0]) {
+                firstShape.firstItemKeys = Object.keys(arr[0]).slice(0, 30)
+                firstShape.firstItemSample = arr[0]
+              }
+              out.push(...arr)
+              if (arr.length < 100) break
               offset += 100
-              await page.waitForTimeout(800)
+              await new Promise(r => setTimeout(r, 500))
+            } catch (e: any) {
+              return { __error: String(e?.message || e), __out: out, __firstShape: firstShape }
             }
-          } else {
-            log.warn({ topKeys, sample: JSON.stringify(json).slice(0, 300) }, 'baemin: REST extraction returned 0 — shape unrecognized')
           }
-        } else {
-          log.warn({ status, body: json ? JSON.stringify(json).slice(0, 200) : 'null' }, 'baemin: REST direct fetch failed')
+          return { __out: out, __firstShape: firstShape }
+        }, { base: 'https://self-api.baemin.com/v1/review/shops/' + shopId + '/reviews', fromDate, toDate })
+
+        if (restResult?.__firstShape) {
+          log.info({ shape: restResult.__firstShape.topKeys, firstItemKeys: restResult.__firstShape.firstItemKeys }, 'baemin: REST response shape (v1.6g)')
+        }
+        if (restResult?.__error) {
+          log.warn({ err: restResult.__error, status: restResult.__status }, 'baemin: in-browser fetch error')
+        }
+
+        const rawReviews = Array.isArray(restResult?.__out) ? restResult.__out : []
+        if (rawReviews.length > 0) {
+          // extractor 우회 — 직접 normalize 호출 (URL 이 /reviews 면 무조건 review array)
+          // 첫 item 의 raw key 들을 보고 mapping
+          if (restResult.__firstShape?.firstItemSample) {
+            log.info({ sampleKeys: Object.keys(restResult.__firstShape.firstItemSample) }, 'baemin: REST first review keys (for diagnosis)')
+          }
+          const extracted = extractReviewsFromApiResponse({ reviews: rawReviews }, log)
+          for (const r of extracted) {
+            if (!reviews.some(x => x.platform_review_id === r.platform_review_id)) {
+              reviews.push(r)
+            }
+          }
+          log.info({ shopId, raw: rawReviews.length, extracted: extracted.length }, 'baemin: REST reviews extracted (v1.6g)')
         }
       } catch (restErr: any) {
-        log.warn({ err: restErr?.message }, 'baemin: REST direct fetch error')
+        log.warn({ err: restErr?.message }, 'baemin: in-browser fetch outer error')
       }
 
       // ── XHR 캡처 fallback (REST 실패 시) ─────
@@ -767,13 +762,22 @@ function extractReviewsFromApiResponse(data: any, log: Logger): CollectedReview[
     if (!first || typeof first !== 'object') continue
 
     const keys = Object.keys(first)
-    // v1.2: review-like field 후보 확장
-    const REVIEW_FIELDS = [
-      'rating','content','nickname','score','starScore','reviewContent','authorName',
-      'reviewId','userId','writerNickname','reviewNo','reviewDateTime','reviewDate',
-      'customerNickname','consumerNickname','memberNickname','reviewScore','starRating',
-    ]
-    if (!keys.some(k => REVIEW_FIELDS.includes(k))) continue
+    // v1.6g: REVIEW_FIELDS 체크 → 강한 신호 1개만 있으면 진행 (배민 응답 필드명 unknown)
+    // 핵심 신호: 텍스트 + 평점 또는 ID 둘 중 하나만 있어도 review 로 간주
+    const looksLikeReview = (
+      keys.some(k => ['rating','content','nickname','score','starScore','reviewContent',
+        'authorName','reviewId','userId','writerNickname','reviewNo','reviewDateTime',
+        'reviewDate','customerNickname','consumerNickname','memberNickname','reviewScore',
+        'starRating','comment','reviewText','reviewBody','member','writer','user',
+        'createdAt','createdDate','createdDateTime','registeredAt','postedAt'].includes(k)) ||
+      // fallback: 텍스트 like 필드 + 숫자 like 필드 둘 다 존재
+      (keys.some(k => typeof first[k] === 'string' && (first[k] as string).length > 5) &&
+       keys.some(k => typeof first[k] === 'number'))
+    )
+    if (!looksLikeReview) {
+      log.warn({ keysFound: keys.slice(0, 20), arrLen: arr.length }, 'baemin: array found but no review-like fields — skipping')
+      continue
+    }
 
     log.info({ keys: keys.slice(0, 20), count: arr.length }, 'baemin: matched review array')
 
