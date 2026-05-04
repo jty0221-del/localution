@@ -162,7 +162,7 @@ export async function runThreadsPublish(
       return { status: 'failed', message: errMsg }
     }
 
-    // 6. 성공
+    // 6. 성공 — 메인 포스트 상태 업데이트
     await svc.from('threads_posts').update({
       status: 'published',
       threads_post_id: publishData.id,
@@ -172,6 +172,58 @@ export async function runThreadsPublish(
     }).eq('id', postId)
 
     log.info({ postId, threadId: publishData.id }, '[threads] published successfully')
+
+    // 7. 답글 체인 발행 (thread_replies)
+    const replies = Array.isArray(post.thread_replies) ? post.thread_replies as { text_content: string; image_url?: string | null }[] : []
+    if (replies.length > 0) {
+      let replyToId = publishData.id
+      for (let i = 0; i < replies.length; i++) {
+        const reply = replies[i]
+        if (!reply.text_content?.trim()) continue
+        try {
+          const rParams = new URLSearchParams()
+          rParams.set('media_type', reply.image_url ? 'IMAGE' : 'TEXT')
+          rParams.set('text', reply.text_content)
+          rParams.set('reply_to_id', replyToId)
+          rParams.set('access_token', token)
+          if (reply.image_url) rParams.set('image_url', reply.image_url)
+
+          const rCreate = await fetch(
+            `${THREADS_API}/${threadsUserId}/threads`,
+            { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: rParams.toString() }
+          )
+          const rCreateData = await rCreate.json() as { id?: string; error?: { message: string } }
+          if (!rCreateData.id) {
+            log.warn({ postId, replyIndex: i, err: rCreateData.error?.message }, '[threads] reply container failed')
+            continue
+          }
+
+          const rReady = await pollContainerStatus(rCreateData.id, token, log)
+          if (!rReady) {
+            log.warn({ postId, replyIndex: i }, '[threads] reply container not ready')
+            continue
+          }
+
+          const rPubParams = new URLSearchParams()
+          rPubParams.set('creation_id', rCreateData.id)
+          rPubParams.set('access_token', token)
+          const rPub = await fetch(
+            `${THREADS_API}/${threadsUserId}/threads_publish`,
+            { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: rPubParams.toString() }
+          )
+          const rPubData = await rPub.json() as { id?: string; error?: { message: string } }
+          if (rPubData.id) {
+            replyToId = rPubData.id
+            log.info({ postId, replyIndex: i, threadId: rPubData.id }, '[threads] reply published')
+          } else {
+            log.warn({ postId, replyIndex: i, err: rPubData.error?.message }, '[threads] reply publish failed')
+          }
+        } catch (re: any) {
+          log.warn({ postId, replyIndex: i, err: re?.message }, '[threads] reply unexpected error')
+        }
+      }
+    }
+
     return { status: 'ok', message: `published: ${publishData.id}` }
 
   } catch (e: any) {
