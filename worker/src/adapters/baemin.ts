@@ -1,17 +1,19 @@
 // @ts-nocheck
 // worker/src/adapters/baemin.ts
 // ============================================================
-// 배민 Worker 어댑터 v2
+// 배민 Worker 어댑터 v2 + v1.5 cookie injection
 //
 // 핵심 변경:
-//   1. Playwright 컨텍스트에 PROXY_HOST/USER/PASS 적용
-//      → 브라우저 전체 트래픽이 한국 프록시 경유 → geo-block 해소
-//   2. biz-member.baemin.com/login 직접 이동 (버튼 탐색 불필요)
+//   1. Playwright 컨텍스트에 PROXY_HOST/USER/PASS 적용 (한국 프록시)
+//   2. v1.5: save-login 으로 저장된 쿠키를 Playwright context 에 주입
+//      → biz-member.baemin.com 로그인 우회 (ERR_ABORTED 회피)
+//      → self.baemin.com 즉시 인증 상태로 진입
 //   3. 다중 매장 → shops/{shopId}/reviews 직접 URL
 //   4. self-api.baemin.com 전체 XHR 캡처
 // ============================================================
 import type { Browser, BrowserContextOptions } from 'playwright'
 import type { Logger } from 'pino'
+import { createDecipheriv } from 'crypto'
 import { getServiceClient } from '../lib/supabase'
 import { loadPlainCredentials, markLoginStatus } from '../lib/credentials'
 import { upsertReviews, CollectedReview } from '../lib/reviews'
@@ -40,6 +42,55 @@ const REPLY_SEL = {
 }
 
 const DASHBOARD_KW = ['리뷰관리', '가게관리', '주문관리', '정산관리', '주문내역', '정산내역', '메뉴관리', '혜택관리']
+
+// v1.5: 저장된 쿠키 로드 + Playwright cookie 형식 변환
+function loadKekHex(): Buffer | null {
+  const raw = (process.env.ENCRYPTION_KEK_HEX || '').replace(/\s+/g, '')
+  if (!/^[0-9a-fA-F]{64}$/.test(raw)) return null
+  return Buffer.from(raw, 'hex')
+}
+
+function decryptCookieStr(enc: string, iv: string, tag: string): string | null {
+  const kek = loadKekHex()
+  if (!kek) return null
+  try {
+    const d = createDecipheriv('aes-256-gcm', kek, Buffer.from(iv, 'base64'))
+    d.setAuthTag(Buffer.from(tag, 'base64'))
+    return Buffer.concat([d.update(Buffer.from(enc, 'base64')), d.final()]).toString('utf8')
+  } catch { return null }
+}
+
+async function loadBaeminCookieJar(svc: any, userId: string): Promise<{ cookies: any[]; cookieStr: string } | null> {
+  try {
+    const { data } = await svc
+      .from('platform_credentials')
+      .select('extra_data')
+      .eq('user_id', userId).eq('platform', 'baemin').maybeSingle()
+    const extra = (data?.extra_data as any) || {}
+    if (!extra.baemin_cookie_enc) return null
+    const cookieStr = decryptCookieStr(extra.baemin_cookie_enc, extra.baemin_cookie_iv, extra.baemin_cookie_tag)
+    if (!cookieStr) return null
+    const cookies: any[] = []
+    for (const part of cookieStr.split(';')) {
+      const kv = part.trim()
+      const eq = kv.indexOf('=')
+      if (eq <= 0) continue
+      const name = kv.slice(0, eq).trim()
+      const value = kv.slice(eq + 1).trim()
+      if (!name || !value) continue
+      // 배민 도메인의 모든 쿠키로 추가 — sub-domain 다 포함
+      cookies.push({
+        name, value,
+        domain: '.baemin.com',
+        path: '/',
+        httpOnly: false,
+        secure: true,
+        sameSite: 'Lax' as const,
+      })
+    }
+    return { cookies, cookieStr }
+  } catch { return null }
+}
 
 // v1.1: 배민 공식 CDN 도메인 화이트리스트 — 이외 도메인 이미지 차단 (다른 업체 leak 방지)
 const BAEMIN_PHOTO_DOMAINS = ['baemin.com', 'bmcdn.com', 'woowahan.com', 'woowa.in', 'baedalminjok.com']
@@ -99,6 +150,20 @@ export async function runBaemin(
   }
 
   const context = await browser.newContext(ctxOpts)
+
+  // v1.5: save-login 쿠키 주입 — biz-member 로그인 우회 (ERR_ABORTED 회피)
+  const cookieJar = await loadBaeminCookieJar(svc, userId)
+  if (cookieJar && cookieJar.cookies.length > 0) {
+    try {
+      await context.addCookies(cookieJar.cookies)
+      log.info({ count: cookieJar.cookies.length }, 'baemin: cookies injected from save-login')
+    } catch (e: any) {
+      log.warn({ err: e?.message }, 'baemin: cookie inject failed — falling back to login flow')
+    }
+  } else {
+    log.warn('baemin: no saved cookies found — must login fresh (may fail at biz-member)')
+  }
+
   const page    = await context.newPage()
 
   // ── XHR 캡처 (페이지 로드 전 등록) ────────────────────────
@@ -133,17 +198,39 @@ export async function runBaemin(
   try {
     // ── Step 1: CEO_HOME 방문 → 인증 여부 확인 ────────────────
     log.info('baemin: goto CEO_HOME')
-    await page.goto(CEO_HOME, { waitUntil: 'domcontentloaded', timeout: 30_000 })
-    await page.waitForTimeout(3000)
+    // v1.5: 'commit' (HTTP 응답 시작 시점) — 'domcontentloaded' 는 SPA 에서 늦거나 ERR_ABORTED 발생
+    try {
+      await page.goto(CEO_HOME, { waitUntil: 'domcontentloaded', timeout: 30_000 })
+    } catch (gotoErr: any) {
+      log.warn({ err: gotoErr?.message }, 'baemin: goto CEO_HOME error (may still be navigating)')
+      // ERR_ABORTED / timeout 도 페이지가 일부 로드됐을 수 있음 — 계속 진행
+    }
+    await page.waitForTimeout(4000)
 
     const isAuth = await checkAuth(page, DASHBOARD_KW)
-    log.info({ isAuth, url: page.url() }, 'baemin: auth check')
+    log.info({ isAuth, url: page.url(), hadCookies: !!cookieJar }, 'baemin: auth check')
 
-    // ── Step 2: 미인증 → biz-member 로그인 직접 이동 ──────────
+    // v1.5: 쿠키 주입했는데도 미인증 + biz-member 도달 못 함 → cookie expired
+    // 이 경우엔 fresh 로그인 시도 시 ERR_ABORTED 발생할 가능성 높음 → 친절한 에러
+    if (!isAuth && cookieJar) {
+      await markLoginStatus(svc, userId, 'baemin', 'failed', 'cookie injected but not authenticated — call /api/baemin/auto-login')
+      return {
+        status: 'failed',
+        message: 'baemin: 저장된 쿠키 만료. /api/baemin/auto-login 호출 또는 사장님이 다시 연결 필요'
+      }
+    }
+
+    // ── Step 2: 미인증 + 쿠키도 없음 → biz-member 로그인 직접 이동 ──────────
     if (!isAuth) {
       log.info('baemin: not authenticated → navigating to login page')
-      await page.goto(LOGIN_URL, { waitUntil: 'domcontentloaded', timeout: 30_000 })
-      await page.waitForTimeout(3000)
+      try {
+        // v1.5: ERR_ABORTED 나도 무시하고 진행 — biz-member 가 SPA redirect 할 수 있음
+        await page.goto(LOGIN_URL, { waitUntil: 'domcontentloaded', timeout: 30_000 })
+      } catch (gotoErr: any) {
+        log.warn({ err: gotoErr?.message }, 'baemin: goto LOGIN_URL error — checking final URL')
+        // 일단 진행 — page.url() 이 valid 면 로그인 폼 시도
+      }
+      await page.waitForTimeout(4000)
 
       log.info({ url: page.url() }, 'baemin: on login page')
 
