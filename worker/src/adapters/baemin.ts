@@ -162,8 +162,8 @@ export async function runBaemin(
     return { status: 'skipped', message: `baemin: unsupported action ${action}` }
   }
 
-  // v1.6k: in-browser fetch post_reply (Akamai 부프키) + 알림 트리거 + chip 제거
-  log.info({ version: 'v1.6k', ts: '20260505T1730' }, 'BAEMIN_ADAPTER_VERSION_MARKER')
+  // v1.6l: post_reply body shape 자동 시도 (3가지 variant) + replyText 검증 + Number 변환
+  log.info({ version: 'v1.6l', ts: '20260505T1810' }, 'BAEMIN_ADAPTER_VERSION_MARKER')
 
   const svc   = getServiceClient()
   let creds: any
@@ -981,37 +981,81 @@ async function postBaeminReply(
       return { ok: false, reason: 'page not on /shops/{N}/ — call fetch_reviews first to set context' }
     }
 
-    log.info({ idNum, shopNo }, 'baemin: posting reply via in-browser fetch (v1.6k)')
+    // v1.6l: replyText 검증 + 진단 로그 + reviewNo Number 변환
+    const safeReplyText = String(replyText || '').trim()
+    log.info({
+      idNum, shopNo,
+      replyTextLen: safeReplyText.length,
+      replyTextPreview: safeReplyText.slice(0, 80),
+    }, 'baemin: posting reply via in-browser fetch (v1.6l)')
+    if (!safeReplyText) {
+      return { ok: false, reason: 'replyText is empty' }
+    }
 
     const apiUrl = 'https://self-api.baemin.com/v1/review/shops/' + shopNo + '/reviews/comments'
 
-    // page.evaluate 안에서 fetch — 브라우저 fingerprint + Akamai _abck 자동 포함
+    // v1.6l: 여러 body shape 순차 시도
+    const reviewNoNum = Number(idNum)
+    const reviewNoSafe = !isNaN(reviewNoNum) && reviewNoNum > 0 ? reviewNoNum : idNum
+    const shopNoNum = Number(shopNo)
+
+    const bodyVariants = [
+      // Variant 1: reviewNo number + comment + shopNo number (가장 가능성 높음)
+      { reviewNo: reviewNoSafe, comment: safeReplyText, shopNo: shopNoNum },
+      // Variant 2: reviewId + contents (응답 필드명 매칭)
+      { reviewId: reviewNoSafe, contents: safeReplyText, shopNumber: shopNoNum },
+      // Variant 3: reviewNo string (기존)
+      { reviewNo: String(idNum), comment: safeReplyText, shopNo: shopNoNum },
+    ]
+
     const replyResult: any = await page.evaluate(async (cfg: any) => {
-      try {
-        const res = await fetch(cfg.url, {
-          method: 'POST',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-            'Accept': 'application/json',
-            'service-channel': 'SELF_SERVICE_PC',
-          },
-          body: JSON.stringify({ reviewNo: cfg.reviewNo, comment: cfg.comment, shopNo: Number(cfg.shopNo) }),
-        })
-        const text = await res.text()
-        let body: any = null
-        try { body = text ? JSON.parse(text) : null } catch { body = { raw: text.slice(0, 200) } }
-        return { status: res.status, ok: res.ok, body }
-      } catch (e: any) {
-        return { __error: String(e?.message || e) }
+      const attempts: any[] = []
+      for (let i = 0; i < cfg.bodyVariants.length; i++) {
+        const body = cfg.bodyVariants[i]
+        try {
+          const res = await fetch(cfg.url, {
+            method: 'POST',
+            credentials: 'include',
+            headers: {
+              'Content-Type': 'application/json',
+              'Accept': 'application/json',
+              'service-channel': 'SELF_SERVICE_PC',
+            },
+            body: JSON.stringify(body),
+          })
+          const text = await res.text()
+          let respBody: any = null
+          try { respBody = text ? JSON.parse(text) : null } catch { respBody = { raw: text.slice(0, 200) } }
+          attempts.push({ variant: i + 1, status: res.status, body: respBody, sentBody: body })
+          if (res.ok) return { status: res.status, ok: true, body: respBody, variantUsed: i + 1, attempts }
+        } catch (e: any) {
+          attempts.push({ variant: i + 1, error: String(e?.message || e) })
+        }
       }
-    }, { url: apiUrl, reviewNo: idNum, comment: replyText, shopNo })
+      // 모두 실패
+      return { ok: false, attempts, finalStatus: attempts[attempts.length - 1]?.status }
+    }, { url: apiUrl, bodyVariants })
 
     if (replyResult?.__error) {
       log.error({ err: replyResult.__error }, 'baemin: reply fetch threw')
       return { ok: false, reason: 'fetch threw: ' + replyResult.__error }
     }
 
+    // v1.6l: 모든 variant 시도 결과 로깅
+    log.info({ attempts: replyResult.attempts }, 'baemin: reply attempts (v1.6l)')
+
+    if (!replyResult.ok) {
+      const lastAttempt = replyResult.attempts?.[replyResult.attempts.length - 1] || {}
+      const status = lastAttempt.status || 0
+      const body = lastAttempt.body
+      log.error({ status, body, allAttempts: replyResult.attempts }, 'baemin: all reply variants failed')
+      return { ok: false, reason: 'all variants failed (last status: ' + status + ', body: ' + JSON.stringify(body).slice(0, 200) + ')' }
+    }
+
+    log.info({ variantUsed: replyResult.variantUsed, status: replyResult.status }, 'baemin: reply success ✓')
+    return { ok: true }
+
+    // (legacy code below — never reached now, kept for future ref)
     const status = replyResult.status
     const body = replyResult.body
 
