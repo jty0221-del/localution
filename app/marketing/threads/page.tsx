@@ -1,12 +1,13 @@
 'use client'
 
-import { useState, useEffect, useCallback, Suspense } from 'react'
+import { useState, useEffect, useCallback, useRef, Suspense } from 'react'
 import { useSearchParams, useRouter } from 'next/navigation'
 import {
   Send, AlertTriangle, CheckCircle2, Clock, XCircle,
   Trash2, RefreshCw, Settings, Hash, Image as ImageIcon,
-  CalendarClock, Loader2, Link2Off
+  CalendarClock, Loader2, Link2Off, Plus, X, Upload
 } from 'lucide-react'
+import NextImage from 'next/image'
 import Sidebar from '@/app/components/Sidebar'
 import Footer from '@/app/components/Footer'
 import Link from 'next/link'
@@ -140,41 +141,246 @@ function HashtagInput({
 }
 
 // ──────────────────────────────────────────
+// 이미지 드래그앤드롭 업로드
+// ──────────────────────────────────────────
+function ImageDropZone({
+  imageUrl,
+  onUpload,
+  onClear,
+}: {
+  imageUrl: string
+  onUpload: (url: string) => void
+  onClear: () => void
+}) {
+  const [dragging, setDragging] = useState(false)
+  const [uploading, setUploading] = useState(false)
+  const [error, setError] = useState('')
+  const inputRef = useRef<HTMLInputElement>(null)
+
+  async function uploadFile(file: File) {
+    setUploading(true)
+    setError('')
+    try {
+      const fd = new FormData()
+      fd.append('file', file)
+      const res = await fetch('/api/threads/upload', { method: 'POST', body: fd })
+      const data = await res.json()
+      if (data.url) {
+        onUpload(data.url)
+      } else {
+        setError(data.error || '업로드 실패')
+      }
+    } catch {
+      setError('네트워크 오류')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  function onDrop(e: React.DragEvent) {
+    e.preventDefault()
+    setDragging(false)
+    const file = e.dataTransfer.files[0]
+    if (file) uploadFile(file)
+  }
+
+  if (imageUrl) {
+    return (
+      <div className="relative mt-3 rounded-xl overflow-hidden border border-[#E5E8EB] group">
+        <NextImage src={imageUrl} alt="업로드 이미지" width={600} height={400}
+          className="w-full max-h-64 object-cover" unoptimized />
+        <button
+          type="button"
+          onClick={onClear}
+          className="absolute top-2 right-2 w-7 h-7 bg-black/60 hover:bg-black/80 text-white rounded-full flex items-center justify-center transition-colors"
+        >
+          <X size={13} strokeWidth={2.5} />
+        </button>
+      </div>
+    )
+  }
+
+  return (
+    <div className="mt-3">
+      <div
+        onDragOver={e => { e.preventDefault(); setDragging(true) }}
+        onDragLeave={() => setDragging(false)}
+        onDrop={onDrop}
+        onClick={() => inputRef.current?.click()}
+        className={`border-2 border-dashed rounded-xl px-4 py-8 flex flex-col items-center justify-center gap-2 cursor-pointer transition-colors ${
+          dragging ? 'border-[#111827] bg-[#F3F4F6]' : 'border-[#D1D5DB] hover:border-[#9CA3AF] hover:bg-[#F9FAFB]'
+        }`}
+      >
+        {uploading ? (
+          <Loader2 size={24} className="animate-spin text-[#6B7280]" />
+        ) : (
+          <Upload size={24} className="text-[#9CA3AF]" strokeWidth={1.5} />
+        )}
+        <p className="text-sm text-[#6B7280] font-medium">
+          {uploading ? '업로드 중...' : '이미지를 드래그하거나 클릭해서 선택'}
+        </p>
+        <p className="text-xs text-[#B0B8C1]">JPG, PNG, GIF, WebP · 최대 8MB</p>
+      </div>
+      {error && <p className="mt-1.5 text-xs text-[#E11D48]">{error}</p>}
+      <input ref={inputRef} type="file" accept="image/*" className="hidden"
+        onChange={e => { const f = e.target.files?.[0]; if (f) uploadFile(f) }} />
+    </div>
+  )
+}
+
+// ──────────────────────────────────────────
+// 단일 포스트 작성 블록
+// ──────────────────────────────────────────
+type PostBlock = {
+  id: string
+  text: string
+  tags: string[]
+  imageUrl: string
+  useImage: boolean
+}
+
+function PostBlockEditor({
+  block,
+  index,
+  isFirst,
+  canRemove,
+  onChange,
+  onRemove,
+}: {
+  block: PostBlock
+  index: number
+  isFirst: boolean
+  canRemove: boolean
+  onChange: (b: PostBlock) => void
+  onRemove: () => void
+}) {
+  const MAX_CHARS = 500
+  const charCount = block.text.length
+
+  return (
+    <div className="relative flex gap-3">
+      {/* 스레드 연결선 */}
+      <div className="flex flex-col items-center flex-shrink-0" style={{ width: 32 }}>
+        <div className="w-8 h-8 rounded-full bg-[#F3F4F6] border border-[#E5E8EB] flex items-center justify-center text-xs font-bold text-[#6B7280]">
+          {index + 1}
+        </div>
+        {!isFirst || true ? <div className="w-0.5 flex-1 mt-1 bg-[#E5E8EB] min-h-[20px]" /> : null}
+      </div>
+
+      <div className="flex-1 min-w-0 pb-4">
+        {/* 삭제 버튼 */}
+        {canRemove && (
+          <button type="button" onClick={onRemove}
+            className="float-right ml-2 p-1 rounded-lg hover:bg-[#FFF1F2] text-[#D1D5DB] hover:text-[#E11D48] transition-colors">
+            <X size={14} strokeWidth={2.5} />
+          </button>
+        )}
+
+        {/* 본문 */}
+        <textarea
+          value={block.text}
+          onChange={e => onChange({ ...block, text: e.target.value.slice(0, MAX_CHARS) })}
+          rows={isFirst ? 4 : 3}
+          placeholder={isFirst ? '스레드에 올릴 내용을 작성하세요...' : '답글 내용을 입력하세요...'}
+          className="w-full border border-[#E5E8EB] rounded-xl px-4 py-3 text-sm text-[#111827] placeholder:text-[#B0B8C1] focus:outline-none focus:ring-2 focus:ring-[#111827]/20 focus:border-[#111827] resize-none"
+        />
+        <p className={`text-right text-xs mt-0.5 ${charCount >= 450 ? 'text-[#F59E0B]' : 'text-[#B0B8C1]'} ${charCount >= MAX_CHARS ? 'text-[#DC2626]' : ''}`}>
+          {charCount} / {MAX_CHARS}
+        </p>
+
+        {/* 해시태그 (첫 번째 블록만) */}
+        {isFirst && (
+          <div className="mt-3">
+            <label className="block text-xs font-semibold text-[#6B7280] mb-1.5">해시태그</label>
+            <HashtagInput tags={block.tags} onChange={tags => onChange({ ...block, tags })} />
+          </div>
+        )}
+
+        {/* 이미지 토글 */}
+        <div className="mt-3">
+          <label className="flex items-center gap-2 cursor-pointer w-fit">
+            <div
+              onClick={() => onChange({ ...block, useImage: !block.useImage, imageUrl: block.useImage ? '' : block.imageUrl })}
+              className={`w-8 h-4 rounded-full transition-colors relative ${block.useImage ? 'bg-[#111827]' : 'bg-[#E5E8EB]'}`}
+            >
+              <div className={`absolute top-0.5 w-3 h-3 bg-white rounded-full shadow transition-transform ${block.useImage ? 'translate-x-4' : 'translate-x-0.5'}`} />
+            </div>
+            <span className="text-xs font-medium text-[#6B7280] flex items-center gap-1">
+              <ImageIcon size={12} strokeWidth={2} />
+              이미지
+            </span>
+          </label>
+
+          {block.useImage && (
+            <ImageDropZone
+              imageUrl={block.imageUrl}
+              onUpload={url => onChange({ ...block, imageUrl: url })}
+              onClear={() => onChange({ ...block, imageUrl: '' })}
+            />
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+// ──────────────────────────────────────────
 // 작성 탭
 // ──────────────────────────────────────────
+function newBlock(): PostBlock {
+  return { id: Math.random().toString(36).slice(2), text: '', tags: [], imageUrl: '', useImage: false }
+}
+
 function ComposeTab({ connected }: { connected: boolean }) {
   const searchParams = useSearchParams()
   const router = useRouter()
 
-  const [text, setText] = useState(
-    () => searchParams.get('text') ? decodeURIComponent(searchParams.get('text')!) : ''
-  )
-  const [tags, setTags] = useState<string[]>(() => {
-    const raw = searchParams.get('hashtags')
-    if (!raw) return []
-    try { return JSON.parse(decodeURIComponent(raw)) as string[] } catch { return [] }
+  const [blocks, setBlocks] = useState<PostBlock[]>(() => {
+    const initialText = searchParams.get('text') ? decodeURIComponent(searchParams.get('text')!) : ''
+    const initialTags: string[] = (() => {
+      const raw = searchParams.get('hashtags')
+      if (!raw) return []
+      try { return JSON.parse(decodeURIComponent(raw)) as string[] } catch { return [] }
+    })()
+    return [{ id: 'main', text: initialText, tags: initialTags, imageUrl: '', useImage: false }]
   })
-  const [imageUrl, setImageUrl] = useState('')
-  const [useImage, setUseImage] = useState(false)
+
   const [scheduledAt, setScheduledAt] = useState('')
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<{ ok: boolean; msg: string } | null>(null)
 
-  const charCount = text.length
-  const MAX_CHARS = 500
+  function updateBlock(index: number, updated: PostBlock) {
+    setBlocks(prev => prev.map((b, i) => i === index ? updated : b))
+  }
+
+  function addReply() {
+    if (blocks.length >= 6) return
+    setBlocks(prev => [...prev, newBlock()])
+  }
+
+  function removeBlock(index: number) {
+    setBlocks(prev => prev.filter((_, i) => i !== index))
+  }
 
   async function submit(immediate: boolean) {
-    if (!text.trim()) return
+    const main = blocks[0]
+    if (!main.text.trim()) return
     setLoading(true)
     setResult(null)
     try {
+      const replies = blocks.slice(1).map(b => ({
+        text_content: b.text,
+        image_url: b.useImage && b.imageUrl ? b.imageUrl : null,
+      })).filter(r => r.text_content.trim())
+
       const body: Record<string, unknown> = {
-        text_content: text,
-        hashtags: tags,
+        text_content: main.text,
+        hashtags: main.tags,
+        image_url: main.useImage && main.imageUrl ? main.imageUrl : null,
         source: searchParams.get('source') ?? 'manual',
         card_news_topic: searchParams.get('topic') ?? undefined,
+        thread_replies: replies.length > 0 ? replies : undefined,
       }
-      if (useImage && imageUrl.trim()) body.image_url = imageUrl.trim()
       if (!immediate && scheduledAt) body.scheduled_at = scheduledAt
 
       const res = await fetch('/api/threads/posts', {
@@ -185,9 +391,7 @@ function ComposeTab({ connected }: { connected: boolean }) {
       const data = await res.json()
       if (data.ok) {
         setResult({ ok: true, msg: immediate ? '발행 요청이 완료되었습니다.' : '예약이 완료되었습니다.' })
-        setText('')
-        setTags([])
-        setImageUrl('')
+        setBlocks([newBlock()])
         setScheduledAt('')
         router.refresh()
       } else {
@@ -201,107 +405,84 @@ function ComposeTab({ connected }: { connected: boolean }) {
   }
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-4">
       {!connected && <ConnectBanner />}
 
       {result && (
         <div className={`flex items-center gap-2.5 p-4 rounded-xl text-sm font-medium ${
           result.ok ? 'bg-[#ECFDF5] text-[#059669]' : 'bg-[#FFF1F2] text-[#E11D48]'
         }`}>
-          {result.ok
-            ? <CheckCircle2 size={16} strokeWidth={2.5} />
-            : <XCircle size={16} strokeWidth={2.5} />}
+          {result.ok ? <CheckCircle2 size={16} strokeWidth={2.5} /> : <XCircle size={16} strokeWidth={2.5} />}
           {result.msg}
         </div>
       )}
 
-      {/* 본문 입력 */}
-      <div>
-        <label className="block text-sm font-semibold text-[#111827] mb-2">본문</label>
-        <textarea
-          value={text}
-          onChange={e => setText(e.target.value.slice(0, MAX_CHARS))}
-          rows={5}
-          placeholder="스레드에 올릴 내용을 작성하세요..."
-          className="w-full border border-[#E5E8EB] rounded-xl px-4 py-3 text-sm text-[#111827] placeholder:text-[#B0B8C1] focus:outline-none focus:ring-2 focus:ring-[#111827]/20 focus:border-[#111827] resize-none"
-        />
-        <p className={`text-right text-xs mt-1 ${charCount >= 450 ? 'text-[#F59E0B]' : 'text-[#B0B8C1]'} ${charCount >= MAX_CHARS ? 'text-[#DC2626]' : ''}`}>
-          {charCount} / {MAX_CHARS}
-        </p>
-      </div>
-
-      {/* 해시태그 */}
-      <div>
-        <label className="block text-sm font-semibold text-[#111827] mb-2">해시태그</label>
-        <HashtagInput tags={tags} onChange={setTags} />
-      </div>
-
-      {/* 이미지 토글 */}
-      <div>
-        <label className="flex items-center gap-2.5 cursor-pointer">
-          <div
-            onClick={() => setUseImage(v => !v)}
-            className={`w-10 h-5 rounded-full transition-colors relative ${useImage ? 'bg-[#111827]' : 'bg-[#E5E8EB]'}`}
-          >
-            <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${useImage ? 'translate-x-5' : 'translate-x-0.5'}`} />
-          </div>
-          <span className="text-sm font-medium text-[#374151] flex items-center gap-1.5">
-            <ImageIcon size={14} strokeWidth={2} />
-            이미지 포함
-          </span>
-        </label>
-
-        {useImage && (
-          <input
-            type="url"
-            value={imageUrl}
-            onChange={e => setImageUrl(e.target.value)}
-            placeholder="공개 접근 가능한 이미지 URL"
-            className="mt-3 w-full border border-[#E5E8EB] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#111827]/20 focus:border-[#111827]"
+      {/* 포스트 블록들 */}
+      <div className="bg-white border border-[#E5E8EB] rounded-2xl p-4 md:p-5">
+        {blocks.map((block, i) => (
+          <PostBlockEditor
+            key={block.id}
+            block={block}
+            index={i}
+            isFirst={i === 0}
+            canRemove={i > 0}
+            onChange={updated => updateBlock(i, updated)}
+            onRemove={() => removeBlock(i)}
           />
+        ))}
+
+        {/* 답글 추가 버튼 */}
+        {blocks.length < 6 && (
+          <div className="flex items-center gap-3 mt-1 pl-10">
+            <button
+              type="button"
+              onClick={addReply}
+              className="flex items-center gap-1.5 text-xs font-semibold text-[#6B7280] hover:text-[#111827] px-3 py-1.5 rounded-lg border border-dashed border-[#D1D5DB] hover:border-[#9CA3AF] transition-colors"
+            >
+              <Plus size={13} strokeWidth={2.5} />
+              답글 추가
+            </button>
+            {blocks.length > 1 && (
+              <span className="text-xs text-[#B0B8C1]">{blocks.length}개 포스트 체인</span>
+            )}
+          </div>
         )}
       </div>
 
       {/* 예약 날짜 */}
-      <div>
-        <label className="block text-sm font-semibold text-[#111827] mb-2">
-          <span className="flex items-center gap-1.5">
-            <CalendarClock size={14} strokeWidth={2} />
-            예약 발행 (선택)
-          </span>
+      <div className="bg-white border border-[#E5E8EB] rounded-2xl p-4">
+        <label className="block text-sm font-semibold text-[#111827] mb-2 flex items-center gap-1.5">
+          <CalendarClock size={14} strokeWidth={2} />
+          예약 발행 (선택)
         </label>
-        <input
-          type="datetime-local"
-          value={scheduledAt}
-          onChange={e => setScheduledAt(e.target.value)}
-          min={new Date().toISOString().slice(0, 16)}
-          className="w-full md:w-auto border border-[#E5E8EB] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#111827]/20 focus:border-[#111827]"
-        />
-        {scheduledAt && (
-          <button
-            type="button"
-            onClick={() => setScheduledAt('')}
-            className="ml-2 text-xs text-[#6B7280] hover:text-[#DC2626] underline"
-          >
-            초기화
-          </button>
-        )}
+        <div className="flex items-center gap-2 flex-wrap">
+          <input
+            type="datetime-local"
+            value={scheduledAt}
+            onChange={e => setScheduledAt(e.target.value)}
+            min={new Date().toISOString().slice(0, 16)}
+            className="border border-[#E5E8EB] rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#111827]/20 focus:border-[#111827]"
+          />
+          {scheduledAt && (
+            <button type="button" onClick={() => setScheduledAt('')}
+              className="text-xs text-[#6B7280] hover:text-[#DC2626] underline">초기화</button>
+          )}
+        </div>
       </div>
 
-      {/* 버튼 */}
-      <div className="flex flex-col sm:flex-row gap-3 pt-2">
+      {/* 발행 버튼 */}
+      <div className="flex flex-col sm:flex-row gap-3">
         <button
           onClick={() => submit(true)}
-          disabled={!connected || !text.trim() || loading}
+          disabled={!connected || !blocks[0].text.trim() || loading}
           className="flex-1 flex items-center justify-center gap-2 bg-[#111827] hover:bg-[#1F2937] disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-xl transition-colors"
         >
           {loading ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} strokeWidth={2.5} />}
           지금 발행
         </button>
-
         <button
           onClick={() => submit(false)}
-          disabled={!connected || !text.trim() || !scheduledAt || loading}
+          disabled={!connected || !blocks[0].text.trim() || !scheduledAt || loading}
           className="flex-1 flex items-center justify-center gap-2 bg-white hover:bg-[#F9FAFB] disabled:opacity-40 disabled:cursor-not-allowed border border-[#E5E8EB] text-[#374151] font-semibold py-3 px-6 rounded-xl transition-colors"
         >
           <CalendarClock size={16} strokeWidth={2} />
