@@ -1,12 +1,18 @@
 // worker/src/lib/threads-token.ts
 // ============================================================
 // Worker 전용 Threads 토큰 로드/갱신
-//   · 단일 사용자 앱 — user_id 필터 없이 최신 행 조회
+//   · SUPABASE_SERVICE_ROLE_KEY 파생 키 사용 (ENCRYPTION_KEK_HEX 불필요)
 // ============================================================
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { decryptSecret, encryptSecret } from './crypto'
+import { createCipheriv, createDecipheriv, randomBytes, createHash } from 'crypto'
 
-type TokenRow = {
+function getKek(): Buffer {
+  const src = process.env.SUPABASE_SERVICE_ROLE_KEY
+  if (!src) throw new Error('SUPABASE_SERVICE_ROLE_KEY not set')
+  return createHash('sha256').update(src + ':localution:threads:kek:v1').digest()
+}
+
+type StoredRow = {
   id: string
   token_encrypted: string
   token_iv: string
@@ -16,15 +22,34 @@ type TokenRow = {
   dek_tag: string
 }
 
-function decryptToken(row: TokenRow): string {
-  return decryptSecret({
-    ciphertext:     row.token_encrypted,
-    iv:             row.token_iv,
-    tag:            row.token_tag,
-    dek_ciphertext: row.dek_encrypted,
-    dek_iv:         row.dek_iv,
-    dek_tag:        row.dek_tag,
-  })
+function decryptToken(row: StoredRow): string {
+  const key = getKek()
+  const decipher = createDecipheriv(
+    'aes-256-gcm',
+    key,
+    Buffer.from(row.token_iv, 'base64'),
+  )
+  decipher.setAuthTag(Buffer.from(row.token_tag, 'base64'))
+  return Buffer.concat([
+    decipher.update(Buffer.from(row.token_encrypted, 'base64')),
+    decipher.final(),
+  ]).toString('utf8')
+}
+
+function encryptToken(plaintext: string): Omit<StoredRow, 'id'> {
+  const key = getKek()
+  const iv = randomBytes(12)
+  const cipher = createCipheriv('aes-256-gcm', key, iv)
+  const ciphertext = Buffer.concat([cipher.update(plaintext, 'utf8'), cipher.final()])
+  const tag = cipher.getAuthTag()
+  return {
+    token_encrypted: ciphertext.toString('base64'),
+    token_iv:        iv.toString('base64'),
+    token_tag:       tag.toString('base64'),
+    dek_encrypted:   'v2:supabase_key',
+    dek_iv:          'v2',
+    dek_tag:         'v2',
+  }
 }
 
 export async function loadThreadsToken(
@@ -41,7 +66,7 @@ export async function loadThreadsToken(
   if (error || !data) return null
 
   try {
-    const access_token = decryptToken(data as TokenRow)
+    const access_token = decryptToken(data as StoredRow)
     return { access_token, threads_user_id: data.threads_user_id }
   } catch {
     return null
@@ -67,7 +92,7 @@ export async function refreshThreadsTokenIfNeeded(
 
   let currentToken: string
   try {
-    currentToken = decryptToken(data as TokenRow)
+    currentToken = decryptToken(data as StoredRow)
   } catch {
     return
   }
@@ -83,23 +108,15 @@ export async function refreshThreadsTokenIfNeeded(
     const json = await res.json() as { access_token?: string; expires_in?: number }
     if (!json.access_token) return
 
-    const p = encryptSecret(json.access_token)
+    const newRow = encryptToken(json.access_token)
     const newExpiresAt = new Date(Date.now() + (json.expires_in ?? 5184000) * 1000)
 
-    await svc
-      .from('threads_accounts')
-      .update({
-        token_encrypted: p.ciphertext,
-        token_iv:        p.iv,
-        token_tag:       p.tag,
-        dek_encrypted:   p.dek_ciphertext,
-        dek_iv:          p.dek_iv,
-        dek_tag:         p.dek_tag,
-        expires_at:   newExpiresAt.toISOString(),
-        refreshed_at: new Date().toISOString(),
-        updated_at:   new Date().toISOString(),
-      })
-      .eq('id', data.id)
+    await svc.from('threads_accounts').update({
+      ...newRow,
+      expires_at:   newExpiresAt.toISOString(),
+      refreshed_at: new Date().toISOString(),
+      updated_at:   new Date().toISOString(),
+    }).eq('id', data.id)
   } catch {
     // best-effort
   }
