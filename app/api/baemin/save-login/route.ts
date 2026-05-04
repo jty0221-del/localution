@@ -75,16 +75,39 @@ export async function POST(req: NextRequest) {
     const pw = String(baemin_pw).trim()
     const shopNo = String(shop_no || '').trim() || null
 
-    // 프록시로 실제 로그인 → 쿠키 획득
-    const cookieStr = await baeminProxyLogin(id, pw)
+    // v1.6: RSA 로그인 시도 — 실패해도 ID/PW 는 저장 + Worker 가 fresh 로그인 처리
+    // (Akamai 로 인해 Vercel 직접 로그인이 자주 실패하므로 fail-open 정책)
+    let cookieStr = ''
+    let cookieSaveSuccess = false
+    let proxyLoginError: string | null = null
+    try {
+      cookieStr = await baeminProxyLogin(id, pw)
+      cookieSaveSuccess = !!cookieStr && cookieStr.length > 10
+    } catch (e: any) {
+      proxyLoginError = e?.message || 'unknown'
+      console.warn('[baemin-save-login] RSA login failed (will fallback to Worker):', proxyLoginError)
+    }
 
-    // 1단 AES (직접 API용 쿠키/ID/PW 재로그인 복호화)
-    const idEnc     = encryptStr(id)
-    const pwEnc     = encryptStr(pw)
-    const cookieEnc = encryptStr(cookieStr)
-
+    // 1단 AES (id/pw)
+    const idEnc = encryptStr(id)
+    const pwEnc = encryptStr(pw)
     // 2단 AES (Worker fallback 호환)
     const pwWorker = encryptSecret(pw)
+
+    const extraData: Record<string, unknown> = {
+      baemin_id_enc:     idEnc.enc,     baemin_id_iv:     idEnc.iv,     baemin_id_tag:     idEnc.tag,
+      baemin_pw_enc:     pwEnc.enc,     baemin_pw_iv:     pwEnc.iv,     baemin_pw_tag:     pwEnc.tag,
+    }
+    if (cookieSaveSuccess) {
+      const cookieEnc = encryptStr(cookieStr)
+      extraData.baemin_cookie_enc = cookieEnc.enc
+      extraData.baemin_cookie_iv  = cookieEnc.iv
+      extraData.baemin_cookie_tag = cookieEnc.tag
+      extraData.cookie_saved_at   = new Date().toISOString()
+    }
+    if (proxyLoginError) {
+      extraData.last_proxy_login_error = proxyLoginError.slice(0, 200)
+    }
 
     const { data: existing } = await svc
       .from('platform_credentials').select('id')
@@ -94,21 +117,14 @@ export async function POST(req: NextRequest) {
       user_id:            userId,
       platform:           'baemin',
       account_id:         id,
-      // Worker 호환 컬럼
       password_encrypted: pwWorker.ciphertext,
       password_iv:        pwWorker.iv,
       password_tag:       pwWorker.tag,
       dek_encrypted:      pwWorker.dek_ciphertext,
       dek_iv:             pwWorker.dek_iv,
       dek_tag:            pwWorker.dek_tag,
-      last_login_status:  'ok',
-      // 프록시 직접 API용 쿠키
-      extra_data: {
-        baemin_id_enc:     idEnc.enc,     baemin_id_iv:     idEnc.iv,     baemin_id_tag:     idEnc.tag,
-        baemin_pw_enc:     pwEnc.enc,     baemin_pw_iv:     pwEnc.iv,     baemin_pw_tag:     pwEnc.tag,
-        baemin_cookie_enc: cookieEnc.enc, baemin_cookie_iv: cookieEnc.iv, baemin_cookie_tag: cookieEnc.tag,
-        cookie_saved_at:   new Date().toISOString(),
-      },
+      last_login_status:  cookieSaveSuccess ? 'success' : 'pending_worker_login',
+      extra_data:         extraData,
     }
     if (shopNo) row.platform_store_id = shopNo
 
@@ -142,9 +158,13 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       ok: true,
-      message: '배민 연동 완료! 리뷰를 자동으로 수집하고 있어요.',
+      message: cookieSaveSuccess
+        ? '배민 연동 완료! 리뷰를 자동으로 수집하고 있어요.'
+        : '배민 ID/비번 저장 완료. 리뷰 수집 자동 시작 (1-2분 소요).',
       queued,
       jobId: queueJobId,
+      proxy_login_ok: cookieSaveSuccess,
+      proxy_login_error: proxyLoginError,
     })
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e?.message || '연동 실패' }, { status: 500 })
