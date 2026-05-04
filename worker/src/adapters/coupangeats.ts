@@ -843,9 +843,10 @@ async function fetchCoupangReviews(
       try {
         const targetStoreId = creds.platform_store_id || '738438'
         const homeUrl = `https://store.coupangeats.com/merchant/management/home/${targetStoreId}`
-        // 69차: home nav timeout 30s → 15s, idle 2s → 1s (속도 최적화)
+        // 74차: idle 3초 (1초 → 3초) — SPA navigation/popup 안정화
+        // 그러나 어차피 reply 는 page.context().request 라 page navigation 영향 없음
         await page.goto(homeUrl, { waitUntil: 'domcontentloaded', timeout: 15000 })
-        await page.waitForTimeout(1000)
+        await page.waitForTimeout(3000)
         const url = page.url()
         if (url.includes('/login') || url.includes('/error')) {
           return {
@@ -1849,40 +1850,44 @@ async function postCoupangEatsReply(
     log.info({ idx: i, url: ep.url }, 'coupangeats: 63cha trying endpoint')
 
     try {
-      const result = await page.evaluate(async (args: { url: string; body: string; method: string }) => {
-        try {
-          const meta = {
-            o: 'https://store.coupangeats.com',
-            ua: navigator.userAgent,
-            r: 'https://store.coupangeats.com/merchant/management/reviews',
-            t: Date.now(),
-            sr: String(screen.width) + 'x' + String(screen.height),
-            l: navigator.language || 'ko-KR',
-          }
-          const xRequestMeta = btoa(unescape(encodeURIComponent(JSON.stringify(meta))))
+      // 74차: page.evaluate 대신 page.context().request 사용
+      //   page.evaluate fetch() 는 page navigation 시 context destroyed → 실패
+      //   APIRequestContext 는 page 와 별개로 작동 + cookies 자동 적용
+      // x-request-meta 는 Node.js 측에서 직접 생성 (사용자 브라우저 fingerprint 모방)
+      const meta = {
+        o: 'https://store.coupangeats.com',
+        ua: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
+        r: 'https://store.coupangeats.com/merchant/management/reviews',
+        t: Date.now(),
+        sr: '1920x1080',
+        l: 'ko-KR',
+      }
+      const xRequestMeta = Buffer.from(JSON.stringify(meta), 'utf8').toString('base64')
 
-          const r = await fetch(args.url, {
-            method: args.method,
-            credentials: 'include',
-            headers: {
-              'Content-Type': 'application/json;charset=UTF-8',
-              'Accept': 'application/json',
-              'Accept-Language': 'ko-KR',
-              'x-request-meta': xRequestMeta,
-              'x-requested-with': 'XMLHttpRequest',
-              'Origin': 'https://store.coupangeats.com',
-              'Referer': 'https://store.coupangeats.com/merchant/management/reviews',
-            },
-            body: args.body,
-          })
-          const text = await r.text()
-          let parsed: any = null
-          try { parsed = JSON.parse(text) } catch {}
-          return { ok: r.ok, status: r.status, text: text.slice(0, 800), parsed }
-        } catch (e: any) {
-          return { ok: false, status: 0, text: '', parsed: null, err: String(e?.message || e) }
-        }
-      }, { url: ep.url, body: JSON.stringify(ep.body), method: ep.method || 'POST' })
+      const apiCtx = page.context().request
+      let result: any
+      try {
+        const apiRes = await apiCtx.fetch(ep.url, {
+          method: ep.method || 'POST',
+          headers: {
+            'Content-Type': 'application/json;charset=UTF-8',
+            'Accept': 'application/json',
+            'Accept-Language': 'ko-KR',
+            'x-request-meta': xRequestMeta,
+            'x-requested-with': 'XMLHttpRequest',
+            'Origin': 'https://store.coupangeats.com',
+            'Referer': 'https://store.coupangeats.com/merchant/management/reviews',
+          },
+          data: ep.body,
+          timeout: 15000,
+        })
+        const text = await apiRes.text()
+        let parsed: any = null
+        try { parsed = JSON.parse(text) } catch {}
+        result = { ok: apiRes.ok(), status: apiRes.status(), text: text.slice(0, 800), parsed }
+      } catch (e: any) {
+        result = { ok: false, status: 0, text: '', parsed: null, err: String(e?.message || e) }
+      }
 
       lastResult = result
 
