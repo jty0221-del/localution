@@ -16,6 +16,7 @@ import {
   Smile, Meh, Frown,
   Link2, Lock, MapPin,
   Layers, Zap,
+  MessageSquare,
 } from 'lucide-react'
 
 // ═══════════════════════════════════════════════════════════
@@ -1694,13 +1695,20 @@ export default function Dashboard() {
               )}
             </div>
             <div className="p-5 space-y-4">
-              {platforms.filter(p => p.connected).length === 0 ? (
+              {/* 78차: connected race 회피 — 연결됐거나 실제 리뷰가 있는 플랫폼 모두 표시.
+                  쿠팡/배민이 platform_credentials 에는 있지만 platforms state 가 아직
+                  refresh 안된 타이밍에도 미니 리뷰가 즉시 노출됨. */}
+              {(() => {
+                const visiblePlatforms = platforms.filter(p =>
+                  p.connected || (platformReviews[p.id]?.length ?? 0) > 0
+                )
+                return visiblePlatforms.length === 0 ? (
                 <div className="text-center py-8">
                   <p className="text-sm text-[#8B95A1] mb-3">아직 연동된 플랫폼이 없습니다</p>
                   <p className="text-xs text-[#8B95A1]">상단 로고를 클릭해 연동을 시작하세요</p>
                 </div>
               ) : (
-                platforms.filter(p => p.connected).map(p => {
+                visiblePlatforms.map(p => {
                   const isFetchingThis = p.id === 'naver_place' && reviewsFetchState === 'fetching'
                   // 30차-23: 이 플랫폼의 최신 리뷰 2건 미니 리스트
                   const miniReviews = (platformReviews[p.id] || []).slice(0, 2)
@@ -1805,13 +1813,14 @@ export default function Dashboard() {
                   </div>
                   )
                 })
-              )}
+              )
+              })()}
 
-              {platforms.filter(p => !p.connected).length > 0 && (
+              {platforms.filter(p => !p.connected && (platformReviews[p.id]?.length ?? 0) === 0).length > 0 && (
                 <div className="mt-4 p-4 bg-[#F8F9FA] rounded-xl border border-dashed border-[#E0E0E0]">
                   <p className="text-xs text-[#8B95A1] mb-2 font-medium">미연동 플랫폼 — 클릭하여 바로 연동</p>
                   <div className="flex flex-wrap gap-2">
-                    {platforms.filter(p => !p.connected).map(p => (
+                    {platforms.filter(p => !p.connected && (platformReviews[p.id]?.length ?? 0) === 0).map(p => (
                       <button
                         key={p.id}
                         onClick={() => handlePlatformClick(p)}
@@ -2040,38 +2049,22 @@ export default function Dashboard() {
                 )
               })
             ) : (
-              RECENT_REVIEWS.map((r, i) => (
-                <div key={i} className="px-5 py-4 hover:bg-[#FAFBFF] transition-colors flex items-start gap-4">
-                  <div
-                    className="flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-black text-white mt-0.5"
-                    style={{ background: r.color }}
-                  >
-                    {r.platform.slice(0, 2)}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2 mb-1">
-                      <span className="text-xs font-bold text-[#4E5968]">{r.name}</span>
-                      <Stars rating={r.rating} />
-                      <span className="text-[10px] text-[#8B95A1]">{r.time}</span>
-                      {r.replied && (
-                        <span className="inline-flex items-center gap-1 text-[10px] bg-[#E8FFF0] text-[#12B76A] px-1.5 py-0.5 rounded-full font-semibold">
-                          <Check size={10} strokeWidth={3} />
-                          답변완료
-                        </span>
-                      )}
-                    </div>
-                    <p className="text-sm text-[#4E5968] line-clamp-1">{r.text}</p>
-                  </div>
-                  {!r.replied && (
-                    <button
-                      onClick={() => setReplyReview(r)}
-                      className="flex-shrink-0 ml-4 text-xs bg-[#3182F6] text-white px-3 py-1.5 rounded-xl font-semibold hover:bg-[#1B64DA] transition-colors"
-                    >
-                      AI 답글
-                    </button>
-                  )}
+              // 78차: 하드코딩된 RECENT_REVIEWS 데모 폴백 제거 — 실 데이터 없으면 빈 상태 + CTA
+              <div className="px-5 py-12 flex flex-col items-center justify-center text-center">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#E8F4FD] to-[#DBEAFE] flex items-center justify-center mb-3">
+                  <MessageSquare size={22} className="text-[#3182F6]" strokeWidth={2.5} />
                 </div>
-              ))
+                <p className="text-sm font-bold text-[#4E5968] mb-1.5">아직 수집된 리뷰가 없어요</p>
+                <p className="text-xs text-[#8B95A1] leading-relaxed mb-4 max-w-xs">
+                  네이버 플레이스, 배민, 쿠팡이츠 등 플랫폼을 연동하면<br />실제 리뷰가 자동으로 이 자리에 들어와요
+                </p>
+                <Link
+                  href={buildSettingsHref('connect')}
+                  className="inline-flex items-center gap-1.5 bg-[#3182F6] text-white px-4 py-2 rounded-xl text-xs font-bold hover:bg-[#1B64DA] transition-colors"
+                >
+                  플랫폼 연동하기 <ArrowRight size={12} strokeWidth={2.5} />
+                </Link>
+              </div>
             )}
           </div>
         </div>
