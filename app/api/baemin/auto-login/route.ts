@@ -11,6 +11,7 @@ import { requireUser } from '@/app/lib/userAuth'
 import { createServiceClient } from '@/app/lib/adminAuth'
 import { baeminProxyLogin } from '@/app/lib/baemin-login'
 import { getProxy, testProxy } from '@/app/lib/proxy-manager'
+import { enqueuePlatformJob } from '@/app/lib/queue'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -106,39 +107,81 @@ export async function POST(req: NextRequest) {
       }, { status: 503 })
     }
 
-    // 4) 배민 RSA 로그인
+    // 4) 배민 RSA 로그인 (Akamai 차단 시 Worker fallback)
     const baeminId = cred.account_id || extra.baemin_id || ''
     if (!baeminId) return NextResponse.json({ ok: false, error: '배민 아이디 없음' }, { status: 400 })
 
-    const cookieStr = await baeminProxyLogin(baeminId, pw)
-    if (!cookieStr || cookieStr.length < 10) {
-      return NextResponse.json({ ok: false, error: '로그인 후 쿠키 없음 — 아이디/비밀번호를 확인해주세요.', code: 'LOGIN_FAIL' }, { status: 401 })
+    let cookieStr = ''
+    let proxyLoginError: string | null = null
+    try {
+      cookieStr = await baeminProxyLogin(baeminId, pw)
+    } catch (loginErr: any) {
+      proxyLoginError = loginErr?.message || 'unknown'
+      console.warn('[baemin-auto-login] RSA login failed:', proxyLoginError)
     }
 
-    // 5) 새 쿠키 암호화 저장
-    const { enc, iv, tag } = encryptStr(cookieStr)
-    await svc
-      .from('platform_credentials')
-      .update({
-        extra_data: {
-          ...extra,
-          baemin_cookie_enc: enc,
-          baemin_cookie_iv:  iv,
-          baemin_cookie_tag: tag,
-          cookie_saved_at:   new Date().toISOString(),
-        },
-        last_login_status: 'success',
-        last_login_at:     new Date().toISOString(),
+    if (cookieStr && cookieStr.length >= 10) {
+      // 정상 경로: 쿠키 저장
+      const { enc, iv, tag } = encryptStr(cookieStr)
+      await svc
+        .from('platform_credentials')
+        .update({
+          extra_data: {
+            ...extra,
+            baemin_cookie_enc: enc,
+            baemin_cookie_iv:  iv,
+            baemin_cookie_tag: tag,
+            cookie_saved_at:   new Date().toISOString(),
+          },
+          last_login_status: 'success',
+          last_login_at:     new Date().toISOString(),
+        })
+        .eq('user_id', userId)
+        .eq('platform', 'baemin')
+
+      return NextResponse.json({
+        ok: true,
+        message: '배민 로그인 성공! 쿠키가 갱신됐어요.',
+        proxy_ip: proxyTest.ip,
+        proxy_country: proxyTest.countryCode,
       })
-      .eq('user_id', userId)
-      .eq('platform', 'baemin')
+    }
+
+    // v1.6: RSA 로그인 실패 → Worker 에 fresh login 위임
+    // Worker 가 Playwright 로 직접 로그인 + cookies 저장 후 fetch_reviews 실행
+    if (process.env.REDIS_URL) {
+      try {
+        const jr = await enqueuePlatformJob({
+          platform: 'baemin', action: 'fetch_reviews',
+          userId, storeId: cred.platform_store_id || 'unknown',
+          payload: { shop_no: cred.platform_store_id, days_back: 30, source: 'auto-login-fallback' },
+        })
+        await svc.from('platform_credentials').update({
+          last_login_status: 'pending_worker_login',
+          last_login_at: new Date().toISOString(),
+        }).eq('user_id', userId).eq('platform', 'baemin')
+
+        return NextResponse.json({
+          ok: true,
+          fallback: 'worker',
+          jobId: jr.ok ? jr.jobId : undefined,
+          message: 'Vercel 직접 로그인은 Akamai 가 차단했어요. Worker 가 1-2분 안에 자동 로그인 + 리뷰 수집 처리해요.',
+          proxy_login_error: proxyLoginError,
+        })
+      } catch (qErr: any) {
+        return NextResponse.json({
+          ok: false,
+          error: '로그인 + 큐 둘 다 실패: ' + (proxyLoginError || '') + ' / ' + (qErr?.message || ''),
+          code: 'LOGIN_FAIL',
+        }, { status: 500 })
+      }
+    }
 
     return NextResponse.json({
-      ok: true,
-      message: '배민 로그인 성공! 쿠키가 갱신됐어요.',
-      proxy_ip: proxyTest.ip,
-      proxy_country: proxyTest.countryCode,
-    })
+      ok: false,
+      error: '로그인 실패: ' + (proxyLoginError || '쿠키 미수신') + ' (REDIS_URL 미설정으로 Worker fallback 불가)',
+      code: 'LOGIN_FAIL',
+    }, { status: 401 })
   } catch (e: any) {
     const msg = e?.message || String(e)
     if (msg.includes('아이디') || msg.includes('비밀번호') || msg.includes('login')) {
