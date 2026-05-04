@@ -161,8 +161,8 @@ export async function runBaemin(
     return { status: 'skipped', message: `baemin: unsupported action ${action}` }
   }
 
-  // v1.6g: page.evaluate 로 in-browser fetch + extractor 관대화
-  log.info({ version: 'v1.6g', ts: '20260505T1530' }, 'BAEMIN_ADAPTER_VERSION_MARKER')
+  // v1.6g_rev3: in-browser fetch + extractor 관대화 + 강제 재빌드
+  log.info({ version: 'v1.6g_rev3', ts: '20260505T1545' }, 'BAEMIN_ADAPTER_VERSION_MARKER')
 
   const svc   = getServiceClient()
   let creds: any
