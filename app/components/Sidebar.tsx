@@ -10,6 +10,7 @@ const FLAT_NAV = [
   { href: '/qr-admin',         label: 'QR 관리',  icon: 'QR',  colors: { bg: '#F5F3FF', text: '#8B5CF6' } },
   { href: '/customers',        label: '고객 관리',icon: '고객', colors: { bg: '#ECFDF5', text: '#059669' } },
   { href: '/settings/profile', label: '매장 관리',icon: '매장', colors: { bg: '#FFF1F2', text: '#E11D48' } },
+  { href: '/updates',          label: '업데이트 내역', icon: 'NEW', colors: { bg: '#FFF7ED', text: '#EA580C' } },
 ]
 
 const REVIEW_SUB = [
@@ -403,6 +404,9 @@ export default function Sidebar() {
 
       {/* 6. 매장 관리 */}
       {renderFlatNav(FLAT_NAV[3])}
+
+      {/* 6-A. 업데이트 내역 */}
+      {renderFlatNav(FLAT_NAV[4])}
 
       {/* 7. 커뮤니티 */}
       <div>
