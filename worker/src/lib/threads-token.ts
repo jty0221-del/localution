@@ -1,12 +1,13 @@
 // worker/src/lib/threads-token.ts
 // ============================================================
 // Worker 전용 Threads 토큰 로드/갱신
-//   · app/lib/threads-token.ts 와 동일 로직, worker/src/lib/crypto.ts 사용
+//   · 단일 사용자 앱 — user_id 필터 없이 최신 행 조회
 // ============================================================
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { decryptSecret, encryptSecret } from './crypto'
 
 type TokenRow = {
+  id: string
   token_encrypted: string
   token_iv: string
   token_tag: string
@@ -28,12 +29,13 @@ function decryptToken(row: TokenRow): string {
 
 export async function loadThreadsToken(
   svc: SupabaseClient,
-  userId: string,
+  _userId?: string,
 ): Promise<{ access_token: string; threads_user_id: string } | null> {
   const { data, error } = await svc
     .from('threads_accounts')
-    .select('threads_user_id, token_encrypted, token_iv, token_tag, dek_encrypted, dek_iv, dek_tag')
-    .eq('user_id', userId)
+    .select('id, threads_user_id, token_encrypted, token_iv, token_tag, dek_encrypted, dek_iv, dek_tag')
+    .order('created_at', { ascending: false })
+    .limit(1)
     .maybeSingle()
 
   if (error || !data) return null
@@ -48,12 +50,13 @@ export async function loadThreadsToken(
 
 export async function refreshThreadsTokenIfNeeded(
   svc: SupabaseClient,
-  userId: string,
+  _userId?: string,
 ): Promise<void> {
   const { data } = await svc
     .from('threads_accounts')
-    .select('expires_at, token_encrypted, token_iv, token_tag, dek_encrypted, dek_iv, dek_tag')
-    .eq('user_id', userId)
+    .select('id, expires_at, token_encrypted, token_iv, token_tag, dek_encrypted, dek_iv, dek_tag')
+    .order('created_at', { ascending: false })
+    .limit(1)
     .maybeSingle()
 
   if (!data) return
@@ -96,7 +99,7 @@ export async function refreshThreadsTokenIfNeeded(
         refreshed_at: new Date().toISOString(),
         updated_at:   new Date().toISOString(),
       })
-      .eq('user_id', userId)
+      .eq('id', data.id)
   } catch {
     // best-effort
   }
