@@ -985,7 +985,10 @@ async function fetchCoupangReviews(
         const fmtD = (d: Date) => d.toISOString().split('T')[0]
         const statusTypes0 = ['EXPOSE', 'UNEXPOSE']
         const PAGE_SIZE = 5
-        const DAYS_BACK = 30
+        // 67차: DAYS_BACK 30 → 180 (6개월) — 답글 단 오래된 review 도 수집
+        // 페이지네이션 자동 (size=5 → 답글 많은 매장도 모두 수집)
+        // Akamai rate limit: 800ms delay 간격이라 6개월 = 약 4분
+        const DAYS_BACK = 180
 
         // ── 52차: 슬라이딩 윈도우 전에 store switch (브라우저 컨텍스트) ──
         // 원인: responsibleStoreId가 서버 세션에 미설정 → reviews/search 200이지만 빈 결과
