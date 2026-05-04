@@ -1057,15 +1057,38 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
                     const isSubmitted = review.replyStatus === 'submitted'
                     const isBulkTarget = bulkRunning && bulkProgress.currentId === review.id
                     // v1.6m: 배민은 30일 지난 리뷰는 답글 등록 불가능 (배민 정책)
-                    //   posted_at 우선, 없으면 collectedAt fallback (보수적: posted 정보 누락 시 오래된 리뷰일 가능성)
+                    //   posted_at > platform_review_id 의 YYYYMMDD prefix > collectedAt 순
+                    //   배민 review ID 형식: baemin-real-YYYYMMDDXXXXXXXX (예: baemin-real-2026011601790734)
                     const isReplyExpired = (() => {
                       if (config.platform !== 'baemin') return false
-                      const dateStr = review.postedAt || review.collectedAt
-                      if (!dateStr) return false
-                      const ts = new Date(dateStr).getTime()
-                      if (isNaN(ts)) return false
-                      const daysAgo = (Date.now() - ts) / 86400_000
-                      return daysAgo > 30
+                      // 1. posted_at 우선
+                      if (review.postedAt) {
+                        const ts = new Date(review.postedAt).getTime()
+                        if (!isNaN(ts)) {
+                          const daysAgo = (Date.now() - ts) / 86400_000
+                          return daysAgo > 30
+                        }
+                      }
+                      // 2. platform_review_id 의 YYYYMMDD prefix 추출
+                      const idMatch = String(review.platform_review_id || '').match(/(\d{8})/)
+                      if (idMatch) {
+                        const ymd = idMatch[1]
+                        const dateStr = ymd.slice(0,4) + '-' + ymd.slice(4,6) + '-' + ymd.slice(6,8) + 'T00:00:00'
+                        const ts = new Date(dateStr).getTime()
+                        if (!isNaN(ts)) {
+                          const daysAgo = (Date.now() - ts) / 86400_000
+                          return daysAgo > 30
+                        }
+                      }
+                      // 3. collectedAt fallback (보수적)
+                      if (review.collectedAt) {
+                        const ts = new Date(review.collectedAt).getTime()
+                        if (!isNaN(ts)) {
+                          const daysAgo = (Date.now() - ts) / 86400_000
+                          return daysAgo > 30
+                        }
+                      }
+                      return false
                     })()
                     return (
                       <div
