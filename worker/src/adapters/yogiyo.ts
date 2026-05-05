@@ -10,6 +10,107 @@ import { loadPlainCredentials, markLoginStatus } from '../lib/credentials'
 import { upsertReviews, CollectedReview } from '../lib/reviews'
 import { dumpPageDiagnostics, detectLoginFailure } from '../lib/diagnostics'
 import { notifyNewReviews } from '../lib/notify'
+import { createDecipheriv, createCipheriv, randomBytes } from 'crypto'
+
+// v1.6w: 배민 v1.6c 패턴 — 쿠키 JSON 영속화 + Node 20 ws polyfill (이미 supabase.ts 에서)
+function loadKekHex(): Buffer | null {
+  const raw = (process.env.ENCRYPTION_KEK_HEX || '').replace(/\s+/g, '')
+  if (!/^[0-9a-fA-F]{64}$/.test(raw)) return null
+  return Buffer.from(raw, 'hex')
+}
+
+function decryptStr(enc: string, iv: string, tag: string): string | null {
+  const kek = loadKekHex()
+  if (!kek) return null
+  try {
+    const d = createDecipheriv('aes-256-gcm', kek, Buffer.from(iv, 'base64'))
+    d.setAuthTag(Buffer.from(tag, 'base64'))
+    return Buffer.concat([d.update(Buffer.from(enc, 'base64')), d.final()]).toString('utf8')
+  } catch { return null }
+}
+
+async function loadYogiyoCookieJar(svc: any, userId: string): Promise<any[]> {
+  try {
+    const { data } = await svc
+      .from('platform_credentials')
+      .select('extra_data')
+      .eq('user_id', userId).eq('platform', 'yogiyo').maybeSingle()
+    const extra = (data?.extra_data as any) || {}
+
+    // JSON object 영속화 우선
+    if (extra.yogiyo_cookies_json_enc) {
+      const json = decryptStr(extra.yogiyo_cookies_json_enc, extra.yogiyo_cookies_json_iv, extra.yogiyo_cookies_json_tag)
+      if (json) {
+        try {
+          const arr = JSON.parse(json)
+          if (Array.isArray(arr) && arr.length > 0) {
+            return arr.map((c: any) => ({
+              name: String(c.name),
+              value: String(c.value),
+              domain: c.domain || '.yogiyo.co.kr',
+              path: c.path || '/',
+              httpOnly: !!c.httpOnly,
+              secure: c.secure !== false,
+              sameSite: ['Strict', 'Lax', 'None'].includes(c.sameSite) ? c.sameSite : 'Lax',
+              ...(typeof c.expires === 'number' && c.expires > 0 ? { expires: c.expires } : {}),
+            }))
+          }
+        } catch { /* fall through */ }
+      }
+    }
+
+    // legacy string fallback
+    if (extra.yogiyo_cookie_str) {
+      const cookies: any[] = []
+      for (const part of String(extra.yogiyo_cookie_str).split(';')) {
+        const kv = part.trim()
+        const eq = kv.indexOf('=')
+        if (eq <= 0) continue
+        const name = kv.slice(0, eq).trim()
+        const value = kv.slice(eq + 1).trim()
+        if (!name || !value) continue
+        cookies.push({
+          name, value,
+          domain: '.yogiyo.co.kr', path: '/',
+          httpOnly: false, secure: true, sameSite: 'Lax' as const,
+        })
+      }
+      return cookies
+    }
+  } catch { /* ignore */ }
+  return []
+}
+
+async function saveYogiyoCookies(svc: any, userId: string, cookies: any[]) {
+  try {
+    const kek = loadKekHex()
+    if (!kek) return
+    const yogiyoCookies = cookies.filter((c: any) => (c.domain || '').includes('yogiyo.co.kr'))
+    if (yogiyoCookies.length === 0) return
+
+    const json = JSON.stringify(yogiyoCookies)
+    const iv = randomBytes(12)
+    const cipher = createCipheriv('aes-256-gcm', kek, iv)
+    const enc = Buffer.concat([cipher.update(json, 'utf8'), cipher.final()])
+    const tag = cipher.getAuthTag()
+
+    const { data: existing } = await svc
+      .from('platform_credentials').select('extra_data')
+      .eq('user_id', userId).eq('platform', 'yogiyo').maybeSingle()
+    const prev = (existing?.extra_data as any) || {}
+
+    await svc.from('platform_credentials').update({
+      extra_data: {
+        ...prev,
+        yogiyo_cookies_json_enc: enc.toString('base64'),
+        yogiyo_cookies_json_iv: iv.toString('base64'),
+        yogiyo_cookies_json_tag: tag.toString('base64'),
+        cookie_saved_at: new Date().toISOString(),
+        cookie_source: 'worker_login_v1_6w',
+      },
+    }).eq('user_id', userId).eq('platform', 'yogiyo')
+  } catch { /* non-fatal */ }
+}
 import type { JobResult, Action } from '../jobs'
 
 const LOGIN_URL = 'https://ceo.yogiyo.co.kr/login/'
@@ -40,6 +141,9 @@ export async function runYogiyo(
     return { status: 'skipped', message: `yogiyo: action ${action} not yet supported` }
   }
 
+  // v1.6w: VERSION_MARKER + ws polyfill (worker/src/lib/supabase.ts 에 글로벌 적용됨)
+  log.info({ version: 'yogiyo-v1.6w', ts: '20260506T0900' }, 'YOGIYO_ADAPTER_VERSION_MARKER')
+
   const svc = getServiceClient()
   const creds = await loadPlainCredentials(svc, userId, 'yogiyo')
   const context = await browser.newContext({
@@ -51,6 +155,18 @@ export async function runYogiyo(
       'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8',
     },
   })
+
+  // v1.6w: 저장된 쿠키 주입 (배민 v1.5 패턴) — fresh login 우회
+  const savedCookies = await loadYogiyoCookieJar(svc, userId)
+  if (savedCookies.length > 0) {
+    try {
+      await context.addCookies(savedCookies)
+      log.info({ count: savedCookies.length }, 'yogiyo: cookies injected from save-login')
+    } catch (e: any) {
+      log.warn({ err: e?.message }, 'yogiyo: cookie inject failed (will fall back to fresh login)')
+    }
+  }
+
   const page = await context.newPage()
 
   // ── Playwright 레벨 응답 인터셉터 (CORS 우회, 모든 JSON 캡처) ──
@@ -119,6 +235,16 @@ export async function runYogiyo(
     }
 
     await markLoginStatus(svc, userId, 'yogiyo', 'success')
+
+    // v1.6w: fresh 로그인 후 쿠키 자동 저장 (다음 fetch 부터 inject 사용)
+    try {
+      const allCookies = await context.cookies()
+      await saveYogiyoCookies(svc, userId, allCookies)
+      log.info({ count: allCookies.length }, 'yogiyo: fresh cookies saved (v1.6w)')
+    } catch (cookieErr: any) {
+      log.warn({ err: cookieErr?.message }, 'yogiyo: cookie save failed (non-fatal)')
+    }
+
     if (action === 'health_check') return { status: 'ok', message: 'yogiyo login ok' }
 
     const storeId = creds.platform_store_id || ''
