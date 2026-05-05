@@ -276,9 +276,9 @@ export default function BlogPostGeneratorPage() {
   }
 
   return (
-    <div className="flex min-h-screen bg-[#F2F4F6]">
+    <div className="min-h-screen bg-[#F8F9FA]">
       <Sidebar />
-      <main className="flex-1 ml-0 md:ml-[220px] flex flex-col min-h-screen pt-16 md:pt-0">
+      <main className="flex-1 ml-0 md:ml-[220px] flex flex-col min-h-screen pt-4 md:pt-0">
         <PageHeader
           icon={<PenLine size={28} className="text-white" strokeWidth={2.5} />}
           title="네이버 블로그 글 작성"
