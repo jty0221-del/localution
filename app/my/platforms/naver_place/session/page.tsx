@@ -233,7 +233,7 @@ export default function NaverSessionPage() {
 
         {/* 주의사항 */}
         <div className="mt-5 p-4 bg-amber-50 border border-amber-200 rounded-xl">
-          <p className="text-xs text-amber-700 font-medium mb-1">⚠️ 주의사항</p>
+          <p className="text-xs text-amber-700 font-medium mb-1">주의사항</p>
           <ul className="text-xs text-amber-600 space-y-1 list-disc list-inside">
             <li>쿠키는 암호화해서 저장돼요</li>
             <li><strong>반드시 SmartPlace 리뷰 탭</strong>에서 복사해야 nstore_session이 포함돼요</li>
