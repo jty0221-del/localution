@@ -25,14 +25,15 @@ import Sidebar from '../../components/Sidebar'
 import Footer from '../../components/Footer'
 import PageHeader from '../../components/PageHeader'
 import { toast } from '../../lib/toast'
-import { Heart, Briefcase, Smile, Edit3, Mail, Flame, FileText, type LucideIcon } from 'lucide-react'
+import { Heart, Briefcase, Smile, Edit3, Mail, Flame, FileText, AlertTriangle, type LucideIcon } from 'lucide-react'
 // 76차: CoupangReviewBookmarkletDialog import 제거 (자동 연결로 대체됨)
 
 type PlatformSlug = 'naver_place' | 'baemin' | 'yogiyo' | 'coupangeats' | 'kakao_map'
 type ReplyStatus = 'none' | 'draft' | 'queued' | 'submitting' | 'submitted' | 'failed'
 
 // ── 페르소나 타입 ──────────────────────────────────────────
-type PersonaTone   = 'friendly' | 'expert' | 'witty' | 'simple' | 'emo' | 'mz' | 'formal'
+// v1.6y: 톤 4종 추가 — apologetic (사과), grateful (감사), gourmand (미식), custom (맞춤)
+type PersonaTone   = 'friendly' | 'expert' | 'witty' | 'simple' | 'emo' | 'mz' | 'formal' | 'apologetic' | 'grateful' | 'gourmand' | 'custom'
 type PersonaGender = 'none' | 'male' | 'female'
 type PersonaAge    = '' | 'teen' | '20s' | '30s' | '40s' | '50s' | '60s'
 interface Persona {
@@ -43,13 +44,18 @@ interface Persona {
 const DEFAULT_PERSONA: Persona = { tone: 'friendly', gender: 'none', age: '' }
 
 const TONE_OPTIONS: { value: PersonaTone; label: string; Icon: LucideIcon }[] = [
-  { value: 'friendly', label: '친근',   Icon: Heart },
-  { value: 'expert',   label: '전문가', Icon: Briefcase },
-  { value: 'witty',    label: '유머',   Icon: Smile },
-  { value: 'simple',   label: '심플',   Icon: Edit3 },
-  { value: 'emo',      label: '감성',   Icon: Mail },
-  { value: 'mz',       label: 'MZ',     Icon: Flame },
-  { value: 'formal',   label: '공식',   Icon: FileText },
+  { value: 'friendly',   label: '친근',     Icon: Heart },
+  { value: 'expert',     label: '전문가',   Icon: Briefcase },
+  { value: 'witty',      label: '유머',     Icon: Smile },
+  { value: 'simple',     label: '심플',     Icon: Edit3 },
+  { value: 'emo',        label: '감성',     Icon: Mail },
+  { value: 'mz',         label: 'MZ',       Icon: Flame },
+  { value: 'formal',     label: '공식',     Icon: FileText },
+  // v1.6y 추가
+  { value: 'grateful',   label: '감사',     Icon: Heart },
+  { value: 'apologetic', label: '사과',     Icon: AlertTriangle },
+  { value: 'gourmand',   label: '미식',     Icon: Smile },
+  { value: 'custom',     label: '맞춤',     Icon: Edit3 },
 ]
 const GENDER_OPTIONS: { value: PersonaGender; label: string }[] = [
   { value: 'none',   label: '성별 무관' },
@@ -286,6 +292,17 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
     return DEFAULT_PERSONA
   })
 
+  // v1.6y: custom 톤 — 사장님 맞춤 프롬프트 (예: "정성스러운 한식당 사장님처럼, 메뉴 칭찬 + 재방문 유도")
+  const CUSTOM_PROMPT_KEY = 'localution:review_persona_custom_prompt'
+  const [customPrompt, setCustomPrompt] = useState<string>(() => {
+    try {
+      if (typeof window !== 'undefined') {
+        return window.localStorage.getItem(CUSTOM_PROMPT_KEY) || ''
+      }
+    } catch {}
+    return ''
+  })
+
   // ── 일괄 초안 생성 상태 ───────────────────────
   const [bulkRunning, setBulkRunning] = useState(false)
   const [bulkCancelled, setBulkCancelled] = useState(false)
@@ -469,6 +486,8 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
           platform: config.platform,
           aiSettings: { tone: usePersona.tone, length: 'medium' },
           customerProfile: { gender: usePersona.gender, age: usePersona.age },
+          // v1.6y: custom 톤일 때만 사장님 맞춤 프롬프트 전달
+          customPrompt: usePersona.tone === 'custom' ? customPrompt : undefined,
         }),
       })
       const aiData = await aiRes.json()
@@ -516,7 +535,7 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
     setDraftText(review.draftReply || '')
     if (review.replyTone) {
       const savedTone = review.replyTone as PersonaTone
-      const validTones: PersonaTone[] = ['friendly', 'expert', 'witty', 'simple', 'emo', 'mz', 'formal']
+      const validTones: PersonaTone[] = ['friendly', 'expert', 'witty', 'simple', 'emo', 'mz', 'formal', 'apologetic', 'grateful', 'gourmand', 'custom']
       if (validTones.includes(savedTone)) {
         setPersona((prev) => ({ ...prev, tone: savedTone }))
       }
@@ -1248,6 +1267,24 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
                                         )
                                       })}
                                     </div>
+                                    {/* v1.6y: custom 톤 선택 시 사장님 맞춤 프롬프트 입력 */}
+                                    {persona.tone === 'custom' && (
+                                      <div className="mt-2 rounded-lg bg-gradient-to-br from-[#FAF5FF] to-[#F3E8FF] border border-[#E9D5FF] p-2.5">
+                                        <p className="text-[10px] font-bold text-[#7C3AED] mb-1.5 flex items-center gap-1">
+                                          <Edit3 size={11} strokeWidth={2.5} /> 사장님 맞춤 톤 (자유 작성)
+                                        </p>
+                                        <textarea
+                                          value={customPrompt}
+                                          onChange={(e) => setCustomPrompt(e.target.value)}
+                                          onBlur={() => { try { localStorage.setItem(CUSTOM_PROMPT_KEY, customPrompt) } catch {} }}
+                                          placeholder={"예) 정성스러운 한식당 사장님처럼 소박한 말투. 메뉴 칭찬 + 재방문 유도. \"이모티콘 절대 금지\""}
+                                          className="w-full rounded-md border border-[#E9D5FF] bg-white p-2 text-[12px] text-[#191F28] focus:outline-none focus:ring-2 focus:ring-[#7C3AED40] resize-y min-h-[60px]"
+                                        />
+                                        <p className="text-[10px] text-[#8B95A1] mt-1">
+                                          {customPrompt.length}자 · 입력 후 다른 곳을 클릭하면 자동 저장
+                                        </p>
+                                      </div>
+                                    )}
                                   </div>
                                   {/* 성별 */}
                                   <div>
