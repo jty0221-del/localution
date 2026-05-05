@@ -166,7 +166,7 @@ export default function CardNewsPage() {
           variant="pink"
         />
 
-        <div className="max-w-7xl mx-auto px-4 md:px-8 pt-6 pb-20">
+        <div className="max-w-6xl mx-auto px-4 md:px-6 pt-4 md:pt-6 pb-20">
           {/* 브레드크럼 */}
           <div className="flex items-center gap-2 text-xs text-[#8B95A1] mb-4">
             <Link href="/marketing" className="hover:text-[#191F28]">마케팅 관리</Link>
