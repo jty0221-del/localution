@@ -20,17 +20,46 @@ export async function POST(request: NextRequest) {
     topic?: string
     persona?: string
     business_type?: string
-  }
-
-  if (!body.topic?.trim()) {
-    return NextResponse.json({ error: '주제를 입력해주세요.' }, { status: 400 })
+    mode?: 'from_review'
+    review_text?: string
+    review_rating?: number
   }
 
   const persona = body.persona || 'friendly'
   const personaDesc = PERSONA_DESC[persona] ?? PERSONA_DESC.friendly
   const businessType = body.business_type || '소상공인·자영업자'
 
-  const prompt = `너는 ${businessType}를 위한 스레드(Threads) SNS 콘텐츠 전문가다.
+  let prompt: string
+
+  if (body.mode === 'from_review' && body.review_text?.trim()) {
+    // 리뷰 기반 생성
+    const rating = body.review_rating ?? 5
+    const stars = '★'.repeat(rating)
+    prompt = `너는 ${businessType}를 위한 스레드(Threads) SNS 콘텐츠 전문가다.
+
+아래 실제 고객 리뷰(${stars})를 바탕으로 스레드 포스트를 작성해라.
+
+[고객 리뷰]
+${body.review_text.trim()}
+
+[페르소나] ${personaDesc}
+[업종] ${businessType}
+
+조건:
+1. "고객이 이런 말을 해줬어요" 느낌의 감사·공유 포스트
+2. 리뷰 내용을 직접 인용하거나 자연스럽게 녹여내기
+3. 500자 이내, 이모지 금지
+4. 해시태그 3-5개 (# 없이)
+5. 자화자찬 아닌 고객 목소리 전달하는 톤
+
+반드시 JSON으로만 응답:
+{"text":"본문 내용","hashtags":["태그1","태그2","태그3"]}`
+  } else {
+    if (!body.topic?.trim()) {
+      return NextResponse.json({ error: '주제를 입력해주세요.' }, { status: 400 })
+    }
+
+    prompt = `너는 ${businessType}를 위한 스레드(Threads) SNS 콘텐츠 전문가다.
 
 [페르소나] ${personaDesc}
 [업종] ${businessType}
@@ -46,6 +75,7 @@ export async function POST(request: NextRequest) {
 
 반드시 아래 JSON 형식으로만 응답 (다른 텍스트 없이):
 {"text":"본문 내용","hashtags":["태그1","태그2","태그3"]}`
+  }
 
   try {
     const res = await fetch(ANTHROPIC_URL, {
