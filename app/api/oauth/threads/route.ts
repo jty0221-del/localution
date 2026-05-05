@@ -3,6 +3,7 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { randomBytes } from 'crypto'
+import { requireUser } from '@/app/lib/userAuth'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -15,6 +16,11 @@ export async function GET() {
     return NextResponse.json({ error: 'THREADS_APP_ID 또는 THREADS_CALLBACK_URL 환경변수 미설정' }, { status: 500 })
   }
 
+  const auth = await requireUser()
+  if (!auth.ok) {
+    return NextResponse.redirect(new URL('/auth/login', process.env.NEXT_PUBLIC_SITE_URL || 'https://localution.vercel.app'))
+  }
+
   const state = randomBytes(16).toString('hex')
 
   const cookieStore = await cookies()
@@ -22,7 +28,15 @@ export async function GET() {
     httpOnly: true,
     secure: true,
     sameSite: 'lax',
-    maxAge: 600, // 10분
+    maxAge: 600,
+    path: '/',
+  })
+  // 어떤 Localution 사용자가 연결하는지 저장 (콜백에서 사용)
+  cookieStore.set('threads_oauth_uid', auth.userId, {
+    httpOnly: true,
+    secure: true,
+    sameSite: 'lax',
+    maxAge: 600,
     path: '/',
   })
 
