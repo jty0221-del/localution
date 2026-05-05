@@ -112,7 +112,7 @@ ${Object.entries(data.byPlatform)
   return (
     <div className="min-h-screen bg-[#F8F9FA]">
       <Sidebar />
-      <div className="md:ml-[220px] flex flex-col min-h-screen max-w-[1400px]">
+      <div className="md:ml-[220px] flex flex-col min-h-screen">
         <PageHeader
           icon={<BarChart3 size={28} className="text-white" strokeWidth={2.5} />}
           title="답글 발행 통계"
