@@ -1556,7 +1556,8 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen bg-[#F8F9FA]">
       <Sidebar />
-      <main className="md:ml-[220px] flex flex-col min-h-screen px-4 md:px-6 pt-20 md:pt-6 pb-24 md:pb-6 max-w-6xl mx-auto">
+      <div className="md:ml-[220px] flex flex-col min-h-screen">
+        <main className="flex-1 px-4 md:px-6 pt-20 md:pt-6 pb-24 md:pb-6 max-w-6xl mx-auto w-full">
 
         {/* ── 상단 롤링 공지 배너 ── */}
         <SlideAdBanner />
@@ -2224,12 +2225,9 @@ export default function Dashboard() {
           </div>
         </div>
 
-        {/* ── Footer ── */}
-        <div className="-mx-4 md:-mx-6 mt-8">
-          <Footer />
-        </div>
-
-      </main>
+        </main>
+        <Footer />
+      </div>
 
       {/* 모달들 */}
       {connectPlatform && (() => {
