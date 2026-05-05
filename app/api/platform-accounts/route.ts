@@ -282,6 +282,31 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // v1.6w: 요기요 / 배민 도 연결 즉시 자동 fetch (ID/PW 저장만으로 자동 작동)
+  let auto_job_id: string | undefined
+  if (['yogiyo', 'baemin'].includes(body.platform as string)) {
+    try {
+      const enq = await enqueuePlatformJob(
+        {
+          platform: body.platform as any,
+          action: 'fetch_reviews',
+          userId: auth.userId,
+          storeId: body.platform_store_id || 'auto-detect',
+          payload: {
+            initial_sync: true,
+            days_back: 30,
+            triggered_by: 'connect_flow',
+          },
+        },
+        { priority: 1 }
+      )
+      if (enq.ok) auto_job_id = enq.jobId
+      console.log('[platform-accounts] ' + body.platform + ' auto-enqueued:', enq.ok)
+    } catch (e) {
+      console.warn('[platform-accounts] ' + body.platform + ' enqueue failed (non-fatal):', e)
+    }
+  }
+
   return NextResponse.json({
     ok: true,
     id: result.id,
@@ -289,6 +314,7 @@ export async function POST(req: NextRequest) {
     label: PLATFORM_LABELS[body.platform as PlatformSlug],
     coupang_job_id,
     coupang_save_login_method,
+    auto_job_id,
   })
 }
 
