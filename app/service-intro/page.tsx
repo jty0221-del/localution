@@ -12,6 +12,8 @@ import {
  MapPin, BookOpen, Video, LayoutGrid, Gift, MessageSquare,
  UtensilsCrossed, Coffee, Store, Briefcase, Scissors, GraduationCap,
  Laptop,
+ Bell, BellRing, Calendar, Megaphone, Image as ImageIcon, AtSign, Youtube,
+ Sparkles, Headphones,
  type LucideIcon,
 } from 'lucide-react'
 
@@ -647,11 +649,18 @@ export default function ServiceIntro() {
  ))}
  </div>
 
- <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-10 pb-12 sm:pt-14 sm:pb-16 relative">
- <Link href="/" className="inline-flex items-center gap-1.5 text-white/65 text-xs sm:text-sm hover:text-white transition-colors mb-5 sm:mb-7">
+ <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-6 pb-12 sm:pt-10 sm:pb-16 relative">
+ {/* 상단 네비 — 백 링크 (별도 행) */}
+ <div className="mb-6 sm:mb-8">
+ <Link
+ href="/"
+ className="inline-flex items-center gap-1.5 text-white/75 text-xs sm:text-sm hover:text-white active:bg-white/10 px-2 py-1.5 -ml-2 rounded-lg transition-colors"
+ >
  <ArrowLeft size={14} strokeWidth={2.25} /> 대시보드로
  </Link>
+ </div>
 
+ {/* 카테고리 배지 — 별도 행 (위 백링크와 명확히 분리) */}
  <div className="inline-flex items-center gap-1.5 bg-white/15 border border-white/25 text-white/90 text-[11px] sm:text-xs font-bold px-3 sm:px-4 py-1.5 rounded-full mb-3 sm:mb-4 tracking-wide">
  <Zap size={11} strokeWidth={2.5} /> 리뷰 관리 완전 자동화 — 답글 + 리뷰 수집
  </div>
@@ -669,8 +678,8 @@ export default function ServiceIntro() {
  {[
  ['QR', '리뷰 수집 자동화'],
  ['6개', '연동 플랫폼'],
- ['6종', 'AI 답글 톤'],
- ['1분', '가입 → 첫 답글'],
+ ['11종', 'AI 답글 톤'],
+ ['15분', '실시간 알림 주기'],
  ].map(([v, l]) => (
  <div key={l}>
  <div className="text-xl sm:text-3xl font-black">{v}</div>
@@ -879,6 +888,109 @@ export default function ServiceIntro() {
  </Link>
  </div>
  </div>
+ </div>
+ </div>
+
+ {/* ── 5월 신규 업데이트 — 소상공인 입장 ── */}
+ <div className="bg-white rounded-2xl p-5 sm:p-7 shadow-sm border border-[#E5E8EB] mb-8">
+ <div className="flex items-center gap-2 mb-1">
+ <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-[#7C3AED] to-[#5B21B6] flex items-center justify-center shadow-sm">
+ <Sparkles size={14} className="text-white" strokeWidth={2.5} />
+ </div>
+ <h2 className="text-base sm:text-lg font-black text-[#191F28]">2026년 5월 신규 추가 기능</h2>
+ </div>
+ <p className="text-xs text-[#8B95A1] mb-4 ml-10 break-keep">사장님 피드백을 그대로 반영해서 매주 새 기능이 들어옵니다.</p>
+
+ <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+ {[
+ {
+ Icon: BarChart3, color: 'from-[#7C3AED] to-[#5B21B6]',
+ title: '답글 발행 통계',
+ desc: '플랫폼별 답변률·자동 발행 성공률·30일 만료 건수를 한 화면에서 분석. 발행 문제는 통계 자동 첨부로 1:1 문의로 바로 전달.',
+ href: '/review-admin/stats',
+ },
+ {
+ Icon: BellRing, color: 'from-[#F59E0B] to-[#D97706]',
+ title: '실시간 리뷰 알림',
+ desc: '15분마다 자동 수집 → 별점 1-2점 부정 리뷰 우선 알림. 웹푸시와 카카오톡 두 채널로 즉시 받아 빠르게 대응.',
+ href: '/review-admin',
+ },
+ {
+ Icon: MessageSquare, color: 'from-[#3182F6] to-[#1B64DA]',
+ title: 'AI 답글 톤 11종 + 사장님 맞춤',
+ desc: '친근·전문·유머·심플·감성·MZ·공식·감사·사과·미식 10종 + 사장님이 직접 정의하는 맞춤 톤. 부정 리뷰엔 사과 톤, 음식점은 미식 톤.',
+ href: '/review-admin',
+ },
+ {
+ Icon: Megaphone, color: 'from-[#EC4899] to-[#BE185D]',
+ title: '매장 이벤트·프로모션 매니저',
+ desc: '오픈/시즌/단골/타임세일/협업 5가지 템플릿. 시작·종료 일정 자동 분류 + 카드뉴스·스레드·유튜브 자동 발행 연동 (예정).',
+ href: '/marketing/events',
+ },
+ {
+ Icon: ImageIcon, color: 'from-[#EC4899] to-[#BE185D]',
+ title: '인스타그램 피드 자동 발행',
+ desc: '매장 사진 업로드 → AI 캡션 + 해시태그 자동 생성. 톤 4종 (편안 / 감성 / 에너지 / 전문) 지원. 즉시·예약 발행 가능.',
+ href: '/marketing/instagram-feed',
+ },
+ {
+ Icon: AtSign, color: 'from-slate-700 to-slate-900',
+ title: '스레드 자동 발행',
+ desc: 'Meta Threads 즉시·예약 발행. 이미지 드래그앤드롭, 답글 체인(최대 6개), 카드뉴스 연동까지.',
+ href: '/marketing/threads',
+ },
+ {
+ Icon: Youtube, color: 'from-[#DC2626] to-[#991B1B]',
+ title: '유튜브 커뮤니티 자동',
+ desc: '유튜브 채널 커뮤니티 탭에 글 자동 업로드 + 첫 댓글 자동 작성·고정.',
+ href: '/marketing/youtube-community',
+ },
+ {
+ Icon: Calendar, color: 'from-[#0EA5E9] to-[#0284C7]',
+ title: '예약·일정 관리',
+ desc: '단체 예약·행사·휴무일을 한 캘린더에서. 노쇼 방지 알림 (예정).',
+ href: '/reservations',
+ },
+ {
+ Icon: Shield, color: 'from-[#F59E0B] to-[#D97706]',
+ title: '요기요 30일 정책 + 다중 매장 자동 감지',
+ desc: '30일 지난 리뷰는 답글 발행 사전 차단으로 실패 미리 방지. 다중 매장 사장님은 매장 ID 자동 감지·저장.',
+ href: '/review-admin/yogiyo',
+ },
+ {
+ Icon: Headphones, color: 'from-[#10B981] to-[#059669]',
+ title: '카카오맵 답글 발행 개선',
+ desc: '리뷰 카드 다단계 fallback (data 속성 → 작성자/본문 매칭) + 답글 등록 후 노출 검증 + 진단 덤프.',
+ href: '/review-admin/kakao',
+ },
+ ].map((f) => (
+ <Link key={f.title} href={f.href}
+ className="group bg-[#FAFBFF] hover:bg-white border border-transparent hover:border-[#3182F6]/20 hover:shadow-sm rounded-2xl p-4 transition-all flex items-start gap-3">
+ <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${f.color} flex items-center justify-center shadow-sm flex-shrink-0`}>
+ <f.Icon size={16} className="text-white" strokeWidth={2.5} />
+ </div>
+ <div className="flex-1 min-w-0">
+ <div className="flex items-center gap-1 mb-1">
+ <h3 className="text-sm font-bold text-[#191F28] truncate">{f.title}</h3>
+ <span className="text-[9px] font-bold text-[#7C3AED] bg-[#F3E8FF] px-1.5 py-0.5 rounded-full flex-shrink-0">NEW</span>
+ </div>
+ <p className="text-xs text-[#4E5968] leading-relaxed break-keep">{f.desc}</p>
+ <div className="mt-2 inline-flex items-center gap-1 text-[11px] font-bold text-[#3182F6] group-hover:text-[#1B64DA]">
+ 자세히 보기 <ArrowRight size={11} strokeWidth={2.5} />
+ </div>
+ </div>
+ </Link>
+ ))}
+ </div>
+
+ <div className="mt-5 flex items-center justify-between gap-3 pt-4 border-t border-[#F2F4F6] flex-wrap">
+ <p className="text-[11px] text-[#8B95A1] break-keep">
+ 더 많은 기능과 앞으로 출시 예정인 기능을 확인하세요.
+ </p>
+ <Link href="/updates"
+ className="inline-flex items-center gap-1 text-xs font-bold text-[#3182F6] hover:text-[#1B64DA]">
+ 전체 업데이트 내역 →
+ </Link>
  </div>
  </div>
 
