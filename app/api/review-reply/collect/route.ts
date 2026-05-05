@@ -38,13 +38,25 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, error: 'platform 필요' }, { status: 400 })
   }
 
-  // naver_place / kakao_map 은 공개 수집기 우선
+  // v1.6s: naver_place / kakao_map 은 공개 수집기로 자동 forward (에러 X)
   if (platform in VERCEL_BYPASS) {
-    return NextResponse.json({
-      ok: false,
-      error: `${platform} 은 Worker 큐가 아닌 ${VERCEL_BYPASS[platform]} 를 사용하세요`,
-      bypass: VERCEL_BYPASS[platform],
-    }, { status: 400 })
+    try {
+      const url = new URL(VERCEL_BYPASS[platform], req.url)
+      const cookie = req.headers.get('cookie') || ''
+      const fwd = await fetch(url.toString(), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', cookie },
+        body: JSON.stringify({ platform }),
+      })
+      const fwdJson = await fwd.json().catch(() => ({}))
+      return NextResponse.json({ ...fwdJson, forwarded_to: VERCEL_BYPASS[platform] }, { status: fwd.status })
+    } catch (e: any) {
+      return NextResponse.json({
+        ok: false,
+        error: '공개 수집기 forward 실패: ' + (e?.message || 'unknown'),
+        bypass: VERCEL_BYPASS[platform],
+      }, { status: 502 })
+    }
   }
 
   if (!WORKER_PLATFORMS.includes(platform)) {
