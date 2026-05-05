@@ -1994,10 +1994,10 @@ function SettingsInner() {
     <>
       {/* 토스페이먼츠 SDK — 플랜 관리 탭에서 결제 수단 등록 시 사용 */}
       <Script src="https://js.tosspayments.com/v1/payment" strategy="afterInteractive" />
-      <div className="min-h-screen bg-[#F2F4F6] flex flex-col overflow-x-hidden">
+      <div className="min-h-screen bg-[#F8F9FA]">
         <div className="flex flex-1">
           <Sidebar />
-          <main className="flex-1 min-w-0 max-w-full md:ml-[220px] pt-14 md:pt-0">
+          <main className="flex-1 min-w-0 max-w-full md:ml-[220px] pt-4 md:pt-0">
             {/* LOCALUTION_HERO_BANNER */}
             <section className={`bg-gradient-to-br ${hero.grad} text-white`}>
               <div className="max-w-5xl mx-auto px-4 md:px-8 py-6 md:py-10 flex items-center gap-3 md:gap-4">
