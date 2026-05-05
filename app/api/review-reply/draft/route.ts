@@ -40,7 +40,9 @@ export async function POST(req: NextRequest) {
   if (!draft) {
     return NextResponse.json({ ok: false, error: 'draft 비어있음' }, { status: 400 })
   }
-  const VALID_TONES = ['warm', 'polite', 'formal', 'friendly', 'expert', 'witty', 'simple', 'emo', 'mz']
+  // v1.6y: 톤 추가 — apologetic (사과), grateful (감사), gourmand (미식), custom (맞춤)
+  const VALID_TONES = ['warm', 'polite', 'formal', 'friendly', 'expert', 'witty', 'simple', 'emo', 'mz',
+    'apologetic', 'grateful', 'gourmand', 'custom']
   if (tone && !VALID_TONES.includes(tone)) {
     return NextResponse.json({ ok: false, error: 'tone 값 오류' }, { status: 400 })
   }
