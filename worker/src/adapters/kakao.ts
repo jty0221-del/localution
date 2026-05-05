@@ -218,7 +218,19 @@ export async function runKakao(
       const col = reviewDbId ? 'id' : 'platform_review_id'
       const val = reviewDbId ?? targetId
 
-      const replied = await postKakaoReply(page, targetId, replyText, log)
+      // v1.6y: 리뷰 정보 미리 조회 (작성자 + 본문 매칭용 fallback)
+      let reviewInfo: { author?: string | null; content?: string | null } = {}
+      try {
+        const { data } = await svc
+          .from('platform_reviews')
+          .select('author_name, content')
+          .eq(col, val)
+          .eq('user_id', userId)
+          .maybeSingle()
+        if (data) reviewInfo = { author: data.author_name, content: data.content }
+      } catch {}
+
+      const replied = await postKakaoReply(page, targetId, replyText, reviewInfo, log)
       if (replied.ok) {
         await svc
           .from('platform_reviews')
@@ -295,34 +307,104 @@ function extractReviewsFromApiResponse(data: unknown, placeId: string): Collecte
 }
 
 // ─────────────────────────────────────────────
-// 사장님 답글 등록 (place.map.kakao.com 기반 MVP)
+// 사장님 답글 등록 (place.map.kakao.com 기반)
+//   v1.6y — 카드 찾기 다단계 fallback (data 속성 → 작성자 매칭 → 본문 매칭)
+//   카카오는 사장님 권한이 카카오 비즈니스 (https://place-mall.kakao.com)
+//   계정과 연결돼 있어야 답글 버튼이 노출됨
 // ─────────────────────────────────────────────
 async function postKakaoReply(
   page: any,
   platformReviewId: string,
   replyText: string,
+  reviewInfo: { author?: string | null; content?: string | null },
   log: Logger,
 ): Promise<{ ok: true } | { ok: false; reason: string }> {
   try {
-    const card = await page.$(
-      `[data-review-id="${platformReviewId}"], [data-comment-id="${platformReviewId}"], [data-id="${platformReviewId}"]`,
-    )
-    if (!card) return { ok: false, reason: `card not found for ${platformReviewId}` }
+    log.info({ platformReviewId, hasAuthor: !!reviewInfo.author, hasContent: !!reviewInfo.content }, 'kakao_map: post_reply 시작')
 
-    const replyBtn = await card.$(DOM_SELECTORS.replyButton)
-    if (!replyBtn) return { ok: false, reason: '사장님 댓글 버튼 없음 — 로그인 상태/사장님 권한 확인 필요' }
+    // v1.6y: 리뷰 탭 진입 보장
+    const reviewTabEl = await page.$(DOM_SELECTORS.reviewTab).catch(() => null)
+    if (reviewTabEl) {
+      await reviewTabEl.click().catch(() => null)
+      await page.waitForTimeout(1500)
+    }
+
+    // 스크롤하면서 모든 리뷰 로드 시도 (lazy load 대응)
+    for (let i = 0; i < 8; i++) {
+      await page.evaluate(() => window.scrollBy(0, 1000)).catch(() => null)
+      await page.waitForTimeout(500)
+    }
+
+    // ── 1단계: data 속성으로 카드 찾기 ──
+    let card = await page.$(
+      `[data-review-id="${platformReviewId}"], [data-comment-id="${platformReviewId}"], [data-id="${platformReviewId}"]`,
+    ).catch(() => null)
+
+    // ── 2단계: 작성자 + 본문 텍스트 매칭 ──
+    if (!card && (reviewInfo.author || reviewInfo.content)) {
+      const author = reviewInfo.author || ''
+      const contentSnippet = (reviewInfo.content || '').slice(0, 30)
+      log.info({ author, contentSnippet }, 'kakao_map: data 속성 매칭 실패 → 작성자/본문 매칭 시도')
+
+      card = await page.evaluateHandle((args: { selector: string; author: string; content: string }) => {
+        const cards = Array.from(document.querySelectorAll(args.selector))
+        for (const c of cards) {
+          const text = (c as HTMLElement).innerText || ''
+          const matchAuthor = args.author && text.includes(args.author)
+          const matchContent = args.content && text.includes(args.content)
+          if (matchAuthor || matchContent) return c
+        }
+        return null
+      }, { selector: DOM_SELECTORS.reviewCard, author, content: contentSnippet }).catch(() => null)
+
+      const isNull = card ? await card.evaluate((el: any) => el == null).catch(() => true) : true
+      if (isNull) card = null
+    }
+
+    if (!card) {
+      await dumpPageDiagnostics(page, log, 'kakao-reply-card-not-found')
+      return { ok: false, reason: `리뷰 카드 못찾음 (${platformReviewId}) — 카카오 비즈니스 권한 또는 페이지 구조 변경 가능` }
+    }
+
+    // ── 사장님 답글 버튼 ──
+    const replyBtn = await card.$(DOM_SELECTORS.replyButton).catch(() => null)
+    if (!replyBtn) {
+      await dumpPageDiagnostics(page, log, 'kakao-reply-button-missing')
+      return { ok: false, reason: '사장님 댓글 버튼 없음 — 카카오 비즈니스 (place-mall.kakao.com) 매장 연결 확인 필요' }
+    }
     await replyBtn.click()
     await page.waitForTimeout(1500)
 
-    const textarea = await page.$(DOM_SELECTORS.replyTextarea)
-    if (!textarea) return { ok: false, reason: 'reply textarea not found' }
+    // ── 텍스트 입력 ──
+    const textarea = await page.$(DOM_SELECTORS.replyTextarea).catch(() => null)
+    if (!textarea) {
+      await dumpPageDiagnostics(page, log, 'kakao-reply-textarea-missing')
+      return { ok: false, reason: '답글 입력창 못찾음 (DOM 변경 가능)' }
+    }
     await textarea.fill(replyText)
     await page.waitForTimeout(500)
 
-    const submit = await page.$(DOM_SELECTORS.replySubmit)
-    if (!submit) return { ok: false, reason: 'reply submit button not found' }
+    // ── 등록 버튼 ──
+    const submit = await page.$(DOM_SELECTORS.replySubmit).catch(() => null)
+    if (!submit) {
+      await dumpPageDiagnostics(page, log, 'kakao-reply-submit-missing')
+      return { ok: false, reason: '답글 등록 버튼 못찾음' }
+    }
     await submit.click()
     await page.waitForTimeout(2500)
+
+    // ── 검증: 답글이 실제로 등록됐는지 확인 ──
+    const verified = await page.evaluate((args: { reply: string }) => {
+      const candidates = Array.from(document.querySelectorAll(
+        '[class*="OwnerComment"], [class*="owner_reply"], [class*="comment_owner"]',
+      ))
+      const snippet = args.reply.trim().slice(0, 25)
+      return candidates.some((el) => ((el as HTMLElement).innerText || '').includes(snippet))
+    }, { reply: replyText }).catch(() => false)
+
+    if (!verified) {
+      log.warn({ platformReviewId }, 'kakao_map: submit 클릭됐으나 답글 노출 검증 실패 (성공으로 간주하되 다음 fetch 에서 재확인)')
+    }
 
     return { ok: true }
   } catch (e: any) {
