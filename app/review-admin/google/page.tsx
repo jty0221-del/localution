@@ -4,7 +4,7 @@ export const dynamic = 'force-dynamic'
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Lightbulb, Clipboard, Check, Sparkles, Globe } from 'lucide-react'
+import { Lightbulb, Clipboard, Check, Sparkles, Globe, Search, Link2, ExternalLink, X, AlertCircle } from 'lucide-react'
 import Sidebar from '../../components/Sidebar'
 import Footer from '../../components/Footer'
 import PageHeader from '../../components/PageHeader'
@@ -55,8 +55,23 @@ export default function GoogleReviewPage() {
  const [filterReplied, setFilterReplied] = useState<'all' | 'replied' | 'unreplied'>('all')
  const [copied, setCopied] = useState(false)
  const [tone, setTone] = useState<'warm' | 'polite' | 'formal'>('warm')
+ const [placeId, setPlaceId] = useState<string>('')
+ const [connectOpen, setConnectOpen] = useState(false)
 
- useEffect(() => {
+ const checkConnection = async () => {
+ try {
+ const res = await fetch('/api/stores/me', { credentials: 'include', cache: 'no-store' })
+ const data = await res.json().catch(() => null)
+ const googlePlatform = data?.platforms?.find((p: any) => p.platform === 'google')
+ if (googlePlatform?.connected) {
+ setConnected(true)
+ setStoreName(googlePlatform.platform_store_name || data?.store?.name || '')
+ setPlaceId(googlePlatform.platform_store_id || '')
+ return
+ }
+ } catch {}
+
+ // localStorage fallback
  try {
  const linksRaw = localStorage.getItem('localution.platform_links')
  const links = linksRaw ? JSON.parse(linksRaw) : []
@@ -70,10 +85,12 @@ export default function GoogleReviewPage() {
  fallbackName = p?.storeName || ''
  } catch {}
  setStoreName(googleLink?.externalName || fallbackName)
- setReviews(DEMO_REVIEWS)
- } catch {
- setReviews(DEMO_REVIEWS)
+ } catch {}
  }
+
+ useEffect(() => {
+ checkConnection()
+ setReviews(DEMO_REVIEWS)
  }, [])
 
  const handleAiReply = async (review: Review) => {
@@ -166,13 +183,40 @@ export default function GoogleReviewPage() {
  </div>
 
  {!connected && (
- <div className="bg-[#FFFBEB] border border-[#FDE68A] rounded-2xl p-4 mb-5 flex items-center justify-between gap-3 flex-wrap">
- <p className="text-xs md:text-sm text-[#92400E]">
- 구글 비즈니스 프로필을 연동하면 실시간 리뷰를 불러올 수 있습니다.
+ <div className="rounded-2xl border border-[#BFDBFE] bg-gradient-to-br from-[#EFF6FF] to-[#DBEAFE] p-4 mb-5">
+ <div className="flex items-start gap-3">
+ <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#4285F4] to-[#1A56B0] flex items-center justify-center shadow-sm flex-shrink-0">
+ <Globe size={18} className="text-white" strokeWidth={2.5} />
+ </div>
+ <div className="flex-1 min-w-0">
+ <p className="text-sm font-bold text-[#1A56B0] mb-1">구글 매장 연결</p>
+ <p className="text-[11px] md:text-xs text-[#1E40AF]/85 leading-relaxed mb-3">
+ 매장 이름으로 자동 검색하거나, Google Maps URL 을 직접 붙여넣어 연결할 수 있어요.
+ 연결 후 다음 동기화부터 실시간 리뷰가 들어옵니다.
  </p>
- <Link href={buildSettingsHref('connect', { platform: 'google' })}
- className="px-4 py-2 rounded-xl text-xs font-bold text-white hover:opacity-90 whitespace-nowrap"
- style={{ background: PLATFORM.color }}>+ 연결하기</Link>
+ <button
+ onClick={() => setConnectOpen(true)}
+ className="inline-flex items-center gap-1.5 px-4 py-2 rounded-xl text-xs font-bold text-white hover:opacity-90 shadow-sm"
+ style={{ background: PLATFORM.color }}>
+ <Link2 size={12} strokeWidth={2.5} /> 구글 매장 연결하기
+ </button>
+ </div>
+ </div>
+ </div>
+ )}
+
+ {connected && placeId && (
+ <div className="rounded-2xl border border-[#BBF7D0] bg-[#F0FDF4] p-3 mb-5 flex items-center justify-between gap-3 flex-wrap">
+ <div className="flex items-center gap-2 min-w-0 flex-1">
+ <Check size={14} className="text-[#059669] flex-shrink-0" strokeWidth={2.5} />
+ <p className="text-xs text-[#166534] truncate">
+ <strong>{storeName || '매장'}</strong> 연결됨 · Place ID <code className="bg-white px-1 rounded">{placeId.slice(0, 30)}{placeId.length > 30 ? '...' : ''}</code>
+ </p>
+ </div>
+ <button onClick={() => setConnectOpen(true)}
+ className="text-[11px] font-bold text-[#1A56B0] hover:underline flex-shrink-0">
+ 매장 변경
+ </button>
  </div>
  )}
 
@@ -300,6 +344,213 @@ export default function GoogleReviewPage() {
 
  </div>
  </main>
+ </div>
+
+ {/* 구글 매장 연결 모달 */}
+ {connectOpen && (
+ <GoogleConnectModal
+ onClose={() => setConnectOpen(false)}
+ onConnected={(name, id) => {
+ setConnected(true)
+ setStoreName(name || storeName)
+ setPlaceId(id)
+ setConnectOpen(false)
+ toast.success('구글 매장 연결 완료')
+ checkConnection()
+ }}
+ />
+ )}
+ </div>
+ )
+}
+
+// ─────────────────────────────────────────────
+// 구글 매장 연결 모달 — 자동 검색 + URL 직접 입력
+// ─────────────────────────────────────────────
+function GoogleConnectModal({ onClose, onConnected }: {
+ onClose: () => void
+ onConnected: (name: string, placeId: string) => void
+}) {
+ const [mode, setMode] = useState<'auto' | 'url'>('auto')
+ const [query, setQuery] = useState('')
+ const [url, setUrl] = useState('')
+ const [loading, setLoading] = useState(false)
+ const [candidates, setCandidates] = useState<Array<{
+ placeId: string; name: string; address: string; rating: number | null; totalRatings: number; url: string
+ }>>([])
+ const [error, setError] = useState('')
+
+ async function autoSearch() {
+ setLoading(true); setError(''); setCandidates([])
+ try {
+ const res = await fetch('/api/place/google/auto-connect', {
+ method: 'POST',
+ credentials: 'include',
+ headers: { 'Content-Type': 'application/json' },
+ body: JSON.stringify({ query: query.trim() || undefined }),
+ })
+ const data = await res.json()
+ if (!data.ok) {
+ setError(data.error || '검색 실패')
+ return
+ }
+ if (data.auto && data.saved) {
+ onConnected(data.saved.name, data.saved.placeId)
+ return
+ }
+ if (Array.isArray(data.candidates) && data.candidates.length > 0) {
+ setCandidates(data.candidates)
+ } else {
+ setError('검색 결과 없음 — Google Maps URL 직접 입력을 사용해주세요')
+ setMode('url')
+ }
+ } catch (e: any) {
+ setError(e?.message || '오류')
+ } finally {
+ setLoading(false)
+ }
+ }
+
+ async function pickCandidate(placeId: string, name: string) {
+ setLoading(true); setError('')
+ try {
+ const res = await fetch('/api/place/google/set-place', {
+ method: 'POST',
+ credentials: 'include',
+ headers: { 'Content-Type': 'application/json' },
+ body: JSON.stringify({ place_id: placeId }),
+ })
+ const data = await res.json()
+ if (!data.ok) { setError(data.error || '저장 실패'); return }
+ onConnected(name, placeId)
+ } catch (e: any) {
+ setError(e?.message || '오류')
+ } finally { setLoading(false) }
+ }
+
+ async function submitUrl() {
+ if (!url.trim()) return
+ setLoading(true); setError('')
+ try {
+ const res = await fetch('/api/place/google/set-place', {
+ method: 'POST',
+ credentials: 'include',
+ headers: { 'Content-Type': 'application/json' },
+ body: JSON.stringify({ url: url.trim() }),
+ })
+ const data = await res.json()
+ if (!data.ok) { setError(data.error || '저장 실패'); return }
+ onConnected('', data.saved_id || '')
+ } catch (e: any) {
+ setError(e?.message || '오류')
+ } finally { setLoading(false) }
+ }
+
+ return (
+ <div className="fixed inset-0 z-50 bg-black/50 flex items-end md:items-center justify-center p-0 md:p-4" onClick={onClose}>
+ <div className="bg-white w-full md:max-w-md rounded-t-3xl md:rounded-2xl p-5 max-h-[90vh] overflow-y-auto" onClick={e => e.stopPropagation()}>
+ <div className="flex items-center justify-between mb-4">
+ <div className="flex items-center gap-2">
+ <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#4285F4] to-[#1A56B0] flex items-center justify-center shadow-sm">
+ <Globe size={16} className="text-white" strokeWidth={2.5} />
+ </div>
+ <h3 className="text-base font-black text-[#191F28]">구글 매장 연결</h3>
+ </div>
+ <button onClick={onClose} className="p-1 text-[#8B95A1]">
+ <X size={18} strokeWidth={2.5} />
+ </button>
+ </div>
+
+ {/* 모드 탭 */}
+ <div className="grid grid-cols-2 gap-1 p-1 bg-[#F2F4F6] rounded-xl mb-4">
+ <button onClick={() => setMode('auto')}
+ className={`py-2 rounded-lg text-xs font-bold transition-colors ${mode === 'auto' ? 'bg-white text-[#191F28] shadow-sm' : 'text-[#8B95A1]'}`}>
+ 자동 검색
+ </button>
+ <button onClick={() => setMode('url')}
+ className={`py-2 rounded-lg text-xs font-bold transition-colors ${mode === 'url' ? 'bg-white text-[#191F28] shadow-sm' : 'text-[#8B95A1]'}`}>
+ URL 직접 입력
+ </button>
+ </div>
+
+ {mode === 'auto' && (
+ <div className="space-y-3">
+ <div>
+ <label className="text-[11px] font-bold text-[#4E5968] mb-1 block">매장 이름 (비워두면 등록된 매장 정보 사용)</label>
+ <div className="flex gap-2">
+ <input type="text" value={query} onChange={e => setQuery(e.target.value)}
+ placeholder="예: 부천 피노카페"
+ className="flex-1 px-2.5 py-2 border border-[#E5E8EB] rounded-lg text-sm focus:outline-none focus:border-[#4285F4]" />
+ <button onClick={autoSearch} disabled={loading}
+ className="inline-flex items-center gap-1 px-3 py-2 bg-[#4285F4] text-white rounded-lg text-xs font-bold hover:bg-[#1A56B0] disabled:opacity-50">
+ <Search size={12} strokeWidth={2.5} />
+ {loading ? '...' : '검색'}
+ </button>
+ </div>
+ </div>
+
+ {error && (
+ <div className="rounded-lg bg-[#FEF2F2] border border-[#FECACA] p-2.5 flex items-start gap-2">
+ <AlertCircle size={12} className="text-[#DC2626] flex-shrink-0 mt-0.5" strokeWidth={2.5} />
+ <p className="text-[11px] text-[#DC2626] leading-relaxed">{error}</p>
+ </div>
+ )}
+
+ {candidates.length > 0 && (
+ <div className="space-y-1.5 max-h-[300px] overflow-y-auto">
+ {candidates.map(c => (
+ <button key={c.placeId}
+ onClick={() => pickCandidate(c.placeId, c.name)}
+ disabled={loading}
+ className="w-full text-left p-3 rounded-xl border border-[#E5E8EB] hover:border-[#4285F4] hover:bg-[#EFF6FF]/30 transition-colors disabled:opacity-50">
+ <p className="text-sm font-bold text-[#191F28] truncate">{c.name}</p>
+ <p className="text-[11px] text-[#8B95A1] truncate">{c.address}</p>
+ {c.rating != null && (
+ <p className="text-[10px] text-[#F59E0B] mt-0.5">
+ {'★'.repeat(Math.round(c.rating))} <span className="text-[#8B95A1]">({c.totalRatings})</span>
+ </p>
+ )}
+ </button>
+ ))}
+ </div>
+ )}
+ </div>
+ )}
+
+ {mode === 'url' && (
+ <div className="space-y-3">
+ <div>
+ <label className="text-[11px] font-bold text-[#4E5968] mb-1 block">Google Maps URL 또는 Place ID</label>
+ <textarea value={url} onChange={e => setUrl(e.target.value)}
+ placeholder="https://www.google.com/maps/place/... 또는 ChIJ..."
+ className="w-full px-2.5 py-2 border border-[#E5E8EB] rounded-lg text-sm focus:outline-none focus:border-[#4285F4] resize-y min-h-[80px] font-mono text-[12px]" />
+ <p className="text-[10px] text-[#8B95A1] mt-1 leading-relaxed">
+ Google Maps 에서 매장 페이지 → 공유 → 링크 복사. 또는 직접 Place ID 를 붙여넣어도 됩니다.
+ </p>
+ </div>
+
+ {error && (
+ <div className="rounded-lg bg-[#FEF2F2] border border-[#FECACA] p-2.5 flex items-start gap-2">
+ <AlertCircle size={12} className="text-[#DC2626] flex-shrink-0 mt-0.5" strokeWidth={2.5} />
+ <p className="text-[11px] text-[#DC2626] leading-relaxed">{error}</p>
+ </div>
+ )}
+
+ <button onClick={submitUrl} disabled={loading || !url.trim()}
+ className="w-full inline-flex items-center justify-center gap-1.5 px-4 py-2.5 bg-[#4285F4] text-white rounded-xl text-sm font-bold hover:bg-[#1A56B0] disabled:opacity-50 shadow-sm">
+ <Link2 size={14} strokeWidth={2.5} />
+ {loading ? '저장 중...' : '연결하기'}
+ </button>
+ </div>
+ )}
+
+ <div className="mt-4 pt-3 border-t border-[#F2F4F6]">
+ <a href="https://business.google.com/" target="_blank" rel="noopener noreferrer"
+ className="inline-flex items-center gap-1 text-[11px] font-bold text-[#1A56B0] hover:underline">
+ <ExternalLink size={11} strokeWidth={2.5} />
+ Google Business Profile 열기
+ </a>
+ </div>
  </div>
  </div>
  )
