@@ -489,10 +489,21 @@ export default function Sidebar() {
  <>
  {/* 모바일 상단 바 */}
  <div className="md:hidden fixed top-0 left-0 right-0 h-14 bg-white border-b border-[#E5E8EB] z-30 flex items-center justify-between px-4">
- <div>
+ <button
+ onClick={() => {
+ setMobileOpen(false)
+ if (pathname === '/dashboard') {
+ if (typeof window !== 'undefined') window.location.reload()
+ } else {
+ router.push('/dashboard')
+ }
+ }}
+ className="flex items-center -ml-1 px-1 py-1 rounded-lg active:bg-[#F2F4F6] transition-colors"
+ aria-label="대시보드로 이동 또는 새로고침"
+ >
  <span className="font-black text-[#191F28] text-lg tracking-tight">Localution</span>
  <span className="text-[11px] text-[#8B95A1] ml-1.5 font-medium">(로컬루션)</span>
- </div>
+ </button>
  <button onClick={() => setMobileOpen(!mobileOpen)} className="w-9 h-9 flex flex-col justify-center items-center gap-1.5">
  <span className={"block w-5 h-0.5 bg-[#191F28] rounded transition-all " + (mobileOpen ? 'rotate-45 translate-y-2' : '')} />
  <span className={"block h-0.5 bg-[#191F28] rounded transition-all " + (mobileOpen ? 'opacity-0 w-0' : 'w-5')} />
