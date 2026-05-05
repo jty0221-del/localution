@@ -676,10 +676,10 @@ export default function QRAdmin() {
   const previewReviewUrl = storeInfo.connected ? generateReviewUrl(storeInfo) : ''
 
   return (
-    <div className="min-h-screen bg-[#F2F4F6] flex flex-col overflow-x-hidden">
+    <div className="min-h-screen bg-[#F8F9FA]">
       <div className="flex flex-1">
         <Sidebar />
-        <main className="flex-1 min-w-0 max-w-full md:ml-[220px] pt-14 md:pt-0">
+        <main className="flex-1 min-w-0 max-w-full md:ml-[220px] pt-4 md:pt-0">
 
           {/* 통일 hero banner — 전체 페이지와 동일한 PageHeader 사용 */}
           <PageHeader
