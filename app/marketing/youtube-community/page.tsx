@@ -16,10 +16,12 @@ import {
   Download,
   Settings,
   ChevronDown,
+  ChevronRight,
 } from 'lucide-react'
 import Sidebar from '../../components/Sidebar'
 import PageHeader from '../../components/PageHeader'
 import Footer from '../../components/Footer'
+import Link from 'next/link'
 
 const AGENT_URL = 'http://127.0.0.1:7777'
 
@@ -227,7 +229,7 @@ export default function YoutubeCommunityPage() {
               {showGuide && (
                 <div className="px-4 py-4 bg-white space-y-3">
                   {[
-                    { step: '1', title: '에이전트 파일 다운로드', desc: '담당자에게 문의하거나 공유된 링크에서 yt_community_agent.exe 를 받으세요.' },
+                    { step: '1', title: '에이전트 파일 다운로드', desc: '아래 다운로드 페이지에서 yt_community_agent.exe 를 받으세요.' },
                     { step: '2', title: 'yt_community_agent.exe 실행', desc: '파일을 더블클릭하면 터미널 창이 열리며 에이전트가 시작됩니다. 창을 닫지 마세요.' },
                     { step: '3', title: '이 페이지에서 연결 확인', desc: '위쪽 상태 표시줄이 초록색 "에이전트 연결됨"으로 바뀌면 사용할 수 있습니다.' },
                   ].map(({ step, title, desc }) => (
@@ -242,6 +244,14 @@ export default function YoutubeCommunityPage() {
                   <p className="text-[11px] text-[#B0B8C1] pt-2 border-t border-[#F2F4F6]">
                     에이전트는 내 PC에서만 실행되며 외부로 정보가 전송되지 않습니다.
                   </p>
+                  <Link
+                    href="/marketing/youtube-community/download"
+                    className="flex items-center justify-center gap-1.5 w-full mt-1 py-2.5 rounded-xl bg-gradient-to-r from-red-500 to-red-600 text-white text-xs font-bold hover:from-red-600 hover:to-red-700 transition-all"
+                  >
+                    <Download size={12} strokeWidth={2.5} />
+                    다운로드 페이지로 이동
+                    <ChevronRight size={11} strokeWidth={2.5} />
+                  </Link>
                 </div>
               )}
             </div>
