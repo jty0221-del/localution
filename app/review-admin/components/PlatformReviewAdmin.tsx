@@ -77,6 +77,7 @@ interface Review {
   postedAt: string | null
   collectedAt: string | null
   hasReply: boolean
+  writableComment?: boolean | null  // v1.6q: 배민 자체 30일 정책 신호 (false = 답글 불가)
   photos: string[]           // 30차-23: 사진 URL 배열 (썸네일 렌더용)
   photoCount: number         // 요약 뱃지용 (photos.length)
   draftReply: string | null
@@ -355,6 +356,10 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
             hasReply: !!r.has_reply
               || !!r.reply_content
               || (Array.isArray((r.raw_snapshot as any)?.replies) && (r.raw_snapshot as any).replies.length > 0),
+            // v1.6q: 배민 자체 writableComment 필드 — false 면 30일 초과로 답글 불가
+            writableComment: typeof (r.raw_snapshot as any)?.writableComment === 'boolean'
+              ? (r.raw_snapshot as any).writableComment
+              : null,
             photos: photoArr,
             photoCount: photoArr.length,
             draftReply: r.draft_reply || null,
@@ -1056,11 +1061,12 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
                     const isSubmitting = submitting && editingId === review.id
                     const isSubmitted = review.replyStatus === 'submitted'
                     const isBulkTarget = bulkRunning && bulkProgress.currentId === review.id
-                    // v1.6m: 배민은 30일 지난 리뷰는 답글 등록 불가능 (배민 정책)
-                    //   posted_at > platform_review_id 의 YYYYMMDD prefix > collectedAt 순
-                    //   배민 review ID 형식: baemin-real-YYYYMMDDXXXXXXXX (예: baemin-real-2026011601790734)
+                    // v1.6q: 배민 30일 정책 — writableComment > posted_at > ID prefix > collectedAt 순
+                    //   배민이 직접 알려주는 writableComment 가 가장 정확 (false = 답글 불가)
                     const isReplyExpired = (() => {
                       if (config.platform !== 'baemin') return false
+                      // 0. v1.6q: 배민 자체 신호 가장 정확
+                      if (review.writableComment === false) return true
                       // 1. posted_at 우선
                       if (review.postedAt) {
                         const ts = new Date(review.postedAt).getTime()
