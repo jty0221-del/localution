@@ -258,7 +258,7 @@ ${lines.join('\n')}
   const historyLabel   = `내 문의 내역${myInquiries.length ? ` (${myInquiries.length})` : ''}`
 
   return (
-    <div className="min-h-screen bg-[#F2F4F6] flex">
+    <div className="min-h-screen bg-[#F8F9FA] flex">
       <style>{GLOBAL_STYLES}</style>
       <Sidebar />
       <main className="flex-1 md:ml-[220px]">
