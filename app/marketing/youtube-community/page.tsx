@@ -15,6 +15,7 @@ import {
   Link2,
   Download,
   Settings,
+  ChevronDown,
 } from 'lucide-react'
 import Sidebar from '../../components/Sidebar'
 import PageHeader from '../../components/PageHeader'
@@ -36,6 +37,7 @@ export default function YoutubeCommunityPage() {
   const [uploadState, setUploadState]   = useState<UploadState>('idle')
   const [logs, setLogs]                 = useState<string[]>([])
   const [showAdvanced, setShowAdvanced] = useState(false)
+  const [showGuide, setShowGuide]       = useState(false)
 
   const logsEndRef   = useRef<HTMLDivElement>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -155,6 +157,7 @@ export default function YoutubeCommunityPage() {
 
       <div className="md:ml-[220px] flex flex-col min-h-screen">
         <PageHeader
+          variant="youtube"
           icon={<Youtube size={28} className="text-white" strokeWidth={2.5} />}
           title="유튜브 커뮤니티 업로드"
           subtitle="로컬 에이전트를 통해 커뮤니티 탭에 자동 게시 · 댓글 작성 · 고정"
@@ -201,6 +204,48 @@ export default function YoutubeCommunityPage() {
               재확인
             </button>
           </div>
+
+          {/* 미연결 시 실행 안내 */}
+          {agentStatus === 'disconnected' && (
+            <div className="rounded-2xl border border-[#FECDD3] overflow-hidden">
+              <button
+                onClick={() => setShowGuide(v => !v)}
+                className="w-full flex items-center justify-between px-4 py-3 bg-[#FFF1F2] hover:bg-[#FFE4E6] transition-colors text-left"
+              >
+                <div className="flex items-center gap-2">
+                  <div className="w-5 h-5 rounded-lg bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center flex-shrink-0">
+                    <Download size={11} className="text-white" strokeWidth={2.5} />
+                  </div>
+                  <span className="text-sm font-semibold text-[#DC2626]">에이전트 실행 방법 보기</span>
+                </div>
+                <ChevronDown
+                  size={16}
+                  className={'text-[#DC2626] transition-transform ' + (showGuide ? 'rotate-180' : '')}
+                  strokeWidth={2.5}
+                />
+              </button>
+              {showGuide && (
+                <div className="px-4 py-4 bg-white space-y-3">
+                  {[
+                    { step: '1', title: '에이전트 파일 다운로드', desc: '담당자에게 문의하거나 공유된 링크에서 yt_community_agent.exe 를 받으세요.' },
+                    { step: '2', title: 'yt_community_agent.exe 실행', desc: '파일을 더블클릭하면 터미널 창이 열리며 에이전트가 시작됩니다. 창을 닫지 마세요.' },
+                    { step: '3', title: '이 페이지에서 연결 확인', desc: '위쪽 상태 표시줄이 초록색 "에이전트 연결됨"으로 바뀌면 사용할 수 있습니다.' },
+                  ].map(({ step, title, desc }) => (
+                    <div key={step} className="flex items-start gap-3">
+                      <span className="w-5 h-5 rounded-full bg-[#FF0000] text-white text-[10px] font-bold flex items-center justify-center flex-shrink-0 mt-0.5">{step}</span>
+                      <div>
+                        <p className="text-xs font-semibold text-[#191F28]">{title}</p>
+                        <p className="text-[11px] text-[#8B95A1] mt-0.5">{desc}</p>
+                      </div>
+                    </div>
+                  ))}
+                  <p className="text-[11px] text-[#B0B8C1] pt-2 border-t border-[#F2F4F6]">
+                    에이전트는 내 PC에서만 실행되며 외부로 정보가 전송되지 않습니다.
+                  </p>
+                </div>
+              )}
+            </div>
+          )}
 
           {/* 메인 그리드 */}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-5">
