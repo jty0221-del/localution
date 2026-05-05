@@ -5,7 +5,7 @@ import { useState, useCallback, useEffect, useMemo } from 'react'
 import Sidebar from '../../components/Sidebar'
 import PageHeader from '../../components/PageHeader'
 import Footer from '../../components/Footer'
-import { TrendingUp } from 'lucide-react'
+import { TrendingUp, Search, AlertTriangle, RefreshCw } from 'lucide-react'
 
 // ── 업체 컨텍스트 (업종·지역·상호) ─────────────────────
 interface BizContext {
@@ -362,9 +362,9 @@ export default function KeywordRankPage() {
   }, [])
 
   return (
-    <div className="flex min-h-screen bg-[#F2F4F6]">
+    <div className="min-h-screen bg-[#F8F9FA]">
       <Sidebar />
-      <main className="flex-1 ml-0 md:ml-[220px] flex flex-col min-h-screen pt-16 md:pt-0 min-w-0 max-w-[1400px]">
+      <div className="md:ml-[220px] flex flex-col min-h-screen">
         <PageHeader
           icon={<TrendingUp size={28} className="text-white" strokeWidth={2.5} />}
           title="키워드 순위"
@@ -373,8 +373,8 @@ export default function KeywordRankPage() {
         />
 
         {/* 상단 필터 바 */}
-        <div className="bg-white border-b border-[#E5E8EB] px-6 py-3 sticky top-0 z-20">
-          <div className="flex items-center gap-3 flex-wrap">
+        <div className="bg-white border-b border-[#E5E8EB] px-4 md:px-6 py-3 sticky top-0 z-20">
+          <div className="max-w-6xl mx-auto flex items-center gap-2.5 md:gap-3 flex-wrap">
             {/* 지역 */}
             <div className="flex items-center gap-1.5">
               <span className="text-xs text-[#8B95A1] font-medium">지역</span>
@@ -414,14 +414,19 @@ export default function KeywordRankPage() {
               <button
                 onClick={handleScan}
                 disabled={scanning}
-                className="flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-[#3182F6] text-white text-sm font-semibold hover:bg-[#1B64DA] transition-colors disabled:opacity-60"
+                className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-[#3182F6] text-white text-sm font-semibold hover:bg-[#1B64DA] transition-colors disabled:opacity-60"
               >
                 {scanning ? (
                   <>
-                    <span className="w-3 h-3 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <RefreshCw size={13} strokeWidth={2.5} className="animate-spin" />
                     스캐닝...
                   </>
-                ) : '🔍 스캐닝'}
+                ) : (
+                  <>
+                    <Search size={13} strokeWidth={2.5} />
+                    스캐닝
+                  </>
+                )}
               </button>
               <button className="px-4 py-1.5 rounded-lg border border-[#E5E8EB] text-sm font-medium text-[#4E5968] hover:bg-[#F2F4F6] transition-colors">
                 분석
@@ -437,20 +442,23 @@ export default function KeywordRankPage() {
         </div>
 
         {/* 데모 안내 배너 */}
-        <div className="bg-[#FFFBEB] border-b border-[#FDE68A] px-6 py-3">
-          <p className="text-[11px] text-[#92400E] leading-relaxed">
-            ⚠ <strong>아래는 예시 데이터입니다</strong> · 네이버 Search API 또는 selfrank·키워드마스터 같은 외부 순위 측정 서비스를 연동하면 내 매장의 실제 키워드 순위로 교체됩니다.
-          </p>
+        <div className="bg-[#FFFBEB] border-b border-[#FDE68A] px-4 md:px-6 py-3">
+          <div className="max-w-6xl mx-auto flex items-start gap-2">
+            <AlertTriangle size={13} className="text-[#92400E] flex-shrink-0 mt-0.5" strokeWidth={2.5} />
+            <p className="text-[11px] text-[#92400E] leading-relaxed">
+              <strong>아래는 예시 데이터입니다</strong> · 네이버 Search API 또는 selfrank·키워드마스터 같은 외부 순위 측정 서비스를 연동하면 내 매장의 실제 키워드 순위로 교체됩니다.
+            </p>
+          </div>
         </div>
 
         {/* 통계 요약 바 */}
-        <div className="bg-white border-b border-[#F2F4F6] px-6 py-2.5">
-          <div className="flex items-center gap-6 text-xs">
+        <div className="bg-white border-b border-[#F2F4F6] px-4 md:px-6 py-2.5">
+          <div className="max-w-6xl mx-auto flex items-center gap-3 md:gap-6 text-xs flex-wrap">
             <span className="text-[#8B95A1]">
               전체 키워드 <strong className="text-[#191F28]">{mockData.length}개</strong> ·
               상위 10위 <strong className="text-[#3182F6]">{connectedCount}개</strong> ({Math.round(connectedCount/mockData.length*100)}%)
             </span>
-            <div className="flex items-center gap-4">
+            <div className="flex items-center gap-3 md:gap-4 flex-wrap">
               <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-[#EFF6FF]"/>  <span className="text-[#3182F6]">1~3위</span></span>
               <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-[#ECFDF5]"/><span className="text-[#12B76A]">4~5위</span></span>
               <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-[#FFFBEB]"/><span className="text-[#F59E0B]">6~10위</span></span>
@@ -460,7 +468,7 @@ export default function KeywordRankPage() {
         </div>
 
         {/* 키워드 카드 그리드 */}
-        <div className="flex-1 p-6">
+        <main className="flex-1 px-4 md:px-6 py-4 md:py-6 max-w-6xl mx-auto w-full">
           {filtered.length === 0 ? (
             <div className="flex flex-col items-center justify-center h-64 text-[#8B95A1]">
               <p className="text-lg font-bold mb-1">검색 결과 없음</p>
@@ -473,16 +481,18 @@ export default function KeywordRankPage() {
               ))}
             </div>
           )}
-        </div>
+        </main>
 
         {/* 하단 안내 */}
-        <div className="px-6 py-3 bg-white border-t border-[#F2F4F6] text-[11px] text-[#8B95A1]">
-          실시간 순위는 <strong className="text-[#3182F6]">네이버 Search API</strong> 키 설정 후 실제 데이터로 전환됩니다.
-          현재는 목업 데이터입니다. &nbsp;
-          <a href="/settings" className="text-[#3182F6] underline">API 키 설정 →</a>
+        <div className="px-4 md:px-6 py-3 bg-white border-t border-[#F2F4F6]">
+          <p className="max-w-6xl mx-auto text-[11px] text-[#8B95A1]">
+            실시간 순위는 <strong className="text-[#3182F6]">네이버 Search API</strong> 키 설정 후 실제 데이터로 전환됩니다.
+            현재는 목업 데이터입니다. &nbsp;
+            <a href="/settings" className="text-[#3182F6] underline">API 키 설정 →</a>
+          </p>
         </div>
         <Footer />
-      </main>
+      </div>
     </div>
   )
 }
