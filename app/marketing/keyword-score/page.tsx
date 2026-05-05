@@ -239,7 +239,7 @@ function ScoreCard({ data }: { data: KeywordScore }) {
               <div className="w-full h-2 rounded-full bg-[#F2F4F6] overflow-hidden mb-1">
                 <div className="h-full rounded-full transition-all" style={{ width: `${f.score}%`, background: scoreColor(f.score) }} />
               </div>
-              <p className="text-[11px] text-[#8B95A1]">💡 {f.tip}</p>
+              <p className="text-[11px] text-[#8B95A1]">{f.tip}</p>
             </div>
           ))}
         </div>
@@ -279,9 +279,9 @@ export default function KeywordScorePage() {
   const lowCount = scores.filter(k => k.totalScore < 60).length
 
   return (
-    <div className="flex min-h-screen bg-[#F2F4F6]">
+    <div className="min-h-screen bg-[#F8F9FA]">
       <Sidebar />
-      <main className="flex-1 ml-0 md:ml-[220px] pt-16 md:pt-0 min-w-0">
+      <main className="flex-1 ml-0 md:ml-[220px] pt-4 md:pt-0 min-w-0">
         <PageHeader
           icon={<Target size={28} className="text-white" strokeWidth={2.5} />}
           title="키워드 스코어"
@@ -293,14 +293,14 @@ export default function KeywordScorePage() {
         {/* 헤더 */}
         <div className="flex items-start justify-between mb-6">
           <div>
-            <h1 className="text-xl font-black text-[#191F28]">📊 키워드 점수분석</h1>
+            <h1 className="text-xl font-black text-[#191F28]">키워드 점수분석</h1>
             <p className="text-sm text-[#8B95A1] mt-0.5">키워드별 최적화 상태를 요소별로 분석하여 개선 방향을 제시합니다</p>
           </div>
         </div>
 
         {/* 데모 안내 배너 */}
         <div className="mb-6 bg-[#FFFBEB] border border-[#FDE68A] rounded-2xl px-5 py-4">
-          <p className="text-xs font-bold text-[#92400E] mb-1">⚠ 아래는 예시 데이터입니다</p>
+          <p className="text-xs font-bold text-[#92400E] mb-1">아래는 예시 데이터입니다</p>
           <p className="text-[11px] text-[#92400E] leading-relaxed">
             현재 보이는 키워드와 점수는 데모용 샘플입니다. 네이버 Search API 또는 외부 순위 측정 서비스(selfrank·키워드마스터 등)를 연동하면 내 매장의 실제 키워드 점수로 교체됩니다.
           </p>
