@@ -174,6 +174,22 @@ ${lines.join('\n')}
           localStorage.removeItem('localution.pricing_quote')
         }
       }
+      // v1.6z+: 통계 페이지 등에서 자동 prefill (category + message)
+      const prefillRaw = localStorage.getItem('localution.inquiry_prefill')
+      if (prefillRaw) {
+        try {
+          const pf = JSON.parse(prefillRaw) as { category?: string; message?: string; source?: string }
+          if (pf.message) {
+            setForm(p => ({
+              ...p,
+              category: pf.category || p.category || '기술문의',
+              message: pf.message!,
+            }))
+            setQuoteBanner('통계 페이지에서 발행 문제 정보를 자동 첨부했어요. 이름·연락처만 입력해주세요.')
+          }
+        } catch {}
+        localStorage.removeItem('localution.inquiry_prefill')
+      }
     } catch {}
   }, [])
 
