@@ -13,7 +13,7 @@ import { COMPANY } from '../../lib/company'
 
 export default function PlatformConsent() {
   return (
-    <div className="min-h-screen bg-[#F2F4F6]">
+    <div className="min-h-screen bg-[#F8F9FA]">
       <div className="max-w-3xl mx-auto px-4 py-12">
         <div className="mb-8">
           <Link href="/terms" className="text-sm text-[#3182F6] hover:underline flex items-center gap-1">
@@ -35,7 +35,7 @@ export default function PlatformConsent() {
           <div className="space-y-8 text-sm text-[#4E5968] leading-relaxed">
 
             <div className="bg-yellow-50 border border-yellow-200 rounded-xl p-4">
-              <p className="font-semibold text-[#191F28] mb-2">⚠️ 읽어주세요</p>
+              <p className="font-semibold text-[#191F28] mb-2">읽어주세요</p>
               <p className="text-xs">
                 본 동의서는 회원 본인이 운영하는 외부 플랫폼 계정의 대리 이용을 회사에 위임하는 법적 효력을 가지는 문서입니다. 내용을 충분히 읽고 이해한 후 동의 여부를 결정해주세요. 동의 후에는 언제든지 [마이페이지 &gt; 플랫폼 연결]에서 철회할 수 있습니다.
               </p>
