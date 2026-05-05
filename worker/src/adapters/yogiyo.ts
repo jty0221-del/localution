@@ -326,7 +326,35 @@ export async function runYogiyo(
       .slice(0, 200)
       .map((r) => ({ ...r, posted_at: normalizeDate(r.posted_at) }))
 
-    const shopId = creds.platform_store_id || 'unknown'
+    // v1.6x: 다중 매장 자동 감지 — captured XHR 또는 DOM 에서 모든 매장 ID 추출
+    const detectedShopIds = new Set<string>()
+    for (const cap of capturedJsonResponses) {
+      // /restaurants/{id}/ 또는 shopId, restaurantId 필드
+      const m = cap.url.match(/\/restaurants\/(\d+)/)
+      if (m) detectedShopIds.add(m[1])
+      const body = cap.body
+      if (Array.isArray(body)) {
+        for (const item of body.slice(0, 100)) {
+          if (item?.shop_id) detectedShopIds.add(String(item.shop_id))
+          if (item?.restaurant_id) detectedShopIds.add(String(item.restaurant_id))
+          if (item?.id && /^\d{4,}$/.test(String(item.id))) detectedShopIds.add(String(item.id))
+        }
+      }
+    }
+    const allShopIds = Array.from(detectedShopIds)
+    log.info({ allShopIds, credShopId: creds.platform_store_id }, 'yogiyo: detected shops')
+
+    // platform_store_id 없으면 자동 저장 (첫 감지된 ID)
+    if ((!creds.platform_store_id || creds.platform_store_id === 'unknown') && allShopIds.length > 0) {
+      try {
+        await svc.from('platform_credentials')
+          .update({ platform_store_id: allShopIds[0] })
+          .eq('user_id', userId).eq('platform', 'yogiyo')
+        log.info({ savedShopId: allShopIds[0] }, 'yogiyo: platform_store_id auto-saved')
+      } catch (_) {}
+    }
+
+    const shopId = creds.platform_store_id || allShopIds[0] || 'unknown'
     const res = await upsertReviews(svc, userId, 'yogiyo', shopId, normalized)
     log.info({ ...res }, 'yogiyo reviews upserted')
 
@@ -345,6 +373,19 @@ export async function runYogiyo(
     if (action === 'post_reply' && payload?.platform_review_id && payload?.reply_text) {
       const targetId = String(payload.platform_review_id)
       const replyText = String(payload.reply_text)
+
+      // v1.6x: 요기요도 30일 정책 적용 (배민과 동일 정책 — 사장님 답글 등록 기간)
+      const idMatch = targetId.replace(/^yogiyo[-:]?/, '').match(/^(\d{8})/)
+      if (idMatch) {
+        const ymd = idMatch[1]
+        const dateStr = ymd.slice(0,4) + '-' + ymd.slice(4,6) + '-' + ymd.slice(6,8) + 'T00:00:00'
+        const ts = new Date(dateStr).getTime()
+        if (!isNaN(ts) && (Date.now() - ts) / 86400_000 > 30) {
+          log.warn({ targetId, daysAgo: Math.round((Date.now() - ts) / 86400_000) }, 'yogiyo: review > 30 days — reply skipped')
+          return { status: 'failed', message: '요기요 정책상 30일 지난 리뷰에 답글 등록 불가' }
+        }
+      }
+
       const replied = await postYogiyoReply(page, targetId, replyText, log)
       if (replied.ok) {
         await svc
