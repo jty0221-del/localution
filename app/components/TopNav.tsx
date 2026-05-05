@@ -39,11 +39,11 @@ export default function TopNav() {
  <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
 
  {/* 로고 */}
- <Link href="/" className="flex items-center gap-2 select-none">
- <div className="w-10 h-10 rounded-xl overflow-hidden flex-shrink-0 shadow-[0_2px_10px_rgba(49,130,246,0.22)] ring-1 ring-[#E8F4FD] bg-white flex items-center justify-center">
- <Image src="/favicon.ico" alt="로컬루션" width={32} height={32} style={{ objectFit: 'contain' }} priority />
+ <Link href="/" className="flex items-center gap-2 select-none active:opacity-70 transition-opacity">
+ <div className="w-9 h-9 md:w-10 md:h-10 rounded-xl flex-shrink-0 bg-gradient-to-br from-[#3182F6] to-[#1B64DA] flex items-center justify-center shadow-[0_2px_10px_rgba(49,130,246,0.28)]">
+ <span className="text-white font-black text-base md:text-lg tracking-tight leading-none">L</span>
  </div>
- <span className="text-xl font-black text-[#191F28] tracking-tight">로컬루션</span>
+ <span className="text-base md:text-xl font-black text-[#191F28] tracking-tight">로컬루션</span>
  </Link>
 
  {/* 데스크탑 메뉴 */}
