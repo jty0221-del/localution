@@ -41,7 +41,7 @@ export default function LockedBanner({
         }}
       >
         <div style={{ fontSize: 14, color: '#92400e' }}>
-          🔒 <b>{mod.name}</b> 모듈 구독이 필요해요 (월 {formatPrice(mod.price)}원)
+          <b>{mod.name}</b> 모듈 구독이 필요해요 (월 {formatPrice(mod.price)}원)
         </div>
         <Link
           href={`/locked?m=${mod.id}`}
