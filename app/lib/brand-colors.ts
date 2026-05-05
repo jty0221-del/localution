@@ -60,6 +60,8 @@ export const BRAND_GRAD = {
   placeGreen:'bg-gradient-to-r from-[#22C55E] via-[#16A34A] to-[#15803D]',
   // 숏폼·릴스 — 핑크/로즈
   pink:      'bg-gradient-to-r from-[#EC4899] via-[#DB2777] to-[#BE185D]',
+  // 유튜브 브랜드 레드
+  youtube:   'bg-gradient-to-r from-[#FF0000] via-[#CC0000] to-[#991B1B]',
 } as const
 
 export type BrandGradientKey = keyof typeof BRAND_GRAD
