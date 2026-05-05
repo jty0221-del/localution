@@ -1273,22 +1273,39 @@ export default function Dashboard() {
     return () => clearInterval(id)
   }, [refreshKeywords])
 
-  // 30차-23: 연결된 전 플랫폼 실제 리뷰 → 최신순 머지
-  //   · has_reply=false 포함 전체 리뷰 대상 감정·미답변 집계
-  //   · posted_at 없는 행은 collected_at 으로 폴백
+  // v1.6r: 모든 플랫폼 골고루 표시 — 플랫폼별로 라운드 로빈 정렬
+  //   기존 단순 최신순: 한 플랫폼이 많은 리뷰 가지면 다른 플랫폼이 안 보임
+  //   수정: 플랫폼별로 최신순 정렬 후 라운드 로빈 (네이버1, 배민1, 쿠팡1, 네이버2, ...)
   const mergedRealReviews: Array<RealReview & { _platformId: PlatformId }> = (() => {
-    const arr: Array<RealReview & { _platformId: PlatformId }> = []
+    // 1) 플랫폼별 그룹 + 각 그룹 최신순 정렬
+    const byPlatform: Record<string, Array<RealReview & { _platformId: PlatformId }>> = {}
     for (const [pid, rs] of Object.entries(platformReviews)) {
       const id = dbPlatformToId(pid)
       if (!id) continue
-      for (const r of rs) arr.push({ ...r, _platformId: id })
+      const sorted = [...rs].sort((a, b) => {
+        const ta = a.posted_at || a.collected_at || ''
+        const tb = b.posted_at || b.collected_at || ''
+        return tb.localeCompare(ta)
+      })
+      byPlatform[id] = sorted.map(r => ({ ...r, _platformId: id }))
     }
-    arr.sort((a, b) => {
-      const ta = a.posted_at || a.collected_at || ''
-      const tb = b.posted_at || b.collected_at || ''
-      return tb.localeCompare(ta)
-    })
-    return arr
+    // 2) 라운드 로빈 인터리브
+    const platformIds = Object.keys(byPlatform)
+    const result: Array<RealReview & { _platformId: PlatformId }> = []
+    let cursor = 0
+    let added = true
+    while (added) {
+      added = false
+      for (const pid of platformIds) {
+        const list = byPlatform[pid]
+        if (list && list[cursor]) {
+          result.push(list[cursor])
+          added = true
+        }
+      }
+      cursor++
+    }
+    return result
   })()
   const hasRealReviews = mergedRealReviews.length > 0
 
