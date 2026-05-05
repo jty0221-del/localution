@@ -32,6 +32,10 @@
     {
       "path": "/api/cron/threads-token-refresh",
       "schedule": "0 3 * * *"
+    },
+    {
+      "path": "/api/cron/threads-daily-brief",
+      "schedule": "0 23 * * *"
     }
   ]
 }
