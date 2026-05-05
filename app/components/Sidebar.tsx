@@ -9,6 +9,8 @@ const FLAT_NAV = [
   { href: '/dashboard',        label: '대시보드', icon: 'DB',  colors: { bg: '#EFF6FF', text: '#3182F6' } },
   { href: '/qr-admin',         label: 'QR 관리',  icon: 'QR',  colors: { bg: '#F5F3FF', text: '#8B5CF6' } },
   { href: '/customers',        label: '고객 관리',icon: '고객', colors: { bg: '#ECFDF5', text: '#059669' } },
+  { href: '/reservations',     label: '예약·일정',icon: '예약', colors: { bg: '#EFF6FF', text: '#3182F6' } },
+  { href: '/settlement',       label: '정산·매출',icon: '정산', colors: { bg: '#ECFDF5', text: '#059669' } },
   { href: '/settings/profile', label: '매장 관리',icon: '매장', colors: { bg: '#FFF1F2', text: '#E11D48' } },
   { href: '/updates',          label: '업데이트 내역', icon: 'NEW', colors: { bg: '#FFF7ED', text: '#EA580C' } },
 ]
@@ -41,8 +43,16 @@ const MARKETING_GROUPS = [
     platform: '인스타',
     color: '#E1306C',
     items: [
-      { href: '/marketing/reels',     label: '릴스·숏폼' },
-      { href: '/marketing/card-news', label: '카드뉴스' },
+      { href: '/marketing/instagram-feed', label: '피드 자동 발행' },
+      { href: '/marketing/reels',          label: '릴스·숏폼' },
+      { href: '/marketing/card-news',      label: '카드뉴스' },
+    ],
+  },
+  {
+    platform: '매장',
+    color: '#EC4899',
+    items: [
+      { href: '/marketing/events', label: '이벤트·프로모션' },
     ],
   },
   {
