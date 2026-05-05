@@ -292,11 +292,19 @@ export default function ProfileSettingsPage() {
                           리뷰 {p.review_count}{p.rating_avg != null ? ' · ' + p.rating_avg.toFixed(1) + '★' : ''}
                         </span>
                       )}
+                      {p.platform_store_id && (
+                        <span className="text-[9px] opacity-70 font-normal">ID: {p.platform_store_id}</span>
+                      )}
                     </div>
                   )
                 })}
               </div>
             )}
+
+            {/* v1.6r: 카카오맵 매장 변경 (잘못된 매장 데이터 들어왔을 때) */}
+            <KakaoPlaceChanger
+              currentId={platforms.find(p => p.platform === 'kakao_map')?.platform_store_id || null}
+            />
           </div>
 
           {/* 매장 정보 폼 */}
@@ -384,6 +392,83 @@ export default function ProfileSettingsPage() {
         </div>
         <Footer />
       </main>
+    </div>
+  )
+}
+
+// v1.6r: 카카오맵 매장 변경 컴포넌트 — 잘못된 매장 데이터 들어왔을 때 직접 수정
+function KakaoPlaceChanger({ currentId }: { currentId: string | null }) {
+  const [open, setOpen] = useState(false)
+  const [input, setInput] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [msg, setMsg] = useState<{ type: 'ok' | 'err'; text: string } | null>(null)
+
+  async function submit() {
+    if (!input.trim()) { setMsg({ type: 'err', text: 'URL 또는 ID 를 입력해주세요' }); return }
+    setLoading(true); setMsg(null)
+    try {
+      const res = await fetch('/api/place/kakao/set-place', {
+        method: 'POST', credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: input.trim() }),
+      })
+      const data = await res.json()
+      if (data.ok) {
+        setMsg({ type: 'ok', text: data.message + ' (1-2분 후 새로고침)' })
+        setInput('')
+        setTimeout(() => window.location.reload(), 3000)
+      } else {
+        setMsg({ type: 'err', text: data.error || '실패' })
+      }
+    } catch (e: any) {
+      setMsg({ type: 'err', text: e?.message || '오류' })
+    }
+    setLoading(false)
+  }
+
+  return (
+    <div className="mt-3 pt-3 border-t border-[#F2F4F6]">
+      <button
+        type="button"
+        onClick={() => setOpen(v => !v)}
+        className="text-[11px] text-[#8B95A1] hover:text-[#3182F6] transition-colors"
+      >
+        {open ? '카카오맵 매장 변경 닫기 ▴' : '카카오맵 매장이 잘못 표시되나요? 직접 변경 ▾'}
+      </button>
+      {open && (
+        <div className="mt-2 p-3 bg-[#FAFBFF] rounded-xl border border-[#E5E8EB]">
+          <p className="text-[11px] text-[#4E5968] mb-2 leading-relaxed">
+            카카오맵 매장 페이지 URL 또는 숫자 ID 를 붙여넣으세요.
+            예: <code className="text-[10px] bg-white px-1 rounded">https://place.map.kakao.com/1822975351</code>
+          </p>
+          {currentId && (
+            <p className="text-[10px] text-[#8B95A1] mb-2">현재 설정: {currentId}</p>
+          )}
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={input}
+              onChange={(e) => setInput(e.target.value)}
+              placeholder="https://place.map.kakao.com/1822975351"
+              className="flex-1 px-3 py-2 text-xs border border-[#E5E8EB] rounded-lg focus:outline-none focus:border-[#FEE500]"
+            />
+            <button
+              type="button"
+              onClick={submit}
+              disabled={loading}
+              className="px-4 py-2 text-xs font-bold bg-[#FEE500] text-[#191919] rounded-lg disabled:opacity-50 hover:bg-[#F4D900]"
+            >
+              {loading ? '변경 중...' : '변경'}
+            </button>
+          </div>
+          {msg && (
+            <p className={'text-[11px] mt-2 px-2 py-1.5 rounded-lg font-medium ' +
+              (msg.type === 'ok' ? 'bg-[#E8FFF0] text-[#059669]' : 'bg-[#FEF2F2] text-[#DC2626]')}>
+              {msg.text}
+            </p>
+          )}
+        </div>
+      )}
     </div>
   )
 }
