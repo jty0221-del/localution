@@ -690,6 +690,10 @@ function AccountStatus({ info }: { info: AccountInfo | null }) {
 // ──────────────────────────────────────────
 function ThreadsPageContent() {
   const searchParams = useSearchParams()
+  const connectedParam = searchParams.get('connected')
+  const errorParam     = searchParams.get('error')
+  const detailParam    = searchParams.get('detail')
+
   const [tab, setTab] = useState<'compose' | 'scheduled' | 'history'>('compose')
   const [account, setAccount] = useState<AccountInfo | null>(null)
   const [accountLoaded, setAccountLoaded] = useState(false)
@@ -702,7 +706,7 @@ function ThreadsPageContent() {
         .catch(() => setAccountLoaded(true))
 
     if (connectedParam === '1') {
-      // 방금 연결 완료 — Vercel 배포 전파 대기 후 한 번 더 조회
+      // 방금 연결 완료 — 즉시 조회 후 2.5초 뒤 재조회 (배포 전파 여유)
       loadAccount().then(() => {
         setTimeout(() => {
           fetch('/api/threads/account')
@@ -715,10 +719,6 @@ function ThreadsPageContent() {
       loadAccount()
     }
   }, [connectedParam])
-
-  const connectedParam = searchParams.get('connected')
-  const errorParam     = searchParams.get('error')
-  const detailParam    = searchParams.get('detail')
 
   const tabs: { key: typeof tab; label: string }[] = [
     { key: 'compose', label: '작성' },
