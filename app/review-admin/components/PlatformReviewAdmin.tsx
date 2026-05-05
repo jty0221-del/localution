@@ -723,6 +723,50 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
       if (typeof r.rating !== 'number' || r.rating > 3) return false
     }
     return true
+  }).slice().sort((a, b) => {
+    // v1.6r: 배민 30일 경과 = 답글 불가 → 화면 아래로
+    //        배민이 아니면 단순 최신순. 같은 그룹 내에서는 posted_at DESC.
+    const isExpired = (r: any) => {
+      if (config.platform !== 'baemin') return false
+      if (r.writableComment === false) return true
+      // posted_at > ID prefix 순
+      if (r.postedAt) {
+        const ts = new Date(r.postedAt).getTime()
+        if (!isNaN(ts) && (Date.now() - ts) / 86400_000 > 30) return true
+      }
+      const m = String(r.platform_review_id || '').match(/^baemin-real-(\d{8})/)
+      if (m) {
+        const ymd = m[1]
+        const dateStr = ymd.slice(0,4) + '-' + ymd.slice(4,6) + '-' + ymd.slice(6,8) + 'T00:00:00'
+        const ts = new Date(dateStr).getTime()
+        if (!isNaN(ts) && (Date.now() - ts) / 86400_000 > 30) return true
+      }
+      return false
+    }
+    const aExpired = isExpired(a) ? 1 : 0
+    const bExpired = isExpired(b) ? 1 : 0
+    if (aExpired !== bExpired) return aExpired - bExpired  // 미만료 → 만료 순
+    // 같은 그룹 내 — 정확한 날짜 우선 사용 (ID prefix > postedAt > collectedAt)
+    const dateMs = (r: any): number => {
+      // baemin-real-YYYYMMDDXXXXXXXX 의 YYYYMMDD 가 가장 정확 (collected_at 같은 시간 문제 회피)
+      const m = String(r.platform_review_id || '').match(/^baemin-real-(\d{8})/)
+      if (m) {
+        const ymd = m[1]
+        const dateStr = ymd.slice(0,4) + '-' + ymd.slice(4,6) + '-' + ymd.slice(6,8) + 'T00:00:00'
+        const ts = new Date(dateStr).getTime()
+        if (!isNaN(ts)) return ts
+      }
+      if (r.postedAt) {
+        const ts = new Date(r.postedAt).getTime()
+        if (!isNaN(ts)) return ts
+      }
+      if (r.collectedAt) {
+        const ts = new Date(r.collectedAt).getTime()
+        if (!isNaN(ts)) return ts
+      }
+      return 0
+    }
+    return dateMs(b) - dateMs(a)  // 최신 → 옛날
   })
 
   const negativeCount = reviews.filter((r) => typeof r.rating === 'number' && r.rating <= 3).length
