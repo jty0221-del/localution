@@ -149,57 +149,122 @@ export async function lookupKakaoPlace(input: string): Promise<KakaoPlaceSummary
   }
 }
 
+// v1.6v: 단일 review item 정규화 (panel3 + main/v 양쪽 호환)
+function normalizeKakaoReview(r: any): KakaoVisitorReview | null {
+  if (!r || typeof r !== 'object') return null
+  if (r.status && r.status !== 'S') return null
+
+  const reviewId = r.review_id != null ? String(r.review_id) : (r.id != null ? String(r.id) : null)
+  if (!reviewId) return null
+
+  const owner = r?.meta?.owner ?? r?.user ?? r?.author ?? {}
+  const authorName: string | null =
+    typeof owner.nickname === 'string' && owner.nickname.trim().length > 0
+      ? owner.nickname.trim()
+      : (typeof r.author_name === 'string' ? r.author_name.trim() : null)
+
+  const rating =
+    typeof r.star_rating === 'number' && r.star_rating >= 1 && r.star_rating <= 5
+      ? r.star_rating
+      : (typeof r.rating === 'number' && r.rating >= 1 && r.rating <= 5 ? r.rating : null)
+
+  const body: string = typeof r.contents === 'string' ? r.contents
+    : (typeof r.content === 'string' ? r.content : (typeof r.body === 'string' ? r.body : ''))
+
+  const photos: string[] = Array.isArray(r.photos)
+    ? r.photos
+        .map((p: any) => (typeof p?.url === 'string' ? p.url : (typeof p === 'string' ? p : null)))
+        .filter((x: string | null): x is string => !!x && x.startsWith('http'))
+    : []
+
+  return {
+    reviewId,
+    authorName,
+    rating,
+    body,
+    visitedAt: null,
+    postedAt: parseDateKST(r.registered_at || r.created_at || r.updated_at || r.date || null),
+    photos,
+    raw: r,
+  }
+}
+
+// v1.6v: main/v 페이지네이션 endpoint — 전체 리뷰 가져오기
+async function fetchKakaoReviewsPage(placeId: string, page: number, order: string = 'RECENT'): Promise<{ reviews: any[]; hasNext: boolean }> {
+  const candidates = [
+    // 가장 가능성 높은 endpoint
+    `https://place-api.map.kakao.com/places/main/v/${placeId}/reviews?order=${order}&pageSize=20&page=${page}`,
+    // legacy fallback
+    `https://place-api.map.kakao.com/places/main/v/${placeId}/reviews?order=${order}&page=${page}`,
+    // 다른 path 시도
+    `https://place.map.kakao.com/main/v/${placeId}/reviews?order=${order}&page=${page}`,
+  ]
+  for (const url of candidates) {
+    try {
+      const res = await fetch(url, {
+        headers: { ...HDR, Referer: `https://place.map.kakao.com/${placeId}` },
+        cache: 'no-store',
+      })
+      if (!res.ok) continue
+      const data = await res.json().catch(() => null)
+      if (!data) continue
+      // 응답 shape 다양 가능 — array 찾기
+      const reviews =
+        data?.reviews
+        || data?.items
+        || data?.list
+        || data?.data?.reviews
+        || data?.kakaomap_review?.reviews
+        || (Array.isArray(data) ? data : [])
+      if (!Array.isArray(reviews)) continue
+      const hasNext = !!(data?.has_next ?? data?.hasNext ?? data?.is_end === false ?? (reviews.length >= 20))
+      return { reviews, hasNext }
+    } catch { /* try next */ }
+  }
+  return { reviews: [], hasNext: false }
+}
+
 /**
- * 카카오맵 최근 방문자 리뷰 수집.
- * panel3 응답에 내장된 kakaomap_review.reviews 를 파싱.
- * (로그인 불필요 · 최근 3~5건 내외 · 더 많은 수집은 Worker 어댑터에서)
+ * 카카오맵 방문자 리뷰 수집 — 페이지네이션 지원
+ * v1.6v: panel3 (3-5건) + main/v?page=N (전체) 합쳐서 dedupe
  */
 export async function fetchKakaoVisitorReviews(placeId: string): Promise<KakaoVisitorReview[]> {
   if (!/^\d+$/.test(placeId)) return []
 
-  const data = await fetchPanel3(placeId)
-  if (!data) return []
-
-  const reviews = data?.kakaomap_review?.reviews
-  if (!Array.isArray(reviews)) return []
-
+  const seen = new Set<string>()
   const out: KakaoVisitorReview[] = []
-  for (const r of reviews) {
-    if (!r || typeof r !== 'object') continue
-    if (r.status && r.status !== 'S') continue // 삭제/숨김 건 스킵
 
-    const reviewId = r.review_id != null ? String(r.review_id) : null
-    if (!reviewId) continue
-
-    const owner = r?.meta?.owner ?? {}
-    const authorName: string | null =
-      typeof owner.nickname === 'string' && owner.nickname.trim().length > 0
-        ? owner.nickname.trim()
-        : null
-
-    const rating =
-      typeof r.star_rating === 'number' && r.star_rating >= 1 && r.star_rating <= 5
-        ? r.star_rating
-        : null
-
-    const body: string = typeof r.contents === 'string' ? r.contents : ''
-
-    const photos: string[] = Array.isArray(r.photos)
-      ? r.photos
-          .map((p: any) => (typeof p?.url === 'string' ? p.url : null))
-          .filter((x: string | null): x is string => !!x && x.startsWith('http'))
-      : []
-
-    out.push({
-      reviewId,
-      authorName,
-      rating,
-      body,
-      visitedAt: null,
-      postedAt: parseDateKST(r.registered_at || r.updated_at || null),
-      photos,
-      raw: r,
-    })
+  // 1차: panel3 (보장된 3-5건)
+  const panelData = await fetchPanel3(placeId)
+  if (panelData?.kakaomap_review?.reviews && Array.isArray(panelData.kakaomap_review.reviews)) {
+    for (const r of panelData.kakaomap_review.reviews) {
+      const norm = normalizeKakaoReview(r)
+      if (norm && !seen.has(norm.reviewId)) {
+        seen.add(norm.reviewId)
+        out.push(norm)
+      }
+    }
   }
+
+  // 2차: main/v 페이지네이션 (전체 리뷰)
+  const MAX_PAGES = 50  // 1000건 상한
+  for (let page = 1; page <= MAX_PAGES; page++) {
+    const { reviews, hasNext } = await fetchKakaoReviewsPage(placeId, page)
+    if (reviews.length === 0) break
+    let added = 0
+    for (const r of reviews) {
+      const norm = normalizeKakaoReview(r)
+      if (norm && !seen.has(norm.reviewId)) {
+        seen.add(norm.reviewId)
+        out.push(norm)
+        added++
+      }
+    }
+    if (added === 0) break  // 더 이상 새 리뷰 없음
+    if (!hasNext) break
+    // rate limit 회피
+    await new Promise(r => setTimeout(r, 400))
+  }
+
   return out
 }
