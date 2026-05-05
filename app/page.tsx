@@ -749,7 +749,7 @@ export default function LandingPage() {
  {/* After */}
  <div className="bg-[#EFF6FF] border border-blue-100 rounded-2xl p-6">
  <div className="flex items-center gap-2 mb-5">
- <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-lg"></div>
+ <div className="w-9 h-9 rounded-full bg-blue-100 flex items-center justify-center text-blue-500"><Sparkles size={18} strokeWidth={2.5} /></div>
  <span className="font-black text-[#191F28] text-base">로컬루션 후</span>
  </div>
  <ul className="space-y-3.5">
