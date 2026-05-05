@@ -162,8 +162,8 @@ export async function runBaemin(
     return { status: 'skipped', message: `baemin: unsupported action ${action}` }
   }
 
-  // v1.6p: Variant 1 = reviewId+contents+shopNumber (정답 검증 완료)
-  log.info({ version: 'v1.6p', ts: '20260505T2100' }, 'BAEMIN_ADAPTER_VERSION_MARKER')
+  // v1.6q: 로그인 인식 fix + writableComment 30일 차단
+  log.info({ version: 'v1.6q', ts: '20260506T0700' }, 'BAEMIN_ADAPTER_VERSION_MARKER')
 
   const svc   = getServiceClient()
   let creds: any
