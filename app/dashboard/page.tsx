@@ -1078,7 +1078,16 @@ export default function Dashboard() {
   const handleCollectWorkerPlatform = async (platformId: string) => {
     setWorkerCollecting(prev => ({ ...prev, [platformId]: true }))
     try {
-      const res = await fetch('/api/review-reply/collect', {
+      // v1.6s: 플랫폼별 endpoint 자동 라우팅
+      //   kakao_map → /api/place/kakao/collect (Vercel)
+      //   naver_place → /api/place/reviews/fetch (Vercel)
+      //   baemin/yogiyo/coupangeats → /api/review-reply/collect (Worker queue)
+      const endpointMap: Record<string, string> = {
+        kakao_map: '/api/place/kakao/collect',
+        naver_place: '/api/place/reviews/fetch',
+      }
+      const endpoint = endpointMap[platformId] || '/api/review-reply/collect'
+      const res = await fetch(endpoint, {
         method: 'POST',
         credentials: 'include',
         headers: { 'Content-Type': 'application/json' },
@@ -1090,7 +1099,7 @@ export default function Dashboard() {
         setWorkerCollecting(prev => ({ ...prev, [platformId]: false }))
         return
       }
-      toast.info('워커에 수집 요청 완료 — 리뷰가 들어오면 자동으로 업데이트됩니다')
+      toast.info(endpointMap[platformId] ? '리뷰 수집 완료!' : '워커에 수집 요청 완료 — 리뷰가 들어오면 자동 업데이트')
 
       // 20초 간격으로 최대 9회(3분) 폴링 — 리뷰 생기면 즉시 반영
       let tries = 0
