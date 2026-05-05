@@ -7,6 +7,7 @@ import Sidebar from '../components/Sidebar'
 import Footer from '../components/Footer'
 import SlideAdBanner from '../components/SlideAdBanner'
 import OnboardingChecklist from '../components/OnboardingChecklist'
+import QuickActions from '../components/QuickActions'
 import { useConnections, setConnection as libSetConnection, removeConnection as libRemoveConnection, PlatformId as CanonicalPlatformId } from '../lib/connections'
 import { toast, confirmDialog } from '../lib/toast'
 import { buildSettingsHref } from '../lib/settings-tabs'
@@ -1563,6 +1564,9 @@ export default function Dashboard() {
         {/* ── 2-D · 신규 사용자 onboarding checklist (4 step) ── */}
         {/* 4가지 모두 완료하면 자동 숨김 — 신규 사용자에게만 노출 */}
         {isLoggedIn && <OnboardingChecklist />}
+
+        {/* ── 빠른 액션 (사장님 자주 쓰는 7가지) ── */}
+        {isLoggedIn && <QuickActions />}
 
         {/* ── 부정 리뷰 긴급 알림 (미답변 1~2점 있을 때만) ── */}
         {isLoggedIn && negativeUnansweredCount > 0 && (
