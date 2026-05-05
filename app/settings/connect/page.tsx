@@ -184,7 +184,7 @@ export default function SettingsConnect() {
   return (
     <div className="min-h-screen bg-[#F2F4F6] flex">
       <Sidebar />
-      <main className="flex-1 md:ml-[220px] pt-14 md:pt-0">
+      <main className="flex-1 md:ml-[220px] pt-4 md:pt-0">
         {/* LOCALUTION_HERO_BANNER */}
         <section className="bg-gradient-to-r from-[#059669] to-[#047857] text-white px-4 sm:px-8 py-10 sm:py-14">
           <div className="max-w-5xl mx-auto flex items-center gap-4">
@@ -489,7 +489,7 @@ function NaverConnectModal(props: {
           {/* 에러 */}
           {error && (
             <div className="bg-[#FFF0F0] border border-[#FFD4D4] rounded-xl p-3 text-xs text-[#F04452]">
-              ⚠ {error}
+              {error}
             </div>
           )}
 
@@ -665,7 +665,7 @@ function GoogleConnectModal(props: {
           </div>
 
           {/* 에러 */}
-          {error && <div className="bg-[#FFF0F0] border border-[#FFD4D4] rounded-xl p-3 text-xs text-[#F04452]">⚠ {error}</div>}
+          {error && <div className="bg-[#FFF0F0] border border-[#FFD4D4] rounded-xl p-3 text-xs text-[#F04452]">{error}</div>}
 
           {/* 검색 결과 */}
           {searchResults.length > 0 && (
@@ -829,7 +829,7 @@ function KakaoConnectModal(props: {
             )}
           </div>
 
-          {error && <div className="bg-[#FFF0F0] border border-[#FFD4D4] rounded-xl p-3 text-xs text-[#F04452]">⚠ {error}</div>}
+          {error && <div className="bg-[#FFF0F0] border border-[#FFD4D4] rounded-xl p-3 text-xs text-[#F04452]">{error}</div>}
 
           {searchResults.length > 0 && (
             <div className="border border-[#E5E8EB] rounded-xl overflow-hidden">
@@ -964,7 +964,7 @@ function DeliveryConnectModal(props: {
             </p>
           </div>
 
-          {error && <div className="bg-[#FFF0F0] border border-[#FFD4D4] rounded-xl p-3 text-xs text-[#F04452]">⚠ {error}</div>}
+          {error && <div className="bg-[#FFF0F0] border border-[#FFD4D4] rounded-xl p-3 text-xs text-[#F04452]">{error}</div>}
 
           {preview && (
             <div className="bg-[#F8FFFE] border rounded-xl p-4" style={{ borderColor: meta.color + '66' }}>
