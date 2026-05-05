@@ -123,7 +123,7 @@ function stripArtifacts(text: string, dropEmoji: boolean): string {
 }
 
 // ── 톤 정의 ──────────────────────────────────────────────
-function toneDescription(tone: string): string {
+function toneDescription(tone: string, customPrompt?: string): string {
   const map: Record<string, string> = {
     friendly: '친근하고 따뜻한 사장님 어투. 구어체("~거든요", "~잖아요", "~더라고요")를 자연스럽게 섞고, 사장님이 단골한테 말하듯 작성. 이모지는 전체에서 최대 1개.',
     expert:   '정중하고 담백한 전문업체 서면 톤. 이모티콘·과장 표현·마크다운 일절 금지. 느낌표는 최대 1회. 짧고 단정한 문장.',
@@ -132,6 +132,13 @@ function toneDescription(tone: string): string {
     emo:      '잔잔하고 진심 담긴 편지 같은 감성 톤. 과장 없이 차분하고 따뜻하게. 이모지는 전체에서 최대 1개.',
     mz:       '요즘 20대가 쓰는 자연스러운 톤. 너무 과한 밈이나 은어는 피하고, "~같아요", "~네요" 같은 부드러운 어미로. 이모지는 최대 1개.',
     formal:   '정중하고 담백한 전문업체 서면 톤. 이모티콘 금지. 단정하게.',
+    // v1.6y 추가
+    apologetic: '진심 어린 사과 + 개선 다짐 톤. 부정 리뷰 (별점 1-2점) 응대용. "죄송합니다", "다시는 이런 일이 없도록", "개선하겠습니다" 같은 표현. 변명 금지, 책임 인정.',
+    grateful:   '감사 마음 깊이 표현. 호의적인 리뷰 (별점 4-5점) 응대용. "정말 감사드립니다", "큰 힘이 됩니다" 같은 따뜻한 표현. 손님이 다시 오고 싶게.',
+    gourmand:   '음식 / 맛에 대한 자부심 + 정성 강조. 식당 / 카페용. 메뉴, 식재료, 조리 과정 언급. "직접 손질한", "국내산", "당일 준비한" 같은 신선함 강조.',
+    custom:     customPrompt && customPrompt.trim().length > 5
+      ? '사장님 맞춤 톤 (사장님이 직접 정의): ' + customPrompt.trim()
+      : '친근하고 따뜻한 사장님 어투 (맞춤 프롬프트 비어있어 기본값으로 작성).',
   }
   return map[tone] || map.friendly
 }
@@ -222,9 +229,10 @@ function buildSystemPrompt(ctx: {
     excludes: string
   }
   customerProfile: { gender: string; age: string }
+  customPrompt?: string  // v1.6y: custom 톤 사장님 맞춤 프롬프트
 }): string {
   const { lang, platform, bizType, storeName, region, mainKeyword, subKeywords,
-          storeDesc, storeStrengths, ownerMindset, reviewType, rating, hasPhotos, aiSettings, customerProfile } = ctx
+          storeDesc, storeStrengths, ownerMindset, reviewType, rating, hasPhotos, aiSettings, customerProfile, customPrompt } = ctx
   const lc = LANG_CONFIG[lang] || LANG_CONFIG['ko']
   const isExpert = aiSettings.tone === 'expert' || aiSettings.tone === 'formal' || aiSettings.tone === 'simple'
 
@@ -234,7 +242,7 @@ function buildSystemPrompt(ctx: {
     long:   '10~13문장 (360~520자)',
   }
   const length = lengthMap[aiSettings.length] || lengthMap['medium']
-  const toneText = toneDescription(aiSettings.tone)
+  const toneText = toneDescription(aiSettings.tone, customPrompt)
   const kwList = buildSeoKeywords({ region, bizType, storeName, mainKeyword, subKeywords })
 
   const lines: string[] = []
@@ -408,6 +416,8 @@ export async function POST(req: NextRequest) {
       gender: String(body?.customerProfile?.gender ?? 'none'),
       age: String(body?.customerProfile?.age ?? ''),
     }
+    // v1.6y: 사장님 맞춤 프롬프트 (custom 톤일 때만 의미 있음)
+    const customPrompt: string = String(body?.customPrompt ?? '').trim().slice(0, 500)
 
     // 2) 로그인 사용자의 매장/리뷰 자동 로드 (auth 는 위에서 재사용)
     let storeName: string = String(body?.storeName ?? body?.store_name ?? '')
@@ -492,6 +502,7 @@ export async function POST(req: NextRequest) {
       hasPhotos,
       aiSettings,
       customerProfile,
+      customPrompt,
     })
 
     // 4) 사용자 메시지 (텍스트 + 사진)
