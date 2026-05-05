@@ -120,12 +120,19 @@ export default function CardNewsPage() {
 
   const sendToThreads = () => {
     if (!data) return
-    const cover = data.slides[0]
-    const text = cover?.headline || data.topic
+    // 슬라이드 핵심 문장 최대 3개 조합 → 스레드 초안 텍스트
+    const lines = data.slides
+      .filter(s => s.headline)
+      .slice(0, 3)
+      .map(s => {
+        const parts = [s.headline, s.subcopy].filter(Boolean)
+        return parts.join(' ')
+      })
+    const text = lines.join('\n\n') || data.topic
     const hashtags = JSON.stringify(data.hashtags.threads ?? [])
     const params = new URLSearchParams({
       source: 'card_news',
-      text: text,
+      text,
       hashtags,
       topic: data.topic,
     })
