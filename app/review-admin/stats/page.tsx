@@ -8,10 +8,11 @@
 // ============================================================
 
 import { useState, useEffect } from 'react'
+import { useRouter } from 'next/navigation'
 import Sidebar from '../../components/Sidebar'
 import PageHeader from '../../components/PageHeader'
 import Footer from '../../components/Footer'
-import { BarChart3, CheckCircle2, AlertTriangle, Clock, TrendingUp, MessageSquare, ChevronDown, ChevronUp, Lightbulb } from 'lucide-react'
+import { BarChart3, CheckCircle2, AlertTriangle, Clock, TrendingUp, MessageSquare, Headphones, ArrowRight } from 'lucide-react'
 
 export const dynamic = 'force-dynamic'
 
@@ -50,84 +51,7 @@ type StatsData = {
   failureSamples?: Record<string, FailureSample[]>
 }
 
-// v1.6z: 카테고리별 사장님 친화 안내
-const REASON_GUIDE: Record<string, { what: string; how: string; color: string }> = {
-  '30일 정책 만료': {
-    what: '리뷰가 등록된 지 30일이 넘어 답글 발행 기간이 만료되었습니다.',
-    how: '배민·요기요는 30일 후 답글이 막힙니다. 새 리뷰는 자동 알림 받자마자 답글을 다는 게 좋아요.',
-    color: '#F59E0B',
-  },
-  '쿠키·세션 만료': {
-    what: '플랫폼 로그인 세션이 만료되어 자동 발행이 차단되었습니다.',
-    how: '"플랫폼 연결" 메뉴에서 해당 플랫폼을 다시 연결해 주세요.',
-    color: '#3182F6',
-  },
-  '로그인 실패': {
-    what: 'ID/PW 로 자동 로그인 시도했으나 실패했습니다.',
-    how: '플랫폼 연결 메뉴에서 ID/PW를 다시 입력하거나 2단계 인증을 해제해 주세요.',
-    color: '#DC2626',
-  },
-  'Akamai / 봇 차단': {
-    what: '플랫폼이 자동화 트래픽으로 의심해 차단했습니다.',
-    how: '한국 IP 거주형 프록시로 다음 cron 주기에 자동 재시도됩니다. 반복되면 문의 주세요.',
-    color: '#DC2626',
-  },
-  'CAPTCHA / 차단': {
-    what: '캡챠 또는 봇 차단 페이지가 표시되었습니다.',
-    how: '워커가 다음 주기에 자동 우회 시도. 반복되면 ID/PW 확인 또는 매장관리에서 직접 1회 발행 후 재시도.',
-    color: '#DC2626',
-  },
-  '사장님 권한 부족': {
-    what: '해당 매장에 사장님 답글 권한이 없습니다.',
-    how: '카카오맵은 카카오 비즈니스 (place-mall.kakao.com), 배민/요기요는 사장님 페이지 가입 후 매장 연결이 필요해요.',
-    color: '#F59E0B',
-  },
-  'DOM 구조 변경': {
-    what: '플랫폼 페이지 구조가 바뀌어 답글 버튼/입력창을 찾지 못했습니다.',
-    how: '저희가 자동 감지해서 워커를 업데이트합니다. 24시간 내 자동 복구되며, 빠른 처리가 필요하면 문의 주세요.',
-    color: '#7C3AED',
-  },
-  '리뷰 카드 매칭 실패': {
-    what: '플랫폼 페이지에서 해당 리뷰 카드를 찾지 못했습니다.',
-    how: '리뷰가 삭제됐거나 페이지 이동 시 위치가 바뀐 경우입니다. 다음 cron에서 재시도됩니다.',
-    color: '#7C3AED',
-  },
-  'Timeout (응답 지연)': {
-    what: '플랫폼 응답이 느려 시간 초과되었습니다.',
-    how: '다음 cron 주기에 자동 재시도됩니다. 반복되면 플랫폼 점검 시간일 수 있어요.',
-    color: '#8B95A1',
-  },
-  '네트워크 오류': {
-    what: '워커-플랫폼 사이 네트워크 연결이 끊겼습니다.',
-    how: '다음 cron 주기에 자동 재시도됩니다.',
-    color: '#8B95A1',
-  },
-  '이미 답글 등록됨': {
-    what: '플랫폼에는 이미 답글이 등록되어 있어 재등록이 차단됐습니다.',
-    how: '실제로는 성공한 케이스입니다. 다음 동기화에서 has_reply=true 로 업데이트됩니다.',
-    color: '#059669',
-  },
-  '매장 ID 누락': {
-    what: '플랫폼에서 매장 ID 를 자동 감지하지 못했습니다.',
-    how: '플랫폼 연결 메뉴에서 매장 URL 또는 ID를 직접 입력해 주세요.',
-    color: '#F59E0B',
-  },
-  '응답 형식 오류': {
-    what: '플랫폼 응답을 파싱하지 못했습니다.',
-    how: '플랫폼 API 변경 가능성. 24시간 내 자동 복구.',
-    color: '#7C3AED',
-  },
-  '프록시 오류': {
-    what: '한국 IP 프록시 연결에 문제가 있습니다.',
-    how: '다음 cron 주기에 자동 복구됩니다.',
-    color: '#8B95A1',
-  },
-  '기타 (분류 불가)': {
-    what: '아래 펼쳐서 실제 에러 메시지를 확인하세요. 새 패턴이면 카테고리에 추가하겠습니다.',
-    how: '실제 메시지를 캡쳐해서 문의해 주시면 자동 분류 카테고리에 추가합니다.',
-    color: '#8B95A1',
-  },
-}
+// v1.6z+: 사장님은 사용자 행동 가능한 항목만 본다 (30일 만료) — 그 외 기술 에러는 노출 X
 
 const PLATFORM_LABEL: Record<string, { label: string; color: string; bg: string }> = {
   naver_place: { label: '네이버 플레이스', color: '#03C75A', bg: '#E8FFF0' },
@@ -139,10 +63,43 @@ const PLATFORM_LABEL: Record<string, { label: string; color: string; bg: string 
 }
 
 export default function ReplyStatsPage() {
+  const router = useRouter()
   const [data, setData] = useState<StatsData | null>(null)
   const [loading, setLoading] = useState(true)
   const [days, setDays] = useState(30)
-  const [expandedReason, setExpandedReason] = useState<string | null>(null)
+
+  // 사장님이 직접 처리할 수 있는 항목만 분리 (30일 만료) — 나머지는 시스템이 알아서 처리
+  const expiredCount = data?.failureReasons?.['30일 정책 만료'] || 0
+  // 그 외 기술 실패는 합쳐서 "발행 문제" 로 표기 (세분화 노출 X)
+  const technicalFailureCount = Object.entries(data?.failureReasons || {})
+    .filter(([reason]) => reason !== '30일 정책 만료' && reason !== '이미 답글 등록됨')
+    .reduce((sum, [, count]) => sum + count, 0)
+
+  // 문의 이동 — 통계 컨텍스트 자동 전달
+  function goToInquiry() {
+    if (!data) return
+    const summary = `[답글 발행 문제 문의]
+최근 ${data.days}일 통계:
+- 총 리뷰: ${data.total}건
+- 자동 발행 성공: ${data.summary.totalSubmittedByUs}건
+- 발행 실패: ${data.summary.totalFailed}건
+- 답변률: ${data.summary.overallReplyRate}%
+
+플랫폼별 실패 건수:
+${Object.entries(data.byPlatform)
+  .filter(([, s]) => s.failed > 0)
+  .map(([p, s]) => `- ${p}: 실패 ${s.failed}건 / 성공률 ${s.successRate}%`).join('\n') || '- (없음)'}
+
+위 통계처럼 답글 발행에 문제가 반복되고 있습니다. 확인 부탁드립니다.`
+    try {
+      localStorage.setItem('localution.inquiry_prefill', JSON.stringify({
+        category: '기술문의',
+        message: summary,
+        source: 'review-admin/stats',
+      }))
+    } catch {}
+    router.push('/inquiry')
+  }
 
   useEffect(() => {
     setLoading(true)
@@ -281,83 +238,53 @@ export default function ReplyStatsPage() {
                 </div>
               </div>
 
-              {/* 실패 원인 */}
-              {Object.keys(data.failureReasons).length > 0 && (
-                <div className="bg-white rounded-2xl shadow-sm p-4">
-                  <div className="flex items-center gap-2 mb-1">
-                    <div className="w-7 h-7 rounded-xl bg-gradient-to-br from-[#F59E0B] to-[#D97706] flex items-center justify-center">
-                      <AlertTriangle size={14} className="text-white" strokeWidth={2.5} />
+              {/* 사장님이 직접 해결 가능한 항목 — 30일 만료만 노출 */}
+              {expiredCount > 0 && (
+                <div className="bg-white rounded-2xl shadow-sm border border-[#FDE68A] overflow-hidden">
+                  <div className="bg-[#FFFBEB] px-4 py-3 flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-xl bg-gradient-to-br from-[#F59E0B] to-[#D97706] flex items-center justify-center flex-shrink-0">
+                      <Clock size={14} className="text-white" strokeWidth={2.5} />
                     </div>
-                    <h2 className="text-sm font-bold text-[#191F28]">실패 원인 분석</h2>
+                    <div>
+                      <h2 className="text-sm font-bold text-[#191F28]">30일이 지나 답글이 막힌 리뷰 {expiredCount}건</h2>
+                      <p className="text-[11px] text-[#92400E] mt-0.5">배민·요기요는 리뷰 등록 후 30일이 지나면 사장님 답글을 등록할 수 없어요.</p>
+                    </div>
                   </div>
-                  <p className="text-[11px] text-[#8B95A1] mb-3 ml-9">카드를 누르면 무엇 때문인지 + 어떻게 해결할지가 펼쳐져요.</p>
-                  <div className="space-y-2">
-                    {Object.entries(data.failureReasons)
-                      .sort((a, b) => b[1] - a[1])
-                      .map(([reason, count]) => {
-                        const isOpen = expandedReason === reason
-                        const guide = REASON_GUIDE[reason] || REASON_GUIDE['기타 (분류 불가)']
-                        const samples = data.failureSamples?.[reason] || []
-                        const accent = guide.color
-                        return (
-                          <div key={reason} className="rounded-xl overflow-hidden border border-[#F2F4F6]">
-                            <button
-                              onClick={() => setExpandedReason(isOpen ? null : reason)}
-                              className="w-full flex items-center justify-between p-3 bg-[#FFFBEB] hover:bg-[#FEF3C7] transition-colors text-left"
-                            >
-                              <div className="flex items-center gap-2 min-w-0">
-                                <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ background: accent }} />
-                                <span className="text-xs font-bold text-[#92400E] truncate">{reason}</span>
-                              </div>
-                              <div className="flex items-center gap-2 flex-shrink-0">
-                                <span className="text-xs font-bold text-[#92400E] bg-[#FEF3C7] px-2 py-0.5 rounded-full">
-                                  {count}건
-                                </span>
-                                {isOpen ? <ChevronUp size={14} className="text-[#92400E]" strokeWidth={2.5} /> : <ChevronDown size={14} className="text-[#92400E]" strokeWidth={2.5} />}
-                              </div>
-                            </button>
-                            {isOpen && (
-                              <div className="bg-white p-3 border-t border-[#F2F4F6] space-y-3">
-                                {/* 무엇 / 어떻게 안내 */}
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
-                                  <div className="rounded-lg p-2.5" style={{ background: accent + '12' }}>
-                                    <p className="text-[10px] font-bold mb-1 flex items-center gap-1" style={{ color: accent }}>
-                                      <AlertTriangle size={10} strokeWidth={2.5} /> 무엇 때문인지
-                                    </p>
-                                    <p className="text-xs text-[#4E5968] leading-relaxed">{guide.what}</p>
-                                  </div>
-                                  <div className="rounded-lg p-2.5 bg-[#EFF6FF]">
-                                    <p className="text-[10px] font-bold text-[#3182F6] mb-1 flex items-center gap-1">
-                                      <Lightbulb size={10} strokeWidth={2.5} /> 어떻게 해결하나요
-                                    </p>
-                                    <p className="text-xs text-[#4E5968] leading-relaxed">{guide.how}</p>
-                                  </div>
-                                </div>
+                  <div className="p-4">
+                    <p className="text-xs text-[#4E5968] leading-relaxed">
+                      앞으로는 새 리뷰가 올라오면 알림 받자마자 답글을 다는 게 좋아요.
+                      <br />
+                      <span className="text-[#8B95A1]">실시간 알림은 매 15분마다 자동으로 발송됩니다.</span>
+                    </p>
+                  </div>
+                </div>
+              )}
 
-                                {/* 실제 에러 메시지 샘플 */}
-                                {samples.length > 0 && (
-                                  <div>
-                                    <p className="text-[10px] font-bold text-[#8B95A1] mb-1.5">실제 에러 메시지 (최대 5건)</p>
-                                    <div className="space-y-1.5">
-                                      {samples.map((s, i) => (
-                                        <div key={i} className="rounded-lg bg-[#F8F9FA] p-2 border border-[#F2F4F6]">
-                                          <div className="flex items-center gap-1.5 mb-1">
-                                            <span className="text-[10px] font-bold uppercase text-[#8B95A1]">{s.platform}</span>
-                                            {s.postedAt && (
-                                              <span className="text-[10px] text-[#8B95A1]">· {new Date(s.postedAt).toLocaleDateString('ko-KR')}</span>
-                                            )}
-                                          </div>
-                                          <p className="text-[11px] text-[#4E5968] font-mono break-all leading-relaxed">{s.message}</p>
-                                        </div>
-                                      ))}
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            )}
-                          </div>
-                        )
-                      })}
+              {/* 발행 문제가 있는 경우 — 사장님께 친절한 문의 안내 (기술 세부사항 X) */}
+              {technicalFailureCount > 0 && (
+                <div className="rounded-2xl shadow-sm bg-gradient-to-br from-[#EFF6FF] to-[#F5F3FF] border border-[#DBEAFE] overflow-hidden">
+                  <div className="p-5 flex items-start gap-4">
+                    <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#3182F6] to-[#7C3AED] flex items-center justify-center flex-shrink-0 shadow-sm">
+                      <Headphones size={20} className="text-white" strokeWidth={2.5} />
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <h2 className="text-sm md:text-base font-bold text-[#191F28] mb-1">
+                        답글 발행에 문제가 있어요. 저희가 도와드릴게요.
+                      </h2>
+                      <p className="text-xs md:text-[13px] text-[#4E5968] leading-relaxed mb-3">
+                        최근 {data.days}일 동안 답글 발행이 잘 되지 않은 리뷰가 <strong className="text-[#3182F6]">{technicalFailureCount}건</strong> 있어요.
+                        대부분은 시스템이 다음 자동 주기에 알아서 다시 시도하지만, 반복되면 저희에게 알려주세요.
+                        <br className="hidden md:block" />
+                        <span className="text-[#8B95A1]">통계 정보를 자동으로 첨부해 빠르게 확인해 드립니다.</span>
+                      </p>
+                      <button
+                        onClick={goToInquiry}
+                        className="inline-flex items-center gap-1.5 bg-[#3182F6] text-white text-xs md:text-sm font-bold px-4 py-2 rounded-xl hover:bg-[#1B64DA] transition-colors shadow-sm"
+                      >
+                        문의 보내기
+                        <ArrowRight size={14} strokeWidth={2.5} />
+                      </button>
+                    </div>
                   </div>
                 </div>
               )}
