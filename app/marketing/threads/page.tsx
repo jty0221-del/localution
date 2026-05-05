@@ -5,7 +5,8 @@ import { useSearchParams, useRouter } from 'next/navigation'
 import {
   Send, AlertTriangle, CheckCircle2, Clock, XCircle,
   Trash2, RefreshCw, Settings, Hash, Image as ImageIcon,
-  CalendarClock, Loader2, Link2Off, Plus, X, Upload
+  CalendarClock, Loader2, Link2Off, Plus, X, Upload,
+  Sparkles, ChevronDown, BookMarked,
 } from 'lucide-react'
 import NextImage from 'next/image'
 import Sidebar from '@/app/components/Sidebar'
@@ -75,6 +76,258 @@ function ConnectBanner() {
           계정 연결하기
         </Link>
       </div>
+    </div>
+  )
+}
+
+// ──────────────────────────────────────────
+// 페르소나
+// ──────────────────────────────────────────
+const PERSONAS = [
+  { id: 'friendly',     label: '친근한',    sub: '동네 사장님' },
+  { id: 'professional', label: '전문적',    sub: '신뢰감' },
+  { id: 'emotional',    label: '감성적',    sub: '공감 유도' },
+  { id: 'witty',        label: '유머러스',  sub: '재치있게' },
+] as const
+
+type PersonaId = typeof PERSONAS[number]['id']
+
+function PersonaChips({ value, onChange }: { value: PersonaId; onChange: (v: PersonaId) => void }) {
+  return (
+    <div className="flex items-center gap-2 flex-wrap">
+      <span className="text-xs font-semibold text-[#6B7280] flex-shrink-0">페르소나</span>
+      {PERSONAS.map(p => (
+        <button
+          key={p.id}
+          type="button"
+          onClick={() => onChange(p.id)}
+          title={p.sub}
+          className={`px-3 py-1.5 rounded-full text-xs font-semibold transition-all ${
+            value === p.id
+              ? 'bg-[#111827] text-white shadow-sm'
+              : 'bg-[#F3F4F6] text-[#4E5968] hover:bg-[#E5E8EB]'
+          }`}
+        >
+          {p.label}
+        </button>
+      ))}
+    </div>
+  )
+}
+
+// ──────────────────────────────────────────
+// AI 초안 생성 패널
+// ──────────────────────────────────────────
+function AIDraftPanel({
+  persona,
+  onApply,
+}: {
+  persona: PersonaId
+  onApply: (text: string, hashtags: string[]) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [topic, setTopic] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState('')
+
+  async function generate() {
+    if (!topic.trim()) return
+    setLoading(true)
+    setError('')
+    try {
+      const res = await fetch('/api/threads/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ topic: topic.trim(), persona }),
+      })
+      const data = await res.json()
+      if (data.ok) {
+        onApply(data.text, data.hashtags)
+        setOpen(false)
+        setTopic('')
+      } else {
+        setError(data.error || 'AI 생성 실패')
+      }
+    } catch {
+      setError('네트워크 오류')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <div className="bg-white border border-[#E5E8EB] rounded-2xl overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center justify-between px-4 py-3 hover:bg-[#F9FAFB] transition-colors"
+      >
+        <span className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#7C3AED] to-[#6D28D9] flex items-center justify-center shadow-sm">
+            <Sparkles size={13} className="text-white" strokeWidth={2.5} />
+          </div>
+          <span className="text-sm font-semibold text-[#111827]">AI 초안 생성</span>
+          <span className="text-xs text-[#9CA3AF]">주제만 입력하면 완성</span>
+        </span>
+        <ChevronDown size={14} className={`text-[#9CA3AF] transition-transform flex-shrink-0 ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      {open && (
+        <div className="px-4 pb-4 border-t border-[#F3F4F6] space-y-3 pt-3">
+          <input
+            type="text"
+            value={topic}
+            onChange={e => setTopic(e.target.value)}
+            onKeyDown={e => { if (e.key === 'Enter' && !loading) generate() }}
+            placeholder="예: 오늘 신메뉴 출시, 봄 시즌 할인, 단골 감사 이벤트"
+            className="w-full border border-[#E5E8EB] rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[#7C3AED]/20 focus:border-[#7C3AED]"
+          />
+          <p className="text-xs text-[#9CA3AF]">위에서 선택한 페르소나 말투로 생성됩니다.</p>
+          {error && <p className="text-xs text-[#E11D48]">{error}</p>}
+          <button
+            type="button"
+            onClick={generate}
+            disabled={!topic.trim() || loading}
+            className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-[#7C3AED] to-[#6D28D9] hover:from-[#6D28D9] hover:to-[#5B21B6] disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold py-2.5 rounded-xl transition-all text-sm"
+          >
+            {loading ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} strokeWidth={2.5} />}
+            {loading ? '생성 중...' : '초안 생성'}
+          </button>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ──────────────────────────────────────────
+// 템플릿 관리 (localStorage)
+// ──────────────────────────────────────────
+type Template = { id: string; name: string; blocks: PostBlock[]; createdAt: string }
+const TMPL_KEY = 'threads_templates_v1'
+
+function loadTemplates(): Template[] {
+  if (typeof window === 'undefined') return []
+  try { return JSON.parse(localStorage.getItem(TMPL_KEY) || '[]') as Template[] } catch { return [] }
+}
+function persistTemplates(list: Template[]) {
+  localStorage.setItem(TMPL_KEY, JSON.stringify(list.slice(0, 20)))
+}
+
+function TemplatePanel({ blocks, onLoad }: { blocks: PostBlock[]; onLoad: (b: PostBlock[]) => void }) {
+  const [open, setOpen] = useState(false)
+  const [templates, setTemplates] = useState<Template[]>([])
+  const [saving, setSaving] = useState(false)
+  const [saveName, setSaveName] = useState('')
+
+  function refresh() { setTemplates(loadTemplates()) }
+
+  useEffect(() => { if (open) refresh() }, [open])
+
+  function handleSave() {
+    if (!saveName.trim()) return
+    const list = loadTemplates()
+    const newT: Template = {
+      id: Math.random().toString(36).slice(2),
+      name: saveName.trim(),
+      blocks: blocks.map(b => ({ ...b, id: Math.random().toString(36).slice(2) })),
+      createdAt: new Date().toISOString(),
+    }
+    persistTemplates([newT, ...list])
+    setSaveName('')
+    setSaving(false)
+    refresh()
+  }
+
+  function handleDelete(id: string) {
+    persistTemplates(loadTemplates().filter(t => t.id !== id))
+    refresh()
+  }
+
+  return (
+    <div className="bg-white border border-[#E5E8EB] rounded-2xl overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center justify-between px-4 py-3 hover:bg-[#F9FAFB] transition-colors"
+      >
+        <span className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#F59E0B] to-[#D97706] flex items-center justify-center shadow-sm">
+            <BookMarked size={13} className="text-white" strokeWidth={2.5} />
+          </div>
+          <span className="text-sm font-semibold text-[#111827]">템플릿</span>
+          <span className="text-xs text-[#9CA3AF]">자주 쓰는 형식 저장</span>
+        </span>
+        <ChevronDown size={14} className={`text-[#9CA3AF] transition-transform flex-shrink-0 ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      {open && (
+        <div className="px-4 pb-4 border-t border-[#F3F4F6] pt-3 space-y-3">
+          {saving ? (
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={saveName}
+                onChange={e => setSaveName(e.target.value)}
+                onKeyDown={e => { if (e.key === 'Enter') handleSave() }}
+                placeholder="템플릿 이름"
+                autoFocus
+                className="flex-1 border border-[#E5E8EB] rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#F59E0B]/30 focus:border-[#F59E0B]"
+              />
+              <button type="button" onClick={handleSave} disabled={!saveName.trim()}
+                className="px-3 py-2 bg-[#111827] text-white text-xs font-semibold rounded-xl disabled:opacity-40 transition-colors">
+                저장
+              </button>
+              <button type="button" onClick={() => setSaving(false)}
+                className="px-3 py-2 text-[#6B7280] text-xs rounded-xl hover:bg-[#F3F4F6] transition-colors">
+                취소
+              </button>
+            </div>
+          ) : (
+            <button
+              type="button"
+              onClick={() => setSaving(true)}
+              className="flex items-center gap-1.5 text-xs font-semibold text-[#F59E0B] hover:text-[#D97706] border border-dashed border-[#FCD34D] hover:border-[#F59E0B] px-3 py-2 rounded-xl transition-colors"
+            >
+              <BookMarked size={12} strokeWidth={2.5} />
+              현재 내용을 템플릿으로 저장
+            </button>
+          )}
+
+          {templates.length === 0 ? (
+            <p className="text-xs text-[#B0B8C1] text-center py-2">저장된 템플릿이 없습니다.</p>
+          ) : (
+            <div className="space-y-2">
+              {templates.map(t => (
+                <div key={t.id} className="flex items-center gap-2 p-2.5 bg-[#F9FAFB] rounded-xl">
+                  <div className="flex-1 min-w-0">
+                    <p className="text-xs font-semibold text-[#111827] truncate">{t.name}</p>
+                    <p className="text-xs text-[#B0B8C1] mt-0.5 truncate">
+                      {t.blocks[0]?.text?.slice(0, 45) || '(내용 없음)'}
+                    </p>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      onLoad(t.blocks.map(b => ({ ...b, id: Math.random().toString(36).slice(2) })))
+                      setOpen(false)
+                    }}
+                    className="text-xs font-semibold text-[#3182F6] hover:text-[#2563EB] px-2 py-1 rounded-lg hover:bg-[#EFF6FF] transition-colors flex-shrink-0"
+                  >
+                    불러오기
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => handleDelete(t.id)}
+                    className="p-1 text-[#D1D5DB] hover:text-[#E11D48] rounded-lg transition-colors flex-shrink-0"
+                  >
+                    <Trash2 size={12} strokeWidth={2} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
@@ -335,6 +588,8 @@ function ComposeTab({ connected, accountLoaded, justConnected }: { connected: bo
   const searchParams = useSearchParams()
   const router = useRouter()
 
+  const [persona, setPersona] = useState<PersonaId>('friendly')
+
   const [blocks, setBlocks] = useState<PostBlock[]>(() => {
     const initialText = searchParams.get('text') ? decodeURIComponent(searchParams.get('text')!) : ''
     const initialTags: string[] = (() => {
@@ -408,6 +663,14 @@ function ComposeTab({ connected, accountLoaded, justConnected }: { connected: bo
     <div className="space-y-4">
       {accountLoaded && !connected && !justConnected && <ConnectBanner />}
 
+      {/* AI 초안 생성 */}
+      <AIDraftPanel
+        persona={persona}
+        onApply={(text, hashtags) => {
+          setBlocks(prev => [{ ...prev[0], text, tags: hashtags }, ...prev.slice(1)])
+        }}
+      />
+
       {result && (
         <div className={`flex items-center gap-2.5 p-4 rounded-xl text-sm font-medium ${
           result.ok ? 'bg-[#ECFDF5] text-[#059669]' : 'bg-[#FFF1F2] text-[#E11D48]'
@@ -419,6 +682,9 @@ function ComposeTab({ connected, accountLoaded, justConnected }: { connected: bo
 
       {/* 포스트 블록들 */}
       <div className="bg-white border border-[#E5E8EB] rounded-2xl p-4 md:p-5">
+        <div className="mb-4 pb-3 border-b border-[#F3F4F6]">
+          <PersonaChips value={persona} onChange={setPersona} />
+        </div>
         {blocks.map((block, i) => (
           <PostBlockEditor
             key={block.id}
@@ -469,6 +735,9 @@ function ComposeTab({ connected, accountLoaded, justConnected }: { connected: bo
           )}
         </div>
       </div>
+
+      {/* 템플릿 */}
+      <TemplatePanel blocks={blocks} onLoad={setBlocks} />
 
       {/* 발행 버튼 */}
       <div className="flex flex-col sm:flex-row gap-3">
