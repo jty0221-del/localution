@@ -701,8 +701,9 @@ function ThreadsPageContent() {
       .catch(() => setAccountLoaded(true))
   }, [])
 
-  // 카드뉴스에서 넘어왔을 때 알림
   const connectedParam = searchParams.get('connected')
+  const errorParam     = searchParams.get('error')
+  const detailParam    = searchParams.get('detail')
 
   const tabs: { key: typeof tab; label: string }[] = [
     { key: 'compose', label: '작성' },
@@ -738,6 +739,16 @@ function ThreadsPageContent() {
           <div className="bg-[#ECFDF5] border border-[#A7F3D0] rounded-2xl p-4 flex items-center gap-3 mb-6">
             <CheckCircle2 size={18} className="text-[#059669]" strokeWidth={2.5} />
             <p className="text-sm font-medium text-[#059669]">Threads 계정이 성공적으로 연결되었습니다.</p>
+          </div>
+        )}
+        {errorParam && (
+          <div className="bg-[#FFF1F2] border border-[#FECDD3] rounded-2xl p-4 mb-6">
+            <p className="text-sm font-semibold text-[#E11D48] mb-1">
+              연결 오류: {errorParam}
+            </p>
+            {detailParam && (
+              <p className="text-xs text-[#9F1239] font-mono break-all">{detailParam}</p>
+            )}
           </div>
         )}
 
