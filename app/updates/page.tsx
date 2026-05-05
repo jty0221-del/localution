@@ -15,11 +15,6 @@ const FALLBACK_UPDATES: UpdateGroup[] = [
     items: [
       {
         category: 'feature',
-        title: '정산·매출 캘린더',
-        desc: '월간 매출을 캘린더 형태로 한눈에 — 카드/현금/배달 자동 분리 + 요일별 평균 매출 분석. 홈택스 세금계산서 / 미수금 / 급여 자동 계산 추가 예정.',
-      },
-      {
-        category: 'feature',
         title: '예약·일정 관리',
         desc: '단체 예약 / 행사 / 휴무일을 통합 캘린더로 관리. 예약 추가·수정·취소 + 다가오는 예약 한눈에. 네이버 / 카카오 예약 자동 연동 곧 추가.',
       },
