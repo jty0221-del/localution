@@ -6,26 +6,16 @@ import { createServiceClient } from '@/app/lib/adminAuth'
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-const OWNER_EMAIL = 'jty0221@gmail.com'
-
-async function getOwnerUserId(svc: ReturnType<typeof createServiceClient>): Promise<string> {
-  const { data } = await svc
-    .from('stores')
-    .select('user_id')
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-  return data?.user_id || OWNER_EMAIL
-}
+const THREADS_PLATFORM = 'threads'
 
 export async function GET() {
   const svc = createServiceClient()
 
-  // 단일 사용자 앱 — user_id 필터 없이 최신 행 조회
   const { data } = await svc
-    .from('threads_accounts')
-    .select('user_id, threads_user_id, username, expires_at, refreshed_at, created_at')
-    .order('created_at', { ascending: false })
+    .from('platform_credentials')
+    .select('account_id, platform_store_name, extra_data, updated_at, created_at')
+    .eq('platform', THREADS_PLATFORM)
+    .order('updated_at', { ascending: false })
     .limit(1)
     .maybeSingle()
 
@@ -33,23 +23,24 @@ export async function GET() {
     return NextResponse.json({ ok: true, connected: false })
   }
 
-  const expiresAt = new Date(data.expires_at)
-  const expiresInDays = Math.max(0, Math.floor((expiresAt.getTime() - Date.now()) / 86400000))
+  const expiresAt = data.extra_data?.expires_at ? new Date(data.extra_data.expires_at) : null
+  const expiresInDays = expiresAt
+    ? Math.max(0, Math.floor((expiresAt.getTime() - Date.now()) / 86400000))
+    : null
 
   return NextResponse.json({
     ok: true,
     connected: true,
-    threads_user_id: data.threads_user_id,
-    username: data.username,
-    expires_at: data.expires_at,
+    threads_user_id: data.account_id,
+    username: data.platform_store_name ?? null,
+    expires_at: expiresAt?.toISOString() ?? null,
     expires_in_days: expiresInDays,
-    refreshed_at: data.refreshed_at,
     connected_at: data.created_at,
   })
 }
 
 export async function DELETE() {
   const svc = createServiceClient()
-  await svc.from('threads_accounts').delete().neq('id', '00000000-0000-0000-0000-000000000000')
+  await svc.from('platform_credentials').delete().eq('platform', THREADS_PLATFORM)
   return NextResponse.json({ ok: true })
 }
