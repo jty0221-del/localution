@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { usePathname, useSearchParams, useRouter } from 'next/navigation'
-import { Link2, ClipboardList, Store, Settings, MessageSquare, LogOut } from 'lucide-react'
+import { Link2, ClipboardList, Store, Settings, MessageSquare, LogOut, BarChart3 } from 'lucide-react'
 
 const FLAT_NAV = [
   { href: '/dashboard',        label: '대시보드', icon: 'DB',  colors: { bg: '#EFF6FF', text: '#3182F6' } },
@@ -348,6 +348,10 @@ export default function Sidebar() {
             <Link href="/review-admin" onClick={() => setMobileOpen(false)}
               className={"flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium " + (pathname === '/review-admin' ? 'bg-[#FFFBEB] text-[#F59E0B] font-semibold' : 'text-[#4E5968] hover:bg-[#F8F9FA]')}>
               <ClipboardList size={12} strokeWidth={2.5} /><span>전체 리뷰</span>
+            </Link>
+            <Link href="/review-admin/stats" onClick={() => setMobileOpen(false)}
+              className={"flex items-center gap-2.5 px-3 py-2 rounded-xl text-xs font-medium " + (pathname === '/review-admin/stats' ? 'bg-[#FFFBEB] text-[#F59E0B] font-semibold' : 'text-[#4E5968] hover:bg-[#F8F9FA]')}>
+              <BarChart3 size={12} strokeWidth={2.5} /><span>답글 발행 통계</span>
             </Link>
             {REVIEW_SUB.map(sub => {
               const active = pathname === sub.href || pathname.startsWith(sub.href + '/')
