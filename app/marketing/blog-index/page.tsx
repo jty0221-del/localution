@@ -144,9 +144,9 @@ export default function BlogIndexPage() {
   }, [])
 
   return (
-    <div className="flex min-h-screen bg-[#F2F4F6]">
+    <div className="min-h-screen bg-[#F8F9FA]">
       <Sidebar />
-      <main className="flex-1 ml-0 md:ml-[220px] flex flex-col min-h-screen pt-16 md:pt-0">
+      <main className="flex-1 ml-0 md:ml-[220px] flex flex-col min-h-screen pt-4 md:pt-0">
         <PageHeader icon={<BarChart3 size={28} className="text-white" strokeWidth={2.5} />} title="블로그 지수조회"
           subtitle="방문자 · 이웃 · 최신화 · 지수를 한눈에 — 조회 반복 시 방문자 그래프 자동 축적"
           variant="sky" />
