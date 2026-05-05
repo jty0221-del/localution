@@ -72,7 +72,7 @@ export default function AdminWhoAmI() {
     <div className="min-h-screen bg-[#F2F4F6] p-4 md:p-8">
       <div className="max-w-3xl mx-auto space-y-4">
         <header className="bg-gradient-to-r from-[#0F172A] to-[#1E293B] text-white rounded-2xl p-6">
-          <h1 className="text-xl font-black">🔐 WhoAmI · 관리자 인증 진단</h1>
+          <h1 className="text-xl font-black">WhoAmI · 관리자 인증 진단</h1>
           <p className="text-white/80 text-xs mt-1">로그인 후 이 페이지를 보면 현재 세션 정체를 알 수 있어.</p>
           <p className="text-white/50 text-[11px] mt-1">확인 시각 {now}</p>
         </header>
@@ -117,7 +117,7 @@ export default function AdminWhoAmI() {
             ))}
           </div>
           <p className="text-xs text-[#8B95A1] mt-3 leading-relaxed">
-            위 1)·2) 중 하나라도 ✅ 이면 <code className="bg-[#F2F4F6] px-1.5 py-0.5 rounded">/admin/dashboard</code> 접근 가능.
+            위 1)·2) 중 하나라도 이면 <code className="bg-[#F2F4F6] px-1.5 py-0.5 rounded">/admin/dashboard</code> 접근 가능.
             내가 로그인한 이메일이 위 목록에 없다면 <b>개발자에게 이메일 추가 요청</b>하면 돼.
           </p>
         </section>
