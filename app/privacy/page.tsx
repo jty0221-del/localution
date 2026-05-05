@@ -14,7 +14,7 @@ import { COMPANY } from '../lib/company'
 
 export default function Privacy() {
   return (
-    <div className="min-h-screen bg-[#F2F4F6]">
+    <div className="min-h-screen bg-[#F8F9FA]">
       <div className="max-w-3xl mx-auto px-4 py-12">
         <div className="mb-8">
           <Link href="/settings" className="text-sm text-[#3182F6] hover:underline flex items-center gap-1">
