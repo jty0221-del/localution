@@ -291,7 +291,7 @@ export default function PartnerPointsPage() {
     return (
       <div className="min-h-screen bg-[#F8F9FB] flex">
         <Sidebar />
-        <main className="flex-1 ml-0 md:ml-[220px] pt-16 md:pt-0 min-w-0">
+        <main className="flex-1 ml-0 md:ml-[220px] pt-4 md:pt-0 min-w-0">
           <div className="max-w-xl mx-auto pt-20 px-6 text-center">
             <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-[#FEF3C7] text-[#D97706] mb-4">
               <Gift size={26} />
@@ -318,15 +318,15 @@ export default function PartnerPointsPage() {
   return (
     <div className="min-h-screen bg-[#F8F9FB] flex">
       <Sidebar />
-      <main className="flex-1 ml-0 md:ml-[220px] pt-16 md:pt-0 min-w-0">
+      <main className="md:ml-[220px] flex flex-col min-h-screen">
         <PageHeader
-          icon="🎁"
+          icon={<Gift size={28} className="text-white" strokeWidth={2.5} />}
           title="파트너 리워드"
           subtitle="친구 초대하면 내 구독 기간이 늘어나요 · 현금 포인트 대신 실질 혜택"
-          variant="blue"
+          variant="primary"
         />
 
-        <div className="max-w-5xl mx-auto pt-6 pb-20 px-4 md:px-8">
+        <div className="max-w-6xl mx-auto px-4 md:px-6 py-6 md:py-8 w-full">
           {/* 브레드크럼 */}
           <div className="flex items-center gap-2 text-xs text-[#8B95A1] mb-4">
             <Link href="/dashboard" className="hover:text-[#191F28]">대시보드</Link>
@@ -454,7 +454,7 @@ export default function PartnerPointsPage() {
               <div className="flex justify-between mt-1.5">
                 {[...Array(CHALLENGE_GOAL + 1)].map((_, i) => (
                   <span key={i} className={`text-[10px] font-bold ${i <= stats.monthlyInvites ? 'text-[#EA580C]' : 'text-[#C9CDD2]'}`}>
-                    {i === 0 ? '시작' : i === CHALLENGE_GOAL ? '🎯 목표' : `${i}명`}
+                    {i === 0 ? '시작' : i === CHALLENGE_GOAL ? '목표' : `${i}명`}
                   </span>
                 ))}
               </div>
