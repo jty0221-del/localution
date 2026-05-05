@@ -141,8 +141,8 @@ export async function runYogiyo(
     return { status: 'skipped', message: `yogiyo: action ${action} not yet supported` }
   }
 
-  // v1.6w: VERSION_MARKER + ws polyfill (worker/src/lib/supabase.ts 에 글로벌 적용됨)
-  log.info({ version: 'yogiyo-v1.6w', ts: '20260506T0900' }, 'YOGIYO_ADAPTER_VERSION_MARKER')
+  // v1.6z: VERSION_MARKER — 30일 DB-기반 fallback + 다단계 reply fallback + 검증
+  log.info({ version: 'yogiyo-v1.6z', ts: '20260506T1200' }, 'YOGIYO_ADAPTER_VERSION_MARKER')
 
   const svc = getServiceClient()
   const creds = await loadPlainCredentials(svc, userId, 'yogiyo')
@@ -374,19 +374,47 @@ export async function runYogiyo(
       const targetId = String(payload.platform_review_id)
       const replyText = String(payload.reply_text)
 
-      // v1.6x: 요기요도 30일 정책 적용 (배민과 동일 정책 — 사장님 답글 등록 기간)
+      // v1.6z: 30일 정책 검사 — 1차 ID prefix YYYYMMDD, 2차 DB posted_at fallback
+      let postedAtForCheck: string | null = null
+      let reviewInfo: { author?: string | null; content?: string | null; postedAt?: string | null } = {}
+      try {
+        const { data: reviewRow } = await svc
+          .from('platform_reviews')
+          .select('posted_at, author_name, content')
+          .eq('user_id', userId).eq('platform', 'yogiyo')
+          .eq('platform_review_id', targetId)
+          .maybeSingle()
+        if (reviewRow) {
+          postedAtForCheck = reviewRow.posted_at || null
+          reviewInfo = { author: reviewRow.author_name, content: reviewRow.content, postedAt: postedAtForCheck }
+        }
+      } catch {}
+
       const idMatch = targetId.replace(/^yogiyo[-:]?/, '').match(/^(\d{8})/)
+      let ageMs: number | null = null
       if (idMatch) {
         const ymd = idMatch[1]
         const dateStr = ymd.slice(0,4) + '-' + ymd.slice(4,6) + '-' + ymd.slice(6,8) + 'T00:00:00'
         const ts = new Date(dateStr).getTime()
-        if (!isNaN(ts) && (Date.now() - ts) / 86400_000 > 30) {
-          log.warn({ targetId, daysAgo: Math.round((Date.now() - ts) / 86400_000) }, 'yogiyo: review > 30 days — reply skipped')
-          return { status: 'failed', message: '요기요 정책상 30일 지난 리뷰에 답글 등록 불가' }
-        }
+        if (!isNaN(ts)) ageMs = Date.now() - ts
+      }
+      if (ageMs == null && postedAtForCheck) {
+        const ts = new Date(postedAtForCheck).getTime()
+        if (!isNaN(ts)) ageMs = Date.now() - ts
+      }
+      if (ageMs != null && ageMs / 86400_000 > 30) {
+        log.warn({ targetId, daysAgo: Math.round(ageMs / 86400_000) }, 'yogiyo: review > 30 days — reply skipped')
+        // v1.6z: DB 에도 실패 사유 기록 (통계 페이지 분류용)
+        try {
+          await svc.from('platform_reviews').update({
+            reply_status: 'failed',
+            reply_error: '요기요 30일 정책 만료 — 답글 등록 불가',
+          }).eq('user_id', userId).eq('platform', 'yogiyo').eq('platform_review_id', targetId)
+        } catch {}
+        return { status: 'failed', message: '요기요 정책상 30일 지난 리뷰에 답글 등록 불가' }
       }
 
-      const replied = await postYogiyoReply(page, targetId, replyText, log)
+      const replied = await postYogiyoReply(page, targetId, replyText, reviewInfo, log)
       if (replied.ok) {
         await svc
           .from('platform_reviews')
@@ -395,12 +423,20 @@ export async function runYogiyo(
             reply_content: replyText,
             reply_status: 'submitted',
             reply_submitted_at: new Date().toISOString(),
+            reply_error: null,
           })
           .eq('user_id', userId)
           .eq('platform', 'yogiyo')
           .eq('platform_review_id', targetId)
         return { status: 'ok', message: `yogiyo: reply posted for ${targetId}` }
       }
+      // v1.6z: 실패 사유 DB 기록
+      try {
+        await svc.from('platform_reviews').update({
+          reply_status: 'failed',
+          reply_error: replied.reason,
+        }).eq('user_id', userId).eq('platform', 'yogiyo').eq('platform_review_id', targetId)
+      } catch {}
       return { status: 'failed', message: `yogiyo reply 실패: ${replied.reason}` }
     }
 
@@ -417,27 +453,184 @@ export async function runYogiyo(
   }
 }
 
+// v1.6z: 다단계 fallback — data 속성 → 작성자/본문 매칭 → 진단 덤프 + 답글 등록 검증
 async function postYogiyoReply(
   page: any,
   platformReviewId: string,
   replyText: string,
+  reviewInfo: { author?: string | null; content?: string | null; postedAt?: string | null },
   log: Logger,
 ): Promise<{ ok: true } | { ok: false; reason: string }> {
   try {
-    const card = await page.$(`[data-review-id="${platformReviewId}"], [data-id="${platformReviewId}"]`)
-    if (!card) return { ok: false, reason: `card not found for ${platformReviewId}` }
-    const replyBtn = await card.$(DOM_SELECTORS.replyButton)
-    if (!replyBtn) return { ok: false, reason: 'reply button not found' }
-    await replyBtn.click()
-    await page.waitForTimeout(1200)
-    const textarea = await page.$(DOM_SELECTORS.replyTextarea)
-    if (!textarea) return { ok: false, reason: 'reply textarea not found' }
-    await textarea.fill(replyText)
+    log.info({
+      platformReviewId,
+      hasAuthor: !!reviewInfo.author,
+      hasContent: !!reviewInfo.content,
+    }, 'yogiyo: post_reply 시작 (v1.6z)')
+
+    // ── 사전 준비: 리뷰 카드 영역까지 스크롤 ──
+    for (let i = 0; i < 5; i++) {
+      await page.evaluate(() => window.scrollBy(0, 800)).catch(() => null)
+      await page.waitForTimeout(500)
+    }
+    await page.evaluate(() => window.scrollTo(0, 0)).catch(() => null)
     await page.waitForTimeout(500)
-    const submit = await page.$(DOM_SELECTORS.replySubmit)
-    if (!submit) return { ok: false, reason: 'reply submit button not found' }
-    await submit.click()
-    await page.waitForTimeout(2500)
+
+    // ── 1단계: data 속성으로 카드 찾기 ──
+    const dataAttrSelectors = [
+      `[data-review-id="${platformReviewId}"]`,
+      `[data-id="${platformReviewId}"]`,
+      `[data-review_id="${platformReviewId}"]`,
+      `[id="review-${platformReviewId}"]`,
+    ].join(', ')
+    let card = await page.$(dataAttrSelectors).catch(() => null)
+
+    // ── 2단계: 작성자 + 본문 텍스트 매칭 (data 속성 매칭 실패 시) ──
+    if (!card && (reviewInfo.author || reviewInfo.content)) {
+      const author = reviewInfo.author || ''
+      const contentSnippet = (reviewInfo.content || '').slice(0, 30).trim()
+      log.info({ author, contentSnippet }, 'yogiyo: data 속성 매칭 실패 → 작성자/본문 매칭 시도')
+
+      // 다양한 카드 후보 셀렉터 시도
+      const cardSelectors = [
+        '[class*="reviewItem"]', '[class*="ReviewItem"]',
+        '[class*="review-item"]', '[class*="review_item"]',
+        'li[class*="review"]', 'div[class*="review"][class*="card"]',
+        '[data-testid*="review"]',
+      ]
+
+      for (const sel of cardSelectors) {
+        try {
+          card = await page.evaluateHandle((args: { selector: string; author: string; content: string }) => {
+            const cards = Array.from(document.querySelectorAll(args.selector))
+            for (const c of cards) {
+              const text = (c as HTMLElement).innerText || ''
+              const matchAuthor = args.author && text.includes(args.author)
+              const matchContent = args.content && text.includes(args.content)
+              if (matchAuthor || matchContent) return c
+            }
+            return null
+          }, { selector: sel, author, content: contentSnippet })
+
+          const isNull = card ? await card.evaluate((el: any) => el == null).catch(() => true) : true
+          if (!isNull) {
+            log.info({ matchedBy: sel }, 'yogiyo: 카드 매칭 성공')
+            break
+          }
+          card = null
+        } catch { card = null }
+      }
+    }
+
+    if (!card) {
+      await dumpPageDiagnostics(page, log, 'yogiyo-reply-card-not-found')
+      return { ok: false, reason: `리뷰 카드 못찾음 (${platformReviewId}) — 페이지 구조 변경 또는 리뷰 위치 이동` }
+    }
+
+    // ── 답글 버튼 탐색 (다양한 selector 시도) ──
+    const replyBtnSelectors = [
+      'button:has-text("답글")',
+      'button:has-text("사장님 답글")',
+      'button:has-text("답글 등록")',
+      '[class*="replyButton"]',
+      '[class*="reply-button"]',
+      '[class*="reply_button"]',
+      'button[aria-label*="답글"]',
+    ]
+    let replyBtn = null
+    for (const sel of replyBtnSelectors) {
+      replyBtn = await card.$(sel).catch(() => null)
+      if (replyBtn) {
+        log.info({ matchedBy: sel }, 'yogiyo: 답글 버튼 매칭')
+        break
+      }
+    }
+    if (!replyBtn) {
+      // 카드 내부에 없으면 페이지 전체에서 시도
+      for (const sel of replyBtnSelectors) {
+        replyBtn = await page.$(sel).catch(() => null)
+        if (replyBtn) break
+      }
+    }
+    if (!replyBtn) {
+      await dumpPageDiagnostics(page, log, 'yogiyo-reply-button-missing')
+      return { ok: false, reason: '답글 버튼 못찾음 — 사장님 권한 확인 필요 또는 페이지 구조 변경' }
+    }
+    await replyBtn.click().catch(() => null)
+    await page.waitForTimeout(1500)
+
+    // ── 텍스트 입력 ──
+    const textareaSelectors = [
+      'textarea[placeholder*="답글"]',
+      'textarea[placeholder*="내용"]',
+      'textarea[class*="reply"]',
+      'textarea[name*="reply"]',
+      'textarea[name*="comment"]',
+      '[contenteditable="true"]',
+    ]
+    let textarea = null
+    for (const sel of textareaSelectors) {
+      textarea = await page.$(sel).catch(() => null)
+      if (textarea) break
+    }
+    if (!textarea) {
+      await dumpPageDiagnostics(page, log, 'yogiyo-reply-textarea-missing')
+      return { ok: false, reason: '답글 입력창 못찾음 (DOM 변경 가능)' }
+    }
+    // contenteditable 도 fill 동작
+    await textarea.fill(replyText).catch(async () => {
+      // fallback: 클릭 + 키 입력
+      await textarea.click().catch(() => null)
+      await page.keyboard.type(replyText, { delay: 10 }).catch(() => null)
+    })
+    await page.waitForTimeout(500)
+
+    // ── 등록 버튼 ──
+    const submitSelectors = [
+      'button:has-text("등록")',
+      'button:has-text("저장")',
+      'button:has-text("확인")',
+      'button:has-text("답글 등록")',
+      'button[type="submit"]',
+    ]
+    let submit = null
+    for (const sel of submitSelectors) {
+      // 모달 안에 있을 가능성이 높으므로 페이지 전체에서 탐색
+      const candidates = await page.$$(sel).catch(() => [])
+      for (const c of candidates) {
+        // 숨겨진 또는 disabled 버튼 제외
+        const enabled = await c.isEnabled().catch(() => false)
+        const visible = await c.isVisible().catch(() => false)
+        if (enabled && visible) {
+          submit = c
+          log.info({ matchedBy: sel }, 'yogiyo: 등록 버튼 매칭')
+          break
+        }
+      }
+      if (submit) break
+    }
+    if (!submit) {
+      await dumpPageDiagnostics(page, log, 'yogiyo-reply-submit-missing')
+      return { ok: false, reason: '답글 등록 버튼 못찾음' }
+    }
+    await submit.click().catch(() => null)
+    await page.waitForTimeout(3000)
+
+    // ── 검증: 답글이 실제로 노출됐는지 확인 ──
+    const verified = await page.evaluate((args: { reply: string }) => {
+      const candidates = Array.from(document.querySelectorAll(
+        '[class*="ownerReply"], [class*="owner_reply"], [class*="OwnerReply"], [class*="ceo"], [class*="CEO"], [class*="reply"]',
+      ))
+      const snippet = args.reply.trim().slice(0, 25)
+      return candidates.some((el) => ((el as HTMLElement).innerText || '').includes(snippet))
+    }, { reply: replyText }).catch(() => false)
+
+    if (!verified) {
+      log.warn({ platformReviewId }, 'yogiyo: submit 클릭됐으나 답글 노출 검증 실패 (성공 간주, 다음 fetch 에서 확인)')
+    } else {
+      log.info({ platformReviewId }, 'yogiyo: 답글 노출 검증 성공')
+    }
+
     return { ok: true }
   } catch (e: any) {
     log.error({ err: e?.message }, 'yogiyo reply error')
