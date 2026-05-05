@@ -12,6 +12,7 @@ import {
   ArrowRight, MapPin, Video, Layers, Zap, TrendingUp,
   Inbox, Bell, CreditCard, Frown, Smartphone, Clock,
   CheckCircle2, Target, Lightbulb, Trophy, AlertTriangle,
+  AtSign, Youtube, BarChart3, BellRing, Shield,
   type LucideIcon,
 } from 'lucide-react'
 
@@ -49,11 +50,52 @@ const FEATURES = [
   {
     Icon: MessageCircle,
     title: '멀티플랫폼 리뷰 관리',
-    desc: '네이버 · 구글 · 카카오맵 · 배민 · 요기요 · 쿠팡이츠 — 6개 플랫폼 리뷰를 한 화면에서 AI 답글로 자동 처리해요.',
+    desc: '네이버 · 구글 · 카카오맵 · 배민 · 요기요 · 쿠팡이츠 — 6개 플랫폼 리뷰를 한 화면에서 AI 답글 11종 톤(친근·전문·감사·사과·미식·맞춤 등)으로 자동 처리해요.',
     color: 'from-blue-500 to-blue-600',
     bg: 'bg-blue-50',
-    tags: ['네이버', '구글', '카카오', '배민', '요기요', '쿠팡이츠'],
+    tags: ['AI 답글 11종', '네이버 자동발행', '배민 30일', '쿠팡이츠 자동화'],
     href: '/service-intro',
+    badge: 'NEW',
+  },
+  {
+    Icon: BellRing,
+    title: '실시간 리뷰 알림',
+    desc: '15분마다 자동 수집 → 별점 1-2점 부정 리뷰는 우선 알림. 웹푸시 + 카카오톡으로 즉시 받아 빠르게 대응해요.',
+    color: 'from-orange-500 to-red-500',
+    bg: 'bg-orange-50',
+    tags: ['15분 자동', '별점 우선순위', '웹푸시', '카카오톡'],
+    href: '/service-intro',
+    badge: 'NEW',
+  },
+  {
+    Icon: BarChart3,
+    title: '답글 발행 통계',
+    desc: '플랫폼별 답변률 · 자동 발행 성공률 · 실패 원인까지 한눈에. 카카오 비즈니스 권한, 30일 만료, 쿠키 만료 등 자동 분류.',
+    color: 'from-violet-500 to-purple-600',
+    bg: 'bg-violet-50',
+    tags: ['답변률', '성공률', '실패 원인 분석'],
+    href: '/review-admin/stats',
+    badge: 'NEW',
+  },
+  {
+    Icon: AtSign,
+    title: '스레드(Threads) 자동 발행',
+    desc: 'Meta Threads 즉시 발행 또는 예약 발행. 이미지 드래그앤드롭, 답글 체인(최대 6개), 카드뉴스 연동까지.',
+    color: 'from-slate-700 to-slate-900',
+    bg: 'bg-slate-50',
+    tags: ['예약 발행', '답글 체인', '카드뉴스 연동'],
+    href: '/marketing/threads',
+    badge: 'NEW',
+  },
+  {
+    Icon: Youtube,
+    title: '유튜브 커뮤니티 자동',
+    desc: '유튜브 채널 커뮤니티 탭에 자동 업로드 + 첫 댓글 자동 작성·고정까지 한 번에.',
+    color: 'from-red-500 to-rose-600',
+    bg: 'bg-red-50',
+    tags: ['커뮤니티 탭', '자동 댓글', '고정 댓글'],
+    href: '/marketing/youtube-community',
+    badge: 'NEW',
   },
   {
     Icon: QrCode,
@@ -355,7 +397,7 @@ export default function LandingPage() {
                 "url": "https://www.localution.co.kr",
                 "applicationCategory": "BusinessApplication",
                 "operatingSystem": "Web",
-                "description": "네이버·구글·배민 리뷰 자동 답글, 블로그 포스팅, QR 리뷰 자동화, AI 매장 진단까지. 소상공인·자영업자를 위한 AI 마케팅 플랫폼.",
+                "description": "네이버·구글·카카오맵·배민·요기요·쿠팡이츠 6개 플랫폼 리뷰 자동 답글 (AI 톤 11종), 블로그·릴스·카드뉴스·스레드·유튜브 커뮤니티 자동 발행, QR 리뷰, 플레이스 SEO 진단, 답글 발행 통계, 실시간 알림까지. 소상공인·자영업자를 위한 AI 올인원 마케팅 플랫폼.",
                 "offers": {
                   "@type": "Offer",
                   "price": "6900",
@@ -380,7 +422,7 @@ export default function LandingPage() {
                 "@id": "https://www.localution.co.kr/#org",
                 "name": "로컬루션",
                 "url": "https://www.localution.co.kr",
-                "description": "소상공인·자영업자 전용 AI 마케팅 플랫폼. 네이버·구글·배민 리뷰 관리, 블로그 SEO, QR 자동화, 플레이스 최적화.",
+                "description": "소상공인·자영업자 전용 AI 올인원 마케팅 플랫폼. 6개 플랫폼 리뷰 통합 관리 (AI 답글 11종), 블로그·릴스·스레드·유튜브 자동 발행, QR 리뷰, 플레이스 SEO, 답글 발행 통계, 실시간 알림.",
                 "logo": {
                   "@type": "ImageObject",
                   "url": "https://www.localution.co.kr/logo.png"
@@ -409,7 +451,15 @@ export default function LandingPage() {
                     "name": "로컬루션은 무엇인가요?",
                     "acceptedAnswer": {
                       "@type": "Answer",
-                      "text": "로컬루션은 소상공인·자영업자를 위한 AI 마케팅 플랫폼입니다. 네이버·구글·배민·요기요·쿠팡이츠 리뷰 자동 답글, 블로그 포스팅 자동화, QR 리뷰 수집, 플레이스 SEO 진단 등 12개 모듈을 제공합니다. 커피 한 잔 값 월 6,900원으로 모든 플랫폼 리뷰답글을 자동으로 등록할 수 있습니다."
+                      "text": "로컬루션은 소상공인·자영업자를 위한 AI 올인원 마케팅 플랫폼입니다. 네이버·구글·카카오맵·배민·요기요·쿠팡이츠 6개 플랫폼 리뷰 자동 답글 (AI 톤 11종), 블로그·릴스·카드뉴스·스레드·유튜브 커뮤니티 자동 발행, QR 리뷰 수집, 플레이스 SEO 진단, 답글 발행 통계, 15분마다 실시간 리뷰 알림까지 제공합니다. 커피 한 잔 값 월 6,900원으로 모든 플랫폼 리뷰답글을 자동으로 등록할 수 있습니다."
+                    }
+                  },
+                  {
+                    "@type": "Question",
+                    "name": "AI 답글 톤이 정말 다양한가요?",
+                    "acceptedAnswer": {
+                      "@type": "Answer",
+                      "text": "친근·전문·유머·심플·감성·MZ·공식·감사·사과·미식까지 10종 기본 톤과 사장님이 직접 정의하는 맞춤 톤까지 총 11종을 지원합니다. 부정 리뷰엔 사과 톤, 음식점은 미식 톤처럼 상황별로 골라쓸 수 있습니다."
                     }
                   },
                   {
@@ -422,10 +472,18 @@ export default function LandingPage() {
                   },
                   {
                     "@type": "Question",
+                    "name": "리뷰가 새로 달리면 바로 알 수 있나요?",
+                    "acceptedAnswer": {
+                      "@type": "Answer",
+                      "text": "15분마다 자동 수집해서 별점 1-2점 부정 리뷰가 오면 우선순위로 알려드립니다. 웹푸시와 카카오톡 두 채널로 받아 빠르게 대응할 수 있고, 답글 발행 통계 페이지에서 플랫폼별 답변률·자동 발행 성공률·실패 원인까지 한눈에 확인 가능합니다."
+                    }
+                  },
+                  {
+                    "@type": "Question",
                     "name": "네이버 플레이스 순위를 올릴 수 있나요?",
                     "acceptedAnswer": {
                       "@type": "Answer",
-                      "text": "네이버 플레이스 SEO 진단 도구로 34항목 체크리스트를 점검하고, 블로그 포스팅 키워드 순위 추적까지 지원합니다."
+                      "text": "네이버 플레이스 SEO 진단 도구로 34항목 체크리스트를 점검하고, 블로그 포스팅 키워드 순위 추적, 스마트블록·블로그탭·인기글 노출 위치 자동 모니터링까지 지원합니다."
                     }
                   }
                 ]
@@ -453,9 +511,14 @@ export default function LandingPage() {
           <circle cx="210" cy="210" r="210" fill="#3182F6" />
         </svg>
         <div className="max-w-4xl mx-auto text-center relative z-10">
-          <div className="inline-flex items-center gap-2 bg-blue-100 text-blue-700 text-xs font-semibold px-3 py-1.5 rounded-full mb-6">
-            <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" />
-            <Coffee size={12} strokeWidth={2.5} /> 커피 한 잔 값 6,900원 · 모든 플랫폼 리뷰 답글 자동
+          <div className="flex flex-wrap justify-center gap-2 mb-6">
+            <Link href="/updates" className="inline-flex items-center gap-2 bg-blue-100 text-blue-700 text-xs font-semibold px-3 py-1.5 rounded-full hover:bg-blue-200 transition-colors">
+              <span className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-pulse" />
+              <Coffee size={12} strokeWidth={2.5} /> 커피 한 잔 값 6,900원 · 모든 플랫폼 리뷰 답글 자동
+            </Link>
+            <Link href="/updates" className="inline-flex items-center gap-1.5 bg-violet-100 text-violet-700 text-xs font-semibold px-3 py-1.5 rounded-full hover:bg-violet-200 transition-colors">
+              <Sparkles size={12} strokeWidth={2.5} /> 5월 신기능 6개 보기
+            </Link>
           </div>
           <h1 className="text-4xl md:text-6xl font-black text-[#191F28] leading-tight mb-6">
             필요한 것만 골라쓰는<br />
@@ -691,10 +754,10 @@ export default function LandingPage() {
               </div>
               <ul className="space-y-3.5">
                 {([
-                  ['AI 답글 자동 생성', '30초, 말투 6종 선택'],
-                  ['6개 플랫폼 통합', '한 화면에서 전부 처리'],
+                  ['AI 답글 자동 생성', '30초, 말투 11종 + 사장님 맞춤'],
+                  ['6개 플랫폼 통합', '한 화면 + 답변률·성공률 통계'],
+                  ['실시간 리뷰 알림', '15분 자동 + 부정 리뷰 우선순위'],
                   ['키워드 순위 자동 추적', '매일 카카오톡으로 리포트'],
-                  ['정산 자동화', '매출·급여 한 번에 계산'],
                   ['CRM 재방문 유도', '방문 2주 후 자동 알림톡'],
                 ] as [string, string][]).map(([title, desc]) => (
                   <li key={title} className="flex items-start gap-3">
@@ -766,6 +829,56 @@ export default function LandingPage() {
           <p className="text-center text-xs text-[#8B95A1] mt-6">
             AI 정산·세금계산서·급여 관리는 곧 추가됩니다
           </p>
+        </div>
+      </section>
+
+      {/* ── 최근 업데이트 (5월 신기능) ── */}
+      <section className="py-16 px-4 bg-white border-t border-gray-100">
+        <div className="max-w-5xl mx-auto">
+          <div className="text-center mb-10">
+            <div className="inline-flex items-center gap-1.5 bg-violet-100 text-violet-700 text-xs font-bold px-3 py-1.5 rounded-full mb-3">
+              <Sparkles size={12} strokeWidth={2.5} />
+              2026년 5월 업데이트
+            </div>
+            <h2 className="text-2xl md:text-3xl font-black text-[#191F28] mb-2">
+              매주 새 기능이 추가돼요
+            </h2>
+            <p className="text-[#8B95A1] text-sm text-left sm:text-center">
+              사장님 피드백 → 빠른 개발 → 자동 배포 사이클로 매주 업그레이드 중
+            </p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {[
+              { Icon: BarChart3, title: '답글 발행 통계', desc: '플랫폼별 성공률·실패 원인 한눈에', color: 'from-violet-500 to-purple-600', date: '5월 6일' },
+              { Icon: Sparkles, title: 'AI 답글 톤 11종', desc: '감사·사과·미식·사장님 맞춤까지', color: 'from-pink-500 to-rose-500', date: '5월 6일' },
+              { Icon: Shield, title: '요기요 30일 정책 차단', desc: '실패 미리 방지 + 다중 매장 자동 감지', color: 'from-fuchsia-500 to-pink-500', date: '5월 6일' },
+              { Icon: AtSign, title: '스레드 자동 발행', desc: '예약·답글 체인·카드뉴스 연동', color: 'from-slate-700 to-slate-900', date: '5월 5일' },
+              { Icon: Youtube, title: '유튜브 커뮤니티 자동', desc: '댓글 고정까지 한 번에', color: 'from-red-500 to-rose-600', date: '5월 5일' },
+              { Icon: BellRing, title: '실시간 리뷰 알림', desc: '15분 자동 수집 + 부정 리뷰 우선', color: 'from-orange-500 to-red-500', date: '5월 3일' },
+            ].map((u) => (
+              <div key={u.title} className="bg-[#FAFBFF] border border-gray-100 rounded-2xl p-4 hover:border-blue-200 hover:shadow-sm transition-all">
+                <div className="flex items-start gap-3">
+                  <div className={`w-9 h-9 rounded-xl bg-gradient-to-br ${u.color} flex items-center justify-center shadow-sm flex-shrink-0`}>
+                    <u.Icon size={16} className="text-white" strokeWidth={2.5} />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center gap-1.5 mb-0.5">
+                      <p className="text-sm font-bold text-[#191F28] truncate">{u.title}</p>
+                      <span className="text-[10px] font-bold text-violet-600 bg-violet-100 px-1.5 py-0.5 rounded-full flex-shrink-0">NEW</span>
+                    </div>
+                    <p className="text-xs text-[#4E5968] leading-relaxed">{u.desc}</p>
+                    <p className="text-[10px] text-[#8B95A1] mt-1.5 font-medium">{u.date}</p>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+          <div className="text-center mt-8">
+            <Link href="/updates" className="inline-flex items-center gap-1.5 text-sm font-bold text-[#3182F6] hover:text-[#1B64DA] transition-colors">
+              전체 업데이트 내역 보기
+              <ArrowRight size={14} strokeWidth={2.5} />
+            </Link>
+          </div>
         </div>
       </section>
 
@@ -919,24 +1032,36 @@ export default function LandingPage() {
       {(() => {
         const FAQS = [
           {
+            q: 'AI 답글 톤이 정말 다양한가요?',
+            a: '친근·전문·유머·심플·감성·MZ·공식·감사·사과·미식까지 10종 기본 + 사장님이 직접 정의하는 맞춤 톤까지 총 11종을 지원해요. 부정 리뷰엔 사과 톤, 음식점은 미식 톤처럼 상황에 맞게 골라쓸 수 있고, 우리 매장만의 말투도 직접 입력해서 저장할 수 있어요.',
+          },
+          {
+            q: '리뷰가 새로 달리면 바로 알 수 있나요?',
+            a: '15분마다 자동 수집해서 별점 1-2점 부정 리뷰가 오면 우선순위로 알려드려요. 웹푸시 + 카카오톡 두 채널로 받아 빠르게 대응 가능해요. 답글 발행 통계 페이지에서 플랫폼별 답변률·자동 발행 성공률도 한눈에 확인하세요.',
+          },
+          {
             q: '진짜 무료로 쓸 수 있나요?',
             a: '플레이스 진단·키워드 순위 확인 등 기본 기능은 전부 무료예요. 블로그 초안·릴스 대본 같은 AI 생성 기능은 월 무료 횟수가 있고, 그 이상 쓸 때만 요금이 붙어요. 신용카드 없이 가입 가능해요.',
           },
           {
             q: '네이버 계정 연동이 걱정돼요. 비밀번호가 저장되나요?',
-            a: '네이버 공식 OAuth를 사용해서 비밀번호는 절대 저장되지 않아요. 리뷰·플레이스 정보 조회 권한만 받고, 언제든 네이버 설정에서 연동 해제 가능해요.',
+            a: '저장되더라도 AES-256-GCM 암호화 + 서버 KEK 분리 보관으로 안전하게 관리되고, 답글 발행 외 다른 용도로는 절대 사용되지 않아요. 언제든 네이버 설정에서 연동 해제 가능해요.',
+          },
+          {
+            q: '6개 플랫폼 답글이 진짜 자동으로 등록되나요?',
+            a: '네이버는 14단계 자동화 (v37) 로 답글이 직접 등록되고, 배민·요기요·쿠팡이츠는 한국 IP 거주형 프록시 + 쿠키 자동 갱신으로 등록돼요. 카카오맵은 카카오 비즈니스 권한이 연결된 매장에 한해 자동 등록 가능해요. 통계 페이지에서 등록 결과까지 확인 가능합니다.',
           },
           {
             q: '매장이 여러 개인데 한 계정에서 관리되나요?',
-            a: '여러 매장을 하나의 로컬루션 계정에서 관리할 수 있어요. 1인 마케팅 대행사나 프랜차이즈 본부 사장님들이 특히 많이 쓰시고, Pro 플랜에서는 매장별 권한 분리도 됩니다.',
+            a: '여러 매장을 하나의 로컬루션 계정에서 관리할 수 있어요. 요기요 같은 다중 매장은 자동 감지되고, 1인 마케팅 대행사나 프랜차이즈 본부 사장님들이 특히 많이 쓰시고, Pro 플랜에서는 매장별 권한 분리도 됩니다.',
           },
           {
             q: '해지가 어렵거나 자동결제가 무서워요',
-            a: '언제든 설정에서 원클릭으로 해지 가능하고, 당월 남은 일수만큼 일할 계산 후 환불해드려요. 자동결제 알림도 결제 3일 전·당일에 카카오톡으로 보내드립니다.',
+            a: '언제든 설정에서 원클릭으로 해지 가능하고, 당월 남은 일수만큼 일할 계산 후 환불해드려요. 결제 키도 서버에서 토큰화해 보관하고 (billing_methods + 토스 시크릿 키), 카드 정보는 로컬에 절대 저장되지 않아요.',
           },
           {
             q: '리뷰 답글을 AI가 달면 고객이 티 나게 느끼지 않을까요?',
-            a: '로컬루션 AI는 매장 말투·시그니처 메뉴·사장님 이름까지 학습해서 답글을 생성해요. 최종 발행 전에 사장님이 검토·수정할 수 있어서 기계 답글처럼 느껴지지 않아요.',
+            a: '로컬루션 AI는 매장 말투·시그니처 메뉴·사장님 이름까지 학습하고, 사장님이 직접 정의한 맞춤 톤까지 적용해 답글을 생성해요. 최종 발행 전에 사장님이 검토·수정할 수 있어서 기계 답글처럼 느껴지지 않아요.',
           },
         ]
         return (
