@@ -61,11 +61,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: '본문을 입력해주세요.' }, { status: 400 })
   }
 
-  // 단일 사용자 앱 — user_id 필터 없이 존재 여부만 확인
+  // platform_credentials WHERE platform='threads' 존재 여부 확인
   const { data: account } = await svc
-    .from('threads_accounts')
-    .select('threads_user_id')
-    .order('created_at', { ascending: false })
+    .from('platform_credentials')
+    .select('account_id')
+    .eq('platform', 'threads')
+    .order('updated_at', { ascending: false })
     .limit(1)
     .maybeSingle()
 
