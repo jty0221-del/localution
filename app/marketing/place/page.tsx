@@ -555,9 +555,9 @@ export default function PlaceDiagnosisPage() {
   }
 
   return (
-    <div className="flex min-h-screen bg-[#F2F4F6]">
+    <div className="min-h-screen bg-[#F8F9FA]">
       <Sidebar />
-      <main className="flex-1 ml-0 md:ml-[220px] pt-16 md:pt-0 min-w-0">
+      <main className="flex-1 ml-0 md:ml-[220px] pt-4 md:pt-0 min-w-0">
         <PageHeader
           icon={<MapPin size={28} className="text-white" strokeWidth={2.5} />}
           title="네이버 플레이스 SEO"
@@ -593,7 +593,7 @@ export default function PlaceDiagnosisPage() {
           {trackedTargets.length > 0 && (
             <div className="bg-white rounded-2xl shadow-sm p-5 mb-5">
               <div className="flex items-center justify-between mb-3">
-                <p className="text-sm font-bold text-[#191F28]">📍 내가 추적 중인 지점 <span className="text-[#8B95A1] font-normal">({trackedTargets.length})</span></p>
+                <p className="text-sm font-bold text-[#191F28]">내가 추적 중인 지점 <span className="text-[#8B95A1] font-normal">({trackedTargets.length})</span></p>
                 {loadingTargets && <span className="text-[10px] text-[#8B95A1]">불러오는 중...</span>}
               </div>
               <div className="space-y-2">
@@ -645,7 +645,7 @@ export default function PlaceDiagnosisPage() {
                           <button
                             onClick={() => toggleExpand(t.id)}
                             className={`px-2.5 py-1.5 text-[10px] font-bold rounded-lg transition-colors ${expanded ? 'bg-[#EFF6FF] text-[#3182F6]' : 'bg-white text-[#4E5968] hover:bg-[#EFF6FF] hover:text-[#3182F6] border border-[#E5E8EB]'}`}>
-                            {expanded ? '▲ 닫기' : '📈 차트'}
+                            {expanded ? '▲ 닫기' : '차트'}
                           </button>
                           <button
                             onClick={() => refreshTarget(t.id)}
@@ -733,7 +733,7 @@ export default function PlaceDiagnosisPage() {
                 {/* 우: 매장정보 요약 */}
                 <div className="bg-white rounded-2xl shadow-sm p-5">
                   <div className="flex items-center justify-between mb-3">
-                    <p className="text-sm font-bold text-[#191F28]">🏪 매장 정보</p>
+                    <p className="text-sm font-bold text-[#191F28]">매장 정보</p>
                     {loadingInfo && <span className="text-[10px] text-[#3182F6] font-semibold flex items-center gap-1"><span className="w-2 h-2 border-2 border-[#3182F6] border-t-transparent rounded-full animate-spin"/>불러오는 중</span>}
                     {fetchedInfo && !loadingInfo && <span className="text-[10px] text-[#12B76A] font-bold">✓ 네이버 연동</span>}
                   </div>
@@ -808,7 +808,7 @@ export default function PlaceDiagnosisPage() {
                           onClick={registerTarget}
                           disabled={registering}
                           className="block w-full text-center text-xs font-bold py-2.5 rounded-xl bg-[#3182F6] text-white hover:bg-[#1B64DA] transition-colors disabled:opacity-50">
-                          {registering ? '등록 중...' : '📍 추적 등록 (매일 자동 갱신)'}
+                          {registering ? '등록 중...' : '추적 등록 (매일 자동 갱신)'}
                         </button>
                       )
                     )}
@@ -830,7 +830,7 @@ export default function PlaceDiagnosisPage() {
               {/* 체크리스트 섹션 */}
               <div className="space-y-4">
                 <div className="flex items-center justify-between">
-                  <p className="text-base font-black text-[#191F28]">📝 34항목 자체 점검 체크리스트</p>
+                  <p className="text-base font-black text-[#191F28]">34항목 자체 점검 체크리스트</p>
                   <span className="text-[11px] text-[#8B95A1]">각 항목 체크 + "상세" 버튼으로 설명 확인</span>
                 </div>
 
@@ -866,7 +866,7 @@ export default function PlaceDiagnosisPage() {
 
               {/* 하단 안내 */}
               <div className="mt-5 rounded-2xl bg-[#F8F9FA] border border-[#E5E8EB] p-4">
-                <p className="text-xs font-bold text-[#191F28] mb-1">💡 체크리스트 활용 팁</p>
+                <p className="text-xs font-bold text-[#191F28] mb-1">체크리스트 활용 팁</p>
                 <p className="text-[11px] text-[#4E5968] leading-relaxed">
                   · 점검은 매장 대표가 직접 하는 걸 권장 (직원 위임 시 체감 온도 차이)<br/>
                   · 1차 점검 후 미체크 항목부터 2주 단위로 개선 → 재점검<br/>
