@@ -2,27 +2,17 @@
 // Threads 포스트 목록 조회 / 신규 생성
 import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/app/lib/adminAuth'
+import { requireUser } from '@/app/lib/userAuth'
 import { enqueuePlatformJob } from '@/app/lib/queue'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-const OWNER_EMAIL = 'jty0221@gmail.com'
-
-async function getOwnerUserId(svc: ReturnType<typeof createServiceClient>): Promise<string> {
-  const { data } = await svc
-    .from('stores')
-    .select('user_id')
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-  return data?.user_id || OWNER_EMAIL
-}
-
 export async function GET(request: Request) {
-  const svc = createServiceClient()
-  const userId = await getOwnerUserId(svc)
+  const auth = await requireUser()
+  if (!auth.ok) return NextResponse.json({ ok: false, error: auth.message }, { status: auth.status })
 
+  const svc = createServiceClient()
   const { searchParams } = new URL(request.url)
   const status = searchParams.get('status') || undefined
   const limit = Math.min(Number(searchParams.get('limit') || '20'), 100)
@@ -31,7 +21,7 @@ export async function GET(request: Request) {
   let query = svc
     .from('threads_posts')
     .select('*', { count: 'exact' })
-    .eq('user_id', userId)
+    .eq('user_id', auth.userId)
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1)
 
@@ -44,8 +34,10 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
+  const auth = await requireUser()
+  if (!auth.ok) return NextResponse.json({ ok: false, error: auth.message }, { status: auth.status })
+
   const svc = createServiceClient()
-  const userId = await getOwnerUserId(svc)
 
   const body = await request.json() as {
     text_content?: string
@@ -61,11 +53,12 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: '본문을 입력해주세요.' }, { status: 400 })
   }
 
-  // platform_credentials WHERE platform='threads' 존재 여부 확인
+  // 해당 사용자의 Threads 계정 연결 여부 확인
   const { data: account } = await svc
     .from('platform_credentials')
     .select('account_id')
     .eq('platform', 'threads')
+    .eq('user_id', auth.userId)
     .order('updated_at', { ascending: false })
     .limit(1)
     .maybeSingle()
@@ -81,7 +74,7 @@ export async function POST(request: Request) {
   const { data: post, error: insertErr } = await svc
     .from('threads_posts')
     .insert({
-      user_id: userId,
+      user_id: auth.userId,
       text_content: body.text_content.trim(),
       hashtags: body.hashtags ?? [],
       image_url: body.image_url ?? null,
@@ -103,8 +96,8 @@ export async function POST(request: Request) {
     await enqueuePlatformJob({
       platform: 'threads',
       action: 'threads_publish',
-      userId,
-      storeId: userId,
+      userId: auth.userId,
+      storeId: auth.userId,
       payload: { post_id: post.id },
     }, { priority: 1 })
   }
