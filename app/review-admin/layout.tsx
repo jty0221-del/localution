@@ -9,5 +9,5 @@
 import GatedRoute from '../components/GatedRoute'
 
 export default function ReviewAdminLayout({ children }: { children: React.ReactNode }) {
-  return <GatedRoute moduleId="ai-review">{children}</GatedRoute>
+ return <GatedRoute moduleId="ai-review">{children}</GatedRoute>
 }

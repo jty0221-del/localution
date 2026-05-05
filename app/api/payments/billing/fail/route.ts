@@ -7,16 +7,16 @@ import { NextRequest, NextResponse } from 'next/server'
  */
 
 export async function GET(req: NextRequest) {
-  const url = new URL(req.url)
-  const code     = url.searchParams.get('code')    || 'unknown'
-  const message  = url.searchParams.get('message') || ''
-  const returnTo = url.searchParams.get('returnTo') || '/settings?tab=plan&billing=fail'
+ const url = new URL(req.url)
+ const code = url.searchParams.get('code') || 'unknown'
+ const message = url.searchParams.get('message') || ''
+ const returnTo = url.searchParams.get('returnTo') || '/settings?tab=plan&billing=fail'
 
-  const target = new URL(returnTo, url.origin)
-  target.searchParams.set('reason', code)
-  if (message) target.searchParams.set('msg', message)
+ const target = new URL(returnTo, url.origin)
+ target.searchParams.set('reason', code)
+ if (message) target.searchParams.set('msg', message)
 
-  return NextResponse.redirect(target)
+ return NextResponse.redirect(target)
 }
 
 export const dynamic = 'force-dynamic'

@@ -2,10 +2,10 @@
 // ============================================================
 // 23차-2: 암호화 유틸 자체 검증 엔드포인트 (2026-04-21)
 //
-//   GET /api/admin/crypto-selftest
-//   · requireAdmin() 로 관리자만 접근
-//   · crypto-utils.selfTest() 호출
-//   · KEK 환경변수 로드 + AES-256-GCM 암/복호화 왕복 검증
+// GET /api/admin/crypto-selftest
+// · requireAdmin() 로 관리자만 접근
+// · crypto-utils.selfTest() 호출
+// · KEK 환경변수 로드 + AES-256-GCM 암/복호화 왕복 검증
 // ============================================================
 import { NextResponse } from 'next/server'
 import { requireAdmin } from '@/app/lib/adminAuth'
@@ -15,24 +15,24 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
-  const admin = await requireAdmin()
-  if (!admin.ok) {
-    return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 })
-  }
+ const admin = await requireAdmin()
+ if (!admin.ok) {
+ return NextResponse.json({ ok: false, error: 'unauthorized' }, { status: 401 })
+ }
 
-  const result = selfTest()
+ const result = selfTest()
 
-  // 환경변수 존재 여부만 별도 표시 (값·길이 모두 절대 노출 안 함)
-  // 43차-3: kek_hex_length 응답 제거 (포맷 추론 단서)
-  const envInfo = {
-    has_kek_hex: !!process.env.ENCRYPTION_KEK_HEX,
-    kek_version: process.env.ENCRYPTION_KEK_VERSION || '(unset)',
-  }
+ // 환경변수 존재 여부만 별도 표시 (값·길이 모두 절대 노출 안 함)
+ // 43차-3: kek_hex_length 응답 제거 (포맷 추론 단서)
+ const envInfo = {
+ has_kek_hex: !!process.env.ENCRYPTION_KEK_HEX,
+ kek_version: process.env.ENCRYPTION_KEK_VERSION || '(unset)',
+ }
 
-  return NextResponse.json({
-    ok: result.ok,
-    message: result.message,
-    env: envInfo,
-    timestamp: new Date().toISOString(),
-  }, { status: result.ok ? 200 : 500 })
+ return NextResponse.json({
+ ok: result.ok,
+ message: result.message,
+ env: envInfo,
+ timestamp: new Date().toISOString(),
+ }, { status: result.ok ? 200 : 500 })
 }

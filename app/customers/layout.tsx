@@ -8,5 +8,5 @@
 import GatedRoute from '../components/GatedRoute'
 
 export default function CustomersLayout({ children }: { children: React.ReactNode }) {
-  return <GatedRoute moduleId="crm">{children}</GatedRoute>
+ return <GatedRoute moduleId="crm">{children}</GatedRoute>
 }

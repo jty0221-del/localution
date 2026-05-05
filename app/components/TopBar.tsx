@@ -4,31 +4,31 @@ import { useState } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import {
-  Star, AlertCircle, UserPlus, BarChart3, Bell, CheckCircle2,
-  Settings, CreditCard, Sparkles, LogOut, LucideIcon,
+ Star, AlertCircle, UserPlus, BarChart3, Bell, CheckCircle2,
+ Settings, CreditCard, Sparkles, LogOut, LucideIcon,
 } from 'lucide-react'
 
 const PAGE_TITLES: Record<string, string> = {
-  '/':            '대시보드',
-  '/review-admin':'리뷰 관리',
-  '/qr-admin':    'QR 관리',
-  '/crm':         '고객 관리',
-  '/admin-biz':   '매장 관리',
-  '/community':   '커뮤니티',
-  '/pricing':     '기능 추가',
-  '/settings':    '설정',
+ '/': '대시보드',
+ '/review-admin':'리뷰 관리',
+ '/qr-admin': 'QR 관리',
+ '/crm': '고객 관리',
+ '/admin-biz': '매장 관리',
+ '/community': '커뮤니티',
+ '/pricing': '기능 추가',
+ '/settings': '설정',
 }
 
 type Notif = {
-  id: number
-  type: string
-  Icon: LucideIcon
-  tone: string
-  title: string
-  desc: string
-  time: string
-  read: boolean
-  href: string
+ id: number
+ type: string
+ Icon: LucideIcon
+ tone: string
+ title: string
+ desc: string
+ time: string
+ read: boolean
+ href: string
 }
 
 // 실 데이터 연동 전 — 빈 배열 (가짜 알림 노출 금지)
@@ -36,123 +36,123 @@ type Notif = {
 const NOTIFICATIONS: Notif[] = []
 
 export default function TopBar() {
-  const pathname = usePathname()
-  const [notifOpen, setNotifOpen] = useState(false)
-  const [userOpen, setUserOpen] = useState(false)
-  const [notifs, setNotifs] = useState(NOTIFICATIONS)
+ const pathname = usePathname()
+ const [notifOpen, setNotifOpen] = useState(false)
+ const [userOpen, setUserOpen] = useState(false)
+ const [notifs, setNotifs] = useState(NOTIFICATIONS)
 
-  const unread = notifs.filter(n => !n.read).length
-  const title = PAGE_TITLES[pathname] || '로컬루션'
+ const unread = notifs.filter(n => !n.read).length
+ const title = PAGE_TITLES[pathname] || '로컬루션'
 
-  const markAll = () => setNotifs(n => n.map(x => ({ ...x, read: true })))
-  const markOne = (id: number) => setNotifs(n => n.map(x => x.id === id ? { ...x, read: true } : x))
+ const markAll = () => setNotifs(n => n.map(x => ({ ...x, read: true })))
+ const markOne = (id: number) => setNotifs(n => n.map(x => x.id === id ? { ...x, read: true } : x))
 
-  return (
-    <div className="sticky top-0 z-20 bg-[#F2F4F6] pt-4 pb-2 px-4 md:px-8 -mx-4 md:-mx-8 -mt-4 md:-mt-8 mb-6">
-      <div className="flex items-center justify-between">
-        {/* 페이지 타이틀 */}
-        <h1 className="text-xl font-bold text-[#191F28] pl-12 md:pl-0">{title}</h1>
+ return (
+ <div className="sticky top-0 z-20 bg-[#F2F4F6] pt-4 pb-2 px-4 md:px-8 -mx-4 md:-mx-8 -mt-4 md:-mt-8 mb-6">
+ <div className="flex items-center justify-between">
+ {/* 페이지 타이틀 */}
+ <h1 className="text-xl font-bold text-[#191F28] pl-12 md:pl-0">{title}</h1>
 
-        {/* 우측 액션 */}
-        <div className="flex items-center gap-2 relative">
+ {/* 우측 액션 */}
+ <div className="flex items-center gap-2 relative">
 
-          {/* 알림 벨 */}
-          <div className="relative">
-            <button
-              onClick={() => { setNotifOpen(v => !v); setUserOpen(false); }}
-              className="relative w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm hover:shadow-md transition-all text-[#4E5968]"
-            >
-              <Bell size={18} strokeWidth={2} />
-              {unread > 0 && (
-                <span className="absolute -top-1 -right-1 w-5 h-5 bg-[#FF3B30] text-white text-xs font-bold rounded-full flex items-center justify-center">
-                  {unread}
-                </span>
-              )}
-            </button>
+ {/* 알림 벨 */}
+ <div className="relative">
+ <button
+ onClick={() => { setNotifOpen(v => !v); setUserOpen(false); }}
+ className="relative w-10 h-10 bg-white rounded-xl flex items-center justify-center shadow-sm hover:shadow-md transition-all text-[#4E5968]"
+ >
+ <Bell size={18} strokeWidth={2} />
+ {unread > 0 && (
+ <span className="absolute -top-1 -right-1 w-5 h-5 bg-[#FF3B30] text-white text-xs font-bold rounded-full flex items-center justify-center">
+ {unread}
+ </span>
+ )}
+ </button>
 
-            {notifOpen && (
-              <>
-                <div className="fixed inset-0 z-10" onClick={() => setNotifOpen(false)} />
-                <div className="absolute right-0 top-12 w-[calc(100vw-2rem)] sm:w-80 bg-white rounded-2xl shadow-2xl z-20 overflow-hidden">
-                  <div className="flex items-center justify-between px-5 py-4 border-b border-[#F2F4F6]">
-                    <span className="font-bold text-[#191F28]">알림</span>
-                    {unread > 0 && (
-                      <button onClick={markAll} className="text-xs text-[#3182F6] font-medium">전체 읽음</button>
-                    )}
-                  </div>
-                  <div className="max-h-96 overflow-y-auto divide-y divide-[#F2F4F6]">
-                    {notifs.map(n => (
-                      <Link key={n.id} href={n.href}
-                        onClick={() => { markOne(n.id); setNotifOpen(false); }}
-                        className={`flex items-start gap-3 px-5 py-4 hover:bg-[#F8F9FA] transition-colors ${!n.read ? 'bg-[#EFF6FF]' : ''}`}>
-                        <span className="flex-shrink-0 mt-0.5 w-9 h-9 rounded-xl flex items-center justify-center"
-                          style={{ backgroundColor: n.tone + '15' }}>
-                          <n.Icon size={18} strokeWidth={2} style={{ color: n.tone }} />
-                        </span>
-                        <div className="flex-1 min-w-0">
-                          <div className="flex items-start justify-between gap-2">
-                            <span className="text-sm font-semibold text-[#191F28] leading-tight">{n.title}</span>
-                            {!n.read && <span className="w-2 h-2 rounded-full bg-[#3182F6] flex-shrink-0 mt-1.5" />}
-                          </div>
-                          <p className="text-xs text-[#4E5968] mt-0.5 leading-relaxed">{n.desc}</p>
-                          <span className="text-xs text-[#8B95A1] mt-1 block">{n.time}</span>
-                        </div>
-                      </Link>
-                    ))}
-                  </div>
-                  {unread === 0 && (
-                    <div className="flex flex-col items-center gap-2 text-[#8B95A1] text-sm py-8">
-                      <CheckCircle2 size={28} strokeWidth={1.75} className="text-[#3182F6]" />
-                      <span>모든 알림을 읽었어요</span>
-                    </div>
-                  )}
-                </div>
-              </>
-            )}
-          </div>
+ {notifOpen && (
+ <>
+ <div className="fixed inset-0 z-10" onClick={() => setNotifOpen(false)} />
+ <div className="absolute right-0 top-12 w-[calc(100vw-2rem)] sm:w-80 bg-white rounded-2xl shadow-2xl z-20 overflow-hidden">
+ <div className="flex items-center justify-between px-5 py-4 border-b border-[#F2F4F6]">
+ <span className="font-bold text-[#191F28]">알림</span>
+ {unread > 0 && (
+ <button onClick={markAll} className="text-xs text-[#3182F6] font-medium">전체 읽음</button>
+ )}
+ </div>
+ <div className="max-h-96 overflow-y-auto divide-y divide-[#F2F4F6]">
+ {notifs.map(n => (
+ <Link key={n.id} href={n.href}
+ onClick={() => { markOne(n.id); setNotifOpen(false); }}
+ className={`flex items-start gap-3 px-5 py-4 hover:bg-[#F8F9FA] transition-colors ${!n.read ? 'bg-[#EFF6FF]' : ''}`}>
+ <span className="flex-shrink-0 mt-0.5 w-9 h-9 rounded-xl flex items-center justify-center"
+ style={{ backgroundColor: n.tone + '15' }}>
+ <n.Icon size={18} strokeWidth={2} style={{ color: n.tone }} />
+ </span>
+ <div className="flex-1 min-w-0">
+ <div className="flex items-start justify-between gap-2">
+ <span className="text-sm font-semibold text-[#191F28] leading-tight">{n.title}</span>
+ {!n.read && <span className="w-2 h-2 rounded-full bg-[#3182F6] flex-shrink-0 mt-1.5" />}
+ </div>
+ <p className="text-xs text-[#4E5968] mt-0.5 leading-relaxed">{n.desc}</p>
+ <span className="text-xs text-[#8B95A1] mt-1 block">{n.time}</span>
+ </div>
+ </Link>
+ ))}
+ </div>
+ {unread === 0 && (
+ <div className="flex flex-col items-center gap-2 text-[#8B95A1] text-sm py-8">
+ <CheckCircle2 size={28} strokeWidth={1.75} className="text-[#3182F6]" />
+ <span>모든 알림을 읽었어요</span>
+ </div>
+ )}
+ </div>
+ </>
+ )}
+ </div>
 
-          {/* 사용자 메뉴 */}
-          <div className="relative">
-            <button
-              onClick={() => { setUserOpen(v => !v); setNotifOpen(false); }}
-              className="w-10 h-10 bg-[#3182F6] rounded-xl flex items-center justify-center shadow-sm hover:shadow-md transition-all text-white font-bold text-sm"
-            >
-              전
-            </button>
+ {/* 사용자 메뉴 */}
+ <div className="relative">
+ <button
+ onClick={() => { setUserOpen(v => !v); setNotifOpen(false); }}
+ className="w-10 h-10 bg-[#3182F6] rounded-xl flex items-center justify-center shadow-sm hover:shadow-md transition-all text-white font-bold text-sm"
+ >
+ 전
+ </button>
 
-            {userOpen && (
-              <>
-                <div className="fixed inset-0 z-10" onClick={() => setUserOpen(false)} />
-                <div className="absolute right-0 top-12 w-56 bg-white rounded-2xl shadow-2xl z-20 overflow-hidden">
-                  <div className="px-5 py-4 border-b border-[#F2F4F6]">
-                    <div className="font-bold text-[#191F28] text-sm">전태영 사장님</div>
-                    <div className="text-xs text-[#8B95A1] mt-0.5">jty0221@gmail.com</div>
-                  </div>
-                  <div className="py-2">
-                    {([
-                      { Icon: Settings,    label: '설정',       href: '/settings' },
-                      { Icon: CreditCard,  label: '플랜 관리',  href: '/settings' },
-                      { Icon: Sparkles,    label: '기능 추가',  href: '/pricing' },
-                    ] as const).map(item => (
-                      <Link key={item.label} href={item.href} onClick={() => setUserOpen(false)}
-                        className="flex items-center gap-2.5 px-5 py-3 text-sm text-[#4E5968] hover:bg-[#F2F4F6] transition-colors">
-                        <item.Icon size={16} strokeWidth={2} className="text-[#8B95A1]" />
-                        {item.label}
-                      </Link>
-                    ))}
-                  </div>
-                  <div className="border-t border-[#F2F4F6] py-2">
-                    <Link href="/login" className="flex items-center gap-2.5 px-5 py-3 text-sm text-[#FF3B30] hover:bg-[#FFF0F0] transition-colors">
-                      <LogOut size={16} strokeWidth={2} />
-                      로그아웃
-                    </Link>
-                  </div>
-                </div>
-              </>
-            )}
-          </div>
-        </div>
-      </div>
-    </div>
-  )
+ {userOpen && (
+ <>
+ <div className="fixed inset-0 z-10" onClick={() => setUserOpen(false)} />
+ <div className="absolute right-0 top-12 w-56 bg-white rounded-2xl shadow-2xl z-20 overflow-hidden">
+ <div className="px-5 py-4 border-b border-[#F2F4F6]">
+ <div className="font-bold text-[#191F28] text-sm">전태영 사장님</div>
+ <div className="text-xs text-[#8B95A1] mt-0.5">jty0221@gmail.com</div>
+ </div>
+ <div className="py-2">
+ {([
+ { Icon: Settings, label: '설정', href: '/settings' },
+ { Icon: CreditCard, label: '플랜 관리', href: '/settings' },
+ { Icon: Sparkles, label: '기능 추가', href: '/pricing' },
+ ] as const).map(item => (
+ <Link key={item.label} href={item.href} onClick={() => setUserOpen(false)}
+ className="flex items-center gap-2.5 px-5 py-3 text-sm text-[#4E5968] hover:bg-[#F2F4F6] transition-colors">
+ <item.Icon size={16} strokeWidth={2} className="text-[#8B95A1]" />
+ {item.label}
+ </Link>
+ ))}
+ </div>
+ <div className="border-t border-[#F2F4F6] py-2">
+ <Link href="/login" className="flex items-center gap-2.5 px-5 py-3 text-sm text-[#FF3B30] hover:bg-[#FFF0F0] transition-colors">
+ <LogOut size={16} strokeWidth={2} />
+ 로그아웃
+ </Link>
+ </div>
+ </div>
+ </>
+ )}
+ </div>
+ </div>
+ </div>
+ </div>
+ )
 }

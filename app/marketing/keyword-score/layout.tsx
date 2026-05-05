@@ -8,5 +8,5 @@
 import GatedRoute from '../../components/GatedRoute'
 
 export default function KeywordScoreLayout({ children }: { children: React.ReactNode }) {
-  return <GatedRoute moduleId="keyword">{children}</GatedRoute>
+ return <GatedRoute moduleId="keyword">{children}</GatedRoute>
 }

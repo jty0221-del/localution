@@ -8,31 +8,31 @@ export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
 export async function GET() {
-  const auth = await requireUser()
-  if (!auth.ok) return NextResponse.json({ ok: false, error: auth.message }, { status: auth.status })
+ const auth = await requireUser()
+ if (!auth.ok) return NextResponse.json({ ok: false, error: auth.message }, { status: auth.status })
 
-  const svc = createServiceClient()
-  const { data } = await svc
-    .from('kakao_tokens')
-    .select('scope, expires_at, refresh_expires_at')
-    .eq('user_id', auth.userId)
-    .maybeSingle()
+ const svc = createServiceClient()
+ const { data } = await svc
+ .from('kakao_tokens')
+ .select('scope, expires_at, refresh_expires_at')
+ .eq('user_id', auth.userId)
+ .maybeSingle()
 
-  if (!data) {
-    return NextResponse.json({ ok: true, connected: false, scope: null })
-  }
+ if (!data) {
+ return NextResponse.json({ ok: true, connected: false, scope: null })
+ }
 
-  const scope = String(data.scope || '')
-  const hasTalkMessage = scope.includes('talk_message')
-  const refreshValid = data.refresh_expires_at
-    ? new Date(data.refresh_expires_at).getTime() > Date.now()
-    : true
+ const scope = String(data.scope || '')
+ const hasTalkMessage = scope.includes('talk_message')
+ const refreshValid = data.refresh_expires_at
+ ? new Date(data.refresh_expires_at).getTime() > Date.now()
+ : true
 
-  return NextResponse.json({
-    ok: true,
-    connected: hasTalkMessage && refreshValid,
-    scope,
-    has_talk_message: hasTalkMessage,
-    refresh_valid: refreshValid,
-  })
+ return NextResponse.json({
+ ok: true,
+ connected: hasTalkMessage && refreshValid,
+ scope,
+ has_talk_message: hasTalkMessage,
+ refresh_valid: refreshValid,
+ })
 }

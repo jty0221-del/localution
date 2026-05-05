@@ -8,5 +8,5 @@
 import GatedRoute from '../components/GatedRoute'
 
 export default function QrAdminLayout({ children }: { children: React.ReactNode }) {
-  return <GatedRoute moduleId="qr-stamp">{children}</GatedRoute>
+ return <GatedRoute moduleId="qr-stamp">{children}</GatedRoute>
 }
