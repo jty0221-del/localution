@@ -231,11 +231,11 @@ function StatusBadge({ status }: { status: ReplyStatus }) {
   if (status === 'none') return null
   const map: Record<ReplyStatus, { label: string; bg: string; fg: string }> = {
     none: { label: '', bg: '', fg: '' },
-    draft: { label: '📝 초안 저장됨', bg: '#EFF6FF', fg: '#1D4ED8' },
+    draft: { label: '초안 저장됨', bg: '#EFF6FF', fg: '#1D4ED8' },
     queued: { label: '⚡ 자동 발행 중', bg: '#E0F2FE', fg: '#075985' },
     submitting: { label: '🚀 등록 중...', bg: '#E0F2FE', fg: '#075985' },
-    submitted: { label: '✅ 등록 완료', bg: '#ECFDF5', fg: '#059669' },
-    failed: { label: '❌ 등록 실패', bg: '#FEE2E2', fg: '#DC2626' },
+    submitted: { label: '등록 완료', bg: '#ECFDF5', fg: '#059669' },
+    failed: { label: '등록 실패', bg: '#FEE2E2', fg: '#DC2626' },
   }
   const s = map[status]
   return (
@@ -797,7 +797,7 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
   ).length
 
   return (
-    <div className="min-h-screen bg-[#F2F4F6] flex flex-col overflow-x-hidden">
+    <div className="min-h-screen bg-[#F8F9FA]">
       <div className="flex flex-1">
         <Sidebar />
         <main className="flex-1 ml-0 md:ml-[220px] pt-14 md:pt-0 min-w-0">
@@ -1171,7 +1171,7 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
                             {typeof review.rating === 'number' && <Stars n={review.rating} color={config.color} />}
                             {review.photoCount > 0 && (
                               <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#EFF6FF] text-[#3182F6] font-semibold">
-                                📷 사진 {review.photoCount}
+                                사진 {review.photoCount}
                               </span>
                             )}
                             {isNegative && (
@@ -1187,7 +1187,7 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
                                 className="text-[10px] px-1.5 py-0.5 rounded bg-[#FEF3C7] text-[#92400E] font-semibold hover:bg-[#FDE68A] transition-colors inline-flex items-center gap-0.5"
                                 title="자세히 보기"
                               >
-                                ⏰ 30일 경과 <span className="opacity-60">ⓘ</span>
+                                30일 경과 <span className="opacity-60">ⓘ</span>
                               </button>
                             )}
                             {/* 이미 답글 달린 리뷰는 status badge 숨김 (오래된 failed 배지 노출 방지) */}
@@ -1338,7 +1338,7 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
                                 </div>
 
                                 <p className="text-[10px] text-[#8B95A1] mb-1 flex items-center gap-1">
-                                  💡 필요하면 직접 수정한 뒤 등록하세요
+                                  필요하면 직접 수정한 뒤 등록하세요
                                 </p>
                                 <textarea
                                   value={draftText}
@@ -1418,18 +1418,18 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
                                 )}
                                 {isSubmitted && (
                                   <p className="text-[11px] mt-2 text-[#059669] bg-[#ECFDF5] rounded-lg px-2 py-1.5">
-                                    ✅ {config.label}에 등록 완료 ({timeAgo(review.replySubmittedAt)})
+                                    {config.label}에 등록 완료 ({timeAgo(review.replySubmittedAt)})
                                   </p>
                                 )}
                                 {!isSubmitted && review.hasReply && (
                                   <p className="text-[11px] mt-2 text-[#059669] bg-[#ECFDF5] rounded-lg px-2 py-1.5">
-                                    ✅ 이미 {config.label}에 답글이 달린 리뷰예요. 자동 발행은 비활성화됩니다.
+                                    이미 {config.label}에 답글이 달린 리뷰예요. 자동 발행은 비활성화됩니다.
                                   </p>
                                 )}
                                 {/* v1.6m: 배민 30일 경과 안내 */}
                                 {isReplyExpired && !isSubmitted && !review.hasReply && (
                                   <p className="text-[11px] mt-2 text-[#92400E] bg-[#FEF3C7] rounded-lg px-2 py-1.5">
-                                    ⏰ 배민 정책: 등록된 지 30일이 지난 리뷰에는 답글을 달 수 없어요. (배민 자체 제한)
+                                    배민 정책: 등록된 지 30일이 지난 리뷰에는 답글을 달 수 없어요. (배민 자체 제한)
                                   </p>
                                 )}
                                 {review.replyStatus === 'failed' && review.replyError && !review.hasReply && (() => {
@@ -1479,7 +1479,7 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
                         {!isEditing && (isSubmitted || review.hasReply || !!review.replyContent) && (
                           <div className="rounded-xl p-3 mb-2 border border-[#ECFDF5] bg-[#F0FDF4]">
                             <p className="text-[10px] font-bold text-[#059669] mb-1">
-                              {isSubmitted ? `✅ 사장님 답글 (${config.label} 등록 완료)` : `✅ 사장님 답글 (${config.label}에 등록됨)`}
+                              {isSubmitted ? `사장님 답글 (${config.label} 등록 완료)` : `사장님 답글 (${config.label}에 등록됨)`}
                             </p>
                             <p className="text-sm text-[#374151] leading-relaxed whitespace-pre-wrap break-words">
                               {review.replyContent || review.draftReply || `(로컬루션에서 작성하지 않은 답글이에요. ${config.label}에서 직접 확인해주세요.)`}
@@ -1497,7 +1497,7 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
                                   className="px-4 py-2 rounded-xl text-xs font-bold text-white hover:opacity-90 shadow-sm"
                                   style={{ background: config.color }}
                                 >
-                                  📝 초안 이어서 편집
+                                  초안 이어서 편집
                                 </button>
                                 <span className="text-[11px] text-[#8B95A1] truncate max-w-[280px]">
                                   {(review.draftReply || '').slice(0, 60)}{(review.draftReply || '').length > 60 ? '...' : ''}
