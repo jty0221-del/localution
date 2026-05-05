@@ -46,6 +46,43 @@ export async function GET(req: NextRequest) {
 
     // 실패 원인 그룹핑
     const failureReasons: Record<string, number> = {}
+    // v1.6z: 카테고리별 실제 에러 메시지 샘플 (최대 5건)
+    const failureSamples: Record<string, Array<{ platform: string; message: string; postedAt: string | null }>> = {}
+
+    // v1.6z: 더 정교한 카테고리 분류
+    function categorizeError(err: string): string {
+      const e = err.toLowerCase()
+      // 30일 / 만료
+      if (err.includes('30일') || e.includes('expired') || e.includes('writable')) return '30일 정책 만료'
+      // 쿠키 / 세션
+      if (err.includes('쿠키') || e.includes('cookie') || e.includes('session') || e.includes('not logged in')) return '쿠키·세션 만료'
+      // 로그인
+      if (err.includes('로그인') || e.includes('login fail') || e.includes('unauthorized') || e.includes('401')) return '로그인 실패'
+      // Akamai / 봇 차단
+      if (err.includes('Akamai') || e.includes('akamai') || e.includes('403') || e.includes('forbidden')) return 'Akamai / 봇 차단'
+      // CAPTCHA
+      if (e.includes('captcha') || e.includes('block')) return 'CAPTCHA / 차단'
+      // 권한 부족 (사장님 / 비즈니스 권한)
+      if (err.includes('사장님') || err.includes('권한') || err.includes('비즈니스') || e.includes('permission') || e.includes('not owner')) return '사장님 권한 부족'
+      // DOM / 셀렉터 변경
+      if (err.includes('못찾') || err.includes('없음') || e.includes('not found') || e.includes('selector') || e.includes('textarea') || e.includes('button')) return 'DOM 구조 변경'
+      // 카드 매칭 실패 (리뷰 ID 매칭 안 됨)
+      if (err.includes('카드') || e.includes('card not found') || e.includes('review_id')) return '리뷰 카드 매칭 실패'
+      // Timeout
+      if (e.includes('timeout') || e.includes('time out') || e.includes('timed out')) return 'Timeout (응답 지연)'
+      // 네트워크
+      if (e.includes('network') || e.includes('fetch') || e.includes('econnrefused') || e.includes('socket')) return '네트워크 오류'
+      // 이미 등록됨
+      if (e.includes('already') || err.includes('이미') || err.includes('중복')) return '이미 답글 등록됨'
+      // 매장 ID 누락
+      if (err.includes('매장') || err.includes('store_id') || e.includes('store id') || e.includes('place_id')) return '매장 ID 누락'
+      // 파싱 / 형식 오류
+      if (e.includes('parse') || e.includes('json') || e.includes('invalid')) return '응답 형식 오류'
+      // 프록시 관련
+      if (e.includes('proxy') || e.includes('iproyal')) return '프록시 오류'
+      // 기타 (분류 불가)
+      return '기타 (분류 불가)'
+    }
 
     for (const r of rows) {
       const p = String(r.platform || 'unknown')
@@ -69,19 +106,20 @@ export async function GET(req: NextRequest) {
         stat.negativeUnreplied++
       }
 
-      // 실패 원인 카테고리화
+      // 실패 원인 카테고리화 (v1.6z: 더 정교)
       if (replyStatus === 'failed' && r.reply_error) {
         const err = String(r.reply_error)
-        let category = 'other'
-        if (err.includes('30일') || err.includes('expired')) category = '30일 정책 (배민)'
-        else if (err.includes('쿠키') || err.includes('cookie')) category = '쿠키 만료'
-        else if (err.includes('로그인')) category = '로그인 실패'
-        else if (err.includes('Akamai') || err.includes('403')) category = 'Akamai 차단'
-        else if (err.includes('captcha') || err.includes('block')) category = 'CAPTCHA / Block'
-        else if (err.includes('timeout')) category = 'Timeout'
-        else if (err.includes('network')) category = '네트워크 오류'
-        else if (err.includes('ALREADY')) category = '이미 답글 등록됨'
+        const category = categorizeError(err)
         failureReasons[category] = (failureReasons[category] || 0) + 1
+        // 샘플 에러 메시지 (각 카테고리별 최대 5건)
+        if (!failureSamples[category]) failureSamples[category] = []
+        if (failureSamples[category].length < 5) {
+          failureSamples[category].push({
+            platform: p,
+            message: err.length > 200 ? err.slice(0, 200) + '...' : err,
+            postedAt: r.posted_at || r.collected_at || null,
+          })
+        }
       }
     }
 
@@ -131,6 +169,7 @@ export async function GET(req: NextRequest) {
       },
       byPlatform,
       failureReasons,
+      failureSamples,
     })
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e?.message || 'unknown' }, { status: 500 })
