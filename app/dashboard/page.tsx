@@ -7,7 +7,7 @@ import Sidebar from '../components/Sidebar'
 import Footer from '../components/Footer'
 import SlideAdBanner from '../components/SlideAdBanner'
 import OnboardingChecklist from '../components/OnboardingChecklist'
-import QuickActions from '../components/QuickActions'
+import DashboardRightSidebar from '../components/DashboardRightSidebar'
 import { useConnections, setConnection as libSetConnection, removeConnection as libRemoveConnection, PlatformId as CanonicalPlatformId } from '../lib/connections'
 import { toast, confirmDialog } from '../lib/toast'
 import { buildSettingsHref } from '../lib/settings-tabs'
@@ -1557,7 +1557,9 @@ export default function Dashboard() {
  <div className="min-h-screen bg-[#F8F9FA]">
  <Sidebar />
  <div className="md:ml-[220px] flex flex-col min-h-screen">
- <main className="flex-1 px-4 md:px-6 pt-20 md:pt-6 pb-24 md:pb-6 max-w-6xl mx-auto w-full">
+ <div className="flex-1 px-4 md:px-6 pt-20 md:pt-6 pb-24 md:pb-6 max-w-7xl mx-auto w-full">
+ <div className="flex gap-6">
+ <main className="flex-1 min-w-0">
 
  {/* ── 상단 롤링 공지 배너 ── */}
  <SlideAdBanner />
@@ -1565,9 +1567,6 @@ export default function Dashboard() {
  {/* ── 2-D · 신규 사용자 onboarding checklist (4 step) ── */}
  {/* 4가지 모두 완료하면 자동 숨김 — 신규 사용자에게만 노출 */}
  {isLoggedIn && <OnboardingChecklist />}
-
- {/* ── 빠른 액션 (사장님 자주 쓰는 7가지) ── */}
- {isLoggedIn && <QuickActions />}
 
  {/* ── 부정 리뷰 긴급 알림 (미답변 1~2점 있을 때만) ── */}
  {isLoggedIn && negativeUnansweredCount > 0 && (
@@ -1702,52 +1701,8 @@ export default function Dashboard() {
  </div>
  </div>
 
- {/* ── 25차-4: 신규 모듈 프로모 스트립 ── */}
- <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
- <Link
- href="/marketing/card-news"
- className="group relative overflow-hidden rounded-2xl p-5 bg-gradient-to-br from-[#EC4899] via-[#F43F5E] to-[#F97316] text-white shadow-sm hover:shadow-lg transition-all"
- >
- <div className="absolute top-3 right-3 text-[9px] font-black bg-white/25 text-white px-2 py-0.5 rounded-full backdrop-blur">NEW</div>
- <div className="flex items-center gap-2 mb-2">
- <Layers size={20} strokeWidth={2.5} />
- <span className="text-[13px] font-black">인스타 카드뉴스</span>
- </div>
- <p className="text-[11px] text-white/90 leading-snug mb-3">주제만 던지면 캐러셀 10장 AI 자동 생성 · PNG 저장</p>
- <span className="inline-flex items-center gap-1 text-[11px] font-bold">
- 만들러 가기 <ArrowRight size={12} strokeWidth={2.75} className="group-hover:translate-x-0.5 transition-transform" />
- </span>
- </Link>
-
- <Link
- href="/my/platforms"
- className="group relative overflow-hidden rounded-2xl p-5 bg-gradient-to-br from-[#6366F1] via-[#8B5CF6] to-[#A855F7] text-white shadow-sm hover:shadow-lg transition-all"
- >
- <div className="absolute top-3 right-3 text-[9px] font-black bg-white/25 text-white px-2 py-0.5 rounded-full backdrop-blur">NEW</div>
- <div className="flex items-center gap-2 mb-2">
- <Zap size={20} strokeWidth={2.5} />
- <span className="text-[13px] font-black">플랫폼 통합 관리</span>
- </div>
- <p className="text-[11px] text-white/90 leading-snug mb-3">네이버·배민·요기요·쿠팡이츠 4곳 리뷰 답글 대리 게시</p>
- <span className="inline-flex items-center gap-1 text-[11px] font-bold">
- 연결하러 가기 <ArrowRight size={12} strokeWidth={2.75} className="group-hover:translate-x-0.5 transition-transform" />
- </span>
- </Link>
-
- <Link
- href="/marketing/blog-tracking"
- className="group relative overflow-hidden rounded-2xl p-5 bg-gradient-to-br from-[#F59E0B] via-[#FACC15] to-[#FCD34D] text-[#1F2937] shadow-sm hover:shadow-lg transition-all"
- >
- <div className="flex items-center gap-2 mb-2">
- <TrendingUp size={20} strokeWidth={2.5} />
- <span className="text-[13px] font-black">블로그 순위 추적</span>
- </div>
- <p className="text-[11px] text-[#1F2937]/85 leading-snug mb-3">스마트블록·블로그탭·인기글 3구간 일 1회 자동 추적</p>
- <span className="inline-flex items-center gap-1 text-[11px] font-bold">
- 추적 시작 <ArrowRight size={12} strokeWidth={2.75} className="group-hover:translate-x-0.5 transition-transform" />
- </span>
- </Link>
- </div>
+ {/* 25차-4: 신규 모듈 프로모 스트립 — 사장님 요청으로 비표시 (인스타 카드뉴스/플랫폼 통합/블로그 순위) */}
+ {/* 우측 사이드바 빠른 액션에서 동일 기능 접근 가능 */}
 
  {/* ── 플랫폼 연동 현황 바 ── */}
  <div className="bg-white rounded-2xl shadow-sm px-5 py-4 mb-5">
@@ -2226,6 +2181,11 @@ export default function Dashboard() {
  </div>
 
  </main>
+
+ {/* ── 우측 사이드바 (lg 이상에서만 노출) ── */}
+ {isLoggedIn && <DashboardRightSidebar />}
+ </div>
+ </div>
  <Footer />
  </div>
 
