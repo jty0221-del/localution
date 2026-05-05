@@ -259,7 +259,7 @@ function KeywordCard({ group }: { group: KeywordGroup }) {
       <div className="px-4 py-3 border-b border-[#F2F4F6] flex items-center justify-between">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-xs px-2 py-0.5 rounded-full bg-[#F2F4F6] text-[#4E5968] font-medium">{group.placeType}</span>
-          <span className="text-sm font-bold text-[#191F28]">📍 {group.keyword}</span>
+          <span className="text-sm font-bold text-[#191F28]">{group.keyword}</span>
           <span className="text-[11px] text-[#3182F6] font-medium">→ {group.relatedKw}</span>
           <span className="text-[11px] text-[#8B95A1]">검색 {group.volume.toLocaleString()}</span>
         </div>
