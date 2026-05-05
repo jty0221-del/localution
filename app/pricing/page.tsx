@@ -1,7 +1,7 @@
 'use client'
 
 import { useState } from 'react'
-import Sidebar from '../components/Sidebar'
+// Sidebar 제거 — pricing 은 공개 랜딩성 페이지로 표시
 import Footer from '../components/Footer'
 import Link from 'next/link'
 import {
@@ -240,10 +240,9 @@ export default function PricingPage() {
  ]
 
  return (
- <div className="min-h-screen bg-[#F2F4F6] flex">
+ <div className="min-h-screen bg-[#F8F9FA]">
  <style>{GLOBAL_STYLES}</style>
- <Sidebar />
- <main className="flex-1 md:ml-[220px] p-4 sm:p-6 md:p-8 pt-6 sm:pt-8">
+ <main className="px-4 sm:px-6 md:px-8 py-6 sm:py-8">
  <div className="max-w-6xl mx-auto pb-16">
 
  {/* ── 신뢰 배너 ─────────────────────────────── */}
