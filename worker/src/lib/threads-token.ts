@@ -7,15 +7,16 @@ const THREADS_PLATFORM = 'threads'
 
 export async function loadThreadsToken(
   svc: SupabaseClient,
-  _userId?: string,
+  userId?: string,
 ): Promise<{ access_token: string; threads_user_id: string } | null> {
-  const { data, error } = await svc
+  let query = svc
     .from('platform_credentials')
     .select('account_id, password_encrypted, password_iv, password_tag, dek_encrypted, dek_iv, dek_tag')
     .eq('platform', THREADS_PLATFORM)
-    .order('updated_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
+
+  if (userId) query = query.eq('user_id', userId)
+
+  const { data, error } = await query.order('updated_at', { ascending: false }).limit(1).maybeSingle()
 
   if (error || !data) return null
 
@@ -36,16 +37,16 @@ export async function loadThreadsToken(
 
 export async function refreshThreadsTokenIfNeeded(
   svc: SupabaseClient,
-  _userId?: string,
+  userId?: string,
 ): Promise<void> {
-  const { data } = await svc
+  let query = svc
     .from('platform_credentials')
     .select('id, extra_data, password_encrypted, password_iv, password_tag, dek_encrypted, dek_iv, dek_tag')
     .eq('platform', THREADS_PLATFORM)
-    .order('updated_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
 
+  if (userId) query = query.eq('user_id', userId)
+
+  const { data } = await query.order('updated_at', { ascending: false }).limit(1).maybeSingle()
   if (!data) return
 
   const expiresAt = data.extra_data?.expires_at ? new Date(data.extra_data.expires_at) : null
@@ -64,9 +65,7 @@ export async function refreshThreadsTokenIfNeeded(
       dek_iv:         data.dek_iv,
       dek_tag:        data.dek_tag,
     })
-  } catch {
-    return
-  }
+  } catch { return }
 
   try {
     const url = new URL('https://graph.threads.net/refresh_access_token')
@@ -95,7 +94,5 @@ export async function refreshThreadsTokenIfNeeded(
         updated_at: new Date().toISOString(),
       })
       .eq('id', data.id)
-  } catch {
-    // best-effort
-  }
+  } catch { /* best-effort */ }
 }
