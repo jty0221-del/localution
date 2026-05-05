@@ -233,7 +233,7 @@ export default function ReviewAdminHub() {
     <div className="min-h-screen bg-[#F8F9FA] flex flex-col overflow-x-hidden">
       <div className="flex flex-1">
         <Sidebar />
-        <main className="flex-1 md:ml-[220px] pt-14 md:pt-0 min-w-0">
+        <main className="flex-1 md:ml-[220px] pt-4 md:pt-0 min-w-0">
           <PageHeader
             icon={<MessageSquare size={28} className="text-white" strokeWidth={2.5} />}
             title="리뷰 관리 허브"
