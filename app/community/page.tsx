@@ -664,7 +664,7 @@ export default function Community() {
           next.featured_at = new Date().toISOString()
           if (p.author_email === myEmail) {
             setBalance(getBalance(myEmail))
-            pushToast(POINT_RULES.POST_FEATURED.delta, '🎉 인기글 선정!')
+            pushToast(POINT_RULES.POST_FEATURED.delta, '인기글 선정!')
           }
         }
       }
@@ -727,7 +727,7 @@ export default function Community() {
   return (
     <div className="min-h-screen bg-[#F2F4F6] flex">
       <Sidebar />
-      <main className="flex-1 md:ml-[220px] pt-14 md:pt-0 min-w-0">
+      <main className="flex-1 md:ml-[220px] pt-4 md:pt-0 min-w-0">
         <PageHeader
           icon="💬"
           title="커뮤니티"
@@ -772,7 +772,7 @@ export default function Community() {
                 <Coins size={18} strokeWidth={2.25} />
               </span>
               <div className="flex-1">
-                <p className="text-sm font-bold text-[#9A3412] mb-1">🎉 커뮤니티 활동 포인트 이벤트</p>
+                <p className="text-sm font-bold text-[#9A3412] mb-1">커뮤니티 활동 포인트 이벤트</p>
                 <p className="text-xs text-[#78350F] leading-relaxed">
                   글 작성 <b>+{POINT_RULES.POST_CREATE.delta}P</b> · 댓글 작성 <b>+{POINT_RULES.COMMENT_CREATE.delta}P</b> · 인기 게시글(좋아요 {FEATURED_THRESHOLD}개↑) <b>+{POINT_RULES.POST_FEATURED.delta}P</b>
                 </p>
