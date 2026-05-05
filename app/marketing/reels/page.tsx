@@ -169,7 +169,7 @@ export default function ReelsGeneratorPage() {
   return (
     <div className="min-h-screen bg-[#F2F4F6] flex">
       <Sidebar />
-      <main className="flex-1 ml-0 md:ml-[220px] pt-16 md:pt-0 min-w-0">
+      <main className="flex-1 ml-0 md:ml-[220px] pt-4 md:pt-0 min-w-0">
         <PageHeader
           icon={<Video size={28} className="text-white" strokeWidth={2.5} />}
           title="숏폼 / 릴스"
@@ -181,7 +181,7 @@ export default function ReelsGeneratorPage() {
           {/* 헤더 */}
           <div className="mb-6">
             <div className="inline-flex items-center gap-2 bg-gradient-to-r from-[#8B5CF6] to-[#EC4899] text-white text-xs font-bold px-3 py-1.5 rounded-full mb-3">
-              ✨ 딸깍 한 번이면 끝 · 광고업계 JSON 기반
+              딸깍 한 번이면 끝 · 광고업계 JSON 기반
             </div>
             <h1 className="text-2xl md:text-3xl font-black text-[#191F28]">릴스 · 쇼츠 자동 기획</h1>
             <p className="text-sm text-[#4E5968] mt-1">업체 정보를 입력하면 AI가 장면별 촬영 지시서까지 JSON으로 생성해드려요</p>
@@ -263,13 +263,13 @@ export default function ReelsGeneratorPage() {
 
                 {error && (
                   <div className="bg-red-50 border border-red-200 text-red-700 text-xs rounded-xl px-3 py-2">
-                    ⚠️ {error}
+                    {error}
                   </div>
                 )}
 
                 <button onClick={handleGenerate} disabled={loading}
                   className="w-full bg-gradient-to-r from-[#8B5CF6] to-[#EC4899] text-white font-black py-3.5 rounded-xl text-sm shadow-md hover:shadow-lg transition-all disabled:opacity-60">
-                  {loading ? '생성 중… (10~20초)' : '✨ 딸깍 생성'}
+                  {loading ? '생성 중… (10~20초)' : '딸깍 생성'}
                 </button>
               </div>
             </div>
@@ -337,7 +337,7 @@ export default function ReelsGeneratorPage() {
                           {activeScene.overlay_text}
                         </div>
                         <div className="absolute bottom-3 left-3 right-3 text-[10px] opacity-80 bg-black/30 rounded-lg px-2 py-1 text-center">
-                          📷 {activeScene.visual_cue}
+                          {activeScene.visual_cue}
                         </div>
                       </div>
                     )}
@@ -374,7 +374,7 @@ export default function ReelsGeneratorPage() {
                           </div>
                         </div>
                         <div className="text-sm font-bold text-[#191F28] mb-1">"{s.overlay_text}"</div>
-                        <div className="text-xs text-[#4E5968]">📷 {s.visual_cue}</div>
+                        <div className="text-xs text-[#4E5968]">{s.visual_cue}</div>
                       </div>
                     ))}
                   </div>
@@ -385,7 +385,7 @@ export default function ReelsGeneratorPage() {
               {script && (
                 <div className="grid md:grid-cols-2 gap-4">
                   <div className="bg-white rounded-2xl border border-[#E5E8EB] p-5">
-                    <h3 className="font-black text-[#191F28] text-xs mb-2">🎯 후킹 문구 3안</h3>
+                    <h3 className="font-black text-[#191F28] text-xs mb-2">후킹 문구 3안</h3>
                     <ul className="space-y-1.5">
                       {script.hooks.map((h, i) => (
                         <li key={i} className="text-sm text-[#4E5968]"><strong className="text-[#8B5CF6]">{i+1}.</strong> {h}</li>
@@ -420,7 +420,7 @@ export default function ReelsGeneratorPage() {
               {/* 제작 팁 */}
               {script && script.production_notes.length > 0 && (
                 <div className="bg-gradient-to-br from-[#FEF9C3] to-[#FFEDD5] rounded-2xl p-5 border border-[#FCD34D]">
-                  <h3 className="font-black text-[#92400E] text-xs mb-2">💡 촬영·편집 꿀팁</h3>
+                  <h3 className="font-black text-[#92400E] text-xs mb-2">촬영·편집 꿀팁</h3>
                   <ul className="space-y-1 text-xs text-[#78350F]">
                     {script.production_notes.map((n, i) => <li key={i}>• {n}</li>)}
                   </ul>
