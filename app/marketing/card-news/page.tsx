@@ -158,7 +158,7 @@ export default function CardNewsPage() {
   return (
     <div className="min-h-screen bg-[#F8F9FB] flex">
       <Sidebar />
-      <main className="flex-1 ml-0 md:ml-[220px] pt-16 md:pt-0 min-w-0">
+      <main className="flex-1 ml-0 md:ml-[220px] pt-4 md:pt-0 min-w-0">
         <PageHeader
           icon={<Camera size={28} className="text-white" strokeWidth={2.5} />}
           title="인스타 캐러셀 카드뉴스"
@@ -178,7 +178,7 @@ export default function CardNewsPage() {
           <div className="flex items-start justify-between gap-4 flex-wrap mb-6">
             <div>
               <h1 className="text-2xl md:text-3xl font-bold text-[#111827] flex items-center gap-2 flex-wrap">
-                📸 인스타 캐러셀 카드뉴스
+                인스타 캐러셀 카드뉴스
                 <span className="text-xs font-semibold text-[#6366F1] bg-[#EEF2FF] px-2 py-1 rounded-full align-middle">NEW</span>
                 <span className="text-xs font-semibold text-[#EC4899] bg-[#FCE7F3] px-2 py-1 rounded-full align-middle">Carousel</span>
               </h1>
@@ -265,7 +265,7 @@ export default function CardNewsPage() {
               disabled={loading}
               className="px-6 py-3 bg-gradient-to-r from-[#EC4899] to-[#F97316] hover:opacity-90 disabled:opacity-50 rounded-xl font-bold text-white shadow-sm"
             >
-              {loading ? '생성 중… (15~25초)' : '✨ 캐러셀 생성'}
+              {loading ? '생성 중… (15~25초)' : '캐러셀 생성'}
             </button>
             {data && (
               <>
@@ -273,7 +273,7 @@ export default function CardNewsPage() {
                   onClick={downloadAll}
                   className="px-5 py-3 bg-[#1F2937] hover:bg-black rounded-xl font-medium text-white"
                 >
-                  📥 10장 전체 PNG 다운로드
+                  10장 전체 PNG 다운로드
                 </button>
                 <button
                   onClick={copyCaption}
@@ -308,7 +308,7 @@ export default function CardNewsPage() {
                 캐러셀 미리보기 · {data.slides.length}장
               </h2>
               <div className="text-xs text-[#4E5968]">
-                🎨 대비 {data.accessibility.contrast_ratio} / 최소폰트 {data.accessibility.min_font_size} / {data.accessibility.passed ? '✅ WCAG AA 통과' : '⚠ 재조정 권장'}
+                🎨 대비 {data.accessibility.contrast_ratio} / 최소폰트 {data.accessibility.min_font_size} / {data.accessibility.passed ? 'WCAG AA 통과' : '재조정 권장'}
               </div>
             </div>
 
@@ -351,7 +351,7 @@ export default function CardNewsPage() {
             {/* Design notes */}
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-8">
               <InfoCard title="✍️ UX Copy 가이드" items={data.ux_copy_notes} />
-              <InfoCard title="🔍 Design Critique" items={data.design_critique} />
+              <InfoCard title="Design Critique" items={data.design_critique} />
             </div>
 
             {/* Hashtags */}
@@ -576,7 +576,7 @@ function SlideCard({
             )}
             <div style={{ display: 'flex', gap: 10, marginTop: 20, flexWrap: 'wrap' }}>
               <Pill>🔖 저장</Pill>
-              <Pill>📤 공유</Pill>
+              <Pill>공유</Pill>
               <Pill>➕ 팔로우</Pill>
             </div>
             {youtubeTitle && (
