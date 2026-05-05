@@ -1078,10 +1078,9 @@ export default function Dashboard() {
   const handleCollectWorkerPlatform = async (platformId: string) => {
     setWorkerCollecting(prev => ({ ...prev, [platformId]: true }))
     try {
-      // v1.6t: 카카오맵은 로그인 필요 X — placeId 만 있으면 공개 리뷰 수집 가능
-      //         미설정이면 사용자에게 URL 입력 받음
+      // v1.6u: 카카오맵 자동 검색 + 매장 등록 (Kakao Local API)
       if (platformId === 'kakao_map') {
-        // 1차: place_id 없이 시도 (이미 등록된 매장이면 OK)
+        // 1차: 등록된 매장 있으면 즉시 수집
         let res = await fetch('/api/place/kakao/collect', {
           method: 'POST', credentials: 'include',
           headers: { 'Content-Type': 'application/json' },
@@ -1089,35 +1088,93 @@ export default function Dashboard() {
         })
         let j = await res.json().catch(() => null)
 
-        // 2차: 매장 미등록 → URL 입력 요청 → set-place + collect
+        // 2차: 미등록 → 자동 검색
         if (!j?.ok && (j?.error || '').includes('연결된 카카오맵이 없')) {
-          const url = window.prompt(
-            '카카오맵 매장 URL 또는 숫자 ID 를 입력해주세요.\n예: https://place.map.kakao.com/1822975351\n또는: 1822975351',
-            ''
-          )
-          if (!url || !url.trim()) {
-            toast.info('카카오맵 매장 등록 취소됨')
-            setWorkerCollecting(prev => ({ ...prev, [platformId]: false }))
-            return
-          }
-          // set-place 호출 (DB 저장)
-          const setRes = await fetch('/api/place/kakao/set-place', {
+          let autoRes = await fetch('/api/place/kakao/auto-connect', {
             method: 'POST', credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url: url.trim() }),
+            body: JSON.stringify({}),
           })
-          const setJson = await setRes.json().catch(() => null)
-          if (!setJson?.ok) {
-            toast.error(setJson?.error || '매장 등록 실패')
-            setWorkerCollecting(prev => ({ ...prev, [platformId]: false }))
-            return
+          let autoJson = await autoRes.json().catch(() => null)
+
+          // 매장 이름 없거나 검색 결과 없음 → 사용자가 직접 검색어 입력
+          if (!autoJson?.ok && !autoJson?.multiple) {
+            const query = window.prompt(
+              '카카오맵에서 매장을 자동 검색합니다.\n매장 이름을 입력해주세요.\n예: 일산닭칼국수 부천점\n\n(취소하면 URL 직접 입력 모드)',
+              ''
+            )
+            if (!query || !query.trim()) {
+              const url = window.prompt('카카오맵 URL 또는 ID 를 입력해주세요.\n예: https://place.map.kakao.com/1822975351', '')
+              if (!url || !url.trim()) {
+                toast.info('카카오맵 등록 취소됨')
+                setWorkerCollecting(prev => ({ ...prev, [platformId]: false }))
+                return
+              }
+              const setRes = await fetch('/api/place/kakao/set-place', {
+                method: 'POST', credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ url: url.trim() }),
+              })
+              const setJson = await setRes.json().catch(() => null)
+              if (!setJson?.ok) {
+                toast.error(setJson?.error || '매장 등록 실패')
+                setWorkerCollecting(prev => ({ ...prev, [platformId]: false }))
+                return
+              }
+              toast.success('매장 ' + setJson.place_id + ' 등록됨')
+            } else {
+              autoRes = await fetch('/api/place/kakao/auto-connect', {
+                method: 'POST', credentials: 'include',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ query: query.trim() }),
+              })
+              autoJson = await autoRes.json().catch(() => null)
+              if (!autoJson?.ok && !autoJson?.multiple) {
+                toast.error(autoJson?.error || '검색 실패')
+                setWorkerCollecting(prev => ({ ...prev, [platformId]: false }))
+                return
+              }
+            }
           }
-          toast.success('매장 ' + setJson.place_id + ' 등록됨')
-          // collect 재시도
+
+          // 여러 결과 → 번호 선택
+          if (autoJson?.multiple && Array.isArray(autoJson.items)) {
+            const items = autoJson.items as Array<{ kakaoId: string; name: string; address: string; category: string }>
+            const choiceText = items.map((it, i) =>
+              (i + 1) + '. ' + it.name + '\n   ' + it.address + (it.category ? ' · ' + it.category : '')
+            ).join('\n\n')
+            const pickStr = window.prompt(
+              '"' + autoJson.query + '" 검색 결과 ' + items.length + '개:\n\n' + choiceText + '\n\n정확한 매장 번호를 입력해주세요 (1~' + items.length + ')',
+              '1'
+            )
+            const pickIdx = parseInt(String(pickStr || '').trim(), 10) - 1
+            if (isNaN(pickIdx) || pickIdx < 0 || pickIdx >= items.length) {
+              toast.info('선택 취소됨')
+              setWorkerCollecting(prev => ({ ...prev, [platformId]: false }))
+              return
+            }
+            const picked = items[pickIdx]
+            const finalRes = await fetch('/api/place/kakao/auto-connect', {
+              method: 'POST', credentials: 'include',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ kakaoId: picked.kakaoId }),
+            })
+            const finalJson = await finalRes.json().catch(() => null)
+            if (!finalJson?.ok) {
+              toast.error(finalJson?.error || '등록 실패')
+              setWorkerCollecting(prev => ({ ...prev, [platformId]: false }))
+              return
+            }
+            toast.success(picked.name + ' 등록 완료')
+          } else if (autoJson?.ok && autoJson?.auto) {
+            toast.success(autoJson.message || '자동 등록 완료')
+          }
+
+          // 등록 끝 → collect 재시도
           res = await fetch('/api/place/kakao/collect', {
             method: 'POST', credentials: 'include',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ place_id: setJson.place_id }),
+            body: JSON.stringify({}),
           })
           j = await res.json().catch(() => null)
         }
