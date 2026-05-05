@@ -1553,9 +1553,9 @@ export default function Dashboard() {
   ]
 
   return (
-    <div className="flex min-h-screen bg-[#F2F4F6] overflow-x-hidden">
+    <div className="min-h-screen bg-[#F8F9FA]">
       <Sidebar />
-      <main className="flex-1 ml-0 md:ml-[220px] p-4 pt-20 md:p-6 md:pt-6 min-w-0 max-w-full pb-24 md:pb-6">
+      <main className="md:ml-[220px] flex flex-col min-h-screen px-4 md:px-6 pt-20 md:pt-6 pb-24 md:pb-6 max-w-6xl mx-auto">
 
         {/* ── 상단 롤링 공지 배너 ── */}
         <SlideAdBanner />
