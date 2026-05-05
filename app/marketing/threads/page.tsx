@@ -340,7 +340,7 @@ type PositiveReview = {
   platform: string
   rating: number
   content: string
-  customer_name: string | null
+  author_mask: string | null
   posted_at: string
 }
 
@@ -454,8 +454,8 @@ function ReviewDraftPanel({
                     <span className="text-xs text-[#9CA3AF]">
                       {PLATFORM_LABEL[r.platform] ?? r.platform}
                     </span>
-                    {r.customer_name && (
-                      <span className="text-xs text-[#B0B8C1]">{r.customer_name}</span>
+                    {r.author_mask && (
+                      <span className="text-xs text-[#B0B8C1]">{r.author_mask}</span>
                     )}
                   </div>
                   <p className="text-xs text-[#374151] line-clamp-2">{r.content}</p>
