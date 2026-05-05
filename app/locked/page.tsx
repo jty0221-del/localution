@@ -101,7 +101,7 @@ function LockedPageInner() {
         }}
       >
         <div style={{ fontSize: 12, fontWeight: 700, opacity: 0.9, marginBottom: 8 }}>
-          🔒 구독이 필요한 기능이에요
+          구독이 필요한 기능이에요
         </div>
         <h1 style={{ fontSize: 24, fontWeight: 800, marginBottom: 8 }}>
           {targetModule
@@ -125,7 +125,7 @@ function LockedPageInner() {
           color: '#3730a3',
         }}
       >
-        💡 <b>번들 할인:</b> 3개 구독 10% · 5개 구독 15% · 8개 이상 20% 할인
+        <b>번들 할인:</b> 3개 구독 10% · 5개 구독 15% · 8개 이상 20% 할인
       </div>
 
       {/* 모듈 선택 리스트 */}
@@ -291,7 +291,7 @@ function LockedPageInner() {
             color: '#9ca3af',
           }}
         >
-          ⚠️ 현재 Phase 0 테스트 모드 · 실제 결제 없음 · localStorage에만 저장됩니다
+          현재 Phase 0 테스트 모드 · 실제 결제 없음 · localStorage에만 저장됩니다
         </div>
 
         <div style={{ marginTop: 12, textAlign: 'center' }}>
