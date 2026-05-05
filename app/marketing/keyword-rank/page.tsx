@@ -364,7 +364,7 @@ export default function KeywordRankPage() {
   return (
     <div className="flex min-h-screen bg-[#F2F4F6]">
       <Sidebar />
-      <main className="flex-1 ml-0 md:ml-[220px] flex flex-col min-h-screen pt-16 md:pt-0 min-w-0">
+      <main className="flex-1 ml-0 md:ml-[220px] flex flex-col min-h-screen pt-16 md:pt-0 min-w-0 max-w-[1400px]">
         <PageHeader
           icon={<TrendingUp size={28} className="text-white" strokeWidth={2.5} />}
           title="키워드 순위"
