@@ -34,12 +34,14 @@ type PlatformRow = {
   rating_avg: number | null
 }
 
-function readCookieUser(): UserCookie | null {
-  if (typeof document === 'undefined') return null
+// v1.6q: localution_user 가 httpOnly 쿠키 → document.cookie 로 못 읽음
+//         /api/me 서버 endpoint 호출 (signed cookie verify 포함)
+async function fetchCurrentUser(): Promise<UserCookie | null> {
   try {
-    const m = document.cookie.match(/(?:^|;\s*)localution_user=([^;]+)/)
-    if (!m) return null
-    return JSON.parse(decodeURIComponent(m[1]))
+    const res = await fetch('/api/me', { credentials: 'include', cache: 'no-store' })
+    if (!res.ok) return null
+    const json = await res.json()
+    return json.user || null
   } catch { return null }
 }
 
@@ -111,7 +113,7 @@ export default function ProfileSettingsPage() {
   }, [])
 
   useEffect(() => {
-    setUser(readCookieUser())
+    fetchCurrentUser().then(setUser)
     try {
       const raw = localStorage.getItem('localution_store')
       if (raw) {
