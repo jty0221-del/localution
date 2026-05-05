@@ -824,15 +824,16 @@ function ServiceRanking() {
 export default function Dashboard() {
   const [isLoggedIn, setIsLoggedIn] = useState(false)
   useEffect(() => {
-    const check = () => {
-      if (typeof document === 'undefined') return
-      // 30차-4: 쿠키 이름 정합성 — 서버 requireUser() 는 localution_user 쿠키를 읽음.
-      // 기존엔 localution_session 만 검사해서 OAuth 로그인 상태에서도 isLoggedIn=false 였음.
-      const c = document.cookie
-      const has =
-        c.indexOf('localution_user=') !== -1 ||
-        c.indexOf('localution_session=') !== -1
-      setIsLoggedIn(prev => (prev === has ? prev : has))
+    // v1.6q: localution_user 가 httpOnly 쿠키 → document.cookie 로 못 읽음
+    //         /api/me 서버 endpoint 호출 (Naver/Kakao OAuth 양쪽 작동)
+    const check = async () => {
+      try {
+        const res = await fetch('/api/me', { credentials: 'include', cache: 'no-store' })
+        const has = res.ok
+        setIsLoggedIn(prev => (prev === has ? prev : has))
+      } catch {
+        setIsLoggedIn(false)
+      }
     }
     check()
     // user-change 이벤트(로그인/로그아웃 시 각 페이지에서 dispatch) 구독
