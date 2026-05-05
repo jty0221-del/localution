@@ -162,7 +162,7 @@ export default function MyPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F2F4F6]">
+    <div className="min-h-screen bg-[#F8F9FA]">
       {/* 통일 hero banner — PageHeader 사용 */}
       <PageHeader
         icon=""
