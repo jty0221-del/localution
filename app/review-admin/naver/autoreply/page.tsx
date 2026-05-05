@@ -454,9 +454,9 @@ export default function NaverAutoReplyPage() {
 
   // ── 메인 렌더 ────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-[#F2F4F6]">
+    <div className="min-h-screen bg-[#F8F9FA]">
       <Sidebar />
-      <div className="md:ml-[240px] pt-14 md:pt-0 min-h-screen">
+      <div className="md:ml-[240px] pt-4 md:pt-0 min-h-screen">
         <div className="max-w-3xl mx-auto px-4 py-6 md:py-8">
 
           {/* 헤더 */}
