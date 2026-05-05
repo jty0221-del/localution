@@ -6,7 +6,7 @@ import {
  Send, AlertTriangle, CheckCircle2, Clock, XCircle,
  Trash2, RefreshCw, Settings, Hash, Image as ImageIcon,
  CalendarClock, Loader2, Link2Off, Plus, X, Upload,
- Sparkles, ChevronDown, BookMarked, Star,
+ Sparkles, ChevronDown, BookMarked, Star, Youtube,
 } from 'lucide-react'
 import NextImage from 'next/image'
 import Sidebar from '@/app/components/Sidebar'
@@ -760,6 +760,106 @@ function ComposeTab({
  const [loading, setLoading] = useState(false)
  const [result, setResult] = useState<{ ok: boolean; msg: string } | null>(null)
 
+ // ── YouTube 동시 발행 ──
+ const YT_KEY = 'localution.yt_crosspost_v1'
+ const [ytEnabled, setYtEnabled]       = useState(false)
+ const [ytChannelUrl, setYtChannelUrl] = useState('')
+ const [ytComment, setYtComment]       = useState('')
+ const [ytAgentOk, setYtAgentOk]       = useState<boolean | null>(null)
+ const [ytState, setYtState]           = useState<'idle' | 'running' | 'done' | 'error'>('idle')
+ const [ytLogs, setYtLogs]             = useState<string[]>([])
+
+ useEffect(() => {
+  try {
+   const s = JSON.parse(localStorage.getItem(YT_KEY) || '{}')
+   if (s.channelUrl) setYtChannelUrl(s.channelUrl)
+   if (s.commentText) setYtComment(s.commentText)
+  } catch {}
+ }, [])
+
+ useEffect(() => {
+  try {
+   const s = JSON.parse(localStorage.getItem(YT_KEY) || '{}')
+   localStorage.setItem(YT_KEY, JSON.stringify({ ...s, channelUrl: ytChannelUrl, commentText: ytComment }))
+  } catch {}
+ }, [ytChannelUrl, ytComment])
+
+ async function checkYtAgent() {
+  setYtAgentOk(null)
+  try {
+   const res = await fetch('http://127.0.0.1:7777/health', { signal: AbortSignal.timeout(2500) })
+   setYtAgentOk(res.ok)
+  } catch {
+   setYtAgentOk(false)
+  }
+ }
+
+ async function urlToBase64(url: string): Promise<{ base64: string; filename: string } | null> {
+  try {
+   const res = await fetch(url)
+   const blob = await res.blob()
+   const filename = url.split('/').pop()?.split('?')[0] || 'image.jpg'
+   return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onloadend = () => resolve({ base64: (reader.result as string).split(',')[1], filename })
+    reader.onerror = reject
+    reader.readAsDataURL(blob)
+   })
+  } catch {
+   return null
+  }
+ }
+
+ async function uploadToYoutube(mainBlock: PostBlock, channelUrl: string, commentText: string) {
+  setYtState('running')
+  setYtLogs(['유튜브 커뮤니티 업로드 시작...'])
+  try {
+   let imageBase64: string | null = null
+   let imageFilename: string | null = null
+   if (mainBlock.useImage && mainBlock.imageUrl) {
+    const img = await urlToBase64(mainBlock.imageUrl)
+    if (img) { imageBase64 = img.base64; imageFilename = img.filename }
+   }
+   const res = await fetch('http://127.0.0.1:7777/upload', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+     channel_url: channelUrl,
+     post_text: mainBlock.text,
+     comment_text: commentText,
+     profile_name: 'Default',
+     image_base64: imageBase64,
+     image_filename: imageFilename,
+    }),
+   })
+   if (!res.ok) throw new Error(`에이전트 오류: ${res.status}`)
+   const { task_id } = await res.json()
+   const es = new EventSource(`http://127.0.0.1:7777/progress/${task_id}`)
+   es.onmessage = (e) => {
+    const d = JSON.parse(e.data)
+    if (d.type === 'log') setYtLogs(prev => [...prev, d.message])
+    if (d.type === 'done') {
+     es.close()
+     if (d.success) {
+      setYtState('done')
+      setYtLogs(prev => [...prev, '유튜브 커뮤니티 업로드 완료!'])
+     } else {
+      setYtState('error')
+      setYtLogs(prev => [...prev, `실패: ${d.error || '알 수 없는 오류'}`])
+     }
+    }
+   }
+   es.onerror = () => {
+    es.close()
+    setYtState('error')
+    setYtLogs(prev => [...prev, '에이전트 연결이 끊어졌습니다.'])
+   }
+  } catch (err: any) {
+   setYtState('error')
+   setYtLogs(prev => [...prev, `오류: ${err.message}`])
+  }
+ }
+
  // 발행 이력 "재생성" 또는 외부에서 텍스트가 주입될 때 첫 블록에 반영
  useEffect(() => {
  if (regenData) {
@@ -809,6 +909,9 @@ function ComposeTab({
  const data = await res.json()
  if (data.ok) {
  setResult({ ok: true, msg: immediate ? '발행 요청이 완료되었습니다.' : '예약이 완료되었습니다.' })
+ if (immediate && ytEnabled && ytAgentOk && ytChannelUrl.trim() && ytComment.trim()) {
+  uploadToYoutube(main, ytChannelUrl.trim(), ytComment.trim())
+ }
  setBlocks([newBlock()])
  setScheduledAt('')
  router.refresh()
@@ -909,6 +1012,79 @@ function ComposeTab({
 
  {/* 템플릿 */}
  <TemplatePanel blocks={blocks} onLoad={setBlocks} />
+
+ {/* YouTube 동시 발행 */}
+ <div className="bg-white border border-[#E5E8EB] rounded-2xl overflow-hidden">
+  <div className="flex items-center justify-between px-4 py-3">
+   <div className="flex items-center gap-2 min-w-0">
+    <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-red-500 to-red-700 flex items-center justify-center shadow-sm flex-shrink-0">
+     <Youtube size={13} className="text-white" strokeWidth={2.5} />
+    </div>
+    <span className="text-sm font-semibold text-[#111827] truncate">유튜브 커뮤니티 동시 발행</span>
+    {ytEnabled && (
+     <span className={`text-xs font-semibold flex-shrink-0 ${
+      ytAgentOk === true ? 'text-[#059669]' : ytAgentOk === false ? 'text-[#DC2626]' : 'text-[#8B95A1]'
+     }`}>
+      · {ytAgentOk === true ? '연결됨' : ytAgentOk === false ? '미연결' : '확인 중'}
+     </span>
+    )}
+   </div>
+   <button
+    type="button"
+    onClick={() => { const next = !ytEnabled; setYtEnabled(next); if (next) checkYtAgent() }}
+    className={`w-10 h-5 rounded-full transition-colors relative flex-shrink-0 ml-2 ${ytEnabled ? 'bg-[#FF0000]' : 'bg-[#E5E8EB]'}`}
+   >
+    <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${ytEnabled ? 'translate-x-5' : 'translate-x-0.5'}`} />
+   </button>
+  </div>
+
+  {ytEnabled && (
+   <div className="px-4 pb-4 border-t border-[#F3F4F6] pt-3 space-y-3">
+    {ytAgentOk === false && (
+     <div className="flex items-center justify-between p-2.5 bg-[#FFF1F2] rounded-xl border border-[#FECDD3]">
+      <span className="text-xs text-[#DC2626] font-medium">에이전트가 실행 중이어야 업로드됩니다.</span>
+      <Link href="/marketing/youtube-community/download" className="text-xs font-bold text-[#DC2626] underline flex-shrink-0 ml-2">다운로드</Link>
+     </div>
+    )}
+    <div>
+     <label className="block text-xs font-semibold text-[#8B95A1] mb-1.5">채널 URL</label>
+     <input
+      type="url"
+      value={ytChannelUrl}
+      onChange={e => setYtChannelUrl(e.target.value)}
+      placeholder="https://www.youtube.com/@내채널"
+      className="w-full px-3 py-2.5 text-sm rounded-xl border border-[#E5E8EB] focus:outline-none focus:ring-2 focus:ring-[#FF0000]/20 focus:border-[#FF0000] transition-all bg-[#F8F9FA] placeholder:text-[#B0B8C1]"
+     />
+    </div>
+    <div>
+     <label className="block text-xs font-semibold text-[#8B95A1] mb-1.5">고정 댓글 내용</label>
+     <input
+      type="text"
+      value={ytComment}
+      onChange={e => setYtComment(e.target.value)}
+      placeholder="게시물에 자동으로 달리고 고정될 댓글"
+      className="w-full px-3 py-2.5 text-sm rounded-xl border border-[#E5E8EB] focus:outline-none focus:ring-2 focus:ring-[#FF0000]/20 focus:border-[#FF0000] transition-all bg-[#F8F9FA] placeholder:text-[#B0B8C1]"
+     />
+    </div>
+    <p className="text-[11px] text-[#B0B8C1]">채널 URL · 댓글 내용은 자동으로 저장됩니다.</p>
+    {ytState !== 'idle' && (
+     <div className={`rounded-xl border p-3 text-xs space-y-1 max-h-28 overflow-y-auto font-mono ${
+      ytState === 'done' ? 'bg-[#F0FDF4] border-[#BBF7D0]'
+      : ytState === 'error' ? 'bg-[#FFF1F2] border-[#FECDD3]'
+      : 'bg-[#F8F9FA] border-[#E5E8EB]'
+     }`}>
+      {ytLogs.map((log, i) => (
+       <div key={i} className={
+        log.includes('완료') ? 'text-[#059669]'
+        : log.includes('오류') || log.includes('실패') ? 'text-[#DC2626]'
+        : 'text-[#4E5968]'
+       }>{log}</div>
+      ))}
+     </div>
+    )}
+   </div>
+  )}
+ </div>
 
  {/* 발행 버튼 */}
  <div className="flex flex-col sm:flex-row gap-3">
