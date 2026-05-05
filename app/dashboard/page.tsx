@@ -1078,12 +1078,64 @@ export default function Dashboard() {
   const handleCollectWorkerPlatform = async (platformId: string) => {
     setWorkerCollecting(prev => ({ ...prev, [platformId]: true }))
     try {
-      // v1.6s: 플랫폼별 endpoint 자동 라우팅
-      //   kakao_map → /api/place/kakao/collect (Vercel)
-      //   naver_place → /api/place/reviews/fetch (Vercel)
-      //   baemin/yogiyo/coupangeats → /api/review-reply/collect (Worker queue)
+      // v1.6t: 카카오맵은 로그인 필요 X — placeId 만 있으면 공개 리뷰 수집 가능
+      //         미설정이면 사용자에게 URL 입력 받음
+      if (platformId === 'kakao_map') {
+        // 1차: place_id 없이 시도 (이미 등록된 매장이면 OK)
+        let res = await fetch('/api/place/kakao/collect', {
+          method: 'POST', credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({}),
+        })
+        let j = await res.json().catch(() => null)
+
+        // 2차: 매장 미등록 → URL 입력 요청 → set-place + collect
+        if (!j?.ok && (j?.error || '').includes('연결된 카카오맵이 없')) {
+          const url = window.prompt(
+            '카카오맵 매장 URL 또는 숫자 ID 를 입력해주세요.\n예: https://place.map.kakao.com/1822975351\n또는: 1822975351',
+            ''
+          )
+          if (!url || !url.trim()) {
+            toast.info('카카오맵 매장 등록 취소됨')
+            setWorkerCollecting(prev => ({ ...prev, [platformId]: false }))
+            return
+          }
+          // set-place 호출 (DB 저장)
+          const setRes = await fetch('/api/place/kakao/set-place', {
+            method: 'POST', credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url: url.trim() }),
+          })
+          const setJson = await setRes.json().catch(() => null)
+          if (!setJson?.ok) {
+            toast.error(setJson?.error || '매장 등록 실패')
+            setWorkerCollecting(prev => ({ ...prev, [platformId]: false }))
+            return
+          }
+          toast.success('매장 ' + setJson.place_id + ' 등록됨')
+          // collect 재시도
+          res = await fetch('/api/place/kakao/collect', {
+            method: 'POST', credentials: 'include',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ place_id: setJson.place_id }),
+          })
+          j = await res.json().catch(() => null)
+        }
+
+        if (!res.ok || !j?.ok) {
+          toast.error(j?.error || `수집 실패 (${res.status})`)
+          setWorkerCollecting(prev => ({ ...prev, [platformId]: false }))
+          return
+        }
+        toast.success('카카오맵 리뷰 수집 완료!')
+        await loadPlatformReviews(['kakao_map' as PlatformId])
+        await reloadStoresMe()
+        setWorkerCollecting(prev => ({ ...prev, [platformId]: false }))
+        return
+      }
+
+      // 그 외 — 플랫폼별 endpoint 자동 라우팅
       const endpointMap: Record<string, string> = {
-        kakao_map: '/api/place/kakao/collect',
         naver_place: '/api/place/reviews/fetch',
       }
       const endpoint = endpointMap[platformId] || '/api/review-reply/collect'
