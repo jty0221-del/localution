@@ -160,18 +160,18 @@ export default function CustomersPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#F2F4F6] flex flex-col overflow-x-hidden">
-      <div className="flex flex-1">
-        <Sidebar />
-        <main className="flex-1 ml-0 md:ml-[220px] pt-14 md:pt-0 min-w-0 max-w-[1400px]">
-          <PageHeader
-            icon={<Heart size={28} className="text-white" strokeWidth={2.5} />}
-            title="고객 관리"
-            subtitle="단골을 데이터로 키운다 — 재방문·리뷰·쿠폰이 연결되는 CRM"
-            variant="warn"
-          />
+    <div className="min-h-screen bg-[#F8F9FA]">
+      <Sidebar />
+      <div className="md:ml-[220px] flex flex-col min-h-screen">
+        <PageHeader
+          icon={<Heart size={28} className="text-white" strokeWidth={2.5} />}
+          title="고객 관리"
+          subtitle="단골을 데이터로 키운다 — 재방문·리뷰·쿠폰이 연결되는 CRM"
+          variant="warn"
+        />
 
-          <div className="max-w-5xl mx-auto p-4 md:p-6 w-full">
+        <main className="flex-1 px-4 md:px-6 py-4 md:py-6 max-w-6xl mx-auto w-full">
+          <div className="w-full">
 
         {/* 헤더 */}
         <div className="flex items-center justify-between mb-4 flex-wrap gap-3">
@@ -496,8 +496,8 @@ export default function CustomersPage() {
         )}
           </div>
         </main>
+        <Footer />
       </div>
-      <Footer />
     </div>
   )
 }
