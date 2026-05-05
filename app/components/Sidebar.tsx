@@ -13,6 +13,7 @@ const FLAT_NAV = [
   { href: '/settlement',       label: '정산·매출',icon: '정산', colors: { bg: '#ECFDF5', text: '#059669' } },
   { href: '/settings/profile', label: '매장 관리',icon: '매장', colors: { bg: '#FFF1F2', text: '#E11D48' } },
   { href: '/updates',          label: '업데이트 내역', icon: 'NEW', colors: { bg: '#FFF7ED', text: '#EA580C' } },
+  { href: '/help',             label: '도움말·가이드', icon: '?',   colors: { bg: '#EFF6FF', text: '#3182F6' } },
 ]
 
 const REVIEW_SUB = [
