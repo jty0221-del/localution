@@ -114,14 +114,13 @@ const TIERS: Tier[] = [
 // ─────────────────────────────────────────────────────────────
 // 유틸
 // ─────────────────────────────────────────────────────────────
-function readCookieUser(): Profile | null {
-  if (typeof document === 'undefined') return null
+// v1.6q: httpOnly 쿠키 → /api/me 서버 endpoint
+async function fetchCurrentUser(): Promise<Profile | null> {
   try {
-    const m = document.cookie.match(/(?:^|;\s*)localution_user=([^;]+)/)
-    if (!m) return null
-    const raw = decodeURIComponent(m[1])
-    const p = JSON.parse(raw)
-    return p && typeof p === 'object' ? p : null
+    const res = await fetch('/api/me', { credentials: 'include', cache: 'no-store' })
+    if (!res.ok) return null
+    const json = await res.json()
+    return json.user || null
   } catch { return null }
 }
 
@@ -232,7 +231,7 @@ export default function PartnerPointsPage() {
   useEffect(() => {
     let alive = true
     ;(async () => {
-      const p = readCookieUser()
+      const p = await fetchCurrentUser()
       if (!alive) return
       setProfile(p)
       if (p?.email) {
