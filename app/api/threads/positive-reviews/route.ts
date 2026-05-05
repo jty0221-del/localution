@@ -1,26 +1,18 @@
 // app/api/threads/positive-reviews/route.ts
-// 스레드 작성용 — 최근 긍정 리뷰 조회 (service client)
+// 스레드 작성용 — 최근 긍정 리뷰 조회
 import { NextResponse } from 'next/server'
 import { createServiceClient } from '@/app/lib/adminAuth'
+import { requireUser } from '@/app/lib/userAuth'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
 
-const OWNER_EMAIL = 'jty0221@gmail.com'
-
-async function getOwnerUserId(svc: ReturnType<typeof createServiceClient>): Promise<string> {
-  const { data } = await svc
-    .from('stores')
-    .select('user_id')
-    .order('created_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
-  return data?.user_id || OWNER_EMAIL
-}
-
 export async function GET() {
+  const auth = await requireUser()
+  if (!auth.ok) return NextResponse.json({ ok: false, error: auth.message }, { status: auth.status })
+
   const svc = createServiceClient()
-  const userId = await getOwnerUserId(svc)
+  const userId = auth.userId
 
   // 4-5점 리뷰 조회 (네이버 키워드 리뷰는 rating=null 이므로 제외)
   const { data, error } = await svc
