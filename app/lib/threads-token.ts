@@ -1,28 +1,22 @@
 // app/lib/threads-token.ts
-// ============================================================
-// Threads 액세스 토큰 저장/로드/갱신
-//   · platform_credentials 테이블 사용 (platform = 'threads')
-//   · 이미 존재하는 테이블 + encryptSecret 재활용 → 새 테이블 불필요
-// ============================================================
+// Threads 액세스 토큰 저장/로드/갱신 — platform_credentials 테이블 사용
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { encryptSecret, decryptSecret } from './crypto-utils'
 
 const THREADS_PLATFORM = 'threads'
 
-// ─────────────────────────────────────────────
-// 토큰 로드
-// ─────────────────────────────────────────────
 export async function loadThreadsToken(
   svc: SupabaseClient,
-  _userId?: string,
+  userId?: string,
 ): Promise<{ access_token: string; threads_user_id: string; username: string | null } | null> {
-  const { data, error } = await svc
+  let query = svc
     .from('platform_credentials')
-    .select('account_id, platform_store_name, extra_data, password_encrypted, password_iv, password_tag, dek_encrypted, dek_iv, dek_tag')
+    .select('account_id, platform_store_name, password_encrypted, password_iv, password_tag, dek_encrypted, dek_iv, dek_tag')
     .eq('platform', THREADS_PLATFORM)
-    .order('updated_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
+
+  if (userId) query = query.eq('user_id', userId)
+
+  const { data, error } = await query.order('updated_at', { ascending: false }).limit(1).maybeSingle()
 
   if (error || !data) return null
 
@@ -35,28 +29,16 @@ export async function loadThreadsToken(
       dek_iv:         data.dek_iv,
       dek_tag:        data.dek_tag,
     })
-    return {
-      access_token,
-      threads_user_id: data.account_id,
-      username: data.platform_store_name ?? null,
-    }
+    return { access_token, threads_user_id: data.account_id, username: data.platform_store_name ?? null }
   } catch {
     return null
   }
 }
 
-// ─────────────────────────────────────────────
-// 토큰 저장
-// ─────────────────────────────────────────────
 export async function saveThreadsToken(
   svc: SupabaseClient,
   userId: string,
-  opts: {
-    threads_user_id: string
-    username: string
-    access_token: string
-    expires_in: number
-  },
+  opts: { threads_user_id: string; username: string; access_token: string; expires_in: number },
 ): Promise<void> {
   const enc = encryptSecret(opts.access_token)
   const expiresAt = new Date(Date.now() + opts.expires_in * 1000)
@@ -81,26 +63,21 @@ export async function saveThreadsToken(
       updated_at: new Date().toISOString(),
     }, { onConflict: 'user_id,platform' })
 
-  if (error) {
-    throw new Error(`platform_credentials(threads) 저장 실패: ${error.message}`)
-  }
+  if (error) throw new Error(`platform_credentials(threads) 저장 실패: ${error.message}`)
 }
 
-// ─────────────────────────────────────────────
-// 만료 7일 전이면 갱신
-// ─────────────────────────────────────────────
 export async function refreshThreadsTokenIfNeeded(
   svc: SupabaseClient,
-  _userId?: string,
+  userId?: string,
 ): Promise<void> {
-  const { data } = await svc
+  let query = svc
     .from('platform_credentials')
     .select('id, extra_data, password_encrypted, password_iv, password_tag, dek_encrypted, dek_iv, dek_tag')
     .eq('platform', THREADS_PLATFORM)
-    .order('updated_at', { ascending: false })
-    .limit(1)
-    .maybeSingle()
 
+  if (userId) query = query.eq('user_id', userId)
+
+  const { data } = await query.order('updated_at', { ascending: false }).limit(1).maybeSingle()
   if (!data) return
 
   const expiresAt = data.extra_data?.expires_at ? new Date(data.extra_data.expires_at) : null
@@ -119,9 +96,7 @@ export async function refreshThreadsTokenIfNeeded(
       dek_iv:         data.dek_iv,
       dek_tag:        data.dek_tag,
     })
-  } catch {
-    return
-  }
+  } catch { return }
 
   try {
     const url = new URL('https://graph.threads.net/refresh_access_token')
@@ -150,7 +125,5 @@ export async function refreshThreadsTokenIfNeeded(
         updated_at: new Date().toISOString(),
       })
       .eq('id', data.id)
-  } catch {
-    // best-effort
-  }
+  } catch { /* best-effort */ }
 }
