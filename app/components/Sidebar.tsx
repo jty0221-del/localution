@@ -3,14 +3,13 @@
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { usePathname, useSearchParams, useRouter } from 'next/navigation'
-import { Link2, ClipboardList, Store, Settings, MessageSquare, LogOut, BarChart3 } from 'lucide-react'
+import { Link2, ClipboardList, Store, Settings, MessageSquare, LogOut, BarChart3, HelpCircle } from 'lucide-react'
 
 const FLAT_NAV = [
   { href: '/dashboard',        label: '대시보드', icon: 'DB',  colors: { bg: '#EFF6FF', text: '#3182F6' } },
   { href: '/qr-admin',         label: 'QR 관리',  icon: 'QR',  colors: { bg: '#F5F3FF', text: '#8B5CF6' } },
   { href: '/customers',        label: '고객 관리',icon: '고객', colors: { bg: '#ECFDF5', text: '#059669' } },
   { href: '/reservations',     label: '예약·일정',icon: '예약', colors: { bg: '#EFF6FF', text: '#3182F6' } },
-  { href: '/settlement',       label: '정산·매출',icon: '정산', colors: { bg: '#ECFDF5', text: '#059669' } },
   { href: '/settings/profile', label: '매장 관리',icon: '매장', colors: { bg: '#FFF1F2', text: '#E11D48' } },
   { href: '/updates',          label: '업데이트 내역', icon: 'NEW', colors: { bg: '#FFF7ED', text: '#EA580C' } },
   { href: '/help',             label: '도움말·가이드', icon: '?',   colors: { bg: '#EFF6FF', text: '#3182F6' } },
@@ -424,11 +423,14 @@ export default function Sidebar() {
       {/* 5. 고객 관리 */}
       {renderFlatNav(FLAT_NAV[2])}
 
-      {/* 6. 매장 관리 */}
+      {/* 5-A. 예약·일정 */}
       {renderFlatNav(FLAT_NAV[3])}
 
-      {/* 6-A. 업데이트 내역 */}
+      {/* 6. 매장 관리 */}
       {renderFlatNav(FLAT_NAV[4])}
+
+      {/* 6-A. 업데이트 내역 */}
+      {renderFlatNav(FLAT_NAV[5])}
 
       {/* 7. 커뮤니티 */}
       <div>
@@ -535,6 +537,13 @@ export default function Sidebar() {
                 className="flex items-center gap-3 px-4 py-3 text-sm text-[#4E5968] hover:bg-[#F2F4F6] transition-colors">
                 <Settings size={16} strokeWidth={2.5} />
                 <span className="font-medium">설정</span>
+              </Link>
+              <div className="h-px bg-[#F2F4F6]" />
+              <Link href="/help"
+                onClick={() => { setProfileOpen(false); setMobileOpen(false) }}
+                className="flex items-center gap-3 px-4 py-3 text-sm text-[#4E5968] hover:bg-[#F2F4F6] transition-colors">
+                <HelpCircle size={16} strokeWidth={2.5} />
+                <span className="font-medium">도움말·가이드</span>
               </Link>
               <div className="h-px bg-[#F2F4F6]" />
               <Link href="/inquiry"
