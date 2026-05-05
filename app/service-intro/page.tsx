@@ -377,7 +377,7 @@ function QrDemo() {
             </div>
             <button onClick={handleGenerate} disabled={selected.length === 0}
               className="w-full py-3 bg-[#059669] text-white font-bold rounded-xl hover:bg-[#047857] disabled:opacity-40 disabled:cursor-not-allowed transition-colors text-sm break-keep">
-              {selected.length === 0 ? '키워드를 선택해 주세요' : `AI 리뷰 만들어줘 🤖 (${selected.length}개 선택)`}
+              {selected.length === 0 ? '키워드를 선택해 주세요' : `AI 리뷰 만들어줘 (${selected.length}개 선택)`}
             </button>
           </div>
         </div>
@@ -608,7 +608,7 @@ function ReviewDemo() {
 // ── 메인 페이지 ───────────────────────────────────────────
 export default function ServiceIntro() {
   return (
-    <div className="min-h-screen bg-[#F2F4F6]">
+    <div className="min-h-screen bg-[#F8F9FA]">
       <style>{GLOBAL_STYLES}</style>
 
       {/* ── 히어로 ─────────────────────────────────────── */}
