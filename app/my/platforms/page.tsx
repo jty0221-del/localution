@@ -17,7 +17,9 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import Sidebar from '../../components/Sidebar'
 import Footer from '../../components/Footer'
+import PageHeader from '../../components/PageHeader'
 import PlatformLogo from '../../components/PlatformLogo'
+import { Link2 } from 'lucide-react'
 
 type PlatformSlug = 'naver_place' | 'baemin' | 'yogiyo' | 'coupangeats' | 'kakao_map'
 
@@ -161,22 +163,21 @@ export default function MyPlatformsPage() {
   }
 
   return (
-    <div className="flex min-h-screen bg-[#F9FAFB]">
+    <div className="min-h-screen bg-[#F8F9FA]">
       <Sidebar />
-      <div className="flex-1 flex flex-col">
-        <main className="flex-1 py-10">
-          <div className="max-w-4xl mx-auto px-4">
-            {/* 헤더 */}
-            <header className="mb-8">
-              <div className="flex items-center gap-2 text-sm text-[#6B7280] mb-3">
-                <Link href="/dashboard" className="hover:text-[#3182F6]">대시보드</Link>
-                <span>/</span>
-                <span className="text-[#191F28]">플랫폼 연결</span>
-              </div>
-              <h1 className="text-3xl font-bold text-[#191F28] mb-2">플랫폼 연결 관리</h1>
-              <p className="text-[#4E5968] leading-relaxed">
+      <div className="md:ml-[220px] flex flex-col min-h-screen">
+        <PageHeader
+          icon={<Link2 size={28} className="text-white" strokeWidth={2.5} />}
+          title="플랫폼 연결 관리"
+          subtitle="네이버·배민·요기요·쿠팡이츠·카카오 — 본인 계정 연결로 리뷰·순위 자동화"
+          variant="primary"
+        />
+        <main className="flex-1 px-4 md:px-6 py-4 md:py-6 max-w-6xl mx-auto w-full">
+          <div className="w-full">
+            {/* 안내 헤더 */}
+            <header className="mb-5">
+              <p className="text-xs md:text-sm text-[#4E5968] leading-relaxed">
                 사장님 본인 계정을 연결하면 리뷰 답글·순위 추적이 자동으로 실행됩니다.
-                <br />
                 비밀번호는 AES-256 방식으로 암호화되어 저장되며, 연결 해제 시 즉시 파기됩니다.
               </p>
             </header>
