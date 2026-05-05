@@ -331,7 +331,7 @@ function newBlock(): PostBlock {
   return { id: Math.random().toString(36).slice(2), text: '', tags: [], imageUrl: '', useImage: false }
 }
 
-function ComposeTab({ connected, accountLoaded }: { connected: boolean; accountLoaded: boolean }) {
+function ComposeTab({ connected, accountLoaded, justConnected }: { connected: boolean; accountLoaded: boolean; justConnected?: boolean }) {
   const searchParams = useSearchParams()
   const router = useRouter()
 
@@ -406,7 +406,7 @@ function ComposeTab({ connected, accountLoaded }: { connected: boolean; accountL
 
   return (
     <div className="space-y-4">
-      {accountLoaded && !connected && <ConnectBanner />}
+      {accountLoaded && !connected && !justConnected && <ConnectBanner />}
 
       {result && (
         <div className={`flex items-center gap-2.5 p-4 rounded-xl text-sm font-medium ${
@@ -695,11 +695,26 @@ function ThreadsPageContent() {
   const [accountLoaded, setAccountLoaded] = useState(false)
 
   useEffect(() => {
-    fetch('/api/threads/account')
-      .then(r => r.json())
-      .then(data => { setAccount(data); setAccountLoaded(true) })
-      .catch(() => setAccountLoaded(true))
-  }, [])
+    const loadAccount = () =>
+      fetch('/api/threads/account')
+        .then(r => r.json())
+        .then(data => { setAccount(data); setAccountLoaded(true) })
+        .catch(() => setAccountLoaded(true))
+
+    if (connectedParam === '1') {
+      // 방금 연결 완료 — Vercel 배포 전파 대기 후 한 번 더 조회
+      loadAccount().then(() => {
+        setTimeout(() => {
+          fetch('/api/threads/account')
+            .then(r => r.json())
+            .then(data => setAccount(data))
+            .catch(() => {})
+        }, 2500)
+      })
+    } else {
+      loadAccount()
+    }
+  }, [connectedParam])
 
   const connectedParam = searchParams.get('connected')
   const errorParam     = searchParams.get('error')
@@ -774,7 +789,7 @@ function ThreadsPageContent() {
 
         {/* 탭 콘텐츠 */}
         <div className="max-w-2xl">
-          {tab === 'compose' && <ComposeTab connected={account?.connected !== false} accountLoaded={accountLoaded} />}
+          {tab === 'compose' && <ComposeTab connected={account?.connected !== false} accountLoaded={accountLoaded} justConnected={connectedParam === '1'} />}
           {tab === 'scheduled' && <ScheduledTab />}
           {tab === 'history' && <HistoryTab />}
         </div>
