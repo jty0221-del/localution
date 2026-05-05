@@ -6,7 +6,7 @@ import {
   Send, AlertTriangle, CheckCircle2, Clock, XCircle,
   Trash2, RefreshCw, Settings, Hash, Image as ImageIcon,
   CalendarClock, Loader2, Link2Off, Plus, X, Upload,
-  Sparkles, ChevronDown, BookMarked,
+  Sparkles, ChevronDown, BookMarked, Star,
 } from 'lucide-react'
 import NextImage from 'next/image'
 import Sidebar from '@/app/components/Sidebar'
@@ -333,6 +333,155 @@ function TemplatePanel({ blocks, onLoad }: { blocks: PostBlock[]; onLoad: (b: Po
 }
 
 // ──────────────────────────────────────────
+// 리뷰 기반 생성 패널
+// ──────────────────────────────────────────
+type PositiveReview = {
+  id: string
+  platform: string
+  rating: number
+  content: string
+  customer_name: string | null
+  posted_at: string
+}
+
+const PLATFORM_LABEL: Record<string, string> = {
+  naver_place: '네이버',
+  baemin: '배민',
+  coupangeats: '쿠팡이츠',
+  yogiyo: '요기요',
+  kakao_map: '카카오맵',
+}
+
+function ReviewDraftPanel({
+  persona,
+  onApply,
+}: {
+  persona: PersonaId
+  onApply: (text: string, hashtags: string[]) => void
+}) {
+  const [open, setOpen] = useState(false)
+  const [reviews, setReviews] = useState<PositiveReview[]>([])
+  const [loadingReviews, setLoadingReviews] = useState(false)
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [generating, setGenerating] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (!open || reviews.length > 0) return
+    setLoadingReviews(true)
+    fetch('/api/threads/positive-reviews')
+      .then(r => r.json())
+      .then(d => setReviews(d.reviews ?? []))
+      .catch(() => {})
+      .finally(() => setLoadingReviews(false))
+  }, [open, reviews.length])
+
+  async function generate() {
+    const review = reviews.find(r => r.id === selectedId)
+    if (!review) return
+    setGenerating(true)
+    setError('')
+    try {
+      const res = await fetch('/api/threads/generate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          mode: 'from_review',
+          review_text: review.content,
+          review_rating: review.rating,
+          persona,
+        }),
+      })
+      const data = await res.json()
+      if (data.ok) {
+        onApply(data.text, data.hashtags)
+        setOpen(false)
+        setSelectedId(null)
+      } else {
+        setError(data.error || '생성 실패')
+      }
+    } catch {
+      setError('네트워크 오류')
+    } finally {
+      setGenerating(false)
+    }
+  }
+
+  return (
+    <div className="bg-white border border-[#E5E8EB] rounded-2xl overflow-hidden">
+      <button
+        type="button"
+        onClick={() => setOpen(v => !v)}
+        className="w-full flex items-center justify-between px-4 py-3 hover:bg-[#F9FAFB] transition-colors"
+      >
+        <span className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#059669] to-[#047857] flex items-center justify-center shadow-sm">
+            <Star size={13} className="text-white" strokeWidth={2.5} />
+          </div>
+          <span className="text-sm font-semibold text-[#111827]">리뷰에서 생성</span>
+          <span className="text-xs text-[#9CA3AF]">긍정 리뷰 → 감사 포스트</span>
+        </span>
+        <ChevronDown size={14} className={`text-[#9CA3AF] transition-transform flex-shrink-0 ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      {open && (
+        <div className="px-4 pb-4 border-t border-[#F3F4F6] pt-3 space-y-3">
+          {loadingReviews ? (
+            <div className="flex items-center justify-center py-6">
+              <Loader2 size={20} className="animate-spin text-[#B0B8C1]" />
+            </div>
+          ) : reviews.length === 0 ? (
+            <p className="text-xs text-[#B0B8C1] text-center py-4">
+              4-5점 리뷰가 없거나 아직 수집되지 않았습니다.
+            </p>
+          ) : (
+            <div className="space-y-2 max-h-56 overflow-y-auto pr-0.5">
+              {reviews.map(r => (
+                <button
+                  key={r.id}
+                  type="button"
+                  onClick={() => setSelectedId(r.id === selectedId ? null : r.id)}
+                  className={`w-full text-left p-2.5 rounded-xl border transition-all ${
+                    r.id === selectedId
+                      ? 'border-[#059669] bg-[#F0FDF4]'
+                      : 'border-[#E5E8EB] hover:border-[#D1D5DB] bg-[#F9FAFB]'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <span className="text-xs font-semibold text-[#059669]">
+                      {'★'.repeat(r.rating ?? 5)}
+                    </span>
+                    <span className="text-xs text-[#9CA3AF]">
+                      {PLATFORM_LABEL[r.platform] ?? r.platform}
+                    </span>
+                    {r.customer_name && (
+                      <span className="text-xs text-[#B0B8C1]">{r.customer_name}</span>
+                    )}
+                  </div>
+                  <p className="text-xs text-[#374151] line-clamp-2">{r.content}</p>
+                </button>
+              ))}
+            </div>
+          )}
+          {error && <p className="text-xs text-[#E11D48]">{error}</p>}
+          {selectedId && (
+            <button
+              type="button"
+              onClick={generate}
+              disabled={generating}
+              className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-[#059669] to-[#047857] hover:from-[#047857] hover:to-[#065F46] disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold py-2.5 rounded-xl transition-all text-sm"
+            >
+              {generating ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} strokeWidth={2.5} />}
+              {generating ? '생성 중...' : '이 리뷰로 스레드 생성'}
+            </button>
+          )}
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ──────────────────────────────────────────
 // 해시태그 입력 칩
 // ──────────────────────────────────────────
 function HashtagInput({
@@ -584,7 +733,14 @@ function newBlock(): PostBlock {
   return { id: Math.random().toString(36).slice(2), text: '', tags: [], imageUrl: '', useImage: false }
 }
 
-function ComposeTab({ connected, accountLoaded, justConnected }: { connected: boolean; accountLoaded: boolean; justConnected?: boolean }) {
+function ComposeTab({
+  connected, accountLoaded, justConnected, regenData,
+}: {
+  connected: boolean
+  accountLoaded: boolean
+  justConnected?: boolean
+  regenData?: { text: string; hashtags: string[] } | null
+}) {
   const searchParams = useSearchParams()
   const router = useRouter()
 
@@ -603,6 +759,13 @@ function ComposeTab({ connected, accountLoaded, justConnected }: { connected: bo
   const [scheduledAt, setScheduledAt] = useState('')
   const [loading, setLoading] = useState(false)
   const [result, setResult] = useState<{ ok: boolean; msg: string } | null>(null)
+
+  // 발행 이력 "재생성" 또는 외부에서 텍스트가 주입될 때 첫 블록에 반영
+  useEffect(() => {
+    if (regenData) {
+      setBlocks(prev => [{ ...prev[0], text: regenData.text, tags: regenData.hashtags }, ...prev.slice(1)])
+    }
+  }, [regenData])
 
   function updateBlock(index: number, updated: PostBlock) {
     setBlocks(prev => prev.map((b, i) => i === index ? updated : b))
@@ -665,6 +828,14 @@ function ComposeTab({ connected, accountLoaded, justConnected }: { connected: bo
 
       {/* AI 초안 생성 */}
       <AIDraftPanel
+        persona={persona}
+        onApply={(text, hashtags) => {
+          setBlocks(prev => [{ ...prev[0], text, tags: hashtags }, ...prev.slice(1)])
+        }}
+      />
+
+      {/* 리뷰에서 생성 */}
+      <ReviewDraftPanel
         persona={persona}
         onApply={(text, hashtags) => {
           setBlocks(prev => [{ ...prev[0], text, tags: hashtags }, ...prev.slice(1)])
@@ -862,7 +1033,7 @@ function ScheduledTab() {
 // ──────────────────────────────────────────
 // 발행 이력 탭
 // ──────────────────────────────────────────
-function HistoryTab() {
+function HistoryTab({ onRegen }: { onRegen: (text: string, hashtags: string[]) => void }) {
   const [posts, setPosts] = useState<ThreadsPost[]>([])
   const [loading, setLoading] = useState(true)
 
@@ -929,6 +1100,16 @@ function HistoryTab() {
                 </p>
               )}
             </div>
+            {post.status === 'published' && (
+              <button
+                onClick={() => onRegen(post.text_content, post.hashtags)}
+                title="이 글 스타일로 재생성"
+                className="flex-shrink-0 flex items-center gap-1 text-xs font-semibold text-[#6B7280] hover:text-[#7C3AED] px-2 py-1.5 rounded-lg hover:bg-[#F5F3FF] transition-colors"
+              >
+                <RefreshCw size={12} strokeWidth={2.5} />
+                재생성
+              </button>
+            )}
           </div>
         </div>
       ))}
@@ -966,6 +1147,14 @@ function ThreadsPageContent() {
   const [tab, setTab] = useState<'compose' | 'scheduled' | 'history'>('compose')
   const [account, setAccount] = useState<AccountInfo | null>(null)
   const [accountLoaded, setAccountLoaded] = useState(false)
+  const [regenData, setRegenData] = useState<{ text: string; hashtags: string[] } | null>(null)
+
+  function handleRegen(text: string, hashtags: string[]) {
+    setRegenData({ text, hashtags })
+    setTab('compose')
+    // 적용 후 초기화 (같은 버튼 두 번 눌러도 재적용되도록)
+    setTimeout(() => setRegenData(null), 300)
+  }
 
   useEffect(() => {
     const loadAccount = () =>
@@ -1058,9 +1247,9 @@ function ThreadsPageContent() {
 
         {/* 탭 콘텐츠 */}
         <div className="max-w-2xl">
-          {tab === 'compose' && <ComposeTab connected={account?.connected !== false} accountLoaded={accountLoaded} justConnected={connectedParam === '1'} />}
+          {tab === 'compose' && <ComposeTab connected={account?.connected !== false} accountLoaded={accountLoaded} justConnected={connectedParam === '1'} regenData={regenData} />}
           {tab === 'scheduled' && <ScheduledTab />}
-          {tab === 'history' && <HistoryTab />}
+          {tab === 'history' && <HistoryTab onRegen={handleRegen} />}
         </div>
       </main>
     </>
