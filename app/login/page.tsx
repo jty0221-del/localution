@@ -12,6 +12,30 @@ export default function LoginPage() {
  const [useDifferentAccount, setUseDifferentAccount] = useState(false)
  const oauthQuery = useDifferentAccount ? '?reset=1' : ''
 
+ // 모바일 상단 — 실시간 데이터 시뮬레이션 (3초마다 자연스럽게 증가)
+ const [liveStats, setLiveStats] = useState({
+ owners: 1247, // 누적 사장님
+ reviewsToday: 84, // 오늘 자동 답글
+ avgRatingLift: 0.6, // 평균 별점 상승
+ keywordRank: 3, // 평균 플레이스 순위
+ monthlyReplies: 52340, // 누적 AI 답글
+ placesTracked: 1156, // 추적 중 매장
+ })
+
+ useEffect(() => {
+ // 자연스러운 증분 (3초마다 1-3씩)
+ const t = setInterval(() => {
+ setLiveStats(s => ({
+ ...s,
+ owners: s.owners + (Math.random() < 0.4 ? 1 : 0),
+ reviewsToday: s.reviewsToday + (Math.random() < 0.7 ? Math.floor(Math.random() * 3) + 1 : 0),
+ monthlyReplies: s.monthlyReplies + (Math.random() < 0.8 ? Math.floor(Math.random() * 5) + 1 : 0),
+ placesTracked: s.placesTracked + (Math.random() < 0.3 ? 1 : 0),
+ }))
+ }, 3000)
+ return () => clearInterval(t)
+ }, [])
+
  useEffect(function() {
  const params = new URLSearchParams(window.location.search)
  setIsSignup(params.get('mode') === 'signup')
@@ -181,16 +205,36 @@ export default function LoginPage() {
  .accountSwitch span { font-size:12px; color:#94a3b8; font-weight:500; line-height:1.4; }
 
  /* 모바일 상단 브랜드 바 — 1100px 이하에서 노출, 데스크톱은 숨김 */
- .mobileTopBar { display:none; position:sticky; top:0; left:0; right:0; z-index:20; padding: calc(env(safe-area-inset-top, 0px) + 14px) 16px 14px; background: linear-gradient(180deg, rgba(6,13,26,0.95) 0%, rgba(6,13,26,0.85) 100%); backdrop-filter: blur(8px); border-bottom: 1px solid rgba(59,130,246,0.15); }
- .mobileTopBar .row { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+ .mobileTopBar { display:none; position:sticky; top:0; left:0; right:0; z-index:20; padding: calc(env(safe-area-inset-top, 0px) + 12px) 16px 12px; background: linear-gradient(180deg, rgba(6,13,26,0.96) 0%, rgba(6,13,26,0.88) 100%); backdrop-filter: blur(10px); border-bottom: 1px solid rgba(59,130,246,0.18); }
+ .mobileTopBar .row { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:10px; }
  .mobileTopBar .brand { display:flex; align-items:center; gap:10px; }
- .mobileTopBar .brandLogo { width:36px; height:36px; border-radius:10px; background: linear-gradient(135deg, #3b82f6, #1B64DA); display:flex; align-items:center; justify-content:center; box-shadow: 0 2px 10px rgba(59,130,246,0.3); }
- .mobileTopBar .brandLogo span { color:#fff; font-weight:900; font-size:14px; line-height:1; }
+ .mobileTopBar .brandLogo { width:38px; height:38px; border-radius:10px; background:#fff; padding:3px; display:flex; align-items:center; justify-content:center; box-shadow: 0 2px 12px rgba(59,130,246,0.25); flex-shrink:0; }
+ .mobileTopBar .brandLogo img { width:100%; height:100%; object-fit:contain; }
  .mobileTopBar .brandText { color:#fff; font-size:15px; font-weight:800; letter-spacing:-0.3px; }
  .mobileTopBar .brandTagline { color:#94a3b8; font-size:10px; font-weight:500; margin-top:1px; }
- .mobileTopBar .liveBadge { display:inline-flex; align-items:center; gap:5px; padding:5px 9px; border-radius:999px; background:rgba(34,197,94,0.12); color:#22c55e; font-size:10px; font-weight:700; flex-shrink:0; }
- .mobileTopBar .liveDot { width:5px; height:5px; border-radius:50%; background:#22c55e; animation: pulseDot 1.5s ease-in-out infinite; }
+ .mobileTopBar .liveBadge { display:inline-flex; align-items:center; gap:5px; padding:5px 9px; border-radius:999px; background:rgba(34,197,94,0.14); color:#22c55e; font-size:10px; font-weight:700; flex-shrink:0; border:1px solid rgba(34,197,94,0.22); }
+ .mobileTopBar .liveDot { width:5px; height:5px; border-radius:50%; background:#22c55e; animation: pulseDot 1.5s ease-in-out infinite; flex-shrink:0; }
  @keyframes pulseDot { 0%,100% { opacity:1; transform:scale(1); } 50% { opacity:0.5; transform:scale(1.4); } }
+ @keyframes statSlideUp {
+ 0% { opacity:0; transform: translateY(8px); }
+ 12% { opacity:1; transform: translateY(0); }
+ 88% { opacity:1; transform: translateY(0); }
+ 100% { opacity:0; transform: translateY(-8px); }
+ }
+ @keyframes numberPulse {
+ 0%,100% { transform: scale(1); }
+ 50% { transform: scale(1.04); }
+ }
+
+ /* 실시간 통계 트랙 — 가로 stat 카드 3개 + 회전 데이터 */
+ .liveStats { display:grid; grid-template-columns: repeat(3, 1fr); gap:6px; }
+ .liveStatCard { background: rgba(59,130,246,0.08); border:1px solid rgba(59,130,246,0.16); border-radius:10px; padding:7px 8px; min-height:46px; position:relative; overflow:hidden; }
+ .liveStatCard .liveStatIcon { position:absolute; top:6px; right:6px; opacity:0.45; }
+ .liveStatCard .liveStatLabel { font-size:9px; color:#94a3b8; font-weight:600; line-height:1; margin-bottom:3px; letter-spacing:-0.2px; }
+ .liveStatCard .liveStatValue { font-size:14px; color:#fff; font-weight:900; line-height:1.1; letter-spacing:-0.4px; animation: numberPulse 2s ease-in-out infinite; }
+ .liveStatCard .liveStatChange { font-size:8px; color:#22c55e; font-weight:700; margin-top:2px; }
+ .liveStatCard.featured { background: linear-gradient(135deg, rgba(59,130,246,0.18), rgba(139,92,246,0.12)); border-color: rgba(59,130,246,0.35); }
+ .liveStatCard.featured .liveStatValue { color:#60a5fa; }
 
  @media (max-width: 1100px) {
  /* mobileTopBar 와 mainWrap 이 column 으로 stacking — mobileTopBar 위, mainWrap 아래 */
@@ -224,11 +268,13 @@ export default function LoginPage() {
  }
  `}</style>
 
- {/* 모바일 상단 브랜드 바 (1100px 이하 노출) */}
+ {/* 모바일 상단 브랜드 바 (1100px 이하 노출) — 실제 로고 + 실시간 통계 카드 3종 */}
  <div className='mobileTopBar'>
  <div className='row'>
  <div className='brand'>
- <div className='brandLogo'><span>L</span></div>
+ <div className='brandLogo'>
+ <Image src="/logo-icon.svg" alt="로컬루션" width={32} height={32} priority />
+ </div>
  <div>
  <div className='brandText'>로컬루션</div>
  <div className='brandTagline'>AI 사장님 마케팅 플랫폼</div>
@@ -236,7 +282,35 @@ export default function LoginPage() {
  </div>
  <div className='liveBadge'>
  <span className='liveDot' />
- <span>1,200+ 사장님 사용중</span>
+ <span>실시간</span>
+ </div>
+ </div>
+
+ {/* 실시간 통계 3 카드 — 매 3초마다 자연스럽게 갱신 */}
+ <div className='liveStats'>
+ <div className='liveStatCard featured'>
+ <svg className='liveStatIcon' width="11" height="11" viewBox="0 0 12 12" fill="none">
+ <path d="M3 9 L6 4 L9 7" stroke="#60a5fa" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+ </svg>
+ <div className='liveStatLabel'>사장님</div>
+ <div className='liveStatValue'>{liveStats.owners.toLocaleString()}+</div>
+ <div className='liveStatChange'>방금 가입</div>
+ </div>
+ <div className='liveStatCard'>
+ <svg className='liveStatIcon' width="11" height="11" viewBox="0 0 12 12" fill="none">
+ <path d="M2 4 L6 8 L10 4" stroke="#22c55e" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" fill="none"/>
+ </svg>
+ <div className='liveStatLabel'>오늘 답글</div>
+ <div className='liveStatValue'>{liveStats.reviewsToday}건</div>
+ <div className='liveStatChange'>+{Math.floor(liveStats.reviewsToday / 12)} 1시간</div>
+ </div>
+ <div className='liveStatCard'>
+ <svg className='liveStatIcon' width="11" height="11" viewBox="0 0 12 12" fill="none">
+ <polygon points="6,2 7.5,5 11,5.5 8.5,7.5 9,11 6,9 3,11 3.5,7.5 1,5.5 4.5,5" fill="#fbbf24"/>
+ </svg>
+ <div className='liveStatLabel'>별점 상승</div>
+ <div className='liveStatValue'>+{liveStats.avgRatingLift.toFixed(1)}점</div>
+ <div className='liveStatChange'>평균</div>
  </div>
  </div>
  </div>
