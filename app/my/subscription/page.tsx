@@ -9,6 +9,10 @@
 
 import Link from 'next/link'
 import { useState } from 'react'
+import Sidebar from '../../components/Sidebar'
+import PageHeader from '../../components/PageHeader'
+import Footer from '../../components/Footer'
+import { CreditCard } from 'lucide-react'
 import {
  MODULES,
  getModule,
@@ -39,7 +43,17 @@ export default function MySubscriptionPage() {
  if (loading) {
  // 15차-10 스켈레톤 로더 (요약카드 + 모듈카드 2개 placeholder)
  return (
- <div style={{ maxWidth: 860, margin: '0 auto', padding: '32px 20px 120px' }}>
+ <div className="min-h-screen bg-[#F8F9FA]">
+ <Sidebar />
+ <div className="md:ml-[220px] flex flex-col min-h-screen">
+ <PageHeader
+ icon={<CreditCard size={28} className="text-white" strokeWidth={2.5} />}
+ title="내 구독"
+ subtitle="필요한 모듈만 선택해 사용하세요 · 언제든 추가·해지 가능"
+ variant="primary"
+ />
+ <main className="flex-1 px-4 md:px-6 py-4 md:py-6 max-w-6xl mx-auto w-full">
+ <div className="w-full">
  <div style={{ marginBottom: 24 }}>
  <div className="animate-pulse" style={{ height: 32, width: 120, background: '#E5E8EB', borderRadius: 8, marginBottom: 10 }} />
  <div className="animate-pulse" style={{ height: 14, width: 260, background: '#F2F4F6', borderRadius: 6 }} />
@@ -79,19 +93,25 @@ export default function MySubscriptionPage() {
  </div>
  ))}
  </div>
+ </main>
+ <Footer />
+ </div>
+ </div>
  )
  }
 
  return (
- <div style={{ maxWidth: 860, margin: '0 auto', padding: '32px 20px 120px' }}>
- <div style={{ marginBottom: 24 }}>
- <h1 style={{ fontSize: 28, fontWeight: 800, color: '#111827', marginBottom: 6 }}>
- 내 구독
- </h1>
- <p style={{ color: '#6b7280', fontSize: 14 }}>
- 필요한 모듈만 선택해 사용하세요 · 언제든 추가·해지 가능
- </p>
- </div>
+ <div className="min-h-screen bg-[#F8F9FA]">
+ <Sidebar />
+ <div className="md:ml-[220px] flex flex-col min-h-screen">
+ <PageHeader
+ icon={<CreditCard size={28} className="text-white" strokeWidth={2.5} />}
+ title="내 구독"
+ subtitle="필요한 모듈만 선택해 사용하세요 · 언제든 추가·해지 가능"
+ variant="primary"
+ />
+ <main className="flex-1 px-4 md:px-6 py-4 md:py-6 max-w-6xl mx-auto w-full">
+ <div className="w-full">
 
  {/* 월 결제 요약 카드 */}
  <div
@@ -451,6 +471,10 @@ export default function MySubscriptionPage() {
  </div>
  )
  })()}
+ </div>
+ </main>
+ <Footer />
+ </div>
  </div>
  )
 }
