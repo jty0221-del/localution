@@ -32,18 +32,18 @@ const SERVICE_RANKING_INIT = [
 // 한국 증시 컨벤션: 상승 = 빨강 / 하락 = 파랑 / 변동 없음 = 회색
 function RankBadge({ diff }: { diff: number }) {
   if (diff > 0) return (
-    <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-[#DC2626] tabular-nums">
-      <ArrowUp size={10} strokeWidth={3} /> {diff}
+    <span className="inline-flex items-center gap-0.5 text-[11px] font-bold text-[#DC2626] tabular-nums">
+      <ArrowUp size={11} strokeWidth={3} /> {diff}
     </span>
   )
   if (diff < 0) return (
-    <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-[#3182F6] tabular-nums">
-      <ArrowDown size={10} strokeWidth={3} /> {Math.abs(diff)}
+    <span className="inline-flex items-center gap-0.5 text-[11px] font-bold text-[#3182F6] tabular-nums">
+      <ArrowDown size={11} strokeWidth={3} /> {Math.abs(diff)}
     </span>
   )
   return (
-    <span className="inline-flex items-center gap-0.5 text-[10px] font-bold text-[#9CA3AF]">
-      <Minus size={10} strokeWidth={3} />
+    <span className="inline-flex items-center gap-0.5 text-[11px] font-bold text-[#9CA3AF]">
+      <Minus size={11} strokeWidth={3} />
     </span>
   )
 }
@@ -83,13 +83,13 @@ function ServiceRankingMini() {
 
   return (
     <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
-      <div className="px-3.5 py-2.5 border-b border-[#F2F4F6]">
+      <div className="px-4 py-3 border-b border-[#F2F4F6]">
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1.5">
-            <span className="text-[13px] font-bold text-[#191F28]">인기 서비스 TOP 10</span>
+          <div className="flex items-center gap-2">
+            <span className="text-[14px] font-bold text-[#191F28]">인기 서비스 TOP 10</span>
             <span className="w-1.5 h-1.5 rounded-full bg-[#F04452] animate-pulse inline-block" />
           </div>
-          <span className="text-[10px] font-bold text-[#8B95A1]">실시간</span>
+          <span className="text-[11px] font-bold text-[#8B95A1]">실시간</span>
         </div>
       </div>
       <div>
@@ -98,20 +98,20 @@ function ServiceRankingMini() {
           return (
             <div
               key={item.id}
-              className="px-3.5 py-2 flex items-center gap-2 border-b border-[#F8F9FA] last:border-0 hover:bg-[#FAFBFF]"
+              className="px-4 py-2.5 flex items-center gap-2.5 border-b border-[#F8F9FA] last:border-0 hover:bg-[#FAFBFF]"
               style={{
                 opacity: isShuffling ? 0.7 : 1,
                 transform: isShuffling ? 'translateX(2px)' : 'translateX(0)',
                 transition: 'all 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94)',
               }}
             >
-              <div className={'w-[22px] h-[22px] rounded-md flex items-center justify-center text-[11px] font-black flex-shrink-0 tabular-nums ' + (item.rank <= 3 ? 'bg-[#3182F6] text-white' : 'bg-[#F2F4F6] text-[#8B95A1]')}>
+              <div className={'w-6 h-6 rounded-md flex items-center justify-center text-[12px] font-black flex-shrink-0 tabular-nums ' + (item.rank <= 3 ? 'bg-[#3182F6] text-white' : 'bg-[#F2F4F6] text-[#8B95A1]')}>
                 {item.rank}
               </div>
               <div className="flex-1 min-w-0 flex items-center gap-1.5">
-                <span className="text-[12px] font-bold text-[#191F28] truncate leading-tight">{item.name}</span>
+                <span className="text-[13px] font-bold text-[#191F28] truncate leading-tight">{item.name}</span>
                 {item.badge && (
-                  <span className="text-[9px] font-black text-white px-1 py-px rounded flex-shrink-0 leading-none"
+                  <span className="text-[10px] font-black text-white px-1.5 py-0.5 rounded flex-shrink-0 leading-none"
                     style={{ background: item.color }}>
                     {item.badge}
                   </span>
@@ -134,37 +134,37 @@ function SidebarCards() {
       <ServiceRankingMini />
 
       {/* 2) 실시간 리뷰 알림 */}
-      <div className="rounded-2xl bg-gradient-to-br from-[#FFFBEB] to-[#FEF3C7] border border-[#FDE68A] p-3.5">
-        <div className="flex items-center gap-1.5 mb-1.5">
-          <BellRing size={14} className="text-[#D97706]" strokeWidth={2.5} />
-          <h3 className="text-[13px] font-bold text-[#92400E]">실시간 리뷰 알림</h3>
+      <div className="rounded-2xl bg-gradient-to-br from-[#FFFBEB] to-[#FEF3C7] border border-[#FDE68A] p-4">
+        <div className="flex items-center gap-2 mb-2">
+          <BellRing size={16} className="text-[#D97706]" strokeWidth={2.5} />
+          <h3 className="text-[14px] font-bold text-[#92400E]">실시간 리뷰 알림</h3>
         </div>
-        <p className="text-[11px] text-[#92400E] leading-relaxed">
+        <p className="text-[12px] text-[#92400E] leading-relaxed">
           15분 자동 수집 · 별점 1-2점 부정 리뷰 우선 알림 (웹푸시·카카오톡)
         </p>
       </div>
 
       {/* 3) 도움이 필요하세요? */}
-      <div className="bg-white rounded-2xl shadow-sm p-3.5">
-        <h3 className="text-[13px] font-bold text-[#191F28] mb-2">도움이 필요하세요?</h3>
+      <div className="bg-white rounded-2xl shadow-sm p-4">
+        <h3 className="text-[14px] font-bold text-[#191F28] mb-2.5">도움이 필요하세요?</h3>
         <div className="space-y-1">
           <Link href="/help"
-            className="flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-[#FAFBFF] text-[12px] font-bold text-[#4E5968] transition-colors">
-            <HelpCircle size={13} className="text-[#3182F6]" strokeWidth={2.5} />
+            className="flex items-center gap-2.5 px-2.5 py-2.5 rounded-lg hover:bg-[#FAFBFF] text-[13px] font-bold text-[#4E5968] transition-colors">
+            <HelpCircle size={15} className="text-[#3182F6]" strokeWidth={2.5} />
             <span>도움말 · 가이드</span>
-            <ArrowRight size={11} className="ml-auto text-[#D1D5DB]" strokeWidth={2.5} />
+            <ArrowRight size={12} className="ml-auto text-[#D1D5DB]" strokeWidth={2.5} />
           </Link>
           <Link href="/inquiry"
-            className="flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-[#FAFBFF] text-[12px] font-bold text-[#4E5968] transition-colors">
-            <Mail size={13} className="text-[#7C3AED]" strokeWidth={2.5} />
+            className="flex items-center gap-2.5 px-2.5 py-2.5 rounded-lg hover:bg-[#FAFBFF] text-[13px] font-bold text-[#4E5968] transition-colors">
+            <Mail size={15} className="text-[#7C3AED]" strokeWidth={2.5} />
             <span>1:1 문의</span>
-            <ArrowRight size={11} className="ml-auto text-[#D1D5DB]" strokeWidth={2.5} />
+            <ArrowRight size={12} className="ml-auto text-[#D1D5DB]" strokeWidth={2.5} />
           </Link>
           <Link href="/updates"
-            className="flex items-center gap-2 px-2 py-2 rounded-lg hover:bg-[#FAFBFF] text-[12px] font-bold text-[#4E5968] transition-colors">
-            <Sparkles size={13} className="text-[#EC4899]" strokeWidth={2.5} />
+            className="flex items-center gap-2.5 px-2.5 py-2.5 rounded-lg hover:bg-[#FAFBFF] text-[13px] font-bold text-[#4E5968] transition-colors">
+            <Sparkles size={15} className="text-[#EC4899]" strokeWidth={2.5} />
             <span>업데이트 내역</span>
-            <ArrowRight size={11} className="ml-auto text-[#D1D5DB]" strokeWidth={2.5} />
+            <ArrowRight size={12} className="ml-auto text-[#D1D5DB]" strokeWidth={2.5} />
           </Link>
         </div>
       </div>
@@ -174,7 +174,8 @@ function SidebarCards() {
 
 // 데스크톱 (xl+, 1280px+): position:fixed 로 viewport 우측에 항상 고정 (스크롤 따라옴)
 //   · sticky 가 부모 grid context 영향으로 초기 위치에서 안 따라오는 문제 회피
-//   · main 에 xl:pr-[296px] 로 콘텐츠 침범 방지 (sidebar 280 + 16 margin)
+//   · main 에 xl:pr-[336px] 로 콘텐츠 침범 방지 (sidebar 320 + 16 margin)
+//   · 하랑마케팅 팝업 (z-40) 이 우측 하단을 덮을 수 있어 사이드바 bottom 24rem 확보
 //
 // ⚠️ DO_NOT_TOUCH:
 //   · sticky 로 변경 X (위 이슈 재현됨)
@@ -182,14 +183,16 @@ function SidebarCards() {
 export default function DashboardRightSidebar() {
   return (
     <div
-      className="hidden xl:block fixed top-20 right-4 w-[280px] z-30 space-y-3"
+      className="hidden xl:block fixed top-20 right-4 w-[320px] z-30 space-y-3.5"
       style={{
-        maxHeight: 'calc(100vh - 6rem)',
+        bottom: '1rem',
         overflowY: 'auto',
         scrollbarWidth: 'thin',
       }}
     >
       <SidebarCards />
+      {/* 팝업 영역 확보 — 마지막 카드 아래 240px 공간 */}
+      <div className="h-[240px]" aria-hidden />
     </div>
   )
 }
