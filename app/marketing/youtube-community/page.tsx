@@ -39,7 +39,8 @@ export default function YoutubeCommunityPage() {
  const [uploadState, setUploadState] = useState<UploadState>('idle')
  const [logs, setLogs] = useState<string[]>([])
  const [showAdvanced, setShowAdvanced] = useState(false)
- const [showGuide, setShowGuide] = useState(false)
+ // disconnected 상태일 때 자동으로 가이드 펼침 (사용자가 클릭 안 해도 즉시 안내 보임)
+ const [showGuide, setShowGuide] = useState(true)
 
  const logsEndRef = useRef<HTMLDivElement>(null)
  const fileInputRef = useRef<HTMLInputElement>(null)
