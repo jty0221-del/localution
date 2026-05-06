@@ -11,6 +11,7 @@ import {
  Layers, Zap, Rocket,
 } from 'lucide-react'
 import Footer from '../components/Footer'
+import HarangMarketingPopup from '../components/HarangMarketingPopup'
 
 const mockRanks = [
  { keyword: '강남 맛집', rank: 3, prev: 5, volume: 18200 },
@@ -630,6 +631,7 @@ export default function MarketingPage() {
  </main>
  </div>
  <Footer />
+ <HarangMarketingPopup />
  </div>
  )
 }
