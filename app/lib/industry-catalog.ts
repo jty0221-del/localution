@@ -16,7 +16,7 @@ export const INDUSTRY_CATALOG: IndustryGroup[] = [
   {
     id: 'food',
     label: '음식점·카페',
-    emoji: '🍴',
+    emoji: '',
     desc: '카페·디저트부터 식당·술집까지',
     items: [
       '카페', '베이커리', '디저트카페', '브런치카페', '테이크아웃 커피',
@@ -32,7 +32,7 @@ export const INDUSTRY_CATALOG: IndustryGroup[] = [
   {
     id: 'beauty',
     label: '미용·뷰티',
-    emoji: '💇',
+    emoji: '',
     desc: '헤어·네일·피부·메이크업',
     items: [
       '헤어샵', '맨즈헤어·바버샵', '미용실(종합)', '미용학원',
@@ -44,7 +44,7 @@ export const INDUSTRY_CATALOG: IndustryGroup[] = [
   {
     id: 'hospital',
     label: '병원·의원',
-    emoji: '🏥',
+    emoji: '',
     desc: '진료과별 전문 분류',
     items: [
       '내과', '소화기내과', '호흡기내과', '순환기내과', '내분비내과',
@@ -61,7 +61,7 @@ export const INDUSTRY_CATALOG: IndustryGroup[] = [
   {
     id: 'health',
     label: '건강·운동',
-    emoji: '💪',
+    emoji: '',
     desc: '헬스·필라테스·격투기·레슨',
     items: [
       '헬스장·피트니스', 'PT스튜디오', '필라테스', '요가', '크로스핏',
@@ -76,7 +76,7 @@ export const INDUSTRY_CATALOG: IndustryGroup[] = [
   {
     id: 'education',
     label: '학원·교육',
-    emoji: '📚',
+    emoji: '',
     desc: '입시·외국어·예체능·공부방',
     items: [
       '종합학원(입시)', '수학학원', '영어학원', '국어학원', '과학학원', '사회학원',
@@ -93,7 +93,7 @@ export const INDUSTRY_CATALOG: IndustryGroup[] = [
   {
     id: 'pet',
     label: '반려동물',
-    emoji: '🐶',
+    emoji: '',
     desc: '분양·미용·카페·용품',
     items: [
       '동물병원', '애견미용·펫샵',
@@ -106,7 +106,7 @@ export const INDUSTRY_CATALOG: IndustryGroup[] = [
   {
     id: 'auto',
     label: '자동차',
-    emoji: '🚗',
+    emoji: '',
     desc: '정비·세차·렌트·부품',
     items: [
       '카센터', '자동차정비', '자동차 썬팅·광택', '자동차 유리복원',
@@ -120,7 +120,7 @@ export const INDUSTRY_CATALOG: IndustryGroup[] = [
   {
     id: 'home',
     label: '인테리어·공사',
-    emoji: '🔧',
+    emoji: '',
     desc: '시공·청소·수리·가구',
     items: [
       '인테리어', '리모델링', '도배', '줄눈', '장판·바닥',
@@ -136,7 +136,7 @@ export const INDUSTRY_CATALOG: IndustryGroup[] = [
   {
     id: 'professional',
     label: '전문서비스',
-    emoji: '⚖️',
+    emoji: '',
     desc: '법률·세무·노무·부동산',
     items: [
       '변호사(종합)', '변호사(이혼전문)', '변호사(형사전문)', '변호사(교통사고)',
@@ -150,7 +150,7 @@ export const INDUSTRY_CATALOG: IndustryGroup[] = [
   {
     id: 'shopping',
     label: '판매·쇼핑',
-    emoji: '🛍️',
+    emoji: '',
     desc: '의류·잡화·수리·소매',
     items: [
       '옷가게', '편집샵', '신발가게', '가방·잡화', '액세서리',
@@ -165,7 +165,7 @@ export const INDUSTRY_CATALOG: IndustryGroup[] = [
   {
     id: 'entertainment',
     label: '여가·엔터',
-    emoji: '🎉',
+    emoji: '',
     desc: '노래방·카페·숙박·스튜디오',
     items: [
       '노래방', '방탈출카페', 'PC방', '만화카페', '보드게임카페',
@@ -182,7 +182,7 @@ export const INDUSTRY_CATALOG: IndustryGroup[] = [
   {
     id: 'lifestyle',
     label: '생활편의',
-    emoji: '🏠',
+    emoji: '',
     desc: '세차·세탁·공유오피스·요양',
     items: [
       '세탁소', '빨래방', '구두수선', '열쇠·도장', '수선집',
@@ -200,7 +200,7 @@ export const INDUSTRY_CATALOG: IndustryGroup[] = [
   {
     id: 'etc',
     label: '기타',
-    emoji: '✨',
+    emoji: '',
     desc: '공공·후원·그 외',
     items: [
       '기부·모금·후원단체', '종교시설', '협회·단체',
