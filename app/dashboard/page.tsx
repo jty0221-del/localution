@@ -1531,11 +1531,11 @@ export default function Dashboard() {
  <div className="min-h-screen bg-[#F8F9FA]">
  <Sidebar />
  {/* DashboardRightSidebar:
-   · xl+ (1280px+): grid 우측 컬럼에 sticky 표시 (main 바로 옆 — gap-5 = 20px)
-   · xl 미만: 메인 콘텐츠 하단에 인라인 grid (모바일 1열, lg+ 3열) */}
+   · xl+ (1280px+): position:fixed 로 viewport 우측 고정 — 스크롤 무관 항상 보임
+   · main 에 xl:pr-[296px] 로 콘텐츠 우측 여백 확보 (sidebar 280 + 16 margin)
+   · xl 미만: 메인 콘텐츠 하단에 인라인 grid (lg+ 3열, mobile 1열) */}
  <div className="md:ml-[220px] flex flex-col min-h-screen">
- <div className="flex-1 px-4 md:px-6 pt-20 md:pt-6 pb-24 md:pb-6 mx-auto w-full" style={{ maxWidth: '1600px' }}>
- <div className="xl:grid xl:grid-cols-[minmax(0,1fr)_280px] xl:gap-5">
+ <div className="flex-1 px-4 md:px-6 pt-20 md:pt-6 pb-24 md:pb-6 mx-auto w-full xl:pr-[296px]" style={{ maxWidth: '1600px' }}>
  <main className="min-w-0">
 
  {/* ── 상단 롤링 공지 배너 ── */}
@@ -2180,12 +2180,11 @@ export default function Dashboard() {
  {/* 모바일/태블릿 (xl 미만): 메인 콘텐츠 하단에 인라인 표시 */}
  {isLoggedIn && <DashboardRightSidebarMobile />}
  </main>
- {/* xl+ 데스크톱: grid 우측 컬럼 안에 sticky 사이드바 */}
- {isLoggedIn && <DashboardRightSidebar />}
- </div>
  </div>
  <Footer />
  </div>
+ {/* xl+ 데스크톱: position:fixed — viewport 우측 항상 고정, 스크롤 따라옴 */}
+ {isLoggedIn && <DashboardRightSidebar />}
 
  {/* 하랑마케팅 홍보 팝업 (우측 하단, 5초 후 노출 / 24시간 닫기 기억) */}
  <HarangMarketingPopup />
