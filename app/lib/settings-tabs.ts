@@ -22,13 +22,14 @@ export const TAB_MAP: Record<string, Tab> = {
   plan: '플랜 관리 (결제내역)',
 }
 
-// 탭별 브랜딩 배지 (색상/아이콘/서브헤드)
-export const TAB_HERO: Record<Tab, { emoji: string; grad: string; sub: string }> = {
-  '매장 정보':            { emoji: '🏪', grad: 'from-[#3182F6] to-[#1B64DA]', sub: '업체 프로필·주소·네이버 플레이스 연동' },
-  '알림 설정':            { emoji: '🔔', grad: 'from-[#F59E0B] to-[#D97706]', sub: '리뷰·결제·마케팅 알림 채널 관리' },
-  'AI 설정':              { emoji: '🤖', grad: 'from-[#8B5CF6] to-[#6D28D9]', sub: 'AI 답변 톤·금칙어·자동화 규칙' },
-  '연동 관리':            { emoji: '🔗', grad: 'from-[#059669] to-[#047857]', sub: '네이버·배민·쿠팡이츠·카카오톡 연결' },
-  '플랜 관리 (결제내역)': { emoji: '💳', grad: 'from-[#EC4899] to-[#BE185D]', sub: '베타 무료 플랜·기능 선택·토스 결제' },
+// 탭별 브랜딩 배지 (lucide 아이콘 키 + 색상 + 서브헤드)
+//   icon: lucide 아이콘 이름 (settings/page.tsx 에서 매핑하여 렌더)
+export const TAB_HERO: Record<Tab, { icon: 'Store' | 'Bell' | 'Bot' | 'Link2' | 'CreditCard'; grad: string; sub: string }> = {
+  '매장 정보':            { icon: 'Store',      grad: 'from-[#3182F6] to-[#1B64DA]', sub: '업체 프로필·주소·네이버 플레이스 연동' },
+  '알림 설정':            { icon: 'Bell',       grad: 'from-[#F59E0B] to-[#D97706]', sub: '리뷰·결제·마케팅 알림 채널 관리' },
+  'AI 설정':              { icon: 'Bot',        grad: 'from-[#8B5CF6] to-[#6D28D9]', sub: 'AI 답변 톤·금칙어·자동화 규칙' },
+  '연동 관리':            { icon: 'Link2',      grad: 'from-[#059669] to-[#047857]', sub: '네이버·배민·쿠팡이츠·카카오톡 연결' },
+  '플랜 관리 (결제내역)': { icon: 'CreditCard', grad: 'from-[#EC4899] to-[#BE185D]', sub: '베타 무료 플랜·기능 선택·토스 결제' },
 }
 
 /**
