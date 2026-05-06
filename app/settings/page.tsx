@@ -1406,15 +1406,6 @@ function YogiyoLogoS() { return <PlatformLogo platform="yogiyo" size={32} /> }
 
 function CoupangLogoS() { return <PlatformLogo platform="coupangeats" size={32} /> }
 
-function YeoshinLogoS() {
- return (<svg width="32" height="32" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="10" fill="#003087"/><rect x="10" y="16" width="28" height="18" rx="3" stroke="white" strokeWidth="2.2" fill="none"/><rect x="10" y="22" width="28" height="4" fill="white"/><rect x="13" y="28" width="8" height="2.5" rx="1" fill="white" opacity="0.6"/><text x="24" y="12" fontSize="7" fontWeight="800" fill="white" fontFamily="Arial" textAnchor="middle">여신금융</text></svg>)
-}
-
-function HometaxLogoS() {
- return (<svg width="32" height="32" viewBox="0 0 48 48" fill="none"><rect width="48" height="48" rx="10" fill="#006AB4"/><path d="M24 11L9 22h4v14h10V28h2v8h10V22h4L24 11z" fill="white"/><text x="24" y="44" fontSize="6.5" fontWeight="800" fill="white" fontFamily="Arial" textAnchor="middle">홈택스</text></svg>)
-}
-
-
 function ConnectTab() {
  const PLATFORMS_8: Array<{ key: PlatformId; label: string; logo: any; color: string; desc: string; cat: string }> = [
  { key: 'naver', label: '네이버 플레이스', logo: <NaverLogoS />, color: '#03C75A', desc: '네이버 리뷰·검색 연동', cat: '리뷰·검색' },
@@ -1423,8 +1414,6 @@ function ConnectTab() {
  { key: 'baemin', label: '배달의민족', logo: <BaeminLogoS />, color: '#2AC1BC', desc: '배민 주문·리뷰 관리', cat: '배달' },
  { key: 'yogiyo', label: '요기요', logo: <YogiyoLogoS />, color: '#FA3C00', desc: '요기요 주문·리뷰 연동', cat: '배달' },
  { key: 'coupang', label: '쿠팡이츠', logo: <CoupangLogoS />, color: '#FF4B30', desc: '쿠팡이츠 주문·리뷰 연동', cat: '배달' },
- { key: 'yeoshin', label: '여신금융', logo: <YeoshinLogoS />, color: '#003087', desc: '카드 매출·결제 데이터 연동', cat: '금융·세무' },
- { key: 'hometax', label: '홈택스', logo: <HometaxLogoS />, color: '#006AB4', desc: '부가세·세금 데이터 연동', cat: '금융·세무' },
  ]
 
  const { connections, isConnected, connectedCount, setConnection, removeConnection } = useConnections()
@@ -1467,7 +1456,7 @@ function ConnectTab() {
  // 37차-3: kakao 도 서버 기반(kakao_map)으로 이동 → legacy 카운트에서 제거
  const effectiveCount =
  Object.values(serverConnected).filter(v => v.connected).length +
- (['google', 'yeoshin', 'hometax'] as PlatformId[]).filter(k => isConnected(k)).length
+ (['google'] as PlatformId[]).filter(k => isConnected(k)).length
 
  // 37차-3: kakao → kakao_map 서버 슬러그 매핑 추가 (동의·자격증명 저장 경로 통일)
  const PLATFORM_SLUG_SERVER: Record<string, string> = {
@@ -1508,7 +1497,7 @@ function ConnectTab() {
  return
  }
 
- // legacy 플랫폼 (google, kakao, yeoshin, hometax) → 기존 localStorage 플로우
+ // legacy 플랫폼 (google, kakao) → 기존 localStorage 플로우
  if (isConnected(key)) {
  const ok = await confirmDialog(`${label} 연동을 해제할까요?`, {
  title: '연동 해제',
@@ -1601,7 +1590,7 @@ function ConnectTab() {
 
  <div className="text-[11px] text-[#8B95A1] px-1 space-y-1">
  <p>* 네이버/배민/요기요/쿠팡이츠는 <a href="/my/platforms" className="text-[#3182F6] hover:underline font-semibold">플랫폼 연결 관리</a>에서 아이디·비번이 AES-256 암호화되어 서버에 저장됩니다.</p>
- <p>* 구글/카카오/여신금융/홈택스는 이 기기의 브라우저에만 저장되며, /dashboard · /review-admin 에서 즉시 반영됩니다.</p>
+ <p>* 구글/카카오는 이 기기의 브라우저에만 저장되며, /dashboard · /review-admin 에서 즉시 반영됩니다.</p>
  </div>
  </div>
  )
