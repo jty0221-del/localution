@@ -150,6 +150,19 @@ export default function MyPlatformsPage() {
  .then(r => r.ok ? r.json() : null)
  .then(data => { if (data?.user) setMe(data.user) })
  .catch(() => {})
+
+ // 대시보드/설정 등에서 연결 변경 시 자동 갱신 (단일 진실원 동기화)
+ const onFocus = () => load()
+ const onVisible = () => { if (document.visibilityState === 'visible') load() }
+ const onConnChange = () => load()
+ window.addEventListener('focus', onFocus)
+ document.addEventListener('visibilitychange', onVisible)
+ window.addEventListener('localution:connections-change', onConnChange)
+ return () => {
+ window.removeEventListener('focus', onFocus)
+ document.removeEventListener('visibilitychange', onVisible)
+ window.removeEventListener('localution:connections-change', onConnChange)
+ }
  }, [])
 
  async function unlink(platform: PlatformSlug) {
@@ -164,6 +177,8 @@ export default function MyPlatformsPage() {
  alert('해제 실패: ' + (data.error || 'unknown'))
  } else {
  await load()
+ // 다른 페이지 (대시보드 / 설정) 자동 동기화
+ try { window.dispatchEvent(new CustomEvent('localution:connections-change')) } catch {}
  }
  } catch (e) {
  alert('해제 실패: ' + (e instanceof Error ? e.message : String(e)))
