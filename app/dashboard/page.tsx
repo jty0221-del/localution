@@ -1532,10 +1532,10 @@ export default function Dashboard() {
  <Sidebar />
  {/* DashboardRightSidebar:
    · xl+ (1280px+): position:fixed 로 viewport 우측 고정 — 스크롤 무관 항상 보임
-   · main 에 xl:pr-[296px] 로 콘텐츠 우측 여백 확보 (sidebar 280 + 16 margin)
+   · main 에 xl:pr-[336px] 로 콘텐츠 우측 여백 확보 (sidebar 320 + 16 margin)
    · xl 미만: 메인 콘텐츠 하단에 인라인 grid (lg+ 3열, mobile 1열) */}
  <div className="md:ml-[220px] flex flex-col min-h-screen">
- <div className="flex-1 px-4 md:px-6 pt-20 md:pt-6 pb-24 md:pb-6 mx-auto w-full xl:pr-[296px]" style={{ maxWidth: '1600px' }}>
+ <div className="flex-1 px-4 md:px-6 pt-20 md:pt-6 pb-24 md:pb-6 mx-auto w-full xl:pr-[336px]" style={{ maxWidth: '1600px' }}>
  <main className="min-w-0">
 
  {/* ── 상단 롤링 공지 배너 ── */}
