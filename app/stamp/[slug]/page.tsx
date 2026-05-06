@@ -107,7 +107,7 @@ export default function StampScanPage() {
 
  if (loading) {
  return (
- <div className="min-h-screen bg-[#F2F4F6] flex items-center justify-center">
+ <div className="min-h-screen bg-[#F8F9FA] flex items-center justify-center">
  <div className="text-center">
  <div className="inline-block animate-spin w-8 h-8 border-2 border-[#3182F6] border-t-transparent rounded-full mb-3" />
  <p className="text-sm text-[#8B95A1]">불러오는 중...</p>
@@ -118,7 +118,7 @@ export default function StampScanPage() {
 
  if (err && !card) {
  return (
- <div className="min-h-screen bg-[#F2F4F6] flex items-center justify-center px-4">
+ <div className="min-h-screen bg-[#F8F9FA] flex items-center justify-center px-4">
  <div className="bg-white rounded-2xl p-8 max-w-md w-full text-center shadow-sm">
  <div className="w-16 h-16 rounded-2xl bg-gradient-to-br from-[#FEF3C7] to-[#FDE68A] flex items-center justify-center mx-auto mb-3">
  <AlertCircle size={28} className="text-[#92400E]" strokeWidth={2} />
