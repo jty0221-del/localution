@@ -13,6 +13,7 @@ import MenuQRCard from '../components/MenuQRCard'
 import WifiQRBox from '../components/WifiQRBox'
 import QRImage from '../components/QRImage'
 import PageHeader from '../components/PageHeader'
+import HarangMarketingPopup from '../components/HarangMarketingPopup'
 import {
  QrCode, CheckCircle2, Sparkles,
  Eye, ReceiptText, Camera, Send,
@@ -1334,6 +1335,7 @@ export default function QRAdmin() {
  </div>
  </div>
  )}
+ <HarangMarketingPopup />
  </div>
  )
 }
