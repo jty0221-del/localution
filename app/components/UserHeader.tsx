@@ -15,21 +15,25 @@ export default function UserHeader() {
  const [user, setUser] = useState<NaverUser | null>(null)
 
  useEffect(() => {
- // sessionStorage 캐시
- const cached = sessionStorage.getItem('localution_user')
- if (cached) {
- try { setUser(JSON.parse(cached)); return } catch {}
- }
- // API 조회
- fetch('/api/me')
+ // 항상 서버 우선 — 캐시는 네트워크 오류 fallback 만 (계정 변경 시 stale 방지)
+ fetch('/api/me', { credentials: 'include', cache: 'no-store' })
  .then(r => r.ok ? r.json() : null)
  .then(data => {
  if (data?.user) {
  setUser(data.user)
  sessionStorage.setItem('localution_user', JSON.stringify(data.user))
+ } else {
+ // 서버 세션 없음 → stale 캐시 정리
+ try { sessionStorage.removeItem('localution_user') } catch {}
+ setUser(null)
  }
  })
- .catch(() => {})
+ .catch(() => {
+ try {
+ const cached = sessionStorage.getItem('localution_user')
+ if (cached) setUser(JSON.parse(cached))
+ } catch {}
+ })
  }, [])
 
  if (!user) {
