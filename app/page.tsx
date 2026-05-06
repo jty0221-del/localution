@@ -5,6 +5,7 @@ import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import Footer from './components/Footer'
 import TopNav from './components/TopNav'
+import HarangMarketingPopup from './components/HarangMarketingPopup'
 import {
  MessageCircle, QrCode, Users, FileText, Sparkles,
  Coffee, UtensilsCrossed, Dumbbell,
@@ -1096,6 +1097,9 @@ export default function LandingPage() {
 
  {/* ── 푸터 ── */}
  <Footer />
+
+ {/* 하랑마케팅 홍보 팝업 — 우측 하단 */}
+ <HarangMarketingPopup />
 
  </div>
  )
