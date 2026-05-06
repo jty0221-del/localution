@@ -12,6 +12,7 @@ import Link from 'next/link'
 import Sidebar from '../components/Sidebar'
 import PageHeader from '../components/PageHeader'
 import Footer from '../components/Footer'
+import HarangMarketingPopup from '../components/HarangMarketingPopup'
 import {
  HelpCircle, Search, ChevronDown, ChevronRight,
  Rocket, MessageSquare, QrCode, Users, Coins, Megaphone,
@@ -358,6 +359,7 @@ export default function HelpPage() {
 
  </main>
  <Footer />
+ <HarangMarketingPopup />
  </div>
  </div>
  )
