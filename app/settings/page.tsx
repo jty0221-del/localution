@@ -8,6 +8,10 @@ import Sidebar from '../components/Sidebar'
 import Footer from '../components/Footer'
 import { useConnections, PlatformId } from '../lib/connections'
 import { TABS, TAB_HERO, resolveTab, type Tab } from '../lib/settings-tabs'
+import { Store, Bell, Bot, Link2, CreditCard } from 'lucide-react'
+
+// settings-tabs.ts 의 icon 키 → lucide 컴포넌트 매핑 (이모지 제거 후 통일)
+const TAB_HERO_ICONS = { Store, Bell, Bot, Link2, CreditCard } as const
 import { toast, confirmDialog, promptDialog } from '../lib/toast'
 import { INDUSTRY_CATALOG, INDUSTRY_LABELS, DEFAULT_INDUSTRY_GROUP_ID, findIndustryGroup } from '../lib/industry-catalog'
 import PlatformLogo from '../components/PlatformLogo'
@@ -1119,7 +1123,7 @@ function AITab() {
  업종 선택
  {bizType && (
  <span className="ml-2 inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[#EFF6FF] text-[#3182F6] text-[11px] font-bold">
- {findIndustryGroup(bizType)?.emoji || '✓'} {bizType}
+ <span className="inline-block w-1.5 h-1.5 rounded-full bg-[#3182F6] mr-1.5 align-middle" />{bizType}
  <button
  type="button"
  onClick={() => setBizType('')}
@@ -2005,8 +2009,11 @@ function SettingsInner() {
  {/* LOCALUTION_HERO_BANNER */}
  <section className={`bg-gradient-to-br ${hero.grad} text-white`}>
  <div className="max-w-5xl mx-auto px-4 md:px-8 py-6 md:py-10 flex items-center gap-3 md:gap-4">
- <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center text-3xl md:text-4xl flex-shrink-0">
- {hero.emoji}
+ <div className="w-12 h-12 md:w-14 md:h-14 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center flex-shrink-0">
+ {(() => {
+ const Icon = TAB_HERO_ICONS[hero.icon]
+ return <Icon size={26} className="text-white" strokeWidth={2.25} />
+ })()}
  </div>
  <div className="flex-1 min-w-0">
  <h1 className="text-xl md:text-2xl font-black tracking-tight truncate">설정 · {activeTab === '플랜 관리 (결제내역)' ? '플랜·결제' : activeTab}</h1>
