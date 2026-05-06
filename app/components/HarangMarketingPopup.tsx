@@ -12,32 +12,27 @@ import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { X, Sparkles, ArrowRight, Megaphone } from 'lucide-react'
 
-const STORAGE_KEY = 'localution.harang_popup_dismissed_at'
-const DISMISS_HOURS = 24
+// 사장님 요청 — 24시간 닫기 기억 제거. 세션 단위로만 dismiss 기억 (sessionStorage)
 
 export default function HarangMarketingPopup() {
-  const [show, setShow] = useState(false)
-  // 사장님 요청: 기본으로 확장 상태로 표시 (둥근 버튼 → 풀 카드)
+  // 사장님 요청: 항상 보이게 (5초 지연 / 24시간 닫기 기억 모두 제거)
+  const [show, setShow] = useState(true)
   const [expanded, setExpanded] = useState(true)
-
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    // 24시간 이내 닫은 적 있으면 안 보임
-    try {
-      const dismissedAt = parseInt(localStorage.getItem(STORAGE_KEY) || '0', 10)
-      if (dismissedAt && Date.now() - dismissedAt < DISMISS_HOURS * 3600 * 1000) {
-        return
-      }
-    } catch {}
-    // 5초 후 슬라이드 업
-    const t = setTimeout(() => setShow(true), 5000)
-    return () => clearTimeout(t)
-  }, [])
 
   function dismiss() {
     setShow(false)
-    try { localStorage.setItem(STORAGE_KEY, String(Date.now())) } catch {}
+    // 세션 단위로만 닫기 (페이지 새로고침 시 다시 표시)
+    try { sessionStorage.setItem('localution.harang_popup_session_dismissed', '1') } catch {}
   }
+
+  useEffect(() => {
+    // 같은 세션 안에서만 닫기 기억 (새로 페이지 들어오면 다시 표시)
+    try {
+      if (sessionStorage.getItem('localution.harang_popup_session_dismissed') === '1') {
+        setShow(false)
+      }
+    } catch {}
+  }, [])
 
   if (!show) return null
 
