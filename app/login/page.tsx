@@ -100,7 +100,8 @@ export default function LoginPage() {
  /* 데스크톱: 풀스크린 고정 / 모바일: 자연 스크롤 허용 (loginCard 가 길어도 안 잘림) */
  .loginContainer { position:fixed; top:0; left:0; width:100%; height:100%; background: linear-gradient(135deg, #060D1A 0%, #0f1e3c 50%, #060D1A 100%); background-size: 200% 200%; animation: orbitGrad 15s ease infinite; display:flex; align-items:center; justify-content:center; overflow:hidden; }
  @media (max-width: 1100px) {
- .loginContainer { position:relative; height:auto; min-height:100vh; align-items:flex-start; overflow-y:auto; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+ /* 모바일: 위→아래 column 으로 stacking, 자연 스크롤 + safe-area */
+ .loginContainer { position:relative; height:auto; min-height:100vh; flex-direction:column; align-items:stretch; justify-content:flex-start; overflow-y:auto; overflow-x:hidden; padding:0; }
  }
  .particles { position:absolute; width:100%; height:100%; pointer-events:none; overflow:hidden; }
  .p { position:absolute; border-radius:50%; pointer-events:none; }
@@ -192,13 +193,29 @@ export default function LoginPage() {
  @keyframes pulseDot { 0%,100% { opacity:1; transform:scale(1); } 50% { opacity:0.5; transform:scale(1.4); } }
 
  @media (max-width: 1100px) {
- .mainWrap { flex-direction:column; height:auto; }
+ /* mobileTopBar 와 mainWrap 이 column 으로 stacking — mobileTopBar 위, mainWrap 아래 */
+ .mobileTopBar { display:block; width:100%; flex-shrink:0; }
+ .mainWrap { display:block; flex-direction:column; height:auto; width:100%; max-width:none; padding:0; }
  .leftArea { display:none; }
- .rightArea { width:100%; min-height: calc(100vh - 70px); padding: 16px 16px 32px; align-items:flex-start; }
- .mobileTopBar { display:block; }
+ .rightArea {
+ width:100%;
+ max-width:480px;
+ margin:0 auto;
+ padding: 24px 16px 40px;
+ display:block;
+ align-items:initial;
+ justify-content:initial;
+ }
+ .loginCard {
+ width:100%;
+ max-width:100%;
+ margin:0 auto;
+ transform:none;
+ }
  }
  @media (max-width: 640px) {
- .loginCard { max-width:100%; padding:28px 20px; margin:0; }
+ .rightArea { padding: 20px 16px 36px; max-width:100%; }
+ .loginCard { padding:28px 20px; }
  .sBtn { padding:12px 14px; font-size:14px; }
  .logoSection { margin-bottom:24px; }
  .logoImg { width:44px; height:44px; }
