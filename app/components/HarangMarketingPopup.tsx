@@ -17,7 +17,8 @@ const DISMISS_HOURS = 24
 
 export default function HarangMarketingPopup() {
   const [show, setShow] = useState(false)
-  const [expanded, setExpanded] = useState(false)
+  // 사장님 요청: 기본으로 확장 상태로 표시 (둥근 버튼 → 풀 카드)
+  const [expanded, setExpanded] = useState(true)
 
   useEffect(() => {
     if (typeof window === 'undefined') return
