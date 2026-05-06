@@ -171,17 +171,19 @@ function SidebarCards() {
   )
 }
 
-// 데스크톱: position:fixed 로 viewport 우측에 항상 고정 (스크롤 무관)
+// 데스크톱 (2xl+, 1536px+): position:fixed 로 viewport 우측에 항상 고정 (스크롤 무관)
+//   · 1536px 미만 화면에서는 콘텐츠가 좁아져서 사이드바 인라인 (모바일과 동일하게 하단)
+//   · 2xl+ 만 fixed 로 노출하면 충분한 화면 공간 보장
 //
 // ⚠️ DO_NOT_TOUCH (사장님 명시 요건):
 //   1) 카드 3개 모두 viewport 에 항상 보임 (인기 TOP10 → 알림 → 도움말)
 //   2) 스크롤 무관 — fixed 로 절대 위치 고정
-//   3) 콘텐츠 침범 금지 — 대시보드 main 에 xl:pr-[300px] 적용 필요
-//   4) 모바일: DashboardRightSidebarMobile 로 인라인 표시
+//   3) 콘텐츠 침범 금지 — 대시보드 main 에 2xl:pr-[280px] 적용 필요
+//   4) 1536px 미만: DashboardRightSidebarMobile 로 인라인 표시
 export default function DashboardRightSidebar() {
   return (
     <div
-      className="hidden xl:block fixed top-20 right-4 w-[280px] z-30 space-y-2.5"
+      className="hidden 2xl:block fixed top-20 right-6 w-[260px] z-30 space-y-3"
       style={{ maxHeight: 'calc(100vh - 6rem)', overflowY: 'auto', scrollbarWidth: 'thin' }}
     >
       <SidebarCards />
@@ -189,11 +191,13 @@ export default function DashboardRightSidebar() {
   )
 }
 
-// 모바일/태블릿: 메인 콘텐츠 하단에 인라인으로 표시 (스크롤 시 나타남)
+// 1536px 미만 (대다수 노트북/태블릿/모바일): 메인 콘텐츠 하단에 인라인 표시
 export function DashboardRightSidebarMobile() {
   return (
-    <div className="xl:hidden mt-6 space-y-3">
-      <SidebarCards />
+    <div className="2xl:hidden mt-6">
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
+        <SidebarCards />
+      </div>
     </div>
   )
 }
