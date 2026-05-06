@@ -21,15 +21,24 @@ export default function TopNav() {
  useEffect(() => {
  const check = async () => {
  try {
- const cached = sessionStorage.getItem('localution_user')
- if (cached) { setIsLoggedIn(true); return }
- const res = await fetch('/api/me', { credentials: 'include' })
- const data = await res.json()
+ // 항상 서버에서 최신 사용자 확인 (캐시는 fallback 으로만 사용 — 계정 변경 후 stale 방지)
+ const res = await fetch('/api/me', { credentials: 'include', cache: 'no-store' })
+ const data = await res.json().catch(() => null)
  if (data?.user) {
  sessionStorage.setItem('localution_user', JSON.stringify(data.user))
  setIsLoggedIn(true)
+ } else {
+ // 서버 세션 없음 → stale 캐시 제거
+ sessionStorage.removeItem('localution_user')
+ setIsLoggedIn(false)
  }
+ } catch {
+ // 네트워크 오류 시에만 캐시로 fallback
+ try {
+ const cached = sessionStorage.getItem('localution_user')
+ if (cached) setIsLoggedIn(true)
  } catch {}
+ }
  }
  check()
  }, [])
