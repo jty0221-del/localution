@@ -12,27 +12,84 @@ export default function LoginPage() {
  const [useDifferentAccount, setUseDifferentAccount] = useState(false)
  const oauthQuery = useDifferentAccount ? '?reset=1' : ''
 
- // 모바일 상단 — 실시간 데이터 시뮬레이션 (3초마다 자연스럽게 증가)
- const [liveStats, setLiveStats] = useState({
- owners: 1247, // 누적 사장님
- reviewsToday: 84, // 오늘 자동 답글
- avgRatingLift: 0.6, // 평균 별점 상승
- keywordRank: 3, // 평균 플레이스 순위
- monthlyReplies: 52340, // 누적 AI 답글
- placesTracked: 1156, // 추적 중 매장
+ // 모바일 상단 — 실시간 데이터 (단조 증가, 영속, 절대 내려가지 않음)
+ //   · 사장님 수: 142명에서 시작 (출시 시점), 매우 느린 자연 증가
+ //   · 새로고침해도 localStorage 에 저장된 마지막 값 + 시간 경과분 합산 → 내려가지 않음
+ //   · 다른 기기에서도 동일하게 보이도록 base 는 출시일 기준 deterministic 계산
+ const LAUNCH_TS = new Date('2026-05-06T00:00:00+09:00').getTime()
+ const STATS_KEY = 'localution.live_stats_v1'
+
+ // 출시일 기준 시간 경과 → deterministic owners count
+ //   하루에 평균 0.8명, 30분에 0.017명 ≒ 30분에 0~1명 (느린 자연 증가)
+ function computeBaseOwners(now: number) {
+ const minutesSinceLaunch = Math.max(0, (now - LAUNCH_TS) / 60000)
+ // 하루 = 1440분, 하루 0.8명 → 분당 0.000556
+ // floor 적용하면 ~28시간마다 +1 자연증가
+ return 142 + Math.floor(minutesSinceLaunch / (1440 / 0.8))
+ }
+ function computeBaseReviews(now: number) {
+ const minutesSinceLaunch = Math.max(0, (now - LAUNCH_TS) / 60000)
+ // 하루 ~12건씩 — 분당 0.0083
+ return 12 + Math.floor(minutesSinceLaunch * 0.0083)
+ }
+ function computeBaseTotalReplies(now: number) {
+ const minutesSinceLaunch = Math.max(0, (now - LAUNCH_TS) / 60000)
+ return 384 + Math.floor(minutesSinceLaunch * 0.5)
+ }
+
+ const [liveStats, setLiveStats] = useState(() => {
+ // SSR 에서는 LAUNCH_TS 기준값만 (Date.now 차이로 hydration mismatch 방지)
+ const baseTs = LAUNCH_TS
+ return {
+ owners: computeBaseOwners(baseTs),
+ reviewsToday: computeBaseReviews(baseTs),
+ avgRatingLift: 0.6,
+ keywordRank: 3,
+ monthlyReplies: computeBaseTotalReplies(baseTs),
+ placesTracked: computeBaseOwners(baseTs),
+ }
  })
 
  useEffect(() => {
- // 자연스러운 증분 (3초마다 1-3씩)
+ // 페이지 로드 시: localStorage 저장값 vs 현재 시간 기준값 중 큰 쪽 채택 (단조 증가 보장)
+ function pullStats() {
+ const now = Date.now()
+ let saved: any = {}
+ try { saved = JSON.parse(localStorage.getItem(STATS_KEY) || '{}') } catch {}
+ const next = {
+ owners: Math.max(saved.owners || 0, computeBaseOwners(now)),
+ reviewsToday: Math.max(saved.reviewsToday || 0, computeBaseReviews(now)),
+ avgRatingLift: 0.6,
+ keywordRank: 3,
+ monthlyReplies: Math.max(saved.monthlyReplies || 0, computeBaseTotalReplies(now)),
+ placesTracked: Math.max(saved.placesTracked || 0, computeBaseOwners(now)),
+ }
+ setLiveStats(next)
+ try { localStorage.setItem(STATS_KEY, JSON.stringify(next)) } catch {}
+ }
+ pullStats()
+ // 매 30초마다 자연 증가분만 반영 (단조 증가만 — 절대 감소 X)
+ //   사장님: ~28시간마다 +1, 답글: 30초마다 ~0.25 → 가끔 +1
+ //   페이지를 오래 열어둬도 너무 자주 안 변하도록
  const t = setInterval(() => {
- setLiveStats(s => ({
- ...s,
- owners: s.owners + (Math.random() < 0.4 ? 1 : 0),
- reviewsToday: s.reviewsToday + (Math.random() < 0.7 ? Math.floor(Math.random() * 3) + 1 : 0),
- monthlyReplies: s.monthlyReplies + (Math.random() < 0.8 ? Math.floor(Math.random() * 5) + 1 : 0),
- placesTracked: s.placesTracked + (Math.random() < 0.3 ? 1 : 0),
- }))
- }, 3000)
+ setLiveStats(prev => {
+ const now = Date.now()
+ // 누적 답글은 약 2분에 +1 페이스 — 살아있는 느낌
+ const nudgeReplies = Math.random() < 0.25 ? 1 : 0
+ // 오늘 답글은 약 5분에 +1 페이스
+ const nudgeToday = Math.random() < 0.1 ? 1 : 0
+ const next = {
+ ...prev,
+ // 사장님은 base 가 시간으로 자연 증가하므로 별도 nudge 안 함 — 새로고침으로 갱신
+ owners: Math.max(prev.owners, computeBaseOwners(now)),
+ reviewsToday: Math.max(prev.reviewsToday + nudgeToday, computeBaseReviews(now)),
+ monthlyReplies: Math.max(prev.monthlyReplies + nudgeReplies, computeBaseTotalReplies(now)),
+ placesTracked: Math.max(prev.placesTracked, computeBaseOwners(now)),
+ }
+ try { localStorage.setItem(STATS_KEY, JSON.stringify(next)) } catch {}
+ return next
+ })
+ }, 30000)
  return () => clearInterval(t)
  }, [])
 
