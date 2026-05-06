@@ -71,7 +71,7 @@ export default function ConnectPlatformPage() {
  }, [platform, router])
 
  if (!meta) return (
- <main className="min-h-screen bg-[#F9FAFB] py-10">
+ <main className="min-h-screen bg-[#F8F9FA] py-10">
  <div className="max-w-xl mx-auto px-4 text-center text-[#6B7280]">
  유효하지 않은 플랫폼입니다.
  <div className="mt-4"><Link href="/my/platforms" className="text-[#3182F6] hover:underline">← 플랫폼 허브로</Link></div>
@@ -475,7 +475,7 @@ export default function ConnectPlatformPage() {
  // ── STEP 1 ──
  if (step === 1) {
  return (
- <main className="min-h-screen bg-[#F9FAFB] py-10">
+ <main className="min-h-screen bg-[#F8F9FA] py-10">
  <div className="max-w-2xl mx-auto px-4">
  <div className="flex items-center gap-2 text-sm text-[#6B7280] mb-6">
  <Link href="/dashboard" className="hover:text-[#3182F6]">대시보드</Link><span>/</span>
