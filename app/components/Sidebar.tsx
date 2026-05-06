@@ -258,9 +258,20 @@ export default function Sidebar() {
  }
 
  useEffect(() => {
- fetch('/api/me').then(r => r.json()).then(data => {
- if (data && data.user && data.user.name) setUser(data.user)
- }).catch(() => {})
+ // 서버 우선 — stale 사용자 정보 자동 정리 (계정 변경 후 모바일에서 안 갱신되는 문제 해결)
+ fetch('/api/me', { credentials: 'include', cache: 'no-store' })
+ .then(r => r.ok ? r.json() : null)
+ .then(data => {
+ if (data && data.user && data.user.name) {
+ setUser(data.user)
+ try { sessionStorage.setItem('localution_user', JSON.stringify(data.user)) } catch {}
+ } else {
+ // 서버 세션 없음 → stale 캐시 정리 + 로그아웃 상태로
+ setUser(null)
+ try { sessionStorage.removeItem('localution_user') } catch {}
+ }
+ })
+ .catch(() => {})
 
  loadStore()
 
