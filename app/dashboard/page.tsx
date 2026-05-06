@@ -95,26 +95,6 @@ function NaverSearchLogo({ size = 28 }: { size?: number }) {
  )
 }
 
-function YeoshinLogo({ size = 28 }: { size?: number }) {
- return (
- <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
- <rect width="48" height="48" rx="10" fill="#003087"/>
- <rect x="9" y="15" width="30" height="18" rx="3" stroke="white" strokeWidth="2.5" fill="none"/>
- <rect x="9" y="21" width="30" height="5" fill="white"/>
- <rect x="12" y="28" width="9" height="2.5" rx="1.2" fill="white" opacity="0.55"/>
- </svg>
- )
-}
-
-function HometaxLogo({ size = 28 }: { size?: number }) {
- return (
- <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
- <rect width="48" height="48" rx="10" fill="#006AB4"/>
- <path d="M24 9L7 22h5v17h10v-9h4v9h10V22h5L24 9z" fill="white"/>
- </svg>
- )
-}
-
 function KakaoMapLogo({ size = 28 }: { size?: number }) {
  return (
  <svg width={size} height={size} viewBox="0 0 48 48" fill="none">
@@ -132,14 +112,14 @@ function KakaoMapLogo({ size = 28 }: { size?: number }) {
 // naver_search 는 검색광고 연동 미구현 → 당분간 타입에서 제외
 type PlatformId =
  | 'naver_place' | 'google' | 'kakao_map' | 'baemin'
- | 'yogiyo' | 'coupangeats' | 'yeoshin' | 'hometax'
+ | 'yogiyo' | 'coupangeats'
 
 interface Platform {
  id: PlatformId
  name: string
  shortName: string
  logo: (size?: number) => JSX.Element
- category: '리뷰·검색' | '지도·리뷰' | '배달' | '금융·세무'
+ category: '리뷰·검색' | '지도·리뷰' | '배달'
  connected: boolean
  rating: number | null
  reviews: number | null
@@ -154,8 +134,6 @@ const TO_CANONICAL: Record<PlatformId, CanonicalPlatformId> = {
  baemin: 'baemin',
  yogiyo: 'yogiyo',
  coupangeats: 'coupang',
- yeoshin: 'yeoshin',
- hometax: 'hometax',
 }
 const INITIAL_PLATFORMS: Platform[] = [
  { id: 'naver_place', name: '네이버 플레이스', shortName: '네이버', logo: (s) => <NaverPlaceLogo size={s}/>, category: '리뷰·검색', connected: false, rating: null, reviews: null, color: '#03C75A' },
@@ -164,8 +142,6 @@ const INITIAL_PLATFORMS: Platform[] = [
  { id: 'baemin', name: '배달의민족', shortName: '배민', logo: (s) => <BaeminLogo size={s}/>, category: '배달', connected: false, rating: null, reviews: null, color: '#2AC1BC' },
  { id: 'yogiyo', name: '요기요', shortName: '요기요', logo: (s) => <YogiyoLogo size={s}/>, category: '배달', connected: false, rating: null, reviews: null, color: '#FA1A32' },
  { id: 'coupangeats', name: '쿠팡이츠', shortName: '쿠팡이츠', logo: (s) => <CoupangEatsLogo size={s}/>, category: '배달', connected: false, rating: null, reviews: null, color: '#FF5A00' },
- { id: 'yeoshin', name: '여신금융', shortName: '여신금융', logo: (s) => <YeoshinLogo size={s}/>, category: '금융·세무', connected: false, rating: null, reviews: null, color: '#003087' },
- { id: 'hometax', name: '홈택스', shortName: '홈택스', logo: (s) => <HometaxLogo size={s}/>, category: '금융·세무', connected: false, rating: null, reviews: null, color: '#006AB4' },
 ]
 
 interface KeywordRank {
@@ -1293,10 +1269,6 @@ export default function Dashboard() {
  if (ok) window.location.href = '/login'
  return
  }
- if (p.id === 'yeoshin' || p.id === 'hometax') {
- toast.info(`${p.name} 연동은 /settings 페이지에서 설정하세요.`)
- return
- }
  if (p.id === 'yogiyo' || p.id === 'coupangeats') {
  window.location.href = `/my/platforms/${p.id}/connect`
  return
@@ -1501,7 +1473,6 @@ export default function Dashboard() {
  )
 
  const reviewPlatformConnected = platforms.some(p => (p.category === '리뷰·검색' || p.category === '배달') && p.connected)
- const financePlatformConnected = platforms.some(p => p.category === '금융·세무' && p.connected)
  // 고객 관리/예약은 현재 별도 연동 테이블 없음 → 향후 지점 DB로 대체.
  // 일단 "any 플랫폼 연동됨"을 조건으로 잡는다
  const anyPlatformConnected = connectedCount > 0
@@ -1539,17 +1510,6 @@ export default function Dashboard() {
  unit: '건',
  color: '#3182F6',
  ready: false, // 현재 예약 연동 없음
- },
- {
- key: 'tax-invoice',
- href: '/settlement',
- connectHref: buildSettingsHref('connect'),
- requiredLabel: '홈택스/여신',
- label: '세금계산서 발행',
- count: financePlatformConnected ? 2 : 0,
- unit: '건',
- color: '#12B76A',
- ready: financePlatformConnected,
  },
  ]
 
