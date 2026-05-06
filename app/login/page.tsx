@@ -8,6 +8,9 @@ export default function LoginPage() {
  const [counters, setCounters] = useState({ visitors: 0, reviews: 0, rank: 0 })
  // 회원가입 모드 여부 (/signup → /login?mode=signup 로 rewrite 되거나, 직접 쿼리로 접근)
  const [isSignup, setIsSignup] = useState(false)
+ // 다른 계정으로 로그인 (네이버/카카오/구글에 reset 쿼리 전달 — 계정 선택/재로그인 강제)
+ const [useDifferentAccount, setUseDifferentAccount] = useState(false)
+ const oauthQuery = useDifferentAccount ? '?reset=1' : ''
 
  useEffect(function() {
  const params = new URLSearchParams(window.location.search)
@@ -94,7 +97,11 @@ export default function LoginPage() {
  @keyframes glowPulse { 0%,100% { box-shadow: 0 0 20px rgba(59,130,246,0.1); } 50% { box-shadow: 0 0 40px rgba(59,130,246,0.2); } }
 
  body, html { margin:0; padding:0; background:#060D1A; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; overflow-x:hidden; }
+ /* 데스크톱: 풀스크린 고정 / 모바일: 자연 스크롤 허용 (loginCard 가 길어도 안 잘림) */
  .loginContainer { position:fixed; top:0; left:0; width:100%; height:100%; background: linear-gradient(135deg, #060D1A 0%, #0f1e3c 50%, #060D1A 100%); background-size: 200% 200%; animation: orbitGrad 15s ease infinite; display:flex; align-items:center; justify-content:center; overflow:hidden; }
+ @media (max-width: 1100px) {
+ .loginContainer { position:relative; height:auto; min-height:100vh; align-items:flex-start; overflow-y:auto; padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+ }
  .particles { position:absolute; width:100%; height:100%; pointer-events:none; overflow:hidden; }
  .p { position:absolute; border-radius:50%; pointer-events:none; }
 
@@ -166,16 +173,56 @@ export default function LoginPage() {
  .footerLinks a:hover { color:#94a3b8; text-decoration:underline; }
  .footerDivider { color:#334155; }
 
+ /* 다른 계정으로 로그인 토글 */
+ .accountSwitch { display:flex; align-items:center; gap:8px; margin-top:14px; padding:10px 12px; background:rgba(255,255,255,0.04); border:1px solid rgba(59,130,246,0.18); border-radius:10px; cursor:pointer; transition:all 0.2s; user-select:none; }
+ .accountSwitch:hover { background:rgba(59,130,246,0.08); border-color:rgba(59,130,246,0.3); }
+ .accountSwitch input { width:14px; height:14px; accent-color:#3b82f6; cursor:pointer; flex-shrink:0; }
+ .accountSwitch span { font-size:12px; color:#94a3b8; font-weight:500; line-height:1.4; }
+
+ /* 모바일 상단 브랜드 바 — 1100px 이하에서 노출, 데스크톱은 숨김 */
+ .mobileTopBar { display:none; position:sticky; top:0; left:0; right:0; z-index:20; padding: calc(env(safe-area-inset-top, 0px) + 14px) 16px 14px; background: linear-gradient(180deg, rgba(6,13,26,0.95) 0%, rgba(6,13,26,0.85) 100%); backdrop-filter: blur(8px); border-bottom: 1px solid rgba(59,130,246,0.15); }
+ .mobileTopBar .row { display:flex; align-items:center; justify-content:space-between; gap:12px; }
+ .mobileTopBar .brand { display:flex; align-items:center; gap:10px; }
+ .mobileTopBar .brandLogo { width:36px; height:36px; border-radius:10px; background: linear-gradient(135deg, #3b82f6, #1B64DA); display:flex; align-items:center; justify-content:center; box-shadow: 0 2px 10px rgba(59,130,246,0.3); }
+ .mobileTopBar .brandLogo span { color:#fff; font-weight:900; font-size:14px; line-height:1; }
+ .mobileTopBar .brandText { color:#fff; font-size:15px; font-weight:800; letter-spacing:-0.3px; }
+ .mobileTopBar .brandTagline { color:#94a3b8; font-size:10px; font-weight:500; margin-top:1px; }
+ .mobileTopBar .liveBadge { display:inline-flex; align-items:center; gap:5px; padding:5px 9px; border-radius:999px; background:rgba(34,197,94,0.12); color:#22c55e; font-size:10px; font-weight:700; flex-shrink:0; }
+ .mobileTopBar .liveDot { width:5px; height:5px; border-radius:50%; background:#22c55e; animation: pulseDot 1.5s ease-in-out infinite; }
+ @keyframes pulseDot { 0%,100% { opacity:1; transform:scale(1); } 50% { opacity:0.5; transform:scale(1.4); } }
+
  @media (max-width: 1100px) {
  .mainWrap { flex-direction:column; height:auto; }
  .leftArea { display:none; }
- .rightArea { width:100%; min-height:100vh; }
+ .rightArea { width:100%; min-height: calc(100vh - 70px); padding: 16px 16px 32px; align-items:flex-start; }
+ .mobileTopBar { display:block; }
  }
  @media (max-width: 640px) {
- .loginCard { max-width:100%; padding:32px 20px; margin:0 16px; }
+ .loginCard { max-width:100%; padding:28px 20px; margin:0; }
  .sBtn { padding:12px 14px; font-size:14px; }
+ .logoSection { margin-bottom:24px; }
+ .logoImg { width:44px; height:44px; }
+ .brandName { font-size:20px; }
+ .loginTitle { font-size:20px; margin-bottom:22px; }
  }
  `}</style>
+
+ {/* 모바일 상단 브랜드 바 (1100px 이하 노출) */}
+ <div className='mobileTopBar'>
+ <div className='row'>
+ <div className='brand'>
+ <div className='brandLogo'><span>L</span></div>
+ <div>
+ <div className='brandText'>로컬루션</div>
+ <div className='brandTagline'>AI 사장님 마케팅 플랫폼</div>
+ </div>
+ </div>
+ <div className='liveBadge'>
+ <span className='liveDot' />
+ <span>1,200+ 사장님 사용중</span>
+ </div>
+ </div>
+ </div>
 
  <div className='particles'>
  {Array.from({length:20}).map(function(_,i) {
@@ -305,7 +352,7 @@ export default function LoginPage() {
  {error && <div className='errMsg'>{error}</div>}
 
  <div className='socialBtns'>
- <a href='/api/oauth/kakao' className='sBtn kakaoBtn'>
+ <a href={'/api/oauth/kakao' + oauthQuery} className='sBtn kakaoBtn'>
  <span className='sIcon'>
  <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
  <path d="M10 3C5.582 3 2 5.828 2 9.274c0 2.177 1.432 4.088 3.594 5.186l-.912 3.376c-.08.297.26.534.522.364l3.96-2.636c.272.028.55.044.836.044 4.418 0 8-2.828 8-6.334C18 5.828 14.418 3 10 3z" fill="#191919"/>
@@ -314,7 +361,7 @@ export default function LoginPage() {
  카카오로 시작
  </a>
 
- <a href='/api/oauth/naver' className='sBtn naverBtn'>
+ <a href={'/api/oauth/naver' + oauthQuery} className='sBtn naverBtn'>
  <span className='sIcon'>
  <svg viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
  <path d="M13.36 10.57L6.38 3H3v14h3.64V9.43L13.62 17H17V3h-3.64v7.57z" fill="#fff"/>
@@ -323,7 +370,7 @@ export default function LoginPage() {
  네이버로 시작
  </a>
 
- <a href='/api/oauth/google' className='sBtn googleBtn'>
+ <a href={'/api/oauth/google' + oauthQuery} className='sBtn googleBtn'>
  <span className='sIcon'>
  <svg viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
  <path d="M18.17 10.2c0-.63-.06-1.25-.16-1.84H10v3.48h4.58a3.92 3.92 0 01-1.7 2.57v2.13h2.75c1.61-1.48 2.54-3.66 2.54-6.34z" fill="#4285F4"/>
@@ -335,6 +382,16 @@ export default function LoginPage() {
  Google로 시작
  </a>
  </div>
+
+ {/* 다른 계정으로 로그인 토글 — 같은 OAuth 계정이 자동 재사용되는 문제 해결 */}
+ <label className='accountSwitch'>
+ <input
+ type='checkbox'
+ checked={useDifferentAccount}
+ onChange={(e) => setUseDifferentAccount(e.target.checked)}
+ />
+ <span>다른 계정으로 로그인 (계정 선택 화면 보기)</span>
+ </label>
 
  <div className='consentMsg'>
  {isSignup ? '가입하면 ' : '로그인하면 '}
