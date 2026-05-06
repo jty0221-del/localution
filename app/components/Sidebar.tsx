@@ -542,8 +542,8 @@ export default function Sidebar() {
  <div className="px-5 py-5 border-b border-[#F2F4F6]">
  <Link href="/" className="block">
  <div className="flex items-center gap-2.5">
- <div className="w-8 h-8 rounded-lg bg-[#3182F6] flex items-center justify-center">
- <span className="text-white font-black text-sm">L</span>
+ <div className="w-8 h-8 rounded-lg bg-white ring-1 ring-[#E8F4FD] flex items-center justify-center overflow-hidden flex-shrink-0">
+ <img src="/logo-icon.svg" alt="로컬루션" width={32} height={32} />
  </div>
  <div>
  <p className="font-black text-[#191F28] text-sm tracking-tight leading-none">Localution</p>
