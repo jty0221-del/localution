@@ -47,10 +47,10 @@ export default function TopNav() {
  <nav className="fixed top-0 left-0 right-0 z-50 bg-white/95 backdrop-blur-md border-b border-gray-100 shadow-sm">
  <div className="max-w-6xl mx-auto px-4 h-16 flex items-center justify-between">
 
- {/* 로고 */}
+ {/* 로고 — 실제 로컬루션 로고 (LU 화살표 + LOCALUTION) */}
  <Link href="/" className="flex items-center gap-2 select-none active:opacity-70 transition-opacity">
- <div className="w-9 h-9 md:w-10 md:h-10 rounded-xl flex-shrink-0 bg-gradient-to-br from-[#3182F6] to-[#1B64DA] flex items-center justify-center shadow-[0_2px_10px_rgba(49,130,246,0.28)]">
- <span className="text-white font-black text-base md:text-lg tracking-tight leading-none">L</span>
+ <div className="w-9 h-9 md:w-10 md:h-10 rounded-xl flex-shrink-0 bg-white flex items-center justify-center shadow-[0_2px_10px_rgba(49,130,246,0.18)] ring-1 ring-[#E8F4FD] overflow-hidden">
+ <Image src="/logo-icon.svg" alt="로컬루션" width={36} height={36} priority />
  </div>
  <span className="text-base md:text-xl font-black text-[#191F28] tracking-tight">로컬루션</span>
  </Link>
