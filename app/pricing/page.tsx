@@ -243,7 +243,8 @@ export default function PricingPage() {
  <div className="min-h-screen bg-[#F8F9FA]">
  <style>{GLOBAL_STYLES}</style>
  <main className="px-4 sm:px-6 md:px-8 py-6 sm:py-8">
- <div className="max-w-6xl mx-auto pb-16">
+ {/* cart 가 있을 때 모바일 sticky 바 (높이 ~80px) 만큼 본문 하단 여백 추가 — 콘텐츠 가림 방지 */}
+ <div className={`max-w-6xl mx-auto ${cart.length > 0 ? 'pb-32 md:pb-16' : 'pb-16'}`}>
 
  {/* ── 신뢰 배너 ─────────────────────────────── */}
  <div className="flex justify-center mb-5 sm:mb-6">
