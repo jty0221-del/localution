@@ -100,7 +100,7 @@ export default function HarangMarketingPopup() {
         <div className="rounded-xl bg-gradient-to-br from-[#FAF5FF] to-[#FCE7F3] border border-[#E9D5FF] p-2.5">
           <p className="text-[11px] font-bold text-[#7C3AED] mb-0.5">10년차 마케터 직접 운영</p>
           <p className="text-[10px] text-[#6B21A8] leading-relaxed">
-            하랑마케팅 전태영 대표가 직접 진단 / 전략 수립 / 실행까지 책임집니다.
+            하랑마케팅 대표가 직접 진단 / 전략 수립 / 실행까지 책임집니다.
           </p>
         </div>
       </div>
