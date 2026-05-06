@@ -283,6 +283,19 @@ export default function Sidebar() {
  try { await fetch('/api/auth/logout', { method: 'POST' }) } catch (_) {}
  document.cookie = 'localution_session=; max-age=0; path=/'
  document.cookie = 'localution_user=; max-age=0; path=/'
+ // 클라이언트 캐시 일괄 정리 (사장님 계정 변경 시 이전 사용자 정보가 남는 문제 해결)
+ try {
+ sessionStorage.removeItem('localution_user')
+ // 매장 정보 / 플랫폼 연결 캐시도 새 계정으로 갱신되도록 제거
+ const lsKeysToClear = [
+ 'localution_user', 'localution_store',
+ 'localution.platform_links', 'localution.naver.connected',
+ 'localution.google.connected', 'localution.kakao.connected',
+ 'localution.baemin.connected', 'localution.yogiyo.connected',
+ 'localution.coupang.connected',
+ ]
+ for (const k of lsKeysToClear) localStorage.removeItem(k)
+ } catch (_) {}
  router.push('/login')
  router.refresh()
  }
