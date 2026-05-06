@@ -140,7 +140,7 @@ export default function MyPage() {
 
  if (loading) {
  return (
- <div className="min-h-screen bg-[#F2F4F6] flex items-center justify-center">
+ <div className="min-h-screen bg-[#F8F9FA] flex items-center justify-center">
  <div className="text-[#8B95A1] text-sm">불러오는 중...</div>
  </div>
  )
