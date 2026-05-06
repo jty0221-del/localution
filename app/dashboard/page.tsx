@@ -1529,12 +1529,10 @@ export default function Dashboard() {
  return (
  <div className="min-h-screen bg-[#F8F9FA]">
  <Sidebar />
- {/* DashboardRightSidebar 의 sticky 가 정상 동작하려면:
-   · 외부 div 에 overflow 금지 (sticky scroll container 로 잡히면 안 됨)
-   · flex parent 에 items-start (자식 stretch 방지) — sticky 의 containing block 정확히 잡힘 */}
+ {/* DashboardRightSidebar — position: fixed 사용. aside 는 280px 자리만 차지하고 내용은 viewport 우측에 고정 */}
  <div className="md:ml-[220px] flex flex-col min-h-screen">
  <div className="flex-1 px-4 md:px-6 pt-20 md:pt-6 pb-24 md:pb-6 max-w-7xl mx-auto w-full">
- <div className="flex gap-6 items-start">
+ <div className="flex gap-6">
  <main className="flex-1 min-w-0">
 
  {/* ── 상단 롤링 공지 배너 ── */}
