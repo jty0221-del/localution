@@ -1678,41 +1678,65 @@ export default function Dashboard() {
  {/* 25차-4: 신규 모듈 프로모 스트립 — 사장님 요청으로 비표시 (인스타 카드뉴스/플랫폼 통합/블로그 순위) */}
  {/* 우측 사이드바 빠른 액션에서 동일 기능 접근 가능 */}
 
- {/* ── 플랫폼 연동 현황 바 ── */}
- <div className="bg-white rounded-2xl shadow-sm px-5 py-4 mb-5">
- <div className="flex items-center justify-between mb-3">
+ {/* ── 플랫폼 연동 현황 — 6칸 카드형 ── */}
+ <div className="bg-white rounded-2xl shadow-sm p-4 md:p-5 mb-5">
+ <div className="flex items-center justify-between mb-4">
  <div className="flex items-center gap-2">
- <span className="text-sm font-bold text-[#191F28]">플랫폼 연동 현황</span>
- <span className="text-[11px] px-2 py-0.5 rounded-full bg-[#E8F4FD] text-[#3182F6] font-semibold">
- {connectedCount}/{platforms.length} 연동됨
- </span>
+ <div className="w-7 h-7 rounded-xl bg-gradient-to-br from-[#3182F6] to-[#1B64DA] flex items-center justify-center shadow-sm">
+ <Link2 size={13} className="text-white" strokeWidth={2.5} />
  </div>
- <a href={isLoggedIn ? "/settings" : "/login"} className="inline-flex items-center gap-1 text-[11px] text-[#3182F6] font-semibold hover:underline">
- {isLoggedIn ? <>연동 관리 <ArrowRight size={11} strokeWidth={2.5} /></> : '로그인 후 연동 가능'}
+ <div>
+ <p className="text-sm font-bold text-[#191F28]">플랫폼 연동 현황</p>
+ <p className="text-[10px] text-[#8B95A1] mt-0.5">
+ <span className="text-[#3182F6] font-bold">{connectedCount}</span> / {platforms.length} 연동됨
+ </p>
+ </div>
+ </div>
+ <a href={isLoggedIn ? "/my/platforms" : "/login"} className="inline-flex items-center gap-1 text-[11px] text-[#3182F6] font-bold hover:underline">
+ {isLoggedIn ? <>연동 관리 <ArrowRight size={11} strokeWidth={2.5} /></> : '로그인 후 연동'}
  </a>
  </div>
- <div className="grid grid-cols-4 md:grid-cols-8 gap-1.5 md:gap-2">
+ <div className="grid grid-cols-3 md:grid-cols-6 gap-2 md:gap-3">
  {platforms.map(p => (
  <button
  key={p.id}
  onClick={() => handlePlatformClick(p)}
  className={[
- 'flex flex-col items-center gap-1 p-2 md:p-2.5 rounded-xl transition-all cursor-pointer',
+ 'group relative flex flex-col items-center gap-1.5 p-2.5 md:p-3 rounded-2xl transition-all cursor-pointer overflow-hidden',
  p.connected
- ? 'bg-white border border-[#E5E8EB] hover:border-[#3182F6] hover:shadow-md'
- : 'bg-[#F8F9FA] border border-dashed border-[#E0E0E0] hover:border-[#3182F6] hover:bg-white',
+ ? 'bg-white border-2 border-[#E5E8EB] hover:border-[#3182F6] hover:shadow-lg hover:-translate-y-0.5'
+ : 'bg-[#FAFBFC] border-2 border-dashed border-[#E5E8EB] hover:border-[#3182F6] hover:bg-white hover:shadow-md',
  ].join(' ')}
- title={p.connected ? '클릭하여 연동 정보 수정' : '클릭하여 연동하기'}
+ title={p.connected ? p.name + ' 연동됨 — 클릭하여 정보 수정' : p.name + ' 연동하기'}
  >
- <span className="block md:hidden">{p.logo(26)}</span>
- <span className="hidden md:block">{p.logo(32)}</span>
- <span className="text-[9px] md:text-[10px] font-semibold text-[#4E5968] text-center leading-tight">{p.shortName}</span>
+ {/* 연동됨 시 좌상단 초록 dot */}
+ {p.connected && (
+ <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#10B981] ring-2 ring-white" />
+ )}
+ {/* 로고 */}
+ <div className="relative">
+ <span className="block md:hidden">{p.logo(34)}</span>
+ <span className="hidden md:block">{p.logo(40)}</span>
+ </div>
+ {/* 플랫폼명 */}
+ <span className="text-[10px] md:text-[11px] font-bold text-[#191F28] text-center leading-tight">{p.shortName}</span>
+ {/* 상태 뱃지 */}
  <span className={[
- 'text-[8px] md:text-[9px] font-bold px-1 md:px-1.5 py-0.5 rounded-full',
- p.connected ? 'bg-[#E8FFF0] text-[#12B76A]' : 'bg-[#F2F4F6] text-[#8B95A1]',
+ 'text-[9px] md:text-[10px] font-black px-2 py-0.5 rounded-full',
+ p.connected
+ ? 'bg-gradient-to-r from-[#D1FAE5] to-[#A7F3D0] text-[#047857]'
+ : 'bg-[#F2F4F6] text-[#8B95A1] group-hover:bg-[#EFF6FF] group-hover:text-[#3182F6]',
  ].join(' ')}>
- {p.connected ? '연동됨' : '연동'}
+ {p.connected ? '연동됨' : '+ 연동'}
  </span>
+ {/* 연동됨 시 별점/리뷰 표시 (있을 때만) */}
+ {p.connected && p.rating != null && (
+ <div className="text-[9px] text-[#8B95A1] flex items-center gap-0.5">
+ <Star size={8} strokeWidth={0} fill="#F59E0B" className="text-[#F59E0B]" />
+ <span className="font-bold text-[#191F28]">{p.rating.toFixed(1)}</span>
+ {p.reviews != null && <span>· {p.reviews}건</span>}
+ </div>
+ )}
  </button>
  ))}
  </div>
