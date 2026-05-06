@@ -171,22 +171,25 @@ function SidebarCards() {
   )
 }
 
-// 데스크톱 (xl+, 1280px+): grid 우측 컬럼 안에 sticky 로 main 옆에 바로 붙어서 표시
-//   · 부모는 xl:grid xl:grid-cols-[minmax(0,1fr)_280px] xl:gap-5 사용
-//   · gap-5 (20px) 만 사이에 두고 main 과 사이드바 자연스럽게 인접
+// 데스크톱 (xl+, 1280px+): position:fixed 로 viewport 우측에 항상 고정 (스크롤 따라옴)
+//   · sticky 가 부모 grid context 영향으로 초기 위치에서 안 따라오는 문제 회피
+//   · main 에 xl:pr-[296px] 로 콘텐츠 침범 방지 (sidebar 280 + 16 margin)
 //
-// ⚠️ DO_NOT_TOUCH (사장님 명시 요건):
-//   1) 카드 3개 모두 보임 (인기 TOP10 → 알림 → 도움말)
-//   2) main 과 사이드바 사이 간격 좁게 (gap-5 = 20px)
-//   3) 모바일/태블릿 (xl 미만): DashboardRightSidebarMobile 로 인라인 표시
+// ⚠️ DO_NOT_TOUCH:
+//   · sticky 로 변경 X (위 이슈 재현됨)
+//   · 카드 3개 순서 그대로 (TOP10 → 알림 → 도움말)
 export default function DashboardRightSidebar() {
   return (
-    <aside
-      className="hidden xl:block self-start sticky top-4 space-y-3 max-h-[calc(100vh-2rem)] overflow-y-auto pr-1"
-      style={{ scrollbarWidth: 'thin' }}
+    <div
+      className="hidden xl:block fixed top-20 right-4 w-[280px] z-30 space-y-3"
+      style={{
+        maxHeight: 'calc(100vh - 6rem)',
+        overflowY: 'auto',
+        scrollbarWidth: 'thin',
+      }}
     >
       <SidebarCards />
-    </aside>
+    </div>
   )
 }
 
