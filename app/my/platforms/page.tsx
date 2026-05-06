@@ -109,6 +109,8 @@ function formatDate(iso: string | null): string {
  }
 }
 
+type LoggedInUser = { id?: string; email?: string; name?: string; provider?: string }
+
 export default function MyPlatformsPage() {
  const router = useRouter()
  const [loading, setLoading] = useState(true)
@@ -116,6 +118,7 @@ export default function MyPlatformsPage() {
  const [available, setAvailable] = useState<AvailablePlatform[]>([])
  const [accounts, setAccounts] = useState<ConnectedAccount[]>([])
  const [unlinking, setUnlinking] = useState<PlatformSlug | null>(null)
+ const [me, setMe] = useState<LoggedInUser | null>(null)
 
  async function load() {
  setLoading(true)
@@ -140,7 +143,14 @@ export default function MyPlatformsPage() {
  }
  }
 
- useEffect(() => { load() }, [])
+ useEffect(() => {
+ load()
+ // 현재 로컬루션 OAuth 로그인 사용자 — 모바일에서 stale 방지 위해 cache:'no-store'
+ fetch('/api/me', { credentials: 'include', cache: 'no-store' })
+ .then(r => r.ok ? r.json() : null)
+ .then(data => { if (data?.user) setMe(data.user) })
+ .catch(() => {})
+ }, [])
 
  async function unlink(platform: PlatformSlug) {
  if (!confirm(`${PLATFORM_META[platform].label} 연결을 해제하시겠습니까?\n\n· 저장된 로그인 정보가 즉시 파기됩니다\n· 자동 답글/순위 추적이 중단됩니다`)) return
@@ -174,11 +184,42 @@ export default function MyPlatformsPage() {
  />
  <main className="flex-1 px-4 md:px-6 py-4 md:py-6 max-w-6xl mx-auto w-full">
  <div className="w-full">
- {/* 안내 헤더 */}
- <header className="mb-5">
- <p className="text-xs md:text-sm text-[#4E5968] leading-relaxed">
- 사장님 본인 계정을 연결하면 리뷰 답글·순위 추적이 자동으로 실행됩니다.
- 비밀번호는 AES-256 방식으로 암호화되어 저장되며, 연결 해제 시 즉시 파기됩니다.
+
+ {/* 현재 로컬루션 로그인 계정 — 모바일에서 OAuth 로그인 변경 후 헷갈리는 문제 해결 */}
+ {me && (
+ <div className="mb-4 rounded-2xl border border-[#BBF7D0] bg-gradient-to-br from-[#F0FDF4] to-[#DCFCE7] p-3 md:p-4">
+ <div className="flex items-center justify-between gap-3 flex-wrap">
+ <div className="flex items-center gap-3 min-w-0 flex-1">
+ <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[#10B981] to-[#059669] flex items-center justify-center shadow-sm flex-shrink-0">
+ <span className="text-white font-black text-base">{(me.name || me.email || '?').charAt(0)}</span>
+ </div>
+ <div className="min-w-0 flex-1">
+ <p className="text-[10px] font-bold text-[#059669] uppercase tracking-wide">로컬루션 로그인 계정</p>
+ <p className="text-sm font-bold text-[#191F28] truncate">
+ {me.name || '이름 없음'}
+ <span className="text-xs font-medium text-[#4E5968] ml-1.5">({me.email || '이메일 없음'})</span>
+ </p>
+ </div>
+ </div>
+ <Link href="/api/auth/logout"
+ className="text-[11px] font-bold text-[#DC2626] hover:underline px-2 py-1 rounded-lg flex-shrink-0">
+ 다른 계정으로 로그인
+ </Link>
+ </div>
+ </div>
+ )}
+
+ {/* 안내 헤더 — 두 계정 구분 명시 */}
+ <header className="mb-5 rounded-2xl bg-[#FFFBEB] border border-[#FDE68A] p-3 md:p-4">
+ <p className="text-xs md:text-sm font-bold text-[#92400E] mb-1">
+ 알아두세요 — 로그인 계정과 플랫폼 계정은 다릅니다
+ </p>
+ <ul className="text-[11px] md:text-xs text-[#92400E] leading-relaxed space-y-0.5 ml-3 list-disc">
+ <li><strong>로컬루션 로그인 계정</strong> (위) — 사장님이 가입할 때 쓴 카카오 / 네이버 / 구글 계정.</li>
+ <li><strong>플랫폼 계정</strong> (아래) — 네이버 스마트플레이스 · 배민사장님 · 요기요사장님 등 각 플랫폼에서 가입한 별도 ID/PW. 자동 답글 / 리뷰 수집에 사용.</li>
+ </ul>
+ <p className="text-[11px] md:text-xs text-[#92400E] leading-relaxed mt-2">
+ 비밀번호는 AES-256 으로 암호화 보관 · 연결 해제 시 즉시 파기됩니다.
  </p>
  </header>
 
