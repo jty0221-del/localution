@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic'
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Footer from '../components/Footer'
+import Sidebar from '../components/Sidebar'
 import PageHeader from '../components/PageHeader'
 import { UserCircle2 } from 'lucide-react'
 
@@ -163,7 +164,8 @@ export default function MyPage() {
 
  return (
  <div className="min-h-screen bg-[#F8F9FA]">
- {/* 통일 hero banner — PageHeader 사용 */}
+ <Sidebar />
+ <div className="md:ml-[220px] flex flex-col min-h-screen">
  <PageHeader
  icon=""
  logoNode={<UserCircle2 size={32} strokeWidth={2} className="text-white" />}
@@ -172,20 +174,7 @@ export default function MyPage() {
  variant="primary"
  />
 
- {/* 상단 헤더 */}
- <div className="bg-white border-b border-[#E5E8EB] px-4 py-4 flex items-center gap-3">
- <button
- onClick={() => router.back()}
- className="w-8 h-8 flex items-center justify-center rounded-lg hover:bg-[#F2F4F6] transition-colors"
- >
- <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#4E5968" strokeWidth="2.5" strokeLinecap="round">
- <path d="M15 18l-6-6 6-6"/>
- </svg>
- </button>
- <h1 className="text-lg font-black text-[#191F28]">내 정보</h1>
- </div>
-
- <div className="max-w-md mx-auto p-4 space-y-4">
+ <main className="flex-1 px-4 md:px-6 py-4 md:py-6 max-w-6xl mx-auto w-full space-y-4">
 
  {/* 프로필 카드 */}
  <div className="bg-white rounded-2xl p-6 shadow-sm">
@@ -326,8 +315,9 @@ export default function MyPage() {
  </button>
 
  <div className="h-6"/>
- </div>
+ </main>
  <Footer />
+ </div>
  </div>
  )
 }
