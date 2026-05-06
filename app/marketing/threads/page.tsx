@@ -1383,7 +1383,7 @@ function ThreadsPageContent() {
  </div>
  </section>
 
- <main className="flex-1 max-w-4xl mx-auto w-full px-4 md:px-6 py-6 pb-20">
+ <main className="flex-1 max-w-6xl mx-auto w-full px-4 md:px-6 py-6 pb-20">
  {connectedParam === '1' && (
  <div className="bg-[#ECFDF5] border border-[#A7F3D0] rounded-2xl p-4 flex items-center gap-3 mb-6">
  <CheckCircle2 size={18} className="text-[#059669]" strokeWidth={2.5} />
@@ -1421,8 +1421,8 @@ function ThreadsPageContent() {
  ))}
  </div>
 
- {/* 탭 콘텐츠 */}
- <div className="max-w-2xl">
+ {/* 탭 콘텐츠 — max-w-2xl 제거 (이전엔 ~672px 좁아서 PC 가독성 떨어짐) */}
+ <div>
  {tab === 'compose' && <ComposeTab connected={account?.connected !== false} accountLoaded={accountLoaded} justConnected={connectedParam === '1'} regenData={regenData} />}
  {tab === 'scheduled' && <ScheduledTab />}
  {tab === 'history' && <HistoryTab onRegen={handleRegen} />}
