@@ -115,7 +115,7 @@ export default function ThreadsConnectPage() {
  }
 
  return (
- <div className="min-h-screen bg-[#F9FAFB] px-4 py-8">
+ <div className="min-h-screen bg-[#F8F9FA] px-4 py-8">
  <div className="w-full max-w-2xl mx-auto">
  <Link
  href="/marketing/threads"
