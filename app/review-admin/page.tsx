@@ -12,6 +12,7 @@ import Link from 'next/link'
 import Sidebar from '../components/Sidebar'
 import Footer from '../components/Footer'
 import PageHeader from '../components/PageHeader'
+import HarangMarketingPopup from '../components/HarangMarketingPopup'
 import { MessageSquare, Inbox } from 'lucide-react'
 import PlatformHealthStatus from './components/PlatformHealthStatus'
 
@@ -451,6 +452,7 @@ export default function ReviewAdminHub() {
  </main>
  </div>
  <Footer />
+ <HarangMarketingPopup />
  </div>
  )
 }
