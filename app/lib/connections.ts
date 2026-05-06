@@ -6,7 +6,7 @@
 import { useEffect, useState, useCallback } from 'react'
 
 export const CANONICAL_PLATFORMS = [
-  'naver', 'google', 'kakao', 'baemin', 'yogiyo', 'coupang', 'yeoshin', 'hometax',
+  'naver', 'google', 'kakao', 'baemin', 'yogiyo', 'coupang',
 ] as const
 export type PlatformId = typeof CANONICAL_PLATFORMS[number]
 
@@ -17,8 +17,6 @@ export const PLATFORM_LABEL: Record<PlatformId, string> = {
   baemin: '배달의민족',
   yogiyo: '요기요',
   coupang: '쿠팡이츠',
-  yeoshin: '여신금융',
-  hometax: '홈택스',
 }
 
 export const PLATFORM_COLOR: Record<PlatformId, string> = {
@@ -28,8 +26,6 @@ export const PLATFORM_COLOR: Record<PlatformId, string> = {
   baemin: '#2AC1BC',
   yogiyo: '#FA3C00',
   coupang: '#FF4B30',
-  yeoshin: '#003087',
-  hometax: '#006AB4',
 }
 
 const LS_KEY = 'localution.platform_links'
