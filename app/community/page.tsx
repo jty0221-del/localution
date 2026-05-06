@@ -25,6 +25,7 @@ import {
  INDUSTRY_CATALOG, INDUSTRY_LABELS, DEFAULT_INDUSTRY_GROUP_ID, findIndustryGroup,
 } from '../lib/industry-catalog'
 import SlideAdBanner from '../components/SlideAdBanner'
+import HarangMarketingPopup from '../components/HarangMarketingPopup'
 
 // ─── 카테고리 ─────────────────────────────────────────────────────
 type Category = { id: string; label: string; Icon: LucideIcon; color: string }
@@ -1231,6 +1232,7 @@ export default function Community() {
  />
  )}
  {toast && <PointToast amount={toast.amount} label={toast.label} onClose={() => setToast(null)} />}
+ <HarangMarketingPopup />
  </div>
  )
 }
