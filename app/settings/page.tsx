@@ -2033,7 +2033,7 @@ function SettingsInner() {
 
 export default function Settings() {
  return (
- <Suspense fallback={<div className="min-h-screen bg-[#F2F4F6] flex items-center justify-center"><p className="text-[#8B95A1]">\uB85C\uB529 \uC911...</p></div>}>
+ <Suspense fallback={<div className="min-h-screen bg-[#F8F9FA] flex items-center justify-center"><p className="text-[#8B95A1]">\uB85C\uB529 \uC911...</p></div>}>
  <SettingsInner />
  </Suspense>
  )
