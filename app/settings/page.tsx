@@ -1421,14 +1421,9 @@ function ConnectTab() {
  // 28차-3: 서버(platform_credentials) 연결 상태 병합
  const [serverConnected, setServerConnected] = useState<Record<string, { connected: boolean; storeName: string | null; accountMasked: string }>>({})
 
+ // 대시보드/타 페이지와 단일 진실원 동기화 — 서버 platform_credentials 를 source of truth 로 사용
+ // 마운트 + focus + visibility 변경 + 커스텀 이벤트 (`localution:connections-change`) 시마다 재조회
  useEffect(() => {
- ;(async () => {
- try {
- const res = await fetch('/api/stores/me', { credentials: 'include', cache: 'no-store' })
- if (!res.ok) return
- const j = await res.json()
- if (!j?.ok) return
- // slug → settings ConnectTab key 매핑 (37차-3: kakao_map 추가)
  const slugToKey: Record<string, string> = {
  naver_place: 'naver',
  baemin: 'baemin',
@@ -1436,6 +1431,12 @@ function ConnectTab() {
  coupangeats: 'coupang',
  kakao_map: 'kakao',
  }
+ const fetchServer = async () => {
+ try {
+ const res = await fetch('/api/stores/me', { credentials: 'include', cache: 'no-store' })
+ if (!res.ok) return
+ const j = await res.json()
+ if (!j?.ok) return
  const map: Record<string, any> = {}
  for (const p of (j.platforms || [])) {
  const key = slugToKey[p.platform]
@@ -1448,7 +1449,21 @@ function ConnectTab() {
  }
  setServerConnected(map)
  } catch (_) {}
- })()
+ }
+ fetchServer()
+
+ // 다른 페이지 (대시보드 / my/platforms) 에서 연결 변경 시 자동 갱신
+ const onFocus = () => fetchServer()
+ const onVisible = () => { if (document.visibilityState === 'visible') fetchServer() }
+ const onConnChange = () => fetchServer()
+ window.addEventListener('focus', onFocus)
+ document.addEventListener('visibilitychange', onVisible)
+ window.addEventListener('localution:connections-change', onConnChange)
+ return () => {
+ window.removeEventListener('focus', onFocus)
+ document.removeEventListener('visibilitychange', onVisible)
+ window.removeEventListener('localution:connections-change', onConnChange)
+ }
  }, [])
 
  // 서버 연결 정보 + 로컬 훅 정보 병합 (서버가 우선)
