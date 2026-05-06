@@ -725,7 +725,7 @@ export default function Community() {
  const regionGroups = useMemo(() => groupedRegions(), [])
 
  return (
- <div className="min-h-screen bg-[#F2F4F6] flex">
+ <div className="min-h-screen bg-[#F8F9FA] flex">
  <Sidebar />
  <main className="flex-1 md:ml-[220px] pt-4 md:pt-0 min-w-0">
  <PageHeader
