@@ -1740,8 +1740,8 @@ export default function Dashboard() {
  ))}
  </div>
 
- {/* ── 메인 2컬럼 ── */}
- <div className="grid grid-cols-1 md:grid-cols-[1fr_300px_300px] gap-4 mb-5">
+ {/* ── 메인 2컬럼 (인기 서비스 TOP10 은 우측 사이드바로 이전됨) ── */}
+ <div className="grid grid-cols-1 md:grid-cols-[1fr_300px] gap-4 mb-5">
 
  {/* 좌: 연동 플랫폼 별점·리뷰 현황 */}
  <div className="bg-white rounded-2xl shadow-sm overflow-hidden">
@@ -1998,10 +1998,7 @@ export default function Dashboard() {
  </div>
  </div>
 
- {/* 우측: 인기 서비스 랭킹 (QuickNav 는 사장님 요청으로 제거 — DO NOT RE-ADD) */}
- <div className="flex flex-col gap-4">
- <ServiceRanking />
- </div>
+ {/* 인기 서비스 랭킹 + QuickNav 모두 우측 사이드바(DashboardRightSidebar)로 이전됨 — DO NOT RE-ADD */}
  </div>
 
  {/* ── 최근 리뷰 ── */}
