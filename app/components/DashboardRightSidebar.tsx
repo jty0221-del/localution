@@ -131,9 +131,11 @@ function ServiceRankingMini() {
 
 export default function DashboardRightSidebar() {
   return (
-    <aside className="hidden lg:block w-[280px] flex-shrink-0">
-      {/* sticky 컨테이너 — 스크롤 시 따라옴, 사이드바 자체가 너무 길면 내부 스크롤 */}
-      <div className="sticky top-4 max-h-[calc(100vh-2rem)] overflow-y-auto pr-1 space-y-3"
+    // self-start — flex container 안에서 stretch 안 되도록 (sticky 정상 작동 조건)
+    // sticky top-4 — 스크롤 시 viewport 상단 16px 에서 고정
+    // overflow / max-h 는 내부 div 가 처리 (sticky 와 같은 element 에 두면 충돌)
+    <aside className="hidden lg:block w-[280px] flex-shrink-0 self-start sticky top-4">
+      <div className="max-h-[calc(100vh-2rem)] overflow-y-auto pr-1 space-y-3"
         style={{ scrollbarWidth: 'thin' }}>
 
         {/* 1) 인기 서비스 TOP 10 (실시간 애니메이션) */}
