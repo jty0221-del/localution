@@ -289,7 +289,7 @@ export default function PartnerPointsPage() {
  // 미로그인 가드
  if (!loading && !profile?.email) {
  return (
- <div className="min-h-screen bg-[#F8F9FB] flex">
+ <div className="min-h-screen bg-[#F8F9FA] flex">
  <Sidebar />
  <main className="flex-1 ml-0 md:ml-[220px] pt-4 md:pt-0 min-w-0">
  <div className="max-w-xl mx-auto pt-20 px-6 text-center">
@@ -316,7 +316,7 @@ export default function PartnerPointsPage() {
  const CHALLENGE_GOAL = 3
 
  return (
- <div className="min-h-screen bg-[#F8F9FB] flex">
+ <div className="min-h-screen bg-[#F8F9FA] flex">
  <Sidebar />
  <main className="md:ml-[220px] flex flex-col min-h-screen">
  <PageHeader
