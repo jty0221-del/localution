@@ -172,14 +172,21 @@ function SidebarCards() {
 }
 
 // 데스크톱: 우측 컬럼 (xl 이상에서 사용 — 부모는 xl:grid xl:grid-cols-[1fr_280px])
+//
+// ⚠️ DO_NOT_TOUCH (사장님 명시 요건):
+//   1) 카드 3개 모두 sticky 로 따라옴 (인기 TOP10 → 알림 → 도움말)
+//   2) 데스크톱 (xl+): grid 우측 컬럼에서 sticky top-4
+//   3) 모바일: DashboardRightSidebarMobile 로 인라인 표시
+//   4) 콘텐츠 침범 금지
+//
+// sticky 가 정상 동작하려면:
+//   · sticky 와 overflow-y-auto 같은 element 에 두지 X (충돌)
+//   · self-start (grid stretch 방지) 필수
+//   · sticky 를 aside 에 직접 적용 (inner div X)
 export default function DashboardRightSidebar() {
   return (
-    <aside className="hidden xl:block">
-      {/* sticky inside grid cell — align-self: start 효과 */}
-      <div className="sticky top-4 max-h-[calc(100vh-2rem)] overflow-y-auto pr-1 space-y-2.5"
-        style={{ scrollbarWidth: 'thin', alignSelf: 'start' }}>
-        <SidebarCards />
-      </div>
+    <aside className="hidden xl:block self-start sticky top-4 space-y-2.5">
+      <SidebarCards />
     </aside>
   )
 }
