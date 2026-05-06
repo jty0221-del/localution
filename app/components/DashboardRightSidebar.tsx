@@ -1,14 +1,13 @@
 'use client'
 
 // ============================================================
-// DashboardRightSidebar — 대시보드 우측 사이드바 (lg 이상에서만 노출)
-//   · 인기 서비스 TOP 10 (실시간 순위 애니메이션)
-//   · 실시간 리뷰 알림 안내
-//   · 도움말 / 1:1 문의 / 업데이트 빠른 링크
+// DashboardRightSidebar — 대시보드 우측 사이드바
+//   · xl 이상 (1280px+): 우측 컬럼에 sticky 로 표시
+//   · xl 미만: 메인 콘텐츠 하단에 일반 흐름으로 표시 (스크롤 시 나타남)
 //
 //   ⚠️ DO_NOT_TOUCH:
-//     - QuickActions 위젯 추가 X (사장님 요청으로 ServiceRanking 으로 대체됨, 2026-05-06)
-//     - 사이드바는 sticky top-4 + 자체 overflow-y-auto 로 스크롤 따라 고정
+//     - QuickActions 추가 금지 (/DO_NOT_TOUCH.md)
+//     - 부모는 xl:grid xl:grid-cols-[1fr_280px] 로 공간 분배 (콘텐츠 침범 방지)
 // ============================================================
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
@@ -126,60 +125,70 @@ function ServiceRankingMini() {
   )
 }
 
-export default function DashboardRightSidebar() {
+// 사이드바 카드 3종 (재사용 — desktop sticky / mobile inline 양쪽에 동일하게 사용)
+function SidebarCards() {
   return (
-    // ⚠️ position: fixed 방식 사용 — sticky 가 부모 context (transform / overflow / flex stretch 등) 에 의해
-    //   불안정하게 동작하는 문제 회피. 외부 aside 는 layout 공간만 점유 (280px), 내부 div 가 fixed 로 viewport 우측 고정.
-    //   1280px 이상 화면에서만 노출 (xl:block), 그 미만에서는 숨김 — 콘텐츠 침범 방지
-    <aside className="hidden xl:block w-[280px] flex-shrink-0">
-      <div
-        className="fixed top-20 w-[280px] max-h-[calc(100vh-6rem)] overflow-y-auto pr-1 space-y-2.5 z-30"
-        style={{
-          // 사이드바(220) + max-w-7xl(1280) 우측 가장자리 = (viewport - 1280)/2 + 1280 - 280
-          // 단순하게 우측 16px 마진으로 고정
-          right: 'max(16px, calc((100vw - 1280px) / 2 + 16px))',
-          scrollbarWidth: 'thin',
-        }}
-      >
-        {/* 1) 인기 서비스 TOP 10 (실시간 애니메이션) */}
-        <ServiceRankingMini />
+    <>
+      {/* 1) 인기 서비스 TOP 10 */}
+      <ServiceRankingMini />
 
-        {/* 2) 실시간 리뷰 알림 안내 — 컴팩트 */}
-        <div className="rounded-2xl bg-gradient-to-br from-[#FFFBEB] to-[#FEF3C7] border border-[#FDE68A] p-3">
-          <div className="flex items-center gap-1.5 mb-1">
-            <BellRing size={12} className="text-[#D97706]" strokeWidth={2.5} />
-            <h3 className="text-[12px] font-bold text-[#92400E]">실시간 리뷰 알림</h3>
-          </div>
-          <p className="text-[10px] text-[#92400E] leading-relaxed">
-            15분 자동 수집 · 별점 1-2점 부정 리뷰 우선 알림 (웹푸시·카카오톡)
-          </p>
+      {/* 2) 실시간 리뷰 알림 */}
+      <div className="rounded-2xl bg-gradient-to-br from-[#FFFBEB] to-[#FEF3C7] border border-[#FDE68A] p-3">
+        <div className="flex items-center gap-1.5 mb-1">
+          <BellRing size={12} className="text-[#D97706]" strokeWidth={2.5} />
+          <h3 className="text-[12px] font-bold text-[#92400E]">실시간 리뷰 알림</h3>
         </div>
+        <p className="text-[10px] text-[#92400E] leading-relaxed">
+          15분 자동 수집 · 별점 1-2점 부정 리뷰 우선 알림 (웹푸시·카카오톡)
+        </p>
+      </div>
 
-        {/* 3) 도움이 필요하세요? — 컴팩트 */}
-        <div className="bg-white rounded-2xl shadow-sm p-3">
-          <h3 className="text-[12px] font-bold text-[#191F28] mb-1.5">도움이 필요하세요?</h3>
-          <div className="space-y-0.5">
-            <Link href="/help"
-              className="flex items-center gap-2 px-1.5 py-1.5 rounded-lg hover:bg-[#FAFBFF] text-[11px] font-bold text-[#4E5968] transition-colors">
-              <HelpCircle size={12} className="text-[#3182F6]" strokeWidth={2.5} />
-              <span>도움말 · 가이드</span>
-              <ArrowRight size={10} className="ml-auto text-[#D1D5DB]" strokeWidth={2.5} />
-            </Link>
-            <Link href="/inquiry"
-              className="flex items-center gap-2 px-1.5 py-1.5 rounded-lg hover:bg-[#FAFBFF] text-[11px] font-bold text-[#4E5968] transition-colors">
-              <Mail size={12} className="text-[#7C3AED]" strokeWidth={2.5} />
-              <span>1:1 문의</span>
-              <ArrowRight size={10} className="ml-auto text-[#D1D5DB]" strokeWidth={2.5} />
-            </Link>
-            <Link href="/updates"
-              className="flex items-center gap-2 px-1.5 py-1.5 rounded-lg hover:bg-[#FAFBFF] text-[11px] font-bold text-[#4E5968] transition-colors">
-              <Sparkles size={12} className="text-[#EC4899]" strokeWidth={2.5} />
-              <span>업데이트 내역</span>
-              <ArrowRight size={10} className="ml-auto text-[#D1D5DB]" strokeWidth={2.5} />
-            </Link>
-          </div>
+      {/* 3) 도움이 필요하세요? */}
+      <div className="bg-white rounded-2xl shadow-sm p-3">
+        <h3 className="text-[12px] font-bold text-[#191F28] mb-1.5">도움이 필요하세요?</h3>
+        <div className="space-y-0.5">
+          <Link href="/help"
+            className="flex items-center gap-2 px-1.5 py-1.5 rounded-lg hover:bg-[#FAFBFF] text-[11px] font-bold text-[#4E5968] transition-colors">
+            <HelpCircle size={12} className="text-[#3182F6]" strokeWidth={2.5} />
+            <span>도움말 · 가이드</span>
+            <ArrowRight size={10} className="ml-auto text-[#D1D5DB]" strokeWidth={2.5} />
+          </Link>
+          <Link href="/inquiry"
+            className="flex items-center gap-2 px-1.5 py-1.5 rounded-lg hover:bg-[#FAFBFF] text-[11px] font-bold text-[#4E5968] transition-colors">
+            <Mail size={12} className="text-[#7C3AED]" strokeWidth={2.5} />
+            <span>1:1 문의</span>
+            <ArrowRight size={10} className="ml-auto text-[#D1D5DB]" strokeWidth={2.5} />
+          </Link>
+          <Link href="/updates"
+            className="flex items-center gap-2 px-1.5 py-1.5 rounded-lg hover:bg-[#FAFBFF] text-[11px] font-bold text-[#4E5968] transition-colors">
+            <Sparkles size={12} className="text-[#EC4899]" strokeWidth={2.5} />
+            <span>업데이트 내역</span>
+            <ArrowRight size={10} className="ml-auto text-[#D1D5DB]" strokeWidth={2.5} />
+          </Link>
         </div>
       </div>
+    </>
+  )
+}
+
+// 데스크톱: 우측 컬럼 (xl 이상에서 사용 — 부모는 xl:grid xl:grid-cols-[1fr_280px])
+export default function DashboardRightSidebar() {
+  return (
+    <aside className="hidden xl:block">
+      {/* sticky inside grid cell — align-self: start 효과 */}
+      <div className="sticky top-4 max-h-[calc(100vh-2rem)] overflow-y-auto pr-1 space-y-2.5"
+        style={{ scrollbarWidth: 'thin', alignSelf: 'start' }}>
+        <SidebarCards />
+      </div>
     </aside>
+  )
+}
+
+// 모바일/태블릿: 메인 콘텐츠 하단에 인라인으로 표시 (스크롤 시 나타남)
+export function DashboardRightSidebarMobile() {
+  return (
+    <div className="xl:hidden mt-6 space-y-3">
+      <SidebarCards />
+    </div>
   )
 }
