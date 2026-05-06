@@ -30,14 +30,15 @@ const SERVICE_RANKING_INIT = [
   { id: 10, name: '세금계산서 자동 발행', category: '행정', badge: '', color: '#6B7280' },
 ]
 
+// 한국 증시 컨벤션: 상승 = 빨강 / 하락 = 파랑 / 변동 없음 = 회색
 function RankBadge({ diff }: { diff: number }) {
   if (diff > 0) return (
-    <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-[#10B981]">
+    <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-[#DC2626]">
       <ArrowUp size={9} strokeWidth={3} /> {diff}
     </span>
   )
   if (diff < 0) return (
-    <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-[#EF4444]">
+    <span className="inline-flex items-center gap-0.5 text-[9px] font-bold text-[#3182F6]">
       <ArrowDown size={9} strokeWidth={3} /> {Math.abs(diff)}
     </span>
   )
