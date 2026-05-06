@@ -16,7 +16,7 @@ import Sidebar from '../components/Sidebar'
 import Footer from '../components/Footer'
 import SlideAdBanner from '../components/SlideAdBanner'
 import OnboardingChecklist from '../components/OnboardingChecklist'
-import DashboardRightSidebar from '../components/DashboardRightSidebar'
+import DashboardRightSidebar, { DashboardRightSidebarMobile } from '../components/DashboardRightSidebar'
 import { useConnections, setConnection as libSetConnection, removeConnection as libRemoveConnection, PlatformId as CanonicalPlatformId } from '../lib/connections'
 import { toast, confirmDialog } from '../lib/toast'
 import { buildSettingsHref } from '../lib/settings-tabs'
@@ -1529,11 +1529,13 @@ export default function Dashboard() {
  return (
  <div className="min-h-screen bg-[#F8F9FA]">
  <Sidebar />
- {/* DashboardRightSidebar — position: fixed 사용. aside 는 280px 자리만 차지하고 내용은 viewport 우측에 고정 */}
+ {/* DashboardRightSidebar:
+   · xl 이상 (1280px+): grid 우측 컬럼에 sticky 표시 (콘텐츠 침범 X — grid 가 공간 자동 분배)
+   · xl 미만: 메인 콘텐츠 하단에 인라인 표시 (스크롤 내리면 보임) — DashboardRightSidebarMobile */}
  <div className="md:ml-[220px] flex flex-col min-h-screen">
- <div className="flex-1 px-4 md:px-6 pt-20 md:pt-6 pb-24 md:pb-6 max-w-7xl mx-auto w-full">
- <div className="flex gap-6">
- <main className="flex-1 min-w-0">
+ <div className="flex-1 px-4 md:px-6 pt-20 md:pt-6 pb-24 md:pb-6 mx-auto w-full" style={{ maxWidth: '1600px' }}>
+ <div className="xl:grid xl:grid-cols-[minmax(0,1fr)_280px] xl:gap-6">
+ <main className="min-w-0">
 
  {/* ── 상단 롤링 공지 배너 ── */}
  <SlideAdBanner />
@@ -2174,9 +2176,11 @@ export default function Dashboard() {
  </div>
  </div>
 
+ {/* 모바일/태블릿 (xl 미만): 메인 콘텐츠 하단에 인라인 표시 */}
+ {isLoggedIn && <DashboardRightSidebarMobile />}
  </main>
 
- {/* ── 우측 사이드바 (lg 이상에서만 노출) ── */}
+ {/* xl+ 데스크톱: grid 우측 컬럼 (sticky) */}
  {isLoggedIn && <DashboardRightSidebar />}
  </div>
  </div>
