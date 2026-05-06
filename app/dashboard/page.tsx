@@ -305,13 +305,14 @@ function Stars({ rating, size = 'sm' }: { rating: number; size?: 'sm' | 'md' }) 
 function RankBadge({ current, prev }: { current: number; prev: number | null }) {
  if (prev === null) return <span className="text-[10px] text-[#8B95A1] font-medium">신규</span>
  const diff = prev - current
+ // 한국 증시 컨벤션: 상승 = 빨강, 하락 = 파랑
  if (diff > 0) return (
- <span className="inline-flex items-center gap-0.5 text-[10px] text-[#12B76A] font-bold">
+ <span className="inline-flex items-center gap-0.5 text-[10px] text-[#DC2626] font-bold">
  <ArrowUp size={10} strokeWidth={3} />{diff}
  </span>
  )
  if (diff < 0) return (
- <span className="inline-flex items-center gap-0.5 text-[10px] text-[#F04452] font-bold">
+ <span className="inline-flex items-center gap-0.5 text-[10px] text-[#3182F6] font-bold">
  <ArrowDown size={10} strokeWidth={3} />{Math.abs(diff)}
  </span>
  )
@@ -785,13 +786,14 @@ function ServiceRanking() {
  <span className="text-[10px] text-[#8B95A1]">{item.category}</span>
  </div>
  <div className="flex-shrink-0 w-12 text-right">
+ {/* 한국 증시 컨벤션: 상승 빨강 / 하락 파랑 */}
  {diff > 0 && (
- <span className="inline-flex items-center gap-0.5 text-[11px] font-bold text-[#12B76A]">
+ <span className="inline-flex items-center gap-0.5 text-[11px] font-bold text-[#DC2626]">
  <ArrowUp size={10} strokeWidth={3} />{diff}
  </span>
  )}
  {diff < 0 && (
- <span className="inline-flex items-center gap-0.5 text-[11px] font-bold text-[#F04452]">
+ <span className="inline-flex items-center gap-0.5 text-[11px] font-bold text-[#3182F6]">
  <ArrowDown size={10} strokeWidth={3} />{Math.abs(diff)}
  </span>
  )}
