@@ -7,7 +7,7 @@
 // · 캘린더 + 리스트 뷰 토글
 // · 추후 네이버 예약 / 카카오 예약 연동 예정
 // ============================================================
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import Sidebar from '../components/Sidebar'
 import PageHeader from '../components/PageHeader'
 import Footer from '../components/Footer'
@@ -53,8 +53,8 @@ export default function ReservationsPage() {
  const [selectedDate, setSelectedDate] = useState<string | null>(null)
  const [addOpen, setAddOpen] = useState(false)
 
- // 마운트 시 로드
- useMemo(() => {
+  // 마운트 시 로드 (useMemo 안에서 setState 호출은 React 규칙 위반 — useEffect 로 수정)
+ useEffect(() => {
  if (typeof window !== 'undefined') {
  setResv(loadResv())
  }
