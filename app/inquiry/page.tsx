@@ -5,6 +5,7 @@ export const dynamic = 'force-dynamic'
 import { useState, useEffect, useCallback } from 'react'
 import Sidebar from '../components/Sidebar'
 import Footer from '../components/Footer'
+import PageHeader from '../components/PageHeader'
 import { COMPANY } from '../lib/company'
 import {
  MessageCircle, Wrench, CreditCard, Sparkles, FileText,
@@ -258,46 +259,37 @@ ${lines.join('\n')}
  const historyLabel = `내 문의 내역${myInquiries.length ? ` (${myInquiries.length})` : ''}`
 
  return (
- <div className="min-h-screen bg-[#F8F9FA] flex">
+ <div className="min-h-screen bg-[#F8F9FA]">
  <style>{GLOBAL_STYLES}</style>
  <Sidebar />
- <main className="flex-1 md:ml-[220px]">
+ <div className="md:ml-[220px] flex flex-col min-h-screen">
+ <PageHeader
+ icon={<MessageCircle size={28} className="text-white" strokeWidth={2.5} />}
+ title="1:1 문의"
+ subtitle="궁금하신 내용을 편하게 남겨주세요 · 영업일 기준 1~2일 내 답변 보장"
+ variant="primary"
+ />
 
- {/* ── 히어로 헤더 ─────────────────────────────── */}
- <div style={{ background: 'linear-gradient(135deg,#1B3FD8 0%,#3182F6 100%)' }} className="text-white">
- <div className="max-w-5xl mx-auto px-4 sm:px-6 pt-8 sm:pt-12 pb-8 sm:pb-12">
- {/* 응답 보장 뱃지 */}
- <div className="inline-flex items-center gap-1.5 bg-white/15 border border-white/25 text-white/90 text-[11px] sm:text-xs font-bold px-3 py-1.5 rounded-full mb-4 sm:mb-5">
- <span className="w-1.5 h-1.5 rounded-full bg-[#4ADE80]"
- style={{ animation: 'pulse-dot 1.8s ease-in-out infinite' }} />
- 영업일 기준 1~2일 내 답변 보장
- </div>
-
- <h1 className="text-2xl sm:text-3xl md:text-4xl font-black mb-2.5 sm:mb-3 break-keep leading-tight">
- 1:1 문의
- </h1>
- <p className="text-white/80 text-sm sm:text-base leading-relaxed break-keep max-w-lg mb-6 sm:mb-8">
- 궁금하신 내용을 편하게 남겨주세요.<br className="sm:hidden" /> 담당자가 직접 확인하고 빠르게 답변드립니다.
- </p>
-
- {/* 통계 3종 */}
- <div className="grid grid-cols-3 gap-3 sm:gap-6 max-w-sm sm:max-w-md">
+ <main className="flex-1 px-4 md:px-6 py-4 md:py-6 max-w-6xl mx-auto w-full">
+ {/* 응답 보장 통계 3종 — 본문 상단 카드 */}
+ <div className="grid grid-cols-3 gap-2.5 md:gap-3 mb-5">
  {[
- { icon: <Clock size={16} strokeWidth={2} />, value: '1~2일', label: '평균 답변 시간' },
- { icon: <Zap size={16} strokeWidth={2} />, value: '카카오', label: '실시간 채널 운영' },
- { icon: <CheckCircle2 size={16} strokeWidth={2} />, value: '100%', label: '모든 문의 답변' },
+ { icon: <Clock size={14} strokeWidth={2.5} className="text-[#3182F6]" />, value: '1~2일', label: '평균 답변 시간' },
+ { icon: <Zap size={14} strokeWidth={2.5} className="text-[#F59E0B]" />, value: '카카오', label: '실시간 채널 운영' },
+ { icon: <CheckCircle2 size={14} strokeWidth={2.5} className="text-[#10B981]" />, value: '100%', label: '모든 문의 답변' },
  ].map(s => (
- <div key={s.label}>
- <div className="flex items-center gap-1.5 text-white/60 text-[11px] mb-1">{s.icon}{s.label}</div>
- <div className="text-lg sm:text-2xl font-black">{s.value}</div>
+ <div key={s.label} className="bg-white rounded-2xl shadow-sm p-3 md:p-4">
+ <div className="flex items-center gap-1.5 mb-1.5">
+ {s.icon}
+ <span className="text-[10px] md:text-[11px] text-[#8B95A1] font-medium">{s.label}</span>
+ </div>
+ <p className="text-base md:text-xl font-black text-[#191F28]">{s.value}</p>
  </div>
  ))}
  </div>
- </div>
- </div>
 
  {/* ── 본문 ────────────────────────────────────── */}
- <div className="max-w-5xl mx-auto px-4 sm:px-6 py-6 sm:py-8">
+ <div className="">
 
  {/* 견적 자동 채움 배너 */}
  {quoteBanner && (
@@ -590,10 +582,9 @@ ${lines.join('\n')}
  </div>
  )}
 
- <div className="-mx-0 mt-16">
+ </main>
  <Footer />
  </div>
- </main>
 
  {/* 이메일 복사 토스트 */}
  {copied && (
