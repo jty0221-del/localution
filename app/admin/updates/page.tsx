@@ -140,7 +140,7 @@ export default function AdminUpdatesPage() {
  }
 
  return (
- <main className="min-h-screen bg-[#F8F9FB] pb-24">
+ <main className="min-h-screen bg-[#F8F9FA] pb-24">
  <div className="max-w-5xl mx-auto px-5 pt-8 md:pt-12">
  {/* 헤더 */}
  <div className="flex items-center justify-between mb-6">
