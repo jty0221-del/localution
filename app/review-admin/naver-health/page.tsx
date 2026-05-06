@@ -143,7 +143,7 @@ export default function NaverHealthPage() {
  const summary = report?.summary
 
  return (
- <div className="min-h-screen bg-[#F2F4F6] p-4 md:p-8">
+ <div className="min-h-screen bg-[#F8F9FA] p-4 md:p-8">
  <div className="max-w-3xl mx-auto">
 
  {/* 헤더 */}
