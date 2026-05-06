@@ -69,7 +69,7 @@ export default function AdminWhoAmI() {
  const sbAllowed = sbEmail && ADMIN_EMAILS.includes(sbEmail.toLowerCase().trim())
 
  return (
- <div className="min-h-screen bg-[#F2F4F6] p-4 md:p-8">
+ <div className="min-h-screen bg-[#F8F9FA] p-4 md:p-8">
  <div className="max-w-3xl mx-auto space-y-4">
  <header className="bg-gradient-to-r from-[#0F172A] to-[#1E293B] text-white rounded-2xl p-6">
  <h1 className="text-xl font-black">WhoAmI · 관리자 인증 진단</h1>
