@@ -1530,11 +1530,11 @@ export default function Dashboard() {
  <div className="min-h-screen bg-[#F8F9FA]">
  <Sidebar />
  {/* DashboardRightSidebar:
-   · xl 이상 (1280px+): grid 우측 컬럼에 sticky 표시 (콘텐츠 침범 X — grid 가 공간 자동 분배)
-   · xl 미만: 메인 콘텐츠 하단에 인라인 표시 (스크롤 내리면 보임) — DashboardRightSidebarMobile */}
+   · xl 이상 (1280px+): position:fixed 로 viewport 우측에 항상 고정 (스크롤 무관)
+   · main 에 xl:pr-[300px] 로 콘텐츠 우측 여백 확보 (사이드바 영역과 침범 안 함)
+   · xl 미만: 메인 콘텐츠 하단에 인라인 표시 (DashboardRightSidebarMobile) */}
  <div className="md:ml-[220px] flex flex-col min-h-screen">
- <div className="flex-1 px-4 md:px-6 pt-20 md:pt-6 pb-24 md:pb-6 mx-auto w-full" style={{ maxWidth: '1600px' }}>
- <div className="xl:grid xl:grid-cols-[minmax(0,1fr)_280px] xl:gap-6">
+ <div className="flex-1 px-4 md:px-6 pt-20 md:pt-6 pb-24 md:pb-6 mx-auto w-full xl:pr-[312px]" style={{ maxWidth: '1600px' }}>
  <main className="min-w-0">
 
  {/* ── 상단 롤링 공지 배너 ── */}
@@ -2179,13 +2179,11 @@ export default function Dashboard() {
  {/* 모바일/태블릿 (xl 미만): 메인 콘텐츠 하단에 인라인 표시 */}
  {isLoggedIn && <DashboardRightSidebarMobile />}
  </main>
-
- {/* xl+ 데스크톱: grid 우측 컬럼 (sticky) */}
- {isLoggedIn && <DashboardRightSidebar />}
- </div>
  </div>
  <Footer />
  </div>
+ {/* xl+ 데스크톱: position:fixed 로 viewport 우측 고정 — 부모 레이아웃 무관 (DOM 어디에 있든 viewport 기준) */}
+ {isLoggedIn && <DashboardRightSidebar />}
 
  {/* 모달들 */}
  {connectPlatform && (() => {
