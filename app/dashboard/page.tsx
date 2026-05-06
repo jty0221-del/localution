@@ -1,4 +1,13 @@
 'use client'
+// ============================================================
+// /dashboard — 사장님 메인 대시보드
+//
+// ⚠️ DO NOT RE-ADD (사장님 명시 제거) — /DO_NOT_TOUCH.md 참조
+//   · <QuickNav /> 호출 X (우측 사이드바로 대체)
+//   · <QuickActions /> 호출 X (우측 사이드바로 이전)
+//   · "신규 모듈 promo strip 3종" (인스타 카드뉴스 / 플랫폼 통합 / 블로그 순위) 비표시
+//   · yeoshin / hometax 플랫폼 카드 추가 X
+// ============================================================
 export const dynamic = 'force-dynamic'
 
 import { useState, useEffect, useCallback } from 'react'
@@ -674,6 +683,8 @@ const SERVICE_RANKING_INIT = [
  { id: 10, name: '세금계산서 자동 발행', category: '행정', badge: '', color: '#6B7280' },
 ]
 
+// ⚠️ DO NOT RE-ADD <QuickNav /> 호출 — 사장님 요청으로 우측 사이드바(DashboardRightSidebar)로 대체됨 (2026-04-28, 2026-05-06 재확인)
+// 함수 정의는 남아있지만 JSX 에서 호출하지 마세요. 자세한 내용은 /DO_NOT_TOUCH.md 참조.
 function QuickNav() {
  const links = [
  { href: '/dashboard', label: '대시보드', bg: '#EFF6FF', color: '#3182F6', icon: 'DB' },
@@ -1987,9 +1998,8 @@ export default function Dashboard() {
  </div>
  </div>
 
- {/* 우측: 빠른 이동 + 인기 서비스 랭킹 */}
+ {/* 우측: 인기 서비스 랭킹 (QuickNav 는 사장님 요청으로 제거 — DO NOT RE-ADD) */}
  <div className="flex flex-col gap-4">
- <QuickNav />
  <ServiceRanking />
  </div>
  </div>
