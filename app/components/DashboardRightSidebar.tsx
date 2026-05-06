@@ -128,47 +128,56 @@ function ServiceRankingMini() {
 
 export default function DashboardRightSidebar() {
   return (
-    // self-start — flex container 안에서 stretch 안 되도록 (sticky 정상 작동 조건)
-    // sticky top-4 — 스크롤 시 viewport 상단 16px 에서 고정
-    // 3개 카드 모두 viewport 안에 들어오도록 컴팩트하게 디자인 (TOP10 행 작게 + 알림/도움말 패딩 축소)
-    <aside className="hidden lg:block w-[280px] flex-shrink-0 self-start sticky top-4 space-y-2.5">
+    // ⚠️ position: fixed 방식 사용 — sticky 가 부모 context (transform / overflow / flex stretch 등) 에 의해
+    //   불안정하게 동작하는 문제 회피. 외부 aside 는 layout 공간만 점유 (280px), 내부 div 가 fixed 로 viewport 우측 고정.
+    //   1280px 이상 화면에서만 노출 (xl:block), 그 미만에서는 숨김 — 콘텐츠 침범 방지
+    <aside className="hidden xl:block w-[280px] flex-shrink-0">
+      <div
+        className="fixed top-20 w-[280px] max-h-[calc(100vh-6rem)] overflow-y-auto pr-1 space-y-2.5 z-30"
+        style={{
+          // 사이드바(220) + max-w-7xl(1280) 우측 가장자리 = (viewport - 1280)/2 + 1280 - 280
+          // 단순하게 우측 16px 마진으로 고정
+          right: 'max(16px, calc((100vw - 1280px) / 2 + 16px))',
+          scrollbarWidth: 'thin',
+        }}
+      >
+        {/* 1) 인기 서비스 TOP 10 (실시간 애니메이션) */}
+        <ServiceRankingMini />
 
-      {/* 1) 인기 서비스 TOP 10 (실시간 애니메이션) */}
-      <ServiceRankingMini />
-
-      {/* 2) 실시간 리뷰 알림 안내 — 컴팩트 */}
-      <div className="rounded-2xl bg-gradient-to-br from-[#FFFBEB] to-[#FEF3C7] border border-[#FDE68A] p-3">
-        <div className="flex items-center gap-1.5 mb-1">
-          <BellRing size={12} className="text-[#D97706]" strokeWidth={2.5} />
-          <h3 className="text-[12px] font-bold text-[#92400E]">실시간 리뷰 알림</h3>
+        {/* 2) 실시간 리뷰 알림 안내 — 컴팩트 */}
+        <div className="rounded-2xl bg-gradient-to-br from-[#FFFBEB] to-[#FEF3C7] border border-[#FDE68A] p-3">
+          <div className="flex items-center gap-1.5 mb-1">
+            <BellRing size={12} className="text-[#D97706]" strokeWidth={2.5} />
+            <h3 className="text-[12px] font-bold text-[#92400E]">실시간 리뷰 알림</h3>
+          </div>
+          <p className="text-[10px] text-[#92400E] leading-relaxed">
+            15분 자동 수집 · 별점 1-2점 부정 리뷰 우선 알림 (웹푸시·카카오톡)
+          </p>
         </div>
-        <p className="text-[10px] text-[#92400E] leading-relaxed">
-          15분 자동 수집 · 별점 1-2점 부정 리뷰 우선 알림 (웹푸시·카카오톡)
-        </p>
-      </div>
 
-      {/* 3) 도움이 필요하세요? — 컴팩트 */}
-      <div className="bg-white rounded-2xl shadow-sm p-3">
-        <h3 className="text-[12px] font-bold text-[#191F28] mb-1.5">도움이 필요하세요?</h3>
-        <div className="space-y-0.5">
-          <Link href="/help"
-            className="flex items-center gap-2 px-1.5 py-1.5 rounded-lg hover:bg-[#FAFBFF] text-[11px] font-bold text-[#4E5968] transition-colors">
-            <HelpCircle size={12} className="text-[#3182F6]" strokeWidth={2.5} />
-            <span>도움말 · 가이드</span>
-            <ArrowRight size={10} className="ml-auto text-[#D1D5DB]" strokeWidth={2.5} />
-          </Link>
-          <Link href="/inquiry"
-            className="flex items-center gap-2 px-1.5 py-1.5 rounded-lg hover:bg-[#FAFBFF] text-[11px] font-bold text-[#4E5968] transition-colors">
-            <Mail size={12} className="text-[#7C3AED]" strokeWidth={2.5} />
-            <span>1:1 문의</span>
-            <ArrowRight size={10} className="ml-auto text-[#D1D5DB]" strokeWidth={2.5} />
-          </Link>
-          <Link href="/updates"
-            className="flex items-center gap-2 px-1.5 py-1.5 rounded-lg hover:bg-[#FAFBFF] text-[11px] font-bold text-[#4E5968] transition-colors">
-            <Sparkles size={12} className="text-[#EC4899]" strokeWidth={2.5} />
-            <span>업데이트 내역</span>
-            <ArrowRight size={10} className="ml-auto text-[#D1D5DB]" strokeWidth={2.5} />
-          </Link>
+        {/* 3) 도움이 필요하세요? — 컴팩트 */}
+        <div className="bg-white rounded-2xl shadow-sm p-3">
+          <h3 className="text-[12px] font-bold text-[#191F28] mb-1.5">도움이 필요하세요?</h3>
+          <div className="space-y-0.5">
+            <Link href="/help"
+              className="flex items-center gap-2 px-1.5 py-1.5 rounded-lg hover:bg-[#FAFBFF] text-[11px] font-bold text-[#4E5968] transition-colors">
+              <HelpCircle size={12} className="text-[#3182F6]" strokeWidth={2.5} />
+              <span>도움말 · 가이드</span>
+              <ArrowRight size={10} className="ml-auto text-[#D1D5DB]" strokeWidth={2.5} />
+            </Link>
+            <Link href="/inquiry"
+              className="flex items-center gap-2 px-1.5 py-1.5 rounded-lg hover:bg-[#FAFBFF] text-[11px] font-bold text-[#4E5968] transition-colors">
+              <Mail size={12} className="text-[#7C3AED]" strokeWidth={2.5} />
+              <span>1:1 문의</span>
+              <ArrowRight size={10} className="ml-auto text-[#D1D5DB]" strokeWidth={2.5} />
+            </Link>
+            <Link href="/updates"
+              className="flex items-center gap-2 px-1.5 py-1.5 rounded-lg hover:bg-[#FAFBFF] text-[11px] font-bold text-[#4E5968] transition-colors">
+              <Sparkles size={12} className="text-[#EC4899]" strokeWidth={2.5} />
+              <span>업데이트 내역</span>
+              <ArrowRight size={10} className="ml-auto text-[#D1D5DB]" strokeWidth={2.5} />
+            </Link>
+          </div>
         </div>
       </div>
     </aside>
