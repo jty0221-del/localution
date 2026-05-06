@@ -156,7 +156,7 @@ export default function CardNewsPage() {
  const slideSize = ratio === '1:1' ? { w: 540, h: 540 } : { w: 540, h: 675 }
 
  return (
- <div className="min-h-screen bg-[#F8F9FB] flex">
+ <div className="min-h-screen bg-[#F8F9FA] flex">
  <Sidebar />
  <main className="flex-1 ml-0 md:ml-[220px] pt-4 md:pt-0 min-w-0">
  <PageHeader
