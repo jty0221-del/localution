@@ -15,6 +15,7 @@ const TAB_HERO_ICONS = { Store, Bell, Bot, Link2, CreditCard } as const
 import { toast, confirmDialog, promptDialog } from '../lib/toast'
 import { INDUSTRY_CATALOG, INDUSTRY_LABELS, DEFAULT_INDUSTRY_GROUP_ID, findIndustryGroup } from '../lib/industry-catalog'
 import PlatformLogo from '../components/PlatformLogo'
+import HarangMarketingPopup from '../components/HarangMarketingPopup'
 
 // 토스페이먼츠 — 공식 SDK 테스트 클라이언트 키 (공개됨)
 // 실서비스 전환 시 env에서 주입: NEXT_PUBLIC_TOSS_CLIENT_KEY
@@ -2047,6 +2048,7 @@ function SettingsInner() {
  </div>
  {/* 공통 Footer */}
  <Footer />
+ <HarangMarketingPopup />
  </div>
  </>
  )
