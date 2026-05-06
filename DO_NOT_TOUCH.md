@@ -34,7 +34,9 @@
 | 항목 | 위치 | 결정일 | 이유 |
 |------|------|--------|------|
 | `QuickNav` (사이드바 옆 빠른 이동) | `app/dashboard/page.tsx` 내 `<QuickNav />` 호출 | 2026-04-28 / 2026-05-06 (재확인) | 사장님이 우측 사이드바 (`DashboardRightSidebar`) 로 대체. QuickNav 함수 정의는 남아있어도 호출 X |
-| `QuickActions` 위젯 (대시보드 메인) | `app/dashboard/page.tsx` `<QuickActions />` | 2026-05-06 | 우측 사이드바로 이전됨 (`DashboardRightSidebar`) |
+| `QuickActions` 위젯 (대시보드 메인) | `app/dashboard/page.tsx` `<QuickActions />` | 2026-05-06 | 우측 사이드바로 이전됐다가 다시 제거됨. 사용 X |
+| `QuickActions` 우측 사이드바 안 노출 | `app/components/DashboardRightSidebar.tsx` | 2026-05-06 | 사장님 요청으로 ServiceRanking(인기 TOP10) 으로 대체됨. QuickActions 추가 X |
+| 인라인 `<ServiceRanking />` (대시보드 메인) | `app/dashboard/page.tsx` | 2026-05-06 | 우측 사이드바로 이전됨. 메인 그리드는 2컬럼 (`[1fr_300px]`) |
 | 신규 모듈 promo strip 3종 (인스타 카드뉴스 / 플랫폼 통합 / 블로그 순위) | `app/dashboard/page.tsx` | 2026-05-06 | 사장님 요청으로 비표시. 우측 사이드바 빠른 액션에서 동일 기능 접근 |
 | `/pricing` 좌측 사이드바 | `app/pricing/page.tsx` | 2026-05-06 | 공개 랜딩성 페이지로 단순화 (TopNav만 유지) |
 
