@@ -1530,11 +1530,11 @@ export default function Dashboard() {
  <div className="min-h-screen bg-[#F8F9FA]">
  <Sidebar />
  {/* DashboardRightSidebar:
-   · xl 이상 (1280px+): position:fixed 로 viewport 우측에 항상 고정 (스크롤 무관)
-   · main 에 xl:pr-[300px] 로 콘텐츠 우측 여백 확보 (사이드바 영역과 침범 안 함)
-   · xl 미만: 메인 콘텐츠 하단에 인라인 표시 (DashboardRightSidebarMobile) */}
+   · 2xl+ (1536px+): position:fixed 우측 고정 (충분한 공간 확보된 화면만)
+   · main 에 2xl:pr-[296px] 로 콘텐츠 침범 방지 (260+16+gap)
+   · 1536px 미만: 메인 콘텐츠 하단에 인라인 grid (모바일 1열, lg+ 3열) */}
  <div className="md:ml-[220px] flex flex-col min-h-screen">
- <div className="flex-1 px-4 md:px-6 pt-20 md:pt-6 pb-24 md:pb-6 mx-auto w-full xl:pr-[312px]" style={{ maxWidth: '1600px' }}>
+ <div className="flex-1 px-4 md:px-6 pt-20 md:pt-6 pb-24 md:pb-6 mx-auto w-full 2xl:pr-[296px]" style={{ maxWidth: '1600px' }}>
  <main className="min-w-0">
 
  {/* ── 상단 롤링 공지 배너 ── */}
