@@ -167,7 +167,7 @@ export default function ReelsGeneratorPage() {
  : null
 
  return (
- <div className="min-h-screen bg-[#F2F4F6] flex">
+ <div className="min-h-screen bg-[#F8F9FA] flex">
  <Sidebar />
  <main className="flex-1 ml-0 md:ml-[220px] pt-4 md:pt-0 min-w-0">
  <PageHeader
