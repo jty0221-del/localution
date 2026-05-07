@@ -189,6 +189,28 @@ async function tryJsonLogin(
   return { ok: false, cookies: preCookies, status: 0, body: 'all body shapes failed' }
 }
 
+// ── 저장된 쿠키로 직접 whoami 조회 (외부에서 호출) ──
+//   · admin 진단 도구가 사장님 비번 없이 매장 목록 확인할 때 사용
+//   · 쿠키 만료 시 null 반환
+export async function whoamiWithCookies(cookies: { name: string; value: string }[]): Promise<any> {
+  try {
+    const cookieStr = cookies.map(c => c.name + '=' + c.value).join('; ')
+    const res = await proxyFetch(STORE_BASE + '/api/v1/merchant/whoami', {
+      headers: {
+        ...COMMON_HEADERS,
+        Accept: 'application/json',
+        Cookie: cookieStr,
+        'X-Requested-With': 'XMLHttpRequest',
+      },
+    } as RequestInit)
+    if (!res.ok) return { ok: false, status: res.status, error: 'http ' + res.status }
+    const body = await res.json().catch(() => null)
+    return { ok: true, status: res.status, body }
+  } catch (e: any) {
+    return { ok: false, error: e?.message || 'unknown' }
+  }
+}
+
 // ── 시도 3: whoami 검증 ──
 async function verifyWithWhoami(cookies: string[]): Promise<any> {
   try {
