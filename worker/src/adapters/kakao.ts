@@ -62,7 +62,16 @@ export async function runKakao(
   }
 
   const svc = getServiceClient()
-  const creds = await loadPlainCredentials(svc, userId, 'kakao_map')
+  let creds: any
+  try {
+    creds = await loadPlainCredentials(svc, userId, 'kakao_map')
+  } catch (e: any) {
+    if (String(e?.message || '').includes('not_connected')) {
+      log.warn({ userId }, 'kakao_map: 사용자가 연결 해제됨 — 큐 잡 skip')
+      return { status: 'skipped', message: 'user disconnected' }
+    }
+    throw e
+  }
 
   // place_id: platform_store_id 에 저장된 카카오맵 장소 ID
   const placeId = creds.platform_store_id
