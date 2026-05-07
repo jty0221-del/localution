@@ -90,6 +90,19 @@ export async function GET(req: NextRequest) {
     }
   }
 
+  // whoami 응답 자체를 extra_data 에 저장 — 다음에 디버깅 시 참조
+  try {
+    await svc.from('platform_credentials').update({
+      extra_data: {
+        ...extra,
+        last_whoami_at: new Date().toISOString(),
+        last_whoami_response: data,
+      },
+      updated_at: new Date().toISOString(),
+    })
+    .eq('user_id', userId).eq('platform', 'coupangeats')
+  } catch {}
+
   return NextResponse.json({
     ok: true,
     elapsed_ms: elapsed,
