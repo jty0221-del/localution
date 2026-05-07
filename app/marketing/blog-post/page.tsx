@@ -110,6 +110,7 @@ export default function BlogPostGeneratorPage() {
  const [error, setError] = useState<string | null>(null)
  const [post, setPost] = useState<string | null>(null)
  const [copied, setCopied] = useState(false)
+ const [viewMode, setViewMode] = useState<'preview' | 'markdown'>('preview')
  const outputRef = useRef<HTMLDivElement | null>(null)
 
  useEffect(() => {
@@ -647,7 +648,19 @@ export default function BlogPostGeneratorPage() {
  <p className="text-[10px] text-[#8B95A1]">트랙 {track} · 목표 {length.toLocaleString()}자 · 실제 {post.length.toLocaleString()}자</p>
  </div>
  </div>
- <div className="flex gap-2">
+ <div className="flex gap-2 flex-wrap">
+ <div className="inline-flex rounded-xl bg-[#F2F4F6] p-0.5">
+ <button onClick={() => setViewMode('preview')}
+ className={'px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ' +
+ (viewMode === 'preview' ? 'bg-white text-[#191F28] shadow-sm' : 'text-[#8B95A1]')}>
+ 미리보기
+ </button>
+ <button onClick={() => setViewMode('markdown')}
+ className={'px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ' +
+ (viewMode === 'markdown' ? 'bg-white text-[#191F28] shadow-sm' : 'text-[#8B95A1]')}>
+ 마크다운
+ </button>
+ </div>
  <button onClick={handleCopy}
  className={`px-3 py-2 rounded-xl text-xs font-bold flex items-center gap-1.5 ${copied ? 'bg-green-500 text-white' : 'bg-[#191F28] text-white hover:bg-[#333D4B]'}`}>
  {copied ? <><Check size={12} strokeWidth={3} /> 복사됨</> : <><Copy size={12} strokeWidth={2.5} /> 마크다운 복사</>}
@@ -658,9 +671,13 @@ export default function BlogPostGeneratorPage() {
  </button>
  </div>
  </div>
+ {viewMode === 'preview' ? (
+ <BlogPreview markdown={post} />
+ ) : (
  <pre className="whitespace-pre-wrap text-sm leading-relaxed text-[#191F28] bg-[#F8FAFB] rounded-xl p-4 border border-[#E5E8EB] font-sans">
  {post}
  </pre>
+ )}
  </div>
  )}
  </div>
@@ -669,4 +686,139 @@ export default function BlogPostGeneratorPage() {
  </main>
  </div>
  )
+}
+
+// ── 블로그 미리보기 — 마크다운 → HTML 인라인 파서 (외부 lib 없음) ──
+//   지원: # h1~h3, **bold**, *italic*, - / 1. lists, > quote, `code`,
+//        ![alt](url) image, [text](url) link, --- hr, 빈줄 → 단락
+function BlogPreview({ markdown }: { markdown: string }) {
+ const html = renderMarkdownToHtml(markdown)
+ return (
+ <article
+ className="bg-white rounded-xl border border-[#E5E8EB] p-5 md:p-7 prose-blog text-[15px] leading-[1.8] text-[#191F28]"
+ dangerouslySetInnerHTML={{ __html: html }}
+ />
+ )
+}
+
+function escapeHtml(s: string): string {
+ return s
+ .replace(/&/g, '&amp;')
+ .replace(/</g, '&lt;')
+ .replace(/>/g, '&gt;')
+ .replace(/"/g, '&quot;')
+ .replace(/'/g, '&#39;')
+}
+
+function renderInline(s: string): string {
+ // 이미 escape 된 문자열 가정
+ // 1) 이미지 ![alt](url)
+ s = s.replace(/!\[([^\]]*)\]\(([^)]+)\)/g, (_, alt, url) =>
+ `<img src="${url}" alt="${alt}" class="my-3 rounded-xl border border-[#F2F4F6] max-w-full" />`)
+ // 2) 링크 [text](url)
+ s = s.replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener" class="text-[#3182F6] underline">$1</a>')
+ // 3) bold + italic 동시 ***
+ s = s.replace(/\*\*\*([^*]+)\*\*\*/g, '<strong><em>$1</em></strong>')
+ // 4) bold **text**
+ s = s.replace(/\*\*([^*]+)\*\*/g, '<strong>$1</strong>')
+ // 5) italic *text* (단어 경계 안전)
+ s = s.replace(/(^|[^*])\*([^*\n]+)\*(?!\*)/g, '$1<em>$2</em>')
+ // 6) inline code `code`
+ s = s.replace(/`([^`]+)`/g, '<code class="bg-[#F2F4F6] px-1.5 py-0.5 rounded text-[13px] font-mono">$1</code>')
+ return s
+}
+
+function renderMarkdownToHtml(md: string): string {
+ if (!md) return ''
+ const lines = md.replace(/\r\n/g, '\n').split('\n')
+ const out: string[] = []
+ let i = 0
+ const flushPara = (acc: string[]) => {
+ if (acc.length === 0) return
+ const text = acc.map(escapeHtml).join('<br />')
+ out.push(`<p class="my-3">${renderInline(text)}</p>`)
+ acc.length = 0
+ }
+ const para: string[] = []
+
+ while (i < lines.length) {
+ const line = lines[i]
+
+ // 빈 줄 → 단락 끊기
+ if (/^\s*$/.test(line)) { flushPara(para); i++; continue }
+
+ // 헤더
+ const h = line.match(/^(#{1,3})\s+(.+)$/)
+ if (h) {
+ flushPara(para)
+ const lvl = h[1].length
+ const txt = renderInline(escapeHtml(h[2]))
+ const cls = lvl === 1 ? 'text-[28px] font-black mt-6 mb-3 leading-tight'
+ : lvl === 2 ? 'text-[22px] font-black mt-5 mb-3 leading-tight'
+ : 'text-[18px] font-bold mt-4 mb-2'
+ out.push(`<h${lvl} class="${cls}">${txt}</h${lvl}>`)
+ i++; continue
+ }
+
+ // 가로선
+ if (/^\s*---+\s*$/.test(line)) {
+ flushPara(para)
+ out.push('<hr class="my-5 border-[#E5E8EB]" />')
+ i++; continue
+ }
+
+ // 인용 >
+ if (/^\s*>\s/.test(line)) {
+ flushPara(para)
+ const quotes: string[] = []
+ while (i < lines.length && /^\s*>\s?/.test(lines[i])) {
+ quotes.push(lines[i].replace(/^\s*>\s?/, ''))
+ i++
+ }
+ const inner = renderInline(quotes.map(escapeHtml).join('<br />'))
+ out.push(`<blockquote class="border-l-4 border-[#3182F6] bg-[#F8FAFB] pl-4 py-2 my-4 italic text-[#4E5968]">${inner}</blockquote>`)
+ continue
+ }
+
+ // 순서 없는 리스트
+ if (/^\s*[-*]\s+/.test(line)) {
+ flushPara(para)
+ const items: string[] = []
+ while (i < lines.length && /^\s*[-*]\s+/.test(lines[i])) {
+ items.push(lines[i].replace(/^\s*[-*]\s+/, ''))
+ i++
+ }
+ out.push('<ul class="list-disc pl-6 my-3 space-y-1.5">' +
+ items.map(it => `<li>${renderInline(escapeHtml(it))}</li>`).join('') +
+ '</ul>')
+ continue
+ }
+
+ // 순서 있는 리스트
+ if (/^\s*\d+\.\s+/.test(line)) {
+ flushPara(para)
+ const items: string[] = []
+ while (i < lines.length && /^\s*\d+\.\s+/.test(lines[i])) {
+ items.push(lines[i].replace(/^\s*\d+\.\s+/, ''))
+ i++
+ }
+ out.push('<ol class="list-decimal pl-6 my-3 space-y-1.5">' +
+ items.map(it => `<li>${renderInline(escapeHtml(it))}</li>`).join('') +
+ '</ol>')
+ continue
+ }
+
+ // 이미지 단독 줄
+ if (/^!\[[^\]]*\]\([^)]+\)\s*$/.test(line.trim())) {
+ flushPara(para)
+ out.push(renderInline(line.trim()))
+ i++; continue
+ }
+
+ // 일반 단락
+ para.push(line)
+ i++
+ }
+ flushPara(para)
+ return out.join('\n')
 }
