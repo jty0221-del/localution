@@ -70,6 +70,33 @@ export default function ConnectPlatformPage() {
  if (platform && !VALID_PLATFORMS.includes(platform)) router.replace('/my/platforms')
  }, [platform, router])
 
+ // ── 인증 상태 사전 검증 (모바일 세션 만료시 /my/platforms 로 튕기는 문제 방지) ──
+ //   네이버 연결 후 배민 연결 시 세션 만료로 "또 로그인하래" 현상이 보고됨.
+ //   페이지 로드 시 /api/me 로 인증 상태 확인하고, 인증 안되어 있으면
+ //   현재 connect 경로를 redirect 파라미터로 넣어 로그인 페이지로 보냄.
+ useEffect(() => {
+ if (!platform || !VALID_PLATFORMS.includes(platform)) return
+ let cancelled = false
+ ;(async () => {
+ try {
+ const r = await fetch('/api/me', { credentials: 'include', cache: 'no-store' })
+ if (!cancelled && r.status === 401) {
+ const here = '/my/platforms/' + platform + '/connect'
+ router.replace('/login?redirect=' + encodeURIComponent(here))
+ }
+ } catch {}
+ })()
+ return () => { cancelled = true }
+ }, [platform, router])
+
+ // 401 응답 시 /login 으로 보내되 현재 connect 경로를 redirect 로 보존
+ function handleAuthError(status: number): boolean {
+ if (status !== 401) return false
+ const here = '/my/platforms/' + platform + '/connect'
+ router.replace('/login?redirect=' + encodeURIComponent(here))
+ return true
+ }
+
  if (!meta) return (
  <main className="min-h-screen bg-[#F8F9FA] py-10">
  <div className="max-w-xl mx-auto px-4 text-center text-[#6B7280]">
@@ -89,6 +116,7 @@ export default function ConnectPlatformPage() {
  method: 'POST', headers: { 'Content-Type': 'application/json' },
  body: JSON.stringify({ platform, agreed_scope: agreedScope, agreed_ownership: agreedOwnership, agreed_risk: agreedRisk, extra_payload: { ua_snapshot: typeof navigator !== 'undefined' ? navigator.userAgent : null, rendered_at: new Date().toISOString() } }),
  })
+ if (handleAuthError(res.status)) return
  const data = await res.json()
  if (!data.ok) { setError(data.message || data.error || 'consent_failed'); return }
  setConsentId(data.consent_id); setStep(2)
@@ -105,6 +133,7 @@ export default function ConnectPlatformPage() {
  method: 'POST', headers: { 'Content-Type': 'application/json' },
  body: JSON.stringify({ platform, account_id: accountId.trim(), password }),
  })
+ if (handleAuthError(res.status)) return
  const data = await res.json()
  if (!data.ok) { setError(data.message || data.error || 'save_failed'); return }
  setPassword('')
@@ -539,8 +568,17 @@ export default function ConnectPlatformPage() {
  </Link>
  </div>
  <div className="flex-1 max-w-sm w-full mx-auto px-6 pt-6 pb-8 flex flex-col">
- <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl font-black mb-8 shadow-sm" style={{ background: meta.brandColor, color: meta.brandTextColor }}>{meta.initial}</div>
- <h1 className="text-[22px] font-black text-[#191F28] leading-snug mb-6">{meta.shortLabel} 리뷰 관리를 위해<br />로그인이 필요해요</h1>
+ <div className="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl font-black mb-6 shadow-sm" style={{ background: meta.brandColor, color: meta.brandTextColor }}>{meta.initial}</div>
+ <h1 className="text-[22px] font-black text-[#191F28] leading-snug mb-2">
+ <span style={{ color: meta.brandColor }}>{meta.label}</span> 계정으로<br />로그인해주세요
+ </h1>
+ <div className="mb-5 rounded-xl bg-[#EFF6FF] border border-[#BFDBFE] p-3 text-[12px] text-[#1E40AF] leading-relaxed flex items-start gap-2">
+ <Lock size={13} className="text-[#3182F6] flex-shrink-0 mt-0.5" strokeWidth={2.5} />
+ <div>
+ <strong>로컬루션 로그인이 아니에요.</strong><br />
+ 사장님이 평소 <strong>{meta.label}</strong> 사장님 사이트에 로그인할 때 쓰는 아이디·비밀번호를 입력해주세요.
+ </div>
+ </div>
  {platform === 'coupangeats' && (
  <div className="mb-6 rounded-xl bg-amber-50 border border-amber-200 p-3 text-[12px] text-amber-900 leading-relaxed flex items-start gap-2">
  <AlertTriangle size={14} className="text-amber-600 flex-shrink-0 mt-0.5" strokeWidth={2.5} />
@@ -561,11 +599,11 @@ export default function ConnectPlatformPage() {
  </div>
  <button onClick={submitCredentials} disabled={saving || !accountId || !password} className="w-full py-4 rounded-2xl text-[15px] font-bold disabled:opacity-50 transition flex items-center justify-center gap-2" style={{ background: meta.loginBg, color: meta.loginFg }}>
  {saving && <Loader2 size={16} className="animate-spin" strokeWidth={2.5} />}
- {saving ? '암호화 저장 중…' : '로그인'}
+ {saving ? '암호화 저장 중…' : meta.shortLabel + ' 계정으로 연결하기'}
  </button>
  <div className="flex-1 min-h-[24px]" />
  <div className="mt-10">
- <p className="text-[13px] text-[#4E5968] mb-3">{meta.shortLabel} 아이디, 비밀번호를 까먹었다면?</p>
+ <p className="text-[13px] text-[#4E5968] mb-3">{meta.label} 아이디·비밀번호가 기억나지 않으세요?</p>
  <div className="flex gap-2">
  {meta.singleForgot
  ? <a href={meta.forgotIdUrl} target="_blank" rel="noopener noreferrer" className="flex-1 py-3 rounded-xl border border-[#E5E8EB] text-[13px] font-semibold text-[#4E5968] text-center hover:bg-[#F9FAFB]">아이디, 비밀번호 찾기 &nbsp;&gt;</a>
