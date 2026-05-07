@@ -278,7 +278,22 @@ export default function AdminUsersPage() {
                           {u.review_count}
                         </td>
                         <td className="px-3 py-2.5 text-[10px] text-[#4E5968]">{fmtDate(u.signed_up_at)}</td>
-                        <td className="px-3 py-2.5 text-center">
+                        <td className="px-3 py-2.5 text-center whitespace-nowrap">
+                          <button onClick={async () => {
+                            if (!confirm(`${u.email || u.user_id.slice(0,8)} 로 임시 로그인?\n\n1시간동안 사장님 화면 그대로 사용 가능.`)) return
+                            const r = await fetch('/api/admin/impersonate', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ user_id: u.user_id }),
+                              credentials: 'include',
+                            })
+                            const j = await r.json()
+                            if (j.ok) { window.location.href = '/dashboard' }
+                            else { alert(j.error || '실패') }
+                          }}
+                            className="inline-flex items-center gap-0.5 text-[10px] font-bold px-2 py-1 rounded bg-[#F04452] text-white hover:bg-[#DC2626] mr-1">
+                            로그인
+                          </button>
                           {u.platforms.includes('coupangeats') && (
                             <Link href={'/admin/coupang/' + u.user_id}
                               className="inline-flex items-center gap-0.5 text-[10px] font-bold px-2 py-1 rounded bg-[#FF4B30] text-white hover:bg-[#DC2626]">
