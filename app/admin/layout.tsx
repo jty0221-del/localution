@@ -19,16 +19,15 @@ const NAV: { href: string; label: string; Icon: LucideIcon }[] = [
 
 // ------------------------------------------------------------
 // 클라이언트 사이드 이메일 추출 — 듀얼 모드
+//   · localution_user 쿠키는 httpOnly:true 로 설정되어 있어 document.cookie 로 못 읽음
+//   · /api/me 서버 엔드포인트로 검증 (HMAC 서명도 같이 검증)
 // ------------------------------------------------------------
-function readLocalutionUserEmail(): string | null {
+async function readLocalutionUserEmail(): Promise<string | null> {
  try {
- if (typeof document === 'undefined') return null
- const raw = document.cookie.split('; ').find(r => r.startsWith('localution_user='))
- if (!raw) return null
- const value = raw.slice('localution_user='.length)
- const decoded = decodeURIComponent(value)
- const parsed = JSON.parse(decoded)
- const email = (parsed?.email || '').toString().toLowerCase().trim()
+ const res = await fetch('/api/me', { credentials: 'include', cache: 'no-store' })
+ if (!res.ok) return null
+ const data = await res.json()
+ const email = (data?.user?.email || '').toString().toLowerCase().trim()
  return email || null
  } catch {
  return null
@@ -54,8 +53,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
  useEffect(() => {
  let mounted = true
  ;(async () => {
- // 1) localution_user 쿠키 (네이버/카카오/구글 OAuth)
- const luEmail = readLocalutionUserEmail()
+ // 1) localution_user 쿠키 (네이버/카카오/구글 OAuth) — /api/me 로 검증
+ const luEmail = await readLocalutionUserEmail()
  if (luEmail) {
  if (!mounted) return
  if (isAdminEmail(luEmail)) {
