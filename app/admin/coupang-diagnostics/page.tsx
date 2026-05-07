@@ -16,12 +16,15 @@ import {
   Cookie, MessageSquare, User as UserIcon, Store,
 } from 'lucide-react'
 
+type StoreMeta = { id: string; name: string | null }
+
 type User = {
   user_id: string
   account_id_mask: string | null
   store_name: string | null
   store_id: string | null
   all_store_ids?: string[]
+  store_meta?: StoreMeta[]
   connected_at: string
   last_login_status: string | null
   last_login_at: string | null
@@ -240,26 +243,31 @@ export default function CoupangDiagnosticsPage() {
     finally { setFetchingUser(null) }
   }, [load])
 
-  const setStoreIds = useCallback(async (userId: string, currentIds: string[], currentPrimary: string | null) => {
-    const currentStr = (currentIds && currentIds.length > 0) ? currentIds.join(', ') : (currentPrimary || '')
-    const input = prompt(
+  const setStoreIds = useCallback(async (userId: string, currentMeta: StoreMeta[]) => {
+    // 1) ID 입력 (쉼표 구분)
+    const currentStr = currentMeta.length > 0 ? currentMeta.map(m => m.id).join(', ') : ''
+    const idsInput = prompt(
       `${userId.slice(0, 8)} 사용자의 쿠팡이츠 매장 ID 설정\n\n` +
-      `여러 매장은 쉼표로 구분 (예: 779523, 123456)\n` +
+      `여러 매장은 쉼표로 구분 (예: 779523, 824040)\n` +
       `첫 번째가 primary 가 됩니다.`,
       currentStr
     )
-    if (input === null) return
-    const ids = input.split(',').map(s => s.trim()).filter(s => /^\d+$/.test(s))
+    if (idsInput === null) return
+    const ids = idsInput.split(',').map(s => s.trim()).filter(s => /^\d+$/.test(s))
     if (ids.length === 0) { alert('숫자 ID 최소 1개 입력 필요'); return }
 
-    // 매장명도 함께 입력 받기 (선택)
-    const nameInput = prompt(
-      `매장명도 등록하시겠어요? (선택)\n\n` +
-      `예: 김치찜 참 잘하는집 옥련점\n\n` +
-      `비워두면 매장명은 그대로 유지됩니다.`,
-      ''
-    )
-    const storeName = (nameInput || '').trim()
+    // 2) 각 매장 이름 순차 입력
+    const meta: { id: string; name: string }[] = []
+    for (let i = 0; i < ids.length; i++) {
+      const sid = ids[i]
+      const existingName = currentMeta.find(m => m.id === sid)?.name || ''
+      const nameInput = prompt(
+        `${i + 1}/${ids.length}. 매장 ${sid} 의 이름?\n\n예: 김치찜 참 잘하는집 옥련점, 별5제육&두루치기\n\n비워두면 이름 미저장`,
+        existingName
+      )
+      if (nameInput === null) return  // 취소
+      meta.push({ id: sid, name: nameInput.trim() })
+    }
 
     setFetchingUser(userId); setFetchResult(null)
     try {
@@ -268,14 +276,13 @@ export default function CoupangDiagnosticsPage() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           user_id: userId,
-          store_ids: ids,
-          primary_store_id: ids[0],
-          store_name: storeName || undefined,
+          store_meta: meta,
+          primary_store_id: meta[0].id,
         }),
       })
       const j = await r.json()
       setFetchResult(j.ok ? j.message : '실패: ' + (j.error || ''))
-      if (j.ok && confirm('지금 즉시 fetch 하시겠어요?')) {
+      if (j.ok && confirm(`매장 ${ids.length}개 모두 즉시 fetch 하시겠어요?`)) {
         await fetch('/api/admin/trigger-fetch?platform=coupangeats&user_id=' + userId + '&days=180', { cache: 'no-store' })
         setFetchResult((j.message || '') + ' · 180일치 fetch 큐 등록됨')
       }
@@ -544,7 +551,12 @@ export default function CoupangDiagnosticsPage() {
 
             {/* 사용자 목록 — 모바일: 카드 / PC: 표 */}
             <div className="md:hidden space-y-2">
-              {filteredUsers.map(u => <UserCard key={u.user_id} u={u} fetchingUser={fetchingUser} onFetch={triggerManualFetch} onRetryLogin={retryLogin} onSetStores={setStoreIds} onDiscover={discoverStores} onTestFetch={testFetch} />)}
+              {filteredUsers.map(u => {
+                const meta: StoreMeta[] = u.store_meta && u.store_meta.length > 0
+                  ? u.store_meta
+                  : (u.all_store_ids || []).map(id => ({ id, name: id === u.store_id ? u.store_name : null }))
+                return <UserCard key={u.user_id} u={u} fetchingUser={fetchingUser} onFetch={triggerManualFetch} onRetryLogin={retryLogin} onSetStores={() => setStoreIds(u.user_id, meta)} onDiscover={discoverStores} onTestFetch={testFetch} />
+              })}
               {filteredUsers.length === 0 && (
                 <div className="p-6 text-center text-sm text-[#8B95A1] bg-white rounded-2xl">조건에 맞는 사용자 없음</div>
               )}
@@ -576,14 +588,24 @@ export default function CoupangDiagnosticsPage() {
                           </span>
                         </td>
                         <td className="px-3 py-2.5 font-mono text-[#3182F6]">{u.user_id.slice(0, 8)}</td>
-                        <td className="px-3 py-2.5 text-[#191F28] font-bold max-w-[200px]" title={u.store_name || ''}>
-                          <div className="truncate">{u.store_name || '-'}</div>
-                          {u.all_store_ids && u.all_store_ids.length > 0 ? (
-                            <div className="text-[10px] text-[#7C3AED] font-mono font-bold">
-                              {u.all_store_ids.length === 1 ? u.all_store_ids[0] : `${u.all_store_ids.length}개: ${u.all_store_ids.join(', ')}`}
+                        <td className="px-3 py-2.5 text-[#191F28] font-bold max-w-[260px]" title={u.store_name || ''}>
+                          {u.store_meta && u.store_meta.length > 0 ? (
+                            <div className="space-y-0.5">
+                              {u.store_meta.map((m, i) => (
+                                <div key={m.id} className="leading-tight">
+                                  <div className="text-[12px] truncate" title={m.name || ''}>
+                                    {i === 0 && <span className="text-[9px] text-[#F97316] mr-1">[main]</span>}
+                                    {m.name || <span className="italic text-[#8B95A1]">매장명 미등록</span>}
+                                  </div>
+                                  <div className="text-[10px] text-[#7C3AED] font-mono">{m.id}</div>
+                                </div>
+                              ))}
                             </div>
                           ) : (
-                            u.store_id && <div className="text-[10px] text-[#8B95A1] font-mono">{u.store_id}</div>
+                            <>
+                              <div className="truncate">{u.store_name || '-'}</div>
+                              {u.store_id && <div className="text-[10px] text-[#8B95A1] font-mono">{u.store_id}</div>}
+                            </>
                           )}
                         </td>
                         <td className="px-3 py-2.5 font-mono text-[#4E5968]">{u.account_id_mask || '-'}</td>
@@ -623,10 +645,10 @@ export default function CoupangDiagnosticsPage() {
                             title="특정 storeId 직접 입력 → 즉시 fetch 테스트 (워커 거치지 X)">
                             테스트
                           </button>
-                          <button onClick={() => setStoreIds(u.user_id, u.all_store_ids || [], u.store_id)}
+                          <button onClick={() => setStoreIds(u.user_id, u.store_meta && u.store_meta.length > 0 ? u.store_meta : (u.all_store_ids || []).map(id => ({ id, name: id === u.store_id ? u.store_name : null })))}
                             disabled={fetchingUser === u.user_id}
                             className="text-[10px] font-bold px-2 py-1.5 rounded bg-[#059669] text-white hover:bg-[#047857] disabled:opacity-50 mr-1"
-                            title="매장 ID 직접 입력">
+                            title="매장 ID + 매장명 직접 입력 (다중 매장)">
                             매장ID
                           </button>
                           <button onClick={() => retryLogin(u.user_id)}
@@ -672,7 +694,7 @@ function UserCard({ u, fetchingUser, onFetch, onRetryLogin, onSetStores, onDisco
   fetchingUser: string | null
   onFetch: (uid: string, days: number) => void
   onRetryLogin: (uid: string) => void
-  onSetStores: (uid: string, currentIds: string[], currentPrimary: string | null) => void
+  onSetStores: () => void
   onDiscover: (uid: string) => void
   onTestFetch: (uid: string) => void
 }) {
@@ -684,20 +706,32 @@ function UserCard({ u, fetchingUser, onFetch, onRetryLogin, onSetStores, onDisco
             style={{ background: ISSUE_COLOR[u.likely_issue] || '#6B7280' }}>
             {ISSUE_LABEL[u.likely_issue] || u.likely_issue}
           </span>
-          <div className="text-sm font-black text-[#191F28] truncate" title={u.store_name || ''}>
-            <Store size={12} className="inline mr-1 -mt-0.5 text-[#8B95A1]" strokeWidth={2.5} />
-            {u.store_name || '매장명 미등록'}
-          </div>
-          <div className="text-[11px] text-[#8B95A1] font-mono mt-0.5 truncate">
-            {u.user_id.slice(0, 8)}
-            {u.all_store_ids && u.all_store_ids.length > 0 ? (
-              <span className="text-[#7C3AED] font-bold ml-1">
-                · 매장 {u.all_store_ids.length}개: {u.all_store_ids.join(', ')}
-              </span>
-            ) : (
-              u.store_id && <span> · {u.store_id}</span>
-            )}
-          </div>
+          {u.store_meta && u.store_meta.length > 0 ? (
+            <div className="space-y-1">
+              {u.store_meta.map((m, i) => (
+                <div key={m.id} className="text-sm">
+                  <div className="font-black text-[#191F28] truncate" title={m.name || ''}>
+                    <Store size={12} className="inline mr-1 -mt-0.5 text-[#8B95A1]" strokeWidth={2.5} />
+                    {i === 0 && <span className="text-[10px] text-[#F97316] mr-1">[main]</span>}
+                    {m.name || <span className="italic text-[#8B95A1] font-normal">매장명 미등록</span>}
+                  </div>
+                  <div className="text-[11px] text-[#7C3AED] font-mono ml-4">매장 ID: {m.id}</div>
+                </div>
+              ))}
+              <div className="text-[10px] text-[#8B95A1] font-mono mt-1">user: {u.user_id.slice(0, 8)}</div>
+            </div>
+          ) : (
+            <>
+              <div className="text-sm font-black text-[#191F28] truncate" title={u.store_name || ''}>
+                <Store size={12} className="inline mr-1 -mt-0.5 text-[#8B95A1]" strokeWidth={2.5} />
+                {u.store_name || '매장명 미등록'}
+              </div>
+              <div className="text-[11px] text-[#8B95A1] font-mono mt-0.5 truncate">
+                {u.user_id.slice(0, 8)}
+                {u.store_id && <span> · {u.store_id}</span>}
+              </div>
+            </>
+          )}
         </div>
         <div className="text-right flex-shrink-0">
           <div className="text-[10px] text-[#8B95A1] font-bold">리뷰</div>
@@ -755,10 +789,10 @@ function UserCard({ u, fetchingUser, onFetch, onRetryLogin, onSetStores, onDisco
         </button>
       </div>
       <div className="grid grid-cols-2 gap-2 mb-2">
-        <button onClick={() => onSetStores(u.user_id, u.all_store_ids || [], u.store_id)}
+        <button onClick={onSetStores}
           disabled={fetchingUser === u.user_id}
           className="text-xs font-bold py-2.5 rounded-lg bg-[#059669] text-white hover:bg-[#047857] disabled:opacity-50">
-          매장 ID 직접 입력
+          매장 ID + 이름 입력
         </button>
         <button onClick={() => onRetryLogin(u.user_id)}
           disabled={fetchingUser === u.user_id}
