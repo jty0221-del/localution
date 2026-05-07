@@ -144,6 +144,48 @@ export default function CoupangDiagnosticsPage() {
     finally { setFetchingUser(null) }
   }, [load])
 
+  const discoverStores = useCallback(async (userId: string) => {
+    setFetchingUser(userId); setFetchResult(null)
+    try {
+      const r = await fetch('/api/admin/coupang-discover-stores?user_id=' + userId, { cache: 'no-store' })
+      const j = await r.json()
+      if (!j.ok) {
+        setFetchResult(`발견 실패 [${j.step}]: ${j.error}` + (j.hint ? ` · ${j.hint}` : ''))
+        return
+      }
+      const stores = j.discovered_stores || []
+      if (stores.length === 0) {
+        setFetchResult('매장 0개 — 권한 없는 계정일 가능성. 사장님 직접 확인 필요')
+        return
+      }
+      // 매장 목록 alert + 자동 등록 제안
+      const list = stores.map((s: any, i: number) =>
+        `${i + 1}) ${s.storeId}${s.name ? ' (' + s.name + ')' : ''}`
+      ).join('\n')
+      const ok = confirm(
+        `발견된 매장 (${stores.length}개):\n\n${list}\n\n` +
+        `현재 primary: ${j.current_primary_store_id || '(없음)'}\n\n` +
+        `이 모든 매장을 자동 등록하시겠어요?\n(첫 번째가 primary 가 됩니다)`
+      )
+      if (!ok) return
+      const ids = stores.map((s: any) => s.storeId)
+      const setRes = await fetch('/api/admin/set-coupang-stores', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId, store_ids: ids, primary_store_id: ids[0] }),
+      })
+      const setJson = await setRes.json()
+      if (setJson.ok) {
+        setFetchResult(`매장 ${ids.length}개 자동 등록 + 180일치 fetch 시작`)
+        await fetch('/api/admin/trigger-fetch?platform=coupangeats&user_id=' + userId + '&days=180', { cache: 'no-store' })
+        setTimeout(() => load(), 5000)
+      } else {
+        setFetchResult('등록 실패: ' + (setJson.error || ''))
+      }
+    } catch (e: any) { setFetchResult('오류: ' + (e?.message || 'unknown')) }
+    finally { setFetchingUser(null) }
+  }, [load])
+
   const setStoreIds = useCallback(async (userId: string, currentIds: string[], currentPrimary: string | null) => {
     const currentStr = (currentIds && currentIds.length > 0) ? currentIds.join(', ') : (currentPrimary || '')
     const input = prompt(
@@ -421,7 +463,7 @@ export default function CoupangDiagnosticsPage() {
 
             {/* 사용자 목록 — 모바일: 카드 / PC: 표 */}
             <div className="md:hidden space-y-2">
-              {filteredUsers.map(u => <UserCard key={u.user_id} u={u} fetchingUser={fetchingUser} onFetch={triggerManualFetch} onRetryLogin={retryLogin} onSetStores={setStoreIds} />)}
+              {filteredUsers.map(u => <UserCard key={u.user_id} u={u} fetchingUser={fetchingUser} onFetch={triggerManualFetch} onRetryLogin={retryLogin} onSetStores={setStoreIds} onDiscover={discoverStores} />)}
               {filteredUsers.length === 0 && (
                 <div className="p-6 text-center text-sm text-[#8B95A1] bg-white rounded-2xl">조건에 맞는 사용자 없음</div>
               )}
@@ -488,10 +530,16 @@ export default function CoupangDiagnosticsPage() {
                           )}
                         </td>
                         <td className="px-3 py-2.5 text-center whitespace-nowrap">
+                          <button onClick={() => discoverStores(u.user_id)}
+                            disabled={fetchingUser === u.user_id}
+                            className="text-[10px] font-bold px-2 py-1.5 rounded bg-[#0891B2] text-white hover:bg-[#0E7490] disabled:opacity-50 mr-1"
+                            title="저장된 쿠키로 whoami 호출 → 모든 매장 발견 + 자동 등록">
+                            매장발견
+                          </button>
                           <button onClick={() => setStoreIds(u.user_id, u.all_store_ids || [], u.store_id)}
                             disabled={fetchingUser === u.user_id}
                             className="text-[10px] font-bold px-2 py-1.5 rounded bg-[#059669] text-white hover:bg-[#047857] disabled:opacity-50 mr-1"
-                            title="매장 ID 추가/편집 (다중 매장 지원)">
+                            title="매장 ID 직접 입력">
                             매장ID
                           </button>
                           <button onClick={() => retryLogin(u.user_id)}
@@ -532,12 +580,13 @@ export default function CoupangDiagnosticsPage() {
 }
 
 // ── 모바일 카드 ──
-function UserCard({ u, fetchingUser, onFetch, onRetryLogin, onSetStores }: {
+function UserCard({ u, fetchingUser, onFetch, onRetryLogin, onSetStores, onDiscover }: {
   u: User
   fetchingUser: string | null
   onFetch: (uid: string, days: number) => void
   onRetryLogin: (uid: string) => void
   onSetStores: (uid: string, currentIds: string[], currentPrimary: string | null) => void
+  onDiscover: (uid: string) => void
 }) {
   return (
     <div className="bg-white rounded-2xl shadow-sm p-3.5 border-l-4" style={{ borderLeftColor: ISSUE_COLOR[u.likely_issue] || '#6B7280' }}>
@@ -605,16 +654,21 @@ function UserCard({ u, fetchingUser, onFetch, onRetryLogin, onSetStores }: {
         </div>
       )}
 
+      <button onClick={() => onDiscover(u.user_id)}
+        disabled={fetchingUser === u.user_id}
+        className="w-full text-xs font-bold py-2.5 rounded-lg bg-[#0891B2] text-white hover:bg-[#0E7490] disabled:opacity-50 mb-2">
+        {fetchingUser === u.user_id ? '...' : '매장 자동 발견 (가장 먼저 시도)'}
+      </button>
       <div className="grid grid-cols-2 gap-2 mb-2">
         <button onClick={() => onSetStores(u.user_id, u.all_store_ids || [], u.store_id)}
           disabled={fetchingUser === u.user_id}
           className="text-xs font-bold py-2.5 rounded-lg bg-[#059669] text-white hover:bg-[#047857] disabled:opacity-50">
-          매장 ID 설정
+          매장 ID 직접 입력
         </button>
         <button onClick={() => onRetryLogin(u.user_id)}
           disabled={fetchingUser === u.user_id}
           className="text-xs font-bold py-2.5 rounded-lg bg-[#F04452] text-white hover:bg-[#DC2626] disabled:opacity-50">
-          {fetchingUser === u.user_id ? '...' : '재로그인'}
+          재로그인
         </button>
       </div>
       <div className="flex gap-2">
