@@ -145,7 +145,16 @@ export async function runYogiyo(
   log.info({ version: 'yogiyo-v1.6z', ts: '20260506T1200' }, 'YOGIYO_ADAPTER_VERSION_MARKER')
 
   const svc = getServiceClient()
-  const creds = await loadPlainCredentials(svc, userId, 'yogiyo')
+  let creds: any
+  try {
+    creds = await loadPlainCredentials(svc, userId, 'yogiyo')
+  } catch (e: any) {
+    if (String(e?.message || '').includes('not_connected')) {
+      log.warn({ userId }, 'yogiyo: 사용자가 연결 해제됨 — 큐 잡 skip')
+      return { status: 'skipped', message: 'user disconnected' }
+    }
+    throw e
+  }
   const context = await browser.newContext({
     userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
     viewport: { width: 1920, height: 1080 },
