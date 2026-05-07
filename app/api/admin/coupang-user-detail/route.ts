@@ -24,39 +24,55 @@ export async function GET(req: NextRequest) {
 
   const svc = createServiceClient()
 
-  // user_id 가 UUID 가 아니면 storeId 로 간주하고 → 해당 storeId 를 가진 user 찾기
+  // 1차: rawId 를 user_id 로 가정하고 직접 조회 (UUID / Naver / Kakao / Google 형식 모두 허용)
   let userId = rawId
-  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawId)
-  if (!isUuid) {
-    // platform_store_id 매치
-    const { data: bySid } = await svc
-      .from('platform_credentials')
-      .select('user_id')
-      .eq('platform', 'coupangeats')
-      .eq('platform_store_id', rawId)
-      .limit(1)
-      .maybeSingle()
-    if (bySid?.user_id) {
-      userId = bySid.user_id
-    } else {
-      // extra_data.store_ids 배열 매치 (다중 매장)
-      const { data: allCreds } = await svc
+  const { data: directCheck } = await svc
+    .from('platform_credentials')
+    .select('user_id')
+    .eq('user_id', rawId)
+    .eq('platform', 'coupangeats')
+    .maybeSingle()
+
+  if (!directCheck) {
+    // 2차: storeId (숫자) 으로 간주하고 → 해당 storeId 를 가진 user 찾기
+    const isNumericStoreId = /^\d{4,}$/.test(rawId)
+    if (isNumericStoreId) {
+      const { data: bySid } = await svc
         .from('platform_credentials')
-        .select('user_id, extra_data')
+        .select('user_id')
         .eq('platform', 'coupangeats')
-      const found = (allCreds || []).find((c: any) => {
-        const ids = Array.isArray(c.extra_data?.store_ids) ? c.extra_data.store_ids : []
-        return ids.includes(rawId)
-      })
-      if (found) {
-        userId = found.user_id
+        .eq('platform_store_id', rawId)
+        .limit(1)
+        .maybeSingle()
+      if (bySid?.user_id) {
+        userId = bySid.user_id
       } else {
-        return NextResponse.json({
-          ok: false,
-          error: `매장 ID ${rawId} 를 가진 사용자 없음. 먼저 진단 페이지에서 user_id 로 진입해주세요.`,
-          hint: '/admin/coupang-diagnostics 에서 사용자별 [상세] 버튼 클릭',
-        }, { status: 404 })
+        // 3차: extra_data.store_ids 배열 매치 (다중 매장)
+        const { data: allCreds } = await svc
+          .from('platform_credentials')
+          .select('user_id, extra_data')
+          .eq('platform', 'coupangeats')
+        const found = (allCreds || []).find((c: any) => {
+          const ids = Array.isArray(c.extra_data?.store_ids) ? c.extra_data.store_ids : []
+          return ids.includes(rawId)
+        })
+        if (found) {
+          userId = found.user_id
+        } else {
+          return NextResponse.json({
+            ok: false,
+            error: `매장 ID ${rawId} 를 가진 사용자 없음. 진단 페이지에서 [상세] 버튼으로 진입해주세요.`,
+            hint: '/admin/coupang-diagnostics → 사용자 행 [상세] 클릭',
+          }, { status: 404 })
+        }
       }
+    } else {
+      // user_id 인데 쿠팡 연동이 안 되어 있는 케이스
+      return NextResponse.json({
+        ok: false,
+        error: `사용자 ${rawId.slice(0, 12)}... 의 쿠팡이츠 연결 없음.`,
+        hint: '사장님이 /my/platforms 에서 쿠팡이츠 연결 필요',
+      }, { status: 404 })
     }
   }
 
