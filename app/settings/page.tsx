@@ -23,23 +23,40 @@ const TOSS_CLIENT_KEY = process.env.NEXT_PUBLIC_TOSS_CLIENT_KEY || 'test_ck_docs
 
 // TABS / Tab 타입은 app/lib/settings-tabs.ts 에서 중앙 관리
 
-// /pricing 페이지와 동기화된 12개 기능 — 베타 기간 전체 무료 (price=0, 정식 요금 임시)
+// 실제 구현된 기능들 — 베타 기간 전체 무료 (price=0)
+// 2026-05-07: 미구현 기능(알림톡 / 경쟁사 분석 / 마케팅 리포트 / AI 비서) 제거
+//             실제 추가된 기능(다중 매장 / 부정 리뷰 알림 / 숏폼 / Threads / 커뮤니티) 반영
 const FEATURES: Array<{
  id: string; name: string; price: number; short: string; bg: string; color: string;
  desc: string; category: '사장님' | '마케터' | '공통'; popular?: boolean;
 }> = [
- { id: 'ai-review', name: 'AI 리뷰 자동 답글', price: 0, short: 'AI', bg: '#EFF6FF', color: '#3182F6', desc: '네이버·배민·쿠팡이츠 리뷰를 AI가 분석·자동 답글', category: '사장님', popular: true },
- { id: 'alimtalk', name: '알림톡 마케팅', price: 0, short: '알림', bg: '#FFFBEB', color: '#F59E0B', desc: '카카오 알림톡으로 단골에게 쿠폰·이벤트 발송', category: '사장님' },
- { id: 'accounting', name: 'AI 정산·행정', price: 0, short: '정산', bg: '#FFF7ED', color: '#FF8C00', desc: '매출 정리·세금계산서·경비 관리 AI 지원', category: '사장님' },
- { id: 'local-synergy', name: '로컬 시너지', price: 0, short: '로컬', bg: '#FEF2F2', color: '#EF4444', desc: '주변 가게와 QR 공동이벤트·상권 분석', category: '사장님' },
- { id: 'qr-stamp', name: 'QR 스탬프 적립', price: 0, short: 'QR', bg: '#ECFDF5', color: '#00C471', desc: '디지털 스탬프로 재방문율 향상', category: '사장님' },
- { id: 'keyword', name: '키워드 분석', price: 0, short: '키워드', bg: '#F5F3FF', color: '#8B5CF6', desc: '네이버 검색량·경쟁도·연관 키워드 실시간 분석', category: '마케터', popular: true },
- { id: 'blog-ai', name: 'AI 블로그 포스팅', price: 0, short: '블로그', bg: '#FDF2F8', color: '#EC4899', desc: 'SEO 최적화 블로그 초안 AI 작성', category: '마케터' },
- { id: 'competitor', name: '경쟁사 분석', price: 0, short: '경쟁', bg: '#F0F9FF', color: '#0EA5E9', desc: '경쟁 업체 리뷰·키워드·마케팅 자동 모니터링', category: '마케터' },
- { id: 'report', name: '마케팅 성과 리포트', price: 0, short: '리포트', bg: '#ECFDF5', color: '#10B981', desc: '유입·전환·매출 주간·월간 자동 리포트', category: '마케터' },
- { id: 'crm', name: 'CRM 고객관리', price: 0, short: 'CRM', bg: '#EEF2FF', color: '#6366F1', desc: '고객 방문·결제·등급 자동 분류, 단골 관리', category: '공통', popular: true },
- { id: 'ai-chat', name: 'AI 비서 채팅', price: 0, short: '비서', bg: '#F0FDFA', color: '#14B8A6', desc: '사장님 전용 24시간 AI 상담사', category: '공통' },
- { id: 'sns-manage', name: 'SNS 자동 포스팅', price: 0, short: 'SNS', bg: '#FFF7ED', color: '#F97316', desc: '인스타·블로그 AI 콘텐츠 예약 자동 발행', category: '공통' },
+ // ── 사장님: 운영 자동화 ──
+ { id: 'ai-review', name: 'AI 리뷰 자동 답글', price: 0, short: 'AI', bg: '#EFF6FF', color: '#3182F6',
+ desc: '네이버·배민·쿠팡이츠·요기요·카카오 통합 — AI 분석·자동 답글 (말투 4종)', category: '사장님', popular: true },
+ { id: 'review-alert', name: '부정 리뷰 알림', price: 0, short: '알림', bg: '#FFFBEB', color: '#F59E0B',
+ desc: '15분 자동 수집 · 별점 1~2점 우선 알림 (웹푸시 + 카카오톡)', category: '사장님', popular: true },
+ { id: 'multi-store', name: '다중 매장 관리', price: 0, short: '매장', bg: '#FFF7ED', color: '#F97316',
+ desc: '한 사장님이 여러 매장 운영 시 매장별 리뷰·답글 자동 분리', category: '사장님' },
+ { id: 'qr-stamp', name: 'QR 리뷰·스탬프', price: 0, short: 'QR', bg: '#ECFDF5', color: '#00C471',
+ desc: '디지털 스탬프 + 메뉴 QR + 리뷰 QR — 재방문율 향상', category: '사장님' },
+ { id: 'crm', name: 'CRM 고객관리', price: 0, short: 'CRM', bg: '#EEF2FF', color: '#6366F1',
+ desc: 'VIP·단골·블랙리스트 자동 분류 + 단체 메시지·예약 발송', category: '사장님', popular: true },
+ { id: 'accounting', name: '정산·매출 캘린더', price: 0, short: '정산', bg: '#FFF7ED', color: '#FF8C00',
+ desc: '매출 캘린더 · 세금계산서 · 근태 관리', category: '사장님' },
+
+ // ── 마케터: SEO·콘텐츠 ──
+ { id: 'keyword', name: '키워드 조회·분석', price: 0, short: '키워드', bg: '#F5F3FF', color: '#8B5CF6',
+ desc: '네이버 검색량·트렌드·콘텐츠 포화도 실시간 분석', category: '마케터', popular: true },
+ { id: 'blog-ai', name: 'AI 블로그 글 작성', price: 0, short: '블로그', bg: '#FDF2F8', color: '#EC4899',
+ desc: 'SEO 최적화 블로그 초안 + 블로그 지수 조회·분석', category: '마케터' },
+ { id: 'shortform', name: '숏폼 퍼블리셔', price: 0, short: '숏폼', bg: '#FEF2F2', color: '#EF4444',
+ desc: '틱톡·쇼츠·릴스·클립 — 1개 영상 4개 플랫폼 자동 발행', category: '마케터' },
+ { id: 'threads', name: 'Threads · 유튜브 발행', price: 0, short: 'Threads', bg: '#F0F9FF', color: '#0EA5E9',
+ desc: 'Threads + 유튜브 커뮤니티 동시 발행 + 예약 스케줄', category: '마케터' },
+
+ // ── 공통 ──
+ { id: 'community', name: '사장님 커뮤니티', price: 0, short: '커뮤', bg: '#F0FDFA', color: '#14B8A6',
+ desc: '지역·업종별 정보 공유 + 포인트 적립 (지역 시너지)', category: '공통' },
 ]
 
 const CATEGORY_COLOR: Record<string, string> = {
@@ -1798,14 +1815,14 @@ function PlanTab() {
  <p className="text-[#4E5968]">정식 요금제 안내는 <Link href="/pricing" className="underline font-semibold text-[#3182F6]">요금제 페이지</Link>에서 미리 확인하실 수 있어요. 금액은 임시이며, 베타 종료 전 사전 공지드립니다.</p>
  </div>
  <div className="flex items-center justify-between border-t border-[#F2F4F6] pt-4">
- <p className="text-xs text-[#8B95A1]">포함: 리뷰·CRM·QR·키워드·블로그·SNS 등 12개 전체</p>
+ <p className="text-xs text-[#8B95A1]">포함: 리뷰·CRM·QR·키워드·블로그·숏폼·Threads 등 {FEATURES.length}개 전체</p>
  {!cancelled && <button onClick={() => setShowCancelModal(true)} className="text-xs text-red-400 hover:text-red-600 underline">해지하기</button>}
  </div>
  </div>
  {/* 1) 기능 선택 — 결제 수단보다 위에 배치 */}
  <div>
  <div className="flex items-center justify-between mb-3">
- <h3 className="font-bold text-[#191F28]">기능 선택 · 12개</h3>
+ <h3 className="font-bold text-[#191F28]">기능 선택 · {FEATURES.length}개</h3>
  <span className="text-xs text-[#8B95A1]">베타 기간 전체 무료</span>
  </div>
  <div className="flex gap-2 mb-3 flex-wrap">
