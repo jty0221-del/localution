@@ -11,7 +11,7 @@ import { requireUser } from '@/app/lib/userAuth'
 import { rateLimit, getClientIp } from '@/app/lib/rate-limit'
 
 export const dynamic = 'force-dynamic'
-export const maxDuration = 60
+export const maxDuration = 300  // Vercel Pro 최대 — 긴 블로그 글 생성 60~120초 소요
 
 type Track = 'A' | 'B' | 'C' | 'D' | 'E' | 'F'
 type Tone = 'professional' | 'friendly' | 'expert' | 'storyteller' | 'witty'
@@ -331,7 +331,7 @@ ${length}자 내외
  system: systemPrompt,
  messages: [{ role: 'user', content: userMsg }],
  }),
- signal: AbortSignal.timeout(55000),
+ signal: AbortSignal.timeout(280000),  // 280초 (maxDuration 300 보다 약간 짧게)
  })
 
  if (!apiRes.ok) {
