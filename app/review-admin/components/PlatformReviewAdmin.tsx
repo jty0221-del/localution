@@ -1740,11 +1740,81 @@ function CoupangStorePicker({ onPicked }: { onPicked: () => void | Promise<void>
  </p>
  )}
  {!loading && stores.length === 0 && !errorMsg && (
- <p className="text-xs text-[#9A3412]">감지된 매장이 없어요. 1:1 문의 부탁드려요.</p>
+ <div className="text-xs text-[#9A3412] space-y-2">
+ <p>자동 감지된 매장이 없어요. 매장 URL 을 직접 붙여넣어 주세요:</p>
+ <button
+ onClick={async () => {
+ const input = prompt(
+ '쿠팡이츠 매장 URL 을 붙여넣어 주세요\n\n' +
+ '여러 매장은 한 줄씩 입력:\n\n' +
+ '예: https://store.coupangeats.com/merchant/management/reviews/950251\n' +
+ 'https://store.coupangeats.com/merchant/management/reviews/950254\n\n' +
+ '쿠팡이츠 사장님 사이트의 리뷰 페이지 주소를 그대로 복사해 주세요.'
+ )
+ if (!input) return
+ const tokens = input.split(/[\n,]+/).map(s => s.trim()).filter(Boolean)
+ const ids: string[] = []
+ for (const t of tokens) {
+ const m = t.match(/(?:reviews|store|stores)\/(\d{4,})/) || t.match(/^(\d{4,})$/)
+ if (m && m[1] && !ids.includes(m[1])) ids.push(m[1])
+ }
+ if (ids.length === 0) {
+ alert('매장 ID 를 추출하지 못했어요. 다시 확인해 주세요.')
+ return
+ }
+ if (!confirm(`${ids.length}개 매장 등록 + 6개월치 수집을 시작하시겠어요?\n\n${ids.join('\n')}`)) return
+ setPicking(ids[0])
+ try {
+ const r = await fetch('/api/place/coupang-stores', {
+ method: 'POST',
+ headers: { 'Content-Type': 'application/json' },
+ body: JSON.stringify({ store_id: ids[0], store_ids: ids }),
+ })
+ const j = await r.json()
+ if (!j.ok) { setErrorMsg(j.error || '저장 실패'); return }
+ setOpen(false)
+ toast.success(`매장 ${ids.length}개 등록 완료 — 6개월치 수집 1~3분`)
+ await onPicked()
+ } catch (e: any) { setErrorMsg(e?.message || '오류') }
+ finally { setPicking(null) }
+ }}
+ className="px-3 py-2 rounded-lg bg-[#F97316] text-white text-xs font-bold hover:bg-[#EA580C]"
+ >
+ 매장 URL 직접 입력
+ </button>
+ </div>
  )}
  {stores.length > 0 && (
  <div className="space-y-2">
- <p className="text-xs text-[#9A3412] mb-2">사장님 계정의 매장 목록입니다. 리뷰를 가져올 매장을 선택해주세요:</p>
+ <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
+ <p className="text-xs text-[#9A3412]">사장님 계정의 매장 목록입니다. 리뷰를 가져올 매장을 선택해주세요:</p>
+ <button
+ onClick={async () => {
+ if (!confirm(`전체 ${stores.length}개 매장을 모두 등록 + 6개월치 수집 시작하시겠어요?`)) return
+ setPicking(stores[0].storeId)
+ try {
+ const r = await fetch('/api/place/coupang-stores', {
+ method: 'POST',
+ headers: { 'Content-Type': 'application/json' },
+ body: JSON.stringify({
+ store_id: stores[0].storeId,
+ store_ids: stores.map(s => s.storeId),
+ }),
+ })
+ const j = await r.json()
+ if (!j.ok) { setErrorMsg(j.error || '저장 실패'); return }
+ setOpen(false)
+ toast.success(j.message || '전체 매장 등록 완료')
+ await onPicked()
+ } catch (e: any) { setErrorMsg(e?.message || '오류') }
+ finally { setPicking(null) }
+ }}
+ disabled={picking !== null}
+ className="px-2.5 py-1 rounded-lg bg-[#9A3412] text-white text-[11px] font-bold hover:bg-[#7C2D12] disabled:opacity-50 flex-shrink-0"
+ >
+ 전체 {stores.length}개 한꺼번에
+ </button>
+ </div>
  {stores.map(s => (
  <button
  key={s.storeId}
