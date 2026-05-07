@@ -144,6 +144,34 @@ export default function CoupangDiagnosticsPage() {
     finally { setFetchingUser(null) }
   }, [load])
 
+  const testFetch = useCallback(async (userId: string) => {
+    const sid = prompt('테스트할 storeId 입력 (예: 779523)\n\n저장된 쿠키로 즉시 fetch — interpretation 결과로 storeId 유효성 확인')
+    if (!sid || !/^\d+$/.test(sid.trim())) return
+    setFetchingUser(userId); setFetchResult(null)
+    try {
+      const r = await fetch(`/api/admin/coupang-test-fetch?user_id=${userId}&store_id=${sid.trim()}&days=30`, { cache: 'no-store' })
+      const j = await r.json()
+      if (j.review_count > 0) {
+        const msg = `${j.interpretation}\n\n샘플:\n별점 ${j.sample?.rating}\n"${j.sample?.comment}"\n\n매장 등록하시겠어요?`
+        if (confirm(msg)) {
+          await fetch('/api/admin/set-coupang-stores', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ user_id: userId, store_ids: [sid.trim()], primary_store_id: sid.trim() }),
+          })
+          await fetch('/api/admin/trigger-fetch?platform=coupangeats&user_id=' + userId + '&days=180', { cache: 'no-store' })
+          setFetchResult(`매장 ${sid} 등록 + 180일치 fetch 시작`)
+          setTimeout(() => load(), 5000)
+        } else {
+          setFetchResult(j.interpretation)
+        }
+      } else {
+        setFetchResult(j.interpretation + ` (HTTP ${j.status})`)
+      }
+    } catch (e: any) { setFetchResult('오류: ' + (e?.message || 'unknown')) }
+    finally { setFetchingUser(null) }
+  }, [load])
+
   const discoverStores = useCallback(async (userId: string) => {
     setFetchingUser(userId); setFetchResult(null)
     try {
@@ -463,7 +491,7 @@ export default function CoupangDiagnosticsPage() {
 
             {/* 사용자 목록 — 모바일: 카드 / PC: 표 */}
             <div className="md:hidden space-y-2">
-              {filteredUsers.map(u => <UserCard key={u.user_id} u={u} fetchingUser={fetchingUser} onFetch={triggerManualFetch} onRetryLogin={retryLogin} onSetStores={setStoreIds} onDiscover={discoverStores} />)}
+              {filteredUsers.map(u => <UserCard key={u.user_id} u={u} fetchingUser={fetchingUser} onFetch={triggerManualFetch} onRetryLogin={retryLogin} onSetStores={setStoreIds} onDiscover={discoverStores} onTestFetch={testFetch} />)}
               {filteredUsers.length === 0 && (
                 <div className="p-6 text-center text-sm text-[#8B95A1] bg-white rounded-2xl">조건에 맞는 사용자 없음</div>
               )}
@@ -536,6 +564,12 @@ export default function CoupangDiagnosticsPage() {
                             title="저장된 쿠키로 whoami 호출 → 모든 매장 발견 + 자동 등록">
                             매장발견
                           </button>
+                          <button onClick={() => testFetch(u.user_id)}
+                            disabled={fetchingUser === u.user_id}
+                            className="text-[10px] font-bold px-2 py-1.5 rounded bg-[#F59E0B] text-white hover:bg-[#D97706] disabled:opacity-50 mr-1"
+                            title="특정 storeId 직접 입력 → 즉시 fetch 테스트 (워커 거치지 X)">
+                            테스트
+                          </button>
                           <button onClick={() => setStoreIds(u.user_id, u.all_store_ids || [], u.store_id)}
                             disabled={fetchingUser === u.user_id}
                             className="text-[10px] font-bold px-2 py-1.5 rounded bg-[#059669] text-white hover:bg-[#047857] disabled:opacity-50 mr-1"
@@ -580,13 +614,14 @@ export default function CoupangDiagnosticsPage() {
 }
 
 // ── 모바일 카드 ──
-function UserCard({ u, fetchingUser, onFetch, onRetryLogin, onSetStores, onDiscover }: {
+function UserCard({ u, fetchingUser, onFetch, onRetryLogin, onSetStores, onDiscover, onTestFetch }: {
   u: User
   fetchingUser: string | null
   onFetch: (uid: string, days: number) => void
   onRetryLogin: (uid: string) => void
   onSetStores: (uid: string, currentIds: string[], currentPrimary: string | null) => void
   onDiscover: (uid: string) => void
+  onTestFetch: (uid: string) => void
 }) {
   return (
     <div className="bg-white rounded-2xl shadow-sm p-3.5 border-l-4" style={{ borderLeftColor: ISSUE_COLOR[u.likely_issue] || '#6B7280' }}>
@@ -654,11 +689,18 @@ function UserCard({ u, fetchingUser, onFetch, onRetryLogin, onSetStores, onDisco
         </div>
       )}
 
-      <button onClick={() => onDiscover(u.user_id)}
-        disabled={fetchingUser === u.user_id}
-        className="w-full text-xs font-bold py-2.5 rounded-lg bg-[#0891B2] text-white hover:bg-[#0E7490] disabled:opacity-50 mb-2">
-        {fetchingUser === u.user_id ? '...' : '매장 자동 발견 (가장 먼저 시도)'}
-      </button>
+      <div className="grid grid-cols-2 gap-2 mb-2">
+        <button onClick={() => onDiscover(u.user_id)}
+          disabled={fetchingUser === u.user_id}
+          className="text-xs font-bold py-2.5 rounded-lg bg-[#0891B2] text-white hover:bg-[#0E7490] disabled:opacity-50">
+          {fetchingUser === u.user_id ? '...' : '매장 자동 발견'}
+        </button>
+        <button onClick={() => onTestFetch(u.user_id)}
+          disabled={fetchingUser === u.user_id}
+          className="text-xs font-bold py-2.5 rounded-lg bg-[#F59E0B] text-white hover:bg-[#D97706] disabled:opacity-50">
+          storeID 직접 테스트
+        </button>
+      </div>
       <div className="grid grid-cols-2 gap-2 mb-2">
         <button onClick={() => onSetStores(u.user_id, u.all_store_ids || [], u.store_id)}
           disabled={fetchingUser === u.user_id}
