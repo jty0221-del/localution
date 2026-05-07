@@ -31,10 +31,10 @@ export async function GET(req: NextRequest) {
  for (const platform of PLATFORMS) {
  results[platform] = { queued: 0, failed: 0, errors: [] }
 
- // 해당 플랫폼 연결된 유저 목록
+ // 해당 플랫폼 연결된 유저 목록 (extra_data 도 가져와서 다중 매장 지원)
  const { data: creds, error } = await svc
  .from('platform_credentials')
- .select('user_id, platform_store_id, last_login_status')
+ .select('user_id, platform_store_id, last_login_status, extra_data')
  .eq('platform', platform)
  .or('last_login_status.neq.disabled,last_login_status.is.null')
 
@@ -58,22 +58,30 @@ export async function GET(req: NextRequest) {
  continue
  }
 
- try {
- // 15분 단위 dedupe — 동일 사용자가 같은 15분 윈도우에 중복 enqueue 안 됨
- const quarterBucket = Math.floor(Date.now() / 900_000)
- const jobId = `cron_${platform}_${cred.user_id}_${quarterBucket}`
- // v1.6k: 'unknown' string sentinel 제거 — 빈 string 이면 Worker 가 auto-detect
- const validShopId = cred.platform_store_id && /^\d+$/.test(String(cred.platform_store_id))
+ // 다중 매장 지원: extra_data.store_ids 배열이 있으면 각 매장별로 enqueue
+ // 없으면 platform_store_id 1개만 (기존 동작)
+ const extraData = (cred.extra_data as Record<string, unknown>) || {}
+ const rawStoreIds = Array.isArray(extraData.store_ids) ? extraData.store_ids as any[] : []
+ const validIdsFromArray = rawStoreIds.map(s => String(s).trim()).filter(s => /^\d+$/.test(s))
+ const fallbackId = cred.platform_store_id && /^\d+$/.test(String(cred.platform_store_id))
  ? String(cred.platform_store_id) : ''
- // 15분 cron 은 days_back=1 (최근 24h 만) — 트래픽 절감 + 신규 리뷰 빠른 반영
- // 사장님이 처음 수동 트리거 시 (collect API) 180일치 fetch 따로 진행됨
+ const storeIdsToFetch: string[] = validIdsFromArray.length > 0
+ ? validIdsFromArray
+ : (fallbackId ? [fallbackId] : [''])
+
+ for (const shopNo of storeIdsToFetch) {
+ try {
+ // 15분 단위 dedupe — 매장별로 separate jobId
+ const quarterBucket = Math.floor(Date.now() / 900_000)
+ const storeKey = shopNo || 'auto-detect'
+ const jobId = `cron_${platform}_${cred.user_id}_${storeKey}_${quarterBucket}`
  const jobResult = await enqueuePlatformJob({
  platform,
  action: 'fetch_reviews',
  userId: cred.user_id,
- storeId: validShopId || 'auto-detect',
- payload: validShopId
- ? { shop_no: validShopId, days_back: 1, triggered_by: 'cron_15min' }
+ storeId: shopNo || 'auto-detect',
+ payload: shopNo
+ ? { shop_no: shopNo, days_back: 1, triggered_by: 'cron_15min' }
  : { days_back: 1, triggered_by: 'cron_15min' },
  }, { jobId })
 
@@ -81,14 +89,14 @@ export async function GET(req: NextRequest) {
  results[platform].queued++
  } else {
  results[platform].failed++
- results[platform].errors.push(cred.user_id + ': ' + jobResult.error)
+ results[platform].errors.push(cred.user_id + '/' + storeKey + ': ' + jobResult.error)
  }
 
- // 연속 enqueue 간격
  await new Promise(r => setTimeout(r, GAP_MS))
  } catch (e: any) {
  results[platform].failed++
- results[platform].errors.push(cred.user_id + ': ' + (e?.message || String(e)))
+ results[platform].errors.push(cred.user_id + '/' + shopNo + ': ' + (e?.message || String(e)))
+ }
  }
  }
  }
