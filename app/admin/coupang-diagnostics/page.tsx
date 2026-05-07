@@ -168,19 +168,29 @@ export default function CoupangDiagnosticsPage() {
       const r = await fetch(`/api/admin/coupang-test-fetch?user_id=${userId}&store_id=${sid.trim()}&days=30`, { cache: 'no-store' })
       const j = await r.json()
       if (j.review_count > 0) {
-        const msg = `${j.interpretation}\n\n샘플:\n별점 ${j.sample?.rating}\n"${j.sample?.comment}"\n\n매장 등록하시겠어요?`
-        if (confirm(msg)) {
-          await fetch('/api/admin/set-coupang-stores', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ user_id: userId, store_ids: [sid.trim()], primary_store_id: sid.trim() }),
-          })
-          await fetch('/api/admin/trigger-fetch?platform=coupangeats&user_id=' + userId + '&days=180', { cache: 'no-store' })
-          setFetchResult(`매장 ${sid} 등록 + 180일치 fetch 시작`)
-          setTimeout(() => load(), 5000)
-        } else {
+        const nameInput = prompt(
+          `${j.interpretation}\n\n샘플:\n별점 ${j.sample?.rating}\n"${j.sample?.comment}"\n\n` +
+          `매장명도 함께 등록하시겠어요? (선택)\n예: 김치찜 참 잘하는집 옥련점\n\n` +
+          `비워두면 매장명 없이 등록됩니다. 취소하면 등록 안 함.`,
+          ''
+        )
+        if (nameInput === null) {
           setFetchResult(j.interpretation)
+          return
         }
+        await fetch('/api/admin/set-coupang-stores', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            user_id: userId,
+            store_ids: [sid.trim()],
+            primary_store_id: sid.trim(),
+            store_name: nameInput.trim() || undefined,
+          }),
+        })
+        await fetch('/api/admin/trigger-fetch?platform=coupangeats&user_id=' + userId + '&days=180', { cache: 'no-store' })
+        setFetchResult(`매장 ${sid}${nameInput.trim() ? ' (' + nameInput.trim() + ')' : ''} 등록 + 180일치 fetch 시작`)
+        setTimeout(() => load(), 5000)
       } else {
         setFetchResult(j.interpretation + ` (HTTP ${j.status})`)
       }
@@ -242,12 +252,26 @@ export default function CoupangDiagnosticsPage() {
     const ids = input.split(',').map(s => s.trim()).filter(s => /^\d+$/.test(s))
     if (ids.length === 0) { alert('숫자 ID 최소 1개 입력 필요'); return }
 
+    // 매장명도 함께 입력 받기 (선택)
+    const nameInput = prompt(
+      `매장명도 등록하시겠어요? (선택)\n\n` +
+      `예: 김치찜 참 잘하는집 옥련점\n\n` +
+      `비워두면 매장명은 그대로 유지됩니다.`,
+      ''
+    )
+    const storeName = (nameInput || '').trim()
+
     setFetchingUser(userId); setFetchResult(null)
     try {
       const r = await fetch('/api/admin/set-coupang-stores', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ user_id: userId, store_ids: ids, primary_store_id: ids[0] }),
+        body: JSON.stringify({
+          user_id: userId,
+          store_ids: ids,
+          primary_store_id: ids[0],
+          store_name: storeName || undefined,
+        }),
       })
       const j = await r.json()
       setFetchResult(j.ok ? j.message : '실패: ' + (j.error || ''))
