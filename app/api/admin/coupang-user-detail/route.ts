@@ -19,10 +19,46 @@ export async function GET(req: NextRequest) {
   if (!admin.ok) return NextResponse.json({ ok: false, error: admin.message }, { status: admin.status })
 
   const { searchParams } = new URL(req.url)
-  const userId = searchParams.get('user_id') || ''
-  if (!userId) return NextResponse.json({ ok: false, error: 'user_id 필수' }, { status: 400 })
+  const rawId = searchParams.get('user_id') || ''
+  if (!rawId) return NextResponse.json({ ok: false, error: 'user_id 필수' }, { status: 400 })
 
   const svc = createServiceClient()
+
+  // user_id 가 UUID 가 아니면 storeId 로 간주하고 → 해당 storeId 를 가진 user 찾기
+  let userId = rawId
+  const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(rawId)
+  if (!isUuid) {
+    // platform_store_id 매치
+    const { data: bySid } = await svc
+      .from('platform_credentials')
+      .select('user_id')
+      .eq('platform', 'coupangeats')
+      .eq('platform_store_id', rawId)
+      .limit(1)
+      .maybeSingle()
+    if (bySid?.user_id) {
+      userId = bySid.user_id
+    } else {
+      // extra_data.store_ids 배열 매치 (다중 매장)
+      const { data: allCreds } = await svc
+        .from('platform_credentials')
+        .select('user_id, extra_data')
+        .eq('platform', 'coupangeats')
+      const found = (allCreds || []).find((c: any) => {
+        const ids = Array.isArray(c.extra_data?.store_ids) ? c.extra_data.store_ids : []
+        return ids.includes(rawId)
+      })
+      if (found) {
+        userId = found.user_id
+      } else {
+        return NextResponse.json({
+          ok: false,
+          error: `매장 ID ${rawId} 를 가진 사용자 없음. 먼저 진단 페이지에서 user_id 로 진입해주세요.`,
+          hint: '/admin/coupang-diagnostics 에서 사용자별 [상세] 버튼 클릭',
+        }, { status: 404 })
+      }
+    }
+  }
 
   // 1) 자격증명 + extra_data
   const { data: cred } = await svc
@@ -97,6 +133,7 @@ export async function GET(req: NextRequest) {
   return NextResponse.json({
     ok: true,
     user_id: userId,
+    resolved_from: rawId !== userId ? rawId : undefined,
     account_id: cred.account_id,
     primary_store_id: cred.platform_store_id,
     primary_store_name: cred.platform_store_name,
