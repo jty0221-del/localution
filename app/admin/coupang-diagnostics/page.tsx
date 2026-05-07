@@ -12,7 +12,7 @@ export const dynamic = 'force-dynamic'
 import { useEffect, useState, useCallback } from 'react'
 import {
   RefreshCw, AlertTriangle, CheckCircle2, XCircle,
-  Server, Cookie, MessageSquare, Activity, Clock,
+  Server, Cookie, MessageSquare, Activity, Clock, Zap, PlayCircle,
 } from 'lucide-react'
 
 type User = {
@@ -74,11 +74,18 @@ function ageBadge(hours: number | null): string {
   return Math.round(hours / 24) + 'd'
 }
 
+type ProbeStep = { name: string; ok: boolean; latency_ms: number; detail?: any; error?: string; result?: any }
+type ProbeResult = { ok: boolean; generated_at: string; steps: ProbeStep[]; failed_steps: string[]; summary: string }
+
 export default function CoupangDiagnosticsPage() {
   const [data, setData] = useState<Diag | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [filter, setFilter] = useState<string>('all')
+  const [probe, setProbe] = useState<ProbeResult | null>(null)
+  const [probing, setProbing] = useState(false)
+  const [fetchingUser, setFetchingUser] = useState<string | null>(null)
+  const [fetchResult, setFetchResult] = useState<string | null>(null)
 
   const load = useCallback(async () => {
     setLoading(true); setError(null)
@@ -93,6 +100,30 @@ export default function CoupangDiagnosticsPage() {
   }, [])
 
   useEffect(() => { load() }, [load])
+
+  const runProbe = useCallback(async () => {
+    setProbing(true); setProbe(null)
+    try {
+      const r = await fetch('/api/admin/coupang-system-probe', { cache: 'no-store' })
+      const j = await r.json()
+      setProbe(j)
+    } catch (e: any) {
+      setProbe({ ok: false, generated_at: new Date().toISOString(), steps: [], failed_steps: [], summary: e?.message || 'probe failed' })
+    } finally { setProbing(false) }
+  }, [])
+
+  const triggerManualFetch = useCallback(async (userId: string, days: number) => {
+    if (!confirm(`${userId.slice(0, 8)} 사용자의 쿠팡 리뷰 ${days}일치를 지금 fetch 하시겠어요?`)) return
+    setFetchingUser(userId); setFetchResult(null)
+    try {
+      const r = await fetch('/api/admin/trigger-fetch?platform=coupangeats&user_id=' + userId + '&days=' + days, { cache: 'no-store' })
+      const j = await r.json()
+      setFetchResult(j.ok ? '큐 등록 완료 — ' + (j.jobId || '') : '실패: ' + (j.error || ''))
+      setTimeout(() => load(), 3000)
+    } catch (e: any) {
+      setFetchResult('오류: ' + (e?.message || 'unknown'))
+    } finally { setFetchingUser(null) }
+  }, [load])
 
   const filteredUsers = data?.users.filter(u => filter === 'all' || u.likely_issue === filter) || []
 
@@ -146,6 +177,52 @@ export default function CoupangDiagnosticsPage() {
               </div>
             )}
           </div>
+
+          {/* 시스템 활성 테스트 */}
+          <div className="mb-4 p-4 rounded-2xl bg-white shadow-sm">
+            <div className="flex items-center justify-between mb-3">
+              <h2 className="text-sm font-bold text-[#191F28] flex items-center gap-2">
+                <Zap size={16} className="text-[#F59E0B]" strokeWidth={2.5} />
+                시스템 활성 테스트
+              </h2>
+              <button onClick={runProbe} disabled={probing}
+                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#F59E0B] text-white text-xs font-bold hover:bg-[#D97706] disabled:opacity-50">
+                <PlayCircle size={14} className={probing ? 'animate-pulse' : ''} strokeWidth={2.5} />
+                {probing ? '실행 중...' : '지금 테스트'}
+              </button>
+            </div>
+            <p className="text-[11px] text-[#8B95A1] mb-3">
+              proxy / Redis / 암호화 / Supabase / 쿠팡 endpoint 7단계 능동 검증 (5~15초)
+            </p>
+
+            {probe && (
+              <div className="space-y-2">
+                <div className={'p-2.5 rounded-lg text-xs font-bold ' + (probe.ok ? 'bg-emerald-50 text-emerald-800' : 'bg-red-50 text-red-800')}>
+                  {probe.summary}
+                </div>
+                <div className="space-y-1">
+                  {probe.steps.map((s, i) => (
+                    <div key={i} className={'p-2 rounded-lg flex items-start gap-2 text-[11px] ' + (s.ok ? 'bg-emerald-50' : 'bg-red-50')}>
+                      {s.ok
+                        ? <CheckCircle2 size={14} className="text-emerald-600 flex-shrink-0 mt-0.5" strokeWidth={2.5} />
+                        : <XCircle size={14} className="text-red-600 flex-shrink-0 mt-0.5" strokeWidth={2.5} />}
+                      <div className="flex-1 min-w-0">
+                        <div className="font-bold text-[#191F28]">{s.name} <span className="text-[#8B95A1] font-normal">({s.latency_ms}ms)</span></div>
+                        {s.error && <div className="text-red-700 mt-0.5">{s.error}</div>}
+                        {s.result && <div className="text-[#4E5968] mt-0.5 font-mono text-[10px] break-all">{JSON.stringify(s.result)}</div>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+
+          {fetchResult && (
+            <div className="mb-4 p-3 rounded-xl bg-blue-50 border border-blue-200 text-xs text-blue-900">
+              <strong>수동 fetch 결과:</strong> {fetchResult}
+            </div>
+          )}
 
           {/* 큐 상태 */}
           <div className="mb-4 p-4 rounded-2xl bg-white shadow-sm">
@@ -252,6 +329,7 @@ export default function CoupangDiagnosticsPage() {
                     <th className="px-3 py-2 text-left">로그인</th>
                     <th className="px-3 py-2 text-right">리뷰</th>
                     <th className="px-3 py-2 text-left">최근 수집</th>
+                    <th className="px-3 py-2 text-center">조치</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -294,10 +372,22 @@ export default function CoupangDiagnosticsPage() {
                           <div className="text-[#8B95A1]">{ageBadge(u.collected_age_hours)} 전</div>
                         )}
                       </td>
+                      <td className="px-3 py-2 text-center">
+                        <button onClick={() => triggerManualFetch(u.user_id, 14)}
+                          disabled={fetchingUser === u.user_id}
+                          className="text-[10px] font-bold px-2 py-1 rounded bg-[#3182F6] text-white hover:bg-[#1B64DA] disabled:opacity-50 mr-1">
+                          {fetchingUser === u.user_id ? '...' : '14d'}
+                        </button>
+                        <button onClick={() => triggerManualFetch(u.user_id, 180)}
+                          disabled={fetchingUser === u.user_id}
+                          className="text-[10px] font-bold px-2 py-1 rounded bg-[#7C3AED] text-white hover:bg-[#6D28D9] disabled:opacity-50">
+                          180d
+                        </button>
+                      </td>
                     </tr>
                   ))}
                   {filteredUsers.length === 0 && (
-                    <tr><td colSpan={8} className="px-3 py-6 text-center text-[#8B95A1]">조건에 맞는 사용자 없음</td></tr>
+                    <tr><td colSpan={9} className="px-3 py-6 text-center text-[#8B95A1]">조건에 맞는 사용자 없음</td></tr>
                   )}
                 </tbody>
               </table>
