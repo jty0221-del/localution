@@ -11,12 +11,12 @@
 
 export const dynamic = 'force-dynamic'
 
-import { useEffect, useState, useCallback, use } from 'react'
+import { useEffect, useState, useCallback } from 'react'
+import { useParams, useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   RefreshCw, ArrowLeft, Star, Store, MessageSquare,
-  Cookie, CheckCircle2, XCircle, AlertTriangle, Edit2, Trash2,
-  PlayCircle, Zap, Camera,
+  Edit2, Trash2, Camera,
 } from 'lucide-react'
 
 type StoreStat = {
@@ -75,8 +75,12 @@ function maskId(id: string): string {
   return id.slice(0, 2) + '*'.repeat(id.length - 4) + id.slice(-2)
 }
 
-export default function CoupangUserDetailPage({ params }: { params: Promise<{ userId: string }> }) {
-  const { userId } = use(params)
+export default function CoupangUserDetailPage() {
+  const params = useParams<{ userId: string }>()
+  const router = useRouter()
+  const urlUserId = params?.userId || ''
+  // resolved user_id (storeId 로 들어온 경우 server 가 실제 user_id 로 변환)
+  const [userId, setUserId] = useState(urlUserId)
   const [data, setData] = useState<Detail | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -87,13 +91,20 @@ export default function CoupangUserDetailPage({ params }: { params: Promise<{ us
   const load = useCallback(async () => {
     setLoading(true); setError(null)
     try {
-      const r = await fetch('/api/admin/coupang-user-detail?user_id=' + userId, { cache: 'no-store' })
+      const r = await fetch('/api/admin/coupang-user-detail?user_id=' + urlUserId, { cache: 'no-store' })
       const j = await r.json()
       if (!j.ok) { setError(j.error || 'failed'); return }
       setData(j)
+      // 서버가 storeId → 실제 user_id 로 변환했으면 URL 갱신
+      if (j.resolved_from && j.user_id && j.user_id !== urlUserId) {
+        setUserId(j.user_id)
+        router.replace('/admin/coupang/' + j.user_id)
+      } else {
+        setUserId(j.user_id || urlUserId)
+      }
     } catch (e: any) { setError(e?.message || 'fetch error') }
     finally { setLoading(false) }
-  }, [userId])
+  }, [urlUserId, router])
 
   useEffect(() => { load() }, [load])
 
