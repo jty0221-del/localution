@@ -314,6 +314,17 @@ export default function ConnectPlatformPage() {
  리뷰 <strong className="text-[#191F28]">{coupangReviewCount}개</strong>를 가져왔어요.<br />
  지금부터 자동으로 새 리뷰가 들어와요.
  </p>
+ {coupangReviewCount === 0 && (
+ <div className="mt-4 rounded-xl bg-amber-50 border border-amber-200 p-3 text-[12px] text-amber-900 leading-relaxed flex items-start gap-2">
+ <AlertTriangle size={14} className="text-amber-600 flex-shrink-0 mt-0.5" strokeWidth={2.5} />
+ <div>
+ <strong>리뷰 0건 — 가능한 원인:</strong><br />
+ 1) 최근 14일간 새 리뷰가 없는 매장<br />
+ 2) 매장이 여러 개인데 다른 매장으로 연결됨<br /><br />
+ 매장 ID 가 잘못 잡힌 경우 사장님께서 직접 확인하시거나 1:1 문의 부탁드려요.
+ </div>
+ </div>
+ )}
  </>
  )}
  {isFailed && (
