@@ -184,7 +184,7 @@ export default function AdminDashboardPage() {
  tickFormatter={(v) => v >= 1_000_000 ? `${(v/1_000_000).toFixed(1)}M` : `${Math.round(v/1000)}K`}
  />
  <Tooltip
- formatter={(v: number) => [`₩${v.toLocaleString()}`, 'MRR']}
+ formatter={(v: any) => [`₩${Number(v || 0).toLocaleString()}`, 'MRR']}
  contentStyle={{ border: '1px solid #E5E8EB', borderRadius: 12, fontSize: 12 }}
  />
  <Line
@@ -228,7 +228,7 @@ export default function AdminDashboardPage() {
  />
  <YAxis stroke="#8B95A1" fontSize={11} tickLine={false} axisLine={false} allowDecimals={false} />
  <Tooltip
- formatter={(v: number) => [`${v}건`, '활성']}
+ formatter={(v: any) => [`${v}건`, '활성']}
  contentStyle={{ border: '1px solid #E5E8EB', borderRadius: 12, fontSize: 12 }}
  />
  <Bar dataKey="count" radius={[6, 6, 0, 0]}>
