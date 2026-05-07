@@ -58,7 +58,7 @@ export async function POST(req: NextRequest) {
 
   const existingExtra = (cred.extra_data as Record<string, unknown>) || {}
   // store_meta — 매장별 ID + 이름 매핑 (중복 제거 + meta 우선)
-  const finalMeta = storeIds.map(id => {
+  const finalMeta = storeIds.map((id: string) => {
     const found = metaList.find((m: { id: string; name: string | null }) => m.id === id)
     return { id, name: found?.name || null }
   })
