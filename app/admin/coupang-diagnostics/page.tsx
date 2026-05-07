@@ -10,10 +10,12 @@
 export const dynamic = 'force-dynamic'
 
 import { useEffect, useState, useCallback } from 'react'
+import Link from 'next/link'
 import {
   RefreshCw, CheckCircle2, XCircle,
   Server, Activity, Clock, Zap, PlayCircle,
   Cookie, MessageSquare, User as UserIcon, Store,
+  ExternalLink,
 } from 'lucide-react'
 
 type StoreMeta = { id: string; name: string | null }
@@ -633,6 +635,11 @@ export default function CoupangDiagnosticsPage() {
                           )}
                         </td>
                         <td className="px-3 py-2.5 text-center whitespace-nowrap">
+                          <Link href={'/admin/coupang/' + u.user_id}
+                            className="inline-flex items-center gap-0.5 text-[10px] font-bold px-2 py-1.5 rounded bg-[#191F28] text-white hover:bg-[#0F172A] mr-1"
+                            title="사용자 상세 페이지 — 매장별 리뷰·미답변·관리 액션">
+                            상세 <ExternalLink size={10} strokeWidth={2.5} />
+                          </Link>
                           <button onClick={() => discoverStores(u.user_id)}
                             disabled={fetchingUser === u.user_id}
                             className="text-[10px] font-bold px-2 py-1.5 rounded bg-[#0891B2] text-white hover:bg-[#0E7490] disabled:opacity-50 mr-1"
@@ -776,6 +783,11 @@ function UserCard({ u, fetchingUser, onFetch, onRetryLogin, onSetStores, onDisco
         </div>
       )}
 
+      <Link href={'/admin/coupang/' + u.user_id}
+        className="w-full inline-flex items-center justify-center gap-1.5 text-xs font-bold py-2.5 rounded-lg bg-[#191F28] text-white hover:bg-[#0F172A] mb-2">
+        상세 보기 (매장·리뷰·관리)
+        <ExternalLink size={12} strokeWidth={2.5} />
+      </Link>
       <div className="grid grid-cols-2 gap-2 mb-2">
         <button onClick={() => onDiscover(u.user_id)}
           disabled={fetchingUser === u.user_id}
