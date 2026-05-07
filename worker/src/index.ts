@@ -158,6 +158,12 @@ const worker = new Worker<PlatformJobData>(
     concurrency: 1,   // 브라우저 메모리 압박 방지 — 동시 실행 금지 (1GB 머신)
     removeOnComplete: { count: 500 },
     removeOnFail: { count: 1000 },
+    // ── stall 보호 (쿠팡 fetch 1~3분, 답글 30초 이상 가능) ──
+    // 기본값 (lockDuration 30s) 은 너무 짧아 정상 잡도 stalled 판정됨
+    lockDuration: 300_000,        // 5분 — lock 갱신 주기 (long-running fetch 대응)
+    lockRenewTime: 60_000,        // 1분마다 lock 갱신
+    stalledInterval: 60_000,      // 1분마다 stalled 체크
+    maxStalledCount: 2,           // 2회 stall 까지 허용 (Railway SIGTERM 대비)
   }
 )
 
