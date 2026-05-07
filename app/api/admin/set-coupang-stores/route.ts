@@ -20,10 +20,26 @@ export async function POST(req: NextRequest) {
   let body: any = {}
   try { body = await req.json() } catch {}
   const userId = String(body.user_id || '').trim()
+
+  // store_meta: [{id, name}, ...] 우선 — 다중 매장 + 각 매장명 함께 저장
+  // store_ids: ['...'], store_name: '...' — 기존 호환
+  const rawMeta = Array.isArray(body.store_meta) ? body.store_meta : []
+  const metaList = rawMeta
+    .map((m: any) => ({
+      id: String(m?.id || m?.storeId || '').trim(),
+      name: String(m?.name || m?.storeName || '').trim() || null,
+    }))
+    .filter((m: any) => /^\d+$/.test(m.id))
+
   const rawIds = Array.isArray(body.store_ids) ? body.store_ids : []
-  const storeIds = rawIds.map((s: any) => String(s).trim()).filter((s: string) => /^\d+$/.test(s))
+  const fallbackIds = rawIds.map((s: any) => String(s).trim()).filter((s: string) => /^\d+$/.test(s))
+  const storeIds = metaList.length > 0
+    ? metaList.map((m: { id: string; name: string | null }) => m.id)
+    : fallbackIds
   const primary = String(body.primary_store_id || storeIds[0] || '').trim()
-  const storeName = String(body.store_name || '').trim() || null
+  const storeName = (metaList.find((m: { id: string; name: string | null }) => m.id === primary)?.name)
+    || String(body.store_name || '').trim()
+    || null
 
   if (!userId) return NextResponse.json({ ok: false, error: 'user_id 필수' }, { status: 400 })
   if (storeIds.length === 0) return NextResponse.json({ ok: false, error: 'store_ids 최소 1개 필수 (숫자만)' }, { status: 400 })
@@ -41,9 +57,15 @@ export async function POST(req: NextRequest) {
   }
 
   const existingExtra = (cred.extra_data as Record<string, unknown>) || {}
+  // store_meta — 매장별 ID + 이름 매핑 (중복 제거 + meta 우선)
+  const finalMeta = storeIds.map(id => {
+    const found = metaList.find((m: { id: string; name: string | null }) => m.id === id)
+    return { id, name: found?.name || null }
+  })
   const newExtra = {
     ...existingExtra,
     store_ids: storeIds,
+    store_meta: finalMeta,
     store_ids_set_at: new Date().toISOString(),
     store_ids_set_by: admin.email,
   }
@@ -67,6 +89,7 @@ export async function POST(req: NextRequest) {
     user_id: userId,
     primary_store_id: primary,
     all_store_ids: storeIds,
+    store_meta: finalMeta,
     count: storeIds.length,
     message: storeIds.length > 1
       ? `매장 ${storeIds.length}개 등록 완료 (primary=${primary}). 다음 cron 부터 모든 매장 fetch.`
