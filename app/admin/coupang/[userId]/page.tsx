@@ -141,15 +141,43 @@ export default function CoupangUserDetailPage({ params }: { params: Promise<{ us
   }, [data, saveStores])
 
   const addStore = useCallback(() => {
-    const sid = prompt('추가할 매장 ID (숫자):')
-    if (!sid || !/^\d+$/.test(sid.trim())) return
-    const name = prompt('매장명 (선택):', '')
-    if (name === null) return
+    const input = prompt(
+      '추가할 매장 ID 또는 쿠팡이츠 URL\n\n' +
+      '여러 개 가능 (한 줄씩 또는 쉼표로 구분):\n\n' +
+      '예시:\n' +
+      '950251\n' +
+      'https://store.coupangeats.com/merchant/management/reviews/950254\n' +
+      '779523, 824040\n\n' +
+      '— URL 에서 매장 ID 자동 추출됩니다.\n' +
+      '— 매장명은 추가 후 [이름] 버튼으로 편집하세요.'
+    )
+    if (!input) return
     if (!data) return
-    if (data.stores.find(s => s.id === sid.trim())) { alert('이미 등록된 매장입니다'); return }
+
+    // ID 또는 URL 에서 storeId 추출
+    const tokens = input.split(/[\n,]+/).map(s => s.trim()).filter(Boolean)
+    const newIds: string[] = []
+    for (const t of tokens) {
+      const m = t.match(/(?:reviews|store|stores)\/(\d{4,})/) || t.match(/^(\d{4,})$/)
+      if (m && m[1]) {
+        const sid = m[1]
+        if (!data.stores.find(s => s.id === sid) && !newIds.includes(sid)) {
+          newIds.push(sid)
+        }
+      }
+    }
+
+    if (newIds.length === 0) {
+      alert('숫자 매장 ID 를 추출하지 못했어요. 다시 확인해 주세요.')
+      return
+    }
+
+    const ok = confirm(`${newIds.length}개 매장 추가:\n\n${newIds.join('\n')}\n\n추가하시겠어요? (이름은 비어있게 등록되며 나중에 편집 가능)`)
+    if (!ok) return
+
     const newMeta = [
       ...data.stores.map(s => ({ id: s.id, name: s.name || '' })),
-      { id: sid.trim(), name: name.trim() },
+      ...newIds.map(id => ({ id, name: '' })),
     ]
     saveStores(newMeta)
   }, [data, saveStores])
