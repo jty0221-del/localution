@@ -446,15 +446,13 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
  }
  await Promise.all([loadStoresMe(), loadReviews()])
 
- // 워커 처리 대기 후 결과 자동 polling (10초/20초/40초/60초/90초/120초/180초)
- // — 워커 큐 처리 시간 가변적이라 점진 백오프
+ // 워커 처리 대기 후 결과 자동 polling (5초 간격, 60회 = 5분)
+ // — 워커 큐 처리 시간 가변적이라 자주 체크
  if (data.queued && data.jobId) {
- const delays = [10, 20, 40, 60, 90, 120, 180]
  let lastCount = reviews.length
- for (const sec of delays) {
- await new Promise(r => setTimeout(r, sec * 1000))
+ for (let i = 0; i < 60; i++) {
+ await new Promise(r => setTimeout(r, 5000))
  await Promise.all([loadStoresMe(), loadReviews()])
- // setReviews 가 비동기라 직접 비교 불가 — DB 다시 조회로 판단
  try {
  const r = await fetch('/api/place/reviews?platform=' + config.platform + '&limit=1', { cache: 'no-store' })
  const j = await r.json()
@@ -1121,17 +1119,17 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
  리뷰 불러오는 중...
  </div>
  ) : reviews.length === 0 ? (
- <div className="bg-white rounded-2xl p-8 text-center border border-[#E5E8EB]">
+ <div className="bg-white rounded-2xl p-6 md:p-8 text-center border border-[#E5E8EB]">
  <p className="text-sm font-bold text-[#191F28] mb-1">
  {fetching ? '수집 중입니다...' : '아직 수집된 리뷰가 없어요'}
  </p>
  <p className="text-xs text-[#8B95A1] mb-4">
  {config.supportsFetch
- ? (fetching ? '잠시만 기다려 주세요' : '"↻ 지금 수집" 버튼을 누르면 공개 리뷰를 불러옵니다')
+ ? (fetching ? '1~3분 정도 걸려요. 매장이 여러 개면 아래에서 매장을 선택해 주세요.' : '"↻ 지금 수집" 버튼을 누르면 공개 리뷰를 불러옵니다')
  : 'Worker 가 연결되면 자동 수집이 시작돼요 (23차-5)'}
  </p>
- {/* 쿠팡이츠 — 매장 여러 개일 때 직접 선택 (사장님 self-service) */}
- {config.platform === 'coupangeats' && connected && !fetching && (
+ {/* 쿠팡이츠 — 매장 선택 버튼은 fetching 중에도 항상 표시 */}
+ {config.platform === 'coupangeats' && connected && (
  <CoupangStorePicker onPicked={async () => {
  setAutoFetchTried(false)
  await Promise.all([loadStoresMe(), loadReviews()])
