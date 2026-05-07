@@ -160,11 +160,15 @@ export async function GET(_req: NextRequest) {
 
     issueDist[likely_issue] = (issueDist[likely_issue] || 0) + 1
 
+    // 다중 매장 — extra_data.store_ids
+    const allStoreIds = Array.isArray(extra.store_ids) ? (extra.store_ids as any[]).map(s => String(s)) : []
+
     return {
       user_id: c.user_id,
       account_id_mask: maskId(c.account_id),
       store_name: c.platform_store_name,
       store_id: c.platform_store_id,
+      all_store_ids: allStoreIds,
       connected_at: c.created_at,
       last_login_status: c.last_login_status,
       last_login_at: c.last_login_at,
