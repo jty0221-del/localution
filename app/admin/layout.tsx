@@ -5,7 +5,7 @@ import { useRouter, usePathname } from 'next/navigation'
 import Link from 'next/link'
 import { supabase } from '@/app/lib/supabase'
 import { isAdminEmail } from '@/app/lib/admin-emails'
-import { BarChart3, CreditCard, Users, Search, ClipboardList, Send, type LucideIcon } from 'lucide-react'
+import { BarChart3, CreditCard, Users, Search, ClipboardList, Send, Activity, type LucideIcon } from 'lucide-react'
 
 const NAV: { href: string; label: string; Icon: LucideIcon }[] = [
  { href: '/admin/dashboard', label: '대시보드', Icon: BarChart3 },
@@ -14,6 +14,7 @@ const NAV: { href: string; label: string; Icon: LucideIcon }[] = [
  { href: '/admin/threads-testers', label: 'Threads 테스터', Icon: Send },
  { href: '/admin/naver-check', label: '네이버 연동 진단', Icon: Search },
  { href: '/admin/review-health', label: '리뷰 수집 점검', Icon: ClipboardList },
+ { href: '/admin/coupang-diagnostics', label: '쿠팡이츠 연동 진단', Icon: Activity },
 ]
 
 // ------------------------------------------------------------
