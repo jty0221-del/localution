@@ -173,7 +173,17 @@ export async function runCoupangEats(
   }
 
   const svc = getServiceClient()
-  const creds = await loadPlainCredentials(svc, userId, 'coupangeats')
+  // 사장님이 연결 해제하면 platform_credentials 행 삭제됨 → 큐에 남은 job 은 graceful skip
+  let creds: any
+  try {
+    creds = await loadPlainCredentials(svc, userId, 'coupangeats')
+  } catch (e: any) {
+    if (String(e?.message || '').includes('not_connected')) {
+      log.warn({ userId }, 'coupangeats: 사용자가 연결 해제됨 — 큐 잡 skip')
+      return { status: 'skipped', message: 'user disconnected' }
+    }
+    throw e
+  }
 
   // ── 저장된 세션 쿠키 조회 (IP 차단 우회용) ──
   const savedCookies = await loadCoupangSessionCookies(svc, userId, log)
