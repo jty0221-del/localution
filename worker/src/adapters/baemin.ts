@@ -176,7 +176,14 @@ export async function runBaemin(
       .from('platform_credentials')
       .select('account_id, platform_store_id, extra_data')
       .eq('user_id', userId).eq('platform', 'baemin').maybeSingle()
-    if (!cred) throw credErr
+    if (!cred) {
+      // 사용자가 연결 해제됨 — 큐에 남은 job graceful skip
+      if (String(credErr?.message || '').includes('not_connected')) {
+        log.warn({ userId }, 'baemin: 사용자가 연결 해제됨 — 큐 잡 skip')
+        return { status: 'skipped', message: 'user disconnected' }
+      }
+      throw credErr
+    }
     const extra = (cred.extra_data as any) || {}
     if (!extra.baemin_pw_enc) throw new Error('baemin: 비밀번호 미저장 — 다시 연결 필요')
     const kek = loadKekHex()
