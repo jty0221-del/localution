@@ -112,6 +112,19 @@ export default function CoupangDiagnosticsPage() {
     } finally { setProbing(false) }
   }, [])
 
+  const triggerCron = useCallback(async () => {
+    if (!confirm('전체 배달 플랫폼(쿠팡/배민/요기요) cron 을 지금 수동 실행하시겠어요?')) return
+    setProbing(true); setFetchResult(null)
+    try {
+      const r = await fetch('/api/admin/trigger-delivery-cron', { cache: 'no-store' })
+      const j = await r.json()
+      setFetchResult(j.ok ? `Cron 실행: ${j.message}` : '실패: ' + (j.error || ''))
+      setTimeout(() => load(), 5000)
+    } catch (e: any) {
+      setFetchResult('오류: ' + (e?.message || 'unknown'))
+    } finally { setProbing(false) }
+  }, [load])
+
   const triggerManualFetch = useCallback(async (userId: string, days: number) => {
     if (!confirm(`${userId.slice(0, 8)} 사용자의 쿠팡 리뷰 ${days}일치를 지금 fetch 하시겠어요?`)) return
     setFetchingUser(userId); setFetchResult(null)
@@ -185,11 +198,18 @@ export default function CoupangDiagnosticsPage() {
                 <Zap size={16} className="text-[#F59E0B]" strokeWidth={2.5} />
                 시스템 활성 테스트
               </h2>
-              <button onClick={runProbe} disabled={probing}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#F59E0B] text-white text-xs font-bold hover:bg-[#D97706] disabled:opacity-50">
-                <PlayCircle size={14} className={probing ? 'animate-pulse' : ''} strokeWidth={2.5} />
-                {probing ? '실행 중...' : '지금 테스트'}
-              </button>
+              <div className="flex gap-2">
+                <button onClick={runProbe} disabled={probing}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#F59E0B] text-white text-xs font-bold hover:bg-[#D97706] disabled:opacity-50">
+                  <PlayCircle size={14} className={probing ? 'animate-pulse' : ''} strokeWidth={2.5} />
+                  {probing ? '실행 중...' : '지금 테스트'}
+                </button>
+                <button onClick={triggerCron} disabled={probing}
+                  className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-[#7C3AED] text-white text-xs font-bold hover:bg-[#6D28D9] disabled:opacity-50">
+                  <Zap size={14} strokeWidth={2.5} />
+                  Cron 수동 실행
+                </button>
+              </div>
             </div>
             <p className="text-[11px] text-[#8B95A1] mb-3">
               proxy / Redis / 암호화 / Supabase / 쿠팡 endpoint 7단계 능동 검증 (5~15초)
