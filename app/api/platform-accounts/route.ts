@@ -239,15 +239,27 @@ export async function POST(req: NextRequest) {
  last_login_at: new Date().toISOString(),
  updated_at: new Date().toISOString(),
  }
- // storeId auto-discovery (whoami 응답에서)
+ // storeId auto-discovery (whoami 응답에서) — 다중 매장 모두 추출
  if (loginResult.whoami) {
  const w: any = loginResult.whoami
- const sid = w.responsibleStoreId || w.storeId || w.defaultStoreId ||
+ const primarySid = w.responsibleStoreId || w.storeId || w.defaultStoreId ||
  (Array.isArray(w.stores) && w.stores[0]?.storeId) || null
  const sname = w.storeName ||
  (Array.isArray(w.stores) && (w.stores[0]?.name || w.stores[0]?.storeName)) || null
- if (sid) updateRow.platform_store_id = String(sid)
+ if (primarySid) updateRow.platform_store_id = String(primarySid)
  if (sname) updateRow.platform_store_name = String(sname)
+
+ // whoami.stores 배열에서 모든 매장 ID 추출 → extra_data.store_ids 에 저장
+ if (Array.isArray(w.stores) && w.stores.length > 0) {
+ const allIds = w.stores
+ .map((s: any) => String(s.storeId || s.id || '').trim())
+ .filter((s: string) => /^\d+$/.test(s))
+ if (allIds.length > 0) {
+ newExtra.store_ids = allIds
+ newExtra.store_ids_auto_detected_at = new Date().toISOString()
+ console.log('[platform-accounts] coupang multi-store detected:', allIds.length, 'stores:', allIds.join(','))
+ }
+ }
  }
  await svc.from('platform_credentials').update(updateRow)
  .eq('user_id', auth.userId).eq('platform', 'coupangeats')
