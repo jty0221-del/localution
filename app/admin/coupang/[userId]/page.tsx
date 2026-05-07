@@ -219,6 +219,27 @@ export default function CoupangUserDetailPage() {
     finally { setBusy(false) }
   }, [userId, load])
 
+  const impersonate = useCallback(async () => {
+    if (!confirm('이 사용자로 임시 로그인 하시겠어요?\n\n사장님이 보는 화면 그대로 진단 가능합니다 (1시간).\n복귀: 화면 상단 빨간 배너의 [관리자로 복귀] 버튼')) return
+    setBusy(true); setActionResult(null)
+    try {
+      const r = await fetch('/api/admin/impersonate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId }),
+        credentials: 'include',
+      })
+      const j = await r.json()
+      if (j.ok) {
+        // 사장님 리뷰 페이지로 이동
+        window.location.href = '/review-admin/coupang'
+      } else {
+        setActionResult('실패: ' + (j.error || ''))
+      }
+    } catch (e: any) { setActionResult('오류: ' + (e?.message || 'unknown')) }
+    finally { setBusy(false) }
+  }, [userId])
+
   const filteredReviews = data?.recent_reviews.filter(r => filterStore === 'all' || r.store_id === filterStore) || []
 
   return (
@@ -241,11 +262,18 @@ export default function CoupangUserDetailPage() {
                 {userId.slice(0, 8)}... · 계정 {data ? maskId(data.account_id) : '...'}
               </p>
             </div>
-            <button onClick={load} disabled={loading}
-              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#3182F6] text-white text-xs md:text-sm font-bold hover:bg-[#1B64DA] disabled:opacity-50 flex-shrink-0">
-              <RefreshCw size={14} className={loading ? 'animate-spin' : ''} strokeWidth={2.5} />
-              새로고침
-            </button>
+            <div className="flex gap-1.5 flex-shrink-0 flex-wrap">
+              <button onClick={impersonate} disabled={busy}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#F04452] text-white text-xs md:text-sm font-bold hover:bg-[#DC2626] disabled:opacity-50"
+                title="이 사용자로 임시 로그인 — 사장님 화면 그대로 진단">
+                이 사용자로 로그인
+              </button>
+              <button onClick={load} disabled={loading}
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#3182F6] text-white text-xs md:text-sm font-bold hover:bg-[#1B64DA] disabled:opacity-50">
+                <RefreshCw size={14} className={loading ? 'animate-spin' : ''} strokeWidth={2.5} />
+                새로고침
+              </button>
+            </div>
           </div>
         </div>
 
