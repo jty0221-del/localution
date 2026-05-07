@@ -6,6 +6,7 @@ import BottomTabBar from './components/BottomTabBar'
 import UpdatesPopupBanner from './components/UpdatesPopupBanner'
 import ScrollToTop from './components/ScrollToTop'
 import OnboardingBanner from './components/OnboardingBanner'
+import ImpersonationBanner from './components/ImpersonationBanner'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -95,6 +96,8 @@ export default function RootLayout({
  return (
  <html lang="ko">
  <body className={inter.className}>
+ {/* 관리자 임시 로그인 배너 (impersonation 활성 시만 표시) */}
+ <ImpersonationBanner />
  {/* 2-D · 매장 미등록 사용자 글로벌 onboarding 배너 (워크스페이스 한정) */}
  <OnboardingBanner />
  {children}
