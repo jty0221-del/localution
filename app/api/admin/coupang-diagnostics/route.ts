@@ -63,7 +63,7 @@ export async function GET(_req: NextRequest) {
   const svc = createServiceClient()
   const { data: creds, error: credErr } = await svc
     .from('platform_credentials')
-    .select('user_id, account_id, platform_store_id, platform_store_name, last_login_status, last_login_at, created_at, updated_at, extra_data')
+    .select('user_id, account_id, platform_store_id, platform_store_name, last_login_status, last_login_at, connected_at, updated_at, extra_data')
     .eq('platform', 'coupangeats')
     .order('updated_at', { ascending: false })
 
@@ -169,7 +169,7 @@ export async function GET(_req: NextRequest) {
       store_name: c.platform_store_name,
       store_id: c.platform_store_id,
       all_store_ids: allStoreIds,
-      connected_at: c.created_at,
+      connected_at: c.connected_at,
       last_login_status: c.last_login_status,
       last_login_at: c.last_login_at,
       has_session_cookies: sessionCookies.length > 0,
