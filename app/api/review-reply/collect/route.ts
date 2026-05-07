@@ -99,6 +99,15 @@ export async function POST(req: NextRequest) {
  storeId = store?.id || 'default'
  }
 
+ // 사장님이 수동으로 "지금 수집" 누른 경우 — 14일치 (워커 기본) 으론 부족할 수 있음.
+ // 한 번도 수집된 적 없으면 180일, 있으면 30일치 fetch.
+ const { count: existingCount } = await svc
+ .from('platform_reviews')
+ .select('id', { count: 'exact', head: true })
+ .eq('user_id', userId)
+ .eq('platform', platform)
+ const daysBack = (existingCount || 0) === 0 ? 180 : 30
+
  const jobId = `${userId}_${platform}_fetch_${Date.now()}`
 
  const result = await enqueuePlatformJob(
@@ -107,8 +116,14 @@ export async function POST(req: NextRequest) {
  action: 'fetch_reviews',
  userId,
  storeId,
+ payload: {
+ days_back: daysBack,
+ manual: true,
+ triggered_by: 'review_admin_collect',
+ initial_sync: (existingCount || 0) === 0,
  },
- { jobId },
+ },
+ { jobId, priority: 1 },
  )
 
  if (!result.ok) {
@@ -124,8 +139,14 @@ export async function POST(req: NextRequest) {
  jobId: result.jobId,
  total: 0,
  queued: true,
- note: '리뷰 수집을 시작했어요! 잠시 후 자동으로 표시돼요.',
- message: '리뷰 수집을 시작했어요! 잠시 후 자동으로 표시돼요.',
+ days_back: daysBack,
+ initial_sync: (existingCount || 0) === 0,
+ note: (existingCount || 0) === 0
+ ? '첫 수집이라 6개월치를 가져오고 있어요. 1~3분 정도 걸려요.'
+ : '리뷰 수집을 시작했어요! 잠시 후 자동으로 표시돼요.',
+ message: (existingCount || 0) === 0
+ ? '첫 수집이라 6개월치를 가져오고 있어요. 1~3분 정도 걸려요.'
+ : '리뷰 수집을 시작했어요! 잠시 후 자동으로 표시돼요.',
  })
  } catch (e: any) {
  return NextResponse.json(
