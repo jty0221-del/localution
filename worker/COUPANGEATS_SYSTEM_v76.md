@@ -69,15 +69,22 @@
 
 ---
 
-## 3. 75차 트래픽 절감 정책
+## 3. 트래픽 정책 (2026-05-07 갱신)
 
 | 항목 | 값 | 비고 |
 |---|---|---|
-| cron 빈도 | KST 13:00, **하루 1번** | `vercel.json` schedule `0 4 * * *` (UTC) |
-| DAYS_BACK 자동 | 14일 | cron 호출 — incremental |
+| cron 빈도 | **매 15분** (96회/일) | `vercel.json` schedule `*/15 * * * *` — 사용자 요청 변경 |
+| DAYS_BACK cron | **1일** (24h) | 15분 cadence + 1일 윈도우 = 신규 리뷰만 빠르게 |
+| DAYS_BACK 첫 수집 | 180일 | collect API 자동 판단 (DB 0건이면 180일) |
 | DAYS_BACK 수동 | payload.days_back | manual-fetch endpoint |
 | 리소스 차단 | 이미지/폰트/CSS/미디어 | API + JS 만 통과 |
-| 월 트래픽 (예상) | ~450MB | 이전 6GB+ 대비 ~93% 절감 |
+| 월 트래픽 (예상) | ~9GB (30 user 기준) | iproyal 잔액 모니터링 필수 |
+| jobId dedupe | 15분 bucket | `Date.now() / 900_000` |
+
+**75차 정책 (1일 1회 + 14일치) 에서 변경된 이유**:
+- 사장님 신고: "리뷰가 늦게 보임" → 15분 단위 갱신 요청
+- iproyal 8GB 잔액 충분 → 트래픽 증가 감수
+- 1일치만 fetch 라 매 fetch 부하는 14일치보다 ~14배 작음
 
 ---
 
