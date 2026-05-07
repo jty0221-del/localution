@@ -78,12 +78,23 @@ export async function GET(req: NextRequest) {
   }
   if (result.whoami) {
     const w: any = result.whoami
-    const sid = w.responsibleStoreId || w.storeId || w.defaultStoreId ||
+    const primarySid = w.responsibleStoreId || w.storeId || w.defaultStoreId ||
       (Array.isArray(w.stores) && w.stores[0]?.storeId) || null
     const sname = w.storeName ||
       (Array.isArray(w.stores) && (w.stores[0]?.name || w.stores[0]?.storeName)) || null
-    if (sid) updateRow.platform_store_id = String(sid)
+    if (primarySid) updateRow.platform_store_id = String(primarySid)
     if (sname) updateRow.platform_store_name = String(sname)
+
+    // 다중 매장 자동 추출
+    if (Array.isArray(w.stores) && w.stores.length > 0) {
+      const allIds = w.stores
+        .map((s: any) => String(s.storeId || s.id || '').trim())
+        .filter((s: string) => /^\d+$/.test(s))
+      if (allIds.length > 0) {
+        newExtra.store_ids = allIds
+        newExtra.store_ids_auto_detected_at = new Date().toISOString()
+      }
+    }
   }
   await svc.from('platform_credentials').update(updateRow)
     .eq('user_id', userId).eq('platform', 'coupangeats')
