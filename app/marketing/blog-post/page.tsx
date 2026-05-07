@@ -625,7 +625,7 @@ export default function BlogPostGeneratorPage() {
  {/* 생성 버튼 */}
  <button onClick={handleGenerate} disabled={loading}
  className="w-full py-4 rounded-2xl bg-gradient-to-r from-[#3182F6] to-[#7C3AED] text-white font-black text-base flex items-center justify-center gap-2 disabled:opacity-50 hover:shadow-lg transition-shadow">
- {loading ? (<><Loader2 size={18} className="animate-spin" strokeWidth={2.5} /> AI 작성 중... (10~40초)</>) : (<><Sparkles size={18} strokeWidth={2.5} /> 블로그 글 생성하기</>)}
+ {loading ? (<><Loader2 size={18} className="animate-spin" strokeWidth={2.5} /> AI 작성 중... (1~2분, 길수록 더 걸려요)</>) : (<><Sparkles size={18} strokeWidth={2.5} /> 블로그 글 생성하기</>)}
  </button>
 
  {error && (
