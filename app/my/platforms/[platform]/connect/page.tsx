@@ -70,24 +70,9 @@ export default function ConnectPlatformPage() {
  if (platform && !VALID_PLATFORMS.includes(platform)) router.replace('/my/platforms')
  }, [platform, router])
 
- // ── 인증 상태 사전 검증 (모바일 세션 만료시 /my/platforms 로 튕기는 문제 방지) ──
- //   네이버 연결 후 배민 연결 시 세션 만료로 "또 로그인하래" 현상이 보고됨.
- //   페이지 로드 시 /api/me 로 인증 상태 확인하고, 인증 안되어 있으면
- //   현재 connect 경로를 redirect 파라미터로 넣어 로그인 페이지로 보냄.
- useEffect(() => {
- if (!platform || !VALID_PLATFORMS.includes(platform)) return
- let cancelled = false
- ;(async () => {
- try {
- const r = await fetch('/api/me', { credentials: 'include', cache: 'no-store' })
- if (!cancelled && r.status === 401) {
- const here = '/my/platforms/' + platform + '/connect'
- router.replace('/login?redirect=' + encodeURIComponent(here))
- }
- } catch {}
- })()
- return () => { cancelled = true }
- }, [platform, router])
+ // 인증은 middleware 가 처리 (localution_session OR sb-*-auth-token)
+ // 사전 /api/me 체크 제거 — Supabase 로그인 사용자에 false 401 반환 버그
+ // API 호출 시 401 받으면 handleAuthError 가 처리
 
  // 401 응답 시 /login 으로 보내되 현재 connect 경로를 redirect 로 보존
  function handleAuthError(status: number): boolean {
