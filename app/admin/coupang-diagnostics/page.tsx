@@ -143,6 +143,24 @@ export default function CoupangDiagnosticsPage() {
     finally { setFetchingUser(null) }
   }, [load])
 
+  const retryLogin = useCallback(async (userId: string) => {
+    if (!confirm(`${userId.slice(0, 8)} 사용자의 쿠팡 save-login 을 지금 재시도하시겠어요?\n\n저장된 비밀번호로 한국 proxy 통해 다시 로그인해 새 쿠키를 저장합니다.`)) return
+    setFetchingUser(userId); setFetchResult(null)
+    try {
+      const r = await fetch('/api/admin/retry-coupang-login?user_id=' + userId, { cache: 'no-store' })
+      const j = await r.json()
+      if (j.ok) {
+        setFetchResult(`재로그인 성공 (${j.elapsed_ms}ms · ${j.method} · 쿠키 ${j.cookie_count}개) — 자동 fetch 트리거 중`)
+        // 즉시 14일 fetch 트리거
+        await fetch('/api/admin/trigger-fetch?platform=coupangeats&user_id=' + userId + '&days=14', { cache: 'no-store' })
+      } else {
+        setFetchResult(`재로그인 실패 [${j.step}]: ${j.error}` + (j.hint ? ` · ${j.hint}` : ''))
+      }
+      setTimeout(() => load(), 3000)
+    } catch (e: any) { setFetchResult('오류: ' + (e?.message || 'unknown')) }
+    finally { setFetchingUser(null) }
+  }, [load])
+
   const filteredUsers = data?.users.filter(u => filter === 'all' || u.likely_issue === filter) || []
 
   return (
@@ -372,7 +390,7 @@ export default function CoupangDiagnosticsPage() {
 
             {/* 사용자 목록 — 모바일: 카드 / PC: 표 */}
             <div className="md:hidden space-y-2">
-              {filteredUsers.map(u => <UserCard key={u.user_id} u={u} fetchingUser={fetchingUser} onFetch={triggerManualFetch} />)}
+              {filteredUsers.map(u => <UserCard key={u.user_id} u={u} fetchingUser={fetchingUser} onFetch={triggerManualFetch} onRetryLogin={retryLogin} />)}
               {filteredUsers.length === 0 && (
                 <div className="p-6 text-center text-sm text-[#8B95A1] bg-white rounded-2xl">조건에 맞는 사용자 없음</div>
               )}
@@ -433,6 +451,12 @@ export default function CoupangDiagnosticsPage() {
                           )}
                         </td>
                         <td className="px-3 py-2.5 text-center whitespace-nowrap">
+                          <button onClick={() => retryLogin(u.user_id)}
+                            disabled={fetchingUser === u.user_id}
+                            className="text-[10px] font-bold px-2 py-1.5 rounded bg-[#F04452] text-white hover:bg-[#DC2626] disabled:opacity-50 mr-1"
+                            title="저장된 비밀번호로 save-login 재시도">
+                            재로그인
+                          </button>
                           <button onClick={() => triggerManualFetch(u.user_id, 14)}
                             disabled={fetchingUser === u.user_id}
                             className="text-[10px] font-bold px-2 py-1.5 rounded bg-[#3182F6] text-white hover:bg-[#1B64DA] disabled:opacity-50 mr-1">
@@ -465,7 +489,12 @@ export default function CoupangDiagnosticsPage() {
 }
 
 // ── 모바일 카드 ──
-function UserCard({ u, fetchingUser, onFetch }: { u: User; fetchingUser: string | null; onFetch: (uid: string, days: number) => void }) {
+function UserCard({ u, fetchingUser, onFetch, onRetryLogin }: {
+  u: User
+  fetchingUser: string | null
+  onFetch: (uid: string, days: number) => void
+  onRetryLogin: (uid: string) => void
+}) {
   return (
     <div className="bg-white rounded-2xl shadow-sm p-3.5 border-l-4" style={{ borderLeftColor: ISSUE_COLOR[u.likely_issue] || '#6B7280' }}>
       <div className="flex items-start justify-between gap-2 mb-2">
@@ -525,11 +554,16 @@ function UserCard({ u, fetchingUser, onFetch }: { u: User; fetchingUser: string 
         </div>
       )}
 
+      <button onClick={() => onRetryLogin(u.user_id)}
+        disabled={fetchingUser === u.user_id}
+        className="w-full text-xs font-bold py-2.5 rounded-lg bg-[#F04452] text-white hover:bg-[#DC2626] disabled:opacity-50 mb-2">
+        {fetchingUser === u.user_id ? '...' : '재로그인 + 자동 fetch (가장 먼저 시도)'}
+      </button>
       <div className="flex gap-2">
         <button onClick={() => onFetch(u.user_id, 14)}
           disabled={fetchingUser === u.user_id}
           className="flex-1 text-xs font-bold py-2.5 rounded-lg bg-[#3182F6] text-white hover:bg-[#1B64DA] disabled:opacity-50">
-          {fetchingUser === u.user_id ? '...' : '14일치 fetch'}
+          14일치 fetch
         </button>
         <button onClick={() => onFetch(u.user_id, 180)}
           disabled={fetchingUser === u.user_id}
