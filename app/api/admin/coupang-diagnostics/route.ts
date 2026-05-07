@@ -160,8 +160,11 @@ export async function GET(_req: NextRequest) {
 
     issueDist[likely_issue] = (issueDist[likely_issue] || 0) + 1
 
-    // 다중 매장 — extra_data.store_ids
+    // 다중 매장 — extra_data.store_ids + store_meta
     const allStoreIds = Array.isArray(extra.store_ids) ? (extra.store_ids as any[]).map(s => String(s)) : []
+    const storeMeta = Array.isArray(extra.store_meta)
+      ? (extra.store_meta as any[]).map(m => ({ id: String(m?.id || ''), name: m?.name ? String(m.name) : null }))
+      : []
 
     return {
       user_id: c.user_id,
@@ -169,6 +172,7 @@ export async function GET(_req: NextRequest) {
       store_name: c.platform_store_name,
       store_id: c.platform_store_id,
       all_store_ids: allStoreIds,
+      store_meta: storeMeta,
       connected_at: c.connected_at,
       last_login_status: c.last_login_status,
       last_login_at: c.last_login_at,
