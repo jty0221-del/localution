@@ -445,12 +445,34 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
  toast.info('새로 수집된 리뷰가 없어요')
  }
  await Promise.all([loadStoresMe(), loadReviews()])
+
+ // 워커 처리 대기 후 결과 자동 polling (10초/20초/40초/60초/90초/120초/180초)
+ // — 워커 큐 처리 시간 가변적이라 점진 백오프
+ if (data.queued && data.jobId) {
+ const delays = [10, 20, 40, 60, 90, 120, 180]
+ let lastCount = reviews.length
+ for (const sec of delays) {
+ await new Promise(r => setTimeout(r, sec * 1000))
+ await Promise.all([loadStoresMe(), loadReviews()])
+ // setReviews 가 비동기라 직접 비교 불가 — DB 다시 조회로 판단
+ try {
+ const r = await fetch('/api/place/reviews?platform=' + config.platform + '&limit=1', { cache: 'no-store' })
+ const j = await r.json()
+ const newCount = j?.total_count || 0
+ if (newCount > lastCount) {
+ toast.success(`${config.label} 리뷰 ${newCount}건 수집 완료`)
+ break
+ }
+ lastCount = newCount
+ } catch {}
+ }
+ }
  } catch (e: any) {
  toast.error('수집 중 오류: ' + (e?.message || e))
  } finally {
  setFetching(false)
  }
- }, [connected, fetching, placeId, loadStoresMe, loadReviews, config.supportsFetch, config.label])
+ }, [connected, fetching, placeId, loadStoresMe, loadReviews, config.supportsFetch, config.label, config.platform, reviews.length])
 
  // ── 4) 자동 수집 ─────
  // 37차-14: 사장님이 직접 답글 단 경우도 빨리 반영되도록 5분으로 단축
