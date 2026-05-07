@@ -11,9 +11,7 @@
 // 6) 미답변 리뷰 상위 5건
 // ============================================================
 import { NextResponse } from 'next/server'
-import { requireUser } from '@/app/lib/userAuth'
-import { createServiceClient } from '@/app/lib/adminAuth'
-import { isAdminEmail } from '@/app/lib/admin-emails'
+import { requireAdmin, createServiceClient } from '@/app/lib/adminAuth'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -116,22 +114,11 @@ async function testGraphQL(placeId: string): Promise<GraphQLTestResult> {
 }
 
 export async function GET() {
- // ── 관리자 인증 ───────────────────────────────────────────
- const auth = await requireUser()
- if (!auth.ok) return NextResponse.json({ error: auth.message }, { status: auth.status })
+ // ── 관리자 인증 (HMAC 쿠키 + 화이트리스트 통합 검증) ──
+ const admin = await requireAdmin()
+ if (!admin.ok) return NextResponse.json({ error: admin.message }, { status: admin.status })
 
  const svc = createServiceClient()
-
- // 이메일로 관리자 확인
- const { data: userRow } = await svc
- .from('users')
- .select('email')
- .eq('id', auth.userId)
- .maybeSingle()
- const email = userRow?.email || ''
- if (!isAdminEmail(email)) {
- return NextResponse.json({ error: '관리자 전용 API' }, { status: 403 })
- }
 
  const now = new Date()
  const since6h = new Date(now.getTime() - 6 * 3600000).toISOString()
