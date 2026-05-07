@@ -1,9 +1,11 @@
 // app/api/cron/delivery-reviews-fetch/route.ts
 // ============================================================
 // 배달 플랫폼(배민/요기요/쿠팡이츠) 리뷰 자동 수집 크론
-// - 매 6시간마다 Vercel Cron 이 호출
+// - 매 15분마다 Vercel Cron 이 호출 (네이버와 동일 cadence)
 // - 각 플랫폼에 credentials 연결된 유저 조회
 // - Railway Worker 에 fetch_reviews job enqueue
+// - 15분 cron payload: days_back=1 (최근 24h 만 — 트래픽 절감)
+// - 큐 dedupe: 15분 bucket (같은 user + 같은 quarter-hour 면 1번만)
 // ============================================================
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/app/lib/adminAuth'
@@ -57,19 +59,22 @@ export async function GET(req: NextRequest) {
  }
 
  try {
- const hourBucket = Math.floor(Date.now() / 3_600_000)
- const jobId = `cron_${platform}_${cred.user_id}_${hourBucket}`
+ // 15분 단위 dedupe — 동일 사용자가 같은 15분 윈도우에 중복 enqueue 안 됨
+ const quarterBucket = Math.floor(Date.now() / 900_000)
+ const jobId = `cron_${platform}_${cred.user_id}_${quarterBucket}`
  // v1.6k: 'unknown' string sentinel 제거 — 빈 string 이면 Worker 가 auto-detect
  const validShopId = cred.platform_store_id && /^\d+$/.test(String(cred.platform_store_id))
  ? String(cred.platform_store_id) : ''
+ // 15분 cron 은 days_back=1 (최근 24h 만) — 트래픽 절감 + 신규 리뷰 빠른 반영
+ // 사장님이 처음 수동 트리거 시 (collect API) 180일치 fetch 따로 진행됨
  const jobResult = await enqueuePlatformJob({
  platform,
  action: 'fetch_reviews',
  userId: cred.user_id,
  storeId: validShopId || 'auto-detect',
  payload: validShopId
- ? { shop_no: validShopId, days_back: 30 }
- : { days_back: 30 },
+ ? { shop_no: validShopId, days_back: 1, triggered_by: 'cron_15min' }
+ : { days_back: 1, triggered_by: 'cron_15min' },
  }, { jobId })
 
  if (jobResult.ok) {
