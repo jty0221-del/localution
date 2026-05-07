@@ -21,6 +21,7 @@ type User = {
   account_id_mask: string | null
   store_name: string | null
   store_id: string | null
+  all_store_ids?: string[]
   connected_at: string
   last_login_status: string | null
   last_login_at: string | null
@@ -138,6 +139,36 @@ export default function CoupangDiagnosticsPage() {
       const r = await fetch('/api/admin/trigger-fetch?platform=coupangeats&user_id=' + userId + '&days=' + days, { cache: 'no-store' })
       const j = await r.json()
       setFetchResult(j.ok ? '큐 등록 완료 — ' + (j.jobId || '') : '실패: ' + (j.error || ''))
+      setTimeout(() => load(), 3000)
+    } catch (e: any) { setFetchResult('오류: ' + (e?.message || 'unknown')) }
+    finally { setFetchingUser(null) }
+  }, [load])
+
+  const setStoreIds = useCallback(async (userId: string, currentIds: string[], currentPrimary: string | null) => {
+    const currentStr = (currentIds && currentIds.length > 0) ? currentIds.join(', ') : (currentPrimary || '')
+    const input = prompt(
+      `${userId.slice(0, 8)} 사용자의 쿠팡이츠 매장 ID 설정\n\n` +
+      `여러 매장은 쉼표로 구분 (예: 779523, 123456)\n` +
+      `첫 번째가 primary 가 됩니다.`,
+      currentStr
+    )
+    if (input === null) return
+    const ids = input.split(',').map(s => s.trim()).filter(s => /^\d+$/.test(s))
+    if (ids.length === 0) { alert('숫자 ID 최소 1개 입력 필요'); return }
+
+    setFetchingUser(userId); setFetchResult(null)
+    try {
+      const r = await fetch('/api/admin/set-coupang-stores', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ user_id: userId, store_ids: ids, primary_store_id: ids[0] }),
+      })
+      const j = await r.json()
+      setFetchResult(j.ok ? j.message : '실패: ' + (j.error || ''))
+      if (j.ok && confirm('지금 즉시 fetch 하시겠어요?')) {
+        await fetch('/api/admin/trigger-fetch?platform=coupangeats&user_id=' + userId + '&days=180', { cache: 'no-store' })
+        setFetchResult((j.message || '') + ' · 180일치 fetch 큐 등록됨')
+      }
       setTimeout(() => load(), 3000)
     } catch (e: any) { setFetchResult('오류: ' + (e?.message || 'unknown')) }
     finally { setFetchingUser(null) }
@@ -390,7 +421,7 @@ export default function CoupangDiagnosticsPage() {
 
             {/* 사용자 목록 — 모바일: 카드 / PC: 표 */}
             <div className="md:hidden space-y-2">
-              {filteredUsers.map(u => <UserCard key={u.user_id} u={u} fetchingUser={fetchingUser} onFetch={triggerManualFetch} onRetryLogin={retryLogin} />)}
+              {filteredUsers.map(u => <UserCard key={u.user_id} u={u} fetchingUser={fetchingUser} onFetch={triggerManualFetch} onRetryLogin={retryLogin} onSetStores={setStoreIds} />)}
               {filteredUsers.length === 0 && (
                 <div className="p-6 text-center text-sm text-[#8B95A1] bg-white rounded-2xl">조건에 맞는 사용자 없음</div>
               )}
@@ -422,9 +453,15 @@ export default function CoupangDiagnosticsPage() {
                           </span>
                         </td>
                         <td className="px-3 py-2.5 font-mono text-[#3182F6]">{u.user_id.slice(0, 8)}</td>
-                        <td className="px-3 py-2.5 text-[#191F28] font-bold max-w-[180px] truncate" title={u.store_name || ''}>
-                          {u.store_name || '-'}
-                          {u.store_id && <div className="text-[10px] text-[#8B95A1] font-mono">{u.store_id}</div>}
+                        <td className="px-3 py-2.5 text-[#191F28] font-bold max-w-[200px]" title={u.store_name || ''}>
+                          <div className="truncate">{u.store_name || '-'}</div>
+                          {u.all_store_ids && u.all_store_ids.length > 0 ? (
+                            <div className="text-[10px] text-[#7C3AED] font-mono font-bold">
+                              {u.all_store_ids.length === 1 ? u.all_store_ids[0] : `${u.all_store_ids.length}개: ${u.all_store_ids.join(', ')}`}
+                            </div>
+                          ) : (
+                            u.store_id && <div className="text-[10px] text-[#8B95A1] font-mono">{u.store_id}</div>
+                          )}
                         </td>
                         <td className="px-3 py-2.5 font-mono text-[#4E5968]">{u.account_id_mask || '-'}</td>
                         <td className="px-3 py-2.5">
@@ -451,6 +488,12 @@ export default function CoupangDiagnosticsPage() {
                           )}
                         </td>
                         <td className="px-3 py-2.5 text-center whitespace-nowrap">
+                          <button onClick={() => setStoreIds(u.user_id, u.all_store_ids || [], u.store_id)}
+                            disabled={fetchingUser === u.user_id}
+                            className="text-[10px] font-bold px-2 py-1.5 rounded bg-[#059669] text-white hover:bg-[#047857] disabled:opacity-50 mr-1"
+                            title="매장 ID 추가/편집 (다중 매장 지원)">
+                            매장ID
+                          </button>
                           <button onClick={() => retryLogin(u.user_id)}
                             disabled={fetchingUser === u.user_id}
                             className="text-[10px] font-bold px-2 py-1.5 rounded bg-[#F04452] text-white hover:bg-[#DC2626] disabled:opacity-50 mr-1"
@@ -489,11 +532,12 @@ export default function CoupangDiagnosticsPage() {
 }
 
 // ── 모바일 카드 ──
-function UserCard({ u, fetchingUser, onFetch, onRetryLogin }: {
+function UserCard({ u, fetchingUser, onFetch, onRetryLogin, onSetStores }: {
   u: User
   fetchingUser: string | null
   onFetch: (uid: string, days: number) => void
   onRetryLogin: (uid: string) => void
+  onSetStores: (uid: string, currentIds: string[], currentPrimary: string | null) => void
 }) {
   return (
     <div className="bg-white rounded-2xl shadow-sm p-3.5 border-l-4" style={{ borderLeftColor: ISSUE_COLOR[u.likely_issue] || '#6B7280' }}>
@@ -508,7 +552,14 @@ function UserCard({ u, fetchingUser, onFetch, onRetryLogin }: {
             {u.store_name || '매장명 미등록'}
           </div>
           <div className="text-[11px] text-[#8B95A1] font-mono mt-0.5 truncate">
-            {u.user_id.slice(0, 8)} {u.store_id && '· ' + u.store_id}
+            {u.user_id.slice(0, 8)}
+            {u.all_store_ids && u.all_store_ids.length > 0 ? (
+              <span className="text-[#7C3AED] font-bold ml-1">
+                · 매장 {u.all_store_ids.length}개: {u.all_store_ids.join(', ')}
+              </span>
+            ) : (
+              u.store_id && <span> · {u.store_id}</span>
+            )}
           </div>
         </div>
         <div className="text-right flex-shrink-0">
@@ -554,11 +605,18 @@ function UserCard({ u, fetchingUser, onFetch, onRetryLogin }: {
         </div>
       )}
 
-      <button onClick={() => onRetryLogin(u.user_id)}
-        disabled={fetchingUser === u.user_id}
-        className="w-full text-xs font-bold py-2.5 rounded-lg bg-[#F04452] text-white hover:bg-[#DC2626] disabled:opacity-50 mb-2">
-        {fetchingUser === u.user_id ? '...' : '재로그인 + 자동 fetch (가장 먼저 시도)'}
-      </button>
+      <div className="grid grid-cols-2 gap-2 mb-2">
+        <button onClick={() => onSetStores(u.user_id, u.all_store_ids || [], u.store_id)}
+          disabled={fetchingUser === u.user_id}
+          className="text-xs font-bold py-2.5 rounded-lg bg-[#059669] text-white hover:bg-[#047857] disabled:opacity-50">
+          매장 ID 설정
+        </button>
+        <button onClick={() => onRetryLogin(u.user_id)}
+          disabled={fetchingUser === u.user_id}
+          className="text-xs font-bold py-2.5 rounded-lg bg-[#F04452] text-white hover:bg-[#DC2626] disabled:opacity-50">
+          {fetchingUser === u.user_id ? '...' : '재로그인'}
+        </button>
+      </div>
       <div className="flex gap-2">
         <button onClick={() => onFetch(u.user_id, 14)}
           disabled={fetchingUser === u.user_id}
