@@ -120,6 +120,22 @@ export default function CoupangDiagnosticsPage() {
     } finally { setProbing(false) }
   }, [])
 
+  const clearFailed = useCallback(async (force: boolean) => {
+    const msg = force
+      ? '전체 failed + delayed + active(stalled) 잡을 모두 정리하시겠어요? 진행 중인 active job 도 끊어집니다.'
+      : '전체 failed + delayed 잡을 정리하시겠어요? (active 진행 중 job 은 유지)'
+    if (!confirm(msg)) return
+    setProbing(true); setFetchResult(null)
+    try {
+      const url = '/api/admin/queue-clear-failed' + (force ? '?force=1' : '')
+      const r = await fetch(url, { cache: 'no-store' })
+      const j = await r.json()
+      setFetchResult(j.ok ? j.message : '실패: ' + (j.error || ''))
+      setTimeout(() => load(), 2000)
+    } catch (e: any) { setFetchResult('오류: ' + (e?.message || 'unknown')) }
+    finally { setProbing(false) }
+  }, [load])
+
   const triggerCron = useCallback(async () => {
     if (!confirm('전체 배달 플랫폼(쿠팡/배민/요기요) cron 을 지금 수동 실행하시겠어요?')) return
     setProbing(true); setFetchResult(null)
@@ -377,10 +393,23 @@ export default function CoupangDiagnosticsPage() {
 
             {/* BullMQ 큐 */}
             <section className="mb-4 p-3 md:p-4 rounded-2xl bg-white shadow-sm">
-              <h2 className="text-sm md:text-base font-bold text-[#191F28] mb-2 md:mb-3 flex items-center gap-2">
-                <Clock size={16} className="text-[#7C3AED]" strokeWidth={2.5} />
-                BullMQ 큐
-              </h2>
+              <div className="flex items-start justify-between gap-2 mb-2 md:mb-3 flex-wrap">
+                <h2 className="text-sm md:text-base font-bold text-[#191F28] flex items-center gap-2">
+                  <Clock size={16} className="text-[#7C3AED]" strokeWidth={2.5} />
+                  BullMQ 큐
+                </h2>
+                <div className="flex gap-1.5 flex-wrap">
+                  <button onClick={() => clearFailed(false)} disabled={probing}
+                    className="text-[11px] md:text-xs font-bold px-2.5 py-1.5 rounded-lg bg-[#F59E0B] text-white hover:bg-[#D97706] disabled:opacity-50">
+                    Failed 정리
+                  </button>
+                  <button onClick={() => clearFailed(true)} disabled={probing}
+                    className="text-[11px] md:text-xs font-bold px-2.5 py-1.5 rounded-lg bg-[#DC2626] text-white hover:bg-[#B91C1C] disabled:opacity-50"
+                    title="active stalled 까지 강제 제거 — 워커 처리 중 job 도 끊어짐">
+                    강제 정리
+                  </button>
+                </div>
+              </div>
               {data.queue.error ? (
                 <div className="text-xs text-red-700">큐 조회 실패: {data.queue.error}</div>
               ) : (
