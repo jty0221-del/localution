@@ -59,10 +59,14 @@ export async function GET(req: NextRequest) {
   const startDt = new Date(Date.now() - days * 86400000)
   const startTs = startDt.toISOString().slice(0, 10)
 
-  // 후보 endpoint 들 — 워커가 사용하는 것과 동일 패턴
+  // 워커 (worker/src/adapters/coupangeats.ts) 와 동일 endpoint 패턴
+  // · storeId (단수) — storeIds 가 아님
+  // · statusType=ALL — 전체 리뷰
+  const dateRange = `startDate=${startTs}&endDate=${endTs}`
   const endpoints = [
-    `${STORE_BASE}/api/v1/merchant/reviews/search?storeIds=${storeId}&startDate=${startTs}&endDate=${endTs}&page=0&size=20`,
-    `${STORE_BASE}/api/v1/merchant/inflow/reviews/search?storeIds=${storeId}&startDate=${startTs}&endDate=${endTs}&page=0&size=20`,
+    `${STORE_BASE}/api/v1/merchant/reviews/search?storeId=${storeId}&page=1&statusType=ALL&${dateRange}&size=100`,
+    `${STORE_BASE}/api/v1/merchant/reviews/search?storeId=${storeId}&page=1&${dateRange}&size=100`,
+    `${STORE_BASE}/api/v1/merchant/inflow/reviews/search?storeId=${storeId}&page=1&${dateRange}&size=100`,
   ]
 
   const tried: any[] = []
