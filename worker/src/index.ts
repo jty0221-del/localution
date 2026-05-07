@@ -9,8 +9,8 @@ import IORedis from 'ioredis'
 import pino from 'pino'
 import http from 'http'
 import { chromium, Browser } from 'playwright'
-import { createClient } from '@supabase/supabase-js'
 import { runJob, PlatformJobData } from './jobs'
+import { getServiceClient } from './lib/supabase'
 
 const log = pino({
   level: process.env.LOG_LEVEL || 'info',
@@ -273,7 +273,7 @@ const healthServer = http.createServer(async (req, res) => {
       return
     }
     try {
-      const svc = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!)
+      const svc = getServiceClient()
       const { data, error } = await svc
         .from('platform_credentials')
         .select('platform, last_login_status, user_id')
@@ -302,7 +302,7 @@ const healthServer = http.createServer(async (req, res) => {
     }
     const platform = new URL(req.url, 'http://localhost').searchParams.get('platform') || 'coupangeats'
     try {
-      const svc = createClient(SUPABASE_URL!, SUPABASE_SERVICE_ROLE_KEY!)
+      const svc = getServiceClient()
       const { data: creds, error } = await svc
         .from('platform_credentials')
         .select('user_id, platform_store_id')
