@@ -1122,15 +1122,21 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
  </div>
  ) : reviews.length === 0 ? (
  <div className="bg-white rounded-2xl p-8 text-center border border-[#E5E8EB]">
- <p className="text-4xl mb-2"></p>
  <p className="text-sm font-bold text-[#191F28] mb-1">
  {fetching ? '수집 중입니다...' : '아직 수집된 리뷰가 없어요'}
  </p>
- <p className="text-xs text-[#8B95A1]">
+ <p className="text-xs text-[#8B95A1] mb-4">
  {config.supportsFetch
  ? (fetching ? '잠시만 기다려 주세요' : '"↻ 지금 수집" 버튼을 누르면 공개 리뷰를 불러옵니다')
  : 'Worker 가 연결되면 자동 수집이 시작돼요 (23차-5)'}
  </p>
+ {/* 쿠팡이츠 — 매장 여러 개일 때 직접 선택 (사장님 self-service) */}
+ {config.platform === 'coupangeats' && connected && !fetching && (
+ <CoupangStorePicker onPicked={async () => {
+ setAutoFetchTried(false)
+ await Promise.all([loadStoresMe(), loadReviews()])
+ }} />
+ )}
  </div>
  ) : filtered.length === 0 ? (
  <div className="bg-white rounded-2xl p-8 text-center text-sm text-[#8B95A1] border border-[#E5E8EB]">
@@ -1658,6 +1664,110 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
  </button>
  </div>
  </div>
+ </div>
+ )}
+ </div>
+ )
+}
+
+// ── 쿠팡이츠 — 사장님이 직접 매장 선택 (다중 매장 케이스) ──
+function CoupangStorePicker({ onPicked }: { onPicked: () => void | Promise<void> }) {
+ const [open, setOpen] = useState(false)
+ const [loading, setLoading] = useState(false)
+ const [stores, setStores] = useState<Array<{ storeId: string; name: string | null }>>([])
+ const [currentPrimary, setCurrentPrimary] = useState<string | null>(null)
+ const [errorMsg, setErrorMsg] = useState<string | null>(null)
+ const [picking, setPicking] = useState<string | null>(null)
+
+ async function load() {
+ setLoading(true); setErrorMsg(null)
+ try {
+ const r = await fetch('/api/place/coupang-stores', { cache: 'no-store' })
+ const j = await r.json()
+ if (!j.ok) {
+ setErrorMsg(j.error || '매장 조회 실패')
+ setStores([])
+ return
+ }
+ setStores(j.stores || [])
+ setCurrentPrimary(j.current_primary || null)
+ } catch (e: any) {
+ setErrorMsg(e?.message || '오류')
+ } finally { setLoading(false) }
+ }
+
+ async function pick(sid: string) {
+ setPicking(sid); setErrorMsg(null)
+ try {
+ const r = await fetch('/api/place/coupang-stores', {
+ method: 'POST',
+ headers: { 'Content-Type': 'application/json' },
+ body: JSON.stringify({ store_id: sid, store_ids: stores.map(s => s.storeId) }),
+ })
+ const j = await r.json()
+ if (!j.ok) { setErrorMsg(j.error || '저장 실패'); return }
+ setOpen(false)
+ toast.success(j.message || '매장 등록 완료')
+ await onPicked()
+ } catch (e: any) { setErrorMsg(e?.message || '오류') }
+ finally { setPicking(null) }
+ }
+
+ if (!open) {
+ return (
+ <button
+ onClick={() => { setOpen(true); load() }}
+ className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-[#FFF7ED] border border-[#FED7AA] text-[#9A3412] text-xs font-bold hover:bg-[#FFEDD5]"
+ >
+ 매장이 여러 개인가요? 직접 선택
+ </button>
+ )
+ }
+
+ return (
+ <div className="mt-3 p-4 rounded-2xl bg-[#FFF7ED] border border-[#FED7AA] text-left">
+ <div className="flex items-center justify-between mb-3">
+ <h3 className="text-sm font-bold text-[#9A3412]">매장 선택</h3>
+ <button onClick={() => setOpen(false)} className="text-xs text-[#9A3412]">닫기</button>
+ </div>
+ {loading && <p className="text-xs text-[#9A3412]">매장 목록 불러오는 중...</p>}
+ {errorMsg && (
+ <p className="text-xs text-[#DC2626] mb-2">
+ {errorMsg}
+ {errorMsg.includes('연결') || errorMsg.includes('만료') ? (
+ <span> · <Link href="/my/platforms/coupangeats/connect" className="underline font-bold">다시 연결하기</Link></span>
+ ) : null}
+ </p>
+ )}
+ {!loading && stores.length === 0 && !errorMsg && (
+ <p className="text-xs text-[#9A3412]">감지된 매장이 없어요. 1:1 문의 부탁드려요.</p>
+ )}
+ {stores.length > 0 && (
+ <div className="space-y-2">
+ <p className="text-xs text-[#9A3412] mb-2">사장님 계정의 매장 목록입니다. 리뷰를 가져올 매장을 선택해주세요:</p>
+ {stores.map(s => (
+ <button
+ key={s.storeId}
+ onClick={() => pick(s.storeId)}
+ disabled={picking !== null}
+ className={'w-full text-left p-3 rounded-xl border-2 transition disabled:opacity-50 ' +
+ (currentPrimary === s.storeId ? 'border-[#F97316] bg-white' : 'border-transparent bg-white hover:border-[#FED7AA]')}
+ >
+ <div className="flex items-center justify-between">
+ <div className="min-w-0">
+ <div className="text-sm font-bold text-[#191F28] truncate">
+ {s.name || '매장명 미지정'}
+ {currentPrimary === s.storeId && <span className="ml-2 text-[10px] text-[#F97316]">(현재)</span>}
+ </div>
+ <div className="text-[11px] text-[#8B95A1] font-mono">매장 ID: {s.storeId}</div>
+ </div>
+ <span className="text-xs font-bold text-[#F97316] flex-shrink-0 ml-2">
+ {picking === s.storeId ? '...' : '선택'}
+ </span>
+ </div>
+ </button>
+ ))}
+ <p className="text-[11px] text-[#9A3412] mt-2">선택 시 6개월치 리뷰 자동 수집이 시작돼요 (1~3분 소요).</p>
  </div>
  )}
  </div>
