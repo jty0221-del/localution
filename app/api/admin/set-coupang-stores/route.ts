@@ -23,6 +23,7 @@ export async function POST(req: NextRequest) {
   const rawIds = Array.isArray(body.store_ids) ? body.store_ids : []
   const storeIds = rawIds.map((s: any) => String(s).trim()).filter((s: string) => /^\d+$/.test(s))
   const primary = String(body.primary_store_id || storeIds[0] || '').trim()
+  const storeName = String(body.store_name || '').trim() || null
 
   if (!userId) return NextResponse.json({ ok: false, error: 'user_id 필수' }, { status: 400 })
   if (storeIds.length === 0) return NextResponse.json({ ok: false, error: 'store_ids 최소 1개 필수 (숫자만)' }, { status: 400 })
@@ -47,13 +48,16 @@ export async function POST(req: NextRequest) {
     store_ids_set_by: admin.email,
   }
 
+  const updateRow: Record<string, unknown> = {
+    platform_store_id: primary,
+    extra_data: newExtra,
+    updated_at: new Date().toISOString(),
+  }
+  if (storeName) updateRow.platform_store_name = storeName
+
   const { error } = await svc
     .from('platform_credentials')
-    .update({
-      platform_store_id: primary,
-      extra_data: newExtra,
-      updated_at: new Date().toISOString(),
-    })
+    .update(updateRow)
     .eq('user_id', userId).eq('platform', 'coupangeats')
 
   if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
