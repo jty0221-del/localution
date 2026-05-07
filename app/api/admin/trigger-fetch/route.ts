@@ -35,7 +35,7 @@ export async function GET(req: NextRequest) {
   const svc = createServiceClient()
   const { data: cred } = await svc
     .from('platform_credentials')
-    .select('platform_store_id, platform_store_name')
+    .select('platform_store_id, platform_store_name, extra_data')
     .eq('user_id', userId)
     .eq('platform', platformParam)
     .maybeSingle()
@@ -44,25 +44,38 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ ok: false, error: '해당 사용자의 ' + platformParam + ' 연결 없음' }, { status: 404 })
   }
 
-  const jobResult = await enqueuePlatformJob({
-    platform: platformParam,
-    action: 'fetch_reviews',
-    userId,
-    storeId: cred.platform_store_id || 'unknown',
-    payload: { days_back: days, manual: true, triggered_by: 'admin', admin_email: admin.email },
-  }, { priority: 1 })
+  // 다중 매장: extra_data.store_ids 있으면 모두, 없으면 platform_store_id 1개
+  const extraData = (cred.extra_data as Record<string, unknown>) || {}
+  const rawStoreIds = Array.isArray(extraData.store_ids) ? extraData.store_ids as any[] : []
+  const validIds = rawStoreIds.map(s => String(s).trim()).filter(s => /^\d+$/.test(s))
+  const storeIds = validIds.length > 0
+    ? validIds
+    : [cred.platform_store_id || 'unknown']
 
-  if (!jobResult.ok) {
-    return NextResponse.json({ ok: false, error: jobResult.error }, { status: 500 })
+  const jobs: Array<{ storeId: string; jobId?: string; ok: boolean; error?: string }> = []
+  for (const sid of storeIds) {
+    const jobResult = await enqueuePlatformJob({
+      platform: platformParam,
+      action: 'fetch_reviews',
+      userId,
+      storeId: sid,
+      payload: { shop_no: /^\d+$/.test(sid) ? sid : undefined, days_back: days, manual: true, triggered_by: 'admin', admin_email: admin.email },
+    }, { priority: 1 })
+    jobs.push({ storeId: sid, jobId: jobResult.ok ? jobResult.jobId : undefined, ok: jobResult.ok, error: jobResult.ok ? undefined : jobResult.error })
   }
 
+  const okCount = jobs.filter(j => j.ok).length
   return NextResponse.json({
-    ok: true,
-    jobId: jobResult.jobId,
+    ok: okCount > 0,
     user_id: userId,
     platform: platformParam,
     days,
     store_name: cred.platform_store_name,
-    message: `${platformParam} ${days}일치 fetch 큐 등록 완료`,
+    store_count: storeIds.length,
+    queued: okCount,
+    jobs,
+    message: storeIds.length > 1
+      ? `${platformParam} ${storeIds.length}개 매장 × ${days}일치 fetch 큐 등록 (${okCount}/${storeIds.length} 성공)`
+      : `${platformParam} ${days}일치 fetch 큐 등록 완료`,
   })
 }
