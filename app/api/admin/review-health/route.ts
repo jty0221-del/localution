@@ -243,7 +243,8 @@ export async function GET() {
 
  if (!graphqlTest.ok) {
  overall = 'error'
- issues.push(`GraphQL 엔드포인트 오류: ${graphqlTest.error}`)
+ const errMsg = (graphqlTest as any).error || (graphqlTest as any).message || (graphqlTest as any).error_code || 'unknown'
+ issues.push(`GraphQL 엔드포인트 오류: ${errMsg}`)
  }
  if (!cronOk24h) {
  if (overall !== 'error') overall = 'warn'
