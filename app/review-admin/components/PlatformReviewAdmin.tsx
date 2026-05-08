@@ -1673,7 +1673,7 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
  )
 }
 
-// ── 리뷰 키워드 분석 (등장 빈도 + 평균 별점 + 긍정 비율) ──
+// ── 리뷰 키워드 분석 + 마케팅 추천 ──
 type Keyword = {
   keyword: string
   count: number
@@ -1682,37 +1682,54 @@ type Keyword = {
   negative: number
   neutral: number
   positive_ratio: number
+  marketing_score: number
+  category: 'signature' | 'marketing_pick' | 'blog_topic' | 'improvement' | 'neutral'
+  recommendation: string
+  suggested_use: string[]
+}
+
+type KeywordResp = {
+  ok: boolean
+  total_reviews: number
+  keywords: Keyword[]
+  by_category: {
+    signature: Keyword[]
+    marketing_pick: Keyword[]
+    blog_topic: Keyword[]
+    improvement: Keyword[]
+  }
+  top_marketing: Keyword[]
+  summary: { avg_rating: number | null; total: number }
 }
 
 function KeywordAnalysis({ platform, platformLabel, platformColor }: { platform: string; platformLabel: string; platformColor: string }) {
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [keywords, setKeywords] = useState<Keyword[]>([])
-  const [total, setTotal] = useState(0)
-  const [sortBy, setSortBy] = useState<'count' | 'rating_high' | 'rating_low' | 'positive'>('count')
+  const [data, setData] = useState<KeywordResp | null>(null)
+  const [tab, setTab] = useState<'recommend' | 'all'>('recommend')
+  const [sortBy, setSortBy] = useState<'count' | 'rating_high' | 'rating_low' | 'positive' | 'score'>('score')
 
   const load = useCallback(async () => {
     setLoading(true)
     try {
-      const r = await fetch('/api/place/reviews/keywords?platform=' + platform + '&min_count=2&limit=40', { cache: 'no-store' })
+      const r = await fetch('/api/place/reviews/keywords?platform=' + platform + '&min_count=2&limit=80', { cache: 'no-store' })
       const j = await r.json()
-      if (j.ok) {
-        setKeywords(j.keywords || [])
-        setTotal(j.total_reviews || 0)
-      }
+      if (j.ok) setData(j)
     } catch {} finally { setLoading(false) }
   }, [platform])
 
   useEffect(() => { if (open) load() }, [open, load])
 
   const sorted = useMemo(() => {
-    const arr = [...keywords]
-    if (sortBy === 'count') arr.sort((a, b) => b.count - a.count)
+    if (!data) return []
+    const arr = [...data.keywords]
+    if (sortBy === 'score') arr.sort((a, b) => b.marketing_score - a.marketing_score)
+    else if (sortBy === 'count') arr.sort((a, b) => b.count - a.count)
     else if (sortBy === 'rating_high') arr.sort((a, b) => (b.avg_rating || 0) - (a.avg_rating || 0))
     else if (sortBy === 'rating_low') arr.sort((a, b) => (a.avg_rating || 5) - (b.avg_rating || 5))
     else if (sortBy === 'positive') arr.sort((a, b) => b.positive_ratio - a.positive_ratio)
     return arr
-  }, [keywords, sortBy])
+  }, [data, sortBy])
 
   return (
     <div className="bg-white rounded-2xl shadow-sm overflow-hidden mb-3">
@@ -1721,75 +1738,208 @@ function KeywordAnalysis({ platform, platformLabel, platformColor }: { platform:
         className="w-full flex items-center justify-between px-4 py-3 hover:bg-[#FAFBFF] transition-colors"
       >
         <div className="flex items-center gap-2">
-          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#7C3AED] to-[#EC4899] flex items-center justify-center shadow-sm">
-            <Sparkles size={13} className="text-white" strokeWidth={2.5} />
+          <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#7C3AED] to-[#EC4899] flex items-center justify-center shadow-sm">
+            <Sparkles size={14} className="text-white" strokeWidth={2.5} />
           </div>
           <div className="text-left">
-            <p className="text-sm font-black text-[#191F28]">키워드 분석</p>
-            <p className="text-[10px] text-[#8B95A1]">리뷰에 자주 나오는 키워드 + 반응 분석</p>
+            <p className="text-sm font-black text-[#191F28]">키워드 분석 · 마케팅 추천</p>
+            <p className="text-[10px] text-[#8B95A1]">SEO 키워드 자동 추출 + 활용 가이드</p>
           </div>
         </div>
         <span className="text-xs text-[#8B95A1]">{open ? '접기' : '열기'}</span>
       </button>
 
       {open && (
-        <div className="px-4 pb-4 border-t border-[#F2F4F6]">
+        <div className="px-3 md:px-4 pb-4 border-t border-[#F2F4F6]">
           {loading ? (
             <p className="text-xs text-[#8B95A1] py-6 text-center">분석 중...</p>
-          ) : keywords.length === 0 ? (
+          ) : !data || data.keywords.length === 0 ? (
             <p className="text-xs text-[#8B95A1] py-6 text-center">분석할 키워드가 부족해요 (리뷰 더 모이면 자동 분석)</p>
           ) : (
             <>
-              <div className="flex items-center gap-2 my-3 flex-wrap">
-                <span className="text-[11px] text-[#8B95A1]">{total}개 리뷰 · {keywords.length}개 키워드 ·</span>
-                {([
-                  ['count', '빈도순'],
-                  ['rating_high', '별점 높은순'],
-                  ['rating_low', '별점 낮은순'],
-                  ['positive', '긍정 높은순'],
-                ] as const).map(([v, l]) => (
-                  <button key={v} onClick={() => setSortBy(v)}
-                    className={'text-[11px] font-bold px-2 py-1 rounded-lg ' +
-                      (sortBy === v ? 'text-white' : 'bg-[#F2F4F6] text-[#4E5968]')}
-                    style={sortBy === v ? { background: platformColor } : {}}>
-                    {l}
-                  </button>
-                ))}
+              {/* 탭 */}
+              <div className="inline-flex rounded-xl bg-[#F2F4F6] p-0.5 my-3">
+                <button onClick={() => setTab('recommend')}
+                  className={'px-3 py-1.5 rounded-lg text-xs font-bold ' +
+                    (tab === 'recommend' ? 'bg-white text-[#191F28] shadow-sm' : 'text-[#8B95A1]')}>
+                  마케팅 추천
+                </button>
+                <button onClick={() => setTab('all')}
+                  className={'px-3 py-1.5 rounded-lg text-xs font-bold ' +
+                    (tab === 'all' ? 'bg-white text-[#191F28] shadow-sm' : 'text-[#8B95A1]')}>
+                  전체 키워드 ({data.keywords.length})
+                </button>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5">
-                {sorted.slice(0, 30).map(k => (
-                  <div key={k.keyword} className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-[#FAFBFF] border border-[#F2F4F6]">
-                    <div className="flex items-center gap-2 min-w-0 flex-1">
-                      <span className="text-sm font-bold text-[#191F28] truncate">{k.keyword}</span>
-                      <span className="text-[10px] text-[#8B95A1] flex-shrink-0">{k.count}회</span>
-                    </div>
-                    <div className="flex items-center gap-1.5 flex-shrink-0 text-[11px]">
-                      {k.avg_rating !== null && (
-                        <span className="inline-flex items-center gap-0.5 font-bold tabular-nums"
-                          style={{ color: k.avg_rating >= 4 ? '#059669' : k.avg_rating >= 3 ? '#F59E0B' : '#DC2626' }}>
-                          <Star size={10} fill="currentColor" strokeWidth={0} />
-                          {k.avg_rating}
-                        </span>
-                      )}
-                      <span className="font-bold tabular-nums" style={{
-                        color: k.positive_ratio >= 70 ? '#059669' : k.positive_ratio >= 40 ? '#F59E0B' : '#DC2626'
-                      }}>
-                        긍정 {k.positive_ratio}%
-                      </span>
-                    </div>
+              {tab === 'recommend' && (
+                <div className="space-y-3">
+                  {/* 1. 매장 시그니처 */}
+                  {data.by_category.signature.length > 0 && (
+                    <CategoryBlock
+                      title="매장 시그니처"
+                      desc="가장 자주, 가장 긍정적으로 언급된 키워드 — 모든 마케팅의 핵심"
+                      color="#059669"
+                      bg="#ECFDF5"
+                      keywords={data.by_category.signature}
+                    />
+                  )}
+                  {/* 2. 마케팅 활용 */}
+                  {data.by_category.marketing_pick.length > 0 && (
+                    <CategoryBlock
+                      title="마케팅 활용 강점"
+                      desc="긍정 비율 75%+ — SNS 캡션·광고 카피·해시태그에 사용"
+                      color="#3182F6"
+                      bg="#EFF6FF"
+                      keywords={data.by_category.marketing_pick}
+                    />
+                  )}
+                  {/* 3. 블루오션 / 블로그 후보 */}
+                  {data.by_category.blog_topic.length > 0 && (
+                    <CategoryBlock
+                      title="블로그 글·롱테일 SEO 후보"
+                      desc="긍정 응답 있고 빈도 낮음 — 더 부각하면 차별화 가능"
+                      color="#7C3AED"
+                      bg="#F5F3FF"
+                      keywords={data.by_category.blog_topic}
+                    />
+                  )}
+                  {/* 4. 개선 필요 */}
+                  {data.by_category.improvement.length > 0 && (
+                    <CategoryBlock
+                      title="개선 필요 — 즉시 점검"
+                      desc="부정 비율 60%+ 또는 평균 별점 2.8 이하 — 사장님 직접 점검 권장"
+                      color="#DC2626"
+                      bg="#FEF2F2"
+                      keywords={data.by_category.improvement}
+                    />
+                  )}
+                  {data.by_category.signature.length === 0 &&
+                   data.by_category.marketing_pick.length === 0 &&
+                   data.by_category.blog_topic.length === 0 &&
+                   data.by_category.improvement.length === 0 && (
+                    <p className="text-xs text-[#8B95A1] py-4 text-center">아직 추천할 만한 키워드가 부족해요. 리뷰 30개 이상 모이면 더 정확해져요.</p>
+                  )}
+
+                  {/* 통합 활용 안내 */}
+                  <div className="mt-4 p-3 rounded-xl bg-gradient-to-br from-[#FAFBFF] to-[#FEF3C7] border border-[#FDE68A]">
+                    <p className="text-[11px] font-bold text-[#92400E] mb-1.5">활용 가이드</p>
+                    <ul className="text-[11px] text-[#92400E] space-y-1 leading-relaxed list-disc pl-5">
+                      <li><strong>시그니처</strong> 키워드 → 네이버 플레이스 소개글·매장 슬로건·메뉴판 강조</li>
+                      <li><strong>마케팅 강점</strong> → 인스타 해시태그, AI 답글에 자연스럽게 삽입</li>
+                      <li><strong>블루오션</strong> → 블로그 글 주제로 잡고 롱테일 SEO 시도</li>
+                      <li><strong>개선 필요</strong> → 직원 회의 안건, 서비스 점검 우선순위로</li>
+                    </ul>
                   </div>
-                ))}
-              </div>
+                </div>
+              )}
 
-              <p className="mt-3 text-[10px] text-[#8B95A1] leading-relaxed">
-                키워드는 리뷰 본문에서 자동 추출 — 등장 횟수, 평균 별점, 긍정 비율 (별점 4+ = 긍정).
-                긍정 키워드는 마케팅에 활용, 부정 키워드는 개선 포인트로 참고하세요.
-              </p>
+              {tab === 'all' && (
+                <>
+                  <div className="flex items-center gap-2 mb-2 flex-wrap">
+                    <span className="text-[11px] text-[#8B95A1]">{data.total_reviews}개 리뷰 · {data.keywords.length}개 키워드 ·</span>
+                    {([
+                      ['score', '마케팅 점수'],
+                      ['count', '빈도'],
+                      ['rating_high', '별점 ↑'],
+                      ['rating_low', '별점 ↓'],
+                      ['positive', '긍정 ↑'],
+                    ] as const).map(([v, l]) => (
+                      <button key={v} onClick={() => setSortBy(v)}
+                        className={'text-[11px] font-bold px-2 py-1 rounded-lg ' +
+                          (sortBy === v ? 'text-white' : 'bg-[#F2F4F6] text-[#4E5968]')}
+                        style={sortBy === v ? { background: platformColor } : {}}>
+                        {l}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5">
+                    {sorted.map(k => <KeywordRow key={k.keyword} k={k} />)}
+                  </div>
+                </>
+              )}
             </>
           )}
         </div>
       )}
+    </div>
+  )
+}
+
+function CategoryBlock({ title, desc, color, bg, keywords }: {
+  title: string; desc: string; color: string; bg: string; keywords: Keyword[]
+}) {
+  return (
+    <div className="rounded-xl p-3 border" style={{ background: bg, borderColor: color + '30' }}>
+      <div className="mb-2">
+        <p className="text-sm font-black" style={{ color }}>{title}</p>
+        <p className="text-[10px] mt-0.5" style={{ color: color + 'cc' }}>{desc}</p>
+      </div>
+      <div className="space-y-1.5">
+        {keywords.map(k => (
+          <div key={k.keyword} className="bg-white rounded-lg p-2.5 border border-white">
+            <div className="flex items-center justify-between gap-2 flex-wrap">
+              <div className="flex items-center gap-2 min-w-0 flex-1">
+                <span className="text-sm font-black text-[#191F28] truncate">#{k.keyword}</span>
+                <span className="text-[10px] text-[#8B95A1] tabular-nums flex-shrink-0">{k.count}회</span>
+              </div>
+              <div className="flex items-center gap-1.5 text-[11px] flex-shrink-0">
+                {k.avg_rating !== null && (
+                  <span className="inline-flex items-center gap-0.5 font-bold tabular-nums"
+                    style={{ color: k.avg_rating >= 4 ? '#059669' : k.avg_rating >= 3 ? '#F59E0B' : '#DC2626' }}>
+                    <Star size={10} fill="currentColor" strokeWidth={0} />
+                    {k.avg_rating}
+                  </span>
+                )}
+                <span className="font-bold tabular-nums" style={{
+                  color: k.positive_ratio >= 70 ? '#059669' : k.positive_ratio >= 40 ? '#F59E0B' : '#DC2626'
+                }}>
+                  긍정 {k.positive_ratio}%
+                </span>
+              </div>
+            </div>
+            {k.suggested_use.length > 0 && (
+              <div className="mt-1.5 flex flex-wrap gap-1">
+                {k.suggested_use.map(u => (
+                  <span key={u} className="text-[9px] px-1.5 py-0.5 rounded bg-[#F2F4F6] text-[#4E5968] font-bold">
+                    {u}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function KeywordRow({ k }: { k: Keyword }) {
+  return (
+    <div className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-[#FAFBFF] border border-[#F2F4F6]">
+      <div className="flex items-center gap-2 min-w-0 flex-1">
+        <span className="text-sm font-bold text-[#191F28] truncate">{k.keyword}</span>
+        <span className="text-[10px] text-[#8B95A1] flex-shrink-0">{k.count}회</span>
+        {k.marketing_score >= 70 && (
+          <span className="text-[9px] font-black bg-[#7C3AED] text-white px-1 py-0.5 rounded flex-shrink-0">
+            점수 {k.marketing_score}
+          </span>
+        )}
+      </div>
+      <div className="flex items-center gap-1.5 flex-shrink-0 text-[11px]">
+        {k.avg_rating !== null && (
+          <span className="inline-flex items-center gap-0.5 font-bold tabular-nums"
+            style={{ color: k.avg_rating >= 4 ? '#059669' : k.avg_rating >= 3 ? '#F59E0B' : '#DC2626' }}>
+            <Star size={10} fill="currentColor" strokeWidth={0} />
+            {k.avg_rating}
+          </span>
+        )}
+        <span className="font-bold tabular-nums" style={{
+          color: k.positive_ratio >= 70 ? '#059669' : k.positive_ratio >= 40 ? '#F59E0B' : '#DC2626'
+        }}>
+          긍정 {k.positive_ratio}%
+        </span>
+      </div>
     </div>
   )
 }
