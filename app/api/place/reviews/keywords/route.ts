@@ -149,33 +149,111 @@ export async function GET(req: NextRequest) {
     }
   }
 
-  // 정렬 (빈도순)
-  const keywords = Array.from(map.values())
+  // 카테고리 분류 + 마케팅 액션 추천
+  type Category = 'signature' | 'marketing_pick' | 'blog_topic' | 'improvement' | 'neutral'
+  function classifyKeyword(k: KStat): { category: Category; recommendation: string; suggested_use: string[] } {
+    const ratio = k.count > 0 ? (k.positive / k.count) * 100 : 0
+    const avgRating = k.rating_count > 0 ? k.rating_sum / k.rating_count : 0
+
+    // signature — 매장 시그니처 (자주 나오면서 긍정 압도적)
+    if (k.count >= 10 && ratio >= 80) {
+      return {
+        category: 'signature',
+        recommendation: `매장 시그니처 — ${k.count}건 중 ${Math.round(ratio)}% 긍정`,
+        suggested_use: ['인스타 캡션 헤드라인', '블로그 제목', '네이버 플레이스 소개글', '메뉴판 특별 강조'],
+      }
+    }
+    // marketing_pick — 마케팅에 활용할 강점
+    if (k.count >= 5 && ratio >= 75) {
+      return {
+        category: 'marketing_pick',
+        recommendation: `마케팅 활용 강점 — 긍정 ${Math.round(ratio)}%`,
+        suggested_use: ['SNS 해시태그', '리뷰 답글 키워드', '광고 카피'],
+      }
+    }
+    // improvement — 개선 필요
+    if ((ratio <= 40 && k.count >= 3) || (avgRating > 0 && avgRating <= 2.8 && k.count >= 3)) {
+      return {
+        category: 'improvement',
+        recommendation: `개선 필요 — 긍정 ${Math.round(ratio)}%${avgRating > 0 ? ' / 평균 ' + avgRating.toFixed(1) + '점' : ''}`,
+        suggested_use: ['현장 점검 우선순위', '직원 교육 포인트', '서비스 개선 회의 안건'],
+      }
+    }
+    // blog_topic — 블루오션 (긍정 high, 빈도 적음 → 더 부각할 가치)
+    if (k.keyword.length >= 3 && k.count >= 3 && k.count < 8 && ratio >= 60) {
+      return {
+        category: 'blog_topic',
+        recommendation: `블로그 글 후보 — 차별화 가능 (긍정 ${Math.round(ratio)}%)`,
+        suggested_use: ['블로그 글 주제', '롱테일 SEO 키워드', '리뷰 이벤트 주제'],
+      }
+    }
+    return {
+      category: 'neutral',
+      recommendation: '관찰 키워드',
+      suggested_use: [],
+    }
+  }
+
+  // 마케팅 점수 (0~100): positive_ratio × log(count) 가중치
+  function marketingScore(count: number, ratio: number): number {
+    const freqBonus = Math.min(40, Math.log2(count + 1) * 8)  // 빈도 가산 (max 40)
+    const ratioPart = ratio * 0.6  // 긍정 비율 (max 60)
+    return Math.round(freqBonus + ratioPart)
+  }
+
+  const enriched = Array.from(map.values())
     .filter(k => k.count >= minCount)
-    .map(k => ({
-      keyword: k.keyword,
-      count: k.count,
-      avg_rating: k.rating_count > 0 ? Math.round((k.rating_sum / k.rating_count) * 10) / 10 : null,
-      positive: k.positive,
-      negative: k.negative,
-      neutral: k.neutral,
-      positive_ratio: k.count > 0 ? Math.round((k.positive / k.count) * 100) : 0,
-      sample_review_id: k.sample_review_id,
-    }))
+    .map(k => {
+      const ratio = k.count > 0 ? Math.round((k.positive / k.count) * 100) : 0
+      const cls = classifyKeyword(k)
+      return {
+        keyword: k.keyword,
+        count: k.count,
+        avg_rating: k.rating_count > 0 ? Math.round((k.rating_sum / k.rating_count) * 10) / 10 : null,
+        positive: k.positive,
+        negative: k.negative,
+        neutral: k.neutral,
+        positive_ratio: ratio,
+        marketing_score: marketingScore(k.count, ratio),
+        category: cls.category,
+        recommendation: cls.recommendation,
+        suggested_use: cls.suggested_use,
+        sample_review_id: k.sample_review_id,
+      }
+    })
     .sort((a, b) => b.count - a.count)
     .slice(0, limit)
+
+  // 카테고리별 상위 추천
+  const byCategory = {
+    signature: enriched.filter(k => k.category === 'signature').slice(0, 5),
+    marketing_pick: enriched.filter(k => k.category === 'marketing_pick').slice(0, 5),
+    blog_topic: enriched.filter(k => k.category === 'blog_topic').slice(0, 8),
+    improvement: enriched.filter(k => k.category === 'improvement').slice(0, 5),
+  }
+
+  // 종합 마케팅 추천 (마케팅 점수 top 10)
+  const top_marketing = [...enriched]
+    .sort((a, b) => b.marketing_score - a.marketing_score)
+    .slice(0, 10)
 
   return NextResponse.json({
     ok: true,
     total_reviews: reviews.length,
     platform: platform || 'all',
-    keywords,
+    keywords: enriched,
+    by_category: byCategory,
+    top_marketing,
     summary: {
       avg_rating: reviews.filter(r => typeof r.rating === 'number').length > 0
         ? Math.round((reviews.reduce((s, r) => s + (r.rating || 0), 0) / reviews.filter(r => typeof r.rating === 'number').length) * 10) / 10
         : null,
       total: reviews.length,
-      with_keyword_analysis: keywords.length,
+      with_keyword_analysis: enriched.length,
+      signature_count: byCategory.signature.length,
+      marketing_pick_count: byCategory.marketing_pick.length,
+      blog_topic_count: byCategory.blog_topic.length,
+      improvement_count: byCategory.improvement.length,
     },
   })
 }
