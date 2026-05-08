@@ -387,7 +387,7 @@ export async function POST(req: NextRequest) {
  updated: 0,
  total: 0,
  reviews: [],
- note: 'SSR HTML 에서 리뷰를 찾지 못함. 리뷰가 0건이거나 파싱 패턴 변경 가능성.',
+ note: '수집된 리뷰가 없어요. 신규 매장이라 리뷰가 아직 없거나, 매장 ID 가 다를 수 있어요.',
  })
  }
 
