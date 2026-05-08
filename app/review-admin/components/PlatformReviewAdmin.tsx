@@ -18,14 +18,14 @@
 // - POST /api/review-reply/bulk-draft (일괄 생성 후보 조회)
 // ============================================================
 
-import { useState, useEffect, useCallback, useRef } from 'react'
+import { useState, useEffect, useCallback, useRef, useMemo } from 'react'
 import type { ReactNode } from 'react'
 import Link from 'next/link'
 import Sidebar from '../../components/Sidebar'
 import Footer from '../../components/Footer'
 import PageHeader from '../../components/PageHeader'
 import { toast } from '../../lib/toast'
-import { Heart, Briefcase, Smile, Edit3, Mail, Flame, FileText, AlertTriangle, type LucideIcon } from 'lucide-react'
+import { Heart, Briefcase, Smile, Edit3, Mail, Flame, FileText, AlertTriangle, Sparkles, Star, type LucideIcon } from 'lucide-react'
 // 76차: CoupangReviewBookmarkletDialog import 제거 (자동 연결로 대체됨)
 
 type PlatformSlug = 'naver_place' | 'baemin' | 'yogiyo' | 'coupangeats' | 'kakao_map'
@@ -1112,6 +1112,11 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
  </div>
  )}
 
+ {/* 키워드 분석 (리뷰 1건 이상일 때만) */}
+ {reviews.length > 0 && (
+ <KeywordAnalysis platform={config.platform} platformLabel={config.label} platformColor={config.color} />
+ )}
+
  {/* 리뷰 목록 — connected 무관, 로딩 완료 후 항상 표시 */}
  {(!loadingConn || loadingReviews || reviews.length > 0) ? (
  loadingReviews ? (
@@ -1666,6 +1671,127 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
  )}
  </div>
  )
+}
+
+// ── 리뷰 키워드 분석 (등장 빈도 + 평균 별점 + 긍정 비율) ──
+type Keyword = {
+  keyword: string
+  count: number
+  avg_rating: number | null
+  positive: number
+  negative: number
+  neutral: number
+  positive_ratio: number
+}
+
+function KeywordAnalysis({ platform, platformLabel, platformColor }: { platform: string; platformLabel: string; platformColor: string }) {
+  const [open, setOpen] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [keywords, setKeywords] = useState<Keyword[]>([])
+  const [total, setTotal] = useState(0)
+  const [sortBy, setSortBy] = useState<'count' | 'rating_high' | 'rating_low' | 'positive'>('count')
+
+  const load = useCallback(async () => {
+    setLoading(true)
+    try {
+      const r = await fetch('/api/place/reviews/keywords?platform=' + platform + '&min_count=2&limit=40', { cache: 'no-store' })
+      const j = await r.json()
+      if (j.ok) {
+        setKeywords(j.keywords || [])
+        setTotal(j.total_reviews || 0)
+      }
+    } catch {} finally { setLoading(false) }
+  }, [platform])
+
+  useEffect(() => { if (open) load() }, [open, load])
+
+  const sorted = useMemo(() => {
+    const arr = [...keywords]
+    if (sortBy === 'count') arr.sort((a, b) => b.count - a.count)
+    else if (sortBy === 'rating_high') arr.sort((a, b) => (b.avg_rating || 0) - (a.avg_rating || 0))
+    else if (sortBy === 'rating_low') arr.sort((a, b) => (a.avg_rating || 5) - (b.avg_rating || 5))
+    else if (sortBy === 'positive') arr.sort((a, b) => b.positive_ratio - a.positive_ratio)
+    return arr
+  }, [keywords, sortBy])
+
+  return (
+    <div className="bg-white rounded-2xl shadow-sm overflow-hidden mb-3">
+      <button
+        onClick={() => setOpen(o => !o)}
+        className="w-full flex items-center justify-between px-4 py-3 hover:bg-[#FAFBFF] transition-colors"
+      >
+        <div className="flex items-center gap-2">
+          <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[#7C3AED] to-[#EC4899] flex items-center justify-center shadow-sm">
+            <Sparkles size={13} className="text-white" strokeWidth={2.5} />
+          </div>
+          <div className="text-left">
+            <p className="text-sm font-black text-[#191F28]">키워드 분석</p>
+            <p className="text-[10px] text-[#8B95A1]">리뷰에 자주 나오는 키워드 + 반응 분석</p>
+          </div>
+        </div>
+        <span className="text-xs text-[#8B95A1]">{open ? '접기' : '열기'}</span>
+      </button>
+
+      {open && (
+        <div className="px-4 pb-4 border-t border-[#F2F4F6]">
+          {loading ? (
+            <p className="text-xs text-[#8B95A1] py-6 text-center">분석 중...</p>
+          ) : keywords.length === 0 ? (
+            <p className="text-xs text-[#8B95A1] py-6 text-center">분석할 키워드가 부족해요 (리뷰 더 모이면 자동 분석)</p>
+          ) : (
+            <>
+              <div className="flex items-center gap-2 my-3 flex-wrap">
+                <span className="text-[11px] text-[#8B95A1]">{total}개 리뷰 · {keywords.length}개 키워드 ·</span>
+                {([
+                  ['count', '빈도순'],
+                  ['rating_high', '별점 높은순'],
+                  ['rating_low', '별점 낮은순'],
+                  ['positive', '긍정 높은순'],
+                ] as const).map(([v, l]) => (
+                  <button key={v} onClick={() => setSortBy(v)}
+                    className={'text-[11px] font-bold px-2 py-1 rounded-lg ' +
+                      (sortBy === v ? 'text-white' : 'bg-[#F2F4F6] text-[#4E5968]')}
+                    style={sortBy === v ? { background: platformColor } : {}}>
+                    {l}
+                  </button>
+                ))}
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-1.5">
+                {sorted.slice(0, 30).map(k => (
+                  <div key={k.keyword} className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-[#FAFBFF] border border-[#F2F4F6]">
+                    <div className="flex items-center gap-2 min-w-0 flex-1">
+                      <span className="text-sm font-bold text-[#191F28] truncate">{k.keyword}</span>
+                      <span className="text-[10px] text-[#8B95A1] flex-shrink-0">{k.count}회</span>
+                    </div>
+                    <div className="flex items-center gap-1.5 flex-shrink-0 text-[11px]">
+                      {k.avg_rating !== null && (
+                        <span className="inline-flex items-center gap-0.5 font-bold tabular-nums"
+                          style={{ color: k.avg_rating >= 4 ? '#059669' : k.avg_rating >= 3 ? '#F59E0B' : '#DC2626' }}>
+                          <Star size={10} fill="currentColor" strokeWidth={0} />
+                          {k.avg_rating}
+                        </span>
+                      )}
+                      <span className="font-bold tabular-nums" style={{
+                        color: k.positive_ratio >= 70 ? '#059669' : k.positive_ratio >= 40 ? '#F59E0B' : '#DC2626'
+                      }}>
+                        긍정 {k.positive_ratio}%
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              <p className="mt-3 text-[10px] text-[#8B95A1] leading-relaxed">
+                키워드는 리뷰 본문에서 자동 추출 — 등장 횟수, 평균 별점, 긍정 비율 (별점 4+ = 긍정).
+                긍정 키워드는 마케팅에 활용, 부정 키워드는 개선 포인트로 참고하세요.
+              </p>
+            </>
+          )}
+        </div>
+      )}
+    </div>
+  )
 }
 
 // ── 쿠팡이츠 — 사장님이 직접 매장 선택 (다중 매장 케이스) ──
