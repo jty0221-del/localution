@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { rateLimitByIp } from '@/app/lib/rateLimit'
 
 export const dynamic = 'force-dynamic'
+export const runtime = 'nodejs'
+export const maxDuration = 90  // Vision + 장문 생성 (이미지 3장 분석 + 600토큰)
 
 const TONE_PROMPTS: Record<string, string> = {
  z: 'Z세대 감성으로 작성하세요. "ㅋㅋ", "레전드", "대박", "진짜" 등 Z세대 어휘를 자연스럽게 사용하세요. 가볍고 트렌디한 말투.',
@@ -153,11 +155,13 @@ export async function POST(req: NextRequest) {
  max_tokens: 600,
  messages: [{ role: 'user', content }],
  }),
- signal: AbortSignal.timeout(45000), // 45초 timeout (장문 생성)
+ signal: AbortSignal.timeout(80000), // 80초 timeout (Vision + 장문 생성)
  })
 
  if (!resp.ok) {
- return NextResponse.json({ error: 'AI 오류' }, { status: 500 })
+ const txt = await resp.text().catch(() => '')
+ console.error('qr-review-generate Anthropic API non-ok:', resp.status, txt.slice(0, 200))
+ return NextResponse.json({ error: 'AI 오류 (' + resp.status + ')', detail: txt.slice(0, 200) }, { status: 500 })
  }
 
  const result = await resp.json()
