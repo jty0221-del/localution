@@ -100,6 +100,7 @@ export async function POST(req: NextRequest) {
  tone = 'z',
  rating = 5,
  receiptItems = [],
+ storeMenu = [],  // 사장님이 등록한 실제 메뉴 [{name, price, signature}]
  } = body
 
  const apiKey = process.env.ANTHROPIC_API_KEY
@@ -124,18 +125,30 @@ export async function POST(req: NextRequest) {
 
  // Claude Vision 호출
  const toneGuide = TONE_PROMPTS[tone] || TONE_PROMPTS['z']
- const itemStr = receiptItems.length > 0 ? '주문 메뉴: ' + receiptItems.join(', ') : ''
+ const itemStr = receiptItems.length > 0 ? '실제 주문 메뉴 (영수증 OCR): ' + receiptItems.join(', ') : ''
  const ratingStr = rating + '점 (' + ['', '매우불만', '불만', '보통', '만족', '매우만족'][rating] + ')'
+
+ // 매장 실제 메뉴 — AI 가 없는 메뉴 만드는 것 방지
+ const menuLines: string[] = []
+ if (Array.isArray(storeMenu) && storeMenu.length > 0) {
+ const sigs = storeMenu.filter((m: any) => m?.signature).slice(0, 8)
+ const others = storeMenu.filter((m: any) => !m?.signature).slice(0, 12)
+ if (sigs.length > 0) {
+ menuLines.push('대표 메뉴: ' + sigs.map((m: any) => m.name + (m.price ? ' (' + m.price.toLocaleString() + '원)' : '')).join(', '))
+ }
+ if (others.length > 0) {
+ menuLines.push('기타 메뉴: ' + others.map((m: any) => m.name).join(', '))
+ }
+ }
 
  const content: object[] = []
 
  // 속도 최적화: 이미지 최대 1장만 (receiptItems 가 있으면 텍스트로 충분)
- // — 영수증 메뉴는 receiptItems 로 받음 → 사진 1장만 분위기 파악용
  const maxImages = receiptItems && receiptItems.length > 0 ? 1 : 2
  const imgList = images.slice(0, maxImages)
 
  if (imgList.length > 0) {
- content.push({ type: 'text', text: '사진 보고 네이버 플레이스 리뷰 작성:' })
+ content.push({ type: 'text', text: '음식·매장 분위기 사진:' })
  for (const img of imgList) {
  if (img && img.includes(',')) {
  const [hdr, b64] = img.split(',')
@@ -144,16 +157,24 @@ export async function POST(req: NextRequest) {
  }
  }
 
+ const hasRealMenu = menuLines.length > 0 || (receiptItems && receiptItems.length > 0)
+
  content.push({
  type: 'text',
  text: [
  '매장: ' + storeName + ' (' + (storeType || '음식점') + ')',
+ ...menuLines,
  itemStr,
  '별점: ' + ratingStr,
  comment ? '고객 코멘트: ' + comment : '',
  '말투: ' + toneGuide,
  '',
- '3~4문장 짧은 리뷰 작성. 마지막 줄: "해시태그: #태그1 #태그2 #태그3"',
+ '[중요 규칙]',
+ hasRealMenu
+ ? '메뉴를 언급할 때는 위에 적힌 메뉴(영수증 + 매장 등록 메뉴) 만 사용. 그 외 메뉴 절대 만들어내지 마세요.'
+ : '메뉴 이름을 구체적으로 언급하지 말고, "음식이 맛있었어요" 같은 일반적 표현 사용.',
+ '사진에 보이는 음식·분위기·인테리어를 자연스럽게 묘사 (없는 것 추측 X).',
+ '3~4문장 짧은 리뷰. 마지막 줄: "해시태그: #태그1 #태그2 #태그3"',
  ].filter(Boolean).join('\n'),
  })
 
@@ -172,9 +193,15 @@ export async function POST(req: NextRequest) {
    '반드시 모든 출력은 100% 한국어로만 작성하세요.',
    '일본어, 중국어, 영어, 가타카나, 히라가나, 한자 절대 사용 금지.',
    '한국 사람이 자연스럽게 말하는 구어체 한국어로만 작성합니다.',
-   '메뉴 이름이 영수증에 한글로 적혀 있으면 그대로 한글로 표기.',
+   '',
+   '[가장 중요한 규칙 — 절대 금지 사항]',
+   '1) 사용자가 제공한 메뉴 (영수증 OCR + 매장 등록 메뉴) 외에 다른 메뉴 이름을 절대 만들어내지 마세요.',
+   '2) 사진에 보이지 않는 음식이나 분위기를 추측해서 쓰지 마세요.',
+   '3) 매장이 등록한 실제 메뉴와 영수증 메뉴만 언급. 일반적인 음식 (예: "김치찌개" 매장이 아닌데 "김치찌개" 언급) 절대 X.',
+   '4) 만약 메뉴 정보가 부족하면 메뉴 이름 언급 없이 "음식이 맛있어요" 정도로만 표현.',
+   '',
    '해시태그도 모두 한글 (#매장명 #메뉴이름 #지역).',
- ].join(' '),
+ ].join('\n'),
  messages: [{ role: 'user', content }],
  }),
  signal: AbortSignal.timeout(40000), // 80s → 40s (이미지 1장 + 짧은 출력 = 15~25s)
