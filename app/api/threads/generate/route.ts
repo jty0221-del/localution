@@ -4,6 +4,7 @@ import { NextRequest, NextResponse } from 'next/server'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
+export const maxDuration = 60
 
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages'
 const MODEL = process.env.ANTHROPIC_MODEL || 'claude-sonnet-4-6'
