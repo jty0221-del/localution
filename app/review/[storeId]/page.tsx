@@ -243,7 +243,7 @@ export default function ReviewPage() {
  // 1차: 서버 Claude Vision OCR (정확도 최고, items 추출도 가능)
  try {
  const ocrController = new AbortController()
- const ocrTimer = setTimeout(() => ocrController.abort(), 35000) // 35초 (서버 30s + 여유)
+ const ocrTimer = setTimeout(() => ocrController.abort(), 25000) // 25초 (서버 20s + 여유)
  const ocrRes = await fetch('/api/qr-review-generate', {
  method: 'POST',
  headers: { 'Content-Type': 'application/json' },
@@ -309,28 +309,56 @@ export default function ReviewPage() {
  return () => { alive = false }
  }, [photos, store.name])
 
- const handleFile = (e: React.ChangeEvent<HTMLInputElement>) => {
+ // 이미지 압축 — Vision API 속도 향상 핵심 (4MB → 200KB, 1024px max)
+ const compressImage = (file: File, maxSize = 1024, quality = 0.82): Promise<string> => {
+ return new Promise((resolve, reject) => {
+ const reader = new FileReader()
+ reader.onload = () => {
+ const img = new Image()
+ img.onload = () => {
+ const ratio = Math.min(maxSize / img.width, maxSize / img.height, 1)
+ const w = Math.round(img.width * ratio)
+ const h = Math.round(img.height * ratio)
+ const canvas = document.createElement('canvas')
+ canvas.width = w; canvas.height = h
+ const ctx = canvas.getContext('2d')
+ if (!ctx) { resolve(String(reader.result)); return }
+ ctx.drawImage(img, 0, 0, w, h)
+ try {
+ resolve(canvas.toDataURL('image/jpeg', quality))
+ } catch {
+ resolve(String(reader.result))
+ }
+ }
+ img.onerror = () => resolve(String(reader.result))
+ img.src = String(reader.result)
+ }
+ reader.onerror = reject
+ reader.readAsDataURL(file)
+ })
+ }
+
+ const handleFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
  const files = e.target.files
  if (!files || files.length === 0) return
  const arr = Array.from(files)
- let remaining = arr.length
  const buffer: Photo[] = []
- arr.forEach(f => {
+ for (const f of arr) {
+ try {
+ const url = await compressImage(f, 1024, 0.82)
+ buffer.push({ id: Date.now() + '-' + Math.random().toString(36).slice(2, 8), cat: uploadCat, url, label: f.name })
+ } catch {
+ // 압축 실패 시 원본 사용
  const reader = new FileReader()
- reader.onload = () => {
- buffer.push({ id: Date.now() + '-' + Math.random().toString(36).slice(2, 8), cat: uploadCat, url: String(reader.result), label: f.name })
- remaining -= 1
- if (remaining === 0) {
+ const url = await new Promise<string>(r => { reader.onload = () => r(String(reader.result)); reader.readAsDataURL(f) })
+ buffer.push({ id: Date.now() + '-' + Math.random().toString(36).slice(2, 8), cat: uploadCat, url, label: f.name })
+ }
+ }
  setPhotos(prev => [...prev, ...buffer])
  if (uploadCat === 'receipt') setReceiptStatus('checking')
- // 2-C 추적: 사진 업로드 (영수증 'receipt_uploaded' 는 OCR 단계에서 기록)
  if (uploadCat === 'photo') {
  trackEvent(storeId, 'photo_uploaded', { count: buffer.length })
  }
- }
- }
- reader.readAsDataURL(f)
- })
  e.target.value = ''
  }
 
@@ -383,9 +411,9 @@ export default function ReviewPage() {
  const apiTone = TONE_MAP[tone] || 'mom'
  const rating = 5 // 손님이 QR 통해 자발적 리뷰 — 일반적으로 긍정
 
- // 클라이언트 타임아웃 95초 — 서버 maxDuration(90s) 직후 fallback
+ // 클라이언트 타임아웃 45초 — 서버 maxDuration(50s) 직전 fallback
  const controller = new AbortController()
- const timer = setTimeout(() => controller.abort(), 95000)
+ const timer = setTimeout(() => controller.abort(), 45000)
 
  const res = await fetch('/api/qr-review-generate', {
  method: 'POST',
@@ -901,7 +929,7 @@ export default function ReviewPage() {
  <div className="bg-white rounded-2xl p-6 max-w-[300px] w-full text-center shadow-2xl">
  <div className="w-12 h-12 mx-auto mb-4 rounded-full border-4 animate-spin" style={{ borderColor: BLUE_BG, borderTopColor: BLUE }} />
  <p className="font-black text-sm mb-1" style={{ color: BLACK }}>{drafting ? 'AI가 리뷰를 작성 중' : '마무리 중'}</p>
- <p className="text-[11px] mb-4" style={{ color: GRAY }}>{drafting ? '영수증과 사진을 분석하고 있어요 (최대 1~2분)' : '잠시만 기다려주세요'}</p>
+ <p className="text-[11px] mb-4" style={{ color: GRAY }}>{drafting ? '15~30초 정도 걸려요' : '잠시만 기다려주세요'}</p>
  {drafting && (
  <button
  onClick={() => {
