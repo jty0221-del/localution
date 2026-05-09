@@ -3,7 +3,7 @@ import { rateLimitByIp } from '@/app/lib/rateLimit'
 
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
-export const maxDuration = 90  // Vision + 장문 생성 (이미지 3장 분석 + 600토큰)
+export const maxDuration = 50  // Vision + 짧은 출력 (이미지 1장 + 350토큰 = 15~30초 목표)
 
 const TONE_PROMPTS: Record<string, string> = {
  z: 'Z세대 감성으로 작성하세요. "ㅋㅋ", "레전드", "대박", "진짜" 등 Z세대 어휘를 자연스럽게 사용하세요. 가볍고 트렌디한 말투.',
@@ -49,19 +49,19 @@ export async function POST(req: NextRequest) {
  },
  body: JSON.stringify({
  model: 'claude-haiku-4-5-20251001',
- max_tokens: 400,
+ max_tokens: 200,  // 400 → 200 (JSON만 반환 — 짧음)
  messages: [{
  role: 'user',
  content: [
  { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
  {
  type: 'text',
- text: '이 영수증에서 정보를 추출해 JSON으로 반환하세요. 연동 매장명: "' + expectedStoreName + '"\n형식: {"storeName":"매장명","items":["메뉴1","메뉴2"],"total":"합계금액","date":"날짜","matched":true/false}\nJSON만 반환하세요.',
+ text: '영수증 → JSON: {"storeName":"...","items":["메뉴1","메뉴2"],"total":"...","matched":bool}. 매장명 일치: "' + expectedStoreName + '". JSON만.',
  },
  ],
  }],
  }),
- signal: AbortSignal.timeout(30000), // 30초 timeout (Vision)
+ signal: AbortSignal.timeout(20000), // 30s → 20s (짧은 JSON)
  })
 
  if (!resp.ok) return NextResponse.json({ receiptInfo: { items: [], matched: false } })
@@ -116,9 +116,14 @@ export async function POST(req: NextRequest) {
 
  const content: object[] = []
 
- if (images.length > 0) {
- content.push({ type: 'text', text: '다음 사진들을 분석해서 네이버 플레이스 리뷰를 작성해 주세요.' })
- for (const img of images.slice(0, 3)) {
+ // 속도 최적화: 이미지 최대 1장만 (receiptItems 가 있으면 텍스트로 충분)
+ // — 영수증 메뉴는 receiptItems 로 받음 → 사진 1장만 분위기 파악용
+ const maxImages = receiptItems && receiptItems.length > 0 ? 1 : 2
+ const imgList = images.slice(0, maxImages)
+
+ if (imgList.length > 0) {
+ content.push({ type: 'text', text: '사진 보고 네이버 플레이스 리뷰 작성:' })
+ for (const img of imgList) {
  if (img && img.includes(',')) {
  const [hdr, b64] = img.split(',')
  content.push({ type: 'image', source: { type: 'base64', media_type: hdr.includes('png') ? 'image/png' : 'image/jpeg', data: b64 } })
@@ -129,17 +134,13 @@ export async function POST(req: NextRequest) {
  content.push({
  type: 'text',
  text: [
- '매장명: ' + storeName,
- '업종: ' + (storeType || '음식점'),
- '키워드: ' + (mainKeyword || storeName),
+ '매장: ' + storeName + ' (' + (storeType || '음식점') + ')',
  itemStr,
- '고객 별점: ' + ratingStr,
- '고객 코멘트: ' + (comment || '없음'),
+ '별점: ' + ratingStr,
+ comment ? '고객 코멘트: ' + comment : '',
+ '말투: ' + toneGuide,
  '',
- '[말투 지침] ' + toneGuide,
- '',
- '위 정보로 네이버 플레이스 리뷰를 4~6문장으로 작성하세요.',
- '마지막에 해시태그 3개 추가: 형식 → 해시태그: #태그1 #태그2 #태그3',
+ '3~4문장 짧은 리뷰 작성. 마지막 줄: "해시태그: #태그1 #태그2 #태그3"',
  ].filter(Boolean).join('\n'),
  })
 
@@ -152,10 +153,10 @@ export async function POST(req: NextRequest) {
  },
  body: JSON.stringify({
  model: 'claude-haiku-4-5-20251001',
- max_tokens: 600,
+ max_tokens: 350,  // 600 → 350 (3~4문장 + 해시태그면 충분)
  messages: [{ role: 'user', content }],
  }),
- signal: AbortSignal.timeout(80000), // 80초 timeout (Vision + 장문 생성)
+ signal: AbortSignal.timeout(40000), // 80s → 40s (이미지 1장 + 짧은 출력 = 15~25s)
  })
 
  if (!resp.ok) {
