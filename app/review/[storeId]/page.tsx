@@ -242,6 +242,8 @@ export default function ReviewPage() {
  ;(async () => {
  // 1차: 서버 Claude Vision OCR (정확도 최고, items 추출도 가능)
  try {
+ const ocrController = new AbortController()
+ const ocrTimer = setTimeout(() => ocrController.abort(), 35000) // 35초 (서버 30s + 여유)
  const ocrRes = await fetch('/api/qr-review-generate', {
  method: 'POST',
  headers: { 'Content-Type': 'application/json' },
@@ -250,7 +252,9 @@ export default function ReviewPage() {
  receiptImage: receipt.url,
  expectedStoreName: store.name,
  }),
+ signal: ocrController.signal,
  })
+ clearTimeout(ocrTimer)
  if (ocrRes.ok) {
  const j = await ocrRes.json()
  const info = j?.receiptInfo
@@ -379,6 +383,10 @@ export default function ReviewPage() {
  const apiTone = TONE_MAP[tone] || 'mom'
  const rating = 5 // 손님이 QR 통해 자발적 리뷰 — 일반적으로 긍정
 
+ // 클라이언트 타임아웃 95초 — 서버 maxDuration(90s) 직후 fallback
+ const controller = new AbortController()
+ const timer = setTimeout(() => controller.abort(), 95000)
+
  const res = await fetch('/api/qr-review-generate', {
  method: 'POST',
  headers: { 'Content-Type': 'application/json' },
@@ -393,7 +401,9 @@ export default function ReviewPage() {
  rating,
  receiptItems: receiptInfo?.items || [],
  }),
+ signal: controller.signal,
  })
+ clearTimeout(timer)
 
  if (res.ok) {
  const j = await res.json()
@@ -888,10 +898,26 @@ export default function ReviewPage() {
 
  {(drafting || advancing) && (
  <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50 backdrop-blur-sm px-6">
- <div className="bg-white rounded-2xl p-6 max-w-[280px] w-full text-center shadow-2xl">
+ <div className="bg-white rounded-2xl p-6 max-w-[300px] w-full text-center shadow-2xl">
  <div className="w-12 h-12 mx-auto mb-4 rounded-full border-4 animate-spin" style={{ borderColor: BLUE_BG, borderTopColor: BLUE }} />
  <p className="font-black text-sm mb-1" style={{ color: BLACK }}>{drafting ? 'AI가 리뷰를 작성 중' : '마무리 중'}</p>
- <p className="text-[11px]" style={{ color: GRAY }}>{drafting ? '영수증과 사진을 분석하고 있어요' : '잠시만 기다려주세요'}</p>
+ <p className="text-[11px] mb-4" style={{ color: GRAY }}>{drafting ? '영수증과 사진을 분석하고 있어요 (최대 1~2분)' : '잠시만 기다려주세요'}</p>
+ {drafting && (
+ <button
+ onClick={() => {
+ // AI 없이 즉시 fallback 텍스트로 진행
+ const fallbackText = buildReview(store, gender, age, tone, length, photos)
+ setDraft(fallbackText)
+ setAiSource('fallback')
+ setDrafting(false)
+ setStep(3)
+ }}
+ className="text-[11px] underline"
+ style={{ color: GRAY }}
+ >
+ AI 건너뛰고 직접 작성하기
+ </button>
+ )}
  </div>
  </div>
  )}
