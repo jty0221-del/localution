@@ -343,9 +343,14 @@ export default function ReviewPage() {
  if (!files || files.length === 0) return
  const arr = Array.from(files)
  const buffer: Photo[] = []
+ // 영수증은 OCR 정확도 위해 큰 해상도 + 고품질 유지 (작은 글자)
+ // 일반 사진은 분위기만 파악하면 되므로 작게 압축
+ const isReceipt = uploadCat === 'receipt'
+ const maxDim = isReceipt ? 1800 : 1024
+ const quality = isReceipt ? 0.92 : 0.82
  for (const f of arr) {
  try {
- const url = await compressImage(f, 1024, 0.82)
+ const url = await compressImage(f, maxDim, quality)
  buffer.push({ id: Date.now() + '-' + Math.random().toString(36).slice(2, 8), cat: uploadCat, url, label: f.name })
  } catch {
  // 압축 실패 시 원본 사용
