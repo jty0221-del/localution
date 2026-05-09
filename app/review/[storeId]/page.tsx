@@ -280,6 +280,8 @@ export default function ReviewPage() {
  action: 'ocr',
  receiptImage: receipt.url,
  expectedStoreName: store.name,
+ // 매장 등록 메뉴 — OCR 오타 보정에 사용
+ storeMenu: storeMenu.slice(0, 30).map(m => ({ name: m.name })),
  }),
  signal: ocrController.signal,
  })
@@ -336,7 +338,7 @@ export default function ReviewPage() {
  setReceiptStatus('confirm')
  })()
  return () => { alive = false }
- }, [photos, store.name])
+ }, [photos, store.name, storeMenu])
 
  // 이미지 압축 — Vision API 속도 향상 핵심 (4MB → 200KB, 1024px max)
  const compressImage = (file: File, maxSize = 1024, quality = 0.82): Promise<string> => {
