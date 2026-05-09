@@ -21,6 +21,7 @@ import { rateLimit, getClientIp } from '@/app/lib/rate-limit'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
+export const maxDuration = 120  // 카드뉴스 8장+ 생성 (Claude Sonnet 4.5)
 
 const ANTHROPIC_URL = 'https://api.anthropic.com/v1/messages'
 // 27차-9b: claude-3-5-sonnet-20241022 deprecation 대응 — 최신 sonnet-4-6 로 교체
