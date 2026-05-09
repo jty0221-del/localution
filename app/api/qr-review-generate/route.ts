@@ -5,6 +5,53 @@ export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 export const maxDuration = 50  // Vision + 짧은 출력 (이미지 1장 + 350토큰 = 15~30초 목표)
 
+// 한글 fuzzy 매칭 — OCR 오타 보정 (편집거리 + 부분 포함)
+function levenshtein(a: string, b: string): number {
+ const m = a.length, n = b.length
+ if (m === 0) return n
+ if (n === 0) return m
+ const dp: number[][] = Array.from({ length: m + 1 }, () => new Array(n + 1).fill(0))
+ for (let i = 0; i <= m; i++) dp[i][0] = i
+ for (let j = 0; j <= n; j++) dp[0][j] = j
+ for (let i = 1; i <= m; i++) {
+ for (let j = 1; j <= n; j++) {
+ const cost = a[i - 1] === b[j - 1] ? 0 : 1
+ dp[i][j] = Math.min(dp[i - 1][j] + 1, dp[i][j - 1] + 1, dp[i - 1][j - 1] + cost)
+ }
+ }
+ return dp[m][n]
+}
+
+function fuzzyMatchMenu(rawItem: string, menuList: string[]): string {
+ if (!rawItem || menuList.length === 0) return rawItem
+ const item = rawItem.replace(/\s+/g, '').toLowerCase()
+ if (item.length < 2) return rawItem
+
+ // 1) 정확히 포함되는 메뉴 (우선)
+ for (const m of menuList) {
+ const norm = m.replace(/\s+/g, '').toLowerCase()
+ if (norm === item) return m
+ }
+ // 2) 부분 포함 (메뉴가 OCR 결과를 포함하거나, 그 반대)
+ for (const m of menuList) {
+ const norm = m.replace(/\s+/g, '').toLowerCase()
+ if (norm.includes(item) || item.includes(norm)) return m
+ }
+ // 3) 편집거리 ≤ max(2, length/3) 이내면 매칭
+ let bestMatch = rawItem
+ let bestDist = Infinity
+ const threshold = Math.max(2, Math.floor(item.length / 3))
+ for (const m of menuList) {
+ const norm = m.replace(/\s+/g, '').toLowerCase()
+ const d = levenshtein(item, norm)
+ if (d <= threshold && d < bestDist) {
+ bestDist = d
+ bestMatch = m
+ }
+ }
+ return bestMatch
+}
+
 const TONE_PROMPTS: Record<string, string> = {
  z: 'Z세대 감성으로 작성하세요. "ㅋㅋ", "레전드", "대박", "진짜" 등 Z세대 어휘를 자연스럽게 사용하세요. 가볍고 트렌디한 말투.',
  mom: '맘카페 후기 스타일로 작성하세요. "~해요", "~더라고요", "~있어요" 등 따뜻하고 신뢰감 있는 말투. 가족/아이 언급 가능.',
@@ -30,7 +77,7 @@ export async function POST(req: NextRequest) {
 
  // ── OCR: 영수증 분석 ─────────────────────────────────────
  if (action === 'ocr') {
- const { receiptImage, expectedStoreName = '' } = body
+ const { receiptImage, expectedStoreName = '', storeMenu = [] } = body
  const apiKey = process.env.ANTHROPIC_API_KEY
 
  if (!apiKey || !receiptImage) {
@@ -39,6 +86,15 @@ export async function POST(req: NextRequest) {
 
  const [header, base64] = receiptImage.split(',')
  const mediaType = header.includes('png') ? 'image/png' : 'image/jpeg'
+
+ // 매장 등록 메뉴 텍스트 (AI 가 OCR 결과 보정 시 참조)
+ const menuList: string[] = Array.isArray(storeMenu)
+ ? storeMenu.map((m: any) => String(m?.name || '')).filter((s: string) => s.length > 0)
+ : []
+ const menuHint = menuList.length > 0
+ ? '\n\n사장님이 등록한 매장 메뉴 목록 (이걸 보고 OCR 오타 보정):\n' + menuList.map(n => '- ' + n).join('\n') +
+ '\n\n중요: 영수증 글자가 흐릿하거나 일부 안 보여도, 위 메뉴 목록과 비슷한 게 있으면 그 메뉴 이름으로 매칭. 예: OCR 이 "김치찟" 으로 읽혔는데 메뉴에 "김치찜" 이 있으면 "김치찜" 으로 정정.'
+ : ''
 
  const resp = await fetch('https://api.anthropic.com/v1/messages', {
  method: 'POST',
@@ -49,8 +105,8 @@ export async function POST(req: NextRequest) {
  },
  body: JSON.stringify({
  model: 'claude-haiku-4-5-20251001',
- max_tokens: 400,  // OCR 은 메뉴 이름 길 수 있으므로 여유
- system: '한국 영수증 OCR 전문가입니다. 한글 메뉴/매장명을 정확히 읽고 JSON 만 반환하세요. 모든 필드는 한국어로.',
+ max_tokens: 400,
+ system: '한국 영수증 OCR + 메뉴 매칭 전문가입니다. 한글 메뉴/매장명을 정확히 읽고, 등록된 매장 메뉴 목록이 주어지면 OCR 오타를 매장 메뉴 이름으로 정정합니다. JSON 만 반환하세요.',
  messages: [{
  role: 'user',
  content: [
@@ -58,18 +114,24 @@ export async function POST(req: NextRequest) {
  {
  type: 'text',
  text: [
- '이 영수증을 정확히 OCR 해 JSON 으로 반환:',
+ '이 영수증을 OCR 해 JSON 반환:',
  '{',
- '  "storeName": "영수증의 매장명 (한국어)",',
- '  "items": ["메뉴 이름들 (한국어)"],',
- '  "total": "총합계 금액 (예: 35,000원)",',
- '  "date": "방문일 (예: 2026-05-08)",',
- '  "matched": 매장명이 "' + expectedStoreName + '" 와 일치하면 true 아니면 false',
+ '  "storeName": "영수증 매장명",',
+ '  "items": ["주문 메뉴들 — 등록 메뉴와 매칭된 정확한 이름"],',
+ '  "items_raw": ["OCR 원본 그대로 (보정 전)"],',
+ '  "total": "총합계 금액",',
+ '  "date": "방문일",',
+ '  "matched": ' + JSON.stringify(expectedStoreName) + ' 와 매장명 일치하면 true,',
+ '  "low_confidence": OCR 자체가 흐릿해서 신뢰도 낮으면 true',
  '}',
+ menuHint,
  '',
- '주의: 메뉴 이름은 영수증에 적힌 그대로 (한글 우선). 영문/일본어로 변환하지 마세요.',
- 'JSON 외 다른 설명 절대 X.',
- ].join('\n'),
+ '규칙:',
+ '1) items 는 등록 메뉴와 매칭된 정확한 이름으로. 매칭 안 되면 OCR 원본 사용.',
+ '2) 메뉴를 추측해서 만들지 말 것 — OCR 에 없는 메뉴 절대 추가 X.',
+ '3) 영수증이 너무 흐릿해서 메뉴 이름 못 읽으면 items 비워두고 low_confidence: true.',
+ '4) JSON 외 텍스트 X.',
+ ].filter(Boolean).join('\n'),
  },
  ],
  }],
@@ -84,9 +146,23 @@ export async function POST(req: NextRequest) {
  const jsonMatch = text.match(/\{[\s\S]*\}/)
  try {
  const parsed = jsonMatch ? JSON.parse(jsonMatch[0]) : {}
- return NextResponse.json({ receiptInfo: { items: [], matched: false, ...parsed } })
+
+ // 서버측 fuzzy 매칭 — AI 가 매칭 못 했어도 등록 메뉴와 비슷하면 정정
+ const rawItems: string[] = Array.isArray(parsed.items) ? parsed.items.map((s: any) => String(s).trim()).filter(Boolean) : []
+ const correctedItems: string[] = rawItems.map((raw: string) => fuzzyMatchMenu(raw, menuList))
+
+ return NextResponse.json({
+ receiptInfo: {
+ items: correctedItems,
+ items_raw: rawItems,
+ matched: false,
+ low_confidence: !!parsed.low_confidence,
+ ...parsed,
+ items: correctedItems,  // 최종 보정된 items 가 우선
+ },
+ })
  } catch {
- return NextResponse.json({ receiptInfo: { items: [], matched: false } })
+ return NextResponse.json({ receiptInfo: { items: [], matched: false, low_confidence: true } })
  }
  }
 
@@ -157,7 +233,22 @@ export async function POST(req: NextRequest) {
  }
  }
 
- const hasRealMenu = menuLines.length > 0 || (receiptItems && receiptItems.length > 0)
+ // 영수증 OCR 성공 여부
+ const hasReceiptItems = Array.isArray(receiptItems) && receiptItems.length > 0
+ const hasMenuRegistered = menuLines.length > 0
+
+ // 메뉴 언급 가능 케이스:
+ // - 영수증 OCR 성공: receiptItems 만 사용 (가장 정확)
+ // - OCR 실패 + 매장 메뉴 등록: 일반적 표현만 (특정 메뉴 강제 X)
+ // - 둘 다 없음: 메뉴 언급 X
+ let menuRule = ''
+ if (hasReceiptItems) {
+ menuRule = '메뉴 언급 시 영수증에 있는 "' + receiptItems.join(', ') + '" 만 사용. 그 외 메뉴 (등록 메뉴 포함) 언급 금지. 영수증에 없는 메뉴 추측 절대 X.'
+ } else if (hasMenuRegistered) {
+ menuRule = '영수증 OCR 이 안 됐거나 흐릿함 — 특정 메뉴 이름 언급 절대 금지. "음식이 맛있었어요", "메뉴가 정성스러워요" 같은 일반 표현만. 위 매장 메뉴는 참고용이지 언급 X.'
+ } else {
+ menuRule = '메뉴 이름 언급 X. "음식이 맛있어요" 정도로만 표현.'
+ }
 
  content.push({
  type: 'text',
@@ -170,9 +261,7 @@ export async function POST(req: NextRequest) {
  '말투: ' + toneGuide,
  '',
  '[중요 규칙]',
- hasRealMenu
- ? '메뉴를 언급할 때는 위에 적힌 메뉴(영수증 + 매장 등록 메뉴) 만 사용. 그 외 메뉴 절대 만들어내지 마세요.'
- : '메뉴 이름을 구체적으로 언급하지 말고, "음식이 맛있었어요" 같은 일반적 표현 사용.',
+ menuRule,
  '사진에 보이는 음식·분위기·인테리어를 자연스럽게 묘사 (없는 것 추측 X).',
  '3~4문장 짧은 리뷰. 마지막 줄: "해시태그: #태그1 #태그2 #태그3"',
  ].filter(Boolean).join('\n'),
