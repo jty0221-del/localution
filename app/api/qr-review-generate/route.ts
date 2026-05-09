@@ -49,19 +49,32 @@ export async function POST(req: NextRequest) {
  },
  body: JSON.stringify({
  model: 'claude-haiku-4-5-20251001',
- max_tokens: 200,  // 400 → 200 (JSON만 반환 — 짧음)
+ max_tokens: 400,  // OCR 은 메뉴 이름 길 수 있으므로 여유
+ system: '한국 영수증 OCR 전문가입니다. 한글 메뉴/매장명을 정확히 읽고 JSON 만 반환하세요. 모든 필드는 한국어로.',
  messages: [{
  role: 'user',
  content: [
  { type: 'image', source: { type: 'base64', media_type: mediaType, data: base64 } },
  {
  type: 'text',
- text: '영수증 → JSON: {"storeName":"...","items":["메뉴1","메뉴2"],"total":"...","matched":bool}. 매장명 일치: "' + expectedStoreName + '". JSON만.',
+ text: [
+ '이 영수증을 정확히 OCR 해 JSON 으로 반환:',
+ '{',
+ '  "storeName": "영수증의 매장명 (한국어)",',
+ '  "items": ["메뉴 이름들 (한국어)"],',
+ '  "total": "총합계 금액 (예: 35,000원)",',
+ '  "date": "방문일 (예: 2026-05-08)",',
+ '  "matched": 매장명이 "' + expectedStoreName + '" 와 일치하면 true 아니면 false',
+ '}',
+ '',
+ '주의: 메뉴 이름은 영수증에 적힌 그대로 (한글 우선). 영문/일본어로 변환하지 마세요.',
+ 'JSON 외 다른 설명 절대 X.',
+ ].join('\n'),
  },
  ],
  }],
  }),
- signal: AbortSignal.timeout(20000), // 30s → 20s (짧은 JSON)
+ signal: AbortSignal.timeout(25000),
  })
 
  if (!resp.ok) return NextResponse.json({ receiptInfo: { items: [], matched: false } })
@@ -154,6 +167,14 @@ export async function POST(req: NextRequest) {
  body: JSON.stringify({
  model: 'claude-haiku-4-5-20251001',
  max_tokens: 350,  // 600 → 350 (3~4문장 + 해시태그면 충분)
+ system: [
+   '당신은 한국 자영업자 매장의 네이버 플레이스 리뷰를 작성하는 한국인 작가입니다.',
+   '반드시 모든 출력은 100% 한국어로만 작성하세요.',
+   '일본어, 중국어, 영어, 가타카나, 히라가나, 한자 절대 사용 금지.',
+   '한국 사람이 자연스럽게 말하는 구어체 한국어로만 작성합니다.',
+   '메뉴 이름이 영수증에 한글로 적혀 있으면 그대로 한글로 표기.',
+   '해시태그도 모두 한글 (#매장명 #메뉴이름 #지역).',
+ ].join(' '),
  messages: [{ role: 'user', content }],
  }),
  signal: AbortSignal.timeout(40000), // 80s → 40s (이미지 1장 + 짧은 출력 = 15~25s)
@@ -168,9 +189,21 @@ export async function POST(req: NextRequest) {
  const result = await resp.json()
  const fullText: string = result.content?.[0]?.text?.trim() || ''
 
+ // 안전장치: 일본어 (히라가나·가타카나) 또는 한자가 섞여 있으면 제거
+ // 한글, 영문, 숫자, 기본 구두점, 이모지 등은 보존
+ function stripForeign(s: string): string {
+ // 히라가나 ぀-ゟ, 가타카나 ゠-ヿ, 한자 一-鿿
+ return s.replace(/[぀-ゟ゠-ヿ一-鿿]/g, '')
+ .replace(/\s+/g, ' ')
+ .trim()
+ }
+
  const hashMatch = fullText.match(/해시태그[:\s]+(#[^\n]+)/)
- const hashtags = hashMatch ? hashMatch[1].trim().split(/\s+/).filter((t: string) => t.startsWith('#')).slice(0, 5) : []
- const review = fullText.replace(/해시태그[:\s]+#[^\n]*/g, '').replace(/\n{3,}/g, '\n\n').trim()
+ const hashtagsRaw = hashMatch ? hashMatch[1].trim().split(/\s+/).filter((t: string) => t.startsWith('#')) : []
+ const hashtags = hashtagsRaw.map(stripForeign).filter(t => t.length > 1).slice(0, 5)
+
+ const reviewRaw = fullText.replace(/해시태그[:\s]+#[^\n]*/g, '').replace(/\n{3,}/g, '\n\n').trim()
+ const review = stripForeign(reviewRaw)
 
  return NextResponse.json({ review, hashtags })
  } catch (err) {
