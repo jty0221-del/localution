@@ -17,6 +17,13 @@ type Store = {
  keywords: string[]; naverUrl: string; greeting: string; signatures: string[]
 }
 
+type MenuItem = {
+ name: string
+ price?: number | null
+ desc?: string | null
+ is_signature?: boolean
+}
+
 // 하드코딩 데모 매장 제거됨 — 실제 매장 정보는 /api/stores/[slug] 또는 props로 주입
 // 매장을 찾지 못하면 "매장을 찾을 수 없습니다" 안내 표시
 const STORES: Record<string, Store> = {}
@@ -203,6 +210,27 @@ export default function ReviewPage() {
  return () => { alive = false }
  }, [storeId, qpName, qpAddr, qpNaver, qpPid])
 
+ // 매장 메뉴 가져오기 (사장님이 등록한 메뉴 — AI가 실제 메뉴만 언급)
+ useEffect(() => {
+ let alive = true
+ ;(async () => {
+ try {
+ const r = await fetch('/api/menu/public?slug=' + encodeURIComponent(storeId), { cache: 'no-store' })
+ if (!r.ok) return
+ const j = await r.json()
+ if (!alive || !j?.ok || !Array.isArray(j.items)) return
+ const menu: MenuItem[] = j.items.map((it: any) => ({
+ name: it.name_ko || it.name_en || '',
+ price: typeof it.price === 'number' ? it.price : null,
+ desc: it.desc_ko || null,
+ is_signature: !!it.is_signature,
+ })).filter((m: MenuItem) => m.name)
+ setStoreMenu(menu)
+ } catch {}
+ })()
+ return () => { alive = false }
+ }, [storeId])
+
  const [step, setStep] = useState<0 | 1 | 2 | 3 | 4>(0)
  const [photos, setPhotos] = useState<Photo[]>([])
  const [receiptStatus, setReceiptStatus] = useState<ReceiptStatus>('idle')
@@ -216,6 +244,7 @@ export default function ReviewPage() {
  const [final, setFinal] = useState('')
  // ⭐ 2-B: 영수증 OCR 결과 + AI 진행 상태
  const [receiptInfo, setReceiptInfo] = useState<{ items: string[]; storeName?: string; total?: string; matched?: boolean } | null>(null)
+ const [storeMenu, setStoreMenu] = useState<MenuItem[]>([])
  const [aiSource, setAiSource] = useState<'ai' | 'fallback' | null>(null)
  const [aiHashtags, setAiHashtags] = useState<string[]>([])
  const [copied, setCopied] = useState(false)
@@ -433,6 +462,12 @@ export default function ReviewPage() {
  tone: apiTone,
  rating,
  receiptItems: receiptInfo?.items || [],
+ // 매장이 등록한 실제 메뉴 — AI 가 가짜 메뉴 만드는 것 방지
+ storeMenu: storeMenu.slice(0, 30).map(m => ({
+ name: m.name,
+ price: m.price,
+ signature: m.is_signature,
+ })),
  }),
  signal: controller.signal,
  })
