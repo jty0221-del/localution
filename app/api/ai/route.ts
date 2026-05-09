@@ -2,6 +2,10 @@ import { NextRequest, NextResponse } from 'next/server';
 import { requireUser } from '@/app/lib/userAuth';
 import { rateLimit, getClientIp } from '@/app/lib/rate-limit';
 
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+export const maxDuration = 60
+
 export async function POST(req: NextRequest) {
  try {
  // 인증 + 레이트 리밋 (분당 10회/사용자, 비로그인은 IP 기반)
