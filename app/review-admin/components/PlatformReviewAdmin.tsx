@@ -410,6 +410,14 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
  if (!loadingConn) loadReviews()
  }, [loadingConn, loadReviews])
 
+ // queued 리뷰가 있으면 30초마다 자동 폴링 (워커 처리 결과 자동 반영)
+ useEffect(() => {
+ const hasQueued = reviews.some(r => r.replyStatus === 'queued' || r.replyStatus === 'submitting')
+ if (!hasQueued) return
+ const timer = setInterval(() => { loadReviews() }, 30000)
+ return () => clearInterval(timer)
+ }, [reviews, loadReviews])
+
  // 76차: 쿠팡이츠 북마클릿 직접 가져오기 함수 제거 (자동 연결로 대체됨)
 
  // ── 3) 지금 수집 (naver_place 만 동작) ─────
@@ -1489,11 +1497,30 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
  </button>
  </div>
 
- {review.replyStatus === 'queued' && (
- <p className="text-[11px] mt-2 text-[#075985] bg-[#E0F2FE] rounded-lg px-2 py-1.5">
- Worker가 자동으로 플랫폼에 답글을 등록 중이에요. 1~2분 후 새로고침 해주세요.
+ {review.replyStatus === 'queued' && (() => {
+ const queuedMs = review.replyQueuedAt ? Date.now() - new Date(review.replyQueuedAt).getTime() : 0
+ const queuedMin = Math.floor(queuedMs / 60000)
+ const isStale = queuedMin >= 3
+ return (
+ <div className={'text-[11px] mt-2 rounded-lg px-2 py-1.5 ' +
+ (isStale ? 'text-[#9A3412] bg-[#FFF7ED] border border-[#FED7AA]' : 'text-[#075985] bg-[#E0F2FE]')}>
+ <p>
+ {isStale
+ ? '처리 지연 중 (' + queuedMin + '분 경과). 워커 부하 또는 일시적 문제일 수 있어요.'
+ : 'Worker 가 답글을 등록 중이에요 (1~2분 소요).'}
  </p>
+ {isStale && (
+ <button
+ onClick={() => handleSubmit(review)}
+ disabled={submitting}
+ className="mt-1.5 text-[11px] px-2 py-1 rounded bg-[#F97316] text-white font-bold hover:bg-[#EA580C] disabled:opacity-50"
+ >
+ 다시 시도
+ </button>
  )}
+ </div>
+ )
+ })()}
  {isSubmitted && (
  <p className="text-[11px] mt-2 text-[#059669] bg-[#ECFDF5] rounded-lg px-2 py-1.5">
  {config.label}에 등록 완료 ({timeAgo(review.replySubmittedAt)})
