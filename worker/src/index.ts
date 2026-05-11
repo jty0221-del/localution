@@ -118,13 +118,39 @@ async function getBrowser(): Promise<Browser> {
 
 const QUEUE_NAME = 'platform-jobs'
 
+// v38: hard timeout per action — lock self-renew 무한 hang 방지
+//   post_reply: 3분 (login + GraphQL ~ 1~2분 정상)
+//   fetch_reviews: 4분 (전체 페이지 로드 + multi-shop loop)
+//   fetch_menu / 기타: 3분
+const ACTION_TIMEOUT_MS: Record<string, number> = {
+  post_reply:    3 * 60_000,
+  fetch_reviews: 4 * 60_000,
+  fetch_menu:    3 * 60_000,
+  fetch_rank:    2 * 60_000,
+  health_check:  1 * 60_000,
+}
+function withHardTimeout<T>(p: Promise<T>, ms: number, label: string): Promise<T> {
+  return new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => {
+      reject(new Error(`HARD_TIMEOUT: ${label} > ${Math.round(ms/1000)}s — adapter hang 강제 실패`))
+    }, ms)
+    p.then(v => { clearTimeout(timer); resolve(v) }).catch(e => { clearTimeout(timer); reject(e) })
+  })
+}
+
 const worker = new Worker<PlatformJobData>(
   QUEUE_NAME,
   async (job: Job<PlatformJobData>) => {
     log.info({ jobId: job.id, name: job.name, data: { platform: job.data.platform, action: job.data.action } }, 'job start')
     try {
       const browser = await getBrowser()
-      const result = await runJob(job.data, log, browser)
+      // hard timeout: lockDuration (5분) 보다 작게 → adapter hang 시 BullMQ 가 lock 갱신 멈춰서 stalled 처리됨
+      const timeoutMs = ACTION_TIMEOUT_MS[job.data.action] ?? 3 * 60_000
+      const result = await withHardTimeout(
+        runJob(job.data, log, browser),
+        timeoutMs,
+        `${job.data.platform}:${job.data.action}`,
+      )
       log.info({ jobId: job.id, result: result.status, msg: result.message?.slice(0, 100) }, 'job done')
 
       // 37차-19: transient failure (CAPTCHA, 새기기등록, navigation 등) 만 retry
