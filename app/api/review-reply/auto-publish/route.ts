@@ -283,6 +283,15 @@ export async function POST(req: NextRequest) {
  userId,
  storeId,
  payload: jobPayload,
+ }, { priority: 1 })
+
+ console.log('[auto-publish] enqueue', {
+ platform: row.platform,
+ userId: String(userId).slice(0, 12) + '...',
+ reviewId: row.platform_review_id,
+ ok: jobResult.ok,
+ jobId: jobResult.ok ? jobResult.jobId : undefined,
+ error: jobResult.ok ? undefined : jobResult.error,
  })
 
  if (!jobResult.ok) {
