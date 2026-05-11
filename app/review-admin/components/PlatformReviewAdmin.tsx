@@ -1731,6 +1731,7 @@ type Keyword = {
   positive_ratio: number
   marketing_score: number
   category: 'signature' | 'marketing_pick' | 'blog_topic' | 'improvement' | 'neutral'
+  feature_category?: string
   recommendation: string
   suggested_use: string[]
 }
@@ -1745,6 +1746,8 @@ type KeywordResp = {
     blog_topic: Keyword[]
     improvement: Keyword[]
   }
+  by_feature_category?: Record<string, Keyword[]>
+  feature_order?: string[]
   top_marketing: Keyword[]
   summary: { avg_rating: number | null; total: number }
 }
@@ -1753,7 +1756,7 @@ function KeywordAnalysis({ platform, platformLabel, platformColor }: { platform:
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
   const [data, setData] = useState<KeywordResp | null>(null)
-  const [tab, setTab] = useState<'recommend' | 'all'>('recommend')
+  const [tab, setTab] = useState<'recommend' | 'features' | 'all'>('features')
   const [sortBy, setSortBy] = useState<'count' | 'rating_high' | 'rating_low' | 'positive' | 'score'>('score')
 
   const load = useCallback(async () => {
@@ -1805,7 +1808,12 @@ function KeywordAnalysis({ platform, platformLabel, platformColor }: { platform:
           ) : (
             <>
               {/* 탭 */}
-              <div className="inline-flex rounded-xl bg-[#F2F4F6] p-0.5 my-3">
+              <div className="inline-flex rounded-xl bg-[#F2F4F6] p-0.5 my-3 flex-wrap">
+                <button onClick={() => setTab('features')}
+                  className={'px-3 py-1.5 rounded-lg text-xs font-bold ' +
+                    (tab === 'features' ? 'bg-white text-[#191F28] shadow-sm' : 'text-[#8B95A1]')}>
+                  메뉴 · 특징
+                </button>
                 <button onClick={() => setTab('recommend')}
                   className={'px-3 py-1.5 rounded-lg text-xs font-bold ' +
                     (tab === 'recommend' ? 'bg-white text-[#191F28] shadow-sm' : 'text-[#8B95A1]')}>
@@ -1814,9 +1822,13 @@ function KeywordAnalysis({ platform, platformLabel, platformColor }: { platform:
                 <button onClick={() => setTab('all')}
                   className={'px-3 py-1.5 rounded-lg text-xs font-bold ' +
                     (tab === 'all' ? 'bg-white text-[#191F28] shadow-sm' : 'text-[#8B95A1]')}>
-                  전체 키워드 ({data.keywords.length})
+                  전체 ({data.keywords.length})
                 </button>
               </div>
+
+              {tab === 'features' && data.by_feature_category && (
+                <FeaturesTab byFeature={data.by_feature_category} order={data.feature_order || []} platformColor={platformColor} />
+              )}
 
               {tab === 'recommend' && (
                 <div className="space-y-3">
@@ -1909,6 +1921,73 @@ function KeywordAnalysis({ platform, platformLabel, platformColor }: { platform:
           )}
         </div>
       )}
+    </div>
+  )
+}
+
+function FeaturesTab({ byFeature, order, platformColor }: {
+  byFeature: Record<string, Keyword[]>
+  order: string[]
+  platformColor: string
+}) {
+  const FEATURE_LABELS: Record<string, { color: string; bg: string; desc: string }> = {
+    '메뉴': { color: '#3182F6', bg: '#EFF6FF', desc: '리뷰에서 언급된 메뉴 (자주 + 별점)' },
+    '맛': { color: '#DC2626', bg: '#FEF2F2', desc: '맛 관련 표현 (맛있/풍미/담백 등)' },
+    '서비스': { color: '#7C3AED', bg: '#F5F3FF', desc: '직원/사장님 응대' },
+    '청결도': { color: '#0891B2', bg: '#ECFEFF', desc: '깨끗함/위생' },
+    '가격': { color: '#F59E0B', bg: '#FFFBEB', desc: '가격/가성비' },
+    '분위기': { color: '#EC4899', bg: '#FDF2F8', desc: '인테리어/조명/음악' },
+    '위치': { color: '#10B981', bg: '#ECFDF5', desc: '접근성/주차/위치' },
+    '음식량': { color: '#FB923C', bg: '#FFF7ED', desc: '양/푸짐함' },
+    '만족도': { color: '#059669', bg: '#D1FAE5', desc: '재방문/추천/만족' },
+    '목적': { color: '#8B5CF6', bg: '#EDE9FE', desc: '데이트/가족/회식 등' },
+    '예약': { color: '#0EA5E9', bg: '#E0F2FE', desc: '예약/웨이팅' },
+    '기타': { color: '#6B7280', bg: '#F2F4F6', desc: '미분류' },
+  }
+  const nonEmpty = order.filter(c => (byFeature[c] || []).length > 0)
+  if (nonEmpty.length === 0) {
+    return <p className="text-xs text-[#8B95A1] py-6 text-center">분류된 키워드가 부족해요</p>
+  }
+
+  return (
+    <div className="space-y-3">
+      <p className="text-[11px] text-[#8B95A1] leading-relaxed">
+        네이버 플레이스 스타일 분류 — 메뉴 + 10개 특징으로 키워드를 자동 분류했어요. 카테고리별로 어떤 점이 많이 언급되는지 한눈에 보세요.
+      </p>
+      {nonEmpty.map(cat => {
+        const meta = FEATURE_LABELS[cat] || FEATURE_LABELS['기타']
+        const items = byFeature[cat] || []
+        return (
+          <div key={cat} className="rounded-xl p-3 border" style={{ background: meta.bg, borderColor: meta.color + '30' }}>
+            <div className="flex items-center justify-between gap-2 mb-2 flex-wrap">
+              <div>
+                <span className="text-sm font-black" style={{ color: meta.color }}>{cat}</span>
+                <span className="text-[10px] text-[#8B95A1] ml-2">{items.length}개</span>
+              </div>
+              <span className="text-[10px]" style={{ color: meta.color + 'cc' }}>{meta.desc}</span>
+            </div>
+            <div className="flex flex-wrap gap-1.5">
+              {items.slice(0, 16).map(k => (
+                <span key={k.keyword}
+                  className="inline-flex items-center gap-1 px-2 py-1 rounded-lg bg-white border text-[11px] font-bold"
+                  style={{ borderColor: meta.color + '40' }}
+                  title={`긍정 ${k.positive_ratio}%${k.avg_rating !== null ? ' · 별점 ' + k.avg_rating : ''}`}>
+                  <span className="text-[#191F28]">{k.keyword}</span>
+                  <span className="text-[#8B95A1] tabular-nums">{k.count}</span>
+                  {k.avg_rating !== null && (
+                    <span className="tabular-nums" style={{
+                      color: k.avg_rating >= 4 ? '#059669' : k.avg_rating >= 3 ? '#F59E0B' : '#DC2626'
+                    }}>
+                      ★{k.avg_rating}
+                    </span>
+                  )}
+                </span>
+              ))}
+              {items.length > 16 && <span className="text-[11px] text-[#8B95A1] self-center">+{items.length - 16}개</span>}
+            </div>
+          </div>
+        )
+      })}
     </div>
   )
 }
