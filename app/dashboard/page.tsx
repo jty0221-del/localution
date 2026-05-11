@@ -18,6 +18,7 @@ import SlideAdBanner from '../components/SlideAdBanner'
 import OnboardingChecklist from '../components/OnboardingChecklist'
 import DashboardRightSidebar, { DashboardRightSidebarMobile } from '../components/DashboardRightSidebar'
 import HarangMarketingPopup from '../components/HarangMarketingPopup'
+import NaverLockoutBanner from '../components/NaverLockoutBanner'
 import { useConnections, setConnection as libSetConnection, removeConnection as libRemoveConnection, PlatformId as CanonicalPlatformId } from '../lib/connections'
 import { toast, confirmDialog } from '../lib/toast'
 import { buildSettingsHref } from '../lib/settings-tabs'
@@ -1544,6 +1545,9 @@ export default function Dashboard() {
  {/* ── 2-D · 신규 사용자 onboarding checklist (4 step) ── */}
  {/* 4가지 모두 완료하면 자동 숨김 — 신규 사용자에게만 노출 */}
  {isLoggedIn && <OnboardingChecklist />}
+
+ {/* v38: 네이버 답글 발행 잠금 알림 (잠금 감지될 때만 표시) */}
+ {isLoggedIn && <NaverLockoutBanner />}
 
  {/* ── 부정 리뷰 긴급 알림 (미답변 1~2점 있을 때만) ── */}
  {isLoggedIn && negativeUnansweredCount > 0 && (
