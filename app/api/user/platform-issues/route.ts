@@ -27,7 +27,7 @@ export async function GET() {
   const svc = createServiceClient()
   const { data } = await svc
     .from('platform_credentials')
-    .select('platform, last_login_status, last_login_error_message, last_login_at, platform_store_name')
+    .select('platform, last_login_status, last_login_error_message, last_login_at, platform_store_name, platform_store_id')
     .eq('user_id', auth.userId)
 
   const issues: Array<{
@@ -42,7 +42,29 @@ export async function GET() {
   }> = []
 
   for (const c of (data || [])) {
-    if (c.last_login_status === 'success' || !c.last_login_status) continue
+    const status = String(c.last_login_status || '')
+    const isSuccess = status.startsWith('success')
+
+    // 매장 ID 누락 — 답글 발행 불가 (가장 흔한 케이스)
+    const hasStoreId = !!c.platform_store_id && String(c.platform_store_id).trim() !== ''
+    if (!hasStoreId && c.platform !== 'threads') {
+      issues.push({
+        platform: c.platform,
+        label: PLATFORM_LABELS[c.platform] || c.platform,
+        status: 'no_store_id',
+        error_short: '매장 ID 미등록',
+        last_login_at: c.last_login_at,
+        store_name: c.platform_store_name,
+        suggestion: c.platform === 'naver_place'
+          ? '네이버 매장 URL 또는 검색해서 매장을 선택해주세요.'
+          : '매장이 등록되지 않았어요. 다시 연결해주세요.',
+        connect_href: `/my/platforms/${c.platform}/connect`,
+      })
+      continue
+    }
+
+    // 자격증명 정상이면 skip
+    if (!status || isSuccess || status === 'not_connected') continue
 
     const err = String(c.last_login_error_message || '').slice(0, 100)
     let suggestion = '플랫폼 연결을 다시 확인해주세요.'
@@ -53,7 +75,6 @@ export async function GET() {
     } else if (err.includes('login form not found')) {
       suggestion = '플랫폼 로그인 페이지가 변경됐어요. 곧 자동 업데이트 됩니다.'
     } else if (err.includes('not_connected')) {
-      // 정상 연결 해제 — skip
       continue
     }
 
