@@ -31,7 +31,9 @@ type PipelineStatus = 'ok' | 'warn' | 'error'
 
 interface UserStat {
  user_id: string
+ user_id_full: string  // 전체 user_id (수동 수집 트리거용)
  place_id: string | null
+ place_id_valid: boolean  // 숫자 형식 + 유효
  last_collected_at: string | null
  review_count_7d: number
  review_count_total: number
@@ -198,10 +200,18 @@ export async function GET() {
  .eq('user_id', uid)
  .eq('platform', 'naver_place')
 
+ const placeIdValid = !!placeId && /^\d+$/.test(String(placeId))
+
  let status: PipelineStatus = 'ok'
  let reason = '정상 수집 중'
- if (!lastAt) {
- status = 'error'; reason = '리뷰 미수집 — 연결은 됐으나 수집 기록 없음'
+ if (!placeId) {
+ status = 'error'; reason = 'place_id 누락 — 매장 등록 페이지에서 네이버 플레이스 ID 입력 필요'
+ } else if (!placeIdValid) {
+ status = 'error'; reason = `place_id 형식 오류 (${String(placeId).slice(0, 30)}) — 숫자만 가능`
+ } else if (!lastAt) {
+ status = 'error'; reason = '수집 시도 0건 — 수동 트리거 필요 또는 매장 비공개 가능성'
+ } else if ((countTotal ?? 0) === 0) {
+ status = 'error'; reason = '수집 기록은 있지만 실제 리뷰 0건 (place 정말 리뷰 없거나 잘못된 ID)'
  } else {
  const h = hoursAgo(lastAt)
  if (h > 48) { status = 'error'; reason = `마지막 수집 ${Math.round(h/24)}일 전 (48시간 초과)` }
@@ -210,7 +220,9 @@ export async function GET() {
 
  userStats.push({
  user_id: uid.slice(0, 8) + '…',
+ user_id_full: uid,
  place_id: placeId,
+ place_id_valid: placeIdValid,
  last_collected_at: lastAt,
  review_count_7d: count7d,
  review_count_total: countTotal ?? 0,
