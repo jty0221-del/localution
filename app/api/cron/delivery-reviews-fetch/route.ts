@@ -88,6 +88,15 @@ export async function GET(req: NextRequest) {
  ? validIdsFromArray
  : (fallbackId ? [fallbackId] : [''])
 
+ // 트래픽 절감: 답글 가능 기간만 fetch (그 이전은 어차피 답글 못 달음)
+ //   배민 30일 / 쿠팡 14일 / 요기요 7일
+ const REPLY_WINDOW: Record<string, number> = {
+ baemin: 30,
+ coupangeats: 14,
+ yogiyo: 7,
+ }
+ const cronDaysBack = REPLY_WINDOW[platform] || 14
+
  for (const shopNo of storeIdsToFetch) {
  try {
  // 30분 단위 dedupe — 매장별로 separate jobId (트래픽 절감)
@@ -100,8 +109,8 @@ export async function GET(req: NextRequest) {
  userId: cred.user_id,
  storeId: shopNo || 'auto-detect',
  payload: shopNo
- ? { shop_no: shopNo, days_back: 1, triggered_by: 'cron_15min' }
- : { days_back: 1, triggered_by: 'cron_15min' },
+ ? { shop_no: shopNo, days_back: cronDaysBack, triggered_by: 'cron_reply_window' }
+ : { days_back: cronDaysBack, triggered_by: 'cron_reply_window' },
  }, { jobId })
 
  if (jobResult.ok) {
