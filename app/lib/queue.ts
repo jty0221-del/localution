@@ -77,14 +77,30 @@ export async function enqueuePlatformJob(
       jobId = `pr_${data.platform}_${data.userId.slice(0, 8)}_${reviewId.slice(0, 32)}`
     }
 
+    // 🔄 기존 잡이 failed / completed 상태면 제거 후 재 enqueue (재시도 보장)
+    //    BullMQ 는 같은 jobId 가 failed 상태로 남아있으면 q.add 시 그 잡 반환 → 재처리 안 됨
+    //    waiting / active / prioritized / delayed 상태면 그대로 유지 (이미 처리 중)
+    if (jobId) {
+      try {
+        const existing = await q.getJob(jobId)
+        if (existing) {
+          const state = await existing.getState()
+          if (state === 'completed' || state === 'failed' || state === 'unknown') {
+            await existing.remove()
+          }
+        }
+      } catch (_) {
+        // 조회 실패 무시 — 어차피 add 시도
+      }
+    }
+
     // jobId 가 이미 존재하면 BullMQ 는 기존 잡 반환 (q.add 에 deduplication 옵션 활용)
     const job = await q.add(`${data.platform}:${data.action}`, data, {
       jobId,
       priority,
     })
 
-    // 같은 jobId 재사용 확인: job.opts.jobId 가 우리가 준 값이지만 실제 enqueue 됐는지 보려면
-    //   timestamp 가 방금이 아니면 (= 기존 잡) deduped 표시
+    // 같은 jobId 재사용 확인: timestamp 가 방금이 아니면 (= 기존 잡) deduped 표시
     const justNow = Math.abs(Date.now() - (job.timestamp || 0)) < 2000
     return { ok: true, jobId: String(job.id), deduped: !justNow }
   } catch (e: any) {
