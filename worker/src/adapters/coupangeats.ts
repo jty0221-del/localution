@@ -219,13 +219,28 @@ export async function runCoupangEats(
 
   // ── 75차: iproyal 트래픽 절감 — 이미지/폰트/CSS 등 무거운 리소스 차단 ──
   // Akamai sensor data + JS 만 통과 → 봇 탐지 우회 유지 + 트래픽 50%+ 절감
-  // page navigation 시 chromium 이 자동 다운로드하는 것 차단
+  // 트래픽 절감: 이미지/폰트/미디어/CSS + 분석/추적/광고 도메인 차단
+  const BLOCK_DOMAINS = [
+    'google-analytics.com', 'analytics.google.com', 'googletagmanager.com',
+    'doubleclick.net', 'googlesyndication.com', 'googleadservices.com',
+    'facebook.net', 'connect.facebook.net', 'pixel.facebook.com',
+    'hotjar.com', 'static.hotjar.com', 'segment.io', 'mixpanel.com',
+    'naverid.com/analytics', 'ad.naver.com', 'cc.naver.com',
+    'kakao.com/analytics', 't1.kakaocdn.net/track',
+    'amplitude.com', 'amplitude.us',
+    'newrelic.com', 'datadog.com', 'sentry.io', 'bugsnag.com',
+    'criteo.com', 'taboola.com', 'outbrain.com',
+  ]
   try {
     await context.route('**/*', (route) => {
       const url = route.request().url()
       const resourceType = route.request().resourceType()
-      // 이미지/폰트/미디어/스타일시트 차단 (data fetch 와 무관)
+      // 이미지/폰트/미디어/스타일시트 차단
       if (['image', 'font', 'media', 'stylesheet'].includes(resourceType)) {
+        return route.abort()
+      }
+      // 분석/광고 도메인 차단
+      if (BLOCK_DOMAINS.some(d => url.includes(d))) {
         return route.abort()
       }
       return route.continue()
