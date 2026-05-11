@@ -144,26 +144,31 @@ const worker = new Worker<PlatformJobData>(
       }
       return result
     } catch (err: any) {
-      // runJob 이 throw 하면 BullMQ 가 잡을 retry/fail 처리.
       log.error({ jobId: job.id, err: err?.message, stack: err?.stack?.slice(0, 300) }, 'job exception')
+      // 브라우저 자체 에러일 가능성 — close 후 다음 잡은 fresh launch
+      // 단, 다른 동시 실행 잡에는 영향 — adapter 들이 자체 context 관리하므로 OK
+      const errMsg = String(err?.message || '')
+      if (errMsg.includes('Target') || errMsg.includes('Browser') || errMsg.includes('closed')) {
+        await closeBrowser()
+      }
       throw err
-    } finally {
-      // 매 잡 종료 후 브라우저 닫기 → 메모리 해제 (다음 잡은 새 브라우저 사용)
-      // 특히 브라우저 에러 발생 시 좀비 상태를 막기 위해 반드시 리셋
-      await closeBrowser()
     }
+    // 정상 완료 시: 브라우저 유지 (concurrency 활용) — adapter 가 context 자체 close
+    // 메모리 압박 모니터링: Railway 대시보드에서 확인 후 필요 시 closeBrowser() 복원
   },
   {
     connection,
-    concurrency: 1,   // 브라우저 메모리 압박 방지 — 동시 실행 금지 (1GB 머신)
+    // Pro 플랜 (8GB RAM): concurrency 3 — 동시에 3 잡 처리 (브라우저 3개)
+    // 각 브라우저 ~1.5GB → 4.5GB 사용, 메모리 여유 확보
+    // post_reply (priority 1) 가 fetch_reviews 와 동시 처리 가능 → 사장님 답글 즉시 발행
+    concurrency: parseInt(process.env.WORKER_CONCURRENCY || '3', 10),
     removeOnComplete: { count: 500 },
     removeOnFail: { count: 1000 },
     // ── stall 보호 (쿠팡 fetch 1~3분, 답글 30초 이상 가능) ──
-    // 기본값 (lockDuration 30s) 은 너무 짧아 정상 잡도 stalled 판정됨
-    lockDuration: 300_000,        // 5분 — lock 갱신 주기 (long-running fetch 대응)
-    lockRenewTime: 60_000,        // 1분마다 lock 갱신
-    stalledInterval: 60_000,      // 1분마다 stalled 체크
-    maxStalledCount: 2,           // 2회 stall 까지 허용 (Railway SIGTERM 대비)
+    lockDuration: 300_000,        // 5분 lock
+    lockRenewTime: 60_000,        // 1분 갱신
+    stalledInterval: 60_000,
+    maxStalledCount: 2,
   }
 )
 
