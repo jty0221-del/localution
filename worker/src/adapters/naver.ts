@@ -197,6 +197,9 @@ export async function runNaver(
   }
 
   const context = await browser.newContext(contextOptions)
+  // 트래픽 절감 (iproyal 절약 — 이미지/CSS/추적 도메인 차단)
+  const { applyTrafficSaver } = await import('../lib/trafficSaver')
+  await applyTrafficSaver(context)
 
   // ── v32 humanlike: 브라우저 fingerprint 위장 (stealth) ──
   // 모든 page 에서 자동화 탐지 흔적 제거
