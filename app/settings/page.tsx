@@ -6,6 +6,7 @@ import Script from 'next/script'
 import Link from 'next/link'
 import Sidebar from '../components/Sidebar'
 import Footer from '../components/Footer'
+import CreatorChannelsSection from '../components/CreatorChannelsSection'
 import { useConnections, PlatformId } from '../lib/connections'
 import { TABS, TAB_HERO, resolveTab, type Tab } from '../lib/settings-tabs'
 import { Store, Bell, Bot, Link2, CreditCard } from 'lucide-react'
@@ -1629,6 +1630,9 @@ function ConnectTab() {
  <p>* 네이버/배민/요기요/쿠팡이츠는 <a href="/my/platforms" className="text-[#3182F6] hover:underline font-semibold">플랫폼 연결 관리</a>에서 아이디·비번이 AES-256 암호화되어 서버에 저장됩니다.</p>
  <p>* 구글/카카오는 이 기기의 브라우저에만 저장되며, /dashboard · /review-admin 에서 즉시 반영됩니다.</p>
  </div>
+
+ {/* v38: 마케터·블로거·1인 사업자 채널 — 매장 없어도 자기 채널 연동 가능 */}
+ <CreatorChannelsSection />
  </div>
  )
 }
