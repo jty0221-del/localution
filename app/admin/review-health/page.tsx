@@ -17,7 +17,9 @@ type PipelineStatus = 'ok' | 'warn' | 'error'
 
 interface UserStat {
  user_id: string
+ user_id_full?: string
  place_id: string | null
+ place_id_valid?: boolean
  last_collected_at: string | null
  review_count_7d: number
  review_count_total: number
@@ -354,10 +356,11 @@ export default function AdminReviewHealthPage() {
  <th className="text-left px-4 py-2.5 font-semibold">유저 ID</th>
  <th className="text-left px-3 py-2.5 font-semibold">Place ID</th>
  <th className="text-center px-3 py-2.5 font-semibold">마지막 수집</th>
- <th className="text-center px-3 py-2.5 font-semibold">7일 수집</th>
+ <th className="text-center px-3 py-2.5 font-semibold">7일</th>
  <th className="text-center px-3 py-2.5 font-semibold">전체</th>
  <th className="text-center px-3 py-2.5 font-semibold">미답변</th>
  <th className="text-center px-3 py-2.5 font-semibold">상태</th>
+ <th className="text-left px-3 py-2.5 font-semibold">사유 / 조치</th>
  </tr>
  </thead>
  <tbody>
@@ -366,7 +369,11 @@ export default function AdminReviewHealthPage() {
  return (
  <tr key={i} className="border-t border-[#F1F5F9] hover:bg-[#FAFBFC]">
  <td className="px-4 py-3 font-mono text-[11px] text-[#475569]">{u.user_id}</td>
- <td className="px-3 py-3 font-mono text-[11px] text-[#94A3B8]">{u.place_id ?? '—'}</td>
+ <td className="px-3 py-3 font-mono text-[11px]">
+ {u.place_id ? (
+ <span className={u.place_id_valid === false ? 'text-[#F43F5E] font-bold' : 'text-[#94A3B8]'}>{u.place_id}</span>
+ ) : <span className="text-[#F43F5E] font-bold">없음</span>}
+ </td>
  <td className="px-3 py-3 text-center text-[11px] text-[#475569]">
  {u.last_collected_at
  ? new Date(u.last_collected_at).toLocaleString('ko-KR', { timeZone: 'Asia/Seoul', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' })
@@ -384,6 +391,31 @@ export default function AdminReviewHealthPage() {
  {us.icon}
  {u.status === 'ok' ? '정상' : u.status === 'warn' ? '주의' : '오류'}
  </span>
+ </td>
+ <td className="px-3 py-3 text-[11px] text-[#475569] max-w-[280px]">
+ <div className="leading-relaxed break-words mb-1.5">{u.status_reason}</div>
+ {u.status !== 'ok' && u.user_id_full && (
+ <div className="flex gap-1 flex-wrap">
+ <button
+ onClick={async () => {
+ if (!confirm('이 유저 네이버 리뷰 즉시 수집?')) return
+ const res = await fetch('/api/admin/trigger-naver-fetch?user_id=' + u.user_id_full, { cache: 'no-store' })
+ const j = await res.json()
+ alert(j.ok ? (j.message + (j.elapsed_ms ? ` (${j.elapsed_ms}ms)` : '')) : '실패: ' + (j.error || ''))
+ fetch_()
+ }}
+ className="text-[10px] font-bold px-2 py-1 rounded bg-[#3182F6] text-white hover:bg-[#1B64DA]"
+ >
+ 수동 수집
+ </button>
+ <a
+ href={'/admin/users?search=' + u.user_id_full}
+ className="text-[10px] font-bold px-2 py-1 rounded bg-[#F2F4F6] text-[#4E5968] hover:bg-[#E5E8EB]"
+ >
+ 유저 상세
+ </a>
+ </div>
+ )}
  </td>
  </tr>
  )
