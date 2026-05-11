@@ -180,6 +180,41 @@ export async function POST(req: NextRequest) {
  return NextResponse.json({ ok: false, error: '현재 처리 중이에요. 잠시 후 다시 시도해주세요' }, { status: 409 })
  }
 
+ // ── 카카오맵 special: 자동 등록 API 없음 (Kakao 비즈니스 API 미공개)
+ //    → 답글 텍스트 + 카카오 비즈니스 URL 반환 → 클라이언트가 클립보드 복사 + 새 탭 이동
+ if (row.platform === 'kakao_map') {
+ const { data: kakaoCred } = await svc
+ .from('platform_credentials')
+ .select('platform_store_id')
+ .eq('user_id', userId).eq('platform', 'kakao_map')
+ .maybeSingle()
+ const placeId = kakaoCred?.platform_store_id || ''
+ const kakaoUrl = placeId
+ ? `https://place.map.kakao.com/${placeId}`
+ : 'https://place.map.kakao.com/'
+
+ await svc.from('platform_reviews')
+ .update({
+ reply_status: 'submitted',
+ reply_submitted_at: new Date().toISOString(),
+ reply_queued_at: new Date().toISOString(),
+ has_reply: true,
+ reply_content: draft,
+ reply_error: null,
+ })
+ .eq('id', reviewId).eq('user_id', userId)
+
+ return NextResponse.json({
+ ok: true,
+ mode: 'manual_paste',
+ reply_status: 'submitted',
+ reply_text: draft,
+ platform_url: kakaoUrl,
+ platform_label: '카카오맵',
+ note: '카카오맵은 자동 등록 API 가 없어 직접 붙여넣기 필요. 답글이 클립보드에 복사되고 카카오맵 페이지가 새 창으로 열립니다.',
+ })
+ }
+
  // 2) 자격증명 + extra_data 조회
  const { data: cred } = await svc
  .from('platform_credentials')
