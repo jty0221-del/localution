@@ -77,10 +77,11 @@ export async function enqueuePlatformJob(
       jobId = `pr_${data.platform}_${data.userId.slice(0, 8)}_${reviewId.slice(0, 32)}`
     }
 
-    // 🔄 기존 잡이 failed / completed 상태면 제거 후 재 enqueue (재시도 보장)
+    // 🔄 post_reply 만: 기존 잡이 failed / completed 상태면 제거 후 재 enqueue (재시도 보장)
     //    BullMQ 는 같은 jobId 가 failed 상태로 남아있으면 q.add 시 그 잡 반환 → 재처리 안 됨
     //    waiting / active / prioritized / delayed 상태면 그대로 유지 (이미 처리 중)
-    if (jobId) {
+    //    fetch_reviews 는 cron bucket 기반 jobId 이므로 재 enqueue 하면 같은 사이클 중복 처리됨 — 제외
+    if (jobId && data.action === 'post_reply') {
       try {
         const existing = await q.getJob(jobId)
         if (existing) {
