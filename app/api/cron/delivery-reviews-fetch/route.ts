@@ -28,8 +28,21 @@ export async function GET(req: NextRequest) {
  const svc = createServiceClient()
  const results: Record<string, { queued: number; failed: number; errors: string[] }> = {}
 
+ // 트래픽 절감: 최근 20분 내 수집된 (사용자×플랫폼) 은 cron skip
+ //   대시보드 사용자가 직접 "지금 수집" 누르면 그 결과로 충분
+ const FRESH_WINDOW_MS = 20 * 60 * 1000
+ const sinceFresh = new Date(Date.now() - FRESH_WINDOW_MS).toISOString()
+ const { data: freshCollects } = await svc
+ .from('platform_reviews')
+ .select('user_id, platform, collected_at')
+ .gte('collected_at', sinceFresh)
+ const freshKey = new Set<string>()
+ for (const r of (freshCollects || [])) {
+ freshKey.add(r.user_id + ':' + r.platform)
+ }
+
  for (const platform of PLATFORMS) {
- results[platform] = { queued: 0, failed: 0, errors: [] }
+ results[platform] = { queued: 0, failed: 0, errors: [], skipped_fresh: 0 } as any
 
  // 해당 플랫폼 연결된 유저 목록 (extra_data 도 가져와서 다중 매장 지원)
  const { data: creds, error } = await svc
@@ -58,6 +71,12 @@ export async function GET(req: NextRequest) {
  continue
  }
 
+ // 트래픽 절감: 20분 내 수집된 (사용자, 플랫폼) 은 skip
+ if (freshKey.has(cred.user_id + ':' + platform)) {
+ (results[platform] as any).skipped_fresh++
+ continue
+ }
+
  // 다중 매장 지원: extra_data.store_ids 배열이 있으면 각 매장별로 enqueue
  // 없으면 platform_store_id 1개만 (기존 동작)
  const extraData = (cred.extra_data as Record<string, unknown>) || {}
@@ -71,10 +90,10 @@ export async function GET(req: NextRequest) {
 
  for (const shopNo of storeIdsToFetch) {
  try {
- // 15분 단위 dedupe — 매장별로 separate jobId
- const quarterBucket = Math.floor(Date.now() / 900_000)
+ // 30분 단위 dedupe — 매장별로 separate jobId (트래픽 절감)
+ const halfHourBucket = Math.floor(Date.now() / 1_800_000)
  const storeKey = shopNo || 'auto-detect'
- const jobId = `cron_${platform}_${cred.user_id}_${storeKey}_${quarterBucket}`
+ const jobId = `cron_${platform}_${cred.user_id}_${storeKey}_${halfHourBucket}`
  const jobResult = await enqueuePlatformJob({
  platform,
  action: 'fetch_reviews',
