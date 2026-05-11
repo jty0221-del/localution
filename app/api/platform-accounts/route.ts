@@ -411,21 +411,48 @@ export async function PATCH(req: NextRequest) {
 
  const svc = createServiceClient()
 
- // 1) platform_credentials 업데이트
+ const cleanName = body.platform_store_name
+ ? String(body.platform_store_name).replace(/<[^>]*>/g, '').trim() || null
+ : null
+
+ // 1) platform_credentials — 기존 row 있으면 UPDATE, 없으면 INSERT
+ //    네이버 플레이스는 ID/PW 없이 연결 가능 (공개 API) — POST 단계 건너뜀
+ const { data: existingCred } = await svc
+ .from('platform_credentials')
+ .select('user_id')
+ .eq('user_id', auth.userId)
+ .eq('platform', body.platform)
+ .maybeSingle()
+
+ if (existingCred) {
  const { error: credErr } = await svc
  .from('platform_credentials')
  .update({
  platform_store_id: body.platform_store_id,
- platform_store_name: body.platform_store_name
- ? String(body.platform_store_name).replace(/<[^>]*>/g, '').trim() || null
- : null,
+ platform_store_name: cleanName,
  updated_at: new Date().toISOString(),
+ ...(body.platform === 'naver_place' ? {
+ last_login_status: 'success:public_api',
+ last_login_at: new Date().toISOString(),
+ } : {}),
  })
  .eq('user_id', auth.userId)
  .eq('platform', body.platform)
-
- if (credErr) {
- return NextResponse.json({ ok: false, error: credErr.message }, { status: 500 })
+ if (credErr) return NextResponse.json({ ok: false, error: credErr.message }, { status: 500 })
+ } else {
+ const { error: credErr } = await svc
+ .from('platform_credentials')
+ .insert({
+ user_id: auth.userId,
+ platform: body.platform,
+ platform_store_id: body.platform_store_id,
+ platform_store_name: cleanName,
+ last_login_status: body.platform === 'naver_place' ? 'success:public_api' : null,
+ last_login_at: body.platform === 'naver_place' ? new Date().toISOString() : null,
+ connected_at: new Date().toISOString(),
+ updated_at: new Date().toISOString(),
+ })
+ if (credErr) return NextResponse.json({ ok: false, error: credErr.message }, { status: 500 })
  }
 
  // 2) stores 테이블 풀 업데이트 (설정 페이지와 연동)
@@ -475,6 +502,36 @@ export async function PATCH(req: NextRequest) {
  ...insertPayload,
  slug: slug + '-' + Date.now().toString(36),
  })
+ }
+ }
+
+ // 3) place_targets 도 upsert — /api/stores/me 의 naver_link 응답에서 사용
+ //    (네이버 플레이스 순위 추적 + 프로필 자동 입력 양쪽 모두 의존)
+ if (body.platform === 'naver_place' && body.platform_store_id) {
+ try {
+ const { data: existingTarget } = await svc
+ .from('place_targets')
+ .select('id')
+ .eq('user_id', auth.userId)
+ .eq('place_id', body.platform_store_id)
+ .maybeSingle()
+
+ const targetPayload: Record<string, any> = {
+ user_id: auth.userId,
+ place_id: body.platform_store_id,
+ name: cleanName,
+ url: body.store_naver_url || ('https://map.naver.com/p/entry/place/' + body.platform_store_id),
+ address: body.store_address || null,
+ category: body.store_category || null,
+ updated_at: new Date().toISOString(),
+ }
+ if (existingTarget?.id) {
+ await svc.from('place_targets').update(targetPayload).eq('id', existingTarget.id)
+ } else {
+ await svc.from('place_targets').insert({ ...targetPayload, created_at: new Date().toISOString() })
+ }
+ } catch (e: any) {
+ console.warn('[platform-accounts] place_targets upsert failed (non-fatal):', e?.message)
  }
  }
  } catch (e) {
