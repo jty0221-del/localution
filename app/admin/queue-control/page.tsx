@@ -5,12 +5,11 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { PageHeader } from '@/app/components/PageHeader'
+import PageHeader from '@/app/components/PageHeader'
 import {
   Activity,
   AlertTriangle,
   RefreshCw,
-  Trash2,
   Zap,
   CheckCircle2,
   Loader2,
@@ -84,8 +83,9 @@ export default function QueueControlPage() {
       <PageHeader
         title="큐 비상 제어"
         subtitle="BullMQ 적체 / 중복 / hang 즉시 복구"
-        icon={Activity}
-        gradient="from-rose-500 to-pink-600"
+        icon={<Activity size={24} className="text-white" strokeWidth={2.5} />}
+        variant="primary"
+        badge="ADMIN"
       />
 
       <div className="max-w-6xl mx-auto px-4 md:px-6 lg:px-8 py-4 md:py-6 space-y-4 md:space-y-6">
