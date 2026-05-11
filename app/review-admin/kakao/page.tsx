@@ -39,8 +39,8 @@ const CONFIG: PlatformConfig = {
  reviewAdminUrl: 'https://place.map.kakao.com/',
  collectEndpoint: '/api/place/kakao/collect',
  platformInfoBanner: {
- title: '카카오맵 리뷰 자동 수집 중',
- desc: 'AI가 카카오 감성에 맞는 따뜻한 답글을 자동으로 작성해드려요',
+ title: '카카오맵 리뷰 자동 수집 (30분마다)',
+ desc: '[발행] 클릭 → AI 답글 자동 복사 + 카카오맵 새 탭 열림 → 사장님이 붙여넣고 등록. 카카오 비즈니스 계정 연결 시 워커가 자동 등록.',
  links: [
  { label: '카카오맵 리뷰 관리 ↗', href: 'https://place.map.kakao.com/', dark: false },
  { label: '카카오 비즈니스 ↗', href: 'https://business.kakao.com/', dark: true },
