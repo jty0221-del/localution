@@ -788,6 +788,7 @@ async function fetchVisitorReviewsGraphQL(
 export async function fetchVisitorReviews(
   placeId: string,
   hint?: string | null,
+  options: { knownReviewIds?: Set<string>; quickMode?: boolean } = {},
 ): Promise<VisitorReview[]> {
   if (!/^\d+$/.test(placeId)) return []
 
@@ -795,20 +796,35 @@ export async function fetchVisitorReviews(
   if (hint && (PLACE_CATEGORIES as readonly string[]).includes(hint)) tryOrder.push(hint)
   for (const c of PLACE_CATEGORIES) if (!tryOrder.includes(c)) tryOrder.push(c)
 
-  // 1) GraphQL 우선 시도 — 37차-6: 페이지네이션으로 모든 리뷰 수집 (최대 500개)
+  // 1) GraphQL 우선 시도
+  //   · quickMode: 첫 페이지 (50건) 만 — 신규 리뷰 감지용 (cron 일반 동작)
+  //   · 첫 페이지에 신규 (knownReviewIds 에 없는) 리뷰가 있으면 다음 페이지도 fetch
+  //   · 모두 기존 ID 면 stop (대부분의 cron 호출 → 1 페이지로 종료)
   const PAGE_SIZE = 50
-  const MAX_PAGES = 10
+  const MAX_PAGES_FULL = 10  // 첫 수집 / 신규 리뷰 많을 때
+  const MAX_PAGES_QUICK = 1   // 일반 cron — 신규 없으면 1페이지만
+  const quickMode = options.quickMode === true
+  const knownIds = options.knownReviewIds || new Set<string>()
+
   for (const cat of tryOrder) {
     const firstPage = await fetchVisitorReviewsGraphQL(placeId, cat, PAGE_SIZE, 1)
-    if (!firstPage) continue // 네트워크/스키마 오류 → 다음 카테고리
-    if (firstPage.length === 0) continue // 카테고리 미스매치 → 다음
+    if (!firstPage) continue
+    if (firstPage.length === 0) continue
     const all: VisitorReview[] = [...firstPage]
-    // 첫 페이지가 가득 찼으면 더 불러오기
-    for (let p = 2; p <= MAX_PAGES && all.length >= (p - 1) * PAGE_SIZE; p++) {
+
+    // 첫 페이지의 모든 리뷰가 이미 DB 에 있으면 → 더 fetch 안 함 (트래픽 절감)
+    const allKnownInFirstPage = quickMode && firstPage.every(r => knownIds.has(r.reviewId))
+    if (allKnownInFirstPage) return all
+
+    // 신규 발견 또는 quickMode 아님 → 추가 페이지 fetch
+    const maxPages = quickMode ? MAX_PAGES_QUICK + 2 : MAX_PAGES_FULL
+    for (let p = 2; p <= maxPages && all.length >= (p - 1) * PAGE_SIZE; p++) {
       const more = await fetchVisitorReviewsGraphQL(placeId, cat, PAGE_SIZE, p)
       if (!more || more.length === 0) break
       all.push(...more)
       if (more.length < PAGE_SIZE) break
+      // quickMode: 신규 리뷰 없는 페이지 도달 시 stop
+      if (quickMode && more.every(r => knownIds.has(r.reviewId))) break
     }
     return all
   }
