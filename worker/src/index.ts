@@ -158,10 +158,8 @@ const worker = new Worker<PlatformJobData>(
   },
   {
     connection,
-    // Pro 플랜 (8GB RAM): concurrency 3 — 동시에 3 잡 처리 (브라우저 3개)
-    // 각 브라우저 ~1.5GB → 4.5GB 사용, 메모리 여유 확보
-    // post_reply (priority 1) 가 fetch_reviews 와 동시 처리 가능 → 사장님 답글 즉시 발행
-    concurrency: parseInt(process.env.WORKER_CONCURRENCY || '3', 10),
+    // Pro 8GB — concurrency 5 (각 ~1.2GB × 5 = 6GB, 여유 2GB)
+    concurrency: parseInt(process.env.WORKER_CONCURRENCY || '5', 10),
     removeOnComplete: { count: 500 },
     removeOnFail: { count: 1000 },
     // ── stall 보호 (쿠팡 fetch 1~3분, 답글 30초 이상 가능) ──
