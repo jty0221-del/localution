@@ -67,23 +67,37 @@ export async function GET(req: NextRequest) {
     })
   }
 
-  // 실제 삭제
+  // 실제 삭제 — 매장 관련만 제거 (threads/personal 채널은 보존)
+  // STORE_PLATFORMS: 매장 사장 전용 (관리자가 테스트로 연결한 것)
+  const STORE_PLATFORMS = ['naver_place', 'baemin', 'yogiyo', 'coupangeats', 'kakao_map']
   const results = {
     platform_credentials: 0,
     stores: 0,
     place_targets: 0,
     platform_reviews: 0,
+    kept_platform_credentials: [] as string[],
     errors: [] as string[],
   }
 
+  // platform_credentials — 매장 플랫폼만 삭제, threads/personal 보존
   try {
     const { error, count } = await svc
       .from('platform_credentials')
       .delete({ count: 'exact' })
       .eq('user_id', ADMIN_TEST_USER_ID)
+      .in('platform', STORE_PLATFORMS)
     if (error) results.errors.push('platform_credentials: ' + error.message)
     else results.platform_credentials = count || 0
   } catch (e: any) { results.errors.push('platform_credentials exception: ' + e.message) }
+
+  // 보존된 platform_credentials 확인 (threads 등)
+  try {
+    const { data: kept } = await svc
+      .from('platform_credentials')
+      .select('platform')
+      .eq('user_id', ADMIN_TEST_USER_ID)
+    results.kept_platform_credentials = (kept || []).map(r => r.platform)
+  } catch (_) {}
 
   try {
     const { error, count } = await svc
