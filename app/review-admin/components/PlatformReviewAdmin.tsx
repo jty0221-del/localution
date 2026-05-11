@@ -616,6 +616,46 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
  return
  }
 
+ // ── 카카오맵 manual_paste 모드 ── 클립보드 복사 + 새 탭 이동
+ if (data.mode === 'manual_paste' && data.reply_text) {
+ try {
+ await navigator.clipboard.writeText(data.reply_text)
+ toast.success('답글이 클립보드에 복사됐어요. 새 탭에서 붙여넣기 후 등록해주세요.')
+ } catch {
+ // 클립보드 권한 거부 시 fallback
+ const ta = document.createElement('textarea')
+ ta.value = data.reply_text
+ ta.style.position = 'fixed'; ta.style.opacity = '0'
+ document.body.appendChild(ta)
+ ta.select()
+ try { document.execCommand('copy') } catch {}
+ document.body.removeChild(ta)
+ toast.info('답글이 복사됐어요 (수동). 새 탭에서 붙여넣기 해주세요.')
+ }
+ if (data.platform_url) {
+ window.open(data.platform_url, '_blank', 'noopener,noreferrer')
+ }
+ // DB 는 이미 submitted 처리됨 — UI 도 반영
+ setReviews((prev) =>
+ prev.map((r) =>
+ r.id === review.id
+ ? {
+ ...r,
+ replyStatus: 'submitted',
+ replySubmittedAt: new Date().toISOString(),
+ draftReply: trimmed,
+ replyContent: trimmed,
+ hasReply: true,
+ replyError: null,
+ }
+ : r,
+ ),
+ )
+ setEditingId(null)
+ setDraftText('')
+ return
+ }
+
  // ── 자동 발행 모드 — 보수적 표시 ──
  // hasReply=true 로 미리 마킹하지 않음 (워커가 실제 등록 검증 통과해야 표시됨)
  // queued 상태로만 표시 → 90초 후 자동 재수집으로 실제 결과 반영
