@@ -231,15 +231,29 @@ export async function POST(req: NextRequest) {
  .eq('platform', row.platform)
  .maybeSingle()
 
- const storeId = row.platform_store_id || cred?.platform_store_id || 'unknown'
- const extra = (cred?.extra_data as any) || {}
+ // 네이버 fallback: platform_credentials 없으면 stores 테이블 / place_targets 에서 매장 ID 조회
+ //   사장님이 매장 등록만 하고 platform_credentials 행 안 만든 경우 (예전 connect 흐름 버그)
+ //   → worker 에 enqueue 라도 시도. worker 가 cookies 없으면 ID/PW 로 로그인 시도.
+ let credForEnqueue = cred
+ if (!cred && row.platform === 'naver_place') {
+ const { data: storeRow } = await svc
+ .from('stores')
+ .select('naver_place_id')
+ .eq('user_id', userId)
+ .order('updated_at', { ascending: false })
+ .limit(1)
+ .maybeSingle()
+ const fallbackPlaceId = row.platform_store_id || storeRow?.naver_place_id || null
+ if (fallbackPlaceId) {
+ credForEnqueue = { platform_store_id: fallbackPlaceId, extra_data: null } as any
+ }
+ }
 
- // v1.6k: 배민 direct API 경로 폐기 — Akamai 가 Vercel raw fetch 영구 차단
- // (cookie 멀쩡해도 Akamai _abck JS challenge 미통과 → 403)
- // → 무조건 Worker (Playwright + 한국 프록시) 로 위임
+ const storeId = row.platform_store_id || credForEnqueue?.platform_store_id || 'unknown'
+ const extra = (credForEnqueue?.extra_data as any) || {}
 
  // ── Worker 큐 ──────────────────────────────────────────────────
- const hasCredentials = !!cred
+ const hasCredentials = !!credForEnqueue
  const redisAvailable = !!process.env.REDIS_URL
 
  if (hasCredentials && redisAvailable) {
