@@ -19,6 +19,7 @@ import OnboardingChecklist from '../components/OnboardingChecklist'
 import DashboardRightSidebar, { DashboardRightSidebarMobile } from '../components/DashboardRightSidebar'
 import HarangMarketingPopup from '../components/HarangMarketingPopup'
 import NaverLockoutBanner from '../components/NaverLockoutBanner'
+import PlatformIssuesBanner from '../components/PlatformIssuesBanner'
 import { useConnections, setConnection as libSetConnection, removeConnection as libRemoveConnection, PlatformId as CanonicalPlatformId } from '../lib/connections'
 import { toast, confirmDialog } from '../lib/toast'
 import { buildSettingsHref } from '../lib/settings-tabs'
@@ -1548,6 +1549,9 @@ export default function Dashboard() {
 
  {/* v38: 네이버 답글 발행 잠금 알림 (잠금 감지될 때만 표시) */}
  {isLoggedIn && <NaverLockoutBanner />}
+
+ {/* v38: 모든 플랫폼 자격증명 이슈 통합 알림 */}
+ {isLoggedIn && <PlatformIssuesBanner />}
 
  {/* ── 부정 리뷰 긴급 알림 (미답변 1~2점 있을 때만) ── */}
  {isLoggedIn && negativeUnansweredCount > 0 && (
