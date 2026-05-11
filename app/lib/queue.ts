@@ -56,7 +56,7 @@ export function getPlatformQueue(): Queue<PlatformJobData> {
 export async function enqueuePlatformJob(
   data: PlatformJobData,
   opts: { jobId?: string; priority?: number } = {},
-): Promise<{ ok: true; jobId: string } | { ok: false; error: string }> {
+): Promise<{ ok: true; jobId: string; deduped?: boolean } | { ok: false; error: string }> {
   try {
     const q = getPlatformQueue()
     // BullMQ priority: 낮은 숫자 = 높은 우선순위 (1 이 가장 먼저 처리)
@@ -67,12 +67,32 @@ export async function enqueuePlatformJob(
       : data.action === 'fetch_reviews' ? 10
       : 5
     const priority = opts.priority ?? defaultPriority
+
+    // 🔒 DEDUP: post_reply 는 (platform, userId, platform_review_id) 단위로 deterministic jobId
+    //    → 같은 리뷰 반복 enqueue 차단 (BullMQ 는 같은 jobId 무시)
+    //    auto-publish / retry-queued-replies / force-publish 모두 자동 dedup
+    let jobId = opts.jobId
+    if (!jobId && data.action === 'post_reply') {
+      const reviewId = String((data.payload as any)?.platform_review_id || (data.payload as any)?.review_id || 'unknown')
+      jobId = `pr_${data.platform}_${data.userId.slice(0, 8)}_${reviewId.slice(0, 32)}`
+    }
+
+    // jobId 가 이미 존재하면 BullMQ 는 기존 잡 반환 (q.add 에 deduplication 옵션 활용)
     const job = await q.add(`${data.platform}:${data.action}`, data, {
-      jobId: opts.jobId,
+      jobId,
       priority,
     })
-    return { ok: true, jobId: String(job.id) }
+
+    // 같은 jobId 재사용 확인: job.opts.jobId 가 우리가 준 값이지만 실제 enqueue 됐는지 보려면
+    //   timestamp 가 방금이 아니면 (= 기존 잡) deduped 표시
+    const justNow = Math.abs(Date.now() - (job.timestamp || 0)) < 2000
+    return { ok: true, jobId: String(job.id), deduped: !justNow }
   } catch (e: any) {
-    return { ok: false, error: e?.message || String(e) }
+    // BullMQ "Job exists" 에러는 silent: deduplicated 로 처리
+    const msg = e?.message || String(e)
+    if (/already exists|exists with the same id/i.test(msg)) {
+      return { ok: true, jobId: opts.jobId || 'dedup', deduped: true }
+    }
+    return { ok: false, error: msg }
   }
 }
