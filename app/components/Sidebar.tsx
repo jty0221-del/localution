@@ -259,20 +259,44 @@ export default function Sidebar() {
  }
 
  useEffect(() => {
- // 서버 우선 — stale 사용자 정보 자동 정리 (계정 변경 후 모바일에서 안 갱신되는 문제 해결)
+ // 1차: sessionStorage 캐시 — 페이지 로드 시 깜빡임 없이 사용자 정보 표시
+ try {
+ const cached = sessionStorage.getItem('localution_user')
+ if (cached) {
+ const parsed = JSON.parse(cached)
+ if (parsed && parsed.name) setUser(parsed)
+ }
+ } catch {}
+
+ // 2차: 서버 검증 (sliding session 자동 갱신)
+ // 401 이어도 cached sessionStorage 는 유지 (시그너처 검증 실패 시 로그아웃 처리 X)
  fetch('/api/me', { credentials: 'include', cache: 'no-store' })
- .then(r => r.ok ? r.json() : null)
- .then(data => {
- if (data && data.user && data.user.name) {
- setUser(data.user)
- try { sessionStorage.setItem('localution_user', JSON.stringify(data.user)) } catch {}
- } else {
- // 서버 세션 없음 → stale 캐시 정리 + 로그아웃 상태로
+ .then(async r => {
+ if (r.ok) {
+ const j = await r.json()
+ return { ok: true, user: j?.user }
+ }
+ // 401 이지만 hint 확인 — session_only 면 임시 오류이므로 cached 유지
+ try {
+ const j = await r.json()
+ if (j?.hint === 'session_only' || j?.hint === 'verify_failed') {
+ return { ok: false, keepCache: true }
+ }
+ } catch {}
+ return { ok: false, keepCache: false }
+ })
+ .then(result => {
+ if (result.ok && result.user && result.user.name) {
+ setUser(result.user)
+ try { sessionStorage.setItem('localution_user', JSON.stringify(result.user)) } catch {}
+ } else if (!result.keepCache) {
+ // 진짜 로그아웃 상태 (양쪽 쿠키 모두 없음) — 캐시 정리
  setUser(null)
  try { sessionStorage.removeItem('localution_user') } catch {}
  }
+ // keepCache=true: sessionStorage 의 user 유지 (이미 setUser 된 cached 값 그대로)
  })
- .catch(() => {})
+ .catch(() => { /* 네트워크 오류 시 cached 유지 */ })
 
  loadStore()
 
