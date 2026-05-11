@@ -590,9 +590,11 @@ export async function runBaemin(
     let totalInserted = 0
     const perShopStats: any[] = []
 
-    // v1.6h: API 요청은 180일 (배민 페이지 기본값) — cutoff 는 daysBack 으로 별도 적용
-    // 30일치만 요청하면 매장 활동 적은 경우 빈 응답 → 6개월 fetch 후 cutoff 필터
-    const API_FETCH_DAYS = 180
+    // 트래픽 절감: API 요청도 답글 가능한 30일치만 (배민 정책)
+    //   이전 180일 → 905건 매번 가져옴 (이미 DB 에 있는 리뷰도 중복 다운로드)
+    //   30일치 → 답글 등록 가능한 리뷰만 fetch → 트래픽 ~83% 절감
+    //   payload.full_history === true 면 180일 (수동 트리거 시만)
+    const API_FETCH_DAYS = payload?.full_history === true ? 180 : Math.min(daysBack + 5, 35)
     const toDate = new Date().toISOString().slice(0, 10)
     const fromDate = new Date(Date.now() - API_FETCH_DAYS * 86400_000).toISOString().slice(0, 10)
     log.info({ fromDate, toDate, apiFetchDays: API_FETCH_DAYS, cutoffDaysBack: daysBack }, 'baemin: date range (v1.6h)')
