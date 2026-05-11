@@ -495,6 +495,9 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
  setGenerating(true)
  setDraftText('')
  try {
+ // 클라이언트 타임아웃 85초 (서버 maxDuration 90s 직전 fallback)
+ const aiController = new AbortController()
+ const aiTimer = setTimeout(() => aiController.abort(), 85000)
  const aiRes = await fetch('/api/ai-review-reply', {
  method: 'POST',
  credentials: 'include',
@@ -506,10 +509,11 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
  platform: config.platform,
  aiSettings: { tone: usePersona.tone, length: 'medium' },
  customerProfile: { gender: usePersona.gender, age: usePersona.age },
- // v1.6y: custom 톤일 때만 사장님 맞춤 프롬프트 전달
  customPrompt: usePersona.tone === 'custom' ? customPrompt : undefined,
  }),
+ signal: aiController.signal,
  })
+ clearTimeout(aiTimer)
  const aiData = await aiRes.json()
  const generated = String(aiData?.reply || '').trim()
  if (!generated) {
@@ -543,7 +547,10 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
  toast.warn('초안 저장 중 오류: ' + (e?.message || e))
  }
  } catch (e: any) {
- toast.error('초안 생성 오류: ' + (e?.message || e))
+ const msg = e?.name === 'AbortError'
+ ? 'AI 응답이 너무 느려요 (85초 초과). 다시 시도해 주세요.'
+ : '초안 생성 오류: ' + (e?.message || e)
+ toast.error(msg)
  } finally {
  setGenerating(false)
  }
