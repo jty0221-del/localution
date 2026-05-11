@@ -140,8 +140,38 @@ export async function GET(req: NextRequest) {
  const t = targets[i]
  const now = new Date().toISOString()
  try {
+ // 트래픽 + UX 절감: DB 의 기존 reviewId 들을 조회해서 incremental fetch
+ //   첫 페이지 50건이 모두 기존이면 추가 페이지 안 부름 → 500건 → 50건 (90% 절감)
+ //   신규 리뷰만 fetch → "마지막 수집" 시간이 매번 안 바뀜 (사장님 UX ↑)
  // eslint-disable-next-line no-await-in-loop
- const reviews = await fetchVisitorReviews(t.place_id, t.category ?? null)
+ const { data: existing } = await svc
+ .from('platform_reviews')
+ .select('platform_review_id')
+ .eq('user_id', t.user_id)
+ .eq('platform', 'naver_place')
+ .order('posted_at', { ascending: false })
+ .limit(500)
+ const knownReviewIds = new Set((existing || []).map((r: any) => String(r.platform_review_id)))
+
+ // eslint-disable-next-line no-await-in-loop
+ const reviews = await fetchVisitorReviews(t.place_id, t.category ?? null, {
+ quickMode: true,
+ knownReviewIds,
+ })
+
+ // 신규 리뷰 없으면 DB 업데이트 skip (collected_at, has_reply 보존 — UI 깜빡임 방지)
+ const onlyKnown = reviews.length > 0 && reviews.every(r => knownReviewIds.has(r.reviewId))
+ if (onlyKnown) {
+ results.push({
+ user_id: t.user_id,
+ place_id: t.place_id,
+ source: t.source,
+ collected: reviews.length,
+ upserted: 0,
+ })
+ await new Promise(r => setTimeout(r, GAP_MS))
+ continue
+ }
  if (!reviews || reviews.length === 0) {
  results.push({
  user_id: t.user_id,
