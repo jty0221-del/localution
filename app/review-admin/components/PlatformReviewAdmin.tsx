@@ -614,6 +614,7 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
  if (!saved) { setSubmitting(false); return }
 
  // auto-publish: Worker 연동 우선, 미연결 시 수동 폴백
+ console.log('[handleSubmit] /api/review-reply/auto-publish 호출', { review_id: review.id, platform: config.platform })
  const res = await fetch('/api/review-reply/auto-publish', {
  method: 'POST',
  credentials: 'include',
@@ -621,12 +622,15 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
  body: JSON.stringify({ review_id: review.id }),
  })
  const data = await res.json()
+ console.log('[handleSubmit] auto-publish 응답', { status: res.status, ok: data?.ok, mode: data?.mode, jobId: data?.jobId, error: data?.error, code: data?.code })
  if (!res.ok || !data?.ok) {
  if (data?.code === 'NO_CREDENTIALS') {
  setNoCredentialsHref(data?.connect_href || null)
  toast.warn(data?.error || '계정을 연결해야 자동 발행이 가능해요')
+ alert(`자동 발행 불가\n\n${data?.error || '계정 미연결'}\n\nconnect_href: ${data?.connect_href || '(없음)'}\n\nplatform: ${config.platform}\nreview_id: ${review.id}`)
  } else {
  toast.error('발행 실패: ' + (data?.error || ''))
+ alert(`발행 실패\n\nstatus: ${res.status}\nerror: ${data?.error || '(없음)'}\ncode: ${data?.code || '(없음)'}\n\nplatform: ${config.platform}\nreview_id: ${review.id}`)
  }
  return
  }
