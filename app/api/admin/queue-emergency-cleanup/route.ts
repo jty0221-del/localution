@@ -67,7 +67,8 @@ export async function GET(req: NextRequest) {
   stats.prioritized_duplicates_to_remove = toRemove.length
 
   // 2) waiting 분석 — fetch_reviews 청소 옵션
-  const waiting = await q.getWaiting(0, 999)
+  //    timeout 방지: 최대 200개씩 처리 (Vercel 60s 제한)
+  const waiting = await q.getWaiting(0, 200)
   stats.waiting_total = waiting.length
   const waitingToRemove: any[] = []
   if (cleanFetch) {
@@ -109,15 +110,19 @@ export async function GET(req: NextRequest) {
     })
   }
 
-  // 실제 제거
+  // 실제 제거 — Promise.all 병렬 처리 (Vercel timeout 회피)
+  const removeResults = await Promise.allSettled([
+    ...toRemove.map((j: any) => j.remove()),
+    ...waitingToRemove.map((j: any) => j.remove()),
+  ])
   let removedDuplicates = 0
   let removedFetch = 0
-  for (const j of toRemove) {
-    try { await j.remove(); removedDuplicates++ } catch (_) {}
-  }
-  for (const j of waitingToRemove) {
-    try { await j.remove(); removedFetch++ } catch (_) {}
-  }
+  removeResults.forEach((r, i) => {
+    if (r.status === 'fulfilled') {
+      if (i < toRemove.length) removedDuplicates++
+      else removedFetch++
+    }
+  })
 
   return NextResponse.json({
     ok: true,
