@@ -881,7 +881,7 @@ async function fetchCoupangReviews(
 
     if (skipBrowser) {
       try {
-        const targetStoreId = creds.platform_store_id || '738438'
+        const targetStoreId = (creds.platform_store_id || '__MISSING_STORE_ID__')
         const homeUrl = `https://store.coupangeats.com/merchant/management/home/${targetStoreId}`
         // 74차: idle 3초 (1초 → 3초) — SPA navigation/popup 안정화
         // 그러나 어차피 reply 는 page.context().request 라 page navigation 영향 없음
@@ -901,7 +901,7 @@ async function fetchCoupangReviews(
     }
     const targetIdFast = String(payload.platform_review_id)
     const replyTextFast = String(payload.reply_text)
-    const storeIdFast = creds.platform_store_id || '738438'
+    const storeIdFast = (creds.platform_store_id || '__MISSING_STORE_ID__')
     const replied = await postCoupangEatsReply(page, storeIdFast, targetIdFast, replyTextFast, log)
     if (replied.ok) {
       await updateCoupangReviewStatus(svc, userId, targetIdFast, 'submitted', { replyContent: replyTextFast })
@@ -922,7 +922,7 @@ async function fetchCoupangReviews(
       // ── Step 1: /merchant/management/home/{storeId}로 이동 → 서버 세션에 responsibleStoreId 설정 ──
       // 이유: storeId가 URL path에 포함되어야 서버가 responsibleStoreId=storeId로 세션 설정
       //       /merchant 루트는 store 선택 UI가 없으면 responsibleStoreId=null 유지
-      const targetStoreId2 = creds.platform_store_id || '738438'
+      const targetStoreId2 = (creds.platform_store_id || '__MISSING_STORE_ID__')
       const homeUrl = `https://store.coupangeats.com/merchant/management/home/${targetStoreId2}`
       await page.goto(homeUrl, { waitUntil: 'domcontentloaded', timeout: 30000 })
       await page.waitForTimeout(4000)
@@ -1157,7 +1157,7 @@ async function fetchCoupangReviews(
   }
   log.info({ capturedSoFar: capturedReviews.length }, 'coupangeats: skipping page interactions (버튼 클릭 → Akamai 세션 파괴 방지)')
 
-  const storeId = creds.platform_store_id || '738438'
+  const storeId = (creds.platform_store_id || '__MISSING_STORE_ID__')
   log.info({ storeId, naturalCaptured: capturedReviews.length }, 'coupangeats: calling review API (node-direct fetch primary, browser fallback)')
 
   // ── API 호출 설정 ──
