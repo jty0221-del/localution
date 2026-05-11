@@ -202,26 +202,81 @@ export async function runYogiyo(
   try {
     // 1) 로그인
     await page.goto(LOGIN_URL, { waitUntil: 'load', timeout: 45000 })
-    await page.waitForTimeout(3000)
 
-    // v38: 로그인 폼 detect 강화 — networkidle 까지 기다리고 iframe 도 검사
-    //   yogiyo ceo 가 React SPA 라서 input mount 가 늦을 수 있음
+    // v38b: yogiyo CEO 가 React SPA — `<div id="root">` 만 있고 input 은 JS mount 후 생성
+    //   server HTML size 745 bytes 확인됨 (yogiyo-dom-probe). React mount 까지 대기 필수.
+    //   1) #root 의 children 이 생길 때까지 기다리기 (React mount 신호)
+    //   2) URL 변경 감지 (kakao OAuth redirect 가능성)
+    //   3) 그래도 안 되면 input polling
+    log.info('yogiyo: SPA mount 대기 시작 (#root children + networkidle)')
+    try {
+      await page.waitForFunction(() => {
+        const root = document.querySelector('#root')
+        return root && root.children.length > 0
+      }, { timeout: 20000 })
+      log.info('yogiyo: #root mount 감지')
+    } catch (_) {
+      log.warn('yogiyo: #root mount 20s 안 됨 — networkidle 폴백')
+    }
+
+    await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => null)
+    await page.waitForTimeout(2000)
+
+    // URL 변경 체크 (OAuth redirect)
+    const currentUrl = page.url()
+    if (!currentUrl.includes('yogiyo.co.kr')) {
+      log.warn({ currentUrl }, 'yogiyo: 다른 도메인으로 redirect — OAuth 또는 차단')
+    }
+
+    // v38b: 폴링 방식으로 password input 찾기 (최대 30초)
     let pwLocator = page.locator(DOM_SELECTORS.pwInput).first()
-    let pwVisible = await pwLocator.waitFor({ state: 'visible', timeout: 15000 }).then(() => true).catch(() => false)
+    let pwVisible = false
+    const pollStart = Date.now()
+    while (Date.now() - pollStart < 30000) {
+      pwVisible = await pwLocator.isVisible().catch(() => false)
+      if (pwVisible) break
 
-    if (!pwVisible) {
-      // 1차 retry: networkidle 대기 후 다시 검사
-      log.warn('yogiyo: pw input not visible — waiting for networkidle then retry')
-      await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => null)
-      await page.waitForTimeout(2000)
-      pwLocator = page.locator(DOM_SELECTORS.pwInput).first()
-      pwVisible = await pwLocator.waitFor({ state: 'visible', timeout: 10000 }).then(() => true).catch(() => false)
+      // input 자체가 있는지 (visible 아니어도)
+      const inputCount = await page.locator('input').count().catch(() => 0)
+      if (inputCount > 0) {
+        log.info({ inputCount }, 'yogiyo: input 발견 — selector 매칭 시도')
+        // 모든 input 의 attributes 덤프
+        const allInputs = await page.locator('input').evaluateAll((els) =>
+          els.slice(0, 20).map((el: any) => ({
+            type: el.type, name: el.name, id: el.id,
+            placeholder: el.placeholder, ariaLabel: el.getAttribute('aria-label'),
+            visible: !!(el.offsetWidth || el.offsetHeight),
+          }))
+        ).catch(() => [])
+        log.info({ allInputs }, 'yogiyo: DOM input 디버그 덤프')
+
+        // 새 selector pattern 으로 재시도 — type=password
+        const fallbackLocators = [
+          'input[type="password"]',
+          'input[name*="pw" i]',
+          'input[name*="password" i]',
+          'input[placeholder*="비밀번호"]',
+          'input[id*="pw" i]',
+          'input[id*="password" i]',
+        ]
+        for (const sel of fallbackLocators) {
+          const found = await page.locator(sel).first().isVisible().catch(() => false)
+          if (found) {
+            log.info({ sel }, 'yogiyo: fallback selector 매칭 성공')
+            pwLocator = page.locator(sel).first()
+            pwVisible = true
+            break
+          }
+        }
+        if (pwVisible) break
+      }
+      await page.waitForTimeout(1500)
     }
 
     if (!pwVisible) {
-      // 2차 retry: iframe 내부 검사
+      // iframe 내부 검사 (마지막 수단)
       const frames = page.frames()
-      log.info({ frameCount: frames.length, frameUrls: frames.map(f => f.url().slice(0, 60)) }, 'yogiyo: checking iframes for login form')
+      log.info({ frameCount: frames.length, frameUrls: frames.map(f => f.url().slice(0, 60)) }, 'yogiyo: iframe 검사')
       for (const frame of frames) {
         try {
           const framePw = frame.locator(DOM_SELECTORS.pwInput).first()
@@ -238,8 +293,8 @@ export async function runYogiyo(
 
     if (!pwVisible) {
       await dumpPageDiagnostics(page, log, 'yogiyo-login-form-missing')
-      await markLoginStatus(svc, userId, 'yogiyo', 'failed', 'login form not found (v38 enhanced)')
-      return { status: 'failed', message: 'yogiyo 로그인 폼을 찾지 못했습니다 (v38: pw selector + iframe + networkidle 모두 실패 — DOM 구조 변경 가능성)' }
+      await markLoginStatus(svc, userId, 'yogiyo', 'failed', 'login form not found (v38b: SPA mount + polling + iframe 모두 실패)')
+      return { status: 'failed', message: 'yogiyo 로그인 폼을 찾지 못했습니다 (v38b: SPA 30s polling + iframe + URL check 실패 — yogiyo IP 차단 또는 OAuth redirect 의심)' }
     }
 
     // 아이디 입력
