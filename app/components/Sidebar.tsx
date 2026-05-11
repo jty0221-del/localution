@@ -3,7 +3,8 @@
 import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { usePathname, useSearchParams, useRouter } from 'next/navigation'
-import { Link2, ClipboardList, Store, Settings, MessageSquare, LogOut, BarChart3, HelpCircle } from 'lucide-react'
+import { Link2, ClipboardList, Store, Settings, MessageSquare, LogOut, BarChart3, HelpCircle, Shield } from 'lucide-react'
+import { isAdminEmail } from '@/app/lib/admin-emails'
 
 const FLAT_NAV = [
  { href: '/dashboard', label: '대시보드', icon: 'DB', colors: { bg: '#EFF6FF', text: '#3182F6' } },
@@ -587,6 +588,17 @@ export default function Sidebar() {
  <MessageSquare size={16} strokeWidth={2.5} />
  <span className="font-medium">1:1 문의</span>
  </Link>
+ {isAdminEmail(userEmail) && (
+ <>
+ <div className="h-px bg-[#F2F4F6]" />
+ <Link href="/admin/users"
+ onClick={() => { setProfileOpen(false); setMobileOpen(false) }}
+ className="flex items-center gap-3 px-4 py-3 text-sm text-[#DC2626] bg-[#FEF2F2] hover:bg-[#FEE2E2] transition-colors font-bold">
+ <Shield size={16} strokeWidth={2.5} />
+ <span>관리자 콘솔</span>
+ </Link>
+ </>
+ )}
  <div className="h-px bg-[#F2F4F6]" />
  <button
  onClick={handleLogout}
