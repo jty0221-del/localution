@@ -180,15 +180,20 @@ export async function POST(req: NextRequest) {
  return NextResponse.json({ ok: false, error: '현재 처리 중이에요. 잠시 후 다시 시도해주세요' }, { status: 409 })
  }
 
- // ── 카카오맵 special: 자동 등록 API 없음 (Kakao 비즈니스 API 미공개)
- //    → 답글 텍스트 + 카카오 비즈니스 URL 반환 → 클라이언트가 클립보드 복사 + 새 탭 이동
+ // ── 카카오맵: ID/PW 저장돼 있으면 Worker 자동 등록, 없으면 manual_paste
+ //    (Worker → Playwright + 한국 프록시 + place-mall.kakao.com 로그인)
  if (row.platform === 'kakao_map') {
  const { data: kakaoCred } = await svc
  .from('platform_credentials')
- .select('platform_store_id')
+ .select('platform_store_id, password_encrypted')
  .eq('user_id', userId).eq('platform', 'kakao_map')
  .maybeSingle()
+
  const placeId = kakaoCred?.platform_store_id || ''
+ const hasKakaoCredentials = !!kakaoCred?.password_encrypted
+
+ // ID/PW 저장 안 됐으면 manual_paste fallback
+ if (!hasKakaoCredentials) {
  const kakaoUrl = placeId
  ? `https://place.map.kakao.com/${placeId}`
  : 'https://place.map.kakao.com/'
@@ -211,8 +216,11 @@ export async function POST(req: NextRequest) {
  reply_text: draft,
  platform_url: kakaoUrl,
  platform_label: '카카오맵',
- note: '카카오맵은 자동 등록 API 가 없어 직접 붙여넣기 필요. 답글이 클립보드에 복사되고 카카오맵 페이지가 새 창으로 열립니다.',
+ note: '카카오 비즈니스 계정을 연결하면 자동 등록 가능. 지금은 클립보드 복사로 안내.',
+ connect_href: '/my/platforms/kakao_map/connect',
  })
+ }
+ // ID/PW 저장돼 있으면 ↓ 일반 Worker 흐름 (post_reply enqueue)
  }
 
  // 2) 자격증명 + extra_data 조회
