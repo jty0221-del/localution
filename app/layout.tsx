@@ -7,6 +7,7 @@ import UpdatesPopupBanner from './components/UpdatesPopupBanner'
 import ScrollToTop from './components/ScrollToTop'
 import OnboardingBanner from './components/OnboardingBanner'
 import ImpersonationBanner from './components/ImpersonationBanner'
+import AdminFloatingButton from './components/AdminFloatingButton'
 
 const inter = Inter({ subsets: ['latin'] })
 
@@ -107,6 +108,8 @@ export default function RootLayout({
  <UpdatesPopupBanner />
  {/* 스크롤 최상단 이동 버튼 (모바일/PC, 워크스페이스에서만 노출) */}
  <ScrollToTop />
+ {/* 관리자 전용 floating 버튼 (admin 화이트리스트만 노출) */}
+ <AdminFloatingButton />
  </body>
  </html>
  )
