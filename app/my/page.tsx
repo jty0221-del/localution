@@ -82,17 +82,18 @@ export default function MyPage() {
  if (cached) {
  try { setUser(JSON.parse(cached)); setLoading(false); return } catch {}
  }
- fetch('/api/me')
+ // 미들웨어가 이미 인증 보호하므로 여기서 redirect 안 함
+ // /api/me 가 401 이어도 그냥 빈 유저로 처리 (재시도 기회 부여)
+ fetch('/api/me', { credentials: 'include', cache: 'no-store' })
  .then(r => r.ok ? r.json() : null)
  .then(data => {
  if (data?.user) {
  setUser(data.user)
  sessionStorage.setItem('localution_user', JSON.stringify(data.user))
- } else {
- router.replace('/login')
  }
+ // 401 이어도 redirect 안 함 — 미들웨어가 진짜 로그아웃은 차단함
  })
- .catch(() => router.replace('/login'))
+ .catch(() => { /* 네트워크 오류 — 그냥 빈 상태 */ })
  .finally(() => setLoading(false))
  }, [router])
 
