@@ -223,6 +223,9 @@ export async function runBaemin(
   }
 
   const context = await browser.newContext(ctxOpts)
+  // 트래픽 절감 (iproyal 절약)
+  const { applyTrafficSaver } = await import('../lib/trafficSaver')
+  await applyTrafficSaver(context)
 
   // v1.5: save-login 쿠키 주입 — biz-member 로그인 우회 (ERR_ABORTED 회피)
   const cookieJar = await loadBaeminCookieJar(svc, userId)
