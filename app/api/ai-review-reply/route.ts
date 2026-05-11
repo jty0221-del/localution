@@ -37,7 +37,7 @@ import { rateLimit, getClientIp } from '@/app/lib/rate-limit'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
-export const maxDuration = 60
+export const maxDuration = 90  // 50s timeout per model × 최대 2 모델 fallback
 
 // ── 언어 감지 ────────────────────────────────────────────
 function detectLang(text: string): string {
@@ -542,37 +542,13 @@ export async function POST(req: NextRequest) {
  return NextResponse.json({ ok: true, reply, lang, reviewType, mode: 'mock' })
  }
 
- // 6) /v1/models API로 계정에서 실제 사용 가능한 모델 동적 조회
- const pickModels = async (): Promise<string[]> => {
- try {
- const r = await fetch('https://api.anthropic.com/v1/models', {
- headers: { 'x-api-key': apiKey, 'anthropic-version': '2023-06-01' },
- signal: AbortSignal.timeout(6000),
- cache: 'no-store',
- })
- if (r.ok) {
- const d = await r.json()
- const ids: string[] = (d.data || []).map((m: any) => String(m.id))
- if (ids.length > 0) {
- // haiku 계열 우선(저렴·빠름) → sonnet → 그 외
- return [
- ...ids.filter(id => id.includes('haiku')),
- ...ids.filter(id => id.includes('sonnet') && !id.includes('haiku')),
- ...ids.filter(id => !id.includes('haiku') && !id.includes('sonnet')),
- ]
- }
- }
- } catch { /* ignore */ }
- // /v1/models 실패 시 알려진 모델 목록 fallback
- return [
+ // 6) 모델 후보 — 최신 우선 (동적 조회 제거: /v1/models 6초 + 모델 404 fallback 누적으로 timeout 발생)
+ //    Haiku 4.5 가 가장 빠르고 답글 생성에 충분
+ const MODEL_CANDIDATES = [
+ 'claude-haiku-4-5-20251001',
  'claude-3-5-haiku-20241022',
  'claude-3-haiku-20240307',
- 'claude-3-5-sonnet-20241022',
- 'claude-3-sonnet-20240229',
- 'claude-3-opus-20240229',
  ]
- }
- const MODEL_CANDIDATES = await pickModels()
 
  // Claude API 호출 헬퍼
  const callClaude = async (
@@ -587,11 +563,11 @@ export async function POST(req: NextRequest) {
  'anthropic-version': '2023-06-01',
  },
  body: JSON.stringify({
- model: m, max_tokens: 1200,
+ model: m, max_tokens: 600,  // 1200 → 600 (네이버 답글 평균 200~300자면 충분)
  system: systemPrompt,
  messages: [{ role: 'user', content }],
  }),
- signal: AbortSignal.timeout(30000),
+ signal: AbortSignal.timeout(40000),  // 30s → 40s (긴 답글도 안정적)
  })
  const text = await r.text()
  return { status: r.status, ok: r.ok, text }
