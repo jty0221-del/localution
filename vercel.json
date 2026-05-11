@@ -15,7 +15,7 @@
     },
     {
       "path": "/api/cron/naver-reviews-fetch",
-      "schedule": "*/15 * * * *"
+      "schedule": "*/30 * * * *"
     },
     {
       "path": "/api/cron/delivery-reviews-fetch",
