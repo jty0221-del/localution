@@ -99,6 +99,15 @@ export async function GET(req: NextRequest) {
     }
   } catch (e) { /* skip */ }
 
+  // 5) 24h+ 묵은 failed 잡 자동 제거 (UI 어지럽게 안 함)
+  try {
+    const failed = await q.getFailed(0, 200)
+    const cutoff = Date.now() - 24 * 3600 * 1000
+    const oldFailed = failed.filter((j: any) => (j.finishedOn || j.processedOn || j.timestamp || 0) < cutoff)
+    const removed = await Promise.allSettled(oldFailed.map((j: any) => j.remove()))
+    ;(result as any).old_failed_cleaned = removed.filter(r => r.status === 'fulfilled').length
+  } catch (e) { /* skip */ }
+
   result.elapsed_ms = Date.now() - startedAt
   return NextResponse.json({
     ok: true,
