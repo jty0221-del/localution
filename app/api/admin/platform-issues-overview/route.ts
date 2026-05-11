@@ -20,14 +20,19 @@ export async function GET(req: NextRequest) {
   const svc = createServiceClient()
   const since24h = new Date(Date.now() - 24 * 3600 * 1000).toISOString()
 
-  // 1) 자격증명 오류 사용자
-  const { data: failedCreds } = await svc
+  // 1) 자격증명 오류 사용자 — last_login_status 는 'success' 또는 'success:note' 또는 'failed:note' 형식
+  //    'success' 로 시작하지 않는 모든 값 = 실패/잠금 상태
+  const { data: allCreds } = await svc
     .from('platform_credentials')
     .select('user_id, platform, last_login_status, last_login_error_message, last_login_at, platform_store_name')
-    .neq('last_login_status', 'success')
     .not('last_login_status', 'is', null)
     .order('last_login_at', { ascending: false })
-    .limit(50)
+    .limit(200)
+
+  const failedCreds = (allCreds || []).filter(c => {
+    const s = String(c.last_login_status || '')
+    return !!s && !s.startsWith('success')
+  }).slice(0, 50)
 
   // 2) 누락 place_id 사용자 (자격증명 있지만 store_id 없음)
   const { data: nullPlaceId } = await svc
@@ -77,10 +82,11 @@ export async function GET(req: NextRequest) {
     const plat = p.platform
     if (!platformCounts[plat]) platformCounts[plat] = { total: 0, success: 0, failed: 0, disabled: 0, never: 0 }
     platformCounts[plat].total++
-    const status = p.last_login_status
-    if (status === 'success') platformCounts[plat].success++
-    else if (status === 'failed') platformCounts[plat].failed++
-    else if (status === 'disabled') platformCounts[plat].disabled++
+    const status = String(p.last_login_status || '')
+    // markLoginStatus 는 'success' / 'success:note' / 'failed:note' / 'credentials_invalid:note' 등 형식 저장
+    if (status.startsWith('success')) platformCounts[plat].success++
+    else if (status.startsWith('disabled') || status === 'not_connected') platformCounts[plat].disabled++
+    else if (status) platformCounts[plat].failed++  // 비어있지 않으면 실패 계열
     else platformCounts[plat].never++
   }
 
