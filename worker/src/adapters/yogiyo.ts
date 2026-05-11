@@ -164,6 +164,9 @@ export async function runYogiyo(
       'Accept-Language': 'ko-KR,ko;q=0.9,en-US;q=0.8',
     },
   })
+  // 트래픽 절감 (iproyal 절약)
+  const { applyTrafficSaver } = await import('../lib/trafficSaver')
+  await applyTrafficSaver(context)
 
   // v1.6w: 저장된 쿠키 주입 (배민 v1.5 패턴) — fresh login 우회
   const savedCookies = await loadYogiyoCookieJar(svc, userId)
