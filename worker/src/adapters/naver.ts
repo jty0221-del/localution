@@ -1342,12 +1342,33 @@ async function postNaverReply(
     const graphqlUrl = 'https://new.smartplace.naver.com/graphql?opName=createReply'
     const mutationQuery = 'fragment CommonReviewReplyFields on ReviewReply {\n  text\n  isSuspended\n  isQualified\n  createdDateTime\n  updatedDateTime\n  isDeleted\n  useReplyCandidate\n  replierDisplayName\n  suspendPostingReason\n  __typename\n}\n\nmutation createReply($input: CreateReviewReplyInput!) {\n  createReviewReply(input: $input) {\n    reply {\n      ...CommonReviewReplyFields\n      __typename\n    }\n    __typename\n  }\n}\n'
 
+    // v38 silent reject 방지: 답글 텍스트 길이 250자 이내로 자동 truncate
+    //   · 271자 발행 성공, 279자 silent reject 확인 → 250자 안전선
+    //   · 길면 ... 으로 자른 후 마지막 한글 어절 단위로 정리
+    const MAX_REPLY_LEN = 250
+    let finalReplyText = replyText
+    if (replyText.length > MAX_REPLY_LEN) {
+      let cut = replyText.slice(0, MAX_REPLY_LEN)
+      // 마지막 줄바꿈 또는 마침표/물음표/느낌표 위치로 자르기 (어절 깔끔 보존)
+      const lastNewline = cut.lastIndexOf('\n')
+      const lastDot = Math.max(cut.lastIndexOf('.'), cut.lastIndexOf('!'), cut.lastIndexOf('?'))
+      const lastSpace = cut.lastIndexOf(' ')
+      const cutAt = Math.max(lastNewline, lastDot, lastSpace)
+      if (cutAt > MAX_REPLY_LEN * 0.7) cut = cut.slice(0, cutAt + 1)
+      finalReplyText = cut.trim()
+      log.warn({
+        original_len: replyText.length,
+        truncated_len: finalReplyText.length,
+        platformReviewId,
+      }, 'naver: ⚠️ 답글 250자 초과 → 자동 truncate (silent reject 방지)')
+    }
+
     log.info({
       ourReviewId: platformReviewId,
       smartplaceReviewId,
       mapped: smartplaceReviewId !== platformReviewId,
-      placeId: storeId, textLen: replyText.length,
-      textPreview: replyText.slice(0, 50),
+      placeId: storeId, textLen: finalReplyText.length,
+      textPreview: finalReplyText.slice(0, 50),
     }, 'naver: 🚀 calling SmartPlace GraphQL createReply (v28 in-page fetch)')
 
     // ── v35: SPA prerequisite query 시뮬 (createReply 전에 me/persona 활성화) ──
@@ -1417,7 +1438,7 @@ async function postNaverReply(
     // - 외부 placeId (externalPlaceId, 예: 1137287126) → GraphQL input.placeId 용
     // 두 ID 가 다른 매장에서 내부 ID 를 보내면 FORBIDDEN. cURL 검증 완료.
     const inputPlaceId = externalPlaceId || storeId  // 외부 ID 우선, fallback 내부 ID
-    const createReplyInput: any = { text: replyText, reviewId: smartplaceReviewId, placeId: inputPlaceId }
+    const createReplyInput: any = { text: finalReplyText, reviewId: smartplaceReviewId, placeId: inputPlaceId }
     if (bookingBusinessId) {
       const bid = parseInt(bookingBusinessId, 10)
       if (!isNaN(bid)) createReplyInput.bookingBusinessId = bid
@@ -1468,7 +1489,7 @@ async function postNaverReply(
         method: 'POST', headers: smartplaceHeaders,
         body: JSON.stringify({
           operationName: 'createReply',
-          variables: { input: { text: replyText, reviewId: smartplaceReviewId, placeId: storeId } },
+          variables: { input: { text: finalReplyText, reviewId: smartplaceReviewId, placeId: storeId } },
           query: mutationQuery,
         }),
         signal: AbortSignal.timeout(15000),
