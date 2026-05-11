@@ -223,9 +223,9 @@ export async function runBaemin(
   }
 
   const context = await browser.newContext(ctxOpts)
-  // 트래픽 절감 (iproyal 절약)
+  // 트래픽 절감 (iproyal 절약) — 배민 부수 API 추가 차단
   const { applyTrafficSaver } = await import('../lib/trafficSaver')
-  await applyTrafficSaver(context)
+  await applyTrafficSaver(context, { platform: 'baemin' })
 
   // v1.5: save-login 쿠키 주입 — biz-member 로그인 우회 (ERR_ABORTED 회피)
   const cookieJar = await loadBaeminCookieJar(svc, userId)
