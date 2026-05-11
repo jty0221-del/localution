@@ -216,6 +216,16 @@ export default function AdminReviewHealthPage() {
  {autoRefresh ? `자동갱신 ${countdown}s` : '꺼짐'}
  </span>
  </label>
+ <button onClick={async () => {
+ if (!confirm('queued 3분 초과 답글 모두 재시도? (전체 플랫폼)')) return
+ const r = await fetch('/api/admin/retry-queued-replies?minutes=3', { cache: 'no-store' })
+ const j = await r.json()
+ alert(j.ok ? `${j.found}건 발견, ${JSON.stringify(j.summary)}` : '실패: ' + (j.error || ''))
+ fetch_()
+ }}
+ className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#F97316] text-white text-[12px] font-bold hover:bg-[#EA580C] disabled:opacity-50 transition">
+ 답글 재시도
+ </button>
  <button onClick={fetch_} disabled={loading}
  className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl bg-[#0F172A] text-white text-[12px] font-bold hover:bg-[#1E293B] disabled:opacity-50 transition">
  <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
