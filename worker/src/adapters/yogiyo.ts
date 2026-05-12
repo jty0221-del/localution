@@ -223,9 +223,9 @@ export async function runYogiyo(
     await page.waitForTimeout(2000)
 
     // URL 변경 체크 (OAuth redirect)
-    const currentUrl = page.url()
-    if (!currentUrl.includes('yogiyo.co.kr')) {
-      log.warn({ currentUrl }, 'yogiyo: 다른 도메인으로 redirect — OAuth 또는 차단')
+    const mountUrl = page.url()
+    if (!mountUrl.includes('yogiyo.co.kr')) {
+      log.warn({ mountUrl }, 'yogiyo: 다른 도메인으로 redirect — OAuth 또는 차단')
     }
 
     // v38b: 폴링 방식으로 password input 찾기 (최대 30초)
