@@ -196,9 +196,12 @@ export async function runCoupangEats(
   const proxyProto = process.env.PROXY_PROTOCOL || 'http'
   const useProxy = !!(proxyHost && proxyPort)
 
+  // v38b: viewport 미세 랜덤화 (Akamai bot 탐지 회피)
+  const vw = 1366 + Math.floor(Math.random() * 200)
+  const vh = 768 + Math.floor(Math.random() * 100)
   const contextOptions: any = {
     userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36',
-    viewport: { width: 1920, height: 1080 },
+    viewport: { width: vw, height: vh },
     locale: 'ko-KR',
     timezoneId: 'Asia/Seoul',
     extraHTTPHeaders: {
@@ -208,14 +211,36 @@ export async function runCoupangEats(
       'sec-ch-ua-mobile': '?0',
       'sec-ch-ua-platform': '"Windows"',
     },
+    bypassCSP: true,
   }
   // proxy는 chromium.launch() 레벨에서 설정됨 (index.ts)
-  // context 레벨에서 재설정하면 ERR_PROXY_AUTH_UNSUPPORTED 발생 → 여기서는 로그만
   if (useProxy) {
     log.info({ proxy: `${proxyProto}://${proxyHost}:${proxyPort}`, hasAuth: !!(proxyUser && proxyPass) }, 'coupangeats: using proxy (set at browser launch level)')
   }
 
   const context = await browser.newContext(contextOptions)
+
+  // v38b: stealth — Akamai bot detection 회피 (naver 패턴 참조)
+  //   · navigator.webdriver false
+  //   · plugins / languages 정상화
+  //   · chrome / permissions stub
+  await context.addInitScript(() => {
+    Object.defineProperty(navigator, 'webdriver', { get: () => false })
+    Object.defineProperty(navigator, 'languages', { get: () => ['ko-KR', 'ko', 'en-US', 'en'] })
+    Object.defineProperty(navigator, 'plugins', {
+      get: () => [{ name: 'Chrome PDF Plugin' }, { name: 'Chrome PDF Viewer' }, { name: 'Native Client' }],
+    })
+    if (!(window as any).chrome) (window as any).chrome = { runtime: {}, loadTimes: () => ({}), csi: () => ({}) }
+    const origQuery = (window.navigator as any).permissions?.query
+    if (origQuery) {
+      ;(window.navigator as any).permissions.query = (params: any) =>
+        params.name === 'notifications' ? Promise.resolve({ state: 'default' }) : origQuery(params)
+    }
+    // Akamai 가 자주 체크하는 다른 항목들
+    Object.defineProperty(navigator, 'platform', { get: () => 'Win32' })
+    Object.defineProperty(navigator, 'hardwareConcurrency', { get: () => 8 })
+    Object.defineProperty(navigator, 'deviceMemory', { get: () => 8 })
+  })
 
   // ── 75차: iproyal 트래픽 절감 — 이미지/폰트/CSS 등 무거운 리소스 차단 ──
   // Akamai sensor data + JS 만 통과 → 봇 탐지 우회 유지 + 트래픽 50%+ 절감
