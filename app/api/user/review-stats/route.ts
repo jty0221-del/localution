@@ -85,6 +85,26 @@ export async function GET() {
     .eq('user_id', auth.userId).eq('has_reply', false)
     .lte('rating', 2).gte('rating', 1)
 
+  // v38: Threads 자동발행 통계 (이번 달)
+  let threadsStats: { this_month: number; all_time: number } | null = null
+  try {
+    const { count: threadsThisMonth } = await svc
+      .from('threads_posts')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', auth.userId)
+      .eq('status', 'published')
+      .gte('published_at', monthStart.toISOString())
+    const { count: threadsAllTime } = await svc
+      .from('threads_posts')
+      .select('id', { count: 'exact', head: true })
+      .eq('user_id', auth.userId)
+      .eq('status', 'published')
+    threadsStats = {
+      this_month: threadsThisMonth || 0,
+      all_time: threadsAllTime || 0,
+    }
+  } catch (_) { /* threads_posts 테이블 없으면 skip */ }
+
   return NextResponse.json({
     ok: true,
     replies: {
@@ -102,6 +122,7 @@ export async function GET() {
       avg_rating: avgRating,
       by_platform: platformBreakdown,
     },
+    threads: threadsStats,
     generated_at: new Date().toISOString(),
   })
 }
