@@ -222,17 +222,25 @@ export async function runYogiyo(
     await page.waitForLoadState('networkidle', { timeout: 15000 }).catch(() => null)
     await page.waitForTimeout(2000)
 
-    // URL 변경 체크 (OAuth redirect)
+    // URL 변경 체크 — 저장된 쿠키로 이미 로그인되어 있으면 메인페이지로 redirect 됨
+    //   → /login 페이지 아니면 로그인 skip
     const mountUrl = page.url()
     if (!mountUrl.includes('yogiyo.co.kr')) {
       log.warn({ mountUrl }, 'yogiyo: 다른 도메인으로 redirect — OAuth 또는 차단')
     }
+    const alreadyLoggedIn = !mountUrl.includes('/login') && !mountUrl.includes('/signin')
+    if (alreadyLoggedIn) {
+      log.info({ mountUrl }, 'yogiyo: ✅ 저장된 쿠키로 이미 로그인 상태 — password input 찾기 skip')
+      await markLoginStatus(svc, userId, 'yogiyo', 'success')
+      // 메인 페이지에서 리뷰 페이지로 직접 이동
+      // 후속 로직에서 페이지 이동
+    }
 
-    // v38b: 폴링 방식으로 password input 찾기 (최대 30초)
+    // v38b: 폴링 방식으로 password input 찾기 (최대 30초) — 미로그인 케이스만
     let pwLocator = page.locator(DOM_SELECTORS.pwInput).first()
-    let pwVisible = false
+    let pwVisible = alreadyLoggedIn  // 이미 로그인이면 true 로 설정 → 폴링 skip
     const pollStart = Date.now()
-    while (Date.now() - pollStart < 30000) {
+    while (!alreadyLoggedIn && Date.now() - pollStart < 30000) {
       pwVisible = await pwLocator.isVisible().catch(() => false)
       if (pwVisible) break
 
@@ -291,49 +299,53 @@ export async function runYogiyo(
       }
     }
 
-    if (!pwVisible) {
+    if (!pwVisible && !alreadyLoggedIn) {
       await dumpPageDiagnostics(page, log, 'yogiyo-login-form-missing')
       await markLoginStatus(svc, userId, 'yogiyo', 'failed', 'login form not found (v38b: SPA mount + polling + iframe 모두 실패)')
       return { status: 'failed', message: 'yogiyo 로그인 폼을 찾지 못했습니다 (v38b: SPA 30s polling + iframe + URL check 실패 — yogiyo IP 차단 또는 OAuth redirect 의심)' }
     }
 
-    // 아이디 입력
-    const idCandidates = [
-      'input[name="username"]', 'input[name="loginId"]', 'input[name="email"]',
-      'input[type="email"]', 'input[placeholder*="아이디"]', 'input[placeholder*="이메일"]',
-    ]
-    let idFilled = false
-    for (const sel of idCandidates) {
-      try {
-        const loc = page.locator(sel).first()
-        const visible = await loc.waitFor({ state: 'visible', timeout: 2000 }).then(() => true).catch(() => false)
-        if (visible) {
-          await loc.fill(creds.account_id)
-          idFilled = true
-          log.info({ sel }, 'yogiyo id input filled')
-          break
-        }
-      } catch { continue }
-    }
-    if (!idFilled) {
-      await markLoginStatus(svc, userId, 'yogiyo', 'failed', 'id input not found')
-      return { status: 'failed', message: 'yogiyo ID 입력 필드를 찾지 못했습니다' }
-    }
+    // 이미 로그인된 상태 (저장 쿠키) 면 로그인 폼 처리 skip
+    if (!alreadyLoggedIn) {
+      // 아이디 입력
+      const idCandidates = [
+        'input[name="username"]', 'input[name="loginId"]', 'input[name="email"]',
+        'input[type="email"]', 'input[placeholder*="아이디"]', 'input[placeholder*="이메일"]',
+      ]
+      let idFilled = false
+      for (const sel of idCandidates) {
+        try {
+          const loc = page.locator(sel).first()
+          const visible = await loc.waitFor({ state: 'visible', timeout: 2000 }).then(() => true).catch(() => false)
+          if (visible) {
+            await loc.fill(creds.account_id)
+            idFilled = true
+            log.info({ sel }, 'yogiyo id input filled')
+            break
+          }
+        } catch { continue }
+      }
+      if (!idFilled) {
+        await markLoginStatus(svc, userId, 'yogiyo', 'failed', 'id input not found')
+        return { status: 'failed', message: 'yogiyo ID 입력 필드를 찾지 못했습니다' }
+      }
 
-    await pwLocator.fill(creds.password)
-    await page.waitForTimeout(300)
-    await page.locator(DOM_SELECTORS.loginBtn).first().click()
-    await page.waitForURL((url) => !url.href.includes('/login'), { timeout: 20000 }).catch(() => null)
-    await page.waitForTimeout(3000)
+      await pwLocator.fill(creds.password)
+      await page.waitForTimeout(300)
+      await page.locator(DOM_SELECTORS.loginBtn).first().click()
+      await page.waitForURL((url) => !url.href.includes('/login'), { timeout: 20000 }).catch(() => null)
+      await page.waitForTimeout(3000)
 
-    const currentUrl = page.url()
-    if (currentUrl.includes('login') || currentUrl.includes('signin')) {
-      const { failed, reason } = await detectLoginFailure(page)
-      await markLoginStatus(svc, userId, 'yogiyo', 'failed', reason || 'stayed on login')
-      return { status: 'failed', message: failed ? `yogiyo login failed — ${reason}` : 'yogiyo login failed' }
+      const currentUrl = page.url()
+      if (currentUrl.includes('login') || currentUrl.includes('signin')) {
+        const { failed, reason } = await detectLoginFailure(page)
+        await markLoginStatus(svc, userId, 'yogiyo', 'failed', reason || 'stayed on login')
+        return { status: 'failed', message: failed ? `yogiyo login failed — ${reason}` : 'yogiyo login failed' }
+      }
+
+      await markLoginStatus(svc, userId, 'yogiyo', 'success')
     }
-
-    await markLoginStatus(svc, userId, 'yogiyo', 'success')
+    // alreadyLoggedIn 이면 위에서 이미 markLoginStatus success 호출됨
 
     // v1.6w: fresh 로그인 후 쿠키 자동 저장 (다음 fetch 부터 inject 사용)
     try {
