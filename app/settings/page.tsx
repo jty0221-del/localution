@@ -7,6 +7,7 @@ import Link from 'next/link'
 import Sidebar from '../components/Sidebar'
 import Footer from '../components/Footer'
 import CreatorChannelsSection from '../components/CreatorChannelsSection'
+import AutoReplySettings from '../components/AutoReplySettings'
 import { useConnections, PlatformId } from '../lib/connections'
 import { TABS, TAB_HERO, resolveTab, type Tab } from '../lib/settings-tabs'
 import { Store, Bell, Bot, Link2, CreditCard } from 'lucide-react'
@@ -1411,6 +1412,51 @@ function AITab() {
  </div>
  )}
  </div>
+
+ {/* v38: 플랫폼별 AI 자동답글 ON/OFF 통합 패널 */}
+ <PlatformAutoReplyPanel />
+ </div>
+ )
+}
+
+function PlatformAutoReplyPanel() {
+ const platforms: Array<{ key: 'naver_place' | 'kakao_map' | 'baemin' | 'yogiyo' | 'coupangeats'; label: string }> = [
+ { key: 'naver_place', label: '네이버 플레이스' },
+ { key: 'kakao_map', label: '카카오맵' },
+ { key: 'baemin', label: '배달의민족' },
+ { key: 'yogiyo', label: '요기요' },
+ { key: 'coupangeats', label: '쿠팡이츠' },
+ ]
+ const [selected, setSelected] = useState<typeof platforms[0]['key']>('naver_place')
+ const current = platforms.find(p => p.key === selected)!
+
+ return (
+ <div className="bg-white rounded-2xl p-4 md:p-5 border border-[#E5E8EB] space-y-4">
+ <div className="flex items-center gap-2">
+ <h2 className="font-bold text-[#191F28] text-base md:text-lg">플랫폼별 AI 자동답글</h2>
+ <span className="text-[10px] px-1.5 py-0.5 bg-[#EFF6FF] text-[#3182F6] font-bold rounded-full">NEW</span>
+ </div>
+ <p className="text-xs text-[#8B95A1] -mt-2">
+ 4시간마다 미답변 리뷰에 AI 초안 자동 생성. auto_approve 켜면 즉시 발행.
+ </p>
+
+ <div className="flex gap-1.5 overflow-x-auto scrollbar-hide pb-1">
+ {platforms.map(p => (
+ <button
+ key={p.key}
+ onClick={() => setSelected(p.key)}
+ className={`px-3 py-1.5 rounded-lg text-xs md:text-sm font-medium whitespace-nowrap transition flex-shrink-0 ${
+ selected === p.key
+ ? 'bg-[#3182F6] text-white'
+ : 'bg-[#F2F4F6] text-[#4E5968] hover:bg-[#E5E8EB]'
+ }`}
+ >
+ {p.label}
+ </button>
+ ))}
+ </div>
+
+ <AutoReplySettings platform={current.key} platformLabel={current.label} />
  </div>
  )
 }
