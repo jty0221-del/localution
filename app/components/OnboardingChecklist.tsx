@@ -9,7 +9,7 @@
 // ============================================================
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Rocket, Store, Link2, Bell, QrCode, Check } from 'lucide-react'
+import { Rocket, Store, Link2, Bell, QrCode, Check, Sparkles } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
 type Status = {
@@ -17,6 +17,7 @@ type Status = {
  naver_connected: boolean
  notify_configured: boolean
  qr_first_scan: boolean
+ autoreply_enabled: boolean
 }
 
 type StepDef = {
@@ -39,11 +40,12 @@ export default function OnboardingChecklist() {
  let cancelled = false
  ;(async () => {
  try {
- const [storesRes, prefsRes, kakaoRes, statsRes] = await Promise.all([
+ const [storesRes, prefsRes, kakaoRes, statsRes, autoreplyRes] = await Promise.all([
  fetch('/api/stores/me', { credentials: 'include', cache: 'no-store' }).then(r => r.ok ? r.json() : null).catch(() => null),
  fetch('/api/notify/prefs', { credentials: 'include', cache: 'no-store' }).then(r => r.ok ? r.json() : null).catch(() => null),
  fetch('/api/notify/kakao-status', { credentials: 'include', cache: 'no-store' }).then(r => r.ok ? r.json() : null).catch(() => null),
  fetch('/api/qr/stats?days=30', { credentials: 'include', cache: 'no-store' }).then(r => r.ok ? r.json() : null).catch(() => null),
+ fetch('/api/autoreply/settings?platform=naver_place', { credentials: 'include', cache: 'no-store' }).then(r => r.ok ? r.json() : null).catch(() => null),
  ])
  if (cancelled) return
 
@@ -54,12 +56,14 @@ export default function OnboardingChecklist() {
  const hasWebPush = !!(prefs?.has_web_push_sub && prefs?.channel_web_push)
  const hasKakao = !!(kakaoRes?.connected && prefs?.channel_kakao_talk)
  const firstScan = (statsRes?.funnel?.scan ?? 0) > 0
+ const autoreplyOn = !!(autoreplyRes?.settings?.enabled)
 
  setStatus({
  store_registered: !!(store && store.name),
  naver_connected: naverConnected,
  notify_configured: hasWebPush || hasKakao,
  qr_first_scan: firstScan,
+ autoreply_enabled: autoreplyOn,
  })
 
  if (typeof window !== 'undefined' && sessionStorage.getItem('localution.onboarding_collapsed') === '1') {
@@ -73,12 +77,12 @@ export default function OnboardingChecklist() {
 
  if (loading || !status) return null
 
- const allDone = status.store_registered && status.naver_connected && status.notify_configured && status.qr_first_scan
+ const allDone = status.store_registered && status.naver_connected && status.notify_configured && status.qr_first_scan && status.autoreply_enabled
  if (allDone) return null
 
- const doneCount = [status.store_registered, status.naver_connected, status.notify_configured, status.qr_first_scan]
+ const doneCount = [status.store_registered, status.naver_connected, status.notify_configured, status.qr_first_scan, status.autoreply_enabled]
  .filter(Boolean).length
- const pct = Math.round((doneCount / 4) * 100)
+ const pct = Math.round((doneCount / 5) * 100)
 
  if (collapsed) {
  return (
@@ -90,7 +94,7 @@ export default function OnboardingChecklist() {
  className="fixed bottom-20 right-4 z-[45] px-4 py-2 rounded-full bg-[#3182F6] text-white text-xs font-bold shadow-lg hover:bg-[#1E40AF] flex items-center gap-2"
  >
  <Rocket size={12} strokeWidth={2.5} />
- <span>설정 {doneCount}/4 완료</span>
+ <span>설정 {doneCount}/5 완료</span>
  </button>
  )
  }
@@ -136,6 +140,16 @@ export default function OnboardingChecklist() {
  cta: 'QR 만들러 가기',
  href: '/qr-admin',
  },
+ {
+ key: 'autoreply_enabled',
+ done: status.autoreply_enabled,
+ Icon: Sparkles,
+ iconBg: 'from-[#EC4899] to-[#8B5CF6]',
+ title: 'AI 자동답글 켜기',
+ desc: '4시간마다 미답변 리뷰에 AI 초안 자동 작성 — 답글 직접 안 달아도 됨',
+ cta: '자동답글 켜기',
+ href: '/settings?tab=ai',
+ },
  ]
 
  return (
@@ -148,7 +162,7 @@ export default function OnboardingChecklist() {
  <div>
  <h3 className="font-black text-[#191F28] text-base">시작하기</h3>
  <p className="text-xs text-[#4E5968] mt-0.5">
- {doneCount}개 완료 · {4 - doneCount}개 남음 — 모두 끝나면 모든 기능 자동 작동
+ {doneCount}개 완료 · {5 - doneCount}개 남음 — 모두 끝나면 모든 기능 자동 작동
  </p>
  </div>
  </div>
