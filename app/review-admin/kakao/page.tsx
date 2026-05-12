@@ -42,6 +42,7 @@ const CONFIG: PlatformConfig = {
  title: '카카오맵 리뷰 자동 수집 (30분마다)',
  desc: '[발행] 클릭 → AI 답글 자동 복사 + 카카오맵 새 탭 열림 → 사장님이 붙여넣고 등록. 카카오 비즈니스 계정 연결 시 워커가 자동 등록.',
  links: [
+ { label: 'AI 자동답글 설정 →', href: '/review-admin/kakao/autoreply', dark: false },
  { label: '카카오맵 리뷰 관리 ↗', href: 'https://place.map.kakao.com/', dark: false },
  { label: '카카오 비즈니스 ↗', href: 'https://business.kakao.com/', dark: true },
  ],
