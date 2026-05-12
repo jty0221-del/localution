@@ -8,7 +8,7 @@
 import { useState, useEffect } from 'react'
 import PageHeader from '@/app/components/PageHeader'
 import {
-  Link2, Search, Save, RefreshCw, CheckCircle2, AlertTriangle, ExternalLink,
+  Link2, Search, Save, RefreshCw, CheckCircle2, AlertTriangle, ExternalLink, Activity,
 } from 'lucide-react'
 
 type NullUser = { user_id: string; platform: string }
@@ -23,6 +23,8 @@ export default function FixStoreIdPage() {
   const [storeName, setStoreName] = useState('')
   const [saving, setSaving] = useState(false)
   const [lastResult, setLastResult] = useState<any>(null)
+  const [pipeline, setPipeline] = useState<any>(null)
+  const [loadingPipeline, setLoadingPipeline] = useState(false)
 
   const fetchUsers = async () => {
     setLoading(true)
@@ -39,6 +41,7 @@ export default function FixStoreIdPage() {
   const loadDetail = async (u: NullUser) => {
     setSelected(u)
     setDetail(null)
+    setPipeline(null)
     setPlaceUrl('')
     setPlaceId('')
     setStoreName('')
@@ -47,6 +50,17 @@ export default function FixStoreIdPage() {
       const j = await r.json()
       if (j.ok) setDetail(j)
     } catch (_) {}
+  }
+
+  const loadPipeline = async () => {
+    if (!selected) return
+    setLoadingPipeline(true)
+    try {
+      const r = await fetch('/api/admin/test-user-pipeline?user_id=' + encodeURIComponent(selected.user_id.replace('...', '')))
+      const j = await r.json()
+      if (j.ok) setPipeline(j)
+    } catch (_) {}
+    finally { setLoadingPipeline(false) }
   }
 
   const handleSave = async () => {
@@ -167,6 +181,44 @@ export default function FixStoreIdPage() {
                 {detail.recent_reviews && detail.recent_reviews.length > 0 && (
                   <div className="text-[11px] md:text-xs text-gray-500">
                     최근 리뷰 {detail.recent_reviews.length}건 (다른 플랫폼)
+                  </div>
+                )}
+              </div>
+            )}
+
+            {/* 전체 파이프라인 진단 버튼 */}
+            <button
+              onClick={loadPipeline}
+              disabled={loadingPipeline}
+              className="w-full inline-flex items-center justify-center gap-2 px-3 py-2 bg-white border border-purple-200 text-purple-700 text-xs md:text-sm font-bold rounded-lg hover:bg-purple-50 transition disabled:opacity-50"
+            >
+              {loadingPipeline ? <RefreshCw size={14} className="animate-spin" /> : <Activity size={14} />}
+              전체 파이프라인 진단
+            </button>
+
+            {pipeline && (
+              <div className="bg-purple-50 border border-purple-200 rounded-lg p-3 space-y-2 text-xs md:text-sm">
+                <div className="font-bold text-purple-900">진단 결과</div>
+                <ul className="space-y-1">
+                  {pipeline.diagnostics?.map((d: string, i: number) => (
+                    <li key={i} className="text-purple-900">{d}</li>
+                  ))}
+                </ul>
+                {pipeline.collected_7d_by_platform && Object.keys(pipeline.collected_7d_by_platform).length > 0 && (
+                  <div className="pt-2 border-t border-purple-200">
+                    <div className="text-[11px] text-purple-700 mb-1">최근 7일 리뷰 수집</div>
+                    <div className="flex flex-wrap gap-1.5">
+                      {Object.entries(pipeline.collected_7d_by_platform).map(([p, c]: any) => (
+                        <span key={p} className="px-2 py-0.5 bg-white border border-purple-300 rounded-md text-[11px] font-medium text-purple-700">
+                          {p}: {c}건
+                        </span>
+                      ))}
+                    </div>
+                  </div>
+                )}
+                {pipeline.stuck_queued_count > 0 && (
+                  <div className="pt-2 border-t border-purple-200 text-[11px] text-purple-700">
+                    Stuck queued {pipeline.stuck_queued_count}건 — queue-maintenance 자동 처리 대기
                   </div>
                 )}
               </div>
