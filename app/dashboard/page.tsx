@@ -20,6 +20,7 @@ import DashboardRightSidebar, { DashboardRightSidebarMobile } from '../component
 import HarangMarketingPopup from '../components/HarangMarketingPopup'
 import NaverLockoutBanner from '../components/NaverLockoutBanner'
 import PlatformIssuesBanner from '../components/PlatformIssuesBanner'
+import UserStatsWidget from '../components/UserStatsWidget'
 import { useConnections, setConnection as libSetConnection, removeConnection as libRemoveConnection, PlatformId as CanonicalPlatformId } from '../lib/connections'
 import { toast, confirmDialog } from '../lib/toast'
 import { buildSettingsHref } from '../lib/settings-tabs'
@@ -1552,6 +1553,13 @@ export default function Dashboard() {
 
  {/* v38: 모든 플랫폼 자격증명 이슈 통합 알림 */}
  {isLoggedIn && <PlatformIssuesBanner />}
+
+ {/* v38: 사장님 답글 성과 통계 (오늘/주/월/누적 + 별점 + 미답변) */}
+ {isLoggedIn && (
+ <div className="mb-5">
+ <UserStatsWidget />
+ </div>
+ )}
 
  {/* ── 부정 리뷰 긴급 알림 (미답변 1~2점 있을 때만) ── */}
  {isLoggedIn && negativeUnansweredCount > 0 && (
