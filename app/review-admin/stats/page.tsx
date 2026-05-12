@@ -13,6 +13,7 @@ import Sidebar from '../../components/Sidebar'
 import PageHeader from '../../components/PageHeader'
 import Footer from '../../components/Footer'
 import { BarChart3, CheckCircle2, AlertTriangle, Clock, TrendingUp, MessageSquare, Headphones, ArrowRight } from 'lucide-react'
+import UserStatsWidget from '@/app/components/UserStatsWidget'
 
 export const dynamic = 'force-dynamic'
 
@@ -120,6 +121,9 @@ ${Object.entries(data.byPlatform)
  />
 
  <main className="flex-1 px-4 md:px-6 py-6 max-w-5xl mx-auto w-full space-y-6">
+ {/* v38: 사장님 답글 성과 위젯 (오늘/주/월/누적 + 별점 + 미답변) */}
+ <UserStatsWidget />
+
  {/* 기간 선택 */}
  <div className="bg-white rounded-2xl shadow-sm p-4 flex items-center gap-3 flex-wrap">
  <span className="text-sm font-bold text-[#191F28]">기간</span>
