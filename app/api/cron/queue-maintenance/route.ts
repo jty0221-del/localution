@@ -108,6 +108,68 @@ export async function GET(req: NextRequest) {
     ;(result as any).old_failed_cleaned = removed.filter(r => r.status === 'fulfilled').length
   } catch (e) { /* skip */ }
 
+  // 6) v38c: DB stuck queued > 1h 자동 재 enqueue (admin 수동 retry 없이 자동 복구)
+  //    enqueuePlatformJob 의 deterministic jobId 가 중복 차단해서 안전
+  try {
+    const { createServiceClient } = await import('@/app/lib/adminAuth')
+    const { enqueuePlatformJob } = await import('@/app/lib/queue')
+    const svc = createServiceClient()
+    const cutoff = new Date(Date.now() - 60 * 60 * 1000).toISOString()
+    const { data: stuck } = await svc
+      .from('platform_reviews')
+      .select('id, user_id, platform, platform_store_id, platform_review_id, draft_reply, has_reply')
+      .eq('reply_status', 'queued')
+      .lte('reply_queued_at', cutoff)
+      .limit(50)
+
+    let requeued = 0
+    let markedSubmitted = 0
+    let markedFailed = 0
+    for (const r of (stuck || [])) {
+      if (r.has_reply) {
+        await svc.from('platform_reviews').update({ reply_status: 'submitted', reply_submitted_at: new Date().toISOString() }).eq('id', r.id)
+        markedSubmitted++
+        continue
+      }
+      if (!r.draft_reply || !String(r.draft_reply).trim()) {
+        await svc.from('platform_reviews').update({ reply_status: 'none' }).eq('id', r.id)
+        continue
+      }
+      const { data: cred } = await svc
+        .from('platform_credentials')
+        .select('platform_store_id, extra_data')
+        .eq('user_id', r.user_id).eq('platform', r.platform).maybeSingle()
+      if (!cred) {
+        await svc.from('platform_reviews').update({ reply_status: 'failed', reply_error: '계정 미연결 (auto-marked by cron)' }).eq('id', r.id)
+        markedFailed++
+        continue
+      }
+      const storeId = r.platform_store_id || cred.platform_store_id || 'unknown'
+      const extra = (cred.extra_data as any) || {}
+      const bizId = r.platform === 'naver_place' ? (extra?.smartplace_biz_id || undefined) : undefined
+      const payload: Record<string, string> = {
+        platform_review_id: r.platform_review_id,
+        reply_text: String(r.draft_reply),
+      }
+      if (bizId) payload.biz_id = bizId
+      if (r.platform === 'baemin' && r.platform_store_id) payload.shop_no = String(r.platform_store_id)
+      const enq = await enqueuePlatformJob({
+        platform: r.platform as any,
+        action: 'post_reply',
+        userId: r.user_id,
+        storeId,
+        payload,
+      }, { priority: 1 })
+      if (enq.ok) {
+        await svc.from('platform_reviews').update({ reply_queued_at: new Date().toISOString() }).eq('id', r.id)
+        requeued++
+      }
+    }
+    ;(result as any).db_stuck_requeued = requeued
+    ;(result as any).db_marked_submitted = markedSubmitted
+    ;(result as any).db_marked_failed = markedFailed
+  } catch (e) { /* skip */ }
+
   result.elapsed_ms = Date.now() - startedAt
   return NextResponse.json({
     ok: true,
