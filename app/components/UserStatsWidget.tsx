@@ -18,6 +18,7 @@ type Stats = {
     avg_rating: number | null
     by_platform: Array<{ platform: string; count: number; avg_rating: number | null }>
   }
+  threads?: { this_month: number; all_time: number } | null
 }
 
 const PLATFORM_LABELS: Record<string, string> = {
@@ -115,6 +116,27 @@ export default function UserStatsWidget() {
           color="from-violet-500 to-purple-700"
         />
       </div>
+
+      {/* v38: Threads 자동발행 통계 (연결된 사용자만) */}
+      {stats.threads && (stats.threads.all_time > 0 || stats.threads.this_month > 0) && (
+        <a
+          href="/marketing/threads"
+          className="flex items-center justify-between gap-3 p-3 md:p-4 bg-gradient-to-br from-gray-900 to-black text-white rounded-xl shadow-sm hover:shadow-md transition"
+        >
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="w-8 h-8 rounded-lg bg-white/20 flex items-center justify-center flex-shrink-0">
+              <span className="text-sm font-black">@</span>
+            </div>
+            <div className="min-w-0 flex-1">
+              <div className="text-xs md:text-sm font-bold">Threads 자동발행</div>
+              <div className="text-[10px] md:text-xs opacity-80">
+                이번 달 {stats.threads.this_month}건 · 누적 {stats.threads.all_time}건
+              </div>
+            </div>
+          </div>
+          <ArrowRight size={14} className="flex-shrink-0 opacity-80" />
+        </a>
+      )}
 
       {/* 별점 + 미답변 (2열) */}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
