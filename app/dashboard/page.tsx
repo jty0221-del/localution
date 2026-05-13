@@ -21,6 +21,7 @@ import HarangMarketingPopup from '../components/HarangMarketingPopup'
 import NaverLockoutBanner from '../components/NaverLockoutBanner'
 import PlatformIssuesBanner from '../components/PlatformIssuesBanner'
 import UserStatsWidget from '../components/UserStatsWidget'
+import NegativeReviewsWidget from '../components/NegativeReviewsWidget'
 import { useConnections, setConnection as libSetConnection, removeConnection as libRemoveConnection, PlatformId as CanonicalPlatformId } from '../lib/connections'
 import { toast, confirmDialog } from '../lib/toast'
 import { buildSettingsHref } from '../lib/settings-tabs'
@@ -1553,6 +1554,9 @@ export default function Dashboard() {
 
  {/* v38: 모든 플랫폼 자격증명 이슈 통합 알림 */}
  {isLoggedIn && <PlatformIssuesBanner />}
+
+ {/* v38: 부정 리뷰 우선순위 위젯 (1~2점 미답변) */}
+ {isLoggedIn && <NegativeReviewsWidget />}
 
  {/* v38: 사장님 답글 성과 통계 (오늘/주/월/누적 + 별점 + 미답변) */}
  {isLoggedIn && (
