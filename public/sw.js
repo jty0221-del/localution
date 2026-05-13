@@ -1,4 +1,55 @@
-const CACHE_VERSION = 'v1.0.0';
+const CACHE_VERSION = 'v1.1.0';
+
+// v38: 푸시 알림 핸들러 — sound + badge + click action
+self.addEventListener('push', (event) => {
+  let data = {}
+  try {
+    data = event.data ? event.data.json() : {}
+  } catch (_) {
+    data = { title: '로컬루션', body: event.data ? event.data.text() : '새 알림' }
+  }
+
+  const title = data.title || '로컬루션'
+  const options = {
+    body: data.body || '',
+    icon: data.icon || '/icons/icon-192.png',
+    badge: data.badge || '/icons/icon-192.png',
+    image: data.image,
+    tag: data.tag || 'localution-notification',
+    requireInteraction: data.priority === 'high',  // 부정 리뷰 등 중요 알림은 자동 안 사라짐
+    silent: data.silent === true,
+    vibrate: data.vibrate || [200, 100, 200],
+    data: {
+      url: data.url || '/dashboard',
+      timestamp: Date.now(),
+    },
+    actions: data.actions || [
+      { action: 'view', title: '보기' },
+      { action: 'dismiss', title: '닫기' },
+    ],
+  }
+  event.waitUntil(self.registration.showNotification(title, options))
+})
+
+// 알림 클릭
+self.addEventListener('notificationclick', (event) => {
+  event.notification.close()
+  if (event.action === 'dismiss') return
+  const url = (event.notification.data && event.notification.data.url) || '/dashboard'
+  event.waitUntil(
+    self.clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clients) => {
+      // 이미 열린 탭 있으면 focus
+      for (const c of clients) {
+        if (c.url.includes(new URL(url, self.location.origin).pathname) && 'focus' in c) {
+          return c.focus()
+        }
+      }
+      // 없으면 새 탭
+      if (self.clients.openWindow) return self.clients.openWindow(url)
+    })
+  )
+})
+
 const CACHE_NAME = `localution-${CACHE_VERSION}`;
 const OFFLINE_PAGE = '/offline.html';
 
