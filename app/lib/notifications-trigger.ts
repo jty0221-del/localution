@@ -120,13 +120,21 @@ async function sendViaChannel(
       if (!vapidPub || !vapidPriv) return { ok: false, error: 'vapid_not_configured' }
       ;(webpush as any).setVapidDetails(vapidSub, vapidPub, vapidPriv)
 
-      const targetUrl = `/review-admin/${review.platform === 'naver_place' ? 'naver' : review.platform}`
+      const targetUrl = `/review-admin/${review.platform === 'naver_place' ? 'naver' : review.platform === 'coupangeats' ? 'coupang' : review.platform === 'kakao_map' ? 'kakao' : review.platform}`
+      // v38: high priority — 1~2점 부정 리뷰는 더 강한 알림 (sound, vibrate, persistent)
+      const isLow = typeof review.rating === 'number' && review.rating <= 2
       const payload = JSON.stringify({
         title: msg.title,
         body: msg.body,
         url: targetUrl,
         tag: 'review-' + review.platform_review_id,
-        requireInteraction: typeof review.rating === 'number' && review.rating <= 2,
+        priority: isLow ? 'high' : 'normal',
+        requireInteraction: isLow,
+        vibrate: isLow ? [300, 200, 300, 200, 300] : [200, 100, 200],
+        actions: [
+          { action: 'view', title: isLow ? '답글 작성' : '보기' },
+          { action: 'dismiss', title: '닫기' },
+        ],
       })
       await (webpush as any).sendNotification(prefs.web_push_subscription, payload)
       return { ok: true }
