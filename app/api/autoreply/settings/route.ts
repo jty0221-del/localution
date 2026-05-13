@@ -22,6 +22,10 @@ interface Settings {
   tone: string
   auto_approve: boolean
   max_per_run: number
+  // v38: 일정 제어
+  skip_weekends: boolean         // 주말 (토/일) 자동답글 안 함
+  skip_holidays: boolean         // 한국 공휴일 자동답글 안 함
+  business_hours_only: boolean   // 영업시간만 (09:00~22:00 KST)
 }
 
 const DEFAULTS: Settings = {
@@ -29,6 +33,9 @@ const DEFAULTS: Settings = {
   tone: 'friendly',
   auto_approve: false,
   max_per_run: 5,
+  skip_weekends: false,
+  skip_holidays: false,
+  business_hours_only: false,
 }
 
 function extract(extra: Record<string, unknown>): Settings {
@@ -39,6 +46,9 @@ function extract(extra: Record<string, unknown>): Settings {
       : DEFAULTS.tone,
     auto_approve: Boolean(extra.autoreply_auto_approve ?? DEFAULTS.auto_approve),
     max_per_run: Math.min(20, Math.max(1, Number(extra.autoreply_max_per_run) || DEFAULTS.max_per_run)),
+    skip_weekends: Boolean(extra.autoreply_skip_weekends ?? DEFAULTS.skip_weekends),
+    skip_holidays: Boolean(extra.autoreply_skip_holidays ?? DEFAULTS.skip_holidays),
+    business_hours_only: Boolean(extra.autoreply_business_hours_only ?? DEFAULTS.business_hours_only),
   }
 }
 
@@ -108,6 +118,12 @@ export async function PATCH(req: NextRequest) {
     patch.autoreply_auto_approve = body.auto_approve
   if (typeof body.max_per_run === 'number')
     patch.autoreply_max_per_run = Math.min(20, Math.max(1, Math.round(body.max_per_run)))
+  if (typeof body.skip_weekends === 'boolean')
+    patch.autoreply_skip_weekends = body.skip_weekends
+  if (typeof body.skip_holidays === 'boolean')
+    patch.autoreply_skip_holidays = body.skip_holidays
+  if (typeof body.business_hours_only === 'boolean')
+    patch.autoreply_business_hours_only = body.business_hours_only
 
   if (Object.keys(patch).length === 0) {
     return NextResponse.json({ ok: false, error: '변경할 설정 없음' }, { status: 400 })
