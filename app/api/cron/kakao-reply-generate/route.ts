@@ -37,9 +37,23 @@ export async function GET(req: Request) {
     return NextResponse.json({ ok: false, error: 'DB 조회 실패' }, { status: 500 })
   }
 
+  // v38: 일정 제어
+  const { shouldRunAutoReply } = await import('@/app/lib/autoreply-schedule')
+
   const enabledUsers = credRows.filter(row => {
     const extra = (row.extra_data as Record<string, unknown>) || {}
-    return extra.autoreply_enabled === true || extra.kakao_autoreply_enabled === true
+    if (!(extra.autoreply_enabled === true || extra.kakao_autoreply_enabled === true)) return false
+    const sched = {
+      skip_weekends: extra.autoreply_skip_weekends === true,
+      skip_holidays: extra.autoreply_skip_holidays === true,
+      business_hours_only: extra.autoreply_business_hours_only === true,
+    }
+    const check = shouldRunAutoReply(sched)
+    if (!check.allowed) {
+      console.log('[kakao-reply-generate] skip user', String(row.user_id || '').slice(0, 8), check.reason)
+      return false
+    }
+    return true
   })
 
   if (enabledUsers.length === 0) {
