@@ -23,6 +23,8 @@ import type { ReactNode } from 'react'
 import Link from 'next/link'
 import Sidebar from '../../components/Sidebar'
 import Footer from '../../components/Footer'
+import ReplyFeedbackButtons from '../../components/ReplyFeedbackButtons'
+import ReplyTemplatePicker from '../../components/ReplyTemplatePicker'
 import PageHeader from '../../components/PageHeader'
 import { toast } from '../../lib/toast'
 import { Heart, Briefcase, Smile, Edit3, Mail, Flame, FileText, AlertTriangle, Sparkles, Star, type LucideIcon } from 'lucide-react'
@@ -1441,6 +1443,20 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
  <p className="text-[10px] text-[#8B95A1] mt-1 text-right">
  {draftText.length}자
  </p>
+
+ {/* v38: 답글 템플릿 1클릭 삽입 + AI 좋아요/싫어요 피드백 */}
+ <ReplyTemplatePicker
+ reviewContent={review.content}
+ reviewRating={typeof review.rating === 'number' ? review.rating : null}
+ onPick={(text) => setDraftText(text)}
+ colorAccent={config.color}
+ />
+ {hasDraft && !isSubmitted && (
+ <div className="mt-2 pt-2 border-t border-[#F2F4F6] flex items-center gap-2 flex-wrap">
+ <span className="text-[10px] text-[#8B95A1]">AI 초안 평가:</span>
+ <ReplyFeedbackButtons reviewId={review.id} compact={true} />
+ </div>
+ )}
 
  <div className="flex gap-2 flex-wrap mt-2">
  <button
