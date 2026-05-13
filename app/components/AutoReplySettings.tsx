@@ -17,6 +17,9 @@ type Settings = {
   tone: string
   auto_approve: boolean
   max_per_run: number
+  skip_weekends?: boolean
+  skip_holidays?: boolean
+  business_hours_only?: boolean
 }
 
 type Props = {
@@ -227,6 +230,34 @@ export default function AutoReplySettings({ platform, platformLabel }: Props) {
               <span>20건</span>
             </div>
           </div>
+
+          {/* v38: 일정 제어 */}
+          <div className="pt-3 border-t border-[#F2F4F6]">
+            <div className="text-xs md:text-sm font-bold text-[#191F28] mb-2">실행 일정 제어</div>
+            <div className="space-y-2">
+              <ScheduleToggle
+                label="주말 (토/일) 자동답글 안 함"
+                desc="평일에만 AI 자동답글 동작 — 주말 답변은 사장님이 직접"
+                checked={!!settings.skip_weekends}
+                onChange={(v) => update({ skip_weekends: v } as any)}
+                disabled={saving}
+              />
+              <ScheduleToggle
+                label="공휴일 안 함"
+                desc="한국 공휴일 자동답글 skip"
+                checked={!!settings.skip_holidays}
+                onChange={(v) => update({ skip_holidays: v } as any)}
+                disabled={saving}
+              />
+              <ScheduleToggle
+                label="영업시간만 (09~22시)"
+                desc="자영업자 영업시간 외 새벽/심야 자동답글 안 함"
+                checked={!!settings.business_hours_only}
+                onChange={(v) => update({ business_hours_only: v } as any)}
+                disabled={saving}
+              />
+            </div>
+          </div>
         </>
       )}
 
@@ -236,6 +267,31 @@ export default function AutoReplySettings({ platform, platformLabel }: Props) {
           <span>{toast.msg}</span>
         </div>
       )}
+    </div>
+  )
+}
+
+function ScheduleToggle({ label, desc, checked, onChange, disabled }: {
+  label: string; desc: string; checked: boolean; onChange: (v: boolean) => void; disabled: boolean
+}) {
+  return (
+    <div className="flex items-center justify-between gap-3 p-2.5 md:p-3 bg-[#F8F9FA] rounded-lg">
+      <div className="flex-1 min-w-0">
+        <div className="text-xs md:text-sm font-bold text-[#191F28]">{label}</div>
+        <div className="text-[10px] md:text-xs text-[#8B95A1] leading-snug">{desc}</div>
+      </div>
+      <button
+        onClick={() => onChange(!checked)}
+        disabled={disabled}
+        className="flex-shrink-0"
+        aria-label={label}
+      >
+        {checked ? (
+          <ToggleRight size={28} className="text-emerald-500" strokeWidth={2} />
+        ) : (
+          <ToggleLeft size={28} className="text-gray-400" strokeWidth={2} />
+        )}
+      </button>
     </div>
   )
 }
