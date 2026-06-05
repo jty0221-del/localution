@@ -1,8 +1,10 @@
 // app/lib/baemin-login.ts
 // 배민 RSA 로그인 (한국 프록시 경유)
 // save-login 과 collect-reviews 에서 공유
+// v2: proxy-manager (IP Royal > Webshare > Static) 사용
 import { createPublicKey, publicEncrypt, constants } from 'crypto'
-import { proxyFetch, extractCookies } from '@/app/lib/proxy-fetch'
+import { proxyFetchWithManager } from '@/app/lib/proxy-manager'
+import { extractCookies } from '@/app/lib/proxy-fetch'
 
 const UA = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36'
 const BIZ_BASE = 'https://biz-member.baemin.com'
@@ -21,15 +23,15 @@ export async function baeminProxyLogin(id: string, pw: string): Promise<string> 
     'Accept-Encoding': 'gzip, deflate, br',
   }
 
-  // Step 0: 로그인 페이지 방문 → dsid 초기 쿠키
-  const preRes = await proxyFetch(BIZ_BASE + '/login', {
+  // Step 0: 로그인 페이지 방문 -> dsid 초기 쿠키
+  const preRes = await proxyFetchWithManager(BIZ_BASE + '/login', {
     headers: { ...common, Accept: 'text/html,*/*;q=0.8' },
     redirect: 'follow',
   } as RequestInit)
   const preCookies = extractCookies(preRes)
 
   // Step 1: RSA 공개키 획득
-  const initRes = await proxyFetch(BIZ_BASE + '/v1/login/init?__ts=' + Date.now(), {
+  const initRes = await proxyFetchWithManager(BIZ_BASE + '/v1/login/init?__ts=' + Date.now(), {
     headers: {
       ...common,
       Accept: 'application/json, text/plain, */*',
@@ -57,7 +59,7 @@ export async function baeminProxyLogin(id: string, pw: string): Promise<string> 
   const pwDecoy = Array.from({ length: 60 }, () => chars[Math.floor(Math.random() * 36)]).join('')
 
   // Step 2: 로그인
-  const loginRes = await proxyFetch(BIZ_BASE + '/v1/login?__ts=' + Date.now(), {
+  const loginRes = await proxyFetchWithManager(BIZ_BASE + '/v1/login?__ts=' + Date.now(), {
     method: 'POST',
     headers: {
       ...common,
@@ -91,9 +93,9 @@ export async function baeminProxyLogin(id: string, pw: string): Promise<string> 
   }
   if (deduped.length === 0) throw new Error('로그인 쿠키를 받지 못했어요.')
 
-  // Step 3: self.baemin.com 방문 → self-api 용 추가 쿠키
+  // Step 3: self.baemin.com 방문 -> self-api 용 추가 쿠키
   try {
-    const selfRes = await proxyFetch('https://self.baemin.com', {
+    const selfRes = await proxyFetchWithManager('https://self.baemin.com', {
       headers: { ...common, Accept: 'text/html,*/*;q=0.8', Cookie: deduped.join('; ') },
       redirect: 'follow',
     } as RequestInit)
