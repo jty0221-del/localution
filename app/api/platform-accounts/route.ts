@@ -424,6 +424,10 @@ export async function PATCH(req: NextRequest) {
  .eq('platform', body.platform)
  .maybeSingle()
 
+ // 2026-07-30 hotfix: last_login_status 는 워커/크론이 실제 로그인 시도 후에만
+ // 채우는 필드. 매장 선택(PATCH) 단계에서 임의값('success:public_api')을
+ // 쓰면 DB 의 platform_credentials_last_login_status_check 제약 위반으로
+ // 실패 (허용값에 포함 안 됨). 이 필드는 이 흐름에서 건드리지 않는다.
  if (existingCred) {
  const { error: credErr } = await svc
  .from('platform_credentials')
@@ -431,10 +435,6 @@ export async function PATCH(req: NextRequest) {
  platform_store_id: body.platform_store_id,
  platform_store_name: cleanName,
  updated_at: new Date().toISOString(),
- ...(body.platform === 'naver_place' ? {
- last_login_status: 'success:public_api',
- last_login_at: new Date().toISOString(),
- } : {}),
  })
  .eq('user_id', auth.userId)
  .eq('platform', body.platform)
@@ -447,8 +447,6 @@ export async function PATCH(req: NextRequest) {
  platform: body.platform,
  platform_store_id: body.platform_store_id,
  platform_store_name: cleanName,
- last_login_status: body.platform === 'naver_place' ? 'success:public_api' : null,
- last_login_at: body.platform === 'naver_place' ? new Date().toISOString() : null,
  connected_at: new Date().toISOString(),
  updated_at: new Date().toISOString(),
  })
