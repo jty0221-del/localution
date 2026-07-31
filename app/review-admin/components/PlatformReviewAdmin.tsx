@@ -527,8 +527,18 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
  const aiData = await aiRes.json()
  const generated = String(aiData?.reply || '').trim()
  if (!generated) {
+ // 2026-07-30 hotfix: 결제/한도/인증 관련 에러는 원인·조치 안내를 명확하게
+ const code = String(aiData?.code || '')
  const errMsg = String(aiData?.error || aiData?.message || 'AI 서버 응답 없음')
- toast.error(`답글 생성 실패: ${errMsg.slice(0, 80)}`)
+ if (code === 'ai_credit_exhausted') {
+ toast.error('AI 답글 서비스가 일시 중단됐어요 (결제 확인 필요). 잠시 후 다시 시도해주세요.', { autoClose: 8000 })
+ } else if (code === 'ai_rate_limited') {
+ toast.error('AI 답글 요청이 몰려있어요. 30초 후 다시 시도해주세요.')
+ } else if (code === 'ai_auth_failed') {
+ toast.error('AI 서비스 인증 오류. 담당자에게 문의해주세요.')
+ } else {
+ toast.error(`답글 생성 실패: ${errMsg.slice(0, 100)}`)
+ }
  setGenerating(false)
  return
  }
@@ -777,7 +787,18 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
  })
  const aiData = await aiRes.json()
  const generated = String(aiData?.reply || aiData?.message || '').trim()
- if (!generated) continue
+ // 2026-07-30 hotfix: 결제/인증 에러는 나머지 시도해도 다 실패하니 즉시 중단
+ if (!generated) {
+ const code = String(aiData?.code || '')
+ if (code === 'ai_credit_exhausted' || code === 'ai_auth_failed') {
+ const msg = code === 'ai_credit_exhausted'
+ ? 'AI 답글 서비스가 일시 중단됐어요 (결제 확인 필요). 나머지 일괄 생성을 중단합니다.'
+ : 'AI 서비스 인증 오류로 일괄 생성을 중단합니다. 담당자에게 문의해주세요.'
+ toast.error(msg, { autoClose: 8000 })
+ break
+ }
+ continue
+ }
 
  await fetch('/api/review-reply/draft', {
  method: 'POST',

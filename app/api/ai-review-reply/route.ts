@@ -591,10 +591,11 @@ export async function POST(req: NextRequest) {
  if (!respOk) {
  console.error('[ai-review-reply] Claude error:', respStatus, respText.slice(0, 400))
  let claudeErrMsg = `HTTP ${respStatus}`
+ let rawMsg = ''
  try {
  const errJson = JSON.parse(respText)
- const msg = errJson?.error?.message || errJson?.message || ''
- if (msg) claudeErrMsg = `HTTP ${respStatus}: ${String(msg).slice(0, 100)}`
+ rawMsg = errJson?.error?.message || errJson?.message || ''
+ if (rawMsg) claudeErrMsg = `HTTP ${respStatus}: ${String(rawMsg).slice(0, 100)}`
  } catch { /* ignore */ }
  // 사진 있을 때 → 텍스트만으로 재시도
  if (hasPhotos) {
@@ -610,7 +611,28 @@ export async function POST(req: NextRequest) {
  break
  }
  }
- return NextResponse.json({ ok: false, error: claudeErrMsg }, { status: 500 })
+ // 2026-07-30 hotfix: Anthropic 결제/한도 에러는 사장님이 원인·조치를 바로 알 수 있게 분류
+ const lower = (rawMsg + ' ' + respText).toLowerCase()
+ const isCreditIssue = lower.includes('credit balance is too low')
+ || lower.includes('billing') || lower.includes('quota')
+ || lower.includes('exceeded your') || respStatus === 402
+ const isRateLimit = respStatus === 429
+ const isAuthIssue = respStatus === 401 || respStatus === 403
+ let claudeErrCode: string | undefined
+ if (isCreditIssue) claudeErrCode = 'ai_credit_exhausted'
+ else if (isRateLimit) claudeErrCode = 'ai_rate_limited'
+ else if (isAuthIssue) claudeErrCode = 'ai_auth_failed'
+ const friendlyMsg = isCreditIssue
+ ? 'AI 서비스 결제 잔액이 소진되었어요. 사장님 담당자에게 문의해주세요. (원인: Anthropic API credit)'
+ : isRateLimit
+ ? 'AI 요청이 몰려서 잠시 지연이에요. 30초 후 다시 시도해주세요.'
+ : isAuthIssue
+ ? 'AI 서비스 인증에 문제가 있어요. 관리자에게 문의해주세요.'
+ : claudeErrMsg
+ return NextResponse.json(
+ { ok: false, error: friendlyMsg, code: claudeErrCode, raw: claudeErrMsg },
+ { status: isCreditIssue ? 402 : (respStatus === 429 ? 429 : 500) },
+ )
  }
 
  const data = JSON.parse(respText)
