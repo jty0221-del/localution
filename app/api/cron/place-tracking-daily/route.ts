@@ -13,6 +13,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/app/lib/adminAuth'
 import { lookupPlace } from '@/app/lib/naver-place'
+import { calcStoreScore } from '@/app/lib/place-score'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -153,6 +154,13 @@ export async function GET(req: NextRequest) {
  visitor_review_count: info.visitorReviewCount,
  blog_review_count: info.blogReviewCount,
  rating: info.rating,
+ // 2026-08-04: 매장 기본 점수 기록 시작.
+ // 스키마에만 있고 비어 있던 컬럼 — 지금부터 채워야 나중에 추이 차트를 그린다.
+ place_score: calcStoreScore({
+ blogReviewCount: info.blogReviewCount,
+ visitorReviewCount: info.visitorReviewCount,
+ rating: info.rating,
+ }),
  source: 'cron',
  raw_info: info,
  })

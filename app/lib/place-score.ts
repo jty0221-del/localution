@@ -102,6 +102,29 @@ export function calcPlaceScore(input: PlaceScoreInput): PlaceScoreBreakdown {
   }
 }
 
+/**
+ * 매장 기본 점수 (키워드·순위와 무관한 매장 자체의 체력).
+ *
+ * place_snapshots.place_score 에 저장한다.
+ * 순위 항목을 뺀 나머지(블로그 25 + 방문자 25 + 평점 10 = 60)를
+ * 100점 만점으로 재정규화하므로, 키워드별 점수와 직접 비교하면 안 된다.
+ *
+ * 용도: 플레이스 진단 화면의 "매장 노출 점수 추이" 미니 차트.
+ */
+export function calcStoreScore(input: Omit<PlaceScoreInput, 'rank'>): number {
+  const blogFactor = reviewFactorOf(input.blogReviewCount)
+  const visitorFactor = reviewFactorOf(input.visitorReviewCount)
+  const ratingFactor = ratingFactorOf(input.rating)
+
+  const denom = SCORE_WEIGHTS.blog + SCORE_WEIGHTS.visitor + SCORE_WEIGHTS.rating
+  const raw =
+    SCORE_WEIGHTS.blog * blogFactor +
+    SCORE_WEIGHTS.visitor * visitorFactor +
+    SCORE_WEIGHTS.rating * ratingFactor
+
+  return Math.round((raw / denom) * 100 * 10) / 10
+}
+
 // ─────────────────────────────────────────────
 // UI 보조 — 순위 구간 색상 / 라벨
 // (기존 keyword-rank 페이지 색상 규칙과 동일하게 유지)

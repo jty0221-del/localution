@@ -9,6 +9,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServiceClient } from '@/app/lib/adminAuth'
 import { requireUser } from '@/app/lib/userAuth'
 import { extractPlaceIdAndCategory, lookupPlace, type PlaceInfo } from '@/app/lib/naver-place'
+import { calcStoreScore } from '@/app/lib/place-score'
 
 export const runtime = 'nodejs'
 export const dynamic = 'force-dynamic'
@@ -106,6 +107,11 @@ export async function POST(req: NextRequest) {
  visitor_review_count: info.visitorReviewCount,
  blog_review_count: info.blogReviewCount,
  rating: info.rating,
+ place_score: calcStoreScore({
+ blogReviewCount: info.blogReviewCount,
+ visitorReviewCount: info.visitorReviewCount,
+ rating: info.rating,
+ }),
  source: 'manual',
  raw_info: info,
  })
