@@ -14,6 +14,10 @@
       "schedule": "30 20 * * *"
     },
     {
+      "path": "/api/cron/place-rank-daily",
+      "schedule": "0 21 * * *"
+    },
+    {
       "path": "/api/cron/naver-reviews-fetch",
       "schedule": "*/30 * * * *"
     },
