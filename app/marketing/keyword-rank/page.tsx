@@ -1,498 +1,774 @@
 'use client'
-export const dynamic = 'force-dynamic'
+
+// app/marketing/keyword-rank/page.tsx
+// ============================================================
+// 플레이스 모니터링 — 매장별 키워드 순위 카드 그리드
+//
+// 2026-08-04 (AdRank 벤치마킹 P1):
+//   기존 페이지는 100% 목업이었다 (ROW_TEMPLATES 하드코딩, API 호출 0개).
+//   P0 에서 만든 순위 파이프라인에 연결해 실데이터로 전환한다.
+//
+//   · GET  /api/place/targets            매장 목록
+//   · GET  /api/place/keywords           추적 키워드 (+ 최신 순위·점수)
+//   · GET  /api/place/keyword-history    7일 시계열 (매장 단위로 한 번에)
+//   · POST /api/place/keywords           키워드 추가
+//   · POST /api/place/keyword-rank       즉시 재측정
+//   · DELETE /api/place/keywords         키워드 삭제
+//
+// 순위는 매일 KST 06:00 크론(place-rank-daily)이 자동 수집한다.
+// ============================================================
 
 import { useState, useCallback, useEffect, useMemo } from 'react'
+import Link from 'next/link'
 import Sidebar from '../../components/Sidebar'
 import PageHeader from '../../components/PageHeader'
 import Footer from '../../components/Footer'
-import { TrendingUp, Search, AlertTriangle, RefreshCw } from 'lucide-react'
+import {
+  TrendingUp,
+  TrendingDown,
+  Search,
+  RefreshCw,
+  Plus,
+  X,
+  ExternalLink,
+  Store,
+  MapPin,
+  Minus,
+  Info,
+  Trophy,
+} from 'lucide-react'
+import { rankTierOf, RANK_TIER_STYLE } from '../../lib/place-score'
 
-// ── 업체 컨텍스트 (업종·지역·상호) ─────────────────────
-interface BizContext {
- region: string // '강남', '부평', '해운대' 등
- regionGu: string // '강남구', '부평구' 등 (드롭다운 표시용)
- category: string // '맛집', '네일샵', '치과' 등
- placeType: string // 테이블 뱃지 — '음식점', '뷰티', '의료' 등
- businessName: string // 업체명
+// ─────────────────────────────────────────────
+// 타입
+// ─────────────────────────────────────────────
+type Target = {
+  id: string
+  place_id: string
+  name: string
+  category_name: string | null
+  road_address: string | null
+  thumbnail_url: string | null
+  last_visitor_review: number | null
+  last_blog_review: number | null
+  last_rating: number | null
 }
 
-const DEFAULT_CTX: BizContext = {
- region: '강남', regionGu: '강남구', category: '맛집', placeType: '음식점', businessName: '내 가게',
+type KeywordLatest = {
+  rank: number | null
+  total: number | null
+  score: number | null
+  visitor_review_count: number | null
+  blog_review_count: number | null
+  method: string | null
+  ts: string
 }
 
-// 키워드 패턴 (업종별 접미어 5개)
-const KEYWORD_PATTERNS: Record<string, string[]> = {
- '맛집': ['맛집', '회식', '점심', '데이트', '저녁'],
- '카페': ['카페', '브런치', '디저트', '스터디카페', '감성카페'],
- '네일샵': ['네일', '젤네일', '페디큐어', '네일아트', '속눈썹'],
- '치과': ['치과', '임플란트', '교정', '라미네이트', '스케일링'],
- '미용실': ['미용실', '염색', '펌', '남자컷', '헤어컷'],
- '동물병원': ['동물병원', '건강검진', '예방접종', '중성화', '강아지'],
- '학원': ['학원', '과외', '입시학원', '영어학원', '수학학원'],
- '피트니스': ['헬스장', 'PT', '필라테스', '요가', '크로스핏'],
- '병원': ['병원', '의원', '진료', '예약', '상담'],
- '의원': ['의원', '진료', '예약', '상담', '치료'],
+type KeywordTarget = {
+  id: string
+  target_id: string
+  keyword: string
+  enabled: boolean
+  last_rank: number | null
+  last_score: number | null
+  last_checked_at: string | null
+  latest: KeywordLatest | null
 }
 
-function getSuffixes(category: string): string[] {
- return KEYWORD_PATTERNS[category] || KEYWORD_PATTERNS['맛집']
+type HistoryRow = {
+  id: number
+  keyword_target_id: string
+  keyword: string
+  rank: number | null
+  total: number | null
+  score: number | null
+  visitor_review_count: number | null
+  blog_review_count: number | null
+  ts: string
 }
 
-function inferCategoryFromName(name: string): string | null {
- if (!name) return null
- if (/카페|커피|베이커리|브런치/.test(name)) return '카페'
- if (/치과/.test(name)) return '치과'
- if (/네일/.test(name)) return '네일샵'
- if (/미용실|헤어샵|헤어|살롱/.test(name)) return '미용실'
- if (/동물병원/.test(name)) return '동물병원'
- if (/학원/.test(name)) return '학원'
- if (/헬스|피트니스|요가|필라테스/.test(name)) return '피트니스'
- if (/의원|한의원|정형외과|치과|병원/.test(name)) return '병원'
- return null
+// ─────────────────────────────────────────────
+// 포맷 헬퍼
+// ─────────────────────────────────────────────
+function fmtDate(iso: string): string {
+  const d = new Date(iso)
+  const yy = String(d.getFullYear()).slice(2)
+  const mm = String(d.getMonth() + 1).padStart(2, '0')
+  const dd = String(d.getDate()).padStart(2, '0')
+  return `${yy}.${mm}.${dd}`
 }
 
-function inferPlaceType(cat: string): string {
- if (/카페|커피/.test(cat)) return '카페'
- if (/치과|병원|의원|한의원/.test(cat)) return '의료'
- if (/네일|미용|헤어|뷰티|살롱/.test(cat)) return '뷰티'
- if (/학원|교습/.test(cat)) return '교육'
- if (/헬스|피트니스|요가|필라테스/.test(cat)) return '운동'
- return '음식점'
+function fmtNum(n: number | null | undefined): string {
+  if (n == null) return '-'
+  return n.toLocaleString('ko-KR')
 }
 
-// 프로필에서 업체 컨텍스트 추출
-function readBizContext(): BizContext {
- if (typeof window === 'undefined') return DEFAULT_CTX
- try {
- const raw1 = localStorage.getItem('localution.store_info')
- const raw2 = localStorage.getItem('localution_store')
- const p: any = raw1 ? JSON.parse(raw1) : raw2 ? JSON.parse(raw2) : {}
-
- const addrSrc = [p?.location, p?.address, p?.branch, p?.storeName, p?.name].filter(Boolean).join(' ')
- let region = DEFAULT_CTX.region
- let regionGu = DEFAULT_CTX.regionGu
- const gu = addrSrc.match(/([가-힣]{1,4})(구|군)/)
- if (gu) { region = gu[1]; regionGu = gu[1] + gu[2] }
- else {
- const known = ['해운대','광안리','서면','강남','서초','홍대','합정','이태원','성수','건대','일산','분당','판교','송도','동탄','광교','수원','안양','평촌','인천','부평','부천','대구','동성로','수성','광주','상무','대전','둔산','울산','청주','전주','제주','서귀포','창원','마산','포항','경주','천안','아산','세종','강릉','춘천','원주']
- for (const k of known) {
- if (addrSrc.includes(k)) { region = k; regionGu = k + '구'; break }
- }
- }
-
- const businessName = p?.name || p?.storeName || DEFAULT_CTX.businessName
- const category = p?.category || p?.industry || inferCategoryFromName(businessName) || DEFAULT_CTX.category
- return { region, regionGu, category, placeType: inferPlaceType(category), businessName }
- } catch {
- return DEFAULT_CTX
- }
+function fmtRelative(iso: string | null): string {
+  if (!iso) return '수집 전'
+  const diff = Date.now() - new Date(iso).getTime()
+  const min = Math.floor(diff / 60000)
+  if (min < 1) return '방금'
+  if (min < 60) return `${min}분 전`
+  const hr = Math.floor(min / 60)
+  if (hr < 24) return `${hr}시간 전`
+  return `${Math.floor(hr / 24)}일 전`
 }
 
-// 지역 드롭다운 옵션 (전국 주요 지역)
-const AREA_OPTIONS = [
- '강남구','서초구','송파구','마포구','종로구','용산구','성동구','영등포구','동작구','관악구',
- '해운대구','수영구','부산진구','남구(부산)','중구(부산)','연제구',
- '수성구','달서구','중구(대구)',
- '연수구(인천)','남동구','부평구',
- '서구(광주)','동구(광주)','광산구',
- '유성구','서구(대전)','중구(대전)',
- '남구(울산)','중구(울산)',
- '분당구','수원 영통','수원 장안','고양 일산동구','고양 일산서구','성남 분당','용인 수지','용인 기흥','안양 동안','부천 원미',
- '제주시','서귀포시','청주 상당','천안 서북','전주 완산',
-]
-
-// ── 타입 ──────────────────────────────────────────────
-interface RankRow {
- date: string
- rank: number | null
- prev: number | null
- blogCount: number
- searchVol: number
- score: number
+// ─────────────────────────────────────────────
+// 순위 배지 / 변동 표시
+// ─────────────────────────────────────────────
+function RankBadge({ rank }: { rank: number | null }) {
+  const tier = rankTierOf(rank)
+  const style = RANK_TIER_STYLE[tier]
+  return (
+    <span
+      className="inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-bold whitespace-nowrap"
+      style={{ background: style.bg, color: style.text }}
+    >
+      {rank == null ? '미노출' : `${rank}위`}
+    </span>
+  )
 }
 
-interface KeywordGroup {
- id: number
- keyword: string
- relatedKw: string
- placeType: string
- volume: number
- rows: RankRow[]
+/**
+ * 순위 변동. 순위 숫자가 줄어들면 상승(좋음) → 초록.
+ * prev 가 없거나(첫 수집) 둘 중 하나가 미노출이면 변동을 표시하지 않는다.
+ */
+function RankDelta({ curr, prev }: { curr: number | null; prev: number | null | undefined }) {
+  if (curr == null || prev == null) {
+    return <span className="text-[11px] text-[#C3CAD1]">-</span>
+  }
+  const diff = prev - curr
+  if (diff === 0) {
+    return (
+      <span className="inline-flex items-center gap-0.5 text-[11px] text-[#C3CAD1]">
+        <Minus size={10} strokeWidth={3} />
+      </span>
+    )
+  }
+  const up = diff > 0
+  return (
+    <span
+      className="inline-flex items-center gap-0.5 text-[11px] font-bold"
+      style={{ color: up ? '#059669' : '#DC2626' }}
+    >
+      {up ? <TrendingUp size={11} strokeWidth={3} /> : <TrendingDown size={11} strokeWidth={3} />}
+      {Math.abs(diff)}
+    </span>
+  )
 }
 
-// ── 날짜 동적 생성 (오늘 기준 최근 7일) ─────────
-function recentDates(n = 7): string[] {
- const dates: string[] = []
- const now = new Date()
- for (let i = 0; i < n; i++) {
- const d = new Date(now)
- d.setDate(d.getDate() - i)
- const yy = String(d.getFullYear()).slice(2)
- const mm = String(d.getMonth() + 1).padStart(2, '0')
- const dd = String(d.getDate()).padStart(2, '0')
- dates.push(`${yy}.${mm}.${dd}`)
- }
- return dates
+// ─────────────────────────────────────────────
+// 매장 카드
+// ─────────────────────────────────────────────
+function StoreCard({
+  target,
+  keywords,
+  history,
+  loadingHistory,
+  onAddKeyword,
+  onRemoveKeyword,
+  onRefreshKeyword,
+  refreshingId,
+  addingTargetId,
+}: {
+  target: Target
+  keywords: KeywordTarget[]
+  history: HistoryRow[]
+  loadingHistory: boolean
+  onAddKeyword: (targetId: string, keyword: string) => Promise<void>
+  onRemoveKeyword: (keywordTargetId: string) => Promise<void>
+  onRefreshKeyword: (keywordTargetId: string) => Promise<void>
+  refreshingId: string | null
+  addingTargetId: string | null
+}) {
+  const [selectedKtId, setSelectedKtId] = useState<string | null>(null)
+  const [newKeyword, setNewKeyword] = useState('')
+  const [showAdd, setShowAdd] = useState(false)
+
+  // 선택된 키워드가 없으면 첫 번째로 기본 선택
+  const activeKtId = selectedKtId && keywords.some(k => k.id === selectedKtId)
+    ? selectedKtId
+    : (keywords[0]?.id ?? null)
+
+  const activeKeyword = keywords.find(k => k.id === activeKtId) ?? null
+
+  // 선택된 키워드의 7일 이력 (최신이 위로 오도록 내림차순)
+  const rows = useMemo(() => {
+    if (!activeKtId) return []
+    return history
+      .filter(h => h.keyword_target_id === activeKtId)
+      .slice()
+      .sort((a, b) => new Date(b.ts).getTime() - new Date(a.ts).getTime())
+      .slice(0, 7)
+  }, [history, activeKtId])
+
+  const placeUrl = `https://m.place.naver.com/restaurant/${target.place_id}/home`
+
+  async function handleAdd() {
+    const kw = newKeyword.trim()
+    if (kw.length < 2) return
+    await onAddKeyword(target.id, kw)
+    setNewKeyword('')
+    setShowAdd(false)
+  }
+
+  return (
+    <div className="bg-white rounded-2xl border border-[#E5E8EB] shadow-sm overflow-hidden">
+      {/* 카드 헤더 — 매장 정보 */}
+      <div className="flex items-start gap-3 p-4 border-b border-[#F2F4F6]">
+        {target.thumbnail_url ? (
+          <img
+            src={target.thumbnail_url}
+            alt={target.name}
+            className="w-11 h-11 rounded-xl object-cover flex-shrink-0 border border-[#F2F4F6]"
+            onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
+          />
+        ) : (
+          <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#3182F6] to-[#1B64DA] shadow-sm flex items-center justify-center flex-shrink-0">
+            <Store size={18} className="text-white" strokeWidth={2.5} />
+          </div>
+        )}
+
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5">
+            <h3 className="font-bold text-[#191F28] text-[15px] truncate">{target.name}</h3>
+            <a
+              href={placeUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-[#8B95A1] hover:text-[#3182F6] flex-shrink-0"
+              title="네이버 플레이스에서 열기"
+            >
+              <ExternalLink size={13} strokeWidth={2.5} />
+            </a>
+          </div>
+          <div className="flex items-center gap-2 mt-0.5 text-[11px] text-[#8B95A1]">
+            {target.category_name && <span>{target.category_name}</span>}
+            {target.road_address && (
+              <span className="flex items-center gap-0.5 truncate">
+                <MapPin size={10} strokeWidth={2.5} />
+                {target.road_address}
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-3 mt-1.5 text-[11px]">
+            <span className="text-[#4E5968]">
+              블로그 <strong className="text-[#191F28]">{fmtNum(target.last_blog_review)}</strong>
+            </span>
+            <span className="text-[#4E5968]">
+              방문자 <strong className="text-[#191F28]">{fmtNum(target.last_visitor_review)}</strong>
+            </span>
+          </div>
+        </div>
+      </div>
+
+      {/* 키워드 칩 */}
+      <div className="px-4 py-3 border-b border-[#F2F4F6]">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          {keywords.map(k => {
+            const active = k.id === activeKtId
+            return (
+              <button
+                key={k.id}
+                onClick={() => setSelectedKtId(k.id)}
+                className={
+                  'group inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold border transition-colors ' +
+                  (active
+                    ? 'border-[#3182F6] bg-[#EFF6FF] text-[#3182F6]'
+                    : 'border-[#E5E8EB] bg-white text-[#4E5968] hover:border-[#3182F6] hover:text-[#3182F6]')
+                }
+              >
+                {k.keyword}
+                {k.last_rank != null && (
+                  <span className="text-[10px] font-bold opacity-70">{k.last_rank}위</span>
+                )}
+                <span
+                  role="button"
+                  tabIndex={0}
+                  onClick={e => {
+                    e.stopPropagation()
+                    if (confirm(`"${k.keyword}" 키워드 추적을 중단할까요?\n\n지금까지 쌓인 순위 기록도 함께 삭제됩니다.`)) {
+                      onRemoveKeyword(k.id)
+                    }
+                  }}
+                  onKeyDown={e => {
+                    if (e.key === 'Enter') {
+                      e.stopPropagation()
+                      onRemoveKeyword(k.id)
+                    }
+                  }}
+                  className="opacity-0 group-hover:opacity-100 text-[#8B95A1] hover:text-[#DC2626] transition-opacity cursor-pointer"
+                  title="키워드 삭제"
+                >
+                  <X size={11} strokeWidth={3} />
+                </span>
+              </button>
+            )
+          })}
+
+          {showAdd ? (
+            <div className="inline-flex items-center gap-1">
+              <input
+                autoFocus
+                value={newKeyword}
+                onChange={e => setNewKeyword(e.target.value)}
+                onKeyDown={e => {
+                  if (e.key === 'Enter') handleAdd()
+                  if (e.key === 'Escape') { setShowAdd(false); setNewKeyword('') }
+                }}
+                placeholder="예: 부천 가발"
+                maxLength={40}
+                className="w-32 text-xs border border-[#3182F6] rounded-lg px-2 py-1 focus:outline-none"
+              />
+              <button
+                onClick={handleAdd}
+                disabled={newKeyword.trim().length < 2 || addingTargetId === target.id}
+                className="px-2 py-1 rounded-lg bg-[#3182F6] text-white text-xs font-bold disabled:opacity-40"
+              >
+                {addingTargetId === target.id ? '추가 중' : '추가'}
+              </button>
+              <button
+                onClick={() => { setShowAdd(false); setNewKeyword('') }}
+                className="px-1.5 py-1 rounded-lg text-[#8B95A1] hover:bg-[#F2F4F6]"
+              >
+                <X size={12} strokeWidth={3} />
+              </button>
+            </div>
+          ) : (
+            <button
+              onClick={() => setShowAdd(true)}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-semibold border border-dashed border-[#C3CAD1] text-[#8B95A1] hover:border-[#3182F6] hover:text-[#3182F6] transition-colors"
+            >
+              <Plus size={11} strokeWidth={3} />
+              키워드
+            </button>
+          )}
+        </div>
+      </div>
+
+      {/* 7일 순위 표 */}
+      {keywords.length === 0 ? (
+        <div className="px-4 py-8 text-center">
+          <p className="text-[13px] text-[#8B95A1] leading-relaxed">
+            추적할 키워드를 등록해주세요.
+            <br />
+            매일 새벽 6시에 순위가 자동으로 기록됩니다.
+          </p>
+        </div>
+      ) : loadingHistory ? (
+        <div className="px-4 py-8 text-center text-[13px] text-[#8B95A1]">불러오는 중…</div>
+      ) : rows.length === 0 ? (
+        <div className="px-4 py-6 text-center">
+          <p className="text-[13px] text-[#8B95A1] leading-relaxed mb-3">
+            아직 수집된 기록이 없어요.
+            <br />
+            지금 바로 측정해보거나, 내일 새벽 자동 수집을 기다려주세요.
+          </p>
+          {activeKtId && (
+            <button
+              onClick={() => onRefreshKeyword(activeKtId)}
+              disabled={refreshingId === activeKtId}
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-[#3182F6] text-white text-xs font-bold disabled:opacity-50"
+            >
+              <RefreshCw size={12} strokeWidth={3} className={refreshingId === activeKtId ? 'animate-spin' : ''} />
+              {refreshingId === activeKtId ? '측정 중…' : '지금 측정하기'}
+            </button>
+          )}
+        </div>
+      ) : (
+        <>
+          <div className="overflow-x-auto">
+            <table className="w-full text-[12px]">
+              <thead>
+                <tr className="bg-[#FAFBFC] text-[#8B95A1]">
+                  <th className="text-left font-semibold px-4 py-2">일자</th>
+                  <th className="text-center font-semibold px-2 py-2">순위</th>
+                  <th className="text-right font-semibold px-2 py-2">블로그</th>
+                  <th className="text-right font-semibold px-2 py-2">방문자</th>
+                  <th className="text-right font-semibold px-4 py-2">점수</th>
+                </tr>
+              </thead>
+              <tbody>
+                {rows.map((r, i) => {
+                  // rows 는 최신순 — 다음 인덱스가 하루 전
+                  const prev = rows[i + 1]?.rank
+                  return (
+                    <tr key={r.id} className="border-t border-[#F2F4F6]">
+                      <td className="px-4 py-2 text-[#4E5968] whitespace-nowrap">{fmtDate(r.ts)}</td>
+                      <td className="px-2 py-2">
+                        <div className="flex items-center justify-center gap-1">
+                          <RankBadge rank={r.rank} />
+                          <RankDelta curr={r.rank} prev={prev} />
+                        </div>
+                      </td>
+                      <td className="px-2 py-2 text-right text-[#4E5968]">{fmtNum(r.blog_review_count)}</td>
+                      <td className="px-2 py-2 text-right text-[#4E5968]">{fmtNum(r.visitor_review_count)}</td>
+                      <td className="px-4 py-2 text-right font-bold text-[#191F28]">
+                        {r.score == null ? '-' : r.score.toFixed(1)}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* 카드 푸터 — 최근 수집 시각 + 즉시 측정 */}
+          <div className="flex items-center justify-between px-4 py-2.5 bg-[#FAFBFC] border-t border-[#F2F4F6]">
+            <span className="text-[11px] text-[#8B95A1]">
+              최근 수집 {fmtRelative(activeKeyword?.last_checked_at ?? null)}
+            </span>
+            {activeKtId && (
+              <button
+                onClick={() => onRefreshKeyword(activeKtId)}
+                disabled={refreshingId === activeKtId}
+                className="inline-flex items-center gap-1 text-[11px] font-bold text-[#3182F6] hover:text-[#1B64DA] disabled:opacity-50"
+              >
+                <RefreshCw size={11} strokeWidth={3} className={refreshingId === activeKtId ? 'animate-spin' : ''} />
+                {refreshingId === activeKtId ? '측정 중' : '새로고침'}
+              </button>
+            )}
+          </div>
+        </>
+      )}
+    </div>
+  )
 }
-const RECENT = recentDates()
 
-// ── 목업 데이터 (실제: 네이버 Search API 연동) ─────────
-// 6가지 순위 프로필 (상위권~중하위권까지 다양한 경쟁 시나리오)
-const ROW_TEMPLATES = [
- // 1. 주력 대형 키워드 — 상승 중 (3→5→4→7…)
- { volume: 2340, rows: [
- { date: RECENT[0], rank: 3, prev: 5, blogCount: 380, searchVol: 2340, score: 91.2 },
- { date: RECENT[1], rank: 5, prev: 4, blogCount: 375, searchVol: 2280, score: 85.4 },
- { date: RECENT[2], rank: 4, prev: 7, blogCount: 371, searchVol: 2310, score: 88.1 },
- { date: RECENT[3], rank: 7, prev: 6, blogCount: 365, searchVol: 2290, score: 79.3 },
- { date: RECENT[4], rank: 6, prev: 9, blogCount: 360, searchVol: 2200, score: 82.0 },
- { date: RECENT[5], rank: 9, prev: 11, blogCount: 358, searchVol: 2180, score: 74.5 },
- { date: RECENT[6], rank: 11, prev: 10, blogCount: 352, searchVol: 2150, score: 69.8 },
- ]},
- // 2. 브랜드 키워드 — 1위 고정
- { volume: 310, rows: [
- { date: RECENT[0], rank: 1, prev: 1, blogCount: 42, searchVol: 310, score: 98.4 },
- { date: RECENT[1], rank: 1, prev: 2, blogCount: 41, searchVol: 308, score: 97.1 },
- { date: RECENT[2], rank: 2, prev: 1, blogCount: 40, searchVol: 305, score: 94.2 },
- { date: RECENT[3], rank: 1, prev: 3, blogCount: 39, searchVol: 300, score: 98.0 },
- { date: RECENT[4], rank: 3, prev: 2, blogCount: 38, searchVol: 295, score: 91.3 },
- { date: RECENT[5], rank: 2, prev: 4, blogCount: 37, searchVol: 290, score: 94.5 },
- { date: RECENT[6], rank: 4, prev: 3, blogCount: 36, searchVol: 285, score: 88.6 },
- ]},
- // 3. 대형 경쟁 키워드 — 중위권 (12~21위)
- { volume: 2860, rows: [
- { date: RECENT[0], rank: 12, prev: 15, blogCount: 786, searchVol: 2860, score: 67.4 },
- { date: RECENT[1], rank: 15, prev: 13, blogCount: 780, searchVol: 2800, score: 59.2 },
- { date: RECENT[2], rank: 13, prev: 18, blogCount: 775, searchVol: 2820, score: 63.8 },
- { date: RECENT[3], rank: 18, prev: 16, blogCount: 768, searchVol: 2750, score: 54.1 },
- { date: RECENT[4], rank: 16, prev: 21, blogCount: 760, searchVol: 2700, score: 58.3 },
- { date: RECENT[5], rank: 21, prev: 19, blogCount: 755, searchVol: 2680, score: 47.9 },
- { date: RECENT[6], rank: 19, prev: 22, blogCount: 750, searchVol: 2650, score: 52.1 },
- ]},
- // 4. 중형 키워드 — 중상위권 (8~16위)
- { volume: 2570, rows: [
- { date: RECENT[0], rank: 8, prev: 10, blogCount: 521, searchVol: 2570, score: 76.2 },
- { date: RECENT[1], rank: 10, prev: 9, blogCount: 517, searchVol: 2520, score: 71.4 },
- { date: RECENT[2], rank: 9, prev: 12, blogCount: 512, searchVol: 2540, score: 74.1 },
- { date: RECENT[3], rank: 12, prev: 11, blogCount: 505, searchVol: 2480, score: 66.8 },
- { date: RECENT[4], rank: 11, prev: 14, blogCount: 500, searchVol: 2450, score: 69.3 },
- { date: RECENT[5], rank: 14, prev: 16, blogCount: 495, searchVol: 2420, score: 61.5 },
- { date: RECENT[6], rank: 16, prev: 15, blogCount: 488, searchVol: 2390, score: 57.8 },
- ]},
- // 5. 롱테일 키워드 — 상위권 (2~5위)
- { volume: 196, rows: [
- { date: RECENT[0], rank: 2, prev: 3, blogCount: 35, searchVol: 196, score: 95.1 },
- { date: RECENT[1], rank: 3, prev: 2, blogCount: 34, searchVol: 192, score: 91.8 },
- { date: RECENT[2], rank: 2, prev: 4, blogCount: 33, searchVol: 194, score: 94.6 },
- { date: RECENT[3], rank: 4, prev: 3, blogCount: 32, searchVol: 188, score: 88.2 },
- { date: RECENT[4], rank: 3, prev: 5, blogCount: 31, searchVol: 185, score: 91.0 },
- { date: RECENT[5], rank: 5, prev: 4, blogCount: 30, searchVol: 180, score: 84.7 },
- { date: RECENT[6], rank: 4, prev: 6, blogCount: 29, searchVol: 178, score: 88.3 },
- ]},
- // 6. 대형 경쟁 키워드 — 하위권 (25~38위, 개선 필요)
- { volume: 2200, rows: [
- { date: RECENT[0], rank: 25, prev: 30, blogCount: 468, searchVol: 2200, score: 41.3 },
- { date: RECENT[1], rank: 30, prev: 27, blogCount: 462, searchVol: 2150, score: 34.8 },
- { date: RECENT[2], rank: 27, prev: 32, blogCount: 455, searchVol: 2170, score: 38.9 },
- { date: RECENT[3], rank: 32, prev: 29, blogCount: 448, searchVol: 2100, score: 31.2 },
- { date: RECENT[4], rank: 29, prev: 35, blogCount: 440, searchVol: 2080, score: 35.6 },
- { date: RECENT[5], rank: 35, prev: 33, blogCount: 435, searchVol: 2050, score: 27.4 },
- { date: RECENT[6], rank: 33, prev: 38, blogCount: 428, searchVol: 2020, score: 30.1 },
- ]},
-] as const
+// ─────────────────────────────────────────────
+// 페이지
+// ─────────────────────────────────────────────
+export default function PlaceMonitoringPage() {
+  const [targets, setTargets] = useState<Target[]>([])
+  const [keywords, setKeywords] = useState<KeywordTarget[]>([])
+  const [historyByTarget, setHistoryByTarget] = useState<Record<string, HistoryRow[]>>({})
+  const [loadingHistoryFor, setLoadingHistoryFor] = useState<Set<string>>(new Set())
 
-// 업체 컨텍스트 기반으로 6개 키워드 그룹을 동적 생성
-function buildMockData(ctx: BizContext): KeywordGroup[] {
- const suffixes = getSuffixes(ctx.category) // 5개 접미어
- const { region, businessName, placeType } = ctx
- // 키워드 슬롯 6개 × 의미
- const specs = [
- { id: 1, keyword: `${region} ${suffixes[0]}`, relatedKw: `${region} ${suffixes[0]} 상위노출`, tpl: 0 }, // 주력
- { id: 2, keyword: `${businessName} ${region}`, relatedKw: `${region} ${suffixes[0]} 추천`, tpl: 1 }, // 브랜드
- { id: 3, keyword: `${region}역 ${suffixes[0]}`, relatedKw: `${region}역 ${suffixes[2]}`, tpl: 2 }, // 역세권
- { id: 4, keyword: `${region} ${suffixes[3]}`, relatedKw: `${region} ${suffixes[3]} 추천`, tpl: 3 }, // 중형
- { id: 5, keyword: `${region} ${suffixes[1]}`, relatedKw: `${region} ${suffixes[1]} 장소`, tpl: 4 }, // 롱테일
- { id: 6, keyword: `${region} ${suffixes[4]}`, relatedKw: `${region} ${suffixes[4]} 추천`, tpl: 5 }, // 대형 하위
- ]
- return specs.map(s => ({
- id: s.id,
- keyword: s.keyword,
- relatedKw: s.relatedKw,
- placeType,
- volume: ROW_TEMPLATES[s.tpl].volume,
- rows: ROW_TEMPLATES[s.tpl].rows as unknown as RankRow[],
- }))
-}
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [search, setSearch] = useState('')
+  const [refreshingId, setRefreshingId] = useState<string | null>(null)
+  const [addingTargetId, setAddingTargetId] = useState<string | null>(null)
+  const [keywordLimit, setKeywordLimit] = useState(50)
+  const [toast, setToast] = useState<string | null>(null)
 
-// ── 순위 색상 ─────────────────────────────────────────
-function getRankColor(rank: number | null): string {
- if (rank === null) return 'text-[#8B95A1]'
- if (rank <= 3) return 'text-[#3182F6] font-black'
- if (rank <= 5) return 'text-[#12B76A] font-bold'
- if (rank <= 10) return 'text-[#F59E0B] font-bold'
- if (rank <= 20) return 'text-[#F04452] font-semibold'
- return 'text-[#8B95A1] font-medium'
-}
+  function showToast(msg: string) {
+    setToast(msg)
+    setTimeout(() => setToast(null), 3500)
+  }
 
-function getRankBg(rank: number | null): string {
- if (rank === null) return ''
- if (rank <= 3) return 'bg-[#EFF6FF]'
- if (rank <= 5) return 'bg-[#ECFDF5]'
- if (rank <= 10) return 'bg-[#FFFBEB]'
- if (rank <= 20) return 'bg-[#FFF1F2]'
- return ''
-}
+  // ── 초기 로드 ────────────────────────────────
+  const loadAll = useCallback(async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const [tRes, kRes] = await Promise.all([
+        fetch('/api/place/targets', { credentials: 'include', cache: 'no-store' }),
+        fetch('/api/place/keywords', { credentials: 'include', cache: 'no-store' }),
+      ])
 
-function getDiff(rank: number | null, prev: number | null) {
- if (rank === null || prev === null) return null
- return prev - rank // 양수 = 상승
-}
+      if (tRes.status === 401 || kRes.status === 401) {
+        setError('로그인이 필요해요. 다시 로그인한 뒤 이용해주세요.')
+        return
+      }
 
-// ── 키워드 카드 ───────────────────────────────────────
-function KeywordCard({ group }: { group: KeywordGroup }) {
- const latest = group.rows[0]
- const diff = getDiff(latest.rank, latest.prev)
+      const tData = await tRes.json()
+      const kData = await kRes.json()
 
- return (
- <div className="bg-white rounded-2xl shadow-sm overflow-hidden border border-[#F2F4F6] hover:border-[#3182F6] transition-colors">
- {/* 카드 헤더 */}
- <div className="px-4 py-3 border-b border-[#F2F4F6] flex items-center justify-between">
- <div className="flex items-center gap-2 flex-wrap">
- <span className="text-xs px-2 py-0.5 rounded-full bg-[#F2F4F6] text-[#4E5968] font-medium">{group.placeType}</span>
- <span className="text-sm font-bold text-[#191F28]">{group.keyword}</span>
- <span className="text-[11px] text-[#3182F6] font-medium">→ {group.relatedKw}</span>
- <span className="text-[11px] text-[#8B95A1]">검색 {group.volume.toLocaleString()}</span>
- </div>
- <div className="flex items-center gap-1.5 flex-shrink-0">
- {/* 최신 순위 뱃지 */}
- {latest.rank !== null && (
- <span className={`text-sm font-black px-2.5 py-1 rounded-lg ${getRankBg(latest.rank)} ${getRankColor(latest.rank)}`}>
- {latest.rank}위
- </span>
- )}
- {diff !== null && (
- <span className={`text-[11px] font-bold ${diff > 0 ? 'text-[#12B76A]' : diff < 0 ? 'text-[#F04452]' : 'text-[#8B95A1]'}`}>
- {diff > 0 ? `▲${diff}` : diff < 0 ? `▼${Math.abs(diff)}` : '–'}
- </span>
- )}
- </div>
- </div>
+      setTargets(Array.isArray(tData?.targets) ? tData.targets : [])
+      if (kData?.ok) {
+        setKeywords(Array.isArray(kData.keywords) ? kData.keywords : [])
+        if (kData.limit) setKeywordLimit(kData.limit)
+      }
+    } catch (e) {
+      setError(e instanceof Error ? e.message : String(e))
+    } finally {
+      setLoading(false)
+    }
+  }, [])
 
- {/* 순위 테이블 */}
- <div className="overflow-x-auto">
- <table className="w-full text-xs">
- <thead>
- <tr className="bg-[#F8F9FA] text-[#8B95A1]">
- <th className="text-left px-3 py-2 font-medium">날짜</th>
- <th className="text-center px-2 py-2 font-medium">순위</th>
- <th className="text-center px-2 py-2 font-medium">전주</th>
- <th className="text-right px-2 py-2 font-medium">블로그 수</th>
- <th className="text-right px-2 py-2 font-medium">검색량</th>
- <th className="text-right px-3 py-2 font-medium">최종점수</th>
- </tr>
- </thead>
- <tbody className="divide-y divide-[#F8F9FA]">
- {group.rows.map((row, i) => {
- const d = getDiff(row.rank, row.prev)
- return (
- <tr key={i} className={`hover:bg-[#FAFBFF] transition-colors ${i === 0 ? 'bg-[#FAFBFF]' : ''}`}>
- <td className="px-3 py-2 text-[#8B95A1]">{row.date}</td>
- <td className={`px-2 py-2 text-center font-bold ${getRankColor(row.rank)}`}>
- {row.rank ?? '—'}
- </td>
- <td className="px-2 py-2 text-center text-[#8B95A1]">{row.prev ?? '—'}</td>
- <td className="px-2 py-2 text-right text-[#4E5968]">{row.blogCount.toLocaleString()}</td>
- <td className="px-2 py-2 text-right text-[#4E5968]">{row.searchVol.toLocaleString()}</td>
- <td className={`px-3 py-2 text-right font-semibold ${row.score >= 80 ? 'text-[#12B76A]' : row.score >= 60 ? 'text-[#F59E0B]' : 'text-[#F04452]'}`}>
- {row.score.toFixed(1)}
- </td>
- </tr>
- )
- })}
- </tbody>
- </table>
- </div>
- </div>
- )
-}
+  useEffect(() => { loadAll() }, [loadAll])
 
-// ── 메인 페이지 ───────────────────────────────────────
-export default function KeywordRankPage() {
- const [ctx, setCtx] = useState<BizContext>(DEFAULT_CTX)
- const [area, setArea] = useState(DEFAULT_CTX.regionGu)
- const [placeType, setPlaceType] = useState(DEFAULT_CTX.placeType)
- const [search, setSearch] = useState('')
- const [scanning, setScanning] = useState(false)
- const [lastUpdated, setLastUpdated] = useState('26.04.13 오전 1:46')
+  // ── 매장별 7일 이력 로드 (키워드가 있는 매장만) ─
+  const loadHistory = useCallback(async (targetId: string) => {
+    setLoadingHistoryFor(prev => new Set(prev).add(targetId))
+    try {
+      const res = await fetch(
+        `/api/place/keyword-history?target_id=${encodeURIComponent(targetId)}&days=7`,
+        { credentials: 'include', cache: 'no-store' },
+      )
+      const data = await res.json()
+      if (data?.ok) {
+        setHistoryByTarget(prev => ({ ...prev, [targetId]: data.rows ?? [] }))
+      }
+    } catch {
+      /* 이력 로드 실패는 카드 단위로 격리 — 전체 화면은 유지 */
+    } finally {
+      setLoadingHistoryFor(prev => {
+        const next = new Set(prev)
+        next.delete(targetId)
+        return next
+      })
+    }
+  }, [])
 
- // 프로필 기반으로 업체 컨텍스트 + 지역·업종 동적 설정
- useEffect(() => {
- const c = readBizContext()
- setCtx(c)
- setArea(c.regionGu)
- setPlaceType(c.placeType)
- const onChange = () => {
- const nc = readBizContext()
- setCtx(nc)
- setArea(nc.regionGu)
- setPlaceType(nc.placeType)
- }
- window.addEventListener('localution:user-change', onChange)
- window.addEventListener('storage', onChange)
- return () => {
- window.removeEventListener('localution:user-change', onChange)
- window.removeEventListener('storage', onChange)
- }
- }, [])
+  // 키워드가 있는 매장의 이력을 자동 로드
+  useEffect(() => {
+    const withKeywords = Array.from(new Set(keywords.map(k => k.target_id)))
+    for (const tid of withKeywords) {
+      if (historyByTarget[tid] === undefined && !loadingHistoryFor.has(tid)) {
+        loadHistory(tid)
+      }
+    }
+    // historyByTarget 을 의존성에 넣으면 매 로드마다 재실행되므로 keywords 만 추적
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [keywords, loadHistory])
 
- // 업체 컨텍스트가 바뀌면 mock 데이터도 재생성
- const mockData = useMemo(() => buildMockData(ctx), [ctx])
+  // ── 키워드 추가 ──────────────────────────────
+  const handleAddKeyword = useCallback(async (targetId: string, keyword: string) => {
+    setAddingTargetId(targetId)
+    try {
+      const res = await fetch('/api/place/keywords', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ target_id: targetId, keyword }),
+      })
+      const data = await res.json()
+      if (!data?.ok) {
+        showToast(data?.error || '키워드를 추가하지 못했어요')
+        return
+      }
+      await loadAll()
+      showToast(`"${keyword}" 추적을 시작했어요. 지금 측정하거나 내일 새벽 자동 수집을 기다리시면 돼요.`)
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : '키워드 추가 실패')
+    } finally {
+      setAddingTargetId(null)
+    }
+  }, [loadAll])
 
- const connectedCount = mockData.filter(g => g.rows[0].rank !== null && g.rows[0].rank <= 10).length
+  // ── 키워드 삭제 ──────────────────────────────
+  const handleRemoveKeyword = useCallback(async (keywordTargetId: string) => {
+    try {
+      const res = await fetch(`/api/place/keywords?id=${encodeURIComponent(keywordTargetId)}`, {
+        method: 'DELETE',
+        credentials: 'include',
+      })
+      const data = await res.json()
+      if (!data?.ok) {
+        showToast(data?.error || '삭제하지 못했어요')
+        return
+      }
+      await loadAll()
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : '삭제 실패')
+    }
+  }, [loadAll])
 
- const filtered = mockData.filter(g =>
- g.keyword.includes(search) || g.relatedKw.includes(search) || search === ''
- )
+  // ── 즉시 재측정 ──────────────────────────────
+  const handleRefreshKeyword = useCallback(async (keywordTargetId: string) => {
+    setRefreshingId(keywordTargetId)
+    try {
+      const res = await fetch('/api/place/keyword-rank', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ keyword_target_id: keywordTargetId }),
+      })
+      const data = await res.json()
 
- const handleScan = useCallback(async () => {
- setScanning(true)
- await new Promise(r => setTimeout(r, 1500))
- setLastUpdated(new Date().toLocaleString('ko-KR'))
- setScanning(false)
- }, [])
+      if (!data?.ok) {
+        showToast(data?.error || '순위를 가져오지 못했어요')
+        return
+      }
 
- return (
- <div className="min-h-screen bg-[#F8F9FA]">
- <Sidebar />
- <div className="md:ml-[220px] flex flex-col min-h-screen">
- <PageHeader
- icon={<TrendingUp size={28} className="text-white" strokeWidth={2.5} />}
- title="키워드 순위"
- subtitle="네이버 검색에서 내 업체가 몇 위인지 — 위치별·디바이스별 실시간"
- variant="sky"
- />
+      const rankText = data.rank == null ? '미노출' : `${data.rank}위`
+      showToast(`측정 완료 — ${data.keyword} ${rankText} (점수 ${data.score ?? '-'})`)
 
- {/* 상단 필터 바 */}
- <div className="bg-white border-b border-[#E5E8EB] px-4 md:px-6 py-3 sticky top-0 z-20">
- <div className="max-w-6xl mx-auto flex items-center gap-2.5 md:gap-3 flex-wrap">
- {/* 지역 */}
- <div className="flex items-center gap-1.5">
- <span className="text-xs text-[#8B95A1] font-medium">지역</span>
- <select value={area} onChange={e => setArea(e.target.value)}
- className="text-sm border border-[#E5E8EB] rounded-lg px-2.5 py-1.5 bg-white text-[#191F28] font-medium focus:outline-none focus:border-[#3182F6]">
- {/* 현재 area가 옵션에 없으면 자동 추가 (프로필 주소 기반) */}
- {!AREA_OPTIONS.includes(area) && <option value={area}>{area} (내 매장)</option>}
- {AREA_OPTIONS.map(a => <option key={a} value={a}>{a}</option>)}
- </select>
- </div>
+      // 해당 매장 이력 갱신
+      const kt = keywords.find(k => k.id === keywordTargetId)
+      if (kt) {
+        setHistoryByTarget(prev => {
+          const next = { ...prev }
+          delete next[kt.target_id]
+          return next
+        })
+        await loadHistory(kt.target_id)
+      }
+      await loadAll()
+    } catch (e) {
+      showToast(e instanceof Error ? e.message : '측정 실패')
+    } finally {
+      setRefreshingId(null)
+    }
+  }, [keywords, loadAll, loadHistory])
 
- {/* 업종 */}
- <div className="flex items-center gap-1.5">
- <span className="text-xs text-[#8B95A1] font-medium">플레이스</span>
- <select value={placeType} onChange={e => setPlaceType(e.target.value)}
- className="text-sm border border-[#E5E8EB] rounded-lg px-2.5 py-1.5 bg-white text-[#191F28] font-medium focus:outline-none focus:border-[#3182F6]">
- <option>음식점</option>
- <option>카페</option>
- <option>미용실</option>
- <option>병원</option>
- <option>쇼핑</option>
- </select>
- </div>
+  // ── 검색 필터 ────────────────────────────────
+  const filteredTargets = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return targets
+    return targets.filter(t => {
+      if (t.name?.toLowerCase().includes(q)) return true
+      return keywords.some(k => k.target_id === t.id && k.keyword.toLowerCase().includes(q))
+    })
+  }, [targets, keywords, search])
 
- {/* 검색창 */}
- <div className="flex-1 min-w-[200px]">
- <input
- value={search}
- onChange={e => setSearch(e.target.value)}
- placeholder="키워드 검색..."
- className="w-full text-sm border border-[#E5E8EB] rounded-lg px-3 py-1.5 bg-white text-[#191F28] focus:outline-none focus:border-[#3182F6]"
- />
- </div>
+  const keywordCount = keywords.length
+  const trackedCount = useMemo(
+    () => keywords.filter(k => k.last_rank != null && k.last_rank <= 10).length,
+    [keywords],
+  )
 
- {/* 버튼 그룹 */}
- <div className="flex items-center gap-2">
- <button
- onClick={handleScan}
- disabled={scanning}
- className="inline-flex items-center gap-1.5 px-4 py-1.5 rounded-lg bg-[#3182F6] text-white text-sm font-semibold hover:bg-[#1B64DA] transition-colors disabled:opacity-60"
- >
- {scanning ? (
- <>
- <RefreshCw size={13} strokeWidth={2.5} className="animate-spin" />
- 스캐닝...
- </>
- ) : (
- <>
- <Search size={13} strokeWidth={2.5} />
- 스캐닝
- </>
- )}
- </button>
- <button className="px-4 py-1.5 rounded-lg border border-[#E5E8EB] text-sm font-medium text-[#4E5968] hover:bg-[#F2F4F6] transition-colors">
- 분석
- </button>
- <button className="px-4 py-1.5 rounded-lg border border-[#E5E8EB] text-sm font-medium text-[#4E5968] hover:bg-[#F2F4F6] transition-colors">
- 전체검색
- </button>
- </div>
+  return (
+    <div className="min-h-screen bg-[#F8F9FA]">
+      <Sidebar />
+      <div className="md:ml-[220px] flex flex-col min-h-screen">
+        <PageHeader
+          icon={<TrendingUp size={28} className="text-white" strokeWidth={2.5} />}
+          title="플레이스 모니터링"
+          subtitle="등록한 매장의 키워드 순위를 매일 새벽 자동으로 추적해요"
+          variant="sky"
+        />
 
- {/* 업데이트 시간 */}
- <span className="text-[11px] text-[#8B95A1] ml-auto">마지막 업데이트: {lastUpdated}</span>
- </div>
- </div>
+        {/* 상단 바 */}
+        <div className="bg-white border-b border-[#E5E8EB] px-4 md:px-6 py-3 sticky top-0 z-20">
+          <div className="max-w-6xl mx-auto flex items-center gap-3 flex-wrap">
+            <div className="flex-1 min-w-[200px] relative">
+              <Search
+                size={14}
+                strokeWidth={2.5}
+                className="absolute left-3 top-1/2 -translate-y-1/2 text-[#8B95A1]"
+              />
+              <input
+                value={search}
+                onChange={e => setSearch(e.target.value)}
+                placeholder="매장명 · 키워드로 검색"
+                className="w-full text-sm border border-[#E5E8EB] rounded-xl pl-9 pr-3 py-2 bg-white text-[#191F28] focus:outline-none focus:border-[#3182F6]"
+              />
+            </div>
 
- {/* 데모 안내 배너 */}
- <div className="bg-[#FFFBEB] border-b border-[#FDE68A] px-4 md:px-6 py-3">
- <div className="max-w-6xl mx-auto flex items-start gap-2">
- <AlertTriangle size={13} className="text-[#92400E] flex-shrink-0 mt-0.5" strokeWidth={2.5} />
- <p className="text-[11px] text-[#92400E] leading-relaxed">
- <strong>아래는 예시 데이터입니다</strong> · 네이버 Search API 또는 selfrank·키워드마스터 같은 외부 순위 측정 서비스를 연동하면 내 매장의 실제 키워드 순위로 교체됩니다.
- </p>
- </div>
- </div>
+            <div className="flex items-center gap-2 text-xs">
+              <span className="px-2.5 py-1.5 rounded-lg bg-[#F2F4F6] text-[#4E5968] font-semibold whitespace-nowrap">
+                키워드 {keywordCount} / {keywordLimit}
+              </span>
+              <span className="px-2.5 py-1.5 rounded-lg bg-[#EFF6FF] text-[#3182F6] font-semibold whitespace-nowrap inline-flex items-center gap-1">
+                <Trophy size={11} strokeWidth={3} />
+                10위 이내 {trackedCount}
+              </span>
+            </div>
 
- {/* 통계 요약 바 */}
- <div className="bg-white border-b border-[#F2F4F6] px-4 md:px-6 py-2.5">
- <div className="max-w-6xl mx-auto flex items-center gap-3 md:gap-6 text-xs flex-wrap">
- <span className="text-[#8B95A1]">
- 전체 키워드 <strong className="text-[#191F28]">{mockData.length}개</strong> ·
- 상위 10위 <strong className="text-[#3182F6]">{connectedCount}개</strong> ({Math.round(connectedCount/mockData.length*100)}%)
- </span>
- <div className="flex items-center gap-3 md:gap-4 flex-wrap">
- <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-[#EFF6FF]"/> <span className="text-[#3182F6]">1~3위</span></span>
- <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-[#ECFDF5]"/><span className="text-[#12B76A]">4~5위</span></span>
- <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-[#FFFBEB]"/><span className="text-[#F59E0B]">6~10위</span></span>
- <span className="flex items-center gap-1"><span className="w-2.5 h-2.5 rounded-sm bg-[#FFF1F2]"/><span className="text-[#F04452]">11~20위</span></span>
- </div>
- </div>
- </div>
+            <button
+              onClick={() => {
+                setHistoryByTarget({})
+                loadAll()
+              }}
+              disabled={loading}
+              className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl border border-[#E5E8EB] bg-white text-[#4E5968] text-xs font-bold hover:border-[#3182F6] hover:text-[#3182F6] disabled:opacity-50"
+            >
+              <RefreshCw size={12} strokeWidth={3} className={loading ? 'animate-spin' : ''} />
+              새로고침
+            </button>
+          </div>
+        </div>
 
- {/* 키워드 카드 그리드 */}
- <main className="flex-1 px-4 md:px-6 py-4 md:py-6 max-w-6xl mx-auto w-full">
- {filtered.length === 0 ? (
- <div className="flex flex-col items-center justify-center h-64 text-[#8B95A1]">
- <p className="text-lg font-bold mb-1">검색 결과 없음</p>
- <p className="text-sm">다른 키워드로 검색해 보세요</p>
- </div>
- ) : (
- <div className="grid grid-cols-1 xl:grid-cols-2 gap-4">
- {filtered.map(group => (
- <KeywordCard key={group.id} group={group} />
- ))}
- </div>
- )}
- </main>
+        <main className="flex-1 px-4 md:px-6 py-5 max-w-6xl mx-auto w-full">
+          {/* 안내 배너 */}
+          <div className="mb-4 rounded-xl bg-[#EFF6FF] border border-[#BFDBFE] px-4 py-3 flex items-start gap-2.5">
+            <Info size={15} strokeWidth={2.5} className="text-[#3182F6] flex-shrink-0 mt-0.5" />
+            <p className="text-[12px] text-[#1E40AF] leading-relaxed">
+              키워드를 등록하면 <strong>매일 새벽 6시</strong>에 네이버 플레이스 순위가 자동으로 기록돼요.
+              기록이 쌓일수록 순위 추이와 점수 변화를 정확하게 볼 수 있어요.
+              지금 당장 확인하고 싶으면 카드의 <strong>새로고침</strong>을 눌러주세요.
+            </p>
+          </div>
 
- {/* 하단 안내 */}
- <div className="px-4 md:px-6 py-3 bg-white border-t border-[#F2F4F6]">
- <p className="max-w-6xl mx-auto text-[11px] text-[#8B95A1]">
- 실시간 순위는 <strong className="text-[#3182F6]">네이버 Search API</strong> 키 설정 후 실제 데이터로 전환됩니다.
- 현재는 목업 데이터입니다. &nbsp;
- <a href="/settings" className="text-[#3182F6] underline">API 키 설정 →</a>
- </p>
- </div>
- <Footer />
- </div>
- </div>
- )
+          {error && (
+            <div className="mb-4 rounded-xl bg-[#FEF2F2] border border-[#FECACA] px-4 py-3 text-[13px] text-[#DC2626]">
+              {error}
+            </div>
+          )}
+
+          {loading ? (
+            <div className="rounded-2xl bg-white border border-[#E5E8EB] p-12 text-center text-[#8B95A1] text-sm">
+              불러오는 중…
+            </div>
+          ) : targets.length === 0 ? (
+            /* 매장 자체가 없음 */
+            <div className="rounded-2xl bg-white border border-[#E5E8EB] p-12 text-center">
+              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#3182F6] to-[#1B64DA] shadow-sm flex items-center justify-center mx-auto mb-4">
+                <Store size={22} className="text-white" strokeWidth={2.5} />
+              </div>
+              <h3 className="font-bold text-[#191F28] mb-1.5">먼저 매장을 등록해주세요</h3>
+              <p className="text-[13px] text-[#8B95A1] leading-relaxed mb-5">
+                네이버 플레이스 URL 만 붙여넣으면 등록돼요.
+                <br />
+                등록 후 이 화면에서 키워드별 순위를 추적할 수 있어요.
+              </p>
+              <Link
+                href="/marketing/place"
+                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#3182F6] text-white text-sm font-bold hover:bg-[#1B64DA]"
+              >
+                <Plus size={14} strokeWidth={3} />
+                매장 등록하러 가기
+              </Link>
+            </div>
+          ) : filteredTargets.length === 0 ? (
+            <div className="rounded-2xl bg-white border border-[#E5E8EB] p-12 text-center text-[#8B95A1] text-sm">
+              검색 결과가 없어요.
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {filteredTargets.map(t => (
+                <StoreCard
+                  key={t.id}
+                  target={t}
+                  keywords={keywords.filter(k => k.target_id === t.id)}
+                  history={historyByTarget[t.id] ?? []}
+                  loadingHistory={loadingHistoryFor.has(t.id)}
+                  onAddKeyword={handleAddKeyword}
+                  onRemoveKeyword={handleRemoveKeyword}
+                  onRefreshKeyword={handleRefreshKeyword}
+                  refreshingId={refreshingId}
+                  addingTargetId={addingTargetId}
+                />
+              ))}
+            </div>
+          )}
+
+          {/* 하단 설명 */}
+          {targets.length > 0 && (
+            <div className="mt-6 rounded-2xl bg-white border border-[#E5E8EB] p-5">
+              <h4 className="font-bold text-[#191F28] text-sm mb-2.5">순위와 점수는 이렇게 계산돼요</h4>
+              <ul className="space-y-1.5 text-[12px] text-[#4E5968] leading-relaxed">
+                <li>
+                  1) <strong>순위</strong> — 네이버 플레이스에서 해당 키워드로 검색했을 때 내 매장이 몇 번째로
+                  나오는지. 100위까지 확인하고, 그 안에 없으면 미노출로 표시돼요.
+                </li>
+                <li>
+                  2) <strong>점수</strong> — 순위 40% · 블로그 리뷰 25% · 방문자 리뷰 25% · 평점 10% 를
+                  합쳐 100점 만점으로 환산한 값이에요. 리뷰는 로그 스케일이라 대형 매장이 만점을 독식하지
+                  않아요.
+                </li>
+                <li>
+                  3) <strong>변동</strong> — 전날 대비 순위 변화예요. 숫자가 줄면 상승(초록), 늘면
+                  하락(빨강)으로 표시돼요.
+                </li>
+              </ul>
+            </div>
+          )}
+        </main>
+
+        <Footer />
+      </div>
+
+      {/* 토스트 */}
+      {toast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-4 py-3 rounded-xl bg-[#191F28] text-white text-[13px] font-medium shadow-lg max-w-[90vw]">
+          {toast}
+        </div>
+      )}
+    </div>
+  )
 }

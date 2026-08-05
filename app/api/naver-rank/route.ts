@@ -1,72 +1,70 @@
+// app/api/naver-rank/route.ts
+// ============================================================
+// 플레이스 키워드 순위 단건 조회 (매장 등록 없이 즉석 확인용)
+//
+// 2026-08-04 리팩터:
+//   기존 구현은 지역검색 오픈API 를 start=1,6,11... 로 페이징했으나
+//   해당 API 는 start 최대 1 · display 최대 5 라 구조적으로 상위 5위까지만
+//   조회 가능했고, 상호명 문자열 매칭이라 지점명·띄어쓰기로 오탐이 났다.
+//   또한 어떤 프론트에서도 호출되지 않는 고아 라우트였다.
+//
+//   이제 app/lib/place-rank.ts 의 scanPlaceRank() 에 위임한다.
+//   (placeId 매칭 + map_api → mobile_list → local_openapi 순차 폴백)
+//   순위 측정 로직이 두 곳에 존재하면 반드시 어긋나므로 단일 출처를 유지한다.
+//
+//   GET ?keyword=부천가발&placeId=1234567
+//   GET ?keyword=부천가발&businessName=모앤도트
+//
+// 기록은 남기지 않는다. 시계열이 필요하면 /api/place/keyword-rank 를 쓸 것.
+// ============================================================
 import { NextRequest, NextResponse } from 'next/server'
 import { requireUser } from '@/app/lib/userAuth'
 import { rateLimitByIp } from '@/app/lib/rateLimit'
+import { scanPlaceRank } from '@/app/lib/place-rank'
 
-function stripHtml(s: string) { return s.replace(/<[^>]*>/g, '').trim() }
-
-function isMatch(title: string, biz: string): boolean {
- const t = stripHtml(title).toLowerCase().replace(/\s/g, '')
- const b = biz.toLowerCase().replace(/\s/g, '')
- if (!b || b === '내가게') return false
- return t.includes(b) || b.includes(t)
-}
+export const runtime = 'nodejs'
+export const dynamic = 'force-dynamic'
+export const maxDuration = 60
 
 export async function GET(req: NextRequest) {
- // 인증 + rate limit (네이버 검색 API 보호 — 일일 호출 한도)
- const auth = await requireUser()
- if (!auth.ok) return NextResponse.json({ error: '로그인이 필요합니다' }, { status: auth.status })
- const rl = rateLimitByIp(req, `naver-rank:${auth.userId}`, 20, 60)
- if (!rl.ok) {
- return NextResponse.json({ error: 'rate_limited', message: `${rl.resetIn}초 후 다시 시도해주세요.` }, { status: 429 })
- }
+  const auth = await requireUser()
+  if (!auth.ok) {
+    return NextResponse.json({ error: '로그인이 필요합니다' }, { status: auth.status })
+  }
 
- const { searchParams } = new URL(req.url)
- const keyword = searchParams.get('keyword') || ''
- const businessName = searchParams.get('businessName') || ''
+  const rl = rateLimitByIp(req, `naver-rank:${auth.userId}`, 20, 60)
+  if (!rl.ok) {
+    return NextResponse.json(
+      { error: 'rate_limited', message: `${rl.resetIn}초 후 다시 시도해주세요.` },
+      { status: 429 },
+    )
+  }
 
- if (!keyword.trim()) return NextResponse.json({ error: '키워드 필요' }, { status: 400 })
+  const sp = new URL(req.url).searchParams
+  const keyword = (sp.get('keyword') || '').trim()
+  const placeId = (sp.get('placeId') || '').trim() || null
+  const businessName = (sp.get('businessName') || '').trim() || null
 
- const clientId = process.env.NAVER_CLIENT_ID
- const clientSecret = process.env.NAVER_CLIENT_SECRET
- if (!clientId || !clientSecret) return NextResponse.json({ rank: null, error: 'API 키 미설정' })
+  if (!keyword) {
+    return NextResponse.json({ error: '키워드가 필요해요' }, { status: 400 })
+  }
+  if (!placeId && !businessName) {
+    return NextResponse.json({ error: 'placeId 또는 businessName 이 필요해요' }, { status: 400 })
+  }
 
- const MAX = 100
- const PER = 5
+  const result = await scanPlaceRank({ keyword, placeId, businessName, maxRank: 100 })
 
- try {
- for (let start = 1; start <= MAX; start += PER) {
- const url = 'https://openapi.naver.com/v1/search/local.json'
- + '?query=' + encodeURIComponent(keyword)
- + '&display=' + PER + '&start=' + start + '&sort=random'
+  if (result.method === 'none') {
+    return NextResponse.json(
+      { rank: null, error: '순위를 가져오지 못했어요', detail: result.errors.join(', ') },
+      { status: 502 },
+    )
+  }
 
- const res = await fetch(url, {
- headers: { 'X-Naver-Client-Id': clientId, 'X-Naver-Client-Secret': clientSecret },
- cache: 'no-store',
- })
- if (!res.ok) return NextResponse.json({ rank: null, error: 'Naver API ' + res.status })
-
- const data = await res.json()
- const items: Array<{ title: string; link: string }> = data.items || []
- if (!items.length) return NextResponse.json({ rank: null, total: data.total || 0 })
-
- for (let i = 0; i < items.length; i++) {
- if (isMatch(items[i].title, businessName)) {
- const link = items[i].link || ''
- const placeId = link.match(/\/([0-9]{5,})(?:\/|$)/)?.[1] || null
- return NextResponse.json({
- rank: start + i,
- total: data.total || 0,
- matchedTitle: stripHtml(items[i].title),
- placeLink: link,
- placeId,
- })
- }
- }
- if (data.total && data.total < start + PER) return NextResponse.json({ rank: null, total: data.total })
- }
- return NextResponse.json({ rank: null, total: 0, outOfRange: true })
- } catch (err) {
- console.error('[naver-rank]', err)
- return NextResponse.json({ rank: null, error: '연결 실패' })
- }
+  return NextResponse.json({
+    rank: result.rank,
+    total: result.total,
+    method: result.method,
+    matchedTitle: result.matchedName,
+  })
 }
