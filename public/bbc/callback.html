@@ -1,0 +1,13 @@
+<!DOCTYPE html><html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>BBC 인증 콜백</title><style>
+body{font-family:-apple-system,'Malgun Gothic',sans-serif;background:#152C52;color:#fff;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;padding:20px}
+.card{background:#1D3A6B;border-radius:16px;padding:36px;max-width:560px;width:100%;text-align:center}
+h1{font-size:22px;margin:0 0 8px}.ok{color:#2EC4A5}p{color:#b9c4d8;font-size:14px;line-height:1.6}
+.code{background:#0e2140;border-radius:10px;padding:14px;margin:18px 0;word-break:break-all;font-family:monospace;font-size:13px;color:#2EC4A5;text-align:left}
+button{background:#2EC4A5;color:#152C52;border:none;font-weight:800;font-size:15px;padding:12px 24px;border-radius:999px;cursor:pointer}
+.done{display:none;margin-top:10px;color:#2EC4A5;font-size:13px}</style></head><body>
+<div class="card"><h1><span class="ok">인증 완료!</span> 코드가 발급됐어요</h1>
+<p>아래 코드를 복사해서 명령창에 붙여넣으세요:<br><b style="color:#fff">node scripts\\get_token.js 코드</b> (스레드)<br><b style="color:#fff">node scripts\\ig_get_token.js 코드</b> (인스타)</p>
+<div class="code" id="code">코드를 읽는 중...</div>
+<button onclick="navigator.clipboard.writeText(document.getElementById('code').textContent).then(()=>document.getElementById('d').style.display='block')">코드 복사</button>
+<div class="done" id="d">복사 완료! 명령창에 붙여넣으세요</div></div>
+<script>var c=new URLSearchParams(location.search).get('code');document.getElementById('code').textContent=c?c.replace('#_',''):'주소에 code 파라미터가 없습니다. 인증 URL부터 다시 시작하세요.'</script></body></html>
