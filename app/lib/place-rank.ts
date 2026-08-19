@@ -18,6 +18,34 @@
 
 export type RankMethod = 'map_api' | 'mobile_list' | 'local_openapi' | 'none'
 
+/**
+ * 검색 결과 1건. 내 매장·경쟁 매장 공통 형태.
+ *
+ * 리뷰 수·평점은 검색 응답에 들어 있으면 채우고 없으면 null 이다.
+ * 네이버가 응답 스키마를 자주 바꾸므로 파서는 여러 필드명을 시도한다.
+ */
+export type PlaceCandidate = {
+  /** 1-base 순위 */
+  rank: number
+  placeId: string | null
+  name: string
+  category?: string | null
+  visitorReviewCount?: number | null
+  blogReviewCount?: number | null
+  rating?: number | null
+  /**
+   * 네이버가 응답에 실어 보내는 노출 점수 (totalScore 계열).
+   *
+   * 2026-08-19 확인: 이 값으로 정렬한 순서가 실제 순위와 정확히 일치한다.
+   * 즉 우리가 만든 추정 공식이 아니라 네이버의 정렬 키 자체다.
+   *
+   * 단, 공식 문서화된 필드가 아니라 비공식 엔드포인트로 노출되는 내부 값이므로
+   * 언제든 이름이 바뀌거나 사라질 수 있다. 없으면 null 이고,
+   * 그때는 app/lib/place-score.ts 의 자체 산식으로 폴백한다.
+   */
+  naverScore?: number | null
+}
+
 export type PlaceRankResult = {
   /** 1-base 순위. 미노출이면 null */
   rank: number | null
@@ -27,9 +55,18 @@ export type PlaceRankResult = {
   method: RankMethod
   /** 매칭된 업체명 (검증용) */
   matchedName: string | null
+  /**
+   * 상위 경쟁 매장 목록 (내 매장 포함).
+   * 경쟁률·검색깊이 같은 상대 지표를 계산하려면 이 목록이 반드시 필요하다.
+   * 전략에 따라 리뷰 수까지 못 가져올 수 있으므로 비어 있을 수 있다.
+   */
+  competitors: PlaceCandidate[]
   /** 전략별 실패 사유 누적 — 전부 실패했을 때만 의미 있음 */
   errors: string[]
 }
+
+/** 경쟁사 목록을 몇 위까지 저장할지 */
+export const COMPETITOR_KEEP = 20
 
 export type ScanRankParams = {
   keyword: string
@@ -70,8 +107,36 @@ function nameMatches(candidate: string, target: string): boolean {
   return c.includes(t) || t.includes(c)
 }
 
-/** 후보 1건 — 전략별 파서가 이 형태로 정규화해서 반환 */
-type Candidate = { placeId: string | null; name: string }
+/** 후보 1건 — 전략별 파서가 이 형태로 정규화해서 반환 (rank 는 나중에 부여) */
+type Candidate = Omit<PlaceCandidate, 'rank'>
+
+/**
+ * 여러 후보 필드명 중 처음으로 유효한 숫자를 반환.
+ * 네이버 응답 스키마가 자주 바뀌므로 이름을 고정하지 않는다.
+ */
+function pickNum(obj: any, keys: string[]): number | null {
+  for (const k of keys) {
+    const v = obj?.[k]
+    if (v == null) continue
+    const n = typeof v === 'number' ? v : Number(String(v).replace(/[^\d.]/g, ''))
+    if (Number.isFinite(n)) return n
+  }
+  return null
+}
+
+function pickStr(obj: any, keys: string[]): string | null {
+  for (const k of keys) {
+    const v = obj?.[k]
+    if (typeof v === 'string' && v.trim()) return stripHtml(v)
+    if (Array.isArray(v) && v.length && typeof v[0] === 'string') return stripHtml(v[0])
+  }
+  return null
+}
+
+/** 후보 배열에 1-base 순위를 붙여 상위 N건만 남긴다 */
+function toRanked(list: Candidate[], keep: number): PlaceCandidate[] {
+  return list.slice(0, keep).map((c, i) => ({ ...c, rank: i + 1 }))
+}
 
 function findIndex(list: Candidate[], placeId?: string | null, businessName?: string | null): number {
   // 1순위: placeId 완전 일치
@@ -156,6 +221,31 @@ async function strategyMapApi(params: ScanRankParams): Promise<PlaceRankResult |
       collected.push({
         placeId: it?.id != null ? String(it.id) : null,
         name: String(it?.name || it?.title || ''),
+        category: pickStr(it, ['category', 'categoryName', 'businessCategory', 'categories']),
+        // 네이버가 필드명을 바꿔도 견디도록 후보를 여러 개 시도
+        visitorReviewCount: pickNum(it, [
+          'visitorReviewCount',
+          'visitorReviewTotal',
+          'reviewCount',
+          'placeReviewCount',
+        ]),
+        blogReviewCount: pickNum(it, [
+          'blogCafeReviewCount',
+          'blogReviewCount',
+          'blogCafeReviewTotal',
+          'userReviewCount',
+        ]),
+        rating: pickNum(it, ['visitorReviewScore', 'rating', 'reviewScore']),
+        // 네이버 내부 노출 점수. 이 값으로 정렬하면 실제 순위와 일치한다.
+        // 필드명이 바뀔 수 있으므로 후보를 넓게 잡는다.
+        naverScore: pickNum(it, [
+          'totalScore',
+          'total_score',
+          'placeScore',
+          'rankScore',
+          'score',
+          'displayScore',
+        ]),
       })
     }
 
@@ -172,6 +262,7 @@ async function strategyMapApi(params: ScanRankParams): Promise<PlaceRankResult |
     total: total || collected.length,
     method: 'map_api',
     matchedName: idx >= 0 ? collected[idx].name : null,
+    competitors: toRanked(collected, COMPETITOR_KEEP),
     errors: [],
   }
 }
@@ -211,6 +302,9 @@ async function strategyMobileList(params: ScanRankParams): Promise<PlaceRankResu
     total: ids.length,
     method: 'mobile_list',
     matchedName: null,
+    // 이 전략은 placeId 순서만 알 수 있고 리뷰 수는 못 뽑는다.
+    // 경쟁사 "순위 + placeId" 만이라도 남겨두면 나중에 개별 조회로 보강할 수 있다.
+    competitors: toRanked(candidates, COMPETITOR_KEEP),
     errors: [],
   }
 }
@@ -243,6 +337,7 @@ async function strategyLocalOpenApi(params: ScanRankParams): Promise<PlaceRankRe
     const candidates: Candidate[] = items.map(it => ({
       placeId: String(it?.link || '').match(/\/(\d{5,})(?:\/|$|\?)/)?.[1] || null,
       name: stripHtml(it?.title || ''),
+      category: stripHtml(it?.category || '') || null,
     }))
 
     const idx = findIndex(candidates, placeId, businessName)
@@ -251,6 +346,7 @@ async function strategyLocalOpenApi(params: ScanRankParams): Promise<PlaceRankRe
       total: Number(data?.total) || items.length,
       method: 'local_openapi',
       matchedName: idx >= 0 ? candidates[idx].name : null,
+      competitors: toRanked(candidates, COMPETITOR_KEEP),
       errors: [],
     }
   } catch {
@@ -268,10 +364,10 @@ async function strategyLocalOpenApi(params: ScanRankParams): Promise<PlaceRankRe
 export async function scanPlaceRank(params: ScanRankParams): Promise<PlaceRankResult> {
   const keyword = String(params.keyword || '').trim()
   if (!keyword) {
-    return { rank: null, total: 0, method: 'none', matchedName: null, errors: ['keyword_required'] }
+    return { rank: null, total: 0, method: 'none', matchedName: null, competitors: [], errors: ['keyword_required'] }
   }
   if (!params.placeId && !params.businessName) {
-    return { rank: null, total: 0, method: 'none', matchedName: null, errors: ['placeId_or_name_required'] }
+    return { rank: null, total: 0, method: 'none', matchedName: null, competitors: [], errors: ['placeId_or_name_required'] }
   }
 
   const errors: string[] = []
@@ -291,5 +387,5 @@ export async function scanPlaceRank(params: ScanRankParams): Promise<PlaceRankRe
     }
   }
 
-  return { rank: null, total: 0, method: 'none', matchedName: null, errors }
+  return { rank: null, total: 0, method: 'none', matchedName: null, competitors: [], errors }
 }
