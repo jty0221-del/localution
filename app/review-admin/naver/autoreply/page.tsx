@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Link2, AlertTriangle, CheckCircle2 } from 'lucide-react'
+import { Link2, AlertTriangle, CheckCircle2, Star, Sparkles, Check, Hourglass } from 'lucide-react'
 import Sidebar from '@/app/components/Sidebar'
 
 // ── 타입 ─────────────────────────────────────────────────────
@@ -44,8 +44,11 @@ const STATUS_LABEL: Record<string, { text: string; color: string }> = {
 function StarRow({ rating }: { rating: number | null }) {
  const r = Math.round(Math.min(5, Math.max(0, rating ?? 0)))
  return (
- <span className="text-amber-400 text-sm">
- {'★'.repeat(r)}{'☆'.repeat(5 - r)}
+ <span className="inline-flex items-center gap-px align-middle">
+ {[0, 1, 2, 3, 4].map((i) => (
+ <Star key={i} size={13} strokeWidth={0}
+ className={i < r ? 'text-amber-400 fill-amber-400' : 'text-[#E5E8EB] fill-[#E5E8EB]'} />
+ ))}
  </span>
  )
 }
@@ -244,7 +247,7 @@ export default function NaverAutoReplyPage() {
  {rev.draft_reply ? (
  <div className="mb-3">
  <div className="flex items-center gap-1.5 mb-1.5">
- <span className="text-[11px] font-bold text-[#1A67F5]">✦ AI 초안</span>
+ <span className="text-[11px] font-bold text-[#1A67F5] inline-flex items-center gap-1"><Sparkles size={11} strokeWidth={2.5} />AI 초안</span>
  {rev.reply_tone && (
  <span className="text-[10px] text-[#8B95A1]">
  · {TONES.find(t => t.value === rev.reply_tone)?.label || rev.reply_tone}
@@ -296,7 +299,7 @@ export default function NaverAutoReplyPage() {
  disabled={busy}
  className="flex-1 min-w-[80px] py-2 rounded-xl text-sm font-bold bg-[#1A67F5] text-white hover:bg-[#1552CC] disabled:opacity-50 transition-colors"
  >
- {busy ? '처리 중…' : '✓ 승인·게시'}
+ {busy ? '처리 중…' : <span className="inline-flex items-center justify-center gap-1"><Check size={14} strokeWidth={3} />승인·게시</span>}
  </button>
  <button
  onClick={() => { setEditingId(rev.id); setEditText(rev.draft_reply || '') }}
@@ -318,10 +321,10 @@ export default function NaverAutoReplyPage() {
  )}
 
  {rev.reply_status === 'queued' && (
- <p className="text-xs text-[#1A67F5] font-semibold mt-1">⏳ Railway Worker가 SmartPlace에 게시 중이에요</p>
+ <p className="text-xs text-[#1A67F5] font-semibold mt-1 flex items-center gap-1"><Hourglass size={12} strokeWidth={2.5} />Railway Worker가 SmartPlace에 게시 중이에요</p>
  )}
  {rev.reply_status === 'submitted' && (
- <p className="text-xs text-green-600 font-semibold mt-1">✓ 답글이 성공적으로 게시됐어요</p>
+ <p className="text-xs text-green-600 font-semibold mt-1 flex items-center gap-1"><Check size={12} strokeWidth={3} />답글이 성공적으로 게시됐어요</p>
  )}
  </div>
  )
@@ -505,7 +508,7 @@ export default function NaverAutoReplyPage() {
  disabled={loading}
  className="flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-sm font-semibold text-[#1A67F5] bg-[#EEF4FF] hover:bg-[#DCE8FF] disabled:opacity-50 transition-colors"
  >
- <span className={loading ? 'animate-spin' : ''}>✦</span>
+ <Sparkles size={14} strokeWidth={2.5} className={loading ? 'animate-spin' : ''} />
  AI 초안 지금 생성
  </button>
  </div>

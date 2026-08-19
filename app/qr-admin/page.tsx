@@ -20,7 +20,7 @@ import {
  Smartphone, Tablet, Monitor,
  BarChart3, TrendingUp, Clock,
  Store, Printer, Link2, Gift, Wifi,
- ClipboardList, Star, MapPin, AlertTriangle,
+ ClipboardList, Star, MapPin, AlertTriangle, Check,
  type LucideIcon,
 } from 'lucide-react'
 
@@ -379,8 +379,8 @@ function QRStatsPanel() {
  {r.meta.items_count !== undefined && `메뉴 ${r.meta.items_count}개 · `}
  {r.meta.tone && `${r.meta.tone} 말투 · `}
  {r.meta.char_count && `${r.meta.char_count}자 · `}
- {r.meta.has_receipt && '영수증 ✓ '}
- {r.meta.has_photo && '사진 ✓'}
+ {r.meta.has_receipt && '영수증 포함 · '}
+ {r.meta.has_photo && '사진 포함'}
  </p>
  )}
  </div>
@@ -899,8 +899,9 @@ export default function QRAdmin() {
  </a>
  )}
  {storeInfo.source === 'naver_synced' && (
- <p className="text-[10px] text-[#059669] pl-4 mt-1.5 leading-relaxed">
- ✓ 매장 정보는 <a href="/my/platforms/naver_place/connect" className="underline font-bold">매장 연결 페이지</a>에서 관리돼요
+ <p className="text-[10px] text-[#059669] pl-4 mt-1.5 leading-relaxed flex items-start gap-1">
+ <Check size={11} strokeWidth={3} className="mt-0.5 shrink-0" />
+ <span>매장 정보는 <a href="/my/platforms/naver_place/connect" className="underline font-bold">매장 연결 페이지</a>에서 관리돼요</span>
  </p>
  )}
  </div>
@@ -1138,7 +1139,7 @@ export default function QRAdmin() {
  </div>
  <div className="flex items-center gap-2">
  {qr.reviewUrl && (
- <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#EFF6FF] text-[#3182F6] font-semibold">링크 ✓</span>
+ <span className="text-[10px] px-2 py-0.5 rounded-full bg-[#EFF6FF] text-[#3182F6] font-semibold inline-flex items-center gap-0.5">링크<Check size={10} strokeWidth={3} /></span>
  )}
  <span className={`text-xs px-2.5 py-1 rounded-full font-semibold ${
  qr.active ? 'bg-green-100 text-green-700' : 'bg-[#F2F4F6] text-[#8B95A1]'

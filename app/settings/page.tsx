@@ -10,7 +10,7 @@ import CreatorChannelsSection from '../components/CreatorChannelsSection'
 import AutoReplySettings from '../components/AutoReplySettings'
 import { useConnections, PlatformId } from '../lib/connections'
 import { TABS, TAB_HERO, resolveTab, type Tab } from '../lib/settings-tabs'
-import { Store, Bell, Bot, Link2, CreditCard } from 'lucide-react'
+import { Store, Bell, Bot, Link2, CreditCard, Check, X } from 'lucide-react'
 
 // settings-tabs.ts 의 icon 키 → lucide 컴포넌트 매핑 (이모지 제거 후 통일)
 const TAB_HERO_ICONS = { Store, Bell, Bot, Link2, CreditCard } as const
@@ -1028,7 +1028,7 @@ function NotifyTab() {
  <p className="text-[11px] text-[#8B95A1] mt-1">카카오 로그인 + 알림 동의 1회만 하면 됩니다 (무료)</p>
  )}
  {kakaoConnected && (
- <p className="text-[11px] text-[#059669] mt-1">✓ 카카오 연결됨 — 알림 받을 준비 완료</p>
+ <p className="text-[11px] text-[#059669] mt-1 flex items-center gap-1"><Check size={12} strokeWidth={3} />카카오 연결됨 — 알림 받을 준비 완료</p>
  )}
  </div>
 
@@ -2003,7 +2003,7 @@ function PlanTab() {
  </div>
  <div className="flex items-center gap-1.5 flex-shrink-0">
  <span className="text-xs text-[#00C471] font-semibold">무료</span>
- <button onClick={() => removeFromCart(f.id)} className="text-[#B0B8C1] hover:text-red-400 text-xs">✕</button>
+ <button onClick={() => removeFromCart(f.id)} className="text-[#B0B8C1] hover:text-red-400" aria-label="삭제"><X size={14} strokeWidth={2.5} /></button>
  </div>
  </div>
  ))}

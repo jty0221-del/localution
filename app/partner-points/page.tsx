@@ -21,7 +21,7 @@ import Footer from '../components/Footer'
 import {
  ArrowRight, Gift, Copy, Check, Users, Calendar, Link as LinkIcon,
  Sparkles, Search, Clock, Trophy, Info, ExternalLink, Flame, Crown,
- Medal, Star, Zap, TrendingUp,
+ Medal, Star, Zap, TrendingUp, Circle,
 } from 'lucide-react'
 
 type Profile = { id?: string; email?: string; name?: string }
@@ -511,14 +511,14 @@ export default function PartnerPointsPage() {
  <div className="text-[11px] text-[#4E5968] space-y-0.5 mb-3 pb-3 border-b border-[#E5E8EB]/70">
  <div className="flex items-center gap-1">
  <span className={invitesOk ? 'text-[#059669]' : 'text-[#C9CDD2]'}>
- {invitesOk ? '✓' : '○'}
+ {invitesOk ? <Check size={12} strokeWidth={3} /> : <Circle size={12} strokeWidth={2.5} />}
  </span>
  <span>초대 <b>{t.requireInvites}명</b></span>
  </div>
  {t.requirePaid && (
  <div className="flex items-center gap-1">
  <span className={paidOk ? 'text-[#059669]' : 'text-[#C9CDD2]'}>
- {paidOk ? '✓' : '○'}
+ {paidOk ? <Check size={12} strokeWidth={3} /> : <Circle size={12} strokeWidth={2.5} />}
  </span>
  <span>유료 전환 <b>{t.requirePaid}명</b></span>
  </div>
@@ -526,7 +526,7 @@ export default function PartnerPointsPage() {
  {t.requireRevenue && (
  <div className="flex items-center gap-1">
  <span className={revenueOk ? 'text-[#059669]' : 'text-[#C9CDD2]'}>
- {revenueOk ? '✓' : '○'}
+ {revenueOk ? <Check size={12} strokeWidth={3} /> : <Circle size={12} strokeWidth={2.5} />}
  </span>
  <span>누적 매출 <b>{(t.requireRevenue / 10000).toFixed(0)}만원</b></span>
  </div>

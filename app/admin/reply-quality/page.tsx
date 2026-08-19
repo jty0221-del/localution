@@ -156,7 +156,7 @@ export default function ReplyQualityPage() {
                       <div key={range}>
                         <div className="flex items-center justify-between text-xs">
                           <span className={danger ? 'text-red-600 font-bold' : 'text-gray-700'}>
-                            {range}자 {danger && '⚠️'}
+                            {range}자 {danger && <AlertTriangle size={12} strokeWidth={2.5} className="inline-block align-[-1px]" />}
                           </span>
                           <span className="font-semibold text-gray-900">{count}</span>
                         </div>
@@ -177,7 +177,7 @@ export default function ReplyQualityPage() {
               <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-4 md:p-6">
                 <div className="text-sm md:text-base font-bold text-gray-900 mb-3">실패 원인 분석</div>
                 {stats.error_patterns.length === 0 ? (
-                  <div className="text-center py-6 text-sm text-gray-400">실패 없음 ✨</div>
+                  <div className="flex items-center justify-center gap-1.5 py-6 text-sm text-gray-400"><Sparkles size={14} strokeWidth={2.5} />실패 없음</div>
                 ) : (
                   <div className="space-y-1.5">
                     {stats.error_patterns.map(e => (

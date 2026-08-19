@@ -6,7 +6,7 @@ import Sidebar from '../../components/Sidebar'
 import Footer from '../../components/Footer'
 import { toast, confirmDialog } from '../../lib/toast'
 import PlatformLogo from '../../components/PlatformLogo'
-import { Link2, Search } from 'lucide-react'
+import { Link2, Search, X, Star } from 'lucide-react'
 
 // ── 대시보드 업체 목록 타입 ────────────────────────────────
 type Store = {
@@ -442,7 +442,7 @@ function NaverConnectModal(props: {
  <h2 className="font-bold text-[#191F28]">네이버 플레이스 연결</h2>
  <p className="text-xs text-[#8B95A1]">업체와 네이버 플레이스를 연결합니다</p>
  </div>
- <button onClick={onClose} className="text-[#8B95A1] text-xl">✕</button>
+ <button onClick={onClose} className="text-[#8B95A1]" aria-label="닫기"><X size={20} strokeWidth={2.5} /></button>
  </div>
 
  <div className="p-5 space-y-4">
@@ -613,7 +613,7 @@ function GoogleConnectModal(props: {
  <h2 className="font-bold text-[#191F28]">구글 비즈니스 연결</h2>
  <p className="text-xs text-[#8B95A1]">Google Maps로 매장을 검색하거나 URL을 붙여넣으세요</p>
  </div>
- <button onClick={onClose} className="text-[#8B95A1] text-xl">✕</button>
+ <button onClick={onClose} className="text-[#8B95A1]" aria-label="닫기"><X size={20} strokeWidth={2.5} /></button>
  </div>
 
  <div className="p-5 space-y-4">
@@ -675,7 +675,7 @@ function GoogleConnectModal(props: {
  className="w-full text-left px-4 py-3 hover:bg-[#EFF6FF] border-b last:border-b-0 border-[#F2F4F6] transition-colors">
  <p className="text-sm font-semibold text-[#191F28]">{r.name}</p>
  <p className="text-[11px] text-[#8B95A1] truncate">{r.address}</p>
- {r.rating && <p className="text-[11px] text-[#F5A623]">★ {r.rating} ({r.userRatingsTotal?.toLocaleString()}건)</p>}
+ {r.rating && <p className="text-[11px] text-[#F5A623] flex items-center gap-1"><Star size={11} strokeWidth={0} className="fill-current" />{r.rating} ({r.userRatingsTotal?.toLocaleString()}건)</p>}
  </button>
  ))}
  </div>
@@ -687,7 +687,7 @@ function GoogleConnectModal(props: {
  <div className="flex items-center gap-2 mb-2">
  <span className="w-2 h-2 rounded-full bg-[#4285F4]" />
  <span className="text-xs font-bold text-[#3367D6]">검증 완료</span>
- {preview.rating > 0 && <span className="ml-auto text-xs text-[#F5A623]">★ {preview.rating} ({preview.reviewCount?.toLocaleString()}건)</span>}
+ {preview.rating > 0 && <span className="ml-auto text-xs text-[#F5A623] inline-flex items-center gap-1"><Star size={12} strokeWidth={0} className="fill-current" />{preview.rating} ({preview.reviewCount?.toLocaleString()}건)</span>}
  </div>
  <p className="text-sm font-bold text-[#191F28]">{preview.name}</p>
  {preview.address && <p className="text-[11px] text-[#4E5968] mt-0.5">{preview.address}</p>}
@@ -780,7 +780,7 @@ function KakaoConnectModal(props: {
  <h2 className="font-bold text-[#191F28]">카카오맵 연결</h2>
  <p className="text-xs text-[#8B95A1]">카카오맵에서 매장을 검색하거나 URL을 입력하세요</p>
  </div>
- <button onClick={onClose} className="text-[#8B95A1] text-xl">✕</button>
+ <button onClick={onClose} className="text-[#8B95A1]" aria-label="닫기"><X size={20} strokeWidth={2.5} /></button>
  </div>
 
  <div className="p-5 space-y-4">
@@ -929,7 +929,7 @@ function DeliveryConnectModal(props: {
  <h2 className="font-bold text-[#191F28]">{meta.name} 연결</h2>
  <p className="text-xs text-[#8B95A1]">매장 URL 또는 ID를 입력해 연결합니다</p>
  </div>
- <button onClick={onClose} className="text-[#8B95A1] text-xl">✕</button>
+ <button onClick={onClose} className="text-[#8B95A1]" aria-label="닫기"><X size={20} strokeWidth={2.5} /></button>
  </div>
 
  <div className="p-5 space-y-4">

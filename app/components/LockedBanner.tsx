@@ -7,6 +7,7 @@
 'use client'
 
 import Link from 'next/link'
+import { Check } from 'lucide-react'
 import { getModule, type ModuleId } from '../lib/modules'
 
 interface LockedBannerProps {
@@ -138,7 +139,7 @@ export default function LockedBanner({
  gap: 8,
  }}
  >
- <span style={{ color: '#10b981', fontWeight: 700 }}>✓</span>
+ <Check size={15} strokeWidth={3} style={{ color: '#10b981', flexShrink: 0, marginTop: 2 }} />
  <span>{b}</span>
  </li>
  ))}

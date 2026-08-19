@@ -6,7 +6,7 @@ import Sidebar from '../../components/Sidebar'
 import PageHeader from '../../components/PageHeader'
 import Footer from '../../components/Footer'
 import { toast } from '../../lib/toast'
-import { Video } from 'lucide-react'
+import { Video, Play, Pause, Download } from 'lucide-react'
 
 type Scene = {
  order: number
@@ -48,7 +48,7 @@ const MOODS = [
 const DURATIONS = [15, 30, 60] as const
 const PLATFORMS = [
  { id: 'reels', label: '인스타 릴스', icon: '' },
- { id: 'shorts', label: '유튜브 쇼츠', icon: '▶' },
+ { id: 'shorts', label: '유튜브 쇼츠', icon: '' },
  { id: 'tiktok', label: '틱톡', icon: '' },
 ] as const
 
@@ -285,7 +285,9 @@ export default function ReelsGeneratorPage() {
  <div className="flex gap-2">
  <button onClick={togglePlay}
  className="bg-[#8B5CF6] text-white text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-[#7C3AED]">
- {playing ? '⏸ 정지' : '▶ 재생'}
+ <span className="inline-flex items-center justify-center gap-1">
+ {playing ? <><Pause size={12} strokeWidth={0} className="fill-current" />정지</> : <><Play size={12} strokeWidth={0} className="fill-current" />재생</>}
+ </span>
  </button>
  <button onClick={copyJson}
  className="bg-[#F2F4F6] text-[#4E5968] text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-[#E5E8EB]">
@@ -293,7 +295,7 @@ export default function ReelsGeneratorPage() {
  </button>
  <button onClick={downloadJson}
  className="bg-[#F2F4F6] text-[#4E5968] text-xs font-bold px-3 py-1.5 rounded-lg hover:bg-[#E5E8EB]">
- ⬇ 다운로드
+ <span className="inline-flex items-center justify-center gap-1"><Download size={12} strokeWidth={2.5} />다운로드</span>
  </button>
  </div>
  )}
@@ -312,7 +314,7 @@ export default function ReelsGeneratorPage() {
  <div className="absolute inset-0 bg-gradient-to-b from-[#1F1B4D] via-[#8B5CF6] to-[#EC4899] flex flex-col items-center justify-center text-white p-5 text-center">
  <div className="text-xs opacity-70 mb-1">HOOK</div>
  <div className="text-xl font-black leading-tight">{script.hooks[0]}</div>
- <div className="mt-4 text-[10px] opacity-60">▶ 재생 버튼을 눌러 씬을 확인하세요</div>
+ <div className="mt-4 text-[10px] opacity-60 flex items-center justify-center gap-1"><Play size={10} strokeWidth={0} className="fill-current" />재생 버튼을 눌러 씬을 확인하세요</div>
  </div>
  )}
  {activeScene && (

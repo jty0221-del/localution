@@ -7,7 +7,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import Link from 'next/link'
 import Sidebar from '../../components/Sidebar'
-import { User, Store, MapPin, Save, Check, ArrowLeft, Mail, Phone, LogOut, Link2, RefreshCw, Tag } from 'lucide-react'
+import { User, Store, MapPin, Save, Check, ArrowLeft, Mail, Phone, LogOut, Link2, RefreshCw, Tag, Star } from 'lucide-react'
 import Footer from '../../components/Footer'
 import { confirmDialog, toast } from '../../lib/toast'
 
@@ -288,8 +288,15 @@ export default function ProfileSettingsPage() {
  style={{ background: color.bg, color: color.fg }}>
  <span>{p.label}</span>
  {p.review_count > 0 && (
- <span className="text-[10px] opacity-80">
- 리뷰 {p.review_count}{p.rating_avg != null ? ' · ' + p.rating_avg.toFixed(1) + '★' : ''}
+ <span className="text-[10px] opacity-80 inline-flex items-center gap-0.5">
+ 리뷰 {p.review_count}
+ {p.rating_avg != null && (
+ <>
+ <span>·</span>
+ <Star size={9} strokeWidth={0} className="fill-current" />
+ {p.rating_avg.toFixed(1)}
+ </>
+ )}
  </span>
  )}
  {p.platform_store_id && (

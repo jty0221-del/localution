@@ -13,7 +13,7 @@ import Sidebar from '../components/Sidebar'
 import Footer from '../components/Footer'
 import PageHeader from '../components/PageHeader'
 import HarangMarketingPopup from '../components/HarangMarketingPopup'
-import { MessageSquare, Inbox } from 'lucide-react'
+import { MessageSquare, Inbox, Star } from 'lucide-react'
 import PlatformHealthStatus from './components/PlatformHealthStatus'
 
 export const dynamic = 'force-dynamic'
@@ -110,8 +110,11 @@ interface FeedReview {
 function Stars({ n, color = '#F59E0B' }: { n: number; color?: string }) {
  const v = Math.max(0, Math.min(5, Math.round(n)))
  return (
- <span className="text-sm tracking-tight" style={{ color }}>
- {'★'.repeat(v)}<span className="text-[#E5E8EB]">{'★'.repeat(5 - v)}</span>
+ <span className="inline-flex items-center gap-px align-middle">
+ {[0, 1, 2, 3, 4].map((i) => (
+ <Star key={i} size={13} strokeWidth={0} className="fill-current"
+ style={{ color: i < v ? color : '#E5E8EB' }} />
+ ))}
  </span>
  )
 }

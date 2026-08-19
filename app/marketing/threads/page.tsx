@@ -448,8 +448,10 @@ function ReviewDraftPanel({
  }`}
  >
  <div className="flex items-center gap-2 mb-1">
- <span className="text-xs font-semibold text-[#059669]">
- {'★'.repeat(r.rating ?? 5)}
+ <span className="inline-flex items-center gap-px text-[#059669]">
+ {Array.from({ length: r.rating ?? 5 }).map((_, si) => (
+ <Star key={si} size={11} strokeWidth={0} className="fill-current" />
+ ))}
  </span>
  <span className="text-xs text-[#9CA3AF]">
  {PLATFORM_LABEL[r.platform] ?? r.platform}

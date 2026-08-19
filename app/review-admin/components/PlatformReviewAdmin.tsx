@@ -27,7 +27,7 @@ import ReplyFeedbackButtons from '../../components/ReplyFeedbackButtons'
 import ReplyTemplatePicker from '../../components/ReplyTemplatePicker'
 import PageHeader from '../../components/PageHeader'
 import { toast } from '../../lib/toast'
-import { Heart, Briefcase, Smile, Edit3, Mail, Flame, FileText, AlertTriangle, Sparkles, Star, type LucideIcon } from 'lucide-react'
+import { Heart, Briefcase, Smile, Edit3, Mail, Flame, FileText, AlertTriangle, Sparkles, Star, X, AlarmClock, Hourglass, type LucideIcon } from 'lucide-react'
 // 76차: CoupangReviewBookmarkletDialog import 제거 (자동 연결로 대체됨)
 
 type PlatformSlug = 'naver_place' | 'baemin' | 'yogiyo' | 'coupangeats' | 'kakao_map'
@@ -147,9 +147,11 @@ export interface PlatformConfig {
 function Stars({ n, color }: { n: number; color: string }) {
  const v = Math.max(0, Math.min(5, Math.round(n)))
  return (
- <span className="text-sm tracking-tight" style={{ color }}>
- {'★'.repeat(v)}
- <span className="text-[#E5E8EB]">{'★'.repeat(5 - v)}</span>
+ <span className="inline-flex items-center gap-px align-middle">
+ {[0, 1, 2, 3, 4].map((i) => (
+ <Star key={i} size={13} strokeWidth={0} className="fill-current"
+ style={{ color: i < v ? color : '#E5E8EB' }} />
+ ))}
  </span>
  )
 }
@@ -531,7 +533,7 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
  const code = String(aiData?.code || '')
  const errMsg = String(aiData?.error || aiData?.message || 'AI 서버 응답 없음')
  if (code === 'ai_credit_exhausted') {
- toast.error('AI 답글 서비스가 일시 중단됐어요 (결제 확인 필요). 잠시 후 다시 시도해주세요.', { autoClose: 8000 })
+ toast.error('AI 답글 서비스가 일시 중단됐어요 (결제 확인 필요). 잠시 후 다시 시도해주세요.', 8000)
  } else if (code === 'ai_rate_limited') {
  toast.error('AI 답글 요청이 몰려있어요. 30초 후 다시 시도해주세요.')
  } else if (code === 'ai_auth_failed') {
@@ -794,7 +796,7 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
  const msg = code === 'ai_credit_exhausted'
  ? 'AI 답글 서비스가 일시 중단됐어요 (결제 확인 필요). 나머지 일괄 생성을 중단합니다.'
  : 'AI 서비스 인증 오류로 일괄 생성을 중단합니다. 담당자에게 문의해주세요.'
- toast.error(msg, { autoClose: 8000 })
+ toast.error(msg, 8000)
  break
  }
  continue
@@ -1144,7 +1146,7 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
  className={`px-2.5 py-1 rounded-lg text-xs font-semibold ${filterRating === n ? 'text-white' : 'bg-[#F2F4F6] text-[#4E5968]'}`}
  style={filterRating === n ? { background: config.color } : {}}
  >
- {n}★
+ <span className="inline-flex items-center gap-0.5">{n}<Star size={11} strokeWidth={0} className="fill-current" /></span>
  </button>
  ))}
  </div>
@@ -1155,7 +1157,7 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
  ['all', '전체'],
  ['unreplied', '미답변'],
  ['replied', '답변완료'],
- ['negative', '부정 ★≤3'],
+ ['negative', '부정 3점 이하'],
  ] as const
  ).map(([v, l]) => (
  <button
@@ -1582,8 +1584,9 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
  const fe = makeFriendlyError(review.replyError)
  return (
  <div className="mt-2 rounded-lg px-3 py-2 bg-[#FFF7ED] border border-[#FED7AA]">
- <p className="text-[12px] text-[#9A3412] leading-relaxed">
- ⏳ {fe.msg}
+ <p className="text-[12px] text-[#9A3412] leading-relaxed flex items-start gap-1.5">
+ <Hourglass size={13} strokeWidth={2.5} className="mt-0.5 shrink-0" />
+ <span>{fe.msg}</span>
  </p>
  <div className="mt-1.5 flex gap-2 flex-wrap">
  {fe.action === 'reconnect' && noCredentialsHref && (
@@ -1705,10 +1708,10 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
  />
  <button
  onClick={() => setLightboxUrl(null)}
- className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/90 text-[#191F28] font-bold text-lg flex items-center justify-center hover:bg-white"
+ className="absolute top-4 right-4 w-10 h-10 rounded-full bg-white/90 text-[#191F28] font-bold flex items-center justify-center hover:bg-white"
  aria-label="닫기"
  >
- ✕
+ <X size={18} strokeWidth={2.5} />
  </button>
  </div>
  )}
@@ -1728,16 +1731,16 @@ export default function PlatformReviewAdmin({ config }: { config: PlatformConfig
  <div className="px-5 py-4 border-b border-[#F2F4F6] flex items-center justify-between">
  <div className="flex items-center gap-2">
  <div className="w-9 h-9 rounded-xl bg-gradient-to-br from-[#F59E0B] to-[#D97706] flex items-center justify-center shadow-sm">
- <span className="text-white text-lg">⏰</span>
+ <AlarmClock size={18} className="text-white" strokeWidth={2.5} />
  </div>
  <span className="text-base font-bold text-[#191F28]">답글 등록 불가 안내</span>
  </div>
  <button
  onClick={() => setExpiredInfoOpen(false)}
- className="text-[#8B95A1] hover:text-[#191F28] text-lg font-bold"
+ className="text-[#8B95A1] hover:text-[#191F28] font-bold"
  aria-label="닫기"
  >
- ✕
+ <X size={18} strokeWidth={2.5} />
  </button>
  </div>
 
@@ -2046,7 +2049,7 @@ function FeaturesTab({ byFeature, order, platformColor }: {
                     <span className="tabular-nums" style={{
                       color: k.avg_rating >= 4 ? '#059669' : k.avg_rating >= 3 ? '#F59E0B' : '#DC2626'
                     }}>
-                      ★{k.avg_rating}
+                      <Star size={10} strokeWidth={0} className="fill-current inline-block align-[-1px] mr-0.5" />{k.avg_rating}
                     </span>
                   )}
                 </span>

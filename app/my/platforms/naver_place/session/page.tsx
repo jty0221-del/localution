@@ -7,7 +7,7 @@
 // ============================================================
 import { useState } from 'react'
 import Link from 'next/link'
-import { CheckCircle2, Key } from 'lucide-react'
+import { CheckCircle2, Key, Check, X } from 'lucide-react'
 
 function parseCookiePreview(str: string) {
  const clean = str.replace(/^cookie:\s*/i, '').trim()
@@ -199,20 +199,20 @@ export default function NaverSessionPage() {
  <p>
  NID_AUT:{' '}
  {preview.nidAut
- ? <span className="text-green-600 font-medium">✓ 확인됨</span>
- : <span className="text-red-500">✗ 없음 (필수)</span>}
+ ? <span className="text-green-600 font-medium inline-flex items-center gap-1"><Check size={12} strokeWidth={3} />확인됨</span>
+ : <span className="text-red-500 inline-flex items-center gap-1"><X size={12} strokeWidth={3} />없음 (필수)</span>}
  </p>
  <p>
  NID_SES:{' '}
  {preview.nidSes
- ? <span className="text-green-600 font-medium">✓ 확인됨</span>
+ ? <span className="text-green-600 font-medium inline-flex items-center gap-1"><Check size={12} strokeWidth={3} />확인됨</span>
  : <span className="text-orange-500">없음 (선택)</span>}
  </p>
  <p>
  nstore_session:{' '}
  {preview.nstoreSession
- ? <span className="text-green-600 font-medium">✓ 확인됨 — 리뷰 관리 가능</span>
- : <span className="text-red-500 font-medium">✗ 없음 — SmartPlace 리뷰 탭에서 다시 복사하세요</span>}
+ ? <span className="text-green-600 font-medium inline-flex items-center gap-1"><Check size={12} strokeWidth={3} />확인됨 — 리뷰 관리 가능</span>
+ : <span className="text-red-500 font-medium inline-flex items-center gap-1"><X size={12} strokeWidth={3} />없음 — SmartPlace 리뷰 탭에서 다시 복사하세요</span>}
  </p>
  <p className="text-gray-400">총 {preview.total}개 쿠키 감지됨</p>
  </div>

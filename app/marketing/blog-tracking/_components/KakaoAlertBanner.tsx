@@ -14,6 +14,7 @@
 'use client'
 
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { Check, X } from 'lucide-react'
 
 type AlertPrefs = {
  band_change?: boolean
@@ -229,7 +230,7 @@ export default function KakaoAlertBanner() {
  <div className="mb-4 flex items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3">
  <div className="flex items-center gap-3">
  <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-emerald-500 text-white">
- ✓
+ <Check size={16} strokeWidth={3} />
  </span>
  <div>
  <div className="text-sm font-semibold text-emerald-900">
@@ -298,8 +299,8 @@ export default function KakaoAlertBanner() {
  >
  <div className="flex items-center justify-between border-b px-5 py-3">
  <h2 className="text-base font-bold">카카오톡 알림 설정</h2>
- <button onClick={() => setModalOpen(false)} className="text-slate-400 hover:text-slate-700">
- ✕
+ <button onClick={() => setModalOpen(false)} className="text-slate-400 hover:text-slate-700" aria-label="닫기">
+ <X size={18} strokeWidth={2.5} />
  </button>
  </div>
 

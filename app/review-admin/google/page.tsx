@@ -4,7 +4,7 @@ export const dynamic = 'force-dynamic'
 
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
-import { Lightbulb, Clipboard, Check, Sparkles, Globe, Search, Link2, ExternalLink, X, AlertCircle } from 'lucide-react'
+import { Lightbulb, Clipboard, Check, Sparkles, Globe, Search, Link2, ExternalLink, X, AlertCircle, Star } from 'lucide-react'
 import Sidebar from '../../components/Sidebar'
 import Footer from '../../components/Footer'
 import PageHeader from '../../components/PageHeader'
@@ -38,8 +38,11 @@ const PLATFORM = {
 
 function Stars({ n }: { n: number }) {
  return (
- <span className="text-sm tracking-tight" style={{ color: '#F59E0B' }}>
- {'★'.repeat(n)}<span className="text-[#E5E8EB]">{'★'.repeat(5 - n)}</span>
+ <span className="inline-flex items-center gap-px align-middle">
+ {[0, 1, 2, 3, 4].map((i) => (
+ <Star key={i} size={13} strokeWidth={0} className="fill-current"
+ style={{ color: i < n ? '#F59E0B' : '#E5E8EB' }} />
+ ))}
  </span>
  )
 }
@@ -244,7 +247,7 @@ export default function GoogleReviewPage() {
  {[5, 4, 3, 2, 1].map(n => (
  <button key={n} onClick={() => setFilterRating(n)}
  className={`px-2.5 py-1 rounded-lg text-xs font-semibold ${filterRating === n ? 'text-white' : 'bg-[#F2F4F6] text-[#4E5968]'}`}
- style={filterRating === n ? { background: PLATFORM.color } : {}}>{n}★</button>
+ style={filterRating === n ? { background: PLATFORM.color } : {}}><span className="inline-flex items-center gap-0.5">{n}<Star size={11} strokeWidth={0} className="fill-current" /></span></button>
  ))}
  </div>
  <div className="flex items-center gap-1.5 flex-wrap">
@@ -506,8 +509,11 @@ function GoogleConnectModal({ onClose, onConnected }: {
  <p className="text-sm font-bold text-[#191F28] truncate">{c.name}</p>
  <p className="text-[11px] text-[#8B95A1] truncate">{c.address}</p>
  {c.rating != null && (
- <p className="text-[10px] text-[#F59E0B] mt-0.5">
- {'★'.repeat(Math.round(c.rating))} <span className="text-[#8B95A1]">({c.totalRatings})</span>
+ <p className="text-[10px] text-[#F59E0B] mt-0.5 flex items-center gap-px">
+ {Array.from({ length: Math.round(c.rating) }).map((_, i) => (
+ <Star key={i} size={10} strokeWidth={0} className="fill-current" />
+ ))}
+ <span className="text-[#8B95A1] ml-1">({c.totalRatings})</span>
  </p>
  )}
  </button>

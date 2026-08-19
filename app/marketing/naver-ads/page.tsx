@@ -5,7 +5,7 @@ import { useState } from 'react'
 import Sidebar from '../../components/Sidebar'
 import PageHeader from '../../components/PageHeader'
 import Footer from '../../components/Footer'
-import { BarChart3 } from 'lucide-react'
+import { BarChart3, Check } from 'lucide-react'
 
 // ─── 타입 ──────────────────────────────────────────────────────
 type VolumeKeyword = {
@@ -103,7 +103,7 @@ function HashtagModal({ keywords, onClose }: { keywords: string[]; onClose: () =
  <div className="px-4 pb-4">
  <button onClick={() => copy(formats[2].value, 99)}
  className="w-full py-2.5 rounded-xl bg-[#3182F6] text-white text-sm font-semibold hover:bg-[#1B64DA]">
- {copied === 99 ? '✓ 복사됨' : '#해시태그 전체 복사'}
+ {copied === 99 ? <span className="inline-flex items-center justify-center gap-1"><Check size={14} strokeWidth={3} />복사됨</span> : '#해시태그 전체 복사'}
  </button>
  </div>
  </div>

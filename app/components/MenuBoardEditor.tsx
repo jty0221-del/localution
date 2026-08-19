@@ -5,7 +5,7 @@
 // · 메뉴 CRUD + 네이버 자동 가져오기 + 다국어 입력
 // ============================================================
 import { useEffect, useState } from 'react'
-import { Plus, Trash2, Edit3, Save, Globe, Download, Image as ImageIcon, Star, Sparkles, Link2, FolderOpen, ClipboardList, Languages, AlertTriangle, MapPin, Check, CheckCircle2, RefreshCw, Clock, ChevronUp, ChevronDown, GripVertical } from 'lucide-react'
+import { Plus, Trash2, Edit3, Save, Globe, Download, Image as ImageIcon, Star, Sparkles, Link2, FolderOpen, ClipboardList, Languages, AlertTriangle, MapPin, Check, CheckCircle2, RefreshCw, Clock, ChevronUp, ChevronDown, GripVertical, X } from 'lucide-react'
 import MenuBookmarkletDialog from './MenuBookmarkletDialog'
 import MenuThemeEditor from './MenuThemeEditor'
 
@@ -664,7 +664,7 @@ export default function MenuBoardEditor() {
  <div className="bg-white rounded-2xl p-5 max-w-lg w-full max-h-[90vh] overflow-y-auto">
  <div className="flex items-center justify-between mb-4">
  <h3 className="font-black text-[#191F28]">{editing.id ? '메뉴 수정' : '메뉴 추가'}</h3>
- <button onClick={() => setEditing(null)} className="text-[#8B95A1]">✕</button>
+ <button onClick={() => setEditing(null)} className="text-[#8B95A1]" aria-label="닫기"><X size={18} strokeWidth={2.5} /></button>
  </div>
 
  <div className="space-y-3">
@@ -773,7 +773,7 @@ export default function MenuBoardEditor() {
  </div>
  <h3 className="font-black text-[#191F28]">네이버 메뉴 가져오기</h3>
  </div>
- <button onClick={() => { setShowImport(false); setImportPreview([]); setImportErr('') }} className="text-[#8B95A1]">✕</button>
+ <button onClick={() => { setShowImport(false); setImportPreview([]); setImportErr('') }} className="text-[#8B95A1]" aria-label="닫기"><X size={18} strokeWidth={2.5} /></button>
  </div>
 
  <div className="space-y-3">

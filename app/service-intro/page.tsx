@@ -6,7 +6,7 @@ import { useState } from 'react'
 import Link from 'next/link'
 import Footer from '../components/Footer'
 import {
- ArrowLeft, ArrowRight, Star, RefreshCw, CheckCircle2,
+ ArrowLeft, ArrowRight, Star, RefreshCw, CheckCircle2, Check,
  Loader2, Send,
  TrendingUp, Users, BarChart3, PenLine, Zap, Shield,
  MapPin, BookOpen, Video, LayoutGrid, Gift, MessageSquare,
@@ -134,8 +134,11 @@ function AnimatedCheck() {
  { x: 14, y: 20, delay: '0.95s', size: 6 },
  { x: 52, y: 50, delay: '0.9s', size: 7 },
  ].map((s, i) => (
- <text key={i} x={s.x} y={s.y} fontSize={s.size} textAnchor="middle"
- style={{ animation: `sparkle 0.6s ease-out ${s.delay} forwards`, opacity: 0 }}>✦</text>
+ <path key={i}
+ d="M0,-1 L0.28,-0.28 L1,0 L0.28,0.28 L0,1 L-0.28,0.28 L-1,0 L-0.28,-0.28 Z"
+ fill="#34D399"
+ transform={`translate(${s.x} ${s.y - s.size / 3}) scale(${s.size / 2.4})`}
+ style={{ animation: `sparkle 0.6s ease-out ${s.delay} forwards`, opacity: 0 }} />
  ))}
  </svg>
  </div>
@@ -343,11 +346,11 @@ function QrDemo() {
  앱 설치 없이 고객 리뷰를 유도하고<br/>AI가 자동으로 완성해 플랫폼에 올립니다
  </p>
  <div className="flex items-center gap-3 text-[11px] text-[#4E5968] bg-[#F8F9FA] rounded-xl px-4 py-2.5 mb-5 flex-wrap justify-center">
- <span><span className="text-[#059669] font-bold mr-1">✓</span>앱 설치 불필요</span>
+ <span className="inline-flex items-center gap-1"><Check size={12} strokeWidth={3} className="text-[#059669]" />앱 설치 불필요</span>
  <span className="text-[#E5E8EB]">|</span>
- <span><span className="text-[#059669] font-bold mr-1">✓</span>배치 비용 0원</span>
+ <span className="inline-flex items-center gap-1"><Check size={12} strokeWidth={3} className="text-[#059669]" />배치 비용 0원</span>
  <span className="text-[#E5E8EB]">|</span>
- <span><span className="text-[#059669] font-bold mr-1">✓</span>즉시 사용</span>
+ <span className="inline-flex items-center gap-1"><Check size={12} strokeWidth={3} className="text-[#059669]" />즉시 사용</span>
  </div>
  <button onClick={() => setStep(1)}
  className="w-full sm:w-auto inline-flex items-center justify-center gap-2 px-6 py-3 bg-[#059669] text-white font-bold rounded-xl hover:bg-[#047857] transition-colors text-sm">
@@ -574,7 +577,7 @@ function ReviewDemo() {
  </div>
  {aiReplies[r.id] && (
  <div className="border-t border-[#E5E8EB] bg-[#F0F9FF] p-4">
- <p className="text-[10px] font-black text-[#3182F6] mb-2">✦ AI 생성 답글 — 수정 후 원클릭 게시</p>
+ <p className="text-[10px] font-black text-[#3182F6] mb-2 flex items-center gap-1"><Sparkles size={11} strokeWidth={2.5} />AI 생성 답글 — 수정 후 원클릭 게시</p>
  <textarea defaultValue={aiReplies[r.id]} rows={4}
  className="w-full border border-[#93C5FD] rounded-xl px-3 py-2.5 text-sm outline-none focus:border-[#3182F6] resize-none bg-white leading-relaxed" />
  <div className="flex gap-2 mt-3">
@@ -642,7 +645,11 @@ export default function ServiceIntro() {
  <span className="inline-flex items-center justify-center w-6 h-6 rounded-lg text-[11px] font-black shrink-0"
  style={{ background: c.bg, color: '#fff' }}>{c.letter}</span>
  <span className="text-white/90 text-[11px] font-bold">{c.label}</span>
- <span className="ml-auto text-yellow-300 text-[10px]">{'★'.repeat(c.stars)}</span>
+ <span className="ml-auto inline-flex items-center gap-px">
+ {Array.from({ length: c.stars }).map((_, si) => (
+ <Star key={si} size={9} strokeWidth={0} className="text-yellow-300 fill-yellow-300" />
+ ))}
+ </span>
  </div>
  <p className="text-white/80 text-[11px] leading-snug break-keep">{c.text}</p>
  </div>
@@ -871,7 +878,7 @@ export default function ServiceIntro() {
  <p className="text-xs text-[#4E5968] break-keep leading-relaxed">{item.update}</p>
  </div>
  <div className="w-5 h-5 rounded-full bg-[#ECFDF5] flex items-center justify-center shrink-0 mt-0.5">
- <span className="text-[9px] text-[#059669] font-black">✓</span>
+ <Check size={10} strokeWidth={3} className="text-[#059669]" />
  </div>
  </div>
  ))}
