@@ -25,7 +25,6 @@ import PageHeader from '../../components/PageHeader'
 import Footer from '../../components/Footer'
 import {
   TrendingUp,
-  TrendingDown,
   Search,
   RefreshCw,
   Plus,
@@ -33,11 +32,11 @@ import {
   ExternalLink,
   Store,
   MapPin,
-  Minus,
   Info,
   Trophy,
 } from 'lucide-react'
 import { rankTierOf, RANK_TIER_STYLE } from '../../lib/place-score'
+import { Delta, EmptyState, IconBadge } from '../../components/ui'
 
 // ─────────────────────────────────────────────
 // 타입
@@ -122,7 +121,7 @@ function RankBadge({ rank }: { rank: number | null }) {
   const style = RANK_TIER_STYLE[tier]
   return (
     <span
-      className="inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-bold whitespace-nowrap"
+      className="inline-flex items-center px-2 py-0.5 rounded-lg text-xs font-bold whitespace-nowrap tabular-nums"
       style={{ background: style.bg, color: style.text }}
     >
       {rank == null ? '미노출' : `${rank}위`}
@@ -131,31 +130,13 @@ function RankBadge({ rank }: { rank: number | null }) {
 }
 
 /**
- * 순위 변동. 순위 숫자가 줄어들면 상승(좋음) → 초록.
- * prev 가 없거나(첫 수집) 둘 중 하나가 미노출이면 변동을 표시하지 않는다.
+ * 순위 변동.
+ * 순위는 "숫자가 줄어야 좋은" 지표라 Delta 에 invert 를 준다.
+ * (이 판단을 화면마다 따로 하면 색이 반대로 나오는 사고가 난다 —
+ *  DESIGN_SYSTEM.md 3-1 참조)
  */
 function RankDelta({ curr, prev }: { curr: number | null; prev: number | null | undefined }) {
-  if (curr == null || prev == null) {
-    return <span className="text-[11px] text-[#C3CAD1]">-</span>
-  }
-  const diff = prev - curr
-  if (diff === 0) {
-    return (
-      <span className="inline-flex items-center gap-0.5 text-[11px] text-[#C3CAD1]">
-        <Minus size={10} strokeWidth={3} />
-      </span>
-    )
-  }
-  const up = diff > 0
-  return (
-    <span
-      className="inline-flex items-center gap-0.5 text-[11px] font-bold"
-      style={{ color: up ? '#059669' : '#DC2626' }}
-    >
-      {up ? <TrendingUp size={11} strokeWidth={3} /> : <TrendingDown size={11} strokeWidth={3} />}
-      {Math.abs(diff)}
-    </span>
-  )
+  return <Delta curr={curr} prev={prev} invert />
 }
 
 // ─────────────────────────────────────────────
@@ -225,9 +206,7 @@ function StoreCard({
             onError={e => { (e.target as HTMLImageElement).style.display = 'none' }}
           />
         ) : (
-          <div className="w-11 h-11 rounded-xl bg-gradient-to-br from-[#3182F6] to-[#1B64DA] shadow-sm flex items-center justify-center flex-shrink-0">
-            <Store size={18} className="text-white" strokeWidth={2.5} />
-          </div>
+          <IconBadge icon={Store} tone="primary" size="lg" />
         )}
 
         <div className="flex-1 min-w-0">
@@ -254,10 +233,10 @@ function StoreCard({
           </div>
           <div className="flex items-center gap-3 mt-1.5 text-[11px]">
             <span className="text-[#4E5968]">
-              블로그 <strong className="text-[#191F28]">{fmtNum(target.last_blog_review)}</strong>
+              블로그 <strong className="text-[#191F28] tabular-nums">{fmtNum(target.last_blog_review)}</strong>
             </span>
             <span className="text-[#4E5968]">
-              방문자 <strong className="text-[#191F28]">{fmtNum(target.last_visitor_review)}</strong>
+              방문자 <strong className="text-[#191F28] tabular-nums">{fmtNum(target.last_visitor_review)}</strong>
             </span>
           </div>
         </div>
@@ -395,16 +374,16 @@ function StoreCard({
                   const prev = rows[i + 1]?.rank
                   return (
                     <tr key={r.id} className="border-t border-[#F2F4F6]">
-                      <td className="px-4 py-2 text-[#4E5968] whitespace-nowrap">{fmtDate(r.ts)}</td>
+                      <td className="px-4 py-2 text-[#4E5968] whitespace-nowrap tabular-nums">{fmtDate(r.ts)}</td>
                       <td className="px-2 py-2">
                         <div className="flex items-center justify-center gap-1">
                           <RankBadge rank={r.rank} />
                           <RankDelta curr={r.rank} prev={prev} />
                         </div>
                       </td>
-                      <td className="px-2 py-2 text-right text-[#4E5968]">{fmtNum(r.blog_review_count)}</td>
-                      <td className="px-2 py-2 text-right text-[#4E5968]">{fmtNum(r.visitor_review_count)}</td>
-                      <td className="px-4 py-2 text-right font-bold text-[#191F28]">
+                      <td className="px-2 py-2 text-right text-[#4E5968] tabular-nums">{fmtNum(r.blog_review_count)}</td>
+                      <td className="px-2 py-2 text-right text-[#4E5968] tabular-nums">{fmtNum(r.visitor_review_count)}</td>
+                      <td className="px-4 py-2 text-right font-bold text-[#191F28] tabular-nums">
                         {r.score == null ? '-' : r.score.toFixed(1)}
                       </td>
                     </tr>
@@ -696,27 +675,37 @@ export default function PlaceMonitoringPage() {
             </div>
           ) : targets.length === 0 ? (
             /* 매장 자체가 없음 */
-            <div className="rounded-2xl bg-white border border-[#E5E8EB] p-12 text-center">
-              <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-[#3182F6] to-[#1B64DA] shadow-sm flex items-center justify-center mx-auto mb-4">
-                <Store size={22} className="text-white" strokeWidth={2.5} />
-              </div>
-              <h3 className="font-bold text-[#191F28] mb-1.5">먼저 매장을 등록해주세요</h3>
-              <p className="text-[13px] text-[#8B95A1] leading-relaxed mb-5">
-                네이버 플레이스 URL 만 붙여넣으면 등록돼요.
-                <br />
-                등록 후 이 화면에서 키워드별 순위를 추적할 수 있어요.
-              </p>
-              <Link
-                href="/marketing/place"
-                className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#3182F6] text-white text-sm font-bold hover:bg-[#1B64DA]"
-              >
-                <Plus size={14} strokeWidth={3} />
-                매장 등록하러 가기
-              </Link>
+            <div className="rounded-2xl bg-white border border-[#E5E8EB] shadow-sm">
+              <EmptyState
+                icon={Store}
+                title="먼저 매장을 등록해주세요"
+                description={
+                  <>
+                    네이버 플레이스 URL 만 붙여넣으면 등록돼요.
+                    <br />
+                    등록하면 이 화면에서 키워드별 순위를 매일 자동으로 추적해요.
+                  </>
+                }
+                action={
+                  <Link
+                    href="/marketing/place"
+                    className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-[#3182F6] text-white text-sm font-bold hover:bg-[#1B64DA]"
+                  >
+                    <Plus size={14} strokeWidth={3} />
+                    매장 등록하러 가기
+                  </Link>
+                }
+              />
             </div>
           ) : filteredTargets.length === 0 ? (
-            <div className="rounded-2xl bg-white border border-[#E5E8EB] p-12 text-center text-[#8B95A1] text-sm">
-              검색 결과가 없어요.
+            <div className="rounded-2xl bg-white border border-[#E5E8EB] shadow-sm">
+              <EmptyState
+                icon={Search}
+                tone="neutral"
+                title="검색 결과가 없어요"
+                description="매장명이나 키워드를 다시 확인해주세요."
+                compact
+              />
             </div>
           ) : (
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
